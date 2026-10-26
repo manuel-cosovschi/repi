@@ -1,0 +1,1090 @@
+{
+  "downloaded": [
+    {
+      "file": "assets/icons/phosphor-home.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/house.svg",
+      "sha256": "180e9259e99e23da197b59b19394d006d6a5d33e384cc2b9c8381cb0214a5716"
+    },
+    {
+      "file": "assets/icons/phosphor-train.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/barbell.svg",
+      "sha256": "ac26822fad254eec2de1aaccbaccb24ee31368f5116192439bba41f4f3a306f5"
+    },
+    {
+      "file": "assets/icons/phosphor-prog.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/chart-line-up.svg",
+      "sha256": "1bcf22abc6fe9cfb6195f0781d3056509aade1a35d4279ed46de7f282cca8937"
+    },
+    {
+      "file": "assets/icons/phosphor-club.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/users-three.svg",
+      "sha256": "0e326e4ef7d1ae16f9988791f68fde7bae513bdc8c06db437cfd55bf13670bcf"
+    },
+    {
+      "file": "assets/icons/phosphor-chat.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/chat-circle.svg",
+      "sha256": "09e36aa820a39bbc8cffe705ad84c836d1e5733f83dc1d2212a965fdacdf4a67"
+    },
+    {
+      "file": "assets/icons/phosphor-profile.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/user-circle.svg",
+      "sha256": "5aee25838c1915058940900df322afc36b76f4ea7e48499c33603cf121258b2a"
+    },
+    {
+      "file": "assets/icons/phosphor-bell.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/bell.svg",
+      "sha256": "439b02c746ff59945b6175c6d327113ca3f7a729a43d5bcafb278a0f11ee34b5"
+    },
+    {
+      "file": "assets/icons/phosphor-arrow.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/arrow-right.svg",
+      "sha256": "e45bc4a12592b8723110db42c6deffdf177e4fe7704cf50324963fa0a59b2d74"
+    },
+    {
+      "file": "assets/icons/phosphor-left.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/caret-left.svg",
+      "sha256": "623bf248fe21a8170344e168aaac2e174119cea5d7c5d0fb0dc84f581009475f"
+    },
+    {
+      "file": "assets/icons/phosphor-right.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/caret-right.svg",
+      "sha256": "e6dec01e074807965b7f3146b976a9b5e82c31d9c2c88aeb52e77cc2ab16c1d7"
+    },
+    {
+      "file": "assets/icons/phosphor-play.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/play.svg",
+      "sha256": "885b3ed2095889c4ff063dac35dc424cb9f6c00273ab44e2f90dc9dadbee661a"
+    },
+    {
+      "file": "assets/icons/phosphor-check.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/check.svg",
+      "sha256": "cbb89a8c42f283d4f846eb935e05d88c1be04462f16480e068c0f82b9ce40b12"
+    },
+    {
+      "file": "assets/icons/phosphor-heart.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/heart.svg",
+      "sha256": "312dee73d1d969631d5498012f619ccf4edbdf31e1be3e65af4f4f1b3ac1b2dd"
+    },
+    {
+      "file": "assets/icons/phosphor-trophy.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/trophy.svg",
+      "sha256": "45b065edc939de7246e5b5c114dd26b9bd6fb25f88013d6ab09e6cbbf76da9fa"
+    },
+    {
+      "file": "assets/icons/phosphor-calendar.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/calendar-blank.svg",
+      "sha256": "6268583ae0ea04e93fd24f1e70d47a8e8d79c88fc304af397b95b318980215d6"
+    },
+    {
+      "file": "assets/icons/phosphor-settings.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/gear-six.svg",
+      "sha256": "2bb05ec80cc37505a3f21c74989dbb297ab8442a668f5ffbd6a8f7c1d5794c7b"
+    },
+    {
+      "file": "assets/icons/phosphor-bolt.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/lightning.svg",
+      "sha256": "3a50c776266b21812f8ec5b5a841a81f54aa942569a31eb03a36fb0a5bfbe66e"
+    },
+    {
+      "file": "assets/icons/phosphor-plus.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/plus.svg",
+      "sha256": "d688feb9dd2e41c1721d6906a05a2a42e18cd774762fe706d72b2bdfd91cddc4"
+    },
+    {
+      "file": "assets/icons/phosphor-close.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/x.svg",
+      "sha256": "7397b15e1fa66eaf6ff9b59fe91d483cb5c3bcf75b2fe052097ab6f0593b513a"
+    },
+    {
+      "file": "assets/icons/bold-home.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/house-bold.svg",
+      "sha256": "25f4b1504212c7c064054bd1d02ddaaf0a4e16ed49c6b08b23c3dc1f74e1d446"
+    },
+    {
+      "file": "assets/icons/bold-train.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/barbell-bold.svg",
+      "sha256": "66411484fba355fe2b3c8310cd0547e40b67bd8e8716ec9b1de695dde40d69cc"
+    },
+    {
+      "file": "assets/icons/bold-prog.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/chart-line-up-bold.svg",
+      "sha256": "a0ade3a6d60b5cb7fdf6b9f5415b9f6329a3f6d69ddce6c35bc6b88cd7b78b57"
+    },
+    {
+      "file": "assets/icons/bold-club.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/users-three-bold.svg",
+      "sha256": "5246b7d9cc7e2011823f127b65278a3d9434bb0b008e9dedacd9f10ff33697c5"
+    },
+    {
+      "file": "assets/icons/bold-chat.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/chat-circle-bold.svg",
+      "sha256": "375e207246b7b9ce782b26621d829dbb70a7cf2822e890921e7ed80b859aa894"
+    },
+    {
+      "file": "assets/icons/bold-profile.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/user-circle-bold.svg",
+      "sha256": "fb8674723397155e46003ed181259e4400c12512b8f0285e8d163e536088f96c"
+    },
+    {
+      "file": "assets/icons/bold-bell.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/bell-bold.svg",
+      "sha256": "5e63a3fb68acd80f4fe9c7478c2c9f8b175999b4da6393a45195211e6504fd1b"
+    },
+    {
+      "file": "assets/icons/bold-arrow.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/arrow-right-bold.svg",
+      "sha256": "aa0f883acecf63d9140ad7cd51910fa4b723671c400772a3c621c9cc16b1687b"
+    },
+    {
+      "file": "assets/icons/bold-left.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/caret-left-bold.svg",
+      "sha256": "b78b6f532b53b9847340961848cb9e4f5be7e1da07e9dcf11c60cf64aa3986b7"
+    },
+    {
+      "file": "assets/icons/bold-right.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/caret-right-bold.svg",
+      "sha256": "03cadd956d715541432ec8dc2eda1c53ca341af7d3ccecb8dd32c5b9747e290f"
+    },
+    {
+      "file": "assets/icons/bold-play.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/play-bold.svg",
+      "sha256": "f54e774d80d2b4d134a4babd3c03ee2a217aa4856566ed0a288e48e1a2f29d16"
+    },
+    {
+      "file": "assets/icons/bold-check.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/check-bold.svg",
+      "sha256": "d0ca4e324ff5bb3a1a3bacb9f7580359b8e03cc6862a614d5ed14458db64bedf"
+    },
+    {
+      "file": "assets/icons/bold-heart.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/heart-bold.svg",
+      "sha256": "786ecbd4cb71cf3356bc3da191185084693fc278dc3aaf389bcdeb8b10fc7104"
+    },
+    {
+      "file": "assets/icons/bold-trophy.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/trophy-bold.svg",
+      "sha256": "a0f8974d38f1ea17839a756a0d6584fa672fc70332d9376486b4f7f715d1af65"
+    },
+    {
+      "file": "assets/icons/bold-calendar.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/calendar-blank-bold.svg",
+      "sha256": "4a87a0b65ed1912ec706f9ce2bd35d77bca373454c7f944494e89abf99dcae89"
+    },
+    {
+      "file": "assets/icons/bold-settings.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/gear-six-bold.svg",
+      "sha256": "78046b12e51bcbb83a744bf49cb2b6f6830e102374a58d9e08702cb995f9f95f"
+    },
+    {
+      "file": "assets/icons/bold-bolt.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/lightning-bold.svg",
+      "sha256": "8b9fe64519b0b2e3dfccefa18d0c76d4a8a8aa3e93ae00437705aaed084c0e3d"
+    },
+    {
+      "file": "assets/icons/bold-plus.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/plus-bold.svg",
+      "sha256": "3d20a4b2e00657baeb922bed94f13fbfa288968b738991d047dd252cb64005d8"
+    },
+    {
+      "file": "assets/icons/bold-close.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/bold/x-bold.svg",
+      "sha256": "d540487912a267d83c495954b24ca07981002fda05ee2ea0b492d8fc188d1c3e"
+    },
+    {
+      "file": "assets/icons/duotone-home.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/house-duotone.svg",
+      "sha256": "bd9f3502ab7d63c3cc8a3cf91657e5974188ede3bd1ac7249333d9ce5d0d932f"
+    },
+    {
+      "file": "assets/icons/duotone-train.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/barbell-duotone.svg",
+      "sha256": "58d87d273b065f93cf10442dec8e7bdc168e4e5fab76b926a8b9985e8da824da"
+    },
+    {
+      "file": "assets/icons/duotone-prog.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/chart-line-up-duotone.svg",
+      "sha256": "86b5bfdff2eb2bc6fc8545a71950aef4185356ee9bde18191d543fee97ff4e30"
+    },
+    {
+      "file": "assets/icons/duotone-club.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/users-three-duotone.svg",
+      "sha256": "8df43f36d7329c365afa0672e2367af16a7bfc7d8820838dfe7358cce1a76aba"
+    },
+    {
+      "file": "assets/icons/duotone-chat.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/chat-circle-duotone.svg",
+      "sha256": "cee51ebf9726123b5fcb4139300dcf7f1bc5cb50373db7cb6f5e45a64a87fe3c"
+    },
+    {
+      "file": "assets/icons/duotone-profile.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/user-circle-duotone.svg",
+      "sha256": "45c7d9ed8c175d9d1767c9d187c5d86a33b6e874cc1fb93c6d20f1a23019164a"
+    },
+    {
+      "file": "assets/icons/duotone-bell.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/bell-duotone.svg",
+      "sha256": "77f99c9aa7747cc92eae7c225d96e894c40275559e0f40d7ddb7513653a87c19"
+    },
+    {
+      "file": "assets/icons/duotone-arrow.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/arrow-right-duotone.svg",
+      "sha256": "5a480091cae4701fba918894eaa657bcbb3c705d0cb7a0eee954506f09aec11c"
+    },
+    {
+      "file": "assets/icons/duotone-left.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/caret-left-duotone.svg",
+      "sha256": "2c9480fe6502733a682f4a7918768e37f9b00132458b089cfdd91b96d0cd5135"
+    },
+    {
+      "file": "assets/icons/duotone-right.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/caret-right-duotone.svg",
+      "sha256": "c964dc17e10e052ab15d22baf2c1cee691fde5513b1b3730e876a148f5098a14"
+    },
+    {
+      "file": "assets/icons/duotone-play.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/play-duotone.svg",
+      "sha256": "8485ad1efd20878370885ccf7b825aae21a3b2fede35734484475672ac707c48"
+    },
+    {
+      "file": "assets/icons/duotone-check.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/check-duotone.svg",
+      "sha256": "581385c1c40e6e618fe35f6ce2c39e81e0aab36a807ec64437424a5f56c8f240"
+    },
+    {
+      "file": "assets/icons/duotone-heart.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/heart-duotone.svg",
+      "sha256": "b1bc538e4f7626a2af3b3ac3dca543d8f8e628e9b45991fc7acb63ccaf2c289e"
+    },
+    {
+      "file": "assets/icons/duotone-trophy.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/trophy-duotone.svg",
+      "sha256": "3e9f32441fc0315f359dbab71322d9e069cada283527918360d6789a84c7bf14"
+    },
+    {
+      "file": "assets/icons/duotone-calendar.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/calendar-blank-duotone.svg",
+      "sha256": "7749f48b233c75868ce25af38c537e4b60a44a87681c5b9b2cde6ed3e89f3acd"
+    },
+    {
+      "file": "assets/icons/duotone-settings.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/gear-six-duotone.svg",
+      "sha256": "049e51d9b794d6b2649073414f90daed5ebadbebfcefb178170aef21c7ace330"
+    },
+    {
+      "file": "assets/icons/duotone-bolt.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/lightning-duotone.svg",
+      "sha256": "aab43bf156d9047ff4002359cecedc867c8e3fecd9d1475635ea4e7b8416267c"
+    },
+    {
+      "file": "assets/icons/duotone-plus.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/plus-duotone.svg",
+      "sha256": "e1dee25823800a7cfff6c5cce5693bb4daef55657e99bfde7c5b57d7c7e17998"
+    },
+    {
+      "file": "assets/icons/duotone-close.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/duotone/x-duotone.svg",
+      "sha256": "2092e345cb389e4b3c9795d5aa467b7da4e230dd257ba40845a262c80d51f1ab"
+    },
+    {
+      "file": "assets/icons/fill-home.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/house-fill.svg",
+      "sha256": "4783cdf0ae5f5ec363df6f77167a41642aac42fe8d73251b9a61232ab43f355d"
+    },
+    {
+      "file": "assets/icons/fill-train.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/barbell-fill.svg",
+      "sha256": "827d3d188557e37c9653e3ecd0da014eb676e3990519f11f1a8dc89f9d844cbf"
+    },
+    {
+      "file": "assets/icons/fill-prog.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/chart-line-up-fill.svg",
+      "sha256": "a2cb143280fca34c428684ee17674accf22733ff79e040b89510a03b068fceb9"
+    },
+    {
+      "file": "assets/icons/fill-club.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/users-three-fill.svg",
+      "sha256": "aca109558096eca83a60ded74a65b5ab9d341857f0c76f7b89bf93e3bd6df971"
+    },
+    {
+      "file": "assets/icons/fill-chat.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/chat-circle-fill.svg",
+      "sha256": "ea4d05ca384dde5c67fb5b15b36e1c6734400147b41471b13665fac87520506b"
+    },
+    {
+      "file": "assets/icons/fill-profile.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/user-circle-fill.svg",
+      "sha256": "4e16cdba116195993e6398bb097e7c4b354fb129fafdf2b56fd4b7c069f440d3"
+    },
+    {
+      "file": "assets/icons/fill-bell.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/bell-fill.svg",
+      "sha256": "26437565edc7418a2c326a74078fb4519aa2316e84fcf1adefbdd1b2c89f4ac5"
+    },
+    {
+      "file": "assets/icons/fill-arrow.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/arrow-right-fill.svg",
+      "sha256": "b2b6dd337492218b781ec35371c648d9cbca5f81e169249bfe75f37466cb5119"
+    },
+    {
+      "file": "assets/icons/fill-left.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/caret-left-fill.svg",
+      "sha256": "a6300d93ee3016043fe02af787421093bedd301a0da992337d07b16404e65fa5"
+    },
+    {
+      "file": "assets/icons/fill-right.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/caret-right-fill.svg",
+      "sha256": "c62278a701f1e4c08f424ce4b5cac69c8adb23b496dae489d5545ea7e6c019ef"
+    },
+    {
+      "file": "assets/icons/fill-play.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/play-fill.svg",
+      "sha256": "6d2a75bc5700a68dec50516ebae121c307807e4e6fcca5c863e5b4af006df880"
+    },
+    {
+      "file": "assets/icons/fill-check.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/check-fill.svg",
+      "sha256": "d114007dc371976dc3e8f4ebc59c5aef429fae59ae58d56acdf231a52b4700be"
+    },
+    {
+      "file": "assets/icons/fill-heart.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/heart-fill.svg",
+      "sha256": "d90560d4f762f1b345bd2322cd1ef696926ffa74b0c1396933b6d926faf8341e"
+    },
+    {
+      "file": "assets/icons/fill-trophy.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/trophy-fill.svg",
+      "sha256": "6d12bce1ad52193fe62e6d9cba30fbce19b355f3f096cafc316c3bc36c1f7ebe"
+    },
+    {
+      "file": "assets/icons/fill-calendar.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/calendar-blank-fill.svg",
+      "sha256": "405596825bf3705baa7d289ed1242106fded80e34967927549a0413f4303a0ac"
+    },
+    {
+      "file": "assets/icons/fill-settings.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/gear-six-fill.svg",
+      "sha256": "dc303bf88571d9aa8d56c30d2630303aa7aba4ca21c21010be3549d6c17666ce"
+    },
+    {
+      "file": "assets/icons/fill-bolt.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/lightning-fill.svg",
+      "sha256": "024d190cc1ce86eb59184eb7a598604ad28946248243fbc0cf07b9887babf88d"
+    },
+    {
+      "file": "assets/icons/fill-plus.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/plus-fill.svg",
+      "sha256": "64ef1a2c9f693a531ddb970a6c6e7c9dcd9bf36a58afec66ecb57355449ce3d2"
+    },
+    {
+      "file": "assets/icons/fill-close.svg",
+      "source": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/fill/x-fill.svg",
+      "sha256": "6ec0689770c1fb1dc7018039bef101079d2d20931c4661c3981cbe956f20c872"
+    },
+    {
+      "file": "assets/icons/lucide-home.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/house.svg",
+      "sha256": "28216c479005731ef5e382e7d8627eda2b129b019eb1f3d9de9f5915576d448e"
+    },
+    {
+      "file": "assets/icons/lucide-train.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/dumbbell.svg",
+      "sha256": "058a51e1fd42319d7eee4988a68bee4a23bc94fc69cb8aa1450835246126382d"
+    },
+    {
+      "file": "assets/icons/lucide-prog.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chart-no-axes-combined.svg",
+      "sha256": "2f8a708c357488cfde7428d9b055b9bb4a99c08dc71e9296da03ecc19291c4ab"
+    },
+    {
+      "file": "assets/icons/lucide-club.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/users.svg",
+      "sha256": "eeed488a1ec95ba730dd69996536fb65061d6ea273afb2429ae47e65eebf401c"
+    },
+    {
+      "file": "assets/icons/lucide-chat.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/message-circle.svg",
+      "sha256": "146f39740fe50844394d56ae1f8821937655bcfff3842bf6fe8ffc0bcd324076"
+    },
+    {
+      "file": "assets/icons/lucide-profile.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/user-round.svg",
+      "sha256": "84870f26f3faf8da45da84174517519e81b9e8f00319c78954fcbb74f50038a1"
+    },
+    {
+      "file": "assets/icons/lucide-bell.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/bell.svg",
+      "sha256": "394889e9631fe3a9a63be9a479a95b451b708e432d895978d21d9130b5ee5dbe"
+    },
+    {
+      "file": "assets/icons/lucide-arrow.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/arrow-right.svg",
+      "sha256": "288397fdb73bb4f783cf9eabb726ff47357df1d4e3f1201dd748090579f108b9"
+    },
+    {
+      "file": "assets/icons/lucide-left.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-left.svg",
+      "sha256": "83b0681aa38bf55e9d52a1e4b4cced624abe1fe7678ecafda133a574f1161d93"
+    },
+    {
+      "file": "assets/icons/lucide-right.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chevron-right.svg",
+      "sha256": "2758143d7b2434e4aa7307dfd34405c87909ff4052f21b5f3f40d45224b4f19b"
+    },
+    {
+      "file": "assets/icons/lucide-play.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/play.svg",
+      "sha256": "d7c34786135922a92b6896f6c2384ceeb0346afbf6041dc79982011411409833"
+    },
+    {
+      "file": "assets/icons/lucide-check.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/check.svg",
+      "sha256": "7f33acc9a77a61659531044525fc008edebe215bf4dcf1c789c8674ad3277db0"
+    },
+    {
+      "file": "assets/icons/lucide-heart.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/heart.svg",
+      "sha256": "70af5f30be9fcb500b852556b38dcdf8c04a4ba81fd262534fb0336bd39b3b52"
+    },
+    {
+      "file": "assets/icons/lucide-trophy.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/trophy.svg",
+      "sha256": "c641553befdb899b2eb01075c0962c73b4b0e0d1835d9d407f5d5d4d70f77d03"
+    },
+    {
+      "file": "assets/icons/lucide-calendar.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/calendar-days.svg",
+      "sha256": "9330eb8d7c4989e97b6361314abbf02953243c602874725c9e58ceca00da3bd7"
+    },
+    {
+      "file": "assets/icons/lucide-settings.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/settings.svg",
+      "sha256": "0ae27fd0f81999229e3127ac96c5b32edfea448e291d509e76212b917551d66b"
+    },
+    {
+      "file": "assets/icons/lucide-bolt.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/zap.svg",
+      "sha256": "4c395891eab4d1e5627c5d414a16db037317cb2f12453de0f3a1130964c6d444"
+    },
+    {
+      "file": "assets/icons/lucide-plus.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/plus.svg",
+      "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
+    },
+    {
+      "file": "assets/icons/lucide-close.svg",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/x.svg",
+      "sha256": "4a9cdab38fbb96162e7dace28e33f4ca0e49d8963a6162abc3d4691b7d675117"
+    },
+    {
+      "file": "assets/icons/tabler-home.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/home.svg",
+      "sha256": "069600f461f3e967685765723a851af7b35f24b715e03d41a2928152cf75644c"
+    },
+    {
+      "file": "assets/icons/tabler-train.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/barbell.svg",
+      "sha256": "c5fbfe4fc69a80eb784d4e187110668720d26a43298ebb12399a918caa15abf1"
+    },
+    {
+      "file": "assets/icons/tabler-prog.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/chart-line.svg",
+      "sha256": "91ae4d96cfc8926df2c715438bd539da2703dc158828336c227ce23e62ca7cb4"
+    },
+    {
+      "file": "assets/icons/tabler-club.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/users.svg",
+      "sha256": "a9892bcba1adad20184c0b50641b1a96a56fb9ef5135ff60462c664874021cc3"
+    },
+    {
+      "file": "assets/icons/tabler-chat.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/message-circle.svg",
+      "sha256": "b91882d50b30e3884b289a51c2f1134464844fbd5bb5f61633d2d068db2d57a0"
+    },
+    {
+      "file": "assets/icons/tabler-profile.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/user-circle.svg",
+      "sha256": "e3c4ab455255b68a305cd8a9e805e710d95775c27a15936338d0ee472b992be1"
+    },
+    {
+      "file": "assets/icons/tabler-bell.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/bell.svg",
+      "sha256": "7ef4f0c56a58fc7ea27ded1c2ee5bc753d63f8851ce85b33da48ddeefe53faf8"
+    },
+    {
+      "file": "assets/icons/tabler-arrow.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/arrow-right.svg",
+      "sha256": "7e602a26d53e78ceb788f38cb89ec1d1091130c56d7829ca294b7ed0642277c6"
+    },
+    {
+      "file": "assets/icons/tabler-left.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/chevron-left.svg",
+      "sha256": "889174801ca4213379fe4e6a574546793a72ab22be35bc2f177e3d8d24576dbd"
+    },
+    {
+      "file": "assets/icons/tabler-right.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/chevron-right.svg",
+      "sha256": "83733bb6e03e1d20fd2674d06a493642c8ea6eef76c44ebb2239b9ef17dedff7"
+    },
+    {
+      "file": "assets/icons/tabler-play.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/player-play.svg",
+      "sha256": "e2bff69284f1dc77224c47c03798017206a29d4ef665549db724b0a4534d8e5c"
+    },
+    {
+      "file": "assets/icons/tabler-check.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/check.svg",
+      "sha256": "e206067a7d570997b5b3a7d30ab287c0b15a492787649a8b96dff8fad2862fbe"
+    },
+    {
+      "file": "assets/icons/tabler-heart.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/heart.svg",
+      "sha256": "332be1c5c3a67df766c69da053a0eb29a11aa74a262f4422b82bceaaf098b1e8"
+    },
+    {
+      "file": "assets/icons/tabler-trophy.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/trophy.svg",
+      "sha256": "1c1168d9b0656d1c19797a199e19bd5f2bda185f818b46d67ce6f66db0ece666"
+    },
+    {
+      "file": "assets/icons/tabler-calendar.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/calendar.svg",
+      "sha256": "4861f170e9b1fa72eaa7cdefc3c7ca64ca6a10b9c2e3a13e1aceb4725f266d8d"
+    },
+    {
+      "file": "assets/icons/tabler-settings.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/settings.svg",
+      "sha256": "ef9cf42d822c00b4fad5bc5eeceddd4e1ec3774bb7ddd09891d0fba274bc3e95"
+    },
+    {
+      "file": "assets/icons/tabler-bolt.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/bolt.svg",
+      "sha256": "5321162cf117d3a83aec6c8f67a3bb0398068edb487b524d280b8fb47d6b98ce"
+    },
+    {
+      "file": "assets/icons/tabler-plus.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/plus.svg",
+      "sha256": "9cc497d4cc1eb38cf9daae18f41ffdc1a5e2a8431d70247b0854978f303f28d6"
+    },
+    {
+      "file": "assets/icons/tabler-close.svg",
+      "source": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/x.svg",
+      "sha256": "9350785360414c39450c3505f17d1745e55a7534edace8548e30cf49e3727d43"
+    },
+    {
+      "file": "assets/icons/hero-home.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/home.svg",
+      "sha256": "bf22818e3638f217e824ff26c8ffaf2ef014803982ca7c430e6c3c20915b185a"
+    },
+    {
+      "file": "assets/icons/hero-train.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/bolt.svg",
+      "sha256": "b0023bf00defd3036ef8df11bc3c0707a865642eeac0d42441188610175bf05f"
+    },
+    {
+      "file": "assets/icons/hero-prog.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/chart-bar.svg",
+      "sha256": "544fcc117350dcd26a3c8cc7388e791aa4b8f5b810b8f028229dcc9698ef6325"
+    },
+    {
+      "file": "assets/icons/hero-club.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/user-group.svg",
+      "sha256": "75faf26163868d81ed34359a118441c5be3e1ccc67888860405399f6a744f347"
+    },
+    {
+      "file": "assets/icons/hero-chat.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/chat-bubble-left-right.svg",
+      "sha256": "5dc168c09ec779289f87d199d298c56a6ce25535cb1405a5775d1e5ba58f3d78"
+    },
+    {
+      "file": "assets/icons/hero-profile.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/user-circle.svg",
+      "sha256": "e7b3b12455abf9c50021cd2fe1dd7de469d80f04c3eb011a142e0c126083ce95"
+    },
+    {
+      "file": "assets/icons/hero-bell.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/bell.svg",
+      "sha256": "d83055fd6fd4a9ed31fdbfb87f4c1dbf58eefd307acbfce6ccb44dc7b298c8b0"
+    },
+    {
+      "file": "assets/icons/hero-arrow.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/arrow-right.svg",
+      "sha256": "2602a360312e14dc92da066780fed8e0b5eaf65e196b7d82b0e7cb5aed817015"
+    },
+    {
+      "file": "assets/icons/hero-left.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/chevron-left.svg",
+      "sha256": "b6730529926d4e494f1115f09b7c8d32480edfd49cf02ceee0ca873a20de88ee"
+    },
+    {
+      "file": "assets/icons/hero-right.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/chevron-right.svg",
+      "sha256": "db9cc118ca95a91b0ffe68dbf1052d5c5820bf5cc46b4f9f9109ac5bfc3a5fe6"
+    },
+    {
+      "file": "assets/icons/hero-play.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/play.svg",
+      "sha256": "88392682dbe1eac79795a5abe2c1b7a8eee73e696f9f770ffc7b0b851b898e8c"
+    },
+    {
+      "file": "assets/icons/hero-check.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/check.svg",
+      "sha256": "a38b003121485ad864240dd3145324deae133485f3ed28a8a9d99747912c5f18"
+    },
+    {
+      "file": "assets/icons/hero-heart.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/heart.svg",
+      "sha256": "831a60fdfd1a900dad099b77f4335291cc0d49ed7d890039c7a8a784318fea7b"
+    },
+    {
+      "file": "assets/icons/hero-trophy.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/trophy.svg",
+      "sha256": "f4ff71fd915a281256d867fa05baee6868e3fb3137f436a177c4633f842f4e80"
+    },
+    {
+      "file": "assets/icons/hero-calendar.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/calendar-days.svg",
+      "sha256": "98b9507200c6dd5387144db83d1fffea868acdf49d344353e4579f3df93c2c68"
+    },
+    {
+      "file": "assets/icons/hero-settings.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/cog-6-tooth.svg",
+      "sha256": "aee6f966b9491c2a8aed12bdc20193affe259964930ae6e2e264f0dc26e163fb"
+    },
+    {
+      "file": "assets/icons/hero-bolt.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/bolt.svg",
+      "sha256": "b0023bf00defd3036ef8df11bc3c0707a865642eeac0d42441188610175bf05f"
+    },
+    {
+      "file": "assets/icons/hero-plus.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/plus.svg",
+      "sha256": "f3bd7870b4ac4bcb2153705981bdd9663f185c4563af496998803e245aca0d54"
+    },
+    {
+      "file": "assets/icons/hero-close.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/x-mark.svg",
+      "sha256": "f44f8d4070a779c324f07a199122b4cc8686b5a8d9705727dc38d0cfd3bb27ec"
+    },
+    {
+      "file": "assets/icons/heroSolid-home.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/home.svg",
+      "sha256": "b1953a35071296a07e7f3d20a97428156af07fe4d1d65dac5b547f521cdfc8fe"
+    },
+    {
+      "file": "assets/icons/heroSolid-train.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/bolt.svg",
+      "sha256": "a24685e1bb9a4a777099f27a0bfab9d04f42471a5274282229515e91966ff1a3"
+    },
+    {
+      "file": "assets/icons/heroSolid-prog.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/chart-bar.svg",
+      "sha256": "a911aa364bb043ce1fe042a1e4a10584e7e71fa9957dbd0a000f4416d042fee2"
+    },
+    {
+      "file": "assets/icons/heroSolid-club.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/user-group.svg",
+      "sha256": "2a9af4d8ae5701b1e658e67167bcdac3902a4a92b45031e756874f8559753896"
+    },
+    {
+      "file": "assets/icons/heroSolid-chat.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/chat-bubble-left-right.svg",
+      "sha256": "bc74cd9a4fd0389c8e137672990ca3360d31c3c5a496c01a8c35068f3219518d"
+    },
+    {
+      "file": "assets/icons/heroSolid-profile.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/user-circle.svg",
+      "sha256": "df6e1a87db75d1f21f7a6049ebd9fe4860fb421c58390429fff090e14431f089"
+    },
+    {
+      "file": "assets/icons/heroSolid-bell.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/bell.svg",
+      "sha256": "5cf2887f77fb1f80ac5c85d23e57f4228dd093cd5a16c8254ec50bb11f69d961"
+    },
+    {
+      "file": "assets/icons/heroSolid-arrow.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/arrow-right.svg",
+      "sha256": "3b163ce64ace88911a08be84b5f92b6e6901e4148b9bcaec24c7e262eb0f5a22"
+    },
+    {
+      "file": "assets/icons/heroSolid-left.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/chevron-left.svg",
+      "sha256": "de21b4386df32d75bfaa6f06af26d23e4e1d7a49a4eefaadbc1e2a05aad5c281"
+    },
+    {
+      "file": "assets/icons/heroSolid-right.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/chevron-right.svg",
+      "sha256": "6a94ed66125ffbd8c2751d2725afef6ad600e4184459048c15b48cdf022b43a2"
+    },
+    {
+      "file": "assets/icons/heroSolid-play.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/play.svg",
+      "sha256": "0bd0227290c9e21eeb2215bb91f5495d1a4227237d68d4a28ff5b4b8b3dae10f"
+    },
+    {
+      "file": "assets/icons/heroSolid-check.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/check.svg",
+      "sha256": "12f5820b991f69632e375bae5f6deaa06bac6529e8d5081502e78728a7690fd8"
+    },
+    {
+      "file": "assets/icons/heroSolid-heart.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/heart.svg",
+      "sha256": "60a1d7a1c691e04ea9953e2d6e573779648cd3475fd36628128b04873b6f5541"
+    },
+    {
+      "file": "assets/icons/heroSolid-trophy.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/trophy.svg",
+      "sha256": "d63222a1bdc4dd52252916d66decb42344b466817e09796ad22a8833e9ab2ecf"
+    },
+    {
+      "file": "assets/icons/heroSolid-calendar.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/calendar-days.svg",
+      "sha256": "ebdc5fb9aa1d00de5f72e6bb23ddfed8875c759a2338e5da79518bb2017a5f26"
+    },
+    {
+      "file": "assets/icons/heroSolid-settings.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/cog-6-tooth.svg",
+      "sha256": "8f0c9fffe380221669176ef89a0d61ea618fc9275d7eb852f8f30329e209e69b"
+    },
+    {
+      "file": "assets/icons/heroSolid-bolt.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/bolt.svg",
+      "sha256": "a24685e1bb9a4a777099f27a0bfab9d04f42471a5274282229515e91966ff1a3"
+    },
+    {
+      "file": "assets/icons/heroSolid-plus.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/plus.svg",
+      "sha256": "25472dc9bb78e5794ea26b9bf718f05619b7ef61781315974c4984176ca43e8f"
+    },
+    {
+      "file": "assets/icons/heroSolid-close.svg",
+      "source": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/solid/x-mark.svg",
+      "sha256": "c55d93ff2bf31f4c11c2dcf6733f05e6776208da7b33b20655025242f88c44e6"
+    },
+    {
+      "file": "assets/fonts/spacegrotesk-0.woff2",
+      "source": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPb54C_k3HqUtEw.woff2",
+      "family": "Space Grotesk",
+      "sha256": "d699664b145bfeeccc66a4cce7fa55e14eb63efd7ec6b0b2ec52e25dd98f3917"
+    },
+    {
+      "file": "assets/fonts/plusjakartasans-0.woff2",
+      "source": "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko70yygg_vbd-E.woff2",
+      "family": "Plus Jakarta Sans",
+      "sha256": "a16f29d7d2a21a4f9b3249a82eb2725ed5bdb91500dfb5c4758977de27477f20"
+    },
+    {
+      "file": "assets/fonts/outfit-0.woff2",
+      "source": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJuktqUYLkn8BJ.woff2",
+      "family": "Outfit",
+      "sha256": "9e38b3f1575daba3435ef09d33a202585ed5bd204bd0a8c744955c750c2b9091"
+    },
+    {
+      "file": "assets/fonts/sora-0.woff2",
+      "source": "https://fonts.gstatic.com/s/sora/v17/xMQ9uFFYT72X5wkB_18qmnndmSdSnh2BAfO5mnuyOo1lfiQwWa-xo6eeI7fM.woff2",
+      "family": "Sora",
+      "sha256": "8d9b4a4136bf8cf8b00c65978e7801c372d14ed901fa387cc7352a40b96cd006"
+    },
+    {
+      "file": "assets/fonts/manrope-0.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggqxSvfedN62Zw.woff2",
+      "family": "Manrope",
+      "sha256": "e8c0b39992f06b3dc9a9834494088014859f363bf6ca8792b6bb07e17c7965f3"
+    },
+    {
+      "file": "assets/fonts/dmsans-0.woff2",
+      "source": "https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2",
+      "family": "DM Sans",
+      "sha256": "219b02c7d8884817d3d6ad4c8771f2c000ce4c5669a67ef4e2e5617ffa25c4cc"
+    },
+    {
+      "file": "assets/fonts/spacegrotesk-1.woff2",
+      "source": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPb94C_k3HqUtEw.woff2",
+      "family": "Space Grotesk",
+      "sha256": "054c266fbb441ee059365dba0885d206f67ca05b375de869b88e02ebfccc9b9d"
+    },
+    {
+      "file": "assets/fonts/plusjakartasans-1.woff2",
+      "source": "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko50yygg_vbd-E.woff2",
+      "family": "Plus Jakarta Sans",
+      "sha256": "5c913fc1b1f86f4b475e5df45a796aa480d1f7f0891ed6f1a5991d6d1be887c3"
+    },
+    {
+      "file": "assets/fonts/manrope-1.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggOxSvfedN62Zw.woff2",
+      "family": "Manrope",
+      "sha256": "95a493061fe0a8d0d027c2892747134ba747141112d3be4d5022e70ab7d3a1a6"
+    },
+    {
+      "file": "assets/fonts/sora-1.woff2",
+      "source": "https://fonts.gstatic.com/s/sora/v17/xMQ9uFFYT72X5wkB_18qmnndmSdSnh2BAfO5mnuyOo1lfiQwV6-xo6eeIw.woff2",
+      "family": "Sora",
+      "sha256": "3902474d3ece89c8580d5ef3325cf58753e6e45a86f9957b4dacc4fce2e7fde1"
+    },
+    {
+      "file": "assets/fonts/dmsans-1.woff2",
+      "source": "https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2",
+      "family": "DM Sans",
+      "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb"
+    },
+    {
+      "file": "assets/fonts/outfit-1.woff2",
+      "source": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2",
+      "family": "Outfit",
+      "sha256": "92684e4acde79ef07758cd09380b7e01e9824d8b061eddeda046f78c166d7b12"
+    },
+    {
+      "file": "assets/fonts/manrope-2.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggSxSvfedN62Zw.woff2",
+      "family": "Manrope",
+      "sha256": "40af11327fe5308166c6cb5787808b042db6da889abf602f0a4876c49675d87e"
+    },
+    {
+      "file": "assets/fonts/plusjakartasans-2.woff2",
+      "source": "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko40yygg_vbd-E.woff2",
+      "family": "Plus Jakarta Sans",
+      "sha256": "0303e02b53b0298fb26a0193941a2e8754f0f9a9fce50d90b178d8da3424873f"
+    },
+    {
+      "file": "assets/fonts/spacegrotesk-2.woff2",
+      "source": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2",
+      "family": "Space Grotesk",
+      "sha256": "a0d054c4af557de20afd6ca59f47ab353bcaec49c63ff04b6c9d39d0f8910557"
+    },
+    {
+      "file": "assets/fonts/manrope-3.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggixSvfedN62Zw.woff2",
+      "family": "Manrope",
+      "sha256": "bab757f8a0a1bc04055ee98cb5777f3254aab11f6d222366e1f40a36f390506a"
+    },
+    {
+      "file": "assets/fonts/plusjakartasans-3.woff2",
+      "source": "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2",
+      "family": "Plus Jakarta Sans",
+      "sha256": "cd8db90cd950e26bc8761f65d323588bd5cd112d326d6d322bc7c8ea86771215"
+    },
+    {
+      "file": "assets/fonts/manrope-4.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggmxSvfedN62Zw.woff2",
+      "family": "Manrope",
+      "sha256": "ce093b341d9c10658ee1eaa85c5f8042ff3307bc6ccfc5f405616eb437f0009e"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-0.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4873z3nWuYMBYrp0xg.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "50c25f3210bca008b36809e4f3f964fc4acab82e07a27d099b14c378ea58bf5b"
+    },
+    {
+      "file": "assets/fonts/manrope-5.woff2",
+      "source": "https://fonts.gstatic.com/s/manrope/v20/xn7gYHE41ni1AdIRggexSvfedN4.woff2",
+      "family": "Manrope",
+      "sha256": "e310b55a7fd9677f5e3555e6c6c4d064fa1f1d24393f0ddbe217cea12a8c432f"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-1.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4873z3jWuYMBYrp0xg.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "a2f92ada1d0eaf10dd83b11392ea389c039aa78f6e17418fc062c23f0ba78438"
+    },
+    {
+      "file": "assets/fonts/barlow-0.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHpv4kjgoGqM7E_A8s5ynghnQci.woff2",
+      "family": "Barlow",
+      "sha256": "3dd62fbbcd748024be8d57b0d9d72c0d38b07b35024daad7f108c4f348c34fdc"
+    },
+    {
+      "file": "assets/fonts/geist-0.woff2",
+      "source": "https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2",
+      "family": "Geist",
+      "sha256": "b7a545bbb08256bd809f11cfe66d88da3e22d169ea4407737b1ef0ec1ed3d791"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-2.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4873z3bWuYMBYro.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "5bc49d41f32810a114765314392332ce2acae2276635eee265a50319a12c1b49"
+    },
+    {
+      "file": "assets/fonts/barlow-1.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHpv4kjgoGqM7E_Ass5ynghnQci.woff2",
+      "family": "Barlow",
+      "sha256": "bac411df68fa3d93ee4b12309c4df075c791d0390b536ca8d803890f889b76b4"
+    },
+    {
+      "file": "assets/fonts/intertight-0.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsK8ahuQ2e8Smg.woff2",
+      "family": "Inter Tight",
+      "sha256": "4a89b86d992e34430a1674dd4d300520b6bdbc60d12f3eadcb0075e3baa78be9"
+    },
+    {
+      "file": "assets/fonts/geist-1.woff2",
+      "source": "https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2",
+      "family": "Geist",
+      "sha256": "6129fc8571c3e0cb0a4c41f5160c974a843b055009dc4ad8858bd808e18a2d86"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-3.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B46r2z3nWuYMBYrp0xg.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "960aaed3bedcba7e3f7aa0b0d619339e5d0de4161218a5a46679ea1010ad2bbe"
+    },
+    {
+      "file": "assets/fonts/barlow-2.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHpv4kjgoGqM7E_DMs5ynghnQ.woff2",
+      "family": "Barlow",
+      "sha256": "7a686e76312866b7d506c103e51a829d4c96a0b4576835128d3b7b53801c095a"
+    },
+    {
+      "file": "assets/fonts/geist-2.woff2",
+      "source": "https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2",
+      "family": "Geist",
+      "sha256": "f689f638f29fff460a2d5749edb5d5c38d7bef0389f32032d871f23fc6ebb008"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-4.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B46r2z3jWuYMBYrp0xg.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "0c1655655b5a1fa18382367f471b943c8e009c5cf36a3898433babd92fc606e2"
+    },
+    {
+      "file": "assets/fonts/intertight-1.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsD8ahuQ2e8Smg.woff2",
+      "family": "Inter Tight",
+      "sha256": "04e865409d6fd36dd9be4bb45a72c437f31f5904158a5609cce9721da0d9a615"
+    },
+    {
+      "file": "assets/fonts/barlow-3.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3_-gs6Fostz0rdom9.woff2",
+      "family": "Barlow",
+      "sha256": "2e9076077ee0824f953a795d32ba020651bf1b55d8d981b1b94c12fa03a95d8b"
+    },
+    {
+      "file": "assets/fonts/intertight-2.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsL8ahuQ2e8Smg.woff2",
+      "family": "Inter Tight",
+      "sha256": "0c930dc2267b2e8b7341715b8548be46cd61125570b4291cd152f60c61758130"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-5.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B46r2z3bWuYMBYro.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "e3e520cb7468f2efd60bc2ce96694567c3312f4ef414fffbe605e3ad146b24e6"
+    },
+    {
+      "file": "assets/fonts/barlow-4.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3_-gs6Vostz0rdom9.woff2",
+      "family": "Barlow",
+      "sha256": "7985f1abf1d07b81181090dffaa1f7c3dde03eaa524d41e5bebd39ea5d3090de"
+    },
+    {
+      "file": "assets/fonts/geist-3.woff2",
+      "source": "https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2",
+      "family": "Geist",
+      "sha256": "58a6b173d5ca1dec92166ea3c6cb1a84a4144556d10928ac14e8e6b40e4787bd"
+    },
+    {
+      "file": "assets/fonts/intertight-3.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsE8ahuQ2e8Smg.woff2",
+      "family": "Inter Tight",
+      "sha256": "67b5c3cea0f66a940a37e39e5c4ce62ecd1491fbd735d6625f2dfa1545faa674"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-6.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B47b1z3nWuYMBYrp0xg.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "f54288496268d32e700bfb9db4797a5c40d904aed7372986306f503af8254954"
+    },
+    {
+      "file": "assets/fonts/barlow-5.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3_-gs51ostz0rdg.woff2",
+      "family": "Barlow",
+      "sha256": "80e7dc5605dd451bb9b092d7f46704f08bf39d2866cb981aa8caddc016716aed"
+    },
+    {
+      "file": "assets/fonts/geist-4.woff2",
+      "source": "https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwcGFWNOITd.woff2",
+      "family": "Geist",
+      "sha256": "9b6f5ff45b278c744b5f379a2c4ecbaf858a842b8eaf82ac8d21b699ca16c608"
+    },
+    {
+      "file": "assets/fonts/intertight-4.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsI8ahuQ2e8Smg.woff2",
+      "family": "Inter Tight",
+      "sha256": "c753c7f9f2dc179be947a2d677c2db39da161449d2f3702c711774a9521e493a"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-7.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B47b1z3jWuYMBYrp0xg.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "14480fbcd1bfa4ccfa6849f37004c1e985487034e9816c0157645cccdda53836"
+    },
+    {
+      "file": "assets/fonts/barlow-6.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E30-8s6Fostz0rdom9.woff2",
+      "family": "Barlow",
+      "sha256": "95da6188105a522bc7a736fac7869b531eaedd9e1ed7efaa318547c87cdaba09"
+    },
+    {
+      "file": "assets/fonts/barlowcondensed-8.woff2",
+      "source": "https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B47b1z3bWuYMBYro.woff2",
+      "family": "Barlow Condensed",
+      "sha256": "89eec21b1a1d6fd579d3e3c518901c5a6e3579e0e7a4f8b2f17b1473117bc30d"
+    },
+    {
+      "file": "assets/fonts/barlow-7.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E30-8s6Vostz0rdom9.woff2",
+      "family": "Barlow",
+      "sha256": "67dfa555a72fdd7506b4e9a97e2b0307b6b15e3d689ef4c372ef47a0597d94db"
+    },
+    {
+      "file": "assets/fonts/intertight-5.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsJ8ahuQ2e8Smg.woff2",
+      "family": "Inter Tight",
+      "sha256": "3c299662298bcf2cbf119996f900acce3782695a35e584bc22a566c5d6ea8b48"
+    },
+    {
+      "file": "assets/fonts/barlow-8.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E30-8s51ostz0rdg.woff2",
+      "family": "Barlow",
+      "sha256": "488b58098126c00b8fa77f4d58b0a4bc982e81e4c83323c1a73d9f1a67c15971"
+    },
+    {
+      "file": "assets/fonts/intertight-6.woff2",
+      "source": "https://fonts.gstatic.com/s/intertight/v9/NGSwv5HMAFg6IuGlBNMjxLsH8ahuQ2e8.woff2",
+      "family": "Inter Tight",
+      "sha256": "83d548cd73ef2e039167db3adb5ea9d7a7870466ffc8a162c9820bc348938aaf"
+    },
+    {
+      "file": "assets/fonts/barlow-9.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3t-4s6Fostz0rdom9.woff2",
+      "family": "Barlow",
+      "sha256": "892f58db77d3cf09ac112950ed83544d73b6bb1e1b528958eeef38980c1404ef"
+    },
+    {
+      "file": "assets/fonts/barlow-10.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3t-4s6Vostz0rdom9.woff2",
+      "family": "Barlow",
+      "sha256": "2b0e32435d0c87bc0d68f2522c6a7dceb8a2ac9cd0f8d9df7e5c162f778416c4"
+    },
+    {
+      "file": "assets/fonts/barlow-11.woff2",
+      "source": "https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3t-4s51ostz0rdg.woff2",
+      "family": "Barlow",
+      "sha256": "98aa8b5c2582107d73a6f1254f08b152b0c037ae5626a902dd44af8c781e0e6d"
+    }
+  ],
+  "errors": [],
+  "brand": "Copias exactas de los PNG existentes de Repi.",
+  "fonts_css_sources": [
+    "DM Sans",
+    "Manrope",
+    "Plus Jakarta Sans",
+    "Outfit",
+    "Sora",
+    "Space Grotesk",
+    "Barlow Condensed",
+    "Barlow",
+    "Geist",
+    "Inter Tight"
+  ]
+}

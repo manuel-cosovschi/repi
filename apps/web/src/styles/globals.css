@@ -1,0 +1,24 @@
+@import "./tokens.css";
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--access-page);
+  color: var(--core-white);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--core-cyan); text-decoration: none; }
+a:hover { color: var(--core-turquoise); }
+:focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Wordmark: PNG aprobado + punto cian circular (DEC-01). Medidas relativas al ancho. */
+.wm { position: relative; display: block; flex: none; }
+.wm img { width: 100%; height: auto; display: block; }
+.wm i { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--core-cyan); }

@@ -1,0 +1,110 @@
+[
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:198:175)",
+    "timestamp": "2026-10-25T18:41:24.102Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:41:24.151Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:41:24.151Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:41:35.783Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:41:35.793Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:41:39.342Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:41:39.624Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:41:42.831Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:41:44.120Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:41:44.395Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:41:44.442Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:41:47.328Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:41:52.816Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:42:00.177Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at yb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:190:156)",
+    "timestamp": "2026-10-25T18:42:04.979Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at yb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:190:156)",
+    "timestamp": "2026-10-25T18:42:04.990Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Li (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:189:373)\n    at db (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:79:182)\n    at https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:184:289",
+    "timestamp": "2026-10-25T18:42:05.008Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/support.js:844:16), <anonymous>:128:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:42:08.213Z",
+    "url": "http://127.0.0.1:8765/support.js"
+  }
+]

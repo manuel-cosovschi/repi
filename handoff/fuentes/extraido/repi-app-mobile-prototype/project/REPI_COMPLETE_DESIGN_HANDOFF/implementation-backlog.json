@@ -1,0 +1,1233 @@
+[
+  {
+    "id": "BL-BR-01",
+    "feature": "F-BR-01",
+    "title": "Identidad Concepto 2 (wordmark, isotipo, paleta, Inter Tight)",
+    "priority_proposed": "MVP",
+    "status": "designed",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "Logo = PNG original o vector verificado; nunca texto en Inter Tight; punto cian #00D1FF",
+    "screens": []
+  },
+  {
+    "id": "BL-BR-02",
+    "feature": "F-BR-02",
+    "title": "Intro de marca 1a + inicio regular + reducido",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-BR-01",
+    "acceptance": "1ª vez ~2,6 s saltable; luego ≤0,5 s; reduced-motion = fade; nunca durante entrenamiento activo; termina en pantalla real",
+    "screens": [
+      "SCR-M-01",
+      "SCR-MI-01",
+      "SCR-MI-02",
+      "SCR-MI-03"
+    ]
+  },
+  {
+    "id": "BL-CL-01",
+    "feature": "F-CL-01",
+    "title": "Inicio del alumno",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-CO-08",
+    "acceptance": "Muestra entrenamiento de hoy y semana reales; CTA inicia sesión",
+    "screens": [
+      "SCR-M-02"
+    ]
+  },
+  {
+    "id": "BL-CL-02",
+    "feature": "F-CL-02",
+    "title": "Semana y detalle de día",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "F-CO-08",
+    "acceptance": "Día de descanso como estado propio; valores anteriores por ejercicio",
+    "screens": [
+      "SCR-M-03"
+    ]
+  },
+  {
+    "id": "BL-CL-03",
+    "feature": "F-CL-03",
+    "title": "Registro de series en un toque",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Completar serie ≤1 toque; steppers ±2,5 kg/±1 rep; autosave visible",
+    "screens": [
+      "SCR-M-04"
+    ]
+  },
+  {
+    "id": "BL-CL-04",
+    "feature": "F-CL-04",
+    "title": "Temporizador de descanso (reloj real)",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-CL-03",
+    "acceptance": "Basado en timestamp de fin; pausar/+30s/saltar; no depende de frames",
+    "screens": [
+      "SCR-M-04"
+    ]
+  },
+  {
+    "id": "BL-CL-05",
+    "feature": "F-CL-05",
+    "title": "Resumen de sesión + récord personal validado",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-CL-03",
+    "acceptance": "PR solo si supera registro comparable previo; celebración desactivable",
+    "screens": [
+      "SCR-M-05"
+    ]
+  },
+  {
+    "id": "BL-CL-06",
+    "feature": "F-CL-06",
+    "title": "Progreso (fuerza, volumen, constancia, medidas)",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-CL-03",
+    "acceptance": "Volumen = series×reps×peso documentado; \"Datos insuficientes\" para lo no medido",
+    "screens": [
+      "SCR-M-06"
+    ]
+  },
+  {
+    "id": "BL-CL-07",
+    "feature": "F-CL-07",
+    "title": "Offline + sincronización idempotente",
+    "priority_proposed": "MVP",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Sin pérdida ni duplicado al reconectar (E2E 5 del brief)",
+    "screens": [
+      "SCR-N-17"
+    ]
+  },
+  {
+    "id": "BL-BI-01",
+    "feature": "F-BI-01",
+    "title": "Mi cuerpo · introducción",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "Opcional; entrenamiento funciona sin activarlo",
+    "screens": [
+      "SCR-M-07"
+    ]
+  },
+  {
+    "id": "BL-BI-02",
+    "feature": "F-BI-02",
+    "title": "Consentimiento granular por tipo de dato",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "6 tipos apagados por defecto; guardar ≠ compartir",
+    "screens": [
+      "SCR-M-08"
+    ]
+  },
+  {
+    "id": "BL-BI-03",
+    "feature": "F-BI-03",
+    "title": "Elección de método (manual/fotos/3D experimental)",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "F-BI-02",
+    "acceptance": "Métodos bloqueados sin consentimiento",
+    "screens": [
+      "SCR-M-09"
+    ]
+  },
+  {
+    "id": "BL-BI-04",
+    "feature": "F-BI-04",
+    "title": "Medidas manuales con fuente",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "F-BI-02",
+    "acceptance": "Cada medida guarda quién midió, método y fecha",
+    "screens": [
+      "SCR-M-10"
+    ]
+  },
+  {
+    "id": "BL-BI-05",
+    "feature": "F-BI-05",
+    "title": "Captura guiada de fotos (4 poses) con chequeo de calidad",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "F-BI-02",
+    "acceptance": "Cámara real; chequeos luz/distancia/encuadre/nitidez; sin ropa interior",
+    "screens": [
+      "SCR-M-11",
+      "SCR-M-12",
+      "SCR-M-13"
+    ]
+  },
+  {
+    "id": "BL-BI-06",
+    "feature": "F-BI-06",
+    "title": "Reconstrucción 3D personalizada + estado de fallo honesto",
+    "priority_proposed": "Experimental",
+    "status": "partially_designed",
+    "complexity": "XL",
+    "depends_on": "Investigación científica",
+    "acceptance": "Nunca mostrar modelo que no se parezca; fallback a referencia",
+    "screens": [
+      "SCR-M-13",
+      "SCR-M-14"
+    ]
+  },
+  {
+    "id": "BL-BI-07",
+    "feature": "F-BI-07",
+    "title": "Visor 3D (rotar, zoom, vistas, capas, regiones)",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "three.js",
+    "acceptance": "Etiqueta de modo de avatar siempre visible; fallback sin WebGL",
+    "screens": [
+      "SCR-M-15"
+    ]
+  },
+  {
+    "id": "BL-BI-08",
+    "feature": "F-BI-08",
+    "title": "Mapa de exposición de entrenamiento por región",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-CL-03",
+    "acceptance": "Color = carga registrada, no músculo real; aviso visible",
+    "screens": [
+      "SCR-M-15"
+    ]
+  },
+  {
+    "id": "BL-BI-09",
+    "feature": "F-BI-09",
+    "title": "Comparación entre fechas (swipe) con aviso de comparabilidad",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-BI-05",
+    "acceptance": "Advertir iluminación/pose distinta",
+    "screens": [
+      "SCR-M-16"
+    ]
+  },
+  {
+    "id": "BL-BI-10",
+    "feature": "F-BI-10",
+    "title": "Coach ve Mi cuerpo compartido",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "F-BI-02",
+    "acceptance": "Solo tipos compartidos; \"No compartido\" si no",
+    "screens": [
+      "SCR-C-02g"
+    ]
+  },
+  {
+    "id": "BL-BI-11",
+    "feature": "F-BI-11",
+    "title": "Carga de DXA/bioimpedancia/laboratorio (PDF) + extracción revisada",
+    "priority_proposed": "V3",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "Legal",
+    "acceptance": "Revisión humana obligatoria; requiere revisión legal",
+    "screens": [
+      "SCR-N-10"
+    ]
+  },
+  {
+    "id": "BL-PR-01",
+    "feature": "F-PR-01",
+    "title": "Compartir/revocar por tipo de dato con historial de accesos",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Cada cambio en log; revocación inmediata",
+    "screens": [
+      "SCR-M-18"
+    ]
+  },
+  {
+    "id": "BL-PR-02",
+    "feature": "F-PR-02",
+    "title": "Exportar y eliminar datos",
+    "priority_proposed": "V1",
+    "status": "partially_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Simulado en prototipo",
+    "screens": [
+      "SCR-M-18"
+    ]
+  },
+  {
+    "id": "BL-PR-03",
+    "feature": "F-PR-03",
+    "title": "Notas institucionales vs personales",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "Etiqueta de visibilidad; personales nunca en traspasos/reportes",
+    "screens": [
+      "SCR-GT-03"
+    ]
+  },
+  {
+    "id": "BL-PR-04",
+    "feature": "F-PR-04",
+    "title": "Acceso denegado + auditoría de intentos",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "Intento registrado; estado explícito, no vacío",
+    "screens": [
+      "SCR-GM-04",
+      "SCR-GM-06",
+      "SCR-GX-02"
+    ]
+  },
+  {
+    "id": "BL-PR-05",
+    "feature": "F-PR-05",
+    "title": "Datos de salud del alumno al coach por consentimiento",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Bloqueado sin grant; \"Pedir acceso\" envía solicitud",
+    "screens": [
+      "SCR-C-02e"
+    ]
+  },
+  {
+    "id": "BL-MS-01",
+    "feature": "F-MS-01",
+    "title": "Chat coach–alumno",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Solo relaciones activas",
+    "screens": [
+      "SCR-M-17",
+      "SCR-C-04"
+    ]
+  },
+  {
+    "id": "BL-MS-02",
+    "feature": "F-MS-02",
+    "title": "Mensajería autorizada en el gym",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-19"
+    ]
+  },
+  {
+    "id": "BL-NT-01",
+    "feature": "F-NT-01",
+    "title": "Centro de notificaciones del alumno",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Destinos navegables; sin datos de salud en lock screen",
+    "screens": [
+      "SCR-M-24"
+    ]
+  },
+  {
+    "id": "BL-NT-02",
+    "feature": "F-NT-02",
+    "title": "Preferencias / push / email",
+    "priority_proposed": "V1",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-18"
+    ]
+  },
+  {
+    "id": "BL-CO-01",
+    "feature": "F-CO-01",
+    "title": "Panel del coach con pendientes accionables",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Cada pendiente con acción directa",
+    "screens": [
+      "SCR-C-01"
+    ]
+  },
+  {
+    "id": "BL-CO-02",
+    "feature": "F-CO-02",
+    "title": "Directorio de clientes split view",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Búsqueda, filtros, orden",
+    "screens": [
+      "SCR-C-02"
+    ]
+  },
+  {
+    "id": "BL-CO-03",
+    "feature": "F-CO-03",
+    "title": "Objetivos del cliente con progreso",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-C-02a"
+    ]
+  },
+  {
+    "id": "BL-CO-04",
+    "feature": "F-CO-04",
+    "title": "Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "F-CL-03",
+    "acceptance": "Fórmula Epley documentada; heurística revisable",
+    "screens": [
+      "SCR-C-02b",
+      "SCR-C-02d"
+    ]
+  },
+  {
+    "id": "BL-CO-05",
+    "feature": "F-CO-05",
+    "title": "Registro de sesiones con notas del alumno",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "F-CL-03",
+    "acceptance": "—",
+    "screens": [
+      "SCR-C-02c"
+    ]
+  },
+  {
+    "id": "BL-CO-06",
+    "feature": "F-CO-06",
+    "title": "Salud: lesiones, molestias 0–10, condiciones",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-PR-05",
+    "acceptance": "No diagnosticar; derivar a profesional",
+    "screens": [
+      "SCR-C-02e"
+    ]
+  },
+  {
+    "id": "BL-CO-07",
+    "feature": "F-CO-07",
+    "title": "Nutrición: macros, kcal, hidratación, peso, comidas",
+    "priority_proposed": "V2",
+    "status": "partially_designed",
+    "complexity": "L",
+    "depends_on": "Registro de nutrición en app (no diseñado)",
+    "acceptance": "La captura del lado alumno no está diseñada",
+    "screens": [
+      "SCR-C-02f"
+    ]
+  },
+  {
+    "id": "BL-CO-08",
+    "feature": "F-CO-08",
+    "title": "Constructor de programas (días renombrables, duplicar, asignar)",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Asignación crea copia; editar no altera el pasado (versionado no prototipado)",
+    "screens": [
+      "SCR-C-03",
+      "SCR-CX-01"
+    ]
+  },
+  {
+    "id": "BL-CO-09",
+    "feature": "F-CO-09",
+    "title": "Biblioteca de ejercicios completa",
+    "priority_proposed": "MVP",
+    "status": "partially_designed",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-05"
+    ]
+  },
+  {
+    "id": "BL-CO-10",
+    "feature": "F-CO-10",
+    "title": "Calendario / asistencia",
+    "priority_proposed": "V1",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-06"
+    ]
+  },
+  {
+    "id": "BL-CO-11",
+    "feature": "F-CO-11",
+    "title": "Importación CSV",
+    "priority_proposed": "V1",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-07"
+    ]
+  },
+  {
+    "id": "BL-CO-12",
+    "feature": "F-CO-12",
+    "title": "Configuración / perfil público",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-08"
+    ]
+  },
+  {
+    "id": "BL-BL-01",
+    "feature": "F-BL-01",
+    "title": "Cobros manuales del coach a sus clientes",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Separado de suscripción REPI",
+    "screens": [
+      "SCR-C-02h",
+      "SCR-C-05"
+    ]
+  },
+  {
+    "id": "BL-BL-02",
+    "feature": "F-BL-02",
+    "title": "Suscripción REPI Coach (por alumno facturable)",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-AD-03",
+    "acceptance": "Estimado y regla visibles",
+    "screens": [
+      "SCR-C-05"
+    ]
+  },
+  {
+    "id": "BL-BL-03",
+    "feature": "F-BL-03",
+    "title": "Facturación REPI Gym (tramos, mínimo, módulos)",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-AD-03",
+    "acceptance": "Uso ≠ facturable; snapshot fin de período",
+    "screens": [
+      "SCR-GO-03"
+    ]
+  },
+  {
+    "id": "BL-BL-04",
+    "feature": "F-BL-04",
+    "title": "Checkout / pasarela (Mercado Pago)",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "Legal",
+    "acceptance": "Webhooks idempotentes; nunca acreditar por redirect",
+    "screens": [
+      "SCR-N-14"
+    ]
+  },
+  {
+    "id": "BL-GT-01",
+    "feature": "F-GT-01",
+    "title": "Turno del entrenador de sala (iniciar/cerrar)",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Editar/completar requiere turno activo",
+    "screens": [
+      "SCR-GT-01"
+    ]
+  },
+  {
+    "id": "BL-GT-02",
+    "feature": "F-GT-02",
+    "title": "Cola de asistencia y tareas con resumen saneado",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Nunca copiar mensajes privados",
+    "screens": [
+      "SCR-GT-02",
+      "SCR-GX-04"
+    ]
+  },
+  {
+    "id": "BL-GT-03",
+    "feature": "F-GT-03",
+    "title": "Programa institucional del socio + revisiones",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Motivo de cambio visible al equipo",
+    "screens": [
+      "SCR-GT-03",
+      "SCR-GX-03"
+    ]
+  },
+  {
+    "id": "BL-GT-04",
+    "feature": "F-GT-04",
+    "title": "Traspaso de turno con aceptación",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-GT-02",
+    "acceptance": "pending_acceptance hasta aceptar",
+    "screens": [
+      "SCR-GT-01",
+      "SCR-GT-04"
+    ]
+  },
+  {
+    "id": "BL-GM-01",
+    "feature": "F-GM-01",
+    "title": "Panel del gerente",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-01"
+    ]
+  },
+  {
+    "id": "BL-GM-02",
+    "feature": "F-GM-02",
+    "title": "Directorio del equipo",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-03"
+    ]
+  },
+  {
+    "id": "BL-GM-03",
+    "feature": "F-GM-03",
+    "title": "Tareas operativas + reasignación",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-GT-02",
+    "acceptance": "Solo metadatos",
+    "screens": [
+      "SCR-GM-05",
+      "SCR-GX-08"
+    ]
+  },
+  {
+    "id": "BL-GM-04",
+    "feature": "F-GM-04",
+    "title": "Planificación de turnos con cobertura",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-07"
+    ]
+  },
+  {
+    "id": "BL-GM-05",
+    "feature": "F-GM-05",
+    "title": "Participación de socios",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-08"
+    ]
+  },
+  {
+    "id": "BL-GM-06",
+    "feature": "F-GM-06",
+    "title": "Vista de coordinador",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-12"
+    ]
+  },
+  {
+    "id": "BL-GP-01",
+    "feature": "F-GP-01",
+    "title": "Gym Performance Center por categorías separadas",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Sin puntaje combinado; resultados solo nivel sede",
+    "screens": [
+      "SCR-GM-02"
+    ]
+  },
+  {
+    "id": "BL-GP-02",
+    "feature": "F-GP-02",
+    "title": "Definiciones de métricas visibles",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-02"
+    ]
+  },
+  {
+    "id": "BL-GP-03",
+    "feature": "F-GP-03",
+    "title": "Comparación contextual 2–3",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-02",
+      "SCR-GX-01"
+    ]
+  },
+  {
+    "id": "BL-GP-04",
+    "feature": "F-GP-04",
+    "title": "Mi desempeño + disputa de atribución",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GT-05"
+    ]
+  },
+  {
+    "id": "BL-GP-05",
+    "feature": "F-GP-05",
+    "title": "Detalle de entrenador",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GM-04"
+    ]
+  },
+  {
+    "id": "BL-RV-01",
+    "feature": "F-RV-01",
+    "title": "Reseña verificada del socio (1–5 + dimensiones)",
+    "priority_proposed": "V1",
+    "status": "partially_designed",
+    "complexity": "M",
+    "depends_on": "F-GT-03",
+    "acceptance": "Prototipada en v2 del gym (persona Valentina, ahora retirada); falta en app v3",
+    "screens": []
+  },
+  {
+    "id": "BL-RV-02",
+    "feature": "F-RV-02",
+    "title": "Analítica de reseñas con n y rango",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Ocultar promedio con n<5",
+    "screens": [
+      "SCR-GM-06"
+    ]
+  },
+  {
+    "id": "BL-RV-03",
+    "feature": "F-RV-03",
+    "title": "Responder / reportar (entrenador)",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GT-05",
+      "SCR-GX-05",
+      "SCR-GX-06"
+    ]
+  },
+  {
+    "id": "BL-RV-04",
+    "feature": "F-RV-04",
+    "title": "Moderación con log y apelación",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Staff no edita texto",
+    "screens": [
+      "SCR-GM-06",
+      "SCR-GX-07"
+    ]
+  },
+  {
+    "id": "BL-RV-05",
+    "feature": "F-RV-05",
+    "title": "Políticas de reseñas (respuestas, publicación externa)",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "Publicación externa deshabilitada",
+    "screens": [
+      "SCR-GO-04"
+    ]
+  },
+  {
+    "id": "BL-GO-01",
+    "feature": "F-GO-01",
+    "title": "Ejecutivo multi-sede",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GO-01"
+    ]
+  },
+  {
+    "id": "BL-GO-02",
+    "feature": "F-GO-02",
+    "title": "Comparación de sedes",
+    "priority_proposed": "V2",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-GO-02"
+    ]
+  },
+  {
+    "id": "BL-GO-03",
+    "feature": "F-GO-03",
+    "title": "Puesta en marcha del gym",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-CO-11",
+    "acceptance": "Activar bloqueado hasta importar",
+    "screens": [
+      "SCR-GO-04"
+    ]
+  },
+  {
+    "id": "BL-GC-01",
+    "feature": "F-GC-01",
+    "title": "Novedades y descuentos del gym",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Solo socios de esa org",
+    "screens": [
+      "SCR-M-19",
+      "SCR-GC-01"
+    ]
+  },
+  {
+    "id": "BL-GC-02",
+    "feature": "F-GC-02",
+    "title": "Desafíos con premio en recepción",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Reglas de técnica; sin presión insegura",
+    "screens": [
+      "SCR-M-20",
+      "SCR-GC-01"
+    ]
+  },
+  {
+    "id": "BL-GC-03",
+    "feature": "F-GC-03",
+    "title": "Intento de récord con video + validación",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "F-GC-02",
+    "acceptance": "Video privado; notificación a ambas partes",
+    "screens": [
+      "SCR-M-20",
+      "SCR-M-21",
+      "SCR-GC-02"
+    ]
+  },
+  {
+    "id": "BL-GC-04",
+    "feature": "F-GC-04",
+    "title": "Catálogo informativo de recepción",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "Sin checkout",
+    "screens": [
+      "SCR-M-22",
+      "SCR-GC-01"
+    ]
+  },
+  {
+    "id": "BL-GC-05",
+    "feature": "F-GC-05",
+    "title": "Logros, stickers y nivel",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "F-GC-03",
+    "acceptance": "Permanente en registro",
+    "screens": [
+      "SCR-M-23",
+      "SCR-M-25"
+    ]
+  },
+  {
+    "id": "BL-GR-01",
+    "feature": "F-GR-01",
+    "title": "Rol recepción",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-11"
+    ]
+  },
+  {
+    "id": "BL-GR-02",
+    "feature": "F-GR-02",
+    "title": "Reservas de clases",
+    "priority_proposed": "V3",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-13"
+    ]
+  },
+  {
+    "id": "BL-MO-01",
+    "feature": "F-MO-01",
+    "title": "Cuenta multi-organización y selector de espacio",
+    "priority_proposed": "V1",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Permisos nunca se cruzan",
+    "screens": [
+      "SCR-GX-09"
+    ]
+  },
+  {
+    "id": "BL-MO-02",
+    "feature": "F-MO-02",
+    "title": "Socio con gym + coach privado (dos relaciones)",
+    "priority_proposed": "V2",
+    "status": "partially_designed",
+    "complexity": "M",
+    "depends_on": "F-MO-01",
+    "acceptance": "Prototipado en gym v2 (retirado); app v3 sólo tweak alumnoTipo",
+    "screens": []
+  },
+  {
+    "id": "BL-AD-01",
+    "feature": "F-AD-01",
+    "title": "Admin · resumen",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-A-01"
+    ]
+  },
+  {
+    "id": "BL-AD-02",
+    "feature": "F-AD-02",
+    "title": "Admin · clientes y alta",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-A-02",
+      "SCR-AX-01"
+    ]
+  },
+  {
+    "id": "BL-AD-03",
+    "feature": "F-AD-03",
+    "title": "Admin · suscripción editable (plan, tramos, mínimo, descuento, día de cobro, criterio de conteo)",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Cambios rigen desde el próximo cobro; log",
+    "screens": [
+      "SCR-A-03"
+    ]
+  },
+  {
+    "id": "BL-AD-04",
+    "feature": "F-AD-04",
+    "title": "Admin · cobros",
+    "priority_proposed": "MVP",
+    "status": "interactive_prototype",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-A-04"
+    ]
+  },
+  {
+    "id": "BL-AD-05",
+    "feature": "F-AD-05",
+    "title": "Admin · planes por defecto",
+    "priority_proposed": "V1",
+    "status": "static_mockup",
+    "complexity": "S",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-A-05",
+      "SCR-N-20"
+    ]
+  },
+  {
+    "id": "BL-AD-06",
+    "feature": "F-AD-06",
+    "title": "Admin · flags, soporte, salud, costos IA, MRR/ARR/churn",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Fórmulas definidas",
+    "screens": [
+      "SCR-N-16"
+    ]
+  },
+  {
+    "id": "BL-RC-01",
+    "feature": "F-RC-01",
+    "title": "Repi Club · feed y publicaciones de logros",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "Voluntario; nunca datos de salud",
+    "screens": [
+      "SCR-N-09"
+    ]
+  },
+  {
+    "id": "BL-RC-02",
+    "feature": "F-RC-02",
+    "title": "Reacciones y comentarios",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "F-RC-01",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-09"
+    ]
+  },
+  {
+    "id": "BL-RC-03",
+    "feature": "F-RC-03",
+    "title": "Rankings con transiciones FLIP",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "Sin incentivar chequeo compulsivo",
+    "screens": [
+      "SCR-N-09"
+    ]
+  },
+  {
+    "id": "BL-RC-04",
+    "feature": "F-RC-04",
+    "title": "Trofeos (familia + desbloqueo 3D)",
+    "priority_proposed": "V3",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-09"
+    ]
+  },
+  {
+    "id": "BL-RC-05",
+    "feature": "F-RC-05",
+    "title": "Moderación del Club",
+    "priority_proposed": "V2",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-09"
+    ]
+  },
+  {
+    "id": "BL-AI-01",
+    "feature": "F-AI-01",
+    "title": "Asistente IA del coach",
+    "priority_proposed": "V3",
+    "status": "specified_not_designed",
+    "complexity": "L",
+    "depends_on": "F-AD-06",
+    "acceptance": "Revisión humana obligatoria; no diagnosticar",
+    "screens": [
+      "SCR-N-15"
+    ]
+  },
+  {
+    "id": "BL-PU-01",
+    "feature": "F-PU-01",
+    "title": "Sitio público",
+    "priority_proposed": "V1",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-01"
+    ]
+  },
+  {
+    "id": "BL-ID-01",
+    "feature": "F-ID-01",
+    "title": "Autenticación",
+    "priority_proposed": "MVP",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-02"
+    ]
+  },
+  {
+    "id": "BL-ID-02",
+    "feature": "F-ID-02",
+    "title": "Onboarding del coach",
+    "priority_proposed": "MVP",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-03"
+    ]
+  },
+  {
+    "id": "BL-ID-03",
+    "feature": "F-ID-03",
+    "title": "Invitación del alumno",
+    "priority_proposed": "MVP",
+    "status": "specified_not_designed",
+    "complexity": "M",
+    "depends_on": "—",
+    "acceptance": "—",
+    "screens": [
+      "SCR-N-04"
+    ]
+  }
+]

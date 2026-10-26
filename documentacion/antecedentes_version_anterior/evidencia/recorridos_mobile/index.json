@@ -1,0 +1,110 @@
+[
+  {
+    "label": "Inicio",
+    "result": "visitado",
+    "evidence": "01.txt",
+    "characters": 2280
+  },
+  {
+    "label": "Semana y detalle",
+    "result": "visitado",
+    "evidence": "02.txt",
+    "characters": 2477
+  },
+  {
+    "label": "Registrar series",
+    "result": "visitado",
+    "evidence": "03.txt",
+    "characters": 2079
+  },
+  {
+    "label": "Temporizador de descanso",
+    "result": "visitado",
+    "evidence": "04.txt",
+    "characters": 2048
+  },
+  {
+    "label": "Entrenamiento completado",
+    "result": "visitado",
+    "evidence": "05.txt",
+    "characters": 1643
+  },
+  {
+    "label": "Progreso",
+    "result": "visitado",
+    "evidence": "06.txt",
+    "characters": 2204
+  },
+  {
+    "label": "Introducción",
+    "result": "visitado",
+    "evidence": "07.txt",
+    "characters": 1949
+  },
+  {
+    "label": "Consentimiento",
+    "result": "visitado",
+    "evidence": "08.txt",
+    "characters": 2202
+  },
+  {
+    "label": "Captura guiada",
+    "result": "visitado",
+    "evidence": "09.txt",
+    "characters": 1621
+  },
+  {
+    "label": "Fallo de reconstrucción 3D",
+    "result": "visitado",
+    "evidence": "10.txt",
+    "characters": 1865
+  },
+  {
+    "label": "Visor 3D",
+    "result": "visitado",
+    "evidence": "11.txt",
+    "characters": 2419
+  },
+  {
+    "label": "Comparar fechas",
+    "result": "visitado",
+    "evidence": "12.txt",
+    "characters": 2712
+  },
+  {
+    "label": "Novedades y descuentos",
+    "result": "visitado",
+    "evidence": "13.txt",
+    "characters": 2286
+  },
+  {
+    "label": "Desafíos · subir récord",
+    "result": "visitado",
+    "evidence": "14.txt",
+    "characters": 2660
+  },
+  {
+    "label": "Recepción (informativo)",
+    "result": "visitado",
+    "evidence": "15.txt",
+    "characters": 2270
+  },
+  {
+    "label": "Logros y nivel",
+    "result": "visitado",
+    "evidence": "16.txt",
+    "characters": 2185
+  },
+  {
+    "label": "Mensajes",
+    "result": "visitado",
+    "evidence": "17.txt",
+    "characters": 1988
+  },
+  {
+    "label": "Privacidad y permisos",
+    "result": "visitado",
+    "evidence": "18.txt",
+    "characters": 2630
+  }
+]

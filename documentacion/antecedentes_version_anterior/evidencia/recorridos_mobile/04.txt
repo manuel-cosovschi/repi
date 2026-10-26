@@ -1,0 +1,65 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 container
+				33 button Volver
+					34 image
+				35 text Torso A 13:54  ·  ● Guardado
+				36 button Finalizar
+				37 text 1/4 Press de banca 4 series · 8-10 repeticiones
+				38 button Ejercicio anterior
+					39 image
+				40 button Ejercicio siguiente
+					41 image
+				42 text video demostración
+				43 image
+				44 text Serie anterior 80 kg x 10 reps Serie Peso (kg) Reps 1 80 10
+				45 image
+				46 text 2 80 10
+				47 image
+				48 text 3 85 8
+				49 image
+				50 text 4 85 8
+				51 image
+				52 image
+				53 text Bajá controlado 2 segundos. Si las dos primeras salen limpias, subí a 85 kg.
+			54 text Descanso 01:30
+			55 container
+				56 image
+				57 button Pausar
+					58 image
+			59 button +30s
+			60 text Próxima:  serie 3 · 85 kg × 8
+			61 button Saltar descanso
+
+The focused UI element is 8 button Temporizador de descanso

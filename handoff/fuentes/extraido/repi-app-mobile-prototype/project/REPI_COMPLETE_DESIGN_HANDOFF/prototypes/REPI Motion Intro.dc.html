@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E141B;font-family:'Inter Tight',system-ui,sans-serif;color:#F8FAFC}
+a{color:#00D1FF;text-decoration:none}a:hover{color:#5DE6D8}
+.dv-turn{background:#0E141B;min-height:100vh;padding:40px 44px 36px;border-bottom:1px solid rgba(255,255,255,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 14px}
+.dv-tid{font:600 10px 'JetBrains Mono',monospace;padding:3px 7px;background:#F8FAFC;color:#0B0F14;border-radius:4px}
+.dv-tname{font:600 15px/1.2 'Inter Tight',sans-serif;color:#F8FAFC}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:12px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px 'JetBrains Mono',monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#F8FAFC;border-radius:5px}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:600 15px/1.3 'Inter Tight',sans-serif;color:#F8FAFC}
+.dv-opt:target .dv-oid{background:#00D1FF;color:#0B0F14}
+.dv-next{margin:28px 0 0;font:13px/1.5 'Inter Tight',sans-serif;color:#94A3B8}
+</style>
+</helmet>
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Intro cinemática · tres conceptos originales con el ícono aprobado</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:1240px;margin:0 0 32px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5DE6D8">Auditoría del prototipo actual</span>
+      <span style="font-size:14px;line-height:1.55;color:#CBD5E1;text-wrap:pretty">Hoy todas las pantallas cambian sin transición. Los lugares donde el movimiento más ayudaría: abrir la app, pasar de la tarjeta de hoy al entrenamiento activo, completar una serie, el cronómetro de descanso, el cierre con récord, el gráfico de progreso y la entrada del visor 3D.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5DE6D8">Fidelidad de marca</span>
+      <span style="font-size:14px;line-height:1.55;color:#CBD5E1;text-wrap:pretty">No se redibujó nada. El fondo del ícono, su «r» y las letras r·e·p·i se separaron píxel a píxel de los PNG aprobados. El punto es un círculo #00D1FF del mismo diámetro, que es lo único que se anima como forma propia.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5DE6D8">Cómo revisar</span>
+      <span style="font-size:14px;line-height:1.55;color:#CBD5E1;text-wrap:pretty">Cada concepto tiene tres modos: primer inicio (~2,6 s, se puede saltar), inicio regular (~0,5 s) y movimiento reducido. Usá 0,25× para ver la coreografía cuadro a cuadro. Los tres terminan en la pantalla de Inicio real: el logo viaja hasta el encabezado.</span>
+    </div>
+  </div>
+  <div class="dv-opts">
+    <sc-for list="{{ concepts }}" as="c" hint-placeholder-count="3">
+    <div class="dv-opt" id="{{ c.id }}" style="width:380px">
+      <div class="dv-olabel"><a class="dv-oid" href="{{ c.href }}">{{ c.id }}</a>{{ c.title }}</div>
+      <span style="font-size:13px;line-height:1.5;color:#94A3B8;text-wrap:pretty;min-height:58px">{{ c.idea }}</span>
+      <div style="width:380px;height:760px;border-radius:54px;background:#05070A;padding:10px;box-shadow:0 0 0 1.5px #2D3B4F,0 30px 90px rgba(0,0,0,.55)">
+        <div ref="{{ c.R.stage }}" style="position:relative;width:360px;height:740px;border-radius:44px;overflow:hidden;background:#0B0F14;perspective:900px">
+          <div style="position:absolute;top:0;left:0;right:0;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 40px;z-index:5">
+            <span style="font-size:15px;font-weight:600">9:41</span>
+            <div style="position:absolute;left:50%;top:10px;transform:translateX(-50%);width:112px;height:32px;border-radius:18px;background:#000"></div>
+            <span style="width:22px;height:11px;border-radius:4px;border:1.5px solid #F8FAFC;padding:1.5px;display:flex"><span style="flex:1;border-radius:2px;background:#F8FAFC"></span></span>
+          </div>
+
+          <div ref="{{ c.R.u1 }}" style="position:absolute;left:296px;top:66px;width:44px;height:44px;display:grid;place-items:center;opacity:0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0112 0v5l1.5 2h-15zM10 21h4"></path></svg>
+          </div>
+          <div ref="{{ c.R.u2 }}" style="position:absolute;left:20px;top:126px;right:20px;display:flex;flex-direction:column;gap:6px;opacity:0">
+            <span style="font-size:28px;font-weight:600;letter-spacing:-.02em">Hola, Valen 👋</span>
+            <span style="font-size:14px;color:#94A3B8">Hoy es un gran día para entrenar.</span>
+          </div>
+          <div ref="{{ c.R.u3 }}" style="position:absolute;left:20px;top:206px;width:320px;height:140px;border-radius:18px;background:linear-gradient(120deg,#1A2433,#16202d 55%,#0f1822);border:1px solid #233044;overflow:hidden;opacity:0">
+            <div style="position:absolute;right:0;top:0;bottom:0;width:46%;background:repeating-linear-gradient(135deg,#1d2a3b 0 8px,#223147 8px 16px);-webkit-mask-image:linear-gradient(90deg,transparent,#000 35%);mask-image:linear-gradient(90deg,transparent,#000 35%)"></div>
+            <div style="position:relative;padding:18px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#E2E8F0">Entrenamiento de hoy</span><span style="font-size:28px;font-weight:600;margin-top:4px">Torso A</span><span style="font-size:13px;color:#94A3B8">4 ejercicios · 45 min</span></div>
+            <span style="position:absolute;right:14px;bottom:14px;width:44px;height:44px;border-radius:22px;background:#00D1FF;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="#F8FAFC"></path></svg></span>
+          </div>
+          <div ref="{{ c.R.u4 }}" style="position:absolute;left:20px;right:20px;top:366px;display:flex;flex-direction:column;gap:12px;opacity:0">
+            <span style="font-size:17px;font-weight:600">Semana</span>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+              <sc-for list="{{ week }}" as="d" hint-placeholder-count="7"><div style="display:flex;flex-direction:column;align-items:center;gap:7px"><span style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;font-size:12px;font-weight:600;background:{{ d.bg }};color:{{ d.ink }}">{{ d.l }}</span><span style="font-size:12px;color:{{ d.num }}">{{ d.n }}</span></div></sc-for>
+            </div>
+          </div>
+          <div ref="{{ c.R.u5 }}" style="position:absolute;left:20px;right:20px;top:484px;display:flex;flex-direction:column;gap:12px;opacity:0">
+            <span style="font-size:17px;font-weight:600">Tu progreso</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:2px;height:88px"><span style="font-size:28px;font-weight:600">3</span><span style="font-size:12px;color:#94A3B8">Entrenamientos esta semana</span></div>
+              <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:2px;height:88px"><span style="font-size:28px;font-weight:600">+12%</span><span style="font-size:12px;color:#94A3B8">Volumen total</span></div>
+            </div>
+          </div>
+          <div ref="{{ c.R.u6 }}" style="position:absolute;left:0;right:0;bottom:0;height:78px;border-top:1px solid #1A2433;display:grid;grid-template-columns:repeat(5,1fr);padding-top:10px;opacity:0">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:500;color:{{ t.ink }}"><span style="width:22px;height:22px;border-radius:6px;border:1.8px solid {{ t.ink }}"></span>{{ t.l }}</div></sc-for>
+          </div>
+
+          <div ref="{{ c.R.icon }}" style="position:absolute;left:120px;top:270px;width:120px;height:120px;transform-style:preserve-3d;transform-origin:50% 100%">
+            <div ref="{{ c.R.tilebox }}" style="position:absolute;inset:0;clip-path:inset(4px 9px 1.5px 0.7px round 25px);opacity:0">
+              <img src="assets/motion/tile_empty.png" alt="" style="width:120px;height:120px;display:block">
+              <div ref="{{ c.R.sheen }}" style="position:absolute;top:-20px;bottom:-20px;left:30px;width:46px;background:linear-gradient(90deg,transparent,rgba(248,250,252,.16),transparent);opacity:0"></div>
+            </div>
+            <img ref="{{ c.R.ir }}" src="assets/motion/icon_r.png" alt="" style="position:absolute;left:20.7px;top:28.9px;width:41.5px;height:65.2px;opacity:0">
+            <div ref="{{ c.R.idot }}" style="position:absolute;left:61.1px;top:24.8px;width:20px;height:20px;border-radius:50%;background:#00D1FF;opacity:0"></div>
+          </div>
+          <span ref="{{ c.R.t1 }}" style="position:absolute;left:156px;top:414px;width:8px;height:8px;border-radius:4px;background:#2D3B4F;opacity:0"></span>
+          <span ref="{{ c.R.t2 }}" style="position:absolute;left:176px;top:414px;width:8px;height:8px;border-radius:4px;background:#2D3B4F;opacity:0"></span>
+          <span ref="{{ c.R.t3 }}" style="position:absolute;left:196px;top:414px;width:8px;height:8px;border-radius:4px;background:#2D3B4F;opacity:0"></span>
+
+          <div ref="{{ c.R.wm }}" role="img" aria-label="repi" style="position:absolute;left:80px;top:270px;width:200px;height:97.8px;transform-origin:0 0;transform-style:preserve-3d">
+            <div ref="{{ c.R.wmin }}" style="position:absolute;inset:0;transform-style:preserve-3d">
+              <img ref="{{ c.R.wr }}" src="assets/motion/wm_r.png" alt="" style="position:absolute;left:0;top:0;width:43.8px;height:97.8px;opacity:0">
+              <img ref="{{ c.R.we }}" src="assets/motion/wm_e.png" alt="" style="position:absolute;left:43.8px;top:0;width:65.4px;height:97.8px;opacity:0">
+              <img ref="{{ c.R.wp }}" src="assets/motion/wm_p.png" alt="" style="position:absolute;left:109.2px;top:0;width:67.9px;height:97.8px;opacity:0">
+              <img ref="{{ c.R.wi }}" src="assets/motion/wm_i.png" alt="" style="position:absolute;left:177.2px;top:0;width:22.9px;height:97.8px;opacity:0">
+              <div ref="{{ c.R.wdot }}" style="position:absolute;left:177.9px;top:1.55px;width:20.3px;height:20.3px;border-radius:50%;background:#00D1FF;opacity:0"></div>
+            </div>
+          </div>
+
+          <button ref="{{ c.R.skip }}" onClick="{{ c.skip }}" style="position:absolute;right:18px;top:58px;height:32px;padding:0 12px;border-radius:16px;border:1px solid #2D3B4F;background:rgba(11,15,20,.7);color:#94A3B8;font:600 12px 'Inter Tight',sans-serif;cursor:pointer;opacity:0;z-index:6">Saltar</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onClick="{{ c.play }}" style="height:40px;padding:0 16px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;display:flex;gap:8px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" fill="#0B0F14"></path></svg>Reproducir</button>
+        <div style="display:flex;gap:2px;background:#1A2433;border-radius:10px;padding:3px">
+          <sc-for list="{{ c.modes }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.pick }}" style="height:34px;padding:0 10px;border-radius:8px;border:0;background:{{ m.bg }};color:{{ m.ink }};font:600 12px 'Inter Tight',sans-serif;cursor:pointer">{{ m.label }}</button></sc-for>
+        </div>
+        <button onClick="{{ c.toggleSlow }}" style="height:40px;padding:0 12px;border-radius:10px;border:1px solid {{ c.slowBd }};background:transparent;color:{{ c.slowInk }};font:600 13px 'JetBrains Mono',monospace;cursor:pointer">0,25×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;border-top:1px solid #1A2433">
+        <sc-for list="{{ c.beats }}" as="b" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:84px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid #1A2433;font-size:13px;line-height:1.45">
+            <span style="font:500 12px 'JetBrains Mono',monospace;color:#5DE6D8">{{ b.t }}</span><span style="color:#CBD5E1">{{ b.d }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.5;color:#94A3B8">
+        <span><strong style="color:#F8FAFC;font-weight:600">Punto como firma:</strong> {{ c.dot }}</span>
+        <span><strong style="color:#F8FAFC;font-weight:600">Inicio regular:</strong> {{ c.quick }}</span>
+      </div>
+    </div>
+    </sc-for>
+  </div>
+  <p class="dv-next">Elegí la coreografía final, o pedí una mezcla, por ejemplo: «la caída del punto de <a class="dv-oid" href="#1a">1a</a> con las repeticiones de <a class="dv-oid" href="#1b">1b</a>», «<a class="dv-oid" href="#1c">1c</a> con menos inclinación 3D» o «<a class="dv-oid" href="#1a">1a</a> con sonido opcional». Después vienen los tokens de movimiento y su aplicación en la app.</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const NAMES = ['stage','icon','tilebox','sheen','ir','idot','t1','t2','t3','wm','wmin','wr','we','wp','wi','wdot','u1','u2','u3','u4','u5','u6','skip'];
+const E = { std:'cubic-bezier(.2,0,0,1)', out:'cubic-bezier(.05,.7,.1,1)', inn:'cubic-bezier(.55,0,1,.45)', spring:'cubic-bezier(.34,1.56,.64,1)', snap:'cubic-bezier(.2,.9,.1,1)' };
+const HEADER = 'translate(-59.6px,-200px) scale(.2886)';
+const META = {
+  a: { title:'El punto', idea:'El punto cian cae como una pesa, rebota y de ese impulso nace la «r». Después salta hasta la «i» y completa el logotipo. Es el concepto con más personalidad física.',
+    beats:[['0–170','Aparece el punto sobre fondo navy.'],['170–560','Se anticipa estirándose y cae con gravedad.'],['560–940','Impacta, se aplasta, y la «r» crece desde el suelo.'],['860–1400','El punto salta en arco a su lugar en el ícono.'],['1600–2150','El fondo se disuelve, la «r» se vuelve la letra y e·p·i entran; el punto salta a la «i».'],['2150–2670','El logo viaja al encabezado y la UI entra escalonada.']],
+    dot:'salto en arco con aplastamiento suave. Reaparece al completar series y al cerrar el entrenamiento.', quick:'el punto da un saltito de 8 px y la app aparece (500 ms).' },
+  b: { title:'La repetición', idea:'La «r» se construye en tres pulsos rítmicos, como tres repeticiones. El punto es la cuarta y completa el símbolo. Al final todo el logo hace una «rep» sutil. Es el más preciso y atlético.',
+    beats:[['0–300','Aparece el fondo del ícono y tres marcadores apagados.'],['200–900','Tres pulsos revelan la «r» de abajo hacia arriba y cada uno enciende un marcador.'],['900–1280','El punto entra como cuarta repetición, con un pequeño rebote.'],['1250–1670','Rep final: el ícono se comprime y vuelve.'],['1700–2200','e·p·i entran a ritmo de 90 ms y el punto salta a la «i».'],['2200–2720','El logo viaja al encabezado y la UI entra.']],
+    dot:'cuenta: marca cada repetición completada y el cierre de cada bloque.', quick:'una sola compresión del ícono y la app aparece (500 ms).' },
+  c: { title:'Símbolo vivo', idea:'El ícono llega desde la profundidad como un objeto físico: se inclina, refleja una luz suave, el punto flota en otra capa y el ícono gira de canto para revelar el logotipo. Es el más cinematográfico y tridimensional.',
+    beats:[['0–700','El ícono entra desde la profundidad girando y se asienta.'],['350–1050','Un reflejo suave cruza el ícono; el punto flota en otra capa con paralaje.'],['750–1350','El ícono responde con una inclinación leve, como al tacto.'],['1250–1660','El punto se eleva y el ícono gira de canto.'],['1520–2080','El logotipo entra girando y el punto aterriza en la «i».'],['2150–2670','El logo viaja al encabezado y la UI entra.']],
+    dot:'flota en otra capa de profundidad. Sirve para los logros y el visor 3D.', quick:'inclinación de 10° y la app aparece (500 ms).' },
+};
+
+class Component extends DCLogic {
+  state = { mode: { a:'first', b:'first', c:'first' }, slow: { a:false, b:false, c:false } };
+  constructor(p) {
+    super(p);
+    this.R = {}; this.refs2 = {}; this.anims = { a:[], b:[], c:[] };
+    ['a','b','c'].forEach(k => { this.refs2[k] = {}; NAMES.forEach(n => { this.refs2[k][n] = el => { this.R[k + n] = el; }; }); });
+  }
+  componentDidMount() {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) this.setState({ mode: { a:'reduced', b:'reduced', c:'reduced' } });
+    this._t = ['a','b','c'].map((k, i) => setTimeout(() => this.play(k), 500 + i * 350));
+  }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+
+  play(k) {
+    const el = n => this.R[k + n];
+    if (!el('stage')) return;
+    NAMES.forEach(n => el(n) && el(n).getAnimations().forEach(a => a.cancel()));
+    const list = this.anims[k] = [];
+    const rate = this.state.slow[k] ? 0.25 : 1;
+    const A = (n, kf, delay, duration, easing = E.std, fill = 'both') => { const a = el(n).animate(kf, { delay, duration, easing, fill }); a.playbackRate = rate; a.persist && a.persist(); list.push(a); return a; };
+    const show = (n, at, dur = 1, fill = 'both') => A(n, [{ opacity: 0 }, { opacity: 1 }], at, dur, 'linear', fill);
+    const hide = (n, at, dur = 1) => A(n, [{ opacity: 1 }, { opacity: 0 }], at, dur, 'linear', 'forwards');
+    const ui = (at, step = 60, dy = 14, dur = 420) => ['u1','u2','u3','u4','u5','u6'].forEach((n, i) => A(n, [{ opacity: 0, transform: `translateY(${dy}px)` }, { opacity: 1, transform: 'none' }], at + i * step, dur, E.out));
+    const letters = (at, step, ease, dx = -18) => ['we','wp','wi'].forEach((n, i) => A(n, [{ opacity: 0, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }], at + i * step, 380, ease));
+    const morphR = at => { A('ir', [{ transform: 'none', opacity: 1 }, { transform: 'translate(-59.3px,-7.5px) scale(1.3,.95)', opacity: 1, offset: .8 }, { transform: 'translate(-59.3px,-7.5px) scale(1.3,.95)', opacity: 0 }], at, 450, E.out, 'forwards'); show('wr', at + 300, 90); };
+    const dotHop = at => { A('idot', [{ transform: 'none' }, { transform: 'translate(38px,-62px) scale(.95,1.08)', offset: .5 }, { transform: 'translate(77px,-23px) scale(1.2,.82)', offset: .85 }, { transform: 'translate(77px,-23px)' }], at, 460, E.std, 'forwards'); hide('idot', at + 460); show('wdot', at + 460); };
+    const fly = at => { A('wm', [{ transform: 'none' }, { transform: HEADER }], at, 520, E.out, 'forwards'); ui(at + 150); };
+    const mode = this.state.mode[k];
+    const ihead = () => { A('wm', [{ transform: HEADER }, { transform: HEADER }], 0, 1, 'linear'); };
+
+    if (mode === 'reduced') {
+      ['tilebox','ir','idot'].forEach(n => A(n, [{ opacity: 1 }, { opacity: 0 }], 250, 200, 'linear'));
+      ihead(); ['wr','we','wp','wi','wdot'].forEach(n => show(n, 250, 200));
+      ['u1','u2','u3','u4','u5','u6'].forEach(n => show(n, 250, 200));
+      return;
+    }
+    if (mode === 'quick') {
+      ['tilebox','ir','idot'].forEach(n => A(n, [{ opacity: 1 }, { opacity: 1 }], 0, 1, 'linear'));
+      if (k === 'a') A('idot', [{ transform: 'none' }, { transform: 'translateY(-8px) scale(.95,1.06)', offset: .45 }, { transform: 'scale(1.12,.88)', offset: .8 }, { transform: 'none' }], 0, 220, E.std, 'forwards');
+      if (k === 'b') A('icon', [{ transform: 'none' }, { transform: 'translateY(4px) scale(1.02,.95)', offset: .45 }, { transform: 'none' }], 0, 220, E.std, 'forwards');
+      if (k === 'c') A('icon', [{ transform: 'none' }, { transform: 'rotateY(-10deg) rotateX(4deg)', offset: .5 }, { transform: 'none' }], 0, 240, E.std, 'forwards');
+      A('icon', [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], 200, 220, E.std, 'forwards');
+      ihead(); ['wr','we','wp','wi','wdot'].forEach(n => show(n, 240, 200, 'both'));
+      ui(240, 30, 8, 260);
+      return;
+    }
+    A('skip', [{ opacity: 0 }, { opacity: 1 }], 200, 200, 'linear'); hide('skip', 2300, 200);
+
+    if (k === 'a') {
+      A('idot', [
+        { opacity: 0, transform: 'translate(-40px,-155px) scale(0)' },
+        { opacity: 1, transform: 'translate(-40px,-155px) scale(1)', offset: .12, easing: E.std },
+        { opacity: 1, transform: 'translate(-40px,-166px) scale(.9,1.12)', offset: .22, easing: E.inn },
+        { opacity: 1, transform: 'translate(-40px,45px) scale(1.35,.65)', offset: .4, easing: E.out },
+        { opacity: 1, transform: 'translate(-40px,10px) scale(.9,1.1)', offset: .5, easing: E.std },
+        { opacity: 1, transform: 'translate(-20px,-42px) scale(1)', offset: .62, easing: E.inn },
+        { opacity: 1, transform: 'translate(0,0) scale(1.18,.84)', offset: .78, easing: E.out },
+        { opacity: 1, transform: 'translate(0,-4px) scale(.96,1.04)', offset: .88 },
+        { opacity: 1, transform: 'none' }], 0, 1400, 'linear');
+      A('ir', [{ opacity: 1, clipPath: 'inset(100% 0 0 0)', transform: 'translateY(6px)' }, { opacity: 1, clipPath: 'inset(0% 0 0 0)', transform: 'translateY(-3px)', offset: .75 }, { opacity: 1, clipPath: 'inset(0% 0 0 0)', transform: 'none' }], 560, 380, E.out);
+      A('tilebox', [{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], 600, 500, E.std);
+      A('tilebox', [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(1.08)' }], 1600, 350, E.std, 'forwards');
+      morphR(1600); letters(1750, 70, E.out); dotHop(1700); fly(2150);
+    }
+    if (k === 'b') {
+      A('tilebox', [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], 0, 300, E.std);
+      ['t1','t2','t3'].forEach((n, i) => { show(n, 100, 200); A(n, [{ background: '#2D3B4F', transform: 'scale(.6)' }, { background: '#00D1FF', transform: 'scale(1)' }], 370 + i * 230, 160, E.spring, 'forwards'); hide(n, 1150, 250); });
+      A('ir', [
+        { opacity: 1, clipPath: 'inset(100% 0 0 0)', easing: E.snap },
+        { opacity: 1, clipPath: 'inset(68% 0 0 0)', offset: .24 },
+        { opacity: 1, clipPath: 'inset(68% 0 0 0)', offset: .33, easing: E.snap },
+        { opacity: 1, clipPath: 'inset(36% 0 0 0)', offset: .57 },
+        { opacity: 1, clipPath: 'inset(36% 0 0 0)', offset: .66, easing: E.snap },
+        { opacity: 1, clipPath: 'inset(0% 0 0 0)', offset: .9 },
+        { opacity: 1, clipPath: 'inset(0% 0 0 0)' }], 200, 700, 'linear');
+      A('idot', [{ opacity: 0, transform: 'translateY(-24px) scale(0)' }, { opacity: 1, transform: 'translateY(0) scale(1.2,.85)', offset: .6 }, { opacity: 1, transform: 'none' }], 900, 380, E.out);
+      A('icon', [{ transform: 'none' }, { transform: 'translateY(5px) scale(1.02,.95)', offset: .35 }, { transform: 'translateY(-3px) scale(.99,1.02)', offset: .7 }, { transform: 'none' }], 1250, 420, E.std, 'forwards');
+      A('tilebox', [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(1.08)' }], 1700, 350, E.std, 'forwards');
+      morphR(1700); letters(1800, 90, E.snap, -10); dotHop(1760); fly(2200);
+    }
+    if (k === 'c') {
+      ['tilebox','ir'].forEach(n => A(n, [{ opacity: 1 }, { opacity: 1 }], 0, 1, 'linear'));
+      A('idot', [{ opacity: 1, transform: 'translateZ(28px)' }, { opacity: 1, transform: 'translateZ(28px)' }], 0, 1, 'linear');
+      A('icon', [
+        { opacity: 0, transform: 'translateZ(-260px) rotateX(28deg) rotateY(-34deg)' },
+        { opacity: 1, transform: 'translateZ(0) rotateX(-4deg) rotateY(10deg)', offset: .75 },
+        { opacity: 1, transform: 'rotateX(0) rotateY(0)' }], 0, 700, E.out);
+      A('sheen', [{ opacity: 1, transform: 'translateX(-110px) skewX(-18deg)' }, { opacity: 1, transform: 'translateX(130px) skewX(-18deg)' }], 350, 700, E.std);
+      A('icon', [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'rotateY(-9deg) rotateX(5deg)', offset: .45 }, { opacity: 1, transform: 'none' }], 750, 600, E.std, 'forwards');
+      A('idot', [{ transform: 'translateZ(28px)' }, { transform: 'translateZ(70px) translateY(-10px) scale(1.15)' }], 1250, 300, E.out, 'forwards');
+      A('icon', [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'rotateY(88deg)', offset: .95 }, { opacity: 0, transform: 'rotateY(90deg)' }], 1400, 260, E.inn, 'forwards');
+      ['wr','we','wp','wi'].forEach(n => show(n, 1660));
+      A('wmin', [{ transform: 'rotateY(-90deg)' }, { transform: 'none' }], 1660, 420, E.out);
+      A('wdot', [{ opacity: 1, transform: 'translate(-77px,13px) scale(1.15)' }, { opacity: 1, transform: 'translate(-30px,-34px) scale(1.05)', offset: .5 }, { opacity: 1, transform: 'translate(0,0) scale(1.18,.84)', offset: .85 }, { opacity: 1, transform: 'none' }], 1600, 480, E.std);
+      fly(2150);
+    }
+  }
+  skip(k) { (this.anims[k] || []).forEach(a => { try { a.finish(); } catch (e) {} }); }
+
+  renderVals() {
+    const s = this.state;
+    const concepts = ['a','b','c'].map(k => {
+      const M = META[k];
+      return { id: '1' + k, href: '#1' + k, title: M.title, idea: M.idea, R: this.refs2[k], dot: M.dot, quick: M.quick,
+        beats: M.beats.map(([t, d]) => ({ t, d })),
+        play: () => this.play(k), skip: () => this.skip(k),
+        modes: [['first','Primer inicio'],['quick','Regular'],['reduced','Reducido']].map(([m, l]) => ({ label: l, bg: s.mode[k] === m ? '#0B0F14' : 'transparent', ink: s.mode[k] === m ? '#00D1FF' : '#94A3B8',
+          pick: () => this.setState({ mode: { ...s.mode, [k]: m } }, () => this.play(k)) })),
+        toggleSlow: () => this.setState({ slow: { ...s.slow, [k]: !s.slow[k] } }, () => this.play(k)),
+        slowBd: s.slow[k] ? '#00D1FF' : '#2D3B4F', slowInk: s.slow[k] ? '#00D1FF' : '#94A3B8' };
+    });
+    return {
+      concepts,
+      week: ['L','M','M','J','V','S','D'].map((l, i) => ({ l, n: 14 + i, bg: i === 0 ? '#00D1FF' : '#1A2433', ink: i === 0 ? '#0B0F14' : '#F8FAFC', num: i === 0 ? '#00D1FF' : '#94A3B8' })),
+      tabs: ['Inicio','Entrenar','Progreso','Mensajes','Perfil'].map((l, i) => ({ l, ink: i === 0 ? '#00D1FF' : '#94A3B8' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

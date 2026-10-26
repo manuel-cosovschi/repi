@@ -1,0 +1,69 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			56 text VG Valentina Gómez Objetivo: hipertrofia · desde mar 2026 AP Agustín Pérez Tu entrenador · Plan mensual
+			57 button Mensaje
+			58 text Privacidad y permisos Elegí qué puede ver Agustín. Tus entrenamientos siempre se comparten porque son parte del plan.
+			59 switch Medidas corporales Agustín puede ver, Value: 1
+			60 switch Fotos de progreso Solo vos, Value: 0
+			61 switch Escaneos 3D No guardás este dato, Value: 0
+			62 switch Informes de composición No guardás este dato, Value: 0
+			63 switch Documentos de laboratorio No guardás este dato, Value: 0
+			64 switch Procesamiento con IA No guardás este dato, Value: 0
+			65 text Historial de accesos Compartiste Medidas con Agustín 12 mar 2026 Agustín vio tus medidas 20 may 2026
+			66 container
+				67 text Recordatorio de evaluación Cada 8 semanas
+			68 switch Celebraciones Récords y fin de entrenamiento animados, Value: 1
+			69 container
+				70 text Animación de inicio Ver de nuevo
+			71 container
+				72 text Exportar mis datos JSON + fotos
+			73 container
+				74 text Eliminar datos de Mi cuerpo Fotos, medidas, escaneos
+			41 button Inicio
+				42 image
+				43 text Inicio
+			44 button Entrenar
+				45 image
+				46 text Entrenar
+			47 button Progreso
+				48 image
+				49 text Progreso
+			50 button Mensajes
+				51 image
+				52 text Mensajes
+			53 button Gym
+				54 image
+				55 text Gym
+
+The focused UI element is 25 button Privacidad y permisos

@@ -1,0 +1,19 @@
+{
+  "source": "/Users/manuelcosovschi/Documents/ChatGPT/Proyectos/REPI_Auditoria_2026-10-25",
+  "destination": "/Users/manuelcosovschi/Desktop/Repi/handoff",
+  "copied_source_files": 154,
+  "existing_files_preserved": {
+    ".npmrc": "4b84eb91234d80d48c16b50746106405c4cd6d97581f7464001a7dc84dd9d185",
+    ".gitignore": "65910cd2438f8d0a6789d015f8a713d9954127ddcbf8b5d86b7a260ab7ad700f",
+    ".env.example": "a5cbc5740bbeb4622fd638800246af96e7e720ffc4e7be45d436a3f4024242b1"
+  },
+  "master_entry": "MASTER_PROMPT.md",
+  "master_changes": "Sólo contexto de carpeta, rutas y distinción entre fuentes auditadas y desarrollo; alcance y Concepto 2 conservados.",
+  "copied_files_sha256_verified": 154,
+  "copy_mismatches": [],
+  "existing_files_changed": [],
+  "broken_root_links": [],
+  "active_entry_verified": true,
+  "body_intelligence_pdf_present": true,
+  "verification": "PASS"
+}

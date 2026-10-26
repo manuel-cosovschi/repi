@@ -1,0 +1,25 @@
+{
+  "audit_date": "2026-10-25",
+  "source_files_checked": 89,
+  "source_changes": [],
+  "json_parse_errors": [],
+  "broken_delivery_links": [],
+  "missing_deliverables": [],
+  "prompt_checks": {
+    "scope_open": true,
+    "all_main_modules": true,
+    "design_preserved": true,
+    "real_vs_simulated": true,
+    "production_decisions_not_invented": true,
+    "runtime_bug_recorded": true
+  },
+  "delivery_words": {
+    "04_MAPA_DE_PANTALLAS.md": 2220,
+    "02_MASTER_PROMPT_CLAUDE_CODE.md": 5448,
+    "01_ANALISIS_DEL_ZIP_Y_HANDOFF.md": 2370,
+    "03_DECISIONES_Y_FALTANTES.md": 1237
+  },
+  "limits": "Auditoría estática completa de la entrega, navegación de los ocho HTML y pruebas seleccionadas. No certifica todos los recorridos, responsive completo, producción, seguridad o ciencia.",
+  "temporary_browser_tabs_closed": 8,
+  "temporary_http_server_stopped": true
+}

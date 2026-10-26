@@ -1,0 +1,79 @@
+{
+  "method": "Lógica JavaScript aislada en Node vm. No navegador/DOM real, red ni almacenamiento. DCLogic.setState reemplaza objeto estado de forma síncrona; temporizadores sin ejecución. No equivale a prueba integral de React.",
+  "results": [
+    {
+      "file": "REPI Desktop Gym.dc.html",
+      "logic": "compiló; renderVals devolvió 281 claves"
+    },
+    {
+      "file": "REPI Desktop Coach.dc.html",
+      "logic": "compiló; renderVals devolvió 73 claves"
+    },
+    {
+      "file": "REPI Admin.dc.html",
+      "logic": "compiló; renderVals devolvió 63 claves"
+    },
+    {
+      "file": "REPI App Alumno v3.dc.html",
+      "logic": "compiló; renderVals devolvió 201 claves"
+    },
+    {
+      "file": "REPI Motion Intro.dc.html",
+      "logic": "compiló; renderVals devolvió 3 claves"
+    },
+    {
+      "file": "legacy/REPI App Alumno v1.dc.html",
+      "logic": "compiló; renderVals devolvió 147 claves"
+    },
+    {
+      "file": "legacy/REPI App Alumno v2.dc.html",
+      "logic": "compiló; renderVals devolvió 160 claves"
+    },
+    {
+      "file": "legacy/REPI Escritorio (incompleto).dc.html",
+      "logic": "no hay data-dc-script"
+    },
+    {
+      "test": "seleccionar miércoles Piernas e iniciar",
+      "day": 2,
+      "screen": "workout",
+      "firstExercise": "Press de banca",
+      "expected": "Sentadilla según WORKOUTS.P"
+    },
+    {
+      "test": "crear cliente admin",
+      "error": "\"undefined\" is not valid JSON",
+      "clientsAfter": 9,
+      "screen": "overview"
+    },
+    {
+      "test": "asignar a 2 clientes y editar",
+      "clients": [
+        {
+          "id": "c1",
+          "prog": "p1",
+          "name": "Rutina modificada"
+        },
+        {
+          "id": "c2",
+          "prog": "p1",
+          "name": "Rutina modificada"
+        }
+      ],
+      "startPersisted": false
+    },
+    {
+      "test": "reseña retirada sigue afectando métrica",
+      "before": 22,
+      "after": 23
+    },
+    {
+      "test": "doble ejecución repi-shared reemplaza store y deja suscriptores anteriores sin notificación local",
+      "differentStore": true,
+      "storedTitle": "prueba",
+      "notificationsAfterLocalWrite": 0,
+      "notificationsAfterStorageEvent": 1,
+      "source": "support.js1437–1446 reinserta scripts helmet; HTML contiene repi-shared en helmet"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 button Volver
+				33 image
+			34 text Mi cuerpo
+			35 button 20 may 2026
+				36 text 20 may 2026
+				37 image
+			38 button Comparar fechas
+			39 container
+				40 container Visor 3D del cuerpo. Arrastrá para rotar, tocá una zona para ver datos.
+				41 text Modelo genérico de referencia
+				42 button Acercar
+				43 button Alejar
+				44 button Restablecer vista
+					45 image
+				46 button Frente
+				47 button Espalda
+				48 button Izq.
+				49 button Der.
+			50 button Exterior
+			51 button Músculos
+			52 button Composición
+			53 container
+				54 button Pecho
+				55 button Hombros
+				56 button Espalda
+				57 button Brazos
+				58 button Core
+				59 button Glúteos
+				60 button Cuádriceps
+				61 button Isquiotibiales
+				62 button Pantorrillas
+			63 text Composición corporal Masa corporal Balanza hogareña · medido ·  20 may 2026 72,4 kg % grasa · masa magra Requiere DXA, bioimpedancia o pliegues Datos insuficientes
+			64 button Subir evaluación (PDF o foto)
+			65 text Las fotos y el modelo 3D no pueden estimar grasa ni músculo con precisión.
+			66 button Nueva evaluación
+			67 text Próximo recordatorio:  Cada 8 semanas  · Configurable en Perfil
+
+The focused UI element is 16 button Visor 3D

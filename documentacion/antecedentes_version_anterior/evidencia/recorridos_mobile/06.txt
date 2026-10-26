@@ -1,0 +1,77 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 heading Progreso, Value: 1
+				33 text Progreso
+			34 button Notificaciones
+				35 image
+			36 button Fuerza
+			37 button Volumen
+			38 button Constancia
+			39 button Medidas
+			40 button Press de banca
+				41 text Press de banca
+				42 image
+			43 button 3M
+			44 button 6M
+			45 button 1A
+			46 container
+				47 text 120 100 80 60 40
+				48 image
+				49 container
+					50 text 85 kg
+					51 text 12 may
+				52 text Ene Feb Mar Abr May Jun
+			53 image
+			54 text Máximo personal 85  kg 12 de mayo de 2026 Historial de series 85 kg x 10 12 may 80 kg x 10 5 may 80 kg x 8 28 abr
+			55 container
+				56 image
+				57 text Mi cuerpo Modelo 3D, medidas y evaluaciones
+				58 image
+			59 button Inicio
+				60 image
+				61 text Inicio
+			62 button Entrenar
+				63 image
+				64 text Entrenar
+			65 button Progreso
+				66 image
+				67 text Progreso
+			68 button Mensajes
+				69 image
+				70 text Mensajes
+			71 button Gym
+				72 image
+				73 text Gym
+
+The focused UI element is 10 button Progreso

@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "repi-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@repi/web",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "repi-web-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@repi/web",
+        "start"
+      ],
+      "port": 3000
+    }
+  ]
+}

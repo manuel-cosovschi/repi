@@ -1,0 +1,13 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 58, 60-63, 65-74
+~			56 text Gym Norte · Palermo
+~			57 heading Tu gym, Value: 1
++				58 text Tu gym
+~			59 tab group
++				60 tab (selectable, settable, boolean) Novedades, Value: 0
++				61 tab (selectable, settable, boolean) Desafíos, Value: 0
++				62 tab (selectable, settable, boolean) Recepción, Value: 0
++				63 tab (selectable, settable, boolean) Logros, Value: 0
+~			64 text Novedad 18 may Nueva zona de peso libre Desde el lunes sumamos 2 racks y mancuernas hasta 50 kg en planta alta. 20% OFF 15 may 20% off en proteína whey Mostrando la app en recepción, hasta el 31 de mayo. Novedad 12 may Clase abierta de movilidad Sábado 10:00 en el salón 2, con Sofía. Cupo libre.
+The focused UI element is 19 button Novedades y descuentos

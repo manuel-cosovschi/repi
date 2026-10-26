@@ -1,0 +1,40 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 heading ¡Torso A completo!, Value: 1
+				33 text ¡Torso A completo!
+			34 text Cada repetición cuenta. Hoy sumaste  2  series. 14 min Duración 0 /4 Ejercicios 2 / 14 Series Resumen Press de banca 2 × 10/10 · 80 kg Remo con barra No registrado Press militar No registrado Elevaciones laterales No registrado
+			35 button Ver mi progreso
+			36 button Volver al inicio
+
+The focused UI element is 9 button Entrenamiento completado

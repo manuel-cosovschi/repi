@@ -1,0 +1,362 @@
+[
+  {
+    "path": "assets/brand-original/00_ORIGINAL/REPI_MARCA_APROBADA_REFERENCIA_MAESTRA.png",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 2404211,
+    "sha256": "84e3c872c7bc18f6c2f2065cebf5f7cf2f5aacb7e7ab0c13f66789486bc0ab90"
+  },
+  {
+    "path": "assets/brand-original/01_MARCA/icono_principal_recorte.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 22770,
+    "sha256": "977459ecde34aabdce0dc187ff692d91f181bd2fce6b39c4164059d8272a47cf"
+  },
+  {
+    "path": "assets/brand-original/01_MARCA/icono_y_variantes_exacto.png",
+    "width": 279,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 71723,
+    "sha256": "3bf093bebee9f933b3451b162602fbf27db87c732b588698483ae7178d93d671"
+  },
+  {
+    "path": "assets/brand-original/01_MARCA/logo_original_exacto.png",
+    "width": 475,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 119729,
+    "sha256": "7b1ae43b4021b70c2d42d5df0a523b59337780b81aa356a37502e3786a77560d"
+  },
+  {
+    "path": "assets/brand-original/01_MARCA/paleta_original_exacta.png",
+    "width": 538,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 147990,
+    "sha256": "0d27901ce23aaa5275a94bdc176798cd256af2ebd9343ed69994a4fb975ce355"
+  },
+  {
+    "path": "assets/brand-original/01_MARCA/tipografia_original_exacta.png",
+    "width": 237,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 93330,
+    "sha256": "eac15d3c558c5f390915318fb98f7172b290e6977121a17719a2de48185bf134"
+  },
+  {
+    "path": "assets/brand-original/02_ENTRENADOR/constructor_original_exacto.png",
+    "width": 788,
+    "height": 313,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 246832,
+    "sha256": "fe2cee9d1b0e9f48c7f1c3e2d63a21430757d332eacc4afb35a77b1a9029024b"
+  },
+  {
+    "path": "assets/brand-original/02_ENTRENADOR/dashboard_original_exacto.png",
+    "width": 787,
+    "height": 408,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 316441,
+    "sha256": "b576730e8795b31b58c0d8cda1e767c4d671322217c8ab4dee04c52c466f4874"
+  },
+  {
+    "path": "assets/brand-original/02_ENTRENADOR/perfil_alumno_original_exacto.png",
+    "width": 457,
+    "height": 242,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 119587,
+    "sha256": "872fe20879e8aa467b2cfea1c5b0f3626576b7814e274f554eee645c4750f640"
+  },
+  {
+    "path": "assets/brand-original/03_ALUMNO/entrenamiento_original_exacto.png",
+    "width": 258,
+    "height": 475,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 140214,
+    "sha256": "a21d14d1cda4ed3fde61d102d068721d65e017aff0417fac5cf042613840bb74"
+  },
+  {
+    "path": "assets/brand-original/03_ALUMNO/inicio_original_exacto.png",
+    "width": 224,
+    "height": 475,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 130230,
+    "sha256": "d4de0234a6b26094b8f3ebe106df2a7861c0813ee158f5da4cb83ed7c2004610"
+  },
+  {
+    "path": "assets/brand-original/03_ALUMNO/progreso_original_exacto.png",
+    "width": 255,
+    "height": 475,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 132675,
+    "sha256": "6d0f0adf03d2dd4b3772df39f85957c3fb36c01185440c7c75cc18197a504c84"
+  },
+  {
+    "path": "assets/brand-original/03_ALUMNO/vista_app_icono_original_exacto.png",
+    "width": 284,
+    "height": 241,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 76232,
+    "sha256": "dda68d88168120a45ec7b11e351846a19d9c62da518e03db3cdae41b35b25b5c"
+  },
+  {
+    "path": "assets/icons/layers/icon_r_white_alpha.png",
+    "width": 56,
+    "height": 88,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 1684,
+    "sha256": "14cfd683c2b01f22f7fbf0f7fa332e79a46abcbb8036bb45a78341f653084f49"
+  },
+  {
+    "path": "assets/icons/layers/icon_tile_empty.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 24482,
+    "sha256": "4aa01be953eea3b71e1f9b1abe6b4e69a95f5aa081ca1b7c7505bd99cf07ae22"
+  },
+  {
+    "path": "assets/icons/repi_app_icon_original_crop.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 22770,
+    "sha256": "977459ecde34aabdce0dc187ff692d91f181bd2fce6b39c4164059d8272a47cf"
+  },
+  {
+    "path": "assets/logos/layers/wm_e.png",
+    "width": 103,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 4144,
+    "sha256": "18837c7267b43a920585714863d7c2b6c439bc3f04125f75f3b06a91fe026dfd"
+  },
+  {
+    "path": "assets/logos/layers/wm_full_white_alpha_no_dot.png",
+    "width": 315,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 10450,
+    "sha256": "3e4ea034e152432bda4fdd0876bf08828b7ff147be10961c3d68ec43b5c400f0"
+  },
+  {
+    "path": "assets/logos/layers/wm_i_stem_no_dot.png",
+    "width": 36,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 1381,
+    "sha256": "037cec500a0c7f1bf30c6c50b56fbb9cec1f9ee9f6cf83c1bc22fcba5367aed1"
+  },
+  {
+    "path": "assets/logos/layers/wm_p.png",
+    "width": 107,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 4066,
+    "sha256": "f3fc9c4fefdc1047c573283c9ee7b0314c56d867e46d29edd3cd2a9e26ae54d6"
+  },
+  {
+    "path": "assets/logos/layers/wm_r.png",
+    "width": 69,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 2112,
+    "sha256": "ea8f67312f1246cbd8c24c4b13562c205347553be589b755527931b4cfa159b0"
+  },
+  {
+    "path": "assets/logos/repi_wordmark_original_crop.png",
+    "width": 475,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 119729,
+    "sha256": "7b1ae43b4021b70c2d42d5df0a523b59337780b81aa356a37502e3786a77560d"
+  },
+  {
+    "path": "prototypes/assets/motion/icon_r.png",
+    "width": 56,
+    "height": 88,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 1684,
+    "sha256": "14cfd683c2b01f22f7fbf0f7fa332e79a46abcbb8036bb45a78341f653084f49"
+  },
+  {
+    "path": "prototypes/assets/motion/tile_empty.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 24482,
+    "sha256": "4aa01be953eea3b71e1f9b1abe6b4e69a95f5aa081ca1b7c7505bd99cf07ae22"
+  },
+  {
+    "path": "prototypes/assets/motion/wm_e.png",
+    "width": 103,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 4144,
+    "sha256": "18837c7267b43a920585714863d7c2b6c439bc3f04125f75f3b06a91fe026dfd"
+  },
+  {
+    "path": "prototypes/assets/motion/wm_full.png",
+    "width": 315,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 10450,
+    "sha256": "3e4ea034e152432bda4fdd0876bf08828b7ff147be10961c3d68ec43b5c400f0"
+  },
+  {
+    "path": "prototypes/assets/motion/wm_i.png",
+    "width": 36,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 1381,
+    "sha256": "037cec500a0c7f1bf30c6c50b56fbb9cec1f9ee9f6cf83c1bc22fcba5367aed1"
+  },
+  {
+    "path": "prototypes/assets/motion/wm_p.png",
+    "width": 107,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 4066,
+    "sha256": "f3fc9c4fefdc1047c573283c9ee7b0314c56d867e46d29edd3cd2a9e26ae54d6"
+  },
+  {
+    "path": "prototypes/assets/motion/wm_r.png",
+    "width": 69,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 2112,
+    "sha256": "ea8f67312f1246cbd8c24c4b13562c205347553be589b755527931b4cfa159b0"
+  },
+  {
+    "path": "prototypes/assets/repi_icon.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 22770,
+    "sha256": "977459ecde34aabdce0dc187ff692d91f181bd2fce6b39c4164059d8272a47cf"
+  },
+  {
+    "path": "prototypes/assets/repi_logo.png",
+    "width": 475,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 119729,
+    "sha256": "7b1ae43b4021b70c2d42d5df0a523b59337780b81aa356a37502e3786a77560d"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/icon_r.png",
+    "width": 56,
+    "height": 88,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 1684,
+    "sha256": "14cfd683c2b01f22f7fbf0f7fa332e79a46abcbb8036bb45a78341f653084f49"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/tile_empty.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 24482,
+    "sha256": "4aa01be953eea3b71e1f9b1abe6b4e69a95f5aa081ca1b7c7505bd99cf07ae22"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/wm_e.png",
+    "width": 103,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 4144,
+    "sha256": "18837c7267b43a920585714863d7c2b6c439bc3f04125f75f3b06a91fe026dfd"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/wm_full.png",
+    "width": 315,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 10450,
+    "sha256": "3e4ea034e152432bda4fdd0876bf08828b7ff147be10961c3d68ec43b5c400f0"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/wm_i.png",
+    "width": 36,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 1381,
+    "sha256": "037cec500a0c7f1bf30c6c50b56fbb9cec1f9ee9f6cf83c1bc22fcba5367aed1"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/wm_p.png",
+    "width": 107,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 4066,
+    "sha256": "f3fc9c4fefdc1047c573283c9ee7b0314c56d867e46d29edd3cd2a9e26ae54d6"
+  },
+  {
+    "path": "prototypes/legacy/assets/motion/wm_r.png",
+    "width": 69,
+    "height": 154,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 2112,
+    "sha256": "ea8f67312f1246cbd8c24c4b13562c205347553be589b755527931b4cfa159b0"
+  },
+  {
+    "path": "prototypes/legacy/assets/repi_icon.png",
+    "width": 162,
+    "height": 162,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 22770,
+    "sha256": "977459ecde34aabdce0dc187ff692d91f181bd2fce6b39c4164059d8272a47cf"
+  },
+  {
+    "path": "prototypes/legacy/assets/repi_logo.png",
+    "width": 475,
+    "height": 297,
+    "mode": "RGBA",
+    "alpha": true,
+    "bytes": 119729,
+    "sha256": "7b1ae43b4021b70c2d42d5df0a523b59337780b81aa356a37502e3786a77560d"
+  }
+]

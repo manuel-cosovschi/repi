@@ -1,0 +1,59 @@
+{
+  "client_app_tabbar": [
+    "Inicio → SCR-M-02",
+    "Entrenar → SCR-M-03",
+    "Progreso → SCR-M-06 (Mi cuerpo anidado)",
+    "Mensajes → SCR-M-17",
+    "Gym → SCR-M-19..23 (solo socios de gym) / Perfil → SCR-M-18 (alumno de coach)"
+  ],
+  "client_app_header": [
+    "Avatar → SCR-M-18",
+    "Campana → SCR-M-24"
+  ],
+  "gym_trainer": [
+    "shift SCR-GT-01",
+    "queue SCR-GT-02",
+    "members SCR-GT-03",
+    "handoff SCR-GT-04",
+    "perf SCR-GT-05"
+  ],
+  "gym_manager": [
+    "mdash SCR-GM-01",
+    "pc SCR-GM-02",
+    "staff SCR-GM-03 → SCR-GM-04",
+    "tasks SCR-GM-05",
+    "reviews SCR-GM-06",
+    "shifts SCR-GM-07",
+    "engage SCR-GM-08",
+    "community SCR-GC-01",
+    "validations SCR-GC-02"
+  ],
+  "gym_owner": [
+    "exec SCR-GO-01",
+    "locs SCR-GO-02",
+    "pc SCR-GM-02 (Equipo y servicio, filtro de sede)",
+    "community SCR-GC-01",
+    "validations SCR-GC-02",
+    "billing SCR-GO-03",
+    "config SCR-GO-04"
+  ],
+  "coach": [
+    "dashboard SCR-C-01",
+    "clients SCR-C-02 (tabs a–h)",
+    "programs SCR-C-03",
+    "messages SCR-C-04",
+    "payments SCR-C-05"
+  ],
+  "admin": [
+    "overview SCR-A-01",
+    "clients SCR-A-02 → SCR-A-03",
+    "invoices SCR-A-04",
+    "plans SCR-A-05"
+  ],
+  "workspace_switcher": "Sidebar desktop: lista StaffMembership/relación del usuario; Gym Norte ↔ Agustín Pérez Coach (SCR-GX-09)",
+  "desktop_breakpoints": {
+    "full_sidebar": ">=1100px (248px)",
+    "icon_rail": "768–1099px (72px)",
+    "drawer": "<768px (hamburguesa + top bar sticky)"
+  }
+}

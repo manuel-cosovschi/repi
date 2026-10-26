@@ -1,0 +1,44 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 button Volver
+				33 image
+			34 text Mi cuerpo 1/5
+			35 heading Seguí tu cuerpo, a tu manera., Value: 1
+				36 text Seguí tu cuerpo, a tu manera.
+			37 text Medidas, fotos de progreso y evaluaciones en un solo lugar, junto a tu entrenamiento. Vos decidís qué se guarda y quién lo ve. 1 Privado por defecto Nada se comparte con tu entrenador sin tu permiso, dato por dato. 2 Sin fotos obligatorias Podés usar solo medidas. Las fotos nunca requieren ropa interior. 3 Seguimiento, no diagnóstico Mostramos lo que medís. Si algo no se puede medir, te lo decimos.
+			38 button Elegir qué guardar
+			39 button Ahora no
+			40 text Tu entrenamiento funciona igual si no activás Mi cuerpo.
+
+The focused UI element is 12 button Introducción

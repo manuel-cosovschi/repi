@@ -1,0 +1,49 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 button Volver
+				33 image
+			34 text Privacidad 2/5
+			35 heading ¿Qué querés guardar?, Value: 1
+				36 text ¿Qué querés guardar?
+			37 text Todo empieza desactivado. Guardar no es compartir: tu entrenador no ve nada hasta que vos lo habilites.
+			38 switch Medidas corporales Peso, circunferencias y pliegues., Value: 0
+			39 switch Fotos de progreso Frente, espalda y perfiles. Cifradas., Value: 0
+			40 switch Escaneos 3D Capturas multiángulo. Experimental., Value: 0
+			41 switch Informes de composición DXA, bioimpedancia, antropometría., Value: 0
+			42 switch Documentos de laboratorio Análisis de sangre y otros informes., Value: 0
+			43 switch Procesamiento con IA Extraer valores de documentos. Siempre lo revisás vos., Value: 0
+			44 text Podés cambiar esto, exportar o borrar tus datos cuando quieras desde Perfil › Privacidad. Mi cuerpo no es un servicio médico ni hace diagnósticos.
+			45 button Activá al menos un dato
+
+The focused UI element is 13 button Consentimiento

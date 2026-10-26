@@ -1,0 +1,26 @@
+[
+  {
+    "level": "warn",
+    "message": "[dc-runtime] REPI Escritorio (incompleto): {{ W.mark }} never resolved — rendered as empty",
+    "timestamp": "2026-10-25T18:44:04.010Z",
+    "url": "http://127.0.0.1:8765/legacy/support.js"
+  },
+  {
+    "level": "warn",
+    "message": "[dc-runtime] REPI Escritorio (incompleto): {{ P.ini }} never resolved — rendered as empty",
+    "timestamp": "2026-10-25T18:44:04.010Z",
+    "url": "http://127.0.0.1:8765/legacy/support.js"
+  },
+  {
+    "level": "warn",
+    "message": "[dc-runtime] REPI Escritorio (incompleto): {{ title }} never resolved — rendered as empty",
+    "timestamp": "2026-10-25T18:44:04.010Z",
+    "url": "http://127.0.0.1:8765/legacy/support.js"
+  },
+  {
+    "level": "warn",
+    "message": "[dc-runtime] REPI Escritorio (incompleto): {{ subtitle }} never resolved — rendered as empty",
+    "timestamp": "2026-10-25T18:44:04.010Z",
+    "url": "http://127.0.0.1:8765/legacy/support.js"
+  }
+]

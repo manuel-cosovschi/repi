@@ -1,0 +1,420 @@
+{
+  "legend": {
+    "Own": "propios",
+    "Scoped": "asignados/sede",
+    "Grant": "consentimiento explícito, por propósito, revocable",
+    "—": "sin acceso"
+  },
+  "roles": [
+    "Coach independiente",
+    "Alumno (cliente)",
+    "Dueño de gym",
+    "Gerente",
+    "Coordinador",
+    "Entrenador de sala",
+    "Recepción",
+    "Socio de gym",
+    "REPI Admin"
+  ],
+  "matrix": [
+    {
+      "resource": "Programa/rutina (coach privado)",
+      "access": {
+        "Coach independiente": "Own (crea, edita, asigna)",
+        "Alumno (cliente)": "Own (lee)",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Programa institucional del gym",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Lee (necesidad operativa)",
+        "Gerente": "Lee / edita si policy",
+        "Coordinador": "Scoped edita",
+        "Entrenador de sala": "Scoped edita (turno activo)",
+        "Recepción": "—",
+        "Socio de gym": "Own (lee)",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Historial de entrenamiento",
+      "access": {
+        "Coach independiente": "Sus clientes",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "Agregados",
+        "Gerente": "Agregados + scoped",
+        "Coordinador": "Scoped",
+        "Entrenador de sala": "Scoped (sede)",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Perfil del cliente",
+      "access": {
+        "Coach independiente": "Sus clientes",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "Básico",
+        "Gerente": "Básico",
+        "Coordinador": "Scoped",
+        "Entrenador de sala": "Scoped",
+        "Recepción": "Básico",
+        "Socio de gym": "Own",
+        "REPI Admin": "Datos de cuenta"
+      }
+    },
+    {
+      "resource": "Notas institucionales",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Lee",
+        "Gerente": "Lee",
+        "Coordinador": "Lee/escribe",
+        "Entrenador de sala": "Lee/escribe",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Notas personales del entrenador",
+      "access": {
+        "Coach independiente": "Autor",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "Autor",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Chats privados",
+      "access": {
+        "Coach independiente": "Participante",
+        "Alumno (cliente)": "Participante",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "Participante (si existe)",
+        "Recepción": "—",
+        "Socio de gym": "Participante",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Metadatos de chat",
+      "access": {
+        "Coach independiente": "Propios",
+        "Alumno (cliente)": "Propios",
+        "Dueño de gym": "Agregado",
+        "Gerente": "Agregado",
+        "Coordinador": "Agregado",
+        "Entrenador de sala": "Propios",
+        "Recepción": "—",
+        "Socio de gym": "Propios",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Tareas operativas",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Gym",
+        "Gerente": "Gym (reasigna)",
+        "Coordinador": "Sede",
+        "Entrenador de sala": "Asignadas + cola",
+        "Recepción": "Crear",
+        "Socio de gym": "Propias solicitudes",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Desempeño del personal",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Gym",
+        "Gerente": "Equipo",
+        "Coordinador": "Equipo sede",
+        "Entrenador de sala": "Propio",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Reseñas: leer texto",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Gym (con nombre)",
+        "Gerente": "Gym (con nombre)",
+        "Coordinador": "Sede",
+        "Entrenador de sala": "Propias (sin nombre)",
+        "Recepción": "—",
+        "Socio de gym": "Propias",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Reseñas: moderar",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Si moderator",
+        "Gerente": "Si moderator",
+        "Coordinador": "Si moderator",
+        "Entrenador de sala": "Reportar/disputar",
+        "Recepción": "—",
+        "Socio de gym": "Reportar",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Facturación REPI (SaaS)",
+      "access": {
+        "Coach independiente": "Propia (lee)",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Full",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "Full (edita)"
+      }
+    },
+    {
+      "resource": "Cobros coach→cliente",
+      "access": {
+        "Coach independiente": "Full",
+        "Alumno (cliente)": "Own (lee)",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Cobros gym→socio",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Fuera de alcance (DEC-10)",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Fotos de progreso",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "Grant",
+        "Entrenador de sala": "Grant",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Modelo 3D / escaneo",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "Grant",
+        "Entrenador de sala": "Grant",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Medidas corporales",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "Grant",
+        "Entrenador de sala": "Grant",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Informes de composición",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "Grant",
+        "Entrenador de sala": "Grant",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Laboratorio / documentos médicos",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "Grant",
+        "Entrenador de sala": "Grant",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Salud: lesiones, molestias, condiciones",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "Grant",
+        "Entrenador de sala": "Grant",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Nutrición",
+      "access": {
+        "Coach independiente": "Grant",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Posts / desafíos / catálogo del gym",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Publica",
+        "Gerente": "Publica",
+        "Coordinador": "Si community.publish",
+        "Entrenador de sala": "Lee",
+        "Recepción": "Publica catálogo",
+        "Socio de gym": "Lee",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Intentos de récord (video)",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Valida",
+        "Gerente": "Valida",
+        "Coordinador": "Si challenges.validate",
+        "Entrenador de sala": "Si challenges.validate",
+        "Recepción": "—",
+        "Socio de gym": "Crea/lee propios",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "App del alumno / relación coach privada",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "Own",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "Own",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Configuración de la organización",
+      "access": {
+        "Coach independiente": "Propia",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "Full",
+        "Gerente": "Sede",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "—"
+      }
+    },
+    {
+      "resource": "Suscripciones de clientes REPI",
+      "access": {
+        "Coach independiente": "—",
+        "Alumno (cliente)": "—",
+        "Dueño de gym": "—",
+        "Gerente": "—",
+        "Coordinador": "—",
+        "Entrenador de sala": "—",
+        "Recepción": "—",
+        "Socio de gym": "—",
+        "REPI Admin": "Full"
+      }
+    },
+    {
+      "resource": "Auditoría de accesos",
+      "access": {
+        "Coach independiente": "Propios eventos",
+        "Alumno (cliente)": "Accesos a sus datos",
+        "Dueño de gym": "Gym",
+        "Gerente": "Gym",
+        "Coordinador": "Sede",
+        "Entrenador de sala": "Propios",
+        "Recepción": "—",
+        "Socio de gym": "Accesos a sus datos",
+        "REPI Admin": "Plataforma"
+      }
+    }
+  ],
+  "rules": [
+    "Autorizar por permiso, no por título de rol",
+    "Ningún rol accede a datos sensibles por ser de gestión",
+    "Permisos nunca se cruzan entre organizaciones",
+    "REPI Admin no accede a datos de entrenamiento, salud ni mensajes (solo cuenta y facturación)",
+    "Todo intento denegado genera AccessAuditEvent"
+  ]
+}

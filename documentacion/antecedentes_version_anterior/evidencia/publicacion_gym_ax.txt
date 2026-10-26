@@ -1,0 +1,74 @@
+Browser tab: 2, Title: "127.0.0.1:8765/REPI Desktop Gym.dc.html", URL: "http://127.0.0.1:8765/REPI%20Desktop%20Gym.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20Desktop%20Gym.dc.html
+	1 container dc-root
+		2 container
+			3 image repi
+			4 text GYM
+			5 button (collapsed) Description: Cambiar espacio de trabajo, Secondary Actions: Expand
+				6 text GN
+				7 text Gym Norte · Palermo
+				8 text Gerente de sede
+				9 image
+			10 container Principal
+				11 button Panel
+					12 image
+					13 text Panel
+				14 button Performance Center
+					15 image
+					16 text Performance Center
+				18 button Equipo
+					19 image
+					20 text Equipo
+				21 button Tareas 1, Help: Tareas
+					22 image
+					23 text Tareas
+					47 text 1
+				24 button Reseñas 1, Help: Reseñas
+					25 image
+					26 text Reseñas
+					48 text 1
+				49 button Turnos
+					50 image
+					51 text Turnos
+				52 button Participación
+					53 image
+					54 text Participación
+				55 button Comunidad
+					56 image
+					57 text Comunidad
+				58 button Validaciones 1, Help: Validaciones
+					59 image
+					60 text Validaciones
+					61 text 1
+			27 text LM Lucía Méndez Gerente de sede
+		28 container
+			29 text PROTOTIPO · VER COMO
+			30 checkbox AP Agustín · entrenador, Value: 0
+			31 checkbox SR Sofía · entrenadora, Value: 0
+			32 checkbox LM Lucía · gerente, Value: 1
+			33 checkbox MR Martín · dueño, Value: 0
+			62 text Se publica en la pestaña «Gym» de la app de los socios de Gym Norte
+			63 heading Comunidad, Value: 1
+				64 text Comunidad
+			65 button Prototipo: restablecer datos
+			66 tab group
+				67 tab (selectable, settable, boolean) Novedades y descuentos, Value: 0
+				68 tab (selectable, settable, boolean) Desafíos, Value: 0
+				69 tab (selectable, settable, boolean) Recepción, Value: 0
+			70 heading Nueva publicación, Value: 2
+				71 text Nueva publicación
+			72 button Novedad
+			73 button Descuento
+			74 text field (settable) Título
+			75 text entry area (settable) Texto
+			76 image
+			77 text Agregar imagen
+			78 button Publicar en la app
+			79 text sin imagen Novedad 18 may Nueva zona de peso libre Desde el lunes sumamos 2 racks y mancuernas hasta 50 kg en planta alta.
+			80 button Quitar
+			81 text sin imagen 20% OFF 15 may 20% off en proteína whey Mostrando la app en recepción, hasta el 31 de mayo.
+			82 button Quitar
+			83 text sin imagen Novedad 12 may Clase abierta de movilidad Sábado 10:00 en el salón 2, con Sofía. Cupo libre.
+			84 button Quitar
+
+The focused UI element is 78 button Publicar en la app

@@ -1,0 +1,147 @@
+Browser tab: 3, Title: "127.0.0.1:8765/REPI Desktop Coach.dc.html", URL: "http://127.0.0.1:8765/REPI%20Desktop%20Coach.dc.html".
+1 AXWebArea 127.0.0.1:8765/REPI%20Desktop%20Coach.dc.html
+	2 container dc-root
+		3 container
+			4 image repi
+			5 text COACH
+			6 button (collapsed) Description: Cambiar espacio de trabajo, Secondary Actions: Expand
+				7 text AP
+				8 text Agustín Pérez Coach
+				9 text Coach independiente
+				10 image
+			11 container Principal
+				12 button Panel
+					13 image
+					14 text Panel
+				15 button Clientes
+					16 image
+					17 text Clientes
+				18 button Programas
+					19 image
+					20 text Programas
+				21 button Mensajes 3, Help: Mensajes
+					22 image
+					23 text Mensajes
+					24 text 3
+				25 button Pagos
+					26 image
+					27 text Pagos
+			28 text AP Agustín Pérez Plan REPI Coach
+		29 container
+			30 text PROTOTIPO · REPI COACH DESKTOP Datos que el alumno registra en su app y decide compartir Programa · Valentina
+			31 text field (settable) Description: Nombre del programa, Value: Hipertrofia · 4 días
+			32 button Duplicar
+			33 button Asignar a clientes
+			34 text MIS PROGRAMAS
+			35 button Hipertrofia · 4 días 6 sem · 3 días · 1 clientes
+				36 text Hipertrofia · 4 días
+				37 text 6 sem · 3 días · 1 clientes
+			38 button Fuerza base · 3 días 8 sem · 2 días · 2 clientes
+				39 text Fuerza base · 3 días
+				40 text 8 sem · 2 días · 2 clientes
+			41 button Recomposición · 3 días 6 sem · 1 días · 1 clientes
+				42 text Recomposición · 3 días
+				43 text 6 sem · 1 días · 1 clientes
+			44 button + Programa en blanco
+			45 tab group
+				46 tab (selectable, settable, boolean) Torso A, Value: 0
+				47 tab (selectable, settable, boolean) Piernas, Value: 0
+				48 tab (selectable, settable, boolean) Torso B, Value: 0
+				49 button Agregar día
+			50 text 6  semanas ·  3  días por semana NOMBRE DEL DÍA
+			51 text field (settable) Description: Nombre del día, Value: Torso A
+			52 button Quitar día
+			53 text EJERCICIO SERIES REPS RIR DESCANSO 01 Press de banca
+			54 stepper (settable, integer) Description: Series, Value: 4
+			55 text field (settable) Description: Repeticiones, Value: 8-10
+			56 stepper (settable, integer) Description: RIR, Value: 2
+			57 text field (settable) Description: Descanso, Value: 2:00
+			58 button Subir
+			59 button Quitar
+			60 text 02 Remo con barra
+			61 stepper (settable, integer) Description: Series, Value: 4
+			62 text field (settable) Description: Repeticiones, Value: 8-10
+			63 stepper (settable, integer) Description: RIR, Value: 2
+			64 text field (settable) Description: Descanso, Value: 2:00
+			65 button Subir
+			66 button Quitar
+			67 text 03 Press militar
+			68 stepper (settable, integer) Description: Series, Value: 3
+			69 text field (settable) Description: Repeticiones, Value: 8-12
+			70 stepper (settable, integer) Description: RIR, Value: 2
+			71 text field (settable) Description: Descanso, Value: 1:30
+			72 button Subir
+			73 button Quitar
+			74 text 04 Elevaciones laterales
+			75 stepper (settable, integer) Description: Series, Value: 3
+			76 text field (settable) Description: Repeticiones, Value: 12-15
+			77 stepper (settable, integer) Description: RIR, Value: 1
+			78 text field (settable) Description: Descanso, Value: 1:00
+			79 button Subir
+			80 button Quitar
+			81 text Indicación para el cliente
+			82 text entry area (settable) Indicación para el cliente, Value: Semana de carga: RIR 2 en la última serie.
+			83 text BIBLIOTECA
+			84 text field (settable) Buscar ejercicio
+			85 button Press de banca Pecho +
+				86 text Press de banca
+				87 text Pecho
+				88 text +
+			89 button Press inclinado mancuernas Pecho +
+				90 text Press inclinado mancuernas
+				91 text Pecho
+				92 text +
+			93 button Remo con barra Espalda +
+				94 text Remo con barra
+				95 text Espalda
+				96 text +
+			97 button Jalón al pecho Espalda +
+				98 text Jalón al pecho
+				99 text Espalda
+				100 text +
+			101 button Remo en polea Espalda +
+				102 text Remo en polea
+				103 text Espalda
+				104 text +
+			105 button Press militar Hombros +
+				106 text Press militar
+				107 text Hombros
+				108 text +
+			109 button Elevaciones laterales Hombros +
+				110 text Elevaciones laterales
+				111 text Hombros
+				112 text +
+			113 button Sentadilla Piernas +
+				114 text Sentadilla
+				115 text Piernas
+				116 text +
+			117 button Peso muerto rumano Piernas +
+				118 text Peso muerto rumano
+				119 text Piernas
+				120 text +
+			121 button Prensa Piernas +
+				122 text Prensa
+				123 text Piernas
+				124 text +
+			125 button Hip thrust Glúteos +
+				126 text Hip thrust
+				127 text Glúteos
+				128 text +
+			129 button Curl femoral Piernas +
+				130 text Curl femoral
+				131 text Piernas
+				132 text +
+			133 button Curl con barra Brazos +
+				134 text Curl con barra
+				135 text Brazos
+				136 text +
+			137 button Fondos en paralelas Brazos +
+				138 text Fondos en paralelas
+				139 text Brazos
+				140 text +
+			141 button Plancha Core +
+				142 text Plancha
+				143 text Core
+				144 text +
+
+The focused UI element is 18 button Programas

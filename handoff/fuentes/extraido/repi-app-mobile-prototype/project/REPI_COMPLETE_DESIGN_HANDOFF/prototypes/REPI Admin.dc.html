@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F3F5F8}
+*{box-sizing:border-box}
+a{color:#007EA0;text-decoration:none}a:hover{color:#005F79;text-decoration:underline}
+input,select,textarea,button{font-family:'Inter Tight',system-ui,sans-serif}
+button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid #00D1FF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="min-height:100vh;display:flex;background:#F3F5F8;font-family:'Inter Tight',system-ui,sans-serif;color:#0B0F14;font-variant-numeric:tabular-nums">
+<aside style="width:{{ sideW }};flex:none;background:#0B0F14;color:#F8FAFC;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:18px;padding:20px 12px 16px;z-index:40">
+  <div style="display:flex;align-items:center;gap:10px;padding:0 8px;min-height:36px">
+    <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><div role="img" aria-label="repi" style="position:relative;width:58px;height:28px;flex:none"><img src="assets/motion/wm_full.png" alt="" style="width:57.3px;height:28px;display:block"><span style="position:absolute;left:50.9px;top:0.45px;width:5.8px;height:5.8px;border-radius:50%;background:#00D1FF"></span></div><span style="margin-left:auto;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5DE6D8">Admin</span></sc-if>
+    <sc-if value="{{ navRail }}" hint-placeholder-val="{{ false }}"><img src="assets/repi_icon.png" alt="repi" style="width:36px;height:36px;border-radius:9px;display:block"></sc-if>
+  </div>
+  <nav aria-label="Principal" style="display:flex;flex-direction:column;gap:2px">
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+      <button onClick="{{ n.go }}" title="{{ n.label }}" aria-current="{{ n.cur }}" style="height:40px;border:0;border-radius:10px;background:{{ n.bg }};color:{{ n.ink }};display:flex;align-items:center;gap:12px;padding:0 11px;font:500 14px 'Inter Tight',sans-serif;cursor:pointer" style-hover="background:#1A2433;color:#F8FAFC">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ n.icon }}"></path></svg>
+        <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><span style="flex:1;text-align:left">{{ n.label }}</span></sc-if>
+        <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#F59E0B;color:#0B0F14;font-size:11px;font-weight:700;display:grid;place-items:center">{{ n.badge }}</span></sc-if>
+      </button>
+    </sc-for>
+  </nav>
+  <div style="margin-top:auto;display:flex;gap:10px;align-items:center;padding:14px 8px 0;border-top:1px solid #1A2433">
+    <span style="width:34px;height:34px;border-radius:17px;background:#2D3B4F;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none">AD</span>
+    <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600">Administración REPI</span><span style="font-size:12px;color:#94A3B8">Acceso interno</span></span></sc-if>
+  </div>
+</aside>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column">
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 16px;background:#E6EBF1;border-bottom:1px solid #D5DCE5"><span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.05em;text-transform:uppercase;color:#475569">Prototipo · panel interno de REPI</span><span style="margin-left:auto;font-size:12px;color:#475569">Sin acceso a datos de entrenamiento, salud ni mensajes de los alumnos</span></div>
+  <div ref="{{ mainRef }}" style="flex:1;width:100%;max-width:1560px;padding:{{ pad }};display:flex;flex-direction:column;gap:20px">
+
+<sc-if value="{{ sc.overview }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Admin · Resumen" style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ periodTxt }}</span><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-.02em">Resumen</h1></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5"><button onClick="{{ k.go }}" style="text-align:left;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px;cursor:pointer;color:#0B0F14" style-hover="border-color:#9BE6F7"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:26px;font-weight:600;letter-spacing:-.01em">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></button></sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-size:16px;font-weight:600">Facturación mensual · 6 meses</h2><span style="font-size:12px;color:#5B6B80">Miles de ARS</span></div>
+      <div style="display:flex;align-items:flex-end;gap:12px;height:170px"><sc-for list="{{ mrrBars }}" as="b" hint-placeholder-count="6"><div title="{{ b.tip }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end"><span style="font-size:11px;color:#5B6B80">{{ b.v }}</span><div style="width:100%;display:flex;flex-direction:column;height:80%;justify-content:flex-end;gap:2px"><div style="height:{{ b.hg }};background:#00D1FF;border-radius:4px 4px 2px 2px"></div><div style="height:{{ b.hc }};background:#2D3B4F;border-radius:2px"></div></div><span style="font-size:11px;color:#5B6B80">{{ b.l }}</span></div></sc-for></div>
+      <div style="display:flex;gap:16px;font-size:12px;color:#5B6B80"><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#00D1FF"></span>Gimnasios</span><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#2D3B4F"></span>Entrenadores</span></div>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-size:16px;font-weight:600">Requieren atención</h2><button onClick="{{ goInvoices }}" style="border:0;background:none;color:#007EA0;font:600 13px 'Inter Tight',sans-serif;cursor:pointer">Cobros →</button></div>
+      <sc-for list="{{ attention }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.go }}" style="display:flex;gap:12px;align-items:center;text-align:left;padding:10px 0;border:0;border-bottom:1px solid #EEF2F6;background:none;cursor:pointer;color:#0B0F14"><span style="width:8px;height:8px;border-radius:4px;background:{{ a.dot }};flex:none"></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">{{ a.t }}</span><span style="font-size:12px;color:#5B6B80">{{ a.d }}</span></span><span style="font-size:13px;font-weight:600">{{ a.v }}</span></button></sc-for>
+      <sc-if value="{{ noAttention }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#5B6B80;padding:10px 0">Todo al día.</span></sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.clients }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Clientes" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ clientsSub }}</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Clientes</h1></div>
+    <button onClick="{{ openNew }}" style="height:42px;padding:0 18px;border-radius:12px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Nuevo cliente</button>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <label style="display:flex;align-items:center;gap:8px;height:40px;border:1px solid #D5DCE5;background:#FFFFFF;border-radius:10px;padding:0 12px;flex:1 1 240px;max-width:340px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input value="{{ q }}" onChange="{{ setQ }}" placeholder="Buscar por nombre o CUIT" aria-label="Buscar cliente" style="flex:1;border:0;outline:none;font-size:14px;min-width:0"></label>
+    <div style="display:flex;gap:2px;background:#E6EBF1;border-radius:12px;padding:3px"><sc-for list="{{ typeOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ o.label }}</button></sc-for></div>
+    <div style="display:flex;gap:2px;background:#E6EBF1;border-radius:12px;padding:3px;flex-wrap:wrap"><sc-for list="{{ stOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.pick }}" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ o.label }}</button></sc-for></div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;overflow-x:auto">
+    <div style="min-width:900px">
+      <div style="display:grid;grid-template-columns:minmax(200px,2fr) 110px minmax(130px,1fr) 120px 130px 120px 110px;gap:14px;padding:12px 16px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em"><span>Cliente</span><span>Tipo</span><span>Plan</span><span style="text-align:right">Facturables</span><span style="text-align:right">Monto del mes</span><span>Próximo cobro</span><span>Estado</span></div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+        <button onClick="{{ r.open }}" style="width:100%;display:grid;grid-template-columns:minmax(200px,2fr) 110px minmax(130px,1fr) 120px 130px 120px 110px;gap:14px;align-items:center;padding:12px 16px;border:0;border-bottom:1px solid #EEF2F6;background:{{ r.bg }};cursor:pointer;text-align:left;color:#0B0F14;font-size:14px" style-hover="background:#F4FBFD">
+          <span style="display:flex;gap:10px;align-items:center;min-width:0"><span style="width:34px;height:34px;border-radius:9px;background:#1A2433;color:#5DE6D8;display:grid;place-items:center;font-size:11px;font-weight:600;flex:none">{{ r.ini }}</span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="font-size:12px;color:#5B6B80">{{ r.sub }}</span></span></span>
+          <span><span style="height:22px;padding:0 8px;border-radius:6px;background:{{ r.typeBg }};color:{{ r.typeInk }};font-size:11px;font-weight:600;display:inline-flex;align-items:center">{{ r.typeTxt }}</span></span>
+          <span style="font-size:13px">{{ r.planName }}</span>
+          <span style="text-align:right;display:flex;flex-direction:column;gap:1px"><strong style="font-weight:600">{{ r.billTxt }}</strong><span style="font-size:11px;color:{{ r.trendInk }}">{{ r.trend }}</span></span>
+          <span style="text-align:right;font-weight:600">{{ r.amountTxt }}</span>
+          <span style="font-size:13px;color:#5B6B80">{{ r.nextTxt }}</span>
+          <span><span style="height:24px;padding:0 8px;border-radius:6px;background:{{ r.stBg }};color:{{ r.stInk }};font-size:12px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap">{{ r.stTxt }}</span></span>
+        </button>
+      </sc-for>
+      <sc-if value="{{ rowsEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:32px;text-align:center;font-size:14px;color:#5B6B80">Ningún cliente coincide.</div></sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.detail }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Suscripción" style="display:flex;flex-direction:column;gap:12px">
+    <button onClick="{{ goClients }}" style="align-self:flex-start;border:0;background:none;color:#007EA0;font:600 13px 'Inter Tight',sans-serif;cursor:pointer;padding:0;display:flex;gap:6px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"></path></svg>Clientes</button>
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+      <span style="width:56px;height:56px;border-radius:14px;background:#1A2433;color:#5DE6D8;display:grid;place-items:center;font-size:16px;font-weight:600">{{ c.ini }}</span>
+      <div style="flex:1 1 260px;display:flex;flex-direction:column;gap:4px"><span style="font-size:22px;font-weight:600">{{ c.name }}</span><span style="font-size:13px;color:#5B6B80">{{ c.typeTxt }} · {{ c.sub }} · CUIT {{ c.cuit }} · cliente desde {{ c.since }}</span></div>
+      <span style="height:28px;padding:0 10px;border-radius:8px;background:{{ c.stBg }};color:{{ c.stInk }};font-size:13px;font-weight:600;display:inline-flex;align-items:center">{{ c.stTxt }}</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+    <sc-for list="{{ c.kpis }}" as="k" hint-placeholder-count="4"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:24px;font-weight:600">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></div></sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:2 1 520px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Suscripción</h2><sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;color:#8A5300;background:#FFF4DE;border-radius:6px;padding:4px 8px">Cambios sin guardar</span></sc-if></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600">Plan</span><div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ planOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="text-align:left;padding:10px 12px;border-radius:12px;border:1.5px solid {{ o.bd }};background:{{ o.bg }};cursor:pointer;color:#0B0F14;display:flex;flex-direction:column;gap:2px;min-width:150px"><span style="font-size:14px;font-weight:600">{{ o.l }}</span><span style="font-size:12px;color:#5B6B80">{{ o.d }}</span></button></sc-for></div></div>
+        <sc-if value="{{ isTiered }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600">Tramos por {{ unitPl }}</span>
+            <sc-for list="{{ tierRows }}" as="t" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:1fr 1fr 140px 36px;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:{{ t.bg }}"><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#5B6B80">Desde<input type="number" min="0" value="{{ t.from }}" onChange="{{ t.setFrom }}" aria-label="Desde" style="width:80px;height:34px;border:1px solid #D5DCE5;border-radius:8px;padding:0 8px;font-size:14px;color:#0B0F14"></label><span style="font-size:13px;color:#5B6B80">{{ t.toTxt }}</span><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#5B6B80">ARS<input type="number" min="0" value="{{ t.rate }}" onChange="{{ t.setRate }}" aria-label="Precio por unidad" style="width:90px;height:34px;border:1px solid #D5DCE5;border-radius:8px;padding:0 8px;font-size:14px;color:#0B0F14"></label><sc-if value="{{ t.canDel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ t.del }}" aria-label="Quitar tramo" style="width:32px;height:32px;border-radius:8px;border:0;background:#EEF2F6;cursor:pointer;color:#334155">×</button></sc-if></div></sc-for>
+            <button onClick="{{ addTier }}" style="align-self:flex-start;border:0;background:none;color:#007EA0;font:600 13px 'Inter Tight',sans-serif;cursor:pointer;padding:4px 0">+ Agregar tramo</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isPerUnit }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:center;gap:10px;font-size:14px">Precio por {{ unitSg }} <span style="color:#5B6B80">ARS</span><input type="number" min="0" value="{{ ed.rate }}" onChange="{{ setRate }}" aria-label="Precio por unidad" style="width:110px;height:40px;border:1px solid #D5DCE5;border-radius:10px;padding:0 10px;font-size:15px;font-weight:600"></label></sc-if>
+        <sc-if value="{{ isFixed }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:center;gap:10px;font-size:14px">Monto fijo mensual <span style="color:#5B6B80">ARS</span><input type="number" min="0" value="{{ ed.fixed }}" onChange="{{ setFixed }}" aria-label="Monto fijo" style="width:140px;height:40px;border:1px solid #D5DCE5;border-radius:10px;padding:0 10px;font-size:15px;font-weight:600"></label></sc-if>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Mínimo mensual (ARS)<input type="number" min="0" value="{{ ed.min }}" onChange="{{ setMin }}" style="height:40px;border:1px solid #D5DCE5;border-radius:10px;padding:0 10px;font-size:14px;font-weight:400"></label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Descuento (%)<input type="number" min="0" max="100" value="{{ ed.disc }}" onChange="{{ setDisc }}" style="height:40px;border:1px solid #D5DCE5;border-radius:10px;padding:0 10px;font-size:14px;font-weight:400"></label>
+        </div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <h2 style="margin:0;font-size:16px;font-weight:600">Cobro</h2>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600">Día de cobro de cada mes</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><sc-for list="{{ dayOpts }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.pick }}" style="height:34px;min-width:44px;padding:0 10px;border-radius:9px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ o.l }}</button></sc-for><label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#5B6B80;margin-left:6px">Otro<input type="number" min="1" max="28" value="{{ ed.day }}" onChange="{{ setDay }}" aria-label="Día de cobro" style="width:64px;height:34px;border:1px solid #D5DCE5;border-radius:8px;padding:0 8px;font-size:14px;color:#0B0F14"></label></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600">Cantidad que se factura</span>
+          <sc-for list="{{ countOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="display:flex;gap:12px;align-items:flex-start;text-align:left;padding:12px;border-radius:12px;border:1.5px solid {{ o.bd }};background:{{ o.bg }};cursor:pointer;color:#0B0F14"><span style="width:18px;height:18px;border-radius:9px;border:1.5px solid {{ o.dotBd }};background:{{ o.dot }};flex:none;box-shadow:inset 0 0 0 3px #FFFFFF;margin-top:1px"></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">{{ o.l }}</span><span style="font-size:12px;color:#5B6B80;line-height:1.4">{{ o.d }}</span></span></button></sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600">Estado de la cuenta</span><div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ statusOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.pick }}" style="height:34px;padding:0 12px;border-radius:17px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ o.l }}</button></sc-for></div></div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Nota interna<textarea value="{{ ed.note }}" onChange="{{ setNote }}" rows="2" placeholder="Acuerdos comerciales, contacto de facturación…" style="border:1px solid #D5DCE5;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical"></textarea></label>
+        <div style="display:flex;gap:10px;justify-content:flex-end"><button onClick="{{ discard }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;opacity:{{ dirtyOp }}">Descartar</button><button onClick="{{ save }}" style="height:42px;padding:0 18px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;opacity:{{ dirtyOp }}">Guardar cambios</button></div>
+      </div>
+    </div>
+    <div style="flex:1 1 320px;display:flex;flex-direction:column;gap:16px">
+      <div style="background:#0B0F14;color:#F8FAFC;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:13px;color:#94A3B8">Próximo cobro · {{ calc.nextTxt }}</span>
+        <span style="font-size:32px;font-weight:600;letter-spacing:-.02em">{{ calc.total }}</span>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;border-top:1px solid #1A2433;padding-top:12px">
+          <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:#CBD5E1">{{ calc.countLbl }}</span><span>{{ calc.count }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:#CBD5E1">{{ calc.rateLbl }}</span><span>{{ calc.rate }}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:8px"><span style="color:#CBD5E1">Subtotal</span><span>{{ calc.sub }}</span></div>
+          <sc-if value="{{ calc.minApplies }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:#CBD5E1">Se aplica el mínimo</span><span>{{ calc.min }}</span></div></sc-if>
+          <sc-if value="{{ calc.hasDisc }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:#CBD5E1">Descuento {{ calc.discPct }}</span><span style="color:#5DE6D8">{{ calc.disc }}</span></div></sc-if>
+        </div>
+        <span style="font-size:12px;color:#94A3B8;line-height:1.5;border-top:1px solid #1A2433;padding-top:10px">{{ calc.rule }}</span>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2 style="margin:0;font-size:16px;font-weight:600">{{ unitPlCap }} por mes</h2><span style="font-size:12px;font-weight:600;color:{{ c.trendInk }}">{{ c.trend }}</span></div>
+        <div style="display:flex;align-items:flex-end;gap:8px;height:120px"><sc-for list="{{ c.hist }}" as="b" hint-placeholder-count="6"><div title="{{ b.tip }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end"><span style="font-size:10px;color:#5B6B80">{{ b.v }}</span><div style="width:100%;height:{{ b.h }};background:{{ b.c }};border-radius:5px 5px 2px 2px"></div><span style="font-size:11px;color:#5B6B80">{{ b.l }}</span></div></sc-for></div>
+        <span style="font-size:12px;color:#5B6B80">El último mes es el conteo en curso; se cierra el día de cobro.</span>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+        <h2 style="margin:0 0 6px;font-size:16px;font-weight:600">Historial de cobros</h2>
+        <sc-for list="{{ c.invoices }}" as="i" hint-placeholder-count="4"><div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #EEF2F6;font-size:13px;align-items:center;flex-wrap:wrap"><span style="flex:1 1 70px;font-weight:600">{{ i.m }}</span><span style="flex:1 1 60px;color:#5B6B80">{{ i.n }}</span><span style="flex:1 1 90px;text-align:right;font-weight:600">{{ i.a }}</span><span style="height:22px;padding:0 7px;border-radius:6px;background:{{ i.bg }};color:{{ i.ink }};font-size:11px;font-weight:600;display:inline-flex;align-items:center">{{ i.st }}</span><sc-if value="{{ i.canMark }}" hint-placeholder-val="{{ false }}"><button onClick="{{ i.mark }}" style="border:0;background:none;color:#007EA0;font:600 12px 'Inter Tight',sans-serif;cursor:pointer;padding:4px 0">Marcar pagado</button></sc-if></div></sc-for>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+        <h2 style="margin:0 0 6px;font-size:16px;font-weight:600">Cambios en la suscripción</h2>
+        <sc-for list="{{ c.log }}" as="l" hint-placeholder-count="2"><div style="display:flex;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid #EEF2F6"><span style="font:500 11px 'JetBrains Mono',monospace;color:#5B6B80;width:84px;flex:none;padding-top:2px">{{ l.d }}</span><span style="line-height:1.4">{{ l.t }}</span></div></sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.invoices }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Cobros" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">Calendario de cobros según el día configurado en cada cliente</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Cobros</h1></div>
+    <div style="display:flex;gap:2px;background:#E6EBF1;border-radius:12px;padding:3px"><sc-for list="{{ invTabs }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ o.label }}</button></sc-for></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"><sc-for list="{{ invKpis }}" as="k" hint-placeholder-count="3"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:24px;font-weight:600">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></div></sc-for></div>
+  <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;overflow-x:auto">
+    <div style="min-width:760px">
+      <div style="display:grid;grid-template-columns:90px minmax(200px,2fr) 110px 130px 140px 140px;gap:14px;padding:12px 16px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em"><span>Fecha</span><span>Cliente</span><span style="text-align:right">Cantidad</span><span style="text-align:right">Total</span><span>Estado</span><span></span></div>
+      <sc-for list="{{ invRows }}" as="i" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:90px minmax(200px,2fr) 110px 130px 140px 140px;gap:14px;align-items:center;padding:12px 16px;border-bottom:1px solid #EEF2F6;font-size:14px"><span style="font-weight:600">{{ i.date }}</span><button onClick="{{ i.open }}" style="text-align:left;border:0;background:none;padding:0;cursor:pointer;color:#0B0F14;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">{{ i.name }}</span><span style="font-size:12px;color:#5B6B80">{{ i.typeTxt }} · {{ i.planName }}</span></button><span style="text-align:right">{{ i.n }}</span><span style="text-align:right;font-weight:600">{{ i.a }}</span><span><span style="height:24px;padding:0 8px;border-radius:6px;background:{{ i.bg }};color:{{ i.ink }};font-size:12px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap">{{ i.st }}</span></span><span style="display:flex;justify-content:flex-end"><sc-if value="{{ i.canMark }}" hint-placeholder-val="{{ false }}"><button onClick="{{ i.mark }}" style="height:32px;padding:0 12px;border-radius:9px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 12px 'Inter Tight',sans-serif;cursor:pointer;white-space:nowrap">Marcar pagado</button></sc-if></span></div></sc-for>
+      <sc-if value="{{ invEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:32px;text-align:center;font-size:14px;color:#5B6B80">Sin cobros en esta vista.</div></sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.plans }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Admin · Planes" style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">Valores por defecto para clientes nuevos. Cada cliente puede tener un acuerdo propio.</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Planes y precios</h1></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+    <sc-for list="{{ planCards }}" as="p" hint-placeholder-count="2">
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2 style="margin:0;font-size:18px;font-weight:600">{{ p.name }}</h2><span style="font-size:12px;color:#5B6B80">{{ p.users }}</span></div>
+        <span style="font-size:13px;color:#5B6B80;line-height:1.45">{{ p.d }}</span>
+        <sc-for list="{{ p.tiers }}" as="t" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:10px 12px;border-radius:10px;background:#F8FAFC;font-size:14px"><span>{{ t.range }}</span><strong style="font-weight:600">{{ t.rate }}</strong></div></sc-for>
+        <span style="font-size:12px;color:#5B6B80">Mínimo mensual {{ p.min }} · día de cobro por defecto: {{ p.day }}</span>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
+  </div>
+</main>
+
+<sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeNew }}" style="position:fixed;inset:0;z-index:60;background:rgba(11,15,20,.5);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div data-modal="1" onClick="{{ stop }}" role="dialog" aria-modal="true" aria-label="Nuevo cliente" style="width:100%;max-width:480px;background:#FFFFFF;border-radius:18px;box-shadow:0 30px 80px rgba(11,15,20,.35);padding:24px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:19px;font-weight:600">Nuevo cliente</h2><button onClick="{{ closeNew }}" aria-label="Cerrar" style="width:36px;height:36px;border-radius:10px;border:0;background:#EEF2F6;font-size:18px;cursor:pointer">×</button></div>
+    <div style="display:flex;gap:6px"><sc-for list="{{ newTypes }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.pick }}" style="flex:1;height:40px;border-radius:10px;border:1.5px solid {{ o.bd }};background:{{ o.bg }};color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">{{ o.l }}</button></sc-for></div>
+    <input value="{{ nw.name }}" onChange="{{ setNewName }}" placeholder="Nombre del gimnasio o entrenador" aria-label="Nombre" style="height:42px;border:1px solid #D5DCE5;border-radius:10px;padding:0 12px;font-size:15px">
+    <input value="{{ nw.cuit }}" onChange="{{ setNewCuit }}" placeholder="CUIT" aria-label="CUIT" style="height:42px;border:1px solid #D5DCE5;border-radius:10px;padding:0 12px;font-size:14px">
+    <span style="font-size:12px;color:#5B6B80">Se crea con el plan por defecto. Ajustá precios y día de cobro en su ficha.</span>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button onClick="{{ closeNew }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Cancelar</button><button onClick="{{ createNew }}" style="height:42px;padding:0 18px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Crear cliente</button></div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div data-a="toast" role="status" style="position:fixed;right:24px;bottom:24px;z-index:70;max-width:380px;background:#0B0F14;color:#F8FAFC;border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.4;box-shadow:0 16px 40px rgba(11,15,20,.3);display:flex;gap:10px;align-items:flex-start"><span style="width:8px;height:8px;border-radius:4px;background:#00D1FF;flex:none;margin-top:6px"></span>{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const IC = { home:'M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z', users:'M9 11a4 4 0 100-8 4 4 0 000 8zM2 21c0-4 3-6 7-6s7 2 7 6M16 3.5a4 4 0 010 7.5M22 21c0-3-1.7-5-4.5-5.7', receipt:'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6', tag:'M3 12V4h8l10 10-8 8zM7.5 8.5h.01' };
+const nfm = n => Number(Math.round(n)).toLocaleString('es-AR');
+const ars = n => `ARS ${nfm(n)}`;
+const CH = { ok:['#E8F8F1','#047857'], warn:['#FFF4DE','#8A5300'], bad:['#FDECEC','#B42318'], mute:['#EEF2F6','#475569'], info:['#E6F9FE','#006B88'] };
+const EZ = 'cubic-bezier(.05,.7,.1,1)';
+const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const MONTHS = ['Dic','Ene','Feb','Mar','Abr','May'];
+const TODAY = 20;
+const DEF = {
+  gym: { plan: 'tiered', tiers: [{ from: 0, rate: 450 }, { from: 501, rate: 380 }, { from: 1501, rate: 320 }], rate: 400, fixed: 0, min: 150000, disc: 0, day: 1, count: 'peak' },
+  coach: { plan: 'perUnit', tiers: [{ from: 0, rate: 700 }, { from: 31, rate: 600 }], rate: 700, fixed: 0, min: 0, disc: 0, day: 5, count: 'peak' },
+};
+const mk = (id, type, name, ini, sub, cuit, since, hist, over, status, inv) => ({ id, type, name, ini, sub, cuit, since, hist, status, inv, sub2: null, ...JSON.parse(JSON.stringify(DEF[type])), ...over, log: [{ d: since, t: 'Alta del cliente' }] });
+const C0 = [
+  mk('g1', 'gym', 'Gym Norte', 'GN', '3 sedes · CABA', '30-71234567-8', 'ene 2026', [1780, 1850, 1920, 2010, 2090, 2190], { disc: 10, note: 'Pago anual con 10% de descuento.' }, 'active', ['paid', 'paid', 'paid', 'paid', 'paid']),
+  mk('g2', 'gym', 'Iron Club', 'IC', '1 sede · Rosario', '30-70987654-1', 'mar 2026', [0, 0, 0, 310, 365, 412], { day: 10 }, 'active', ['paid', 'paid', 'pending']),
+  mk('g3', 'gym', 'Fit Lab Studio', 'FL', '1 sede · Córdoba', '30-71112223-4', 'feb 2026', [0, 0, 180, 195, 204, 198], { plan: 'fixed', fixed: 120000, day: 15 }, 'active', ['paid', 'paid', 'paid', 'overdue']),
+  mk('g4', 'gym', 'Cross Sur', 'CS', '2 sedes · La Plata', '30-70555444-2', 'abr 2026', [0, 0, 0, 0, 260, 288], { day: 1 }, 'trial', ['pending']),
+  mk('c1', 'coach', 'Agustín Pérez', 'AP', 'Coach · online y presencial', '20-34567890-1', 'dic 2025', [11, 13, 14, 15, 17, 18], {}, 'active', ['paid', 'paid', 'paid', 'paid', 'paid', 'paid']),
+  mk('c2', 'coach', 'Mariana Ledesma', 'ML', 'Coach · running', '27-31222333-4', 'feb 2026', [0, 0, 22, 26, 31, 35], { plan: 'tiered', day: 1 }, 'active', ['paid', 'paid', 'overdue']),
+  mk('c3', 'coach', 'Tomás Quiroga', 'TQ', 'Coach · fuerza', '20-38999111-2', 'mar 2026', [0, 0, 0, 6, 8, 9], { day: 20 }, 'active', ['paid', 'paid', 'pending']),
+  mk('c4', 'coach', 'Paula Iriarte', 'PI', 'Coach · pilates y movilidad', '27-36444555-6', 'ene 2026', [0, 14, 14, 12, 11, 10], { disc: 15, note: 'Descuento por referir 2 coaches.' }, 'paused', ['paid', 'paid', 'paid', 'paid', 'paid']),
+];
+
+class Component extends DCLogic {
+  state = { vw: 1280, screen: 'overview', clients: C0, sel: 'g1', ed: null, q: '', type: 'all', st: 'all', invTab: 'month', newC: null, toast: null };
+  rootRef = el => { if (el && el !== this._root) { this._root = el; this._ro && this._ro.disconnect(); this._ro = new ResizeObserver(() => { cancelAnimationFrame(this._raf); this._raf = requestAnimationFrame(() => { const w = el.clientWidth; if (Math.abs(w - this.state.vw) > 4) this.setState({ vw: w }); }); }); this._ro.observe(el); } };
+  mainRef = el => { this._main = el; };
+  componentDidMount() { this._key = e => { if (e.key === 'Escape') this.setState({ newC: null }); }; window.addEventListener('keydown', this._key); this.enter(); }
+  componentWillUnmount() { this._ro && this._ro.disconnect(); window.removeEventListener('keydown', this._key); clearTimeout(this._tt); }
+  componentDidUpdate(pp, ps) {
+    if (ps.screen !== this.state.screen || ps.sel !== this.state.sel) this.enter();
+    if (this.state.toast && this.state.toast !== ps.toast && !reduced()) { const t = document.querySelector('[data-a="toast"]'); t && t.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: EZ }); }
+  }
+  enter() { const m = this._main; if (!m || reduced()) return; [...m.children].slice(0, 5).forEach((c, i) => c.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { delay: i * 30, duration: 220, easing: EZ, fill: 'backwards' })); }
+  flash(t) { clearTimeout(this._tt); this.setState({ toast: t }); this._tt = setTimeout(() => this.setState({ toast: null }), 3000); }
+  go(screen, extra) { this.setState({ screen, ...(extra || {}) }); window.scrollTo && window.scrollTo(0, 0); }
+  units(c) { return c.type === 'gym' ? ['socio', 'socios', 'Socios'] : ['alumno', 'alumnos', 'Alumnos']; }
+  count(c) { const cur = c.hist[c.hist.length - 1]; const peak = Math.round(cur * 1.04); return { cur, peak, avg: Math.round((c.hist[c.hist.length - 2] || cur) * .5 + cur * .5) }[c.count] ?? cur; }
+  price(c) {
+    const n = this.count(c);
+    let sub, rateTxt;
+    if (c.plan === 'fixed') { sub = c.fixed; rateTxt = 'Monto fijo'; }
+    else if (c.plan === 'perUnit') { sub = n * c.rate; rateTxt = ars(c.rate); }
+    else { const ts = c.tiers.slice().sort((a, b) => a.from - b.from); const t = ts.filter(x => n >= x.from).pop() || ts[0]; sub = n * t.rate; rateTxt = ars(t.rate); }
+    const base = Math.max(sub, c.min || 0), disc = Math.round(base * (c.disc || 0) / 100);
+    return { n, sub, rateTxt, base, disc, total: base - disc, minApplies: (c.min || 0) > sub };
+  }
+  nextDate(c) { const d = c.day || 1; const m = d > TODAY ? 'may' : 'jun'; return { txt: `${d} ${m}`, sort: (d > TODAY ? 0 : 31) + d, thisMonth: d > TODAY }; }
+  stOf(c) { const overdue = c.inv.includes('overdue'); if (c.status === 'paused') return ['Pausada', 'mute']; if (c.status === 'trial') return ['Prueba', 'info']; if (overdue) return ['Pago vencido', 'bad']; if (c.inv[c.inv.length - 1] === 'pending') return ['Por cobrar', 'warn']; return ['Al día', 'ok']; }
+
+  renderVals() {
+    const s = this.state, vw = s.vw, navFull = vw >= 1100;
+    const sc = { overview: s.screen === 'overview', clients: s.screen === 'clients', detail: s.screen === 'detail', invoices: s.screen === 'invoices', plans: s.screen === 'plans' };
+    const overdueN = s.clients.filter(c => c.inv.includes('overdue')).length;
+    const nav = [['overview', 'Resumen', IC.home], ['clients', 'Clientes', IC.users], ['invoices', 'Cobros', IC.receipt], ['plans', 'Planes y precios', IC.tag]].map(([k, l, ic]) => { const cur = s.screen === k || (k === 'clients' && s.screen === 'detail'); return { label: l, icon: ic, go: () => this.go(k), cur: cur ? 'page' : 'false', bg: cur ? '#1A2433' : 'transparent', ink: cur ? '#F8FAFC' : '#94A3B8', hasBadge: k === 'invoices' && overdueN > 0, badge: overdueN }; });
+    const open = id => { const c = s.clients.find(x => x.id === id); this.go('detail', { sel: id, ed: JSON.parse(JSON.stringify(c)) }); };
+    const gyms = s.clients.filter(c => c.type === 'gym'), coaches = s.clients.filter(c => c.type === 'coach');
+    const billable = s.clients.filter(c => c.status !== 'paused');
+    const mrr = billable.reduce((a, c) => a + this.price(c).total, 0);
+    const mrrG = billable.filter(c => c.type === 'gym').reduce((a, c) => a + this.price(c).total, 0);
+    const histTot = MONTHS.map((_, i) => { const g = gyms.filter(c => c.status !== 'paused').reduce((a, c) => a + this.price({ ...c, hist: c.hist.slice(0, i + 1), count: 'cur' }).total * (c.hist[i] ? 1 : 0), 0); const co = coaches.filter(c => c.status !== 'paused').reduce((a, c) => a + this.price({ ...c, hist: c.hist.slice(0, i + 1), count: 'cur' }).total * (c.hist[i] ? 1 : 0), 0); return { g, co }; });
+    const hmax = Math.max(...histTot.map(x => x.g + x.co)) || 1;
+    const segs = (opts, cur, set) => opts.map(([k, l]) => ({ label: l, pick: () => set(k), bg: cur === k ? '#FFFFFF' : 'transparent', ink: cur === k ? '#0B0F14' : '#5B6B80', bd: cur === k ? '#D5DCE5' : 'transparent' }));
+    const q = s.q.trim().toLowerCase();
+    const rowsSrc = s.clients.filter(c => (!q || (c.name + c.cuit).toLowerCase().includes(q)) && (s.type === 'all' || c.type === s.type) && (s.st === 'all' || (s.st === 'overdue' ? c.inv.includes('overdue') : c.status === s.st)));
+    const planName = c => ({ tiered: 'Por tramos', perUnit: `Por ${this.units(c)[0]}`, fixed: 'Monto fijo' }[c.plan]);
+    const trendOf = c => { const h = c.hist, a = h[h.length - 2] || 0, b = h[h.length - 1]; if (!a) return ['Nuevo', '#006B88']; const d = Math.round((b - a) / a * 100); return [`${d >= 0 ? '+' : ''}${d}% vs abr`, d > 0 ? '#047857' : d < 0 ? '#B42318' : '#5B6B80']; };
+
+    const V = {
+      rootRef: this.rootRef, mainRef: this.mainRef, sc, nav, navFull, navRail: !navFull, sideW: navFull ? '248px' : '72px', pad: vw < 768 ? '18px 16px 40px' : '28px 32px 48px',
+      toast: s.toast, hasToast: !!s.toast, stop: e => e.stopPropagation(), periodTxt: 'Mayo 2026 · al día 20',
+      goInvoices: () => this.go('invoices'), goClients: () => this.go('clients'),
+      kpis: [
+        ['Gimnasios', String(gyms.length), `${nfm(gyms.reduce((a, c) => a + c.hist[5], 0))} socios en REPI`, () => this.go('clients', { type: 'gym' })],
+        ['Entrenadores', String(coaches.length), `${nfm(coaches.reduce((a, c) => a + c.hist[5], 0))} alumnos`, () => this.go('clients', { type: 'coach' })],
+        ['Facturación del mes', ars(mrr), `${Math.round(mrrG / mrr * 100)}% gimnasios`, () => this.go('invoices')],
+        ['Pagos vencidos', String(overdueN), overdueN ? 'Requieren seguimiento' : 'Nada vencido', () => this.go('clients', { st: 'overdue' })],
+        ['Cobros esta semana', String(s.clients.filter(c => c.status !== 'paused' && c.day > TODAY && c.day <= TODAY + 7).length), 'Hasta el 27 may', () => this.go('invoices', { invTab: 'month' })],
+      ].map(([l, v, sub, go]) => ({ l, v, sub, go })),
+      mrrBars: histTot.map((x, i) => ({ l: MONTHS[i], v: nfm((x.g + x.co) / 1000), hg: `${x.g / hmax * 100}%`, hc: `${x.co / hmax * 100}%`, tip: `Gimnasios ${ars(x.g)} · Entrenadores ${ars(x.co)}` })),
+      attention: [
+        ...s.clients.filter(c => c.inv.includes('overdue')).map(c => ({ t: `${c.name} · pago vencido`, d: `${planName(c)} · cobro día ${c.day}`, v: ars(this.price(c).total), dot: '#EF4444', go: () => open(c.id) })),
+        ...s.clients.filter(c => c.status === 'trial').map(c => ({ t: `${c.name} · prueba en curso`, d: 'Termina el 31 may · definir plan', v: `${c.hist[5]} ${this.units(c)[1]}`, dot: '#00D1FF', go: () => open(c.id) })),
+        ...s.clients.filter(c => { const h = c.hist; return h[4] && (h[5] - h[4]) / h[4] > .1; }).map(c => ({ t: `${c.name} creció ${Math.round((c.hist[5] - c.hist[4]) / c.hist[4] * 100)}%`, d: 'Revisá si cambia de tramo', v: `${c.hist[5]} ${this.units(c)[1]}`, dot: '#5DE6D8', go: () => open(c.id) })),
+      ],
+      noAttention: false,
+      clientsSub: `${gyms.length} gimnasios · ${coaches.length} entrenadores`, q: s.q, setQ: e => this.setState({ q: e.target.value }),
+      typeOpts: segs([['all', 'Todos'], ['gym', 'Gimnasios'], ['coach', 'Entrenadores']], s.type, k => this.setState({ type: k })),
+      stOpts: segs([['all', 'Todos'], ['active', 'Activos'], ['trial', 'Prueba'], ['paused', 'Pausados'], ['overdue', 'Vencidos']], s.st, k => this.setState({ st: k })),
+      rows: rowsSrc.map(c => { const p = this.price(c), [st, k] = this.stOf(c), [tr, ti] = trendOf(c); return { ...c, open: () => open(c.id), bg: '#FFFFFF', typeTxt: c.type === 'gym' ? 'Gimnasio' : 'Entrenador', typeBg: c.type === 'gym' ? '#E6F9FE' : '#EEF2F6', typeInk: c.type === 'gym' ? '#006B88' : '#334155', planName: planName(c), billTxt: `${nfm(p.n)} ${this.units(c)[1]}`, trend: tr, trendInk: ti, amountTxt: c.status === 'paused' ? '—' : ars(p.total), nextTxt: c.status === 'paused' ? '—' : this.nextDate(c).txt, stTxt: st, stBg: CH[k][0], stInk: CH[k][1] }; }),
+      rowsEmpty: rowsSrc.length === 0,
+      openNew: () => this.setState({ newC: { type: 'gym', name: '', cuit: '' } }), newOpen: !!s.newC, closeNew: () => this.setState({ newC: null }),
+      nw: s.newC || {}, setNewName: e => this.setState({ newC: { ...s.newC, name: e.target.value } }), setNewCuit: e => this.setState({ newC: { ...s.newC, cuit: e.target.value } }),
+      newTypes: [['gym', 'Gimnasio'], ['coach', 'Entrenador']].map(([k, l]) => ({ l, pick: () => this.setState({ newC: { ...s.newC, type: k } }), bd: s.newC && s.newC.type === k ? '#00D1FF' : '#E2E8F0', bg: s.newC && s.newC.type === k ? '#E6F9FE' : '#FFFFFF' })),
+      createNew: () => { const n = s.newC; if (!n.name.trim()) { this.flash('Escribí el nombre.'); return; } const id = 'n' + Date.now() % 100000; const ini = n.name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(); const c = mk(id, n.type, n.name.trim(), ini, n.type === 'gym' ? '1 sede' : 'Coach', n.cuit || '—', 'hoy', [0, 0, 0, 0, 0, 0], {}, 'trial', []); this.setState(x => ({ newC: null, clients: [c, ...x.clients] })); open(id); this.flash(`${c.name} creado en período de prueba.`); },
+      planCards: [['gym', 'REPI Gym', 'Por socio facturable, con tramos por volumen. Sin cargo por entrenador ni por sede.'], ['coach', 'REPI Coach', 'Por alumno facturable. Los alumnos en pausa no se cobran.']].map(([k, name, d]) => ({ name, d, users: `${s.clients.filter(c => c.type === k).length} clientes`, tiers: DEF[k].tiers.map((t, i, a) => ({ range: a[i + 1] ? `${nfm(t.from)} – ${nfm(a[i + 1].from - 1)}` : `${nfm(t.from)} o más`, rate: `${ars(t.rate)} / ${k === 'gym' ? 'socio' : 'alumno'}` })), min: DEF[k].min ? ars(DEF[k].min) : 'sin mínimo', day: `día ${DEF[k].day}` })),
+    };
+
+    // detail
+    const base = s.clients.find(c => c.id === s.sel) || s.clients[0];
+    const ed = s.ed && s.ed.id === base.id ? s.ed : JSON.parse(JSON.stringify(base));
+    const setEd = patch => this.setState(x => ({ ed: { ...(x.ed && x.ed.id === base.id ? x.ed : JSON.parse(JSON.stringify(base))), ...patch } }));
+    const num = (e, max) => { const v = Math.max(0, Number(e.target.value) || 0); return max ? Math.min(max, v) : v; };
+    const dirty = JSON.stringify(ed) !== JSON.stringify(base);
+    const [u1, u2, u3] = this.units(ed);
+    const p = this.price(ed), nd = this.nextDate(ed), [stT, stK] = this.stOf(ed), [tr, ti] = trendOf(ed);
+    const ts = ed.tiers.map((t, i) => ({ ...t, i })).sort((a, b) => a.from - b.from);
+    const cur = ed.hist[5], hmax2 = Math.max(...ed.hist, p.n) || 1;
+    const curTier = ed.plan === 'tiered' ? (ts.filter(x => p.n >= x.from).pop() || ts[0]) : null;
+    const describe = (a, b) => { const ch = []; if (a.plan !== b.plan) ch.push(`plan: ${planName(b)}`); if (JSON.stringify(a.tiers) !== JSON.stringify(b.tiers)) ch.push('tramos'); if (a.rate !== b.rate) ch.push(`precio por ${u1}: ${ars(b.rate)}`); if (a.fixed !== b.fixed) ch.push(`monto fijo: ${ars(b.fixed)}`); if (a.min !== b.min) ch.push(`mínimo: ${ars(b.min)}`); if (a.disc !== b.disc) ch.push(`descuento: ${b.disc}%`); if (a.day !== b.day) ch.push(`día de cobro: ${b.day}`); if (a.count !== b.count) ch.push('criterio de conteo'); if (a.status !== b.status) ch.push(`estado: ${b.status}`); if (a.note !== b.note) ch.push('nota interna'); return ch.join(', '); };
+    const invList = ed.inv.map((st, i, a) => { const mi = 5 - (a.length - 1 - i); const n = ed.hist[mi] || 0; const tot = this.price({ ...ed, hist: ed.hist.slice(0, mi + 1), count: 'cur' }).total; return { m: `${MONTHS[mi]} 2026`, n: `${nfm(n)} ${u2}`, a: ars(tot), st, i }; });
+    Object.assign(V, {
+      c: { ...ed, typeTxt: ed.type === 'gym' ? 'Gimnasio' : 'Entrenador', stTxt: stT, stBg: CH[stK][0], stInk: CH[stK][1], trend: tr, trendInk: ti,
+        kpis: [[`${u3} en REPI`, nfm(cur), 'Conteo en curso'], ['A facturar', nfm(p.n), { cur: 'Al día de cobro', peak: 'Máximo del período', avg: 'Promedio del período' }[ed.count]], ['Total del próximo cobro', ars(p.total), nd.txt], ['Facturado en 2026', ars(invList.filter(x => x.st === 'paid').reduce((a, x) => a + Number(x.a.replace(/\D/g, '')), 0)), `${invList.filter(x => x.st === 'paid').length} cobros pagados`]].map(([l, v, sub]) => ({ l, v, sub })),
+        hist: [...ed.hist.map((v, i) => ({ v: nfm(v), l: MONTHS[i], h: `${Math.max(3, v / hmax2 * 100)}%`, c: i === 5 ? '#00D1FF' : '#B7EEF9', tip: `${nfm(v)} ${u2}` }))],
+        invoices: invList.slice().reverse().map(x => ({ ...x, st: { paid: 'Pagado', pending: 'Por cobrar', overdue: 'Vencido' }[x.st], bg: CH[{ paid: 'ok', pending: 'warn', overdue: 'bad' }[x.st]][0], ink: CH[{ paid: 'ok', pending: 'warn', overdue: 'bad' }[x.st]][1], canMark: x.st !== 'paid', mark: () => { this.setState(st => ({ clients: st.clients.map(c => c.id === base.id ? { ...c, inv: c.inv.map((v, j) => j === x.i ? 'paid' : v), log: [{ d: 'Hoy', t: `Cobro de ${x.m} marcado como pagado` }, ...c.log] } : c), ed: st.ed ? { ...st.ed, inv: st.ed.inv.map((v, j) => j === x.i ? 'paid' : v) } : st.ed })); this.flash(`Cobro de ${x.m} marcado como pagado.`); } })),
+        log: ed.log },
+      unitSg: u1, unitPl: u2, unitPlCap: u3, ed, dirty, dirtyOp: dirty ? 1 : .45,
+      planOpts: [['tiered', 'Por tramos', `Precio según cantidad de ${u2}`], ['perUnit', `Por ${u1}`, `Mismo precio por cada ${u1}`], ['fixed', 'Monto fijo', 'Acuerdo cerrado mensual']].map(([k, l, d]) => ({ l, d, pick: () => setEd({ plan: k }), bd: ed.plan === k ? '#00D1FF' : '#E2E8F0', bg: ed.plan === k ? '#E6F9FE' : '#FFFFFF' })),
+      isTiered: ed.plan === 'tiered', isPerUnit: ed.plan === 'perUnit', isFixed: ed.plan === 'fixed',
+      tierRows: ts.map((t, k) => ({ from: t.from, rate: t.rate, toTxt: ts[k + 1] ? `hasta ${nfm(ts[k + 1].from - 1)}` : 'en adelante', bg: curTier && curTier.i === t.i ? '#E6F9FE' : '#F8FAFC', canDel: ed.tiers.length > 1,
+        setFrom: e => { const v = num(e); setEd({ tiers: ed.tiers.map((x, j) => j === t.i ? { ...x, from: v } : x) }); }, setRate: e => { const v = num(e); setEd({ tiers: ed.tiers.map((x, j) => j === t.i ? { ...x, rate: v } : x) }); },
+        del: () => setEd({ tiers: ed.tiers.filter((_, j) => j !== t.i) }) })),
+      addTier: () => { const last = ts[ts.length - 1]; setEd({ tiers: [...ed.tiers, { from: last.from + 500, rate: Math.max(0, last.rate - 40) }] }); },
+      setRate: e => setEd({ rate: num(e) }), setFixed: e => setEd({ fixed: num(e) }), setMin: e => setEd({ min: num(e) }), setDisc: e => setEd({ disc: num(e, 100) }),
+      dayOpts: [1, 5, 10, 15, 20].map(d => ({ l: String(d), pick: () => setEd({ day: d }), bg: ed.day === d ? '#0B0F14' : '#FFFFFF', ink: ed.day === d ? '#F8FAFC' : '#0B0F14', bd: ed.day === d ? '#0B0F14' : '#D5DCE5' })),
+      setDay: e => setEd({ day: Math.min(28, Math.max(1, Number(e.target.value) || 1)) }),
+      countOpts: [['peak', `Máximo de ${u2} del período`, `Se cobra el total más alto que tuvo en el mes. Si suma ${u2} a mitad de mes, se facturan todos.`], ['cur', `${u3} al día de cobro`, `Se cuenta cuántos tiene activos el día ${ed.day}.`], ['avg', 'Promedio del período', 'Promedio diario del mes. Más amable si hay altas y bajas frecuentes.']].map(([k, l, d]) => ({ l, d, pick: () => setEd({ count: k }), bd: ed.count === k ? '#00D1FF' : '#E2E8F0', bg: ed.count === k ? '#E6F9FE' : '#FFFFFF', dot: ed.count === k ? '#00D1FF' : '#FFFFFF', dotBd: ed.count === k ? '#00D1FF' : '#C9D2DD' })),
+      statusOpts: [['active', 'Activa'], ['trial', 'Prueba'], ['paused', 'Pausada']].map(([k, l]) => ({ l, pick: () => setEd({ status: k }), bg: ed.status === k ? '#0B0F14' : '#FFFFFF', ink: ed.status === k ? '#F8FAFC' : '#0B0F14', bd: ed.status === k ? '#0B0F14' : '#D5DCE5' })),
+      setNote: e => setEd({ note: e.target.value }),
+      calc: { nextTxt: ed.status === 'paused' ? 'en pausa' : nd.txt, total: ed.status === 'paused' ? ars(0) : ars(p.total), countLbl: `${u3} a facturar`, count: nfm(p.n), rateLbl: ed.plan === 'fixed' ? 'Acuerdo' : `Precio por ${u1}`, rate: p.rateTxt, sub: ars(p.sub), minApplies: p.minApplies, min: ars(ed.min), hasDisc: !!ed.disc, discPct: `${ed.disc}%`, disc: `− ${ars(p.disc)}`,
+        rule: ed.plan === 'fixed' ? 'Monto fijo: no depende de la cantidad.' : `Se cobra el total de ${u2} según el criterio elegido. Si el mes que viene tiene más ${u2}, el cobro sube automáticamente${ed.plan === 'tiered' ? ' y puede cambiar de tramo' : ''}.` },
+      discard: () => { if (!dirty) return; this.setState({ ed: JSON.parse(JSON.stringify(base)) }); },
+      save: () => { if (!dirty) return; const what = describe(base, ed); this.setState(x => ({ clients: x.clients.map(c => c.id === base.id ? { ...ed, log: [{ d: 'Hoy', t: `Cambio: ${what}` }, ...base.log] } : c), ed: { ...ed, log: [{ d: 'Hoy', t: `Cambio: ${what}` }, ...base.log] } })); this.flash(`Suscripción de ${ed.name} actualizada. Rige desde el próximo cobro.`); },
+    });
+    // invoices
+    const it = s.invTab;
+    const invRowsSrc = it === 'month' ? s.clients.filter(c => c.status !== 'paused').map(c => { const nd2 = this.nextDate(c), pr = this.price(c); return { c, date: nd2.txt, sort: nd2.sort, n: `${nfm(pr.n)} ${this.units(c)[1]}`, a: ars(pr.total), stk: 'pending', idx: null }; }).sort((a, b) => a.sort - b.sort)
+      : s.clients.flatMap(c => c.inv.map((st, i, a) => ({ c, st, i, a }))).filter(x => it === 'overdue' ? x.st === 'overdue' : x.st === 'paid').map(({ c, st, i, a }) => { const mi = 5 - (a.length - 1 - i); return { c, date: `${c.day} ${MONTHS[mi].toLowerCase()}`, n: `${nfm(c.hist[mi] || 0)} ${this.units(c)[1]}`, a: ars(this.price({ ...c, hist: c.hist.slice(0, mi + 1), count: 'cur' }).total), stk: st, idx: i }; }).slice(0, 14);
+    Object.assign(V, {
+      invTabs: segs([['month', 'Próximos'], ['overdue', 'Vencidos'], ['paid', 'Pagados']], it, k => this.setState({ invTab: k })),
+      invKpis: [['A cobrar (30 días)', ars(mrr), `${billable.length} clientes`], ['Vencido', ars(s.clients.filter(c => c.inv.includes('overdue')).reduce((a, c) => a + this.price(c).total, 0)), `${overdueN} clientes`], ['Cobrado en mayo', ars(s.clients.filter(c => c.inv[c.inv.length - 1] === 'paid').reduce((a, c) => a + this.price({ ...c, count: 'cur' }).total, 0)), 'Según cobros marcados']].map(([l, v, sub]) => ({ l, v, sub })),
+      invRows: invRowsSrc.map(x => { const k = x.stk === 'paid' ? 'ok' : x.stk === 'overdue' ? 'bad' : 'warn'; return { date: x.date, name: x.c.name, typeTxt: x.c.type === 'gym' ? 'Gimnasio' : 'Entrenador', planName: planName(x.c), n: x.n, a: x.a, st: { paid: 'Pagado', overdue: 'Vencido', pending: 'Programado' }[x.stk], bg: CH[k][0], ink: CH[k][1], open: () => open(x.c.id), canMark: x.stk === 'overdue', mark: () => { this.setState(st => ({ clients: st.clients.map(c => c.id === x.c.id ? { ...c, inv: c.inv.map((v, j) => j === x.idx ? 'paid' : v), log: [{ d: 'Hoy', t: 'Cobro vencido marcado como pagado' }, ...c.log] } : c) })); this.flash(`Cobro de ${x.c.name} marcado como pagado.`); } }; }),
+      invEmpty: invRowsSrc.length === 0,
+    });
+    return V;
+  }
+}
+</script>
+</body>
+</html>

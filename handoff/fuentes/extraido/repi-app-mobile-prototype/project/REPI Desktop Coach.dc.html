@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F3F5F8}
+*{box-sizing:border-box}
+a{color:#007EA0;text-decoration:none}a:hover{color:#005F79;text-decoration:underline}
+input,select,textarea,button{font-family:'Inter Tight',system-ui,sans-serif}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #00D1FF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+<script src="repi-shared.js"></script>
+</helmet>
+<div ref="{{ rootRef }}" style="min-height:100vh;display:flex;background:#F3F5F8;font-family:'Inter Tight',system-ui,sans-serif;color:#0B0F14;font-variant-numeric:tabular-nums">
+<sc-if value="{{ showAside }}" hint-placeholder-val="{{ true }}">
+<aside style="width:{{ sideW }};flex:none;background:#0B0F14;color:#F8FAFC;position:{{ asidePos }};top:0;left:0;height:100vh;display:flex;flex-direction:column;gap:18px;padding:20px 12px 16px;z-index:40;overflow-y:auto;scrollbar-width:none">
+  <div style="display:flex;align-items:center;gap:10px;padding:0 8px;min-height:36px">
+    <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><div role="img" aria-label="repi" style="position:relative;width:58px;height:28px;flex:none"><img src="assets/motion/wm_full.png" alt="" style="width:57.3px;height:28px;display:block"><span style="position:absolute;left:50.9px;top:0.45px;width:5.8px;height:5.8px;border-radius:50%;background:#00D1FF"></span></div><span style="margin-left:auto;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5DE6D8">Coach</span></sc-if>
+    <sc-if value="{{ navRail }}" hint-placeholder-val="{{ false }}"><img src="assets/repi_icon.png" alt="repi" style="width:36px;height:36px;border-radius:9px;display:block"></sc-if>
+  </div>
+  <div style="position:relative">
+    <button onClick="{{ toggleWs }}" aria-expanded="{{ wsOpen }}" aria-label="Cambiar espacio de trabajo" style="width:100%;display:flex;gap:10px;align-items:center;text-align:left;background:#131C28;border:1px solid #1A2433;border-radius:12px;padding:8px;color:#F8FAFC;cursor:pointer" style-hover="border-color:#2D3B4F">
+      <span style="width:34px;height:34px;border-radius:9px;background:#1A2433;color:#5DE6D8;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none">AP</span>
+      <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600">Agustín Pérez Coach</span><span style="font-size:12px;color:#94A3B8">Coach independiente</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></sc-if>
+    </button>
+    <sc-if value="{{ wsOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;top:calc(100% + 6px);width:260px;background:#131C28;border:1px solid #2D3B4F;border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 16px 40px rgba(0,0,0,.4);z-index:5">
+        <span style="font-size:11px;color:#94A3B8;padding:6px 8px 4px">Espacios de Agustín Pérez</span>
+        <button onClick="{{ toggleWs }}" style="display:flex;gap:10px;align-items:center;text-align:left;padding:8px;border-radius:9px;border:0;background:#1A2433;color:#F8FAFC;cursor:pointer"><span style="width:30px;height:30px;border-radius:8px;background:#0B0F14;color:#5DE6D8;display:grid;place-items:center;font-size:11px;font-weight:600">AP</span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600">Agustín Pérez Coach</span><span style="font-size:12px;color:#94A3B8">Coach independiente</span></span><span style="font-size:11px;color:#5DE6D8">Actual</span></button>
+        <a href="REPI Desktop Gym.dc.html" style="display:flex;gap:10px;align-items:center;padding:8px;border-radius:9px;color:#F8FAFC;text-decoration:none" style-hover="background:#1A2433"><span style="width:30px;height:30px;border-radius:8px;background:#0B0F14;color:#5DE6D8;display:grid;place-items:center;font-size:11px;font-weight:600">GN</span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600">Gym Norte · Palermo</span><span style="font-size:12px;color:#94A3B8">Entrenador de sala</span></span><span style="font-size:11px;color:#5DE6D8">Abrir</span></a>
+        <span style="font-size:11px;color:#94A3B8;padding:6px 8px;line-height:1.4">Tus clientes privados no son visibles para Gym Norte, y los socios del gym no aparecen acá.</span>
+      </div>
+    </sc-if>
+  </div>
+  <nav aria-label="Principal" style="display:flex;flex-direction:column;gap:2px">
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+      <button onClick="{{ n.go }}" title="{{ n.label }}" aria-current="{{ n.cur }}" style="height:40px;border:0;border-radius:10px;background:{{ n.bg }};color:{{ n.ink }};display:flex;align-items:center;gap:12px;padding:0 11px;font:500 14px 'Inter Tight',sans-serif;cursor:pointer" style-hover="background:#1A2433;color:#F8FAFC">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ n.icon }}"></path></svg>
+        <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><span style="flex:1;text-align:left">{{ n.label }}</span></sc-if>
+        <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#00D1FF;color:#0B0F14;font-size:11px;font-weight:700;display:grid;place-items:center">{{ n.badge }}</span></sc-if>
+      </button>
+    </sc-for>
+  </nav>
+  <div style="margin-top:auto;display:flex;gap:10px;align-items:center;padding:14px 8px 0;border-top:1px solid #1A2433">
+    <span style="width:34px;height:34px;border-radius:17px;background:#2D3B4F;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none">AP</span>
+    <sc-if value="{{ navFull }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600">Agustín Pérez</span><span style="font-size:12px;color:#94A3B8">Plan REPI Coach</span></span></sc-if>
+  </div>
+</aside>
+</sc-if>
+<sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(11,15,20,.5);z-index:39"></div></sc-if>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column">
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 16px;background:#E6EBF1;border-bottom:1px solid #D5DCE5;font-size:12px">
+    <span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.05em;text-transform:uppercase;color:#475569">Prototipo · REPI Coach desktop</span>
+    <span style="margin-left:auto;font-size:12px;color:#475569">Datos que el alumno registra en su app y decide compartir</span>
+  </div>
+  <sc-if value="{{ navDrawer }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0B0F14;color:#F8FAFC;position:sticky;top:0;z-index:30">
+      <button onClick="{{ openDrawer }}" aria-label="Abrir menú" style="width:44px;height:44px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <div role="img" aria-label="repi" style="position:relative;width:50px;height:24px"><img src="assets/motion/wm_full.png" alt="" style="width:49.1px;height:24px;display:block"><span style="position:absolute;left:43.6px;top:0.4px;width:5px;height:5px;border-radius:50%;background:#00D1FF"></span></div>
+    </div>
+  </sc-if>
+  <div ref="{{ mainRef }}" style="flex:1;width:100%;max-width:1560px;padding:{{ pad }};display:flex;flex-direction:column;gap:20px">
+
+<sc-if value="{{ sc.dash }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Panel del coach" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">Martes 20 de mayo</span><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-.02em">Buen día, Agustín</h1></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button onClick="{{ openInvite }}" style="height:42px;padding:0 16px;border-radius:12px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Invitar cliente</button><button onClick="{{ newProgram }}" style="height:42px;padding:0 18px;border-radius:12px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Nuevo programa</button></div>
+  </div>
+  <sc-for list="{{ acctBanners }}" as="b" hint-placeholder-count="0"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:{{ b.bg }};border-radius:12px;padding:12px 16px;font-size:14px;color:{{ b.ink }}"><span style="flex:1 1 260px;line-height:1.45"><strong style="font-weight:600">{{ b.t }}</strong> {{ b.d }}</span><button onClick="{{ b.go }}" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;font-size:13px">{{ b.cta }}</button></div></sc-for>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4"><button onClick="{{ k.go }}" style="text-align:left;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px;cursor:pointer;color:#0B0F14" style-hover="border-color:#9BE6F7"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:28px;font-weight:600;letter-spacing:-.01em">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></button></sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+      <h2 style="margin:0 0 6px;font-size:16px;font-weight:600">Pendientes</h2>
+      <sc-for list="{{ todos }}" as="t" hint-placeholder-count="5"><div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #EEF2F6"><span style="width:8px;height:8px;border-radius:4px;background:{{ t.dot }};flex:none"></span><span style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:500">{{ t.t }}</span><span style="font-size:12px;color:#5B6B80">{{ t.d }}</span></span><button onClick="{{ t.go }}" style="height:32px;padding:0 12px;border-radius:9px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 12px 'Inter Tight',sans-serif;cursor:pointer;white-space:nowrap">{{ t.cta }}</button></div></sc-for>
+      <sc-if value="{{ todosEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#5B6B80;padding:12px 0">Todo al día.</span></sc-if>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+      <h2 style="margin:0 0 6px;font-size:16px;font-weight:600">Agenda de hoy</h2>
+      <sc-for list="{{ agenda }}" as="a" hint-placeholder-count="3"><div style="display:flex;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #EEF2F6"><span style="font:500 13px 'JetBrains Mono',monospace;width:52px;color:#006B88">{{ a.h }}</span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">{{ a.c }}</span><span style="font-size:12px;color:#5B6B80">{{ a.d }}</span></span></div></sc-for>
+      <span style="font-size:12px;color:#5B6B80;margin-top:6px">07:00 – 13:00 trabajás en Gym Norte. Esos turnos se gestionan en el otro espacio.</span>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.clients }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Clientes" style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ clientCount }} clientes · {{ billableTxt }}</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Clientes</h1></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:1 1 300px;max-width:100%;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px">
+      <label style="display:flex;align-items:center;gap:8px;height:42px;border:1px solid #D5DCE5;border-radius:10px;padding:0 12px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input value="{{ q }}" onChange="{{ setQ }}" placeholder="Buscar cliente u objetivo" aria-label="Buscar cliente" style="flex:1;border:0;outline:none;font-size:14px;min-width:0"></label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ filters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.pick }}" style="height:30px;padding:0 10px;border-radius:15px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.ink }};font:600 12px 'Inter Tight',sans-serif;cursor:pointer">{{ f.label }}</button></sc-for></div>
+      <div style="display:flex;gap:6px;align-items:center;font-size:12px;color:#5B6B80;padding:0 4px">Ordenar: <sc-for list="{{ sorts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="border:0;background:none;padding:4px 2px;font:600 12px 'Inter Tight',sans-serif;color:{{ o.ink }};cursor:pointer;text-decoration:{{ o.ul }}">{{ o.label }}</button></sc-for></div>
+      <sc-for list="{{ clientList }}" as="c" hint-placeholder-count="6">
+        <button onClick="{{ c.pick }}" style="display:flex;gap:10px;align-items:center;text-align:left;padding:10px;border-radius:10px;border:1px solid {{ c.bd }};background:{{ c.bg }};cursor:pointer;color:#0B0F14" style-hover="background:#F4FBFD">
+          <span style="width:36px;height:36px;border-radius:18px;background:#1A2433;color:#F8FAFC;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none">{{ c.ini }}</span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">{{ c.name }}</span><span style="font-size:12px;color:#5B6B80">{{ c.goal }} · {{ c.last }}</span></span>
+          <span style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span style="font-size:13px;font-weight:600">{{ c.adhTxt }}</span><sc-if value="{{ c.flag }}" hint-placeholder-val="{{ false }}"><span style="height:20px;padding:0 6px;border-radius:5px;background:#FFF4DE;color:#8A5300;font-size:11px;font-weight:600;display:inline-flex;align-items:center">{{ c.flagTxt }}</span></sc-if></span>
+        </button>
+      </sc-for>
+      <sc-if value="{{ clientsEmpty }}" hint-placeholder-val="{{ false }}"><span style="padding:20px;text-align:center;font-size:14px;color:#5B6B80">Sin resultados.</span></sc-if>
+    </div>
+    <div style="flex:3 1 520px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+        <span style="width:56px;height:56px;border-radius:28px;background:#1A2433;color:#F8FAFC;display:grid;place-items:center;font-size:18px;font-weight:600">{{ cl.ini }}</span>
+        <div style="flex:1 1 220px;display:flex;flex-direction:column;gap:4px"><span style="font-size:22px;font-weight:600">{{ cl.name }}</span><span style="font-size:13px;color:#5B6B80">{{ cl.goal }} · {{ cl.plan }} · desde {{ cl.since }}</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button onClick="{{ openReport }}" style="height:40px;padding:0 14px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Informe mensual</button><button onClick="{{ msgClient }}" style="height:40px;padding:0 14px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Mensaje</button><button onClick="{{ editClientProgram }}" style="height:40px;padding:0 16px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">{{ editCta }}</button></div>
+      </div>
+      <div role="tablist" style="display:flex;gap:22px;border-bottom:1px solid #D5DCE5;overflow-x:auto;scrollbar-width:none"><sc-for list="{{ ctabs }}" as="t" hint-placeholder-count="5"><button role="tab" onClick="{{ t.pick }}" style="border:0;background:none;padding:0 0 12px;font:600 14px 'Inter Tight',sans-serif;color:{{ t.ink }};box-shadow:inset 0 -2px 0 {{ t.line }};cursor:pointer;white-space:nowrap">{{ t.label }}</button></sc-for></div>
+
+      <sc-if value="{{ ct.res }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ dx.alerts }}" as="a" hint-placeholder-count="0"><button onClick="{{ a.go }}" style="display:flex;gap:12px;align-items:center;text-align:left;background:{{ a.bg }};border:0;border-radius:12px;padding:12px 16px;cursor:pointer;color:#0B0F14"><span style="width:8px;height:8px;border-radius:4px;background:{{ a.dot }};flex:none"></span><span style="flex:1;font-size:14px;line-height:1.4"><strong style="font-weight:600">{{ a.t }}</strong> · {{ a.d }}</span><span style="font-size:13px;font-weight:600;color:#007EA0">{{ a.cta }} →</span></button></sc-for>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px"><sc-for list="{{ cl.stats }}" as="k" hint-placeholder-count="4"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:24px;font-weight:600">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></div></sc-for></div>
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <h2 style="margin:0;font-size:16px;font-weight:600">Sesiones por semana · planificadas vs. hechas</h2>
+          <div style="display:flex;align-items:flex-end;gap:10px;height:130px"><sc-for list="{{ cl.weeks }}" as="w" hint-placeholder-count="8"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end"><div style="width:100%;position:relative;height:100%;display:flex;align-items:flex-end"><div style="position:absolute;left:0;right:0;bottom:0;height:{{ w.plan }};border:1.5px dashed #9BB0C4;border-radius:6px"></div><div style="position:relative;width:100%;height:{{ w.done }};background:#00D1FF;border-radius:6px 6px 2px 2px"></div></div><span style="font-size:11px;color:#5B6B80">{{ w.l }}</span></div></sc-for></div>
+        </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Objetivos</h2><span style="font-size:11px;color:#5B6B80">Acordados con {{ cl.first }} · revisión cada 6 semanas</span></div>
+          <sc-for list="{{ dx.goals }}" as="g" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:14px;flex-wrap:wrap"><span style="font-weight:500">{{ g.t }}</span><span style="color:#5B6B80">{{ g.now }} de {{ g.target }} · <strong style="color:#0B0F14;font-weight:600">{{ g.pctTxt }}</strong></span></div><div style="height:8px;border-radius:4px;background:#EEF2F6;overflow:hidden"><div style="height:100%;width:{{ g.pct }};background:{{ g.c }};border-radius:4px"></div></div></div></sc-for>
+          <sc-if value="{{ dx.noGoals }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#5B6B80">Todavía no hay objetivos cargados.</span></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ct.prog }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h2 style="margin:0;font-size:16px;font-weight:600">{{ cl.progName }}</h2><span style="font-size:12px;color:#5B6B80">{{ cl.progMeta }}</span></div>
+          <sc-for list="{{ cl.progDays }}" as="d" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid #EEF2F6"><span style="font-size:14px;font-weight:600">{{ d.n }}</span><span style="font-size:13px;color:#5B6B80;line-height:1.45">{{ d.ex }}</span></div></sc-for>
+          <sc-if value="{{ cl.noProg }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#5B6B80">Sin programa asignado.</span></sc-if>
+        </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Registro de sesiones</h2><span style="font-size:11px;color:#5B6B80">Registrado por {{ cl.first }} en la app</span></div>
+          <div style="display:flex;gap:10px;font-size:11px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em;padding-bottom:6px;border-bottom:1px solid #E2E8F0"><span style="flex:1 1 70px">Fecha</span><span style="flex:2 1 120px">Rutina</span><span style="flex:1 1 70px;text-align:right">Series</span><span style="flex:1 1 60px;text-align:right">RPE</span><span style="flex:1 1 70px;text-align:right">Duración</span></div>
+          <sc-for list="{{ dx.sessions }}" as="r" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;gap:4px;padding:6px 0;border-bottom:1px solid #EEF2F6"><div style="display:flex;gap:10px;font-size:14px;align-items:center"><span style="flex:1 1 70px;color:#5B6B80">{{ r.d }}</span><span style="flex:2 1 120px;font-weight:500">{{ r.n }}</span><span style="flex:1 1 70px;text-align:right;color:{{ r.setInk }}">{{ r.sets }}</span><span style="flex:1 1 60px;text-align:right">{{ r.rpe }}</span><span style="flex:1 1 70px;text-align:right;color:#5B6B80">{{ r.dur }}</span></div><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#334155;background:#F8FAFC;border-radius:8px;padding:6px 10px">“{{ r.note }}”</span></sc-if></div></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ct.progreso }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h2 style="margin:0;font-size:16px;font-weight:600">{{ cl.liftName }} · mejor serie por semana</h2><span style="font-size:13px;font-weight:600;color:#047857">{{ cl.liftDelta }}</span></div>
+          <svg viewBox="0 0 300 120" preserveAspectRatio="none" style="width:100%;height:170px;overflow:visible"><path d="{{ cl.liftArea }}" fill="#00D1FF" fill-opacity=".12"></path><path d="{{ cl.liftLine }}" fill="none" stroke="#00A9CF" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path></svg>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#5B6B80"><sc-for list="{{ cl.liftPts }}" as="p" hint-placeholder-count="8"><span style="display:flex;flex-direction:column;align-items:center;gap:2px"><strong style="color:#0B0F14;font-weight:600">{{ p.v }}</strong>{{ p.l }}</span></sc-for></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ct.rend }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Ejercicios clave · 8 semanas</h2><span style="font-size:11px;color:#5B6B80">1RM estimado (Epley) a partir de series registradas</span></div>
+          <div style="display:flex;gap:10px;font-size:11px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em;padding-bottom:6px;border-bottom:1px solid #E2E8F0"><span style="flex:2 1 150px">Ejercicio</span><span style="flex:1 1 70px;text-align:right">Inicio</span><span style="flex:1 1 70px;text-align:right">Actual</span><span style="flex:1 1 60px;text-align:right">Cambio</span><span style="flex:1 1 90px;text-align:center">Tendencia</span><span style="flex:1 1 110px;text-align:right">Mejor serie</span></div>
+          <sc-for list="{{ dx.lifts }}" as="l" hint-placeholder-count="4"><div style="display:flex;gap:10px;font-size:14px;align-items:center;padding:6px 0;border-bottom:1px solid #EEF2F6;flex-wrap:wrap"><span style="flex:2 1 150px;font-weight:500">{{ l.n }}</span><span style="flex:1 1 70px;text-align:right;color:#5B6B80">{{ l.a }}</span><span style="flex:1 1 70px;text-align:right;font-weight:600">{{ l.b }}</span><span style="flex:1 1 60px;text-align:right;font-weight:600;color:{{ l.ink }}">{{ l.delta }}</span><span style="flex:1 1 90px;display:flex;justify-content:center"><svg width="80" height="24" viewBox="0 0 80 24"><path d="{{ l.spark }}" fill="none" stroke="{{ l.ink }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span style="flex:1 1 110px;text-align:right;color:#5B6B80;font-size:13px">{{ l.best }}</span></div></sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px">
+          <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Series semanales por grupo</h2><span style="font-size:11px;color:#5B6B80">Hechas vs. planificadas · última semana</span></div>
+            <sc-for list="{{ dx.vol }}" as="v" hint-placeholder-count="6"><div style="display:flex;gap:10px;align-items:center;font-size:13px"><span style="width:76px">{{ v.g }}</span><div style="flex:1;height:12px;border-radius:6px;background:#EEF2F6;position:relative;overflow:hidden"><div style="position:absolute;inset:0 auto 0 0;width:{{ v.w }};background:{{ v.c }};border-radius:6px"></div></div><span style="width:56px;text-align:right;color:#5B6B80">{{ v.txt }}</span></div></sc-for>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+            <h2 style="margin:0;font-size:16px;font-weight:600">Fortalezas y puntos a mejorar</h2>
+            <span style="font-size:12px;font-weight:600;color:#047857;text-transform:uppercase;letter-spacing:.04em">Fortalezas</span>
+            <sc-for list="{{ dx.strong }}" as="x" hint-placeholder-count="2"><div style="display:flex;gap:10px;font-size:14px;line-height:1.4"><span style="width:6px;height:6px;border-radius:3px;background:#10B981;margin-top:7px;flex:none"></span>{{ x.t }}</div></sc-for>
+            <span style="font-size:12px;font-weight:600;color:#8A5300;text-transform:uppercase;letter-spacing:.04em;margin-top:4px">A mejorar</span>
+            <sc-for list="{{ dx.weak }}" as="x" hint-placeholder-count="2"><div style="display:flex;gap:10px;font-size:14px;line-height:1.4"><span style="width:6px;height:6px;border-radius:3px;background:#F59E0B;margin-top:7px;flex:none"></span>{{ x.t }}</div></sc-for>
+            <span style="font-size:11px;color:#5B6B80">Calculado con progresión de cargas, volumen y adherencia. Revisalo con tu criterio.</span>
+          </div>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Check-in diario · 14 días</h2><span style="font-size:11px;color:#5B6B80">Escala 1–10 que {{ cl.first }} completa antes de entrenar</span></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+            <sc-for list="{{ dx.checkins }}" as="c" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px"><span style="font-weight:500">{{ c.l }}</span><span>prom. <strong style="font-weight:600">{{ c.avg }}</strong></span></div><svg viewBox="0 0 140 40" preserveAspectRatio="none" style="width:100%;height:48px;background:#F8FAFC;border-radius:8px"><path d="{{ c.path }}" fill="none" stroke="{{ c.c }}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path></svg></div></sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ct.salud }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ dx.healthLocked }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;align-items:flex-start"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" stroke-width="1.8" stroke-linecap="round"><path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3"></path></svg><h2 style="margin:0;font-size:16px;font-weight:600">{{ cl.first }} no compartió datos de salud</h2><span style="font-size:14px;color:#5B6B80;line-height:1.5">Lesiones, molestias, condiciones y medicación se comparten solo si el alumno lo habilita en su app. Podés pedirle acceso; la decisión es suya.</span><sc-if value="{{ accessCanAsk }}" hint-placeholder-val="{{ true }}"><button onClick="{{ askAccess }}" style="height:40px;padding:0 16px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Pedir acceso</button></sc-if><sc-if value="{{ accessHasState }}" hint-placeholder-val="{{ false }}"><span style="height:30px;padding:0 10px;border-radius:8px;background:{{ accessBg }};color:{{ accessInk }};font-size:13px;font-weight:600;display:inline-flex;align-items:center">{{ accessTxt }}</span></sc-if></div></sc-if>
+        <sc-if value="{{ dx.healthOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Lesiones</h2><span style="font-size:11px;color:#5B6B80">Declaradas por {{ cl.first }} · compartido con vos</span></div>
+            <div style="display:flex;gap:10px;font-size:11px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em;padding-bottom:6px;border-bottom:1px solid #E2E8F0"><span style="flex:1 1 110px">Zona</span><span style="flex:2 1 150px">Detalle</span><span style="flex:1 1 80px">Desde</span><span style="flex:1 1 110px">Estado</span><span style="flex:2 1 170px">Restricción en el programa</span></div>
+            <sc-for list="{{ dx.injuries }}" as="i" hint-placeholder-count="2"><div style="display:flex;gap:10px;font-size:14px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF2F6;flex-wrap:wrap"><span style="flex:1 1 110px;font-weight:600">{{ i.z }}</span><span style="flex:2 1 150px">{{ i.t }}</span><span style="flex:1 1 80px;color:#5B6B80">{{ i.d }}</span><span style="flex:1 1 110px"><span style="height:22px;padding:0 8px;border-radius:6px;background:{{ i.bg }};color:{{ i.ink }};font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ i.st }}</span></span><span style="flex:2 1 170px;font-size:13px;color:#334155">{{ i.r }}</span></div></sc-for>
+            <sc-if value="{{ dx.noInjuries }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#5B6B80">Sin lesiones declaradas.</span></sc-if>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px">
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Molestias reportadas</h2><span style="font-size:11px;color:#5B6B80">Intensidad 0–10 al entrenar</span></div>
+              <div style="display:flex;align-items:flex-end;gap:6px;height:90px"><sc-for list="{{ dx.painBars }}" as="p" hint-placeholder-count="8"><div title="{{ p.v }}/10" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end"><div style="width:100%;height:{{ p.h }};background:{{ p.c }};border-radius:4px 4px 2px 2px"></div><span style="font-size:10px;color:#5B6B80">{{ p.l }}</span></div></sc-for></div>
+              <sc-for list="{{ dx.pains }}" as="p" hint-placeholder-count="3"><div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid #EEF2F6;font-size:13px;flex-wrap:wrap"><span style="width:56px;color:#5B6B80">{{ p.d }}</span><span style="flex:1 1 160px"><strong style="font-weight:600">{{ p.z }}</strong> · {{ p.ctx }}</span><span style="font-weight:600;color:{{ p.ink }}">{{ p.v }}/10</span></div></sc-for>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+              <h2 style="margin:0;font-size:16px;font-weight:600">Salud general</h2>
+              <sc-for list="{{ dx.health }}" as="x" hint-placeholder-count="4"><div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #EEF2F6;font-size:14px;flex-wrap:wrap"><span style="flex:1 1 130px;color:#5B6B80">{{ x.l }}</span><span style="flex:2 1 180px;font-weight:500">{{ x.v }}</span></div></sc-for>
+              <span style="font-size:11px;color:#5B6B80">REPI no hace diagnósticos. Ante dolor persistente, derivá a un profesional de la salud.</span>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{ ct.nutri }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ dx.nutriLocked }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;align-items:flex-start"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" stroke-width="1.8" stroke-linecap="round"><path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3"></path></svg><h2 style="margin:0;font-size:16px;font-weight:600">{{ cl.first }} no comparte su registro de nutrición</h2><span style="font-size:14px;color:#5B6B80;line-height:1.5">Puede activar el registro de comidas e hidratación en su app y compartirlo con vos.</span><sc-if value="{{ accessCanAsk }}" hint-placeholder-val="{{ true }}"><button onClick="{{ askAccess }}" style="height:40px;padding:0 16px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Pedir acceso</button></sc-if><sc-if value="{{ accessHasState }}" hint-placeholder-val="{{ false }}"><span style="height:30px;padding:0 10px;border-radius:8px;background:{{ accessBg }};color:{{ accessInk }};font-size:13px;font-weight:600;display:inline-flex;align-items:center">{{ accessTxt }}</span></sc-if></div></sc-if>
+        <sc-if value="{{ dx.nutriOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px"><sc-for list="{{ dx.nKpis }}" as="k" hint-placeholder-count="4"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:22px;font-weight:600">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></div></sc-for></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px">
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Macros · promedio 7 días</h2><span style="font-size:11px;color:#5B6B80">vs. objetivo acordado</span></div>
+              <sc-for list="{{ dx.macros }}" as="m" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:5px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>{{ m.l }}</span><span><strong style="font-weight:600">{{ m.v }}</strong> <span style="color:#5B6B80">/ {{ m.t }}</span></span></div><div style="height:10px;border-radius:5px;background:#EEF2F6;overflow:hidden"><div style="height:100%;width:{{ m.w }};background:{{ m.c }};border-radius:5px"></div></div></div></sc-for>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Calorías por día</h2><span style="font-size:11px;color:#5B6B80">Banda = rango objetivo</span></div>
+              <div style="position:relative;display:flex;align-items:flex-end;gap:8px;height:130px"><div style="position:absolute;left:0;right:0;bottom:{{ dx.bandLo }};height:{{ dx.bandH }};background:rgba(0,209,255,.12);border-top:1px dashed #00A9CF;border-bottom:1px dashed #00A9CF"></div><sc-for list="{{ dx.kcal }}" as="k" hint-placeholder-count="7"><div title="{{ k.v }} kcal" style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end"><div style="width:100%;height:{{ k.h }};background:{{ k.c }};border-radius:5px 5px 2px 2px"></div><span style="font-size:11px;color:#5B6B80">{{ k.l }}</span></div></sc-for></div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Peso corporal · 8 semanas</h2><span style="font-size:13px;font-weight:600">{{ dx.wDelta }}</span></div>
+              <svg viewBox="0 0 300 100" preserveAspectRatio="none" style="width:100%;height:120px;overflow:visible"><path d="{{ dx.wLine }}" fill="none" stroke="#00A9CF" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path></svg>
+              <span style="font-size:11px;color:#5B6B80">Balanza hogareña · registro manual del alumno</span>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+              <h2 style="margin:0;font-size:16px;font-weight:600">Último día registrado</h2>
+              <sc-for list="{{ dx.meals }}" as="m" hint-placeholder-count="4"><div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #EEF2F6;font-size:14px"><span style="width:84px;color:#5B6B80">{{ m.l }}</span><span style="flex:1">{{ m.t }}</span><span style="font-weight:600">{{ m.k }}</span></div></sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{ ct.body }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+          <h2 style="margin:0;font-size:16px;font-weight:600">Mi cuerpo · lo que {{ cl.first }} compartió con vos</h2>
+          <span style="font-size:12px;color:#5B6B80;margin-bottom:8px">Cada tipo de dato se comparte por separado y {{ cl.first }} puede revocarlo cuando quiera.</span>
+          <sc-for list="{{ cl.body }}" as="b" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #EEF2F6;flex-wrap:wrap"><span style="flex:1 1 200px;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ b.t }}</span><span style="font-size:12px;color:#5B6B80">{{ b.src }}</span></span><span style="font-size:14px;font-weight:600;color:{{ b.ink }}">{{ b.v }}</span></div></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ct.pay }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">{{ cl.plan }} · {{ cl.price }}</h2><span style="display:flex;gap:8px;align-items:center"><span style="height:24px;padding:0 8px;border-radius:6px;background:{{ cl.payBg }};color:{{ cl.payInk }};font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ cl.payTxt }}</span><sc-if value="{{ cl.canPay }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cl.markPaid }}" style="height:30px;padding:0 10px;border-radius:8px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;font-size:12px">Registrar pago</button></sc-if></span></div>
+          <sc-for list="{{ cl.payHist }}" as="p" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #EEF2F6;font-size:14px"><span style="flex:1">{{ p.a }}</span><span style="color:#5B6B80">{{ p.b }}</span></div></sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.builder }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Constructor de programas" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ pg.forTxt }}</span><input value="{{ pg.name }}" onChange="{{ setPgName }}" aria-label="Nombre del programa" style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em;border:0;background:transparent;padding:0;outline:none;color:#0B0F14;min-width:0;max-width:100%"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button onClick="{{ duplicate }}" style="height:42px;padding:0 16px;border-radius:12px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Duplicar</button><button onClick="{{ openAssign }}" style="height:42px;padding:0 18px;border-radius:12px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Asignar a clientes</button></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:1 1 220px;max-width:100%;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:4px">
+      <span style="font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.04em;padding:6px 8px">Mis programas</span>
+      <sc-for list="{{ pgList }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.pick }}" style="text-align:left;padding:10px;border-radius:10px;border:1px solid {{ p.bd }};background:{{ p.bg }};cursor:pointer;color:#0B0F14;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">{{ p.name }}</span><span style="font-size:12px;color:#5B6B80">{{ p.meta }}</span></button></sc-for>
+      <button onClick="{{ newProgram }}" style="margin-top:6px;height:36px;border-radius:10px;border:1px dashed #9BB0C4;background:transparent;color:#334155;font:600 13px 'Inter Tight',sans-serif;cursor:pointer">+ Programa en blanco</button>
+    </div>
+    <div style="flex:3 1 480px;min-width:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+        <div role="tablist" style="display:flex;gap:2px;background:#EEF2F6;border-radius:10px;padding:3px"><sc-for list="{{ dayTabs }}" as="d" hint-placeholder-count="3"><button role="tab" onClick="{{ d.pick }}" style="height:34px;padding:0 14px;border-radius:8px;border:1px solid {{ d.bd }};background:{{ d.bg }};color:{{ d.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ d.label }}</button></sc-for><button onClick="{{ addDay }}" aria-label="Agregar día" style="height:34px;width:34px;border-radius:8px;border:0;background:transparent;color:#334155;font-size:18px;cursor:pointer">+</button></div>
+        <span style="font-size:13px;color:#5B6B80">{{ pg.weeks }} semanas · {{ dayCount }} días por semana</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label style="flex:1 1 260px;display:flex;align-items:center;gap:10px;height:44px;border:1px solid #D5DCE5;border-radius:10px;padding:0 12px" style-focus-within="border-color:#00D1FF"><span style="font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Nombre del día</span><input value="{{ dayName }}" onChange="{{ setDayName }}" placeholder="Ej.: Torso A, Piernas, Empuje" aria-label="Nombre del día" style="flex:1;min-width:0;border:0;outline:none;font-size:15px;font-weight:600;background:transparent"></label>
+        <sc-if value="{{ canDelDay }}" hint-placeholder-val="{{ true }}"><button onClick="{{ delDay }}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#B42318;font:600 13px 'Inter Tight',sans-serif;cursor:pointer">Quitar día</button></sc-if>
+      </div>
+      <div style="display:flex;gap:10px;font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em;padding:0 4px"><span style="flex:2 1 160px">Ejercicio</span><span style="flex:0 0 64px">Series</span><span style="flex:0 0 84px">Reps</span><span style="flex:0 0 64px">RIR</span><span style="flex:0 0 72px">Descanso</span><span style="flex:0 0 72px"></span></div>
+      <sc-for list="{{ exRows }}" as="e" hint-placeholder-count="4">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 4px;border-bottom:1px solid #EEF2F6">
+          <span style="flex:2 1 160px;font-size:14px;font-weight:500;display:flex;gap:8px;align-items:center"><span style="font:500 11px 'JetBrains Mono',monospace;color:#5B6B80">{{ e.n }}</span>{{ e.name }}</span>
+          <input type="number" min="1" value="{{ e.s }}" onChange="{{ e.setS }}" aria-label="Series" style="flex:0 0 64px;width:64px;height:38px;border:1px solid #D5DCE5;border-radius:9px;padding:0 10px;font-size:14px">
+          <input value="{{ e.r }}" onChange="{{ e.setR }}" aria-label="Repeticiones" style="flex:0 0 84px;width:84px;height:38px;border:1px solid #D5DCE5;border-radius:9px;padding:0 10px;font-size:14px">
+          <input type="number" min="0" max="5" value="{{ e.rir }}" onChange="{{ e.setRir }}" aria-label="RIR" style="flex:0 0 64px;width:64px;height:38px;border:1px solid #D5DCE5;border-radius:9px;padding:0 10px;font-size:14px">
+          <input value="{{ e.rest }}" onChange="{{ e.setRest }}" aria-label="Descanso" style="flex:0 0 72px;width:72px;height:38px;border:1px solid #D5DCE5;border-radius:9px;padding:0 10px;font-size:14px">
+          <span style="flex:0 0 72px;display:flex;gap:4px"><button onClick="{{ e.up }}" aria-label="Subir" style="width:34px;height:34px;border-radius:8px;border:0;background:#EEF2F6;cursor:pointer;color:#334155">↑</button><button onClick="{{ e.remove }}" aria-label="Quitar" style="width:34px;height:34px;border-radius:8px;border:0;background:#EEF2F6;cursor:pointer;color:#334155">×</button></span>
+        </div>
+      </sc-for>
+      <sc-if value="{{ exEmpty }}" hint-placeholder-val="{{ false }}"><div style="border:1px dashed #C9D2DD;border-radius:12px;padding:28px;text-align:center;font-size:14px;color:#5B6B80">Agregá ejercicios desde la biblioteca.</div></sc-if>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Indicación para el cliente<textarea value="{{ pg.note }}" onChange="{{ setPgNote }}" rows="2" style="border:1px solid #D5DCE5;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical"></textarea></label>
+    </div>
+    <div style="flex:1 1 240px;max-width:100%;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.04em;padding:6px 8px">Biblioteca</span>
+      <label style="display:flex;align-items:center;gap:8px;height:38px;border:1px solid #D5DCE5;border-radius:10px;padding:0 10px"><input value="{{ libQ }}" onChange="{{ setLibQ }}" placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" style="flex:1;border:0;outline:none;font-size:13px;min-width:0"></label>
+      <sc-for list="{{ lib }}" as="l" hint-placeholder-count="8"><button onClick="{{ l.add }}" style="display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;border-radius:9px;border:0;background:transparent;cursor:pointer;color:#0B0F14;font-size:13px" style-hover="background:#F4FBFD"><span style="display:flex;flex-direction:column;gap:1px"><span style="font-weight:500">{{ l.n }}</span><span style="font-size:11px;color:#5B6B80">{{ l.g }}</span></span><span style="color:#007EA0;font-weight:700">+</span></button></sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.msgs }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Mensajes del coach" style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">Conversaciones privadas entre vos y cada cliente</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Mensajes</h1></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+    <div style="flex:1 1 280px;max-width:100%;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ threads }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.pick }}" style="display:flex;gap:10px;align-items:center;text-align:left;padding:10px;border-radius:10px;border:0;background:{{ t.bg }};cursor:pointer;color:#0B0F14"><span style="width:38px;height:38px;border-radius:19px;background:#1A2433;color:#F8FAFC;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none">{{ t.ini }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">{{ t.name }}</span><span style="font-size:12px;color:#5B6B80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.last }}</span></span><sc-if value="{{ t.unread }}" hint-placeholder-val="{{ false }}"><span style="width:10px;height:10px;border-radius:5px;background:#00D1FF"></span></sc-if></button></sc-for>
+    </div>
+    <div style="flex:3 1 480px;min-width:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;display:flex;flex-direction:column;min-height:520px">
+      <div style="padding:14px 18px;border-bottom:1px solid #EEF2F6;display:flex;gap:10px;align-items:center"><span style="font-size:16px;font-weight:600;flex:1">{{ thread.name }}</span><button onClick="{{ openThreadClient }}" style="border:0;background:none;color:#007EA0;font:600 13px 'Inter Tight',sans-serif;cursor:pointer">Ver perfil →</button></div>
+      <div style="flex:1;padding:18px;display:flex;flex-direction:column;gap:10px;overflow-y:auto">
+        <sc-for list="{{ thread.msgs }}" as="m" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;align-items:{{ m.align }};gap:3px"><div style="max-width:72%;padding:10px 14px;border-radius:14px;background:{{ m.bg }};color:#0B0F14;font-size:14px;line-height:1.45">{{ m.t }}</div><span style="font-size:11px;color:#5B6B80">{{ m.time }}</span></div></sc-for>
+      </div>
+      <div style="padding:12px;border-top:1px solid #EEF2F6;display:flex;gap:8px"><input value="{{ draft }}" onChange="{{ setDraft }}" onKeyDown="{{ draftKey }}" placeholder="Escribí un mensaje…" aria-label="Mensaje" style="flex:1;height:44px;border:1px solid #D5DCE5;border-radius:12px;padding:0 14px;font-size:14px;outline:none;min-width:0"><button onClick="{{ send }}" style="height:44px;padding:0 18px;border-radius:12px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Enviar</button></div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.inbox }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Solicitudes del coach" style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">Pedidos, molestias e invitaciones que llegan desde la app de tus alumnos</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Solicitudes</h1></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+    <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px"><h2 style="margin:0;font-size:16px;font-weight:600">Pedidos de alumnos</h2>
+      <sc-for list="{{ inReq }}" as="r" hint-placeholder-count="0"><div style="border:1px solid #E2E8F0;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="height:22px;padding:0 8px;border-radius:6px;background:#E6F9FE;color:#006B88;font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ r.kindTxt }}</span><span style="font-size:13px;font-weight:600">{{ r.member }}</span><span style="font-size:12px;color:#5B6B80">{{ r.at }}</span></div><span style="font-size:14px;line-height:1.45">{{ r.text }}</span><sc-if value="{{ r.hasVideo }}" hint-placeholder-val="{{ false }}">{{ r.videoEl }}</sc-if><div style="display:flex;gap:8px;justify-content:flex-end"><sc-if value="{{ r.open }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.reply }}" style="height:34px;padding:0 12px;border-radius:9px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;font-size:13px">Responder</button><button onClick="{{ r.done }}" style="height:34px;padding:0 12px;border-radius:9px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;font-size:13px">Marcar resuelto</button></sc-if><sc-if value="{{ r.closed }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;color:#047857">Resuelto</span></sc-if></div></div></sc-for>
+      <sc-if value="{{ noReq }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:#5B6B80">Sin pedidos. Llegan cuando un alumno toca "Pedir ayuda" en la app.</span></sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px"><h2 style="margin:0;font-size:16px;font-weight:600">Molestias y check-ins recientes</h2>
+        <sc-for list="{{ inPain }}" as="p" hint-placeholder-count="0"><button onClick="{{ p.open }}" style="display:flex;gap:10px;align-items:center;text-align:left;padding:10px 0;border:0;border-bottom:1px solid #EEF2F6;background:none;cursor:pointer;color:#0B0F14"><span style="width:8px;height:8px;border-radius:4px;background:{{ p.dot }};flex:none"></span><span style="flex:1;font-size:14px"><strong style="font-weight:600">{{ p.t }}</strong> · {{ p.d }}</span><span style="font-size:12px;color:#5B6B80">{{ p.at }}</span></button></sc-for>
+        <sc-if value="{{ noPain }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:#5B6B80">Nada nuevo desde la app.</span></sc-if>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px"><h2 style="margin:0;font-size:16px;font-weight:600">Accesos a datos</h2>
+        <sc-for list="{{ inAccess }}" as="a" hint-placeholder-count="0"><div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF2F6;font-size:14px"><span style="flex:1">{{ a.member }} · {{ a.label }}</span><span style="height:24px;padding:0 8px;border-radius:6px;background:{{ a.bg }};color:{{ a.ink }};font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ a.st }}</span></div></sc-for>
+        <sc-if value="{{ noAccess }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:#5B6B80">Sin solicitudes enviadas.</span></sc-if>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px"><h2 style="margin:0;font-size:16px;font-weight:600">Invitaciones</h2>
+        <sc-for list="{{ invites }}" as="i" hint-placeholder-count="0"><div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF2F6;font-size:14px;flex-wrap:wrap"><span style="flex:1 1 160px"><strong style="font-weight:600">{{ i.name }}</strong> · {{ i.email }}</span><span style="font:600 13px 'JetBrains Mono',monospace;color:#006B88">{{ i.code }}</span><span style="height:24px;padding:0 8px;border-radius:6px;background:{{ i.bg }};color:{{ i.ink }};font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ i.st }}</span></div></sc-for>
+        <sc-if value="{{ noInvites }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;color:#5B6B80">No hay invitaciones pendientes.</span></sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ sc.pay }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Pagos del coach" style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">Mayo 2026</span><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Pagos</h1></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px"><sc-for list="{{ payKpis }}" as="k" hint-placeholder-count="4"><div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#5B6B80">{{ k.l }}</span><span style="font-size:24px;font-weight:600">{{ k.v }}</span><span style="font-size:12px;color:#5B6B80">{{ k.sub }}</span></div></sc-for></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:2 1 560px;min-width:0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:16px;overflow-x:auto">
+      <div style="min-width:640px">
+        <div style="display:grid;grid-template-columns:minmax(170px,2fr) minmax(96px,1fr) minmax(110px,1fr) minmax(120px,auto) 132px;gap:16px;align-items:center;padding:12px 16px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;font-size:12px;font-weight:600;color:#5B6B80;text-transform:uppercase;letter-spacing:.03em"><span>Cliente</span><span style="text-align:right">Monto</span><span>Vencimiento</span><span>Estado</span><span></span></div>
+        <sc-for list="{{ subs }}" as="p" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:minmax(170px,2fr) minmax(96px,1fr) minmax(110px,1fr) minmax(120px,auto) 132px;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid #EEF2F6;min-height:60px"><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600">{{ p.name }}</span><span style="font-size:12px;color:#5B6B80">{{ p.plan }}</span></span><span style="font-size:14px;font-weight:500;text-align:right">{{ p.price }}</span><span style="font-size:13px;color:#5B6B80">{{ p.due }}</span><span><span style="height:24px;padding:0 8px;border-radius:6px;background:{{ p.bg }};color:{{ p.ink }};font-size:12px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap">{{ p.st }}</span></span><span style="display:flex;justify-content:flex-end"><sc-if value="{{ p.canMark }}" hint-placeholder-val="{{ false }}"><button onClick="{{ p.mark }}" style="height:32px;padding:0 12px;border-radius:9px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 12px 'Inter Tight',sans-serif;cursor:pointer;white-space:nowrap">Registrar pago</button></sc-if></span></div></sc-for>
+      </div>
+    </div>
+    <div style="flex:1 1 280px;background:#0B0F14;color:#F8FAFC;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:13px;color:#94A3B8">Tu suscripción a REPI Coach</span>
+      <span style="font-size:30px;font-weight:600;letter-spacing:-.02em">{{ sub.total }}</span>
+      <span style="font-size:14px;color:#CBD5E1">{{ sub.calc }}</span>
+      <span style="font-size:13px;color:#5DE6D8">Próximo cobro: {{ sub.next }} · {{ sub.status }}</span>
+      <sc-for list="{{ sub.notices }}" as="n" hint-placeholder-count="0"><span style="font-size:12px;color:#FCD38A;background:rgba(245,158,11,.12);border-radius:8px;padding:8px 10px;line-height:1.4">{{ n.t }}</span></sc-for>
+      <span style="font-size:12px;color:#94A3B8;line-height:1.5;border-top:1px solid #1A2433;padding-top:10px">Facturable: cliente con relación activa y al menos un programa asignado en el período. Los clientes en pausa no se cobran. Precio ilustrativo y configurable.</span>
+    </div>
+  </div>
+</sc-if>
+  </div>
+</main>
+
+<sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeInvite }}" style="position:fixed;inset:0;z-index:60;background:rgba(11,15,20,.5);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div data-modal="1" onClick="{{ stop }}" role="dialog" aria-modal="true" aria-label="Invitar cliente" style="width:100%;max-width:520px;max-height:calc(100vh - 40px);overflow:auto;background:#FFFFFF;border-radius:18px;box-shadow:0 30px 80px rgba(11,15,20,.35);padding:24px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:19px;font-weight:600">Invitar cliente</h2><button onClick="{{ closeInvite }}" aria-label="Cerrar" style="width:36px;height:36px;border-radius:10px;border:0;background:#EEF2F6;font-size:18px;cursor:pointer">×</button></div>
+    <sc-if value="{{ invForm }}" hint-placeholder-val="{{ true }}">
+      <input value="{{ inv.name }}" onChange="{{ setInvName }}" placeholder="Nombre y apellido" aria-label="Nombre" style="height:42px;border:1px solid #D5DCE5;border-radius:10px;padding:0 12px;font-size:15px">
+      <input value="{{ inv.email }}" onChange="{{ setInvEmail }}" placeholder="Email o WhatsApp" aria-label="Contacto" style="height:42px;border:1px solid #D5DCE5;border-radius:10px;padding:0 12px;font-size:14px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ invPlans }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="height:34px;padding:0 12px;border-radius:17px;border:1px solid #D5DCE5;background:{{ o.bg }};color:{{ o.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ o.l }}</button></sc-for></div>
+      <div onClick="{{ toggleMinor }}" role="checkbox" aria-checked="{{ inv.minor }}" tabindex="0" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13px;line-height:1.45"><span style="width:22px;height:22px;border-radius:6px;border:1.5px solid {{ minorBd }};background:{{ minorBg }};display:grid;place-items:center;flex:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ minorOp }}"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Es menor de 18 años: la invitación pide el consentimiento de un adulto responsable y desactiva fotos, video y datos de salud hasta que lo autorice.</div>
+      <span style="font-size:12px;color:#5B6B80">Recibe un enlace seguro. Al aceptar, elige qué datos compartir con vos. Empieza a facturar cuando tenga un programa asignado.</span>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><button onClick="{{ closeInvite }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Cancelar</button><button onClick="{{ sendInvite }}" style="height:42px;padding:0 18px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Enviar invitación</button></div>
+    </sc-if>
+    <sc-if value="{{ invSent }}" hint-placeholder-val="{{ false }}">
+      <span style="font-size:14px;line-height:1.5">Invitación lista para <strong style="font-weight:600">{{ inv.name }}</strong>. Compartí el enlace o el código:</span>
+      <div style="background:#F3F5F8;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px"><span style="font:500 13px 'JetBrains Mono',monospace;color:#006B88;word-break:break-all">repi.app/i/{{ inv.code }}</span><span style="font:600 22px 'JetBrains Mono',monospace;letter-spacing:.12em">{{ inv.code }}</span></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><button onClick="{{ copyInvite }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Copiar enlace</button><button onClick="{{ closeInvite }}" style="height:42px;padding:0 18px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Listo</button></div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ reportOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeReport }}" style="position:fixed;inset:0;z-index:60;background:rgba(11,15,20,.5);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div data-modal="1" onClick="{{ stop }}" role="dialog" aria-modal="true" aria-label="Informe mensual" style="width:100%;max-width:640px;max-height:calc(100vh - 40px);overflow:auto;background:#FFFFFF;border-radius:18px;box-shadow:0 30px 80px rgba(11,15,20,.35);padding:28px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#006B88">Informe mensual · mayo 2026</span><h2 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-.01em">{{ cl.name }}</h2><span style="font-size:13px;color:#5B6B80">Preparado por Agustín Pérez · {{ cl.goal }}</span></div><button onClick="{{ closeReport }}" aria-label="Cerrar" style="width:36px;height:36px;border-radius:10px;border:0;background:#EEF2F6;font-size:18px;cursor:pointer">×</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px"><sc-for list="{{ rep.kpis }}" as="k" hint-placeholder-count="4"><div style="background:#F3F5F8;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#5B6B80">{{ k.l }}</span><span style="font-size:20px;font-weight:600">{{ k.v }}</span></div></sc-for></div>
+    <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Objetivos</span><sc-for list="{{ dx.goals }}" as="g" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;font-size:14px;padding:6px 0;border-bottom:1px solid #EEF2F6"><span>{{ g.t }}</span><strong style="font-weight:600">{{ g.pctTxt }}</strong></div></sc-for></div>
+    <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:14px;font-weight:600">Lo mejor del mes</span><sc-for list="{{ dx.strong }}" as="x" hint-placeholder-count="2"><span style="font-size:14px;line-height:1.45">· {{ x.t }}</span></sc-for></div>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600">Mensaje del coach<textarea value="{{ rep.note }}" onChange="{{ setRepNote }}" rows="3" style="border:1px solid #D5DCE5;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical"></textarea></label>
+    <span style="font-size:12px;color:#5B6B80">No incluye datos de salud salvo que lo marques. El alumno lo recibe en su app y puede descargarlo en PDF.</span>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button onClick="{{ printReport }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Imprimir / PDF</button><button onClick="{{ sendReport }}" style="height:42px;padding:0 18px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Enviar a {{ cl.first }}</button></div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ assignOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeAssign }}" style="position:fixed;inset:0;z-index:60;background:rgba(11,15,20,.5);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div data-modal="1" onClick="{{ stop }}" role="dialog" aria-modal="true" aria-label="Asignar programa" style="width:100%;max-width:520px;max-height:calc(100vh - 40px);overflow:auto;background:#FFFFFF;border-radius:18px;box-shadow:0 30px 80px rgba(11,15,20,.35);padding:24px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:19px;font-weight:600">Asignar «{{ pg.name }}»</h2><button onClick="{{ closeAssign }}" aria-label="Cerrar" style="width:36px;height:36px;border-radius:10px;border:0;background:#EEF2F6;font-size:18px;cursor:pointer">×</button></div>
+    <span style="font-size:13px;color:#5B6B80">Cada cliente recibe su propia copia: podés ajustarla después sin afectar a los demás.</span>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <sc-for list="{{ assignRows }}" as="a" hint-placeholder-count="6"><div onClick="{{ a.toggle }}" role="checkbox" aria-checked="{{ a.on }}" tabindex="0" style="display:flex;gap:12px;align-items:center;padding:10px;border-radius:10px;cursor:pointer;background:{{ a.bg }}"><span style="width:22px;height:22px;border-radius:6px;border:1.5px solid {{ a.ckBd }};background:{{ a.ckBg }};display:grid;place-items:center;flex:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ a.ckOp }}"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:600">{{ a.name }}</span><span style="font-size:12px;color:#5B6B80">Actual: {{ a.cur }}</span></span></div></sc-for>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">Empieza</span><sc-for list="{{ startOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid #D5DCE5;background:{{ o.bg }};color:{{ o.ink }};font:600 12px 'Inter Tight',sans-serif;cursor:pointer">{{ o.l }}</button></sc-for></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button onClick="{{ closeAssign }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid #D5DCE5;background:#FFFFFF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Cancelar</button><button onClick="{{ doAssign }}" style="height:42px;padding:0 18px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;opacity:{{ assignOp }}">Asignar a {{ assignN }}</button></div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div data-a="toast" role="status" style="position:fixed;right:24px;bottom:24px;z-index:70;max-width:380px;background:#0B0F14;color:#F8FAFC;border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.4;box-shadow:0 16px 40px rgba(11,15,20,.3);display:flex;gap:10px;align-items:flex-start"><span style="width:8px;height:8px;border-radius:4px;background:#00D1FF;flex:none;margin-top:6px"></span>{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const IC = { home:'M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z', users:'M9 11a4 4 0 100-8 4 4 0 000 8zM2 21c0-4 3-6 7-6s7 2 7 6M16 3.5a4 4 0 010 7.5M22 21c0-3-1.7-5-4.5-5.7', build:'M4 6h16M4 12h10M4 18h7M17 15v6M14 18h6', msg:'M4 5h16v11H9l-5 4z', money:'M3 6h18v12H3zM12 15a3 3 0 100-6 3 3 0 000 6z' };
+const nfm = n => Number(n).toLocaleString('es-AR');
+const d1 = n => Number(n).toFixed(1).replace('.', ',').replace(',0', '');
+const CH = { ok:['#E8F8F1','#047857'], warn:['#FFF4DE','#8A5300'], bad:['#FDECEC','#B42318'], mute:['#EEF2F6','#475569'], info:['#E6F9FE','#006B88'] };
+const EZ = 'cubic-bezier(.05,.7,.1,1)';
+const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const LIB = [['Press de banca','Pecho'],['Press inclinado mancuernas','Pecho'],['Remo con barra','Espalda'],['Jalón al pecho','Espalda'],['Remo en polea','Espalda'],['Press militar','Hombros'],['Elevaciones laterales','Hombros'],['Sentadilla','Piernas'],['Peso muerto rumano','Piernas'],['Prensa','Piernas'],['Hip thrust','Glúteos'],['Curl femoral','Piernas'],['Curl con barra','Brazos'],['Fondos en paralelas','Brazos'],['Plancha','Core']];
+const ex = (name, s, r, rir, rest) => ({ name, s, r, rir, rest });
+const PG0 = {
+  p1:{ name:'Hipertrofia · 4 días', weeks:6, note:'Semana de carga: RIR 2 en la última serie.', days:[{ n:'Torso A', ex:[ex('Press de banca',4,'8-10',2,'2:00'),ex('Remo con barra',4,'8-10',2,'2:00'),ex('Press militar',3,'8-12',2,'1:30'),ex('Elevaciones laterales',3,'12-15',1,'1:00')] },{ n:'Piernas', ex:[ex('Sentadilla',4,'6-8',2,'2:30'),ex('Peso muerto rumano',3,'8-10',2,'2:00'),ex('Prensa',3,'10-12',2,'1:30'),ex('Hip thrust',3,'10',2,'1:30')] },{ n:'Torso B', ex:[ex('Jalón al pecho',4,'10',2,'2:00'),ex('Press inclinado mancuernas',3,'10',2,'2:00'),ex('Remo en polea',3,'12',2,'1:30'),ex('Fondos en paralelas',3,'8-10',1,'1:30')] }] },
+  p2:{ name:'Fuerza base · 3 días', weeks:8, note:'Priorizá técnica. Subí 2,5 kg por semana si completás todas las series.', days:[{ n:'Día A', ex:[ex('Sentadilla',5,'5',2,'3:00'),ex('Press de banca',5,'5',2,'3:00')] },{ n:'Día B', ex:[ex('Peso muerto rumano',3,'5',2,'3:00'),ex('Press militar',5,'5',2,'2:30')] }] },
+  p3:{ name:'Recomposición · 3 días', weeks:6, note:'Mantené 8.000 pasos diarios.', days:[{ n:'Full body A', ex:[ex('Sentadilla',3,'10',2,'1:30'),ex('Remo con barra',3,'10',2,'1:30'),ex('Plancha',3,'40 s',0,'0:45')] }] },
+};
+const CL0 = [
+  { id:'c1', name:'Valentina Gómez', ini:'VG', goal:'Hipertrofia', plan:'Online mensual', price:'ARS 38.000', since:'mar 2026', adh:86, last:'Hoy', prog:'p1', pay:'ok', payTxt:'Al día', lift:'Press de banca', lv:[75,77.5,77.5,80,80,82.5,85,87.5], share:{ medidas:true, fotos:false, scan:false, comp:false, salud:true, nutri:false }, flag:null, unread:true, appName:'Valentina G.' },
+  { id:'c2', name:'Martín Sosa', ini:'MS', goal:'Fuerza', plan:'Presencial 2×sem', price:'ARS 64.000', since:'dic 2025', adh:72, last:'Ayer', prog:'p2', pay:'warn', payTxt:'Vence en 2 días', lift:'Sentadilla', lv:[100,102.5,105,105,107.5,110,110,112.5], share:{ medidas:true, fotos:true, scan:false, comp:true, salud:true, nutri:false }, flag:'Programa vence vie', unread:false },
+  { id:'c3', name:'Lucía Romero', ini:'LR', goal:'Recomposición', plan:'Online mensual', price:'ARS 38.000', since:'feb 2026', adh:54, last:'hace 9 días', prog:'p3', pay:'bad', payTxt:'Vencido', lift:'Sentadilla', lv:[50,50,52.5,52.5,55,55,55,55], share:{ medidas:false, fotos:false, scan:false, comp:false }, flag:'Sin actividad 9 días', unread:true },
+  { id:'c4', name:'Diego Álvarez', ini:'DA', goal:'Running + fuerza', plan:'Online mensual', price:'ARS 38.000', since:'ene 2026', adh:81, last:'Hoy', prog:'p2', pay:'ok', payTxt:'Al día', lift:'Peso muerto rumano', lv:[70,72.5,72.5,75,77.5,77.5,80,80], share:{ medidas:true, fotos:false, scan:false, comp:false, salud:true, nutri:true }, flag:null, unread:false },
+  { id:'c5', name:'Carolina Vidal', ini:'CV', goal:'Volver a entrenar', plan:'Online mensual', price:'ARS 38.000', since:'hoy', adh:0, last:'—', prog:null, pay:'ok', payTxt:'Al día', lift:'—', lv:[], share:{ medidas:false, fotos:false, scan:false, comp:false }, flag:'Sin programa', unread:true },
+  { id:'c6', name:'Ignacio Ruiz', ini:'IR', goal:'Hipertrofia', plan:'En pausa', price:'—', since:'2025', adh:0, last:'hace 30 días', prog:null, pay:'mute', payTxt:'En pausa', lift:'—', lv:[], share:{ medidas:false, fotos:false, scan:false, comp:false }, flag:null, unread:false },
+];
+const MSG0 = {
+  c1:[{ me:false, t:'¿Mantengo los 2 min de descanso en banca?', time:'Lun 08:30' },{ me:true, t:'Sí, 2 min en los básicos y 1:30 en laterales.', time:'Lun 08:41' },{ me:false, t:'¡Hoy saqué 87,5 × 7! 🙌', time:'Hoy 09:02' }],
+  c3:[{ me:false, t:'Perdón, estuve con mucho trabajo. ¿Podemos ajustar a 2 días?', time:'Hoy 07:15' }],
+  c5:[{ me:false, t:'¡Hola! Ya pagué. ¿Cuándo arrancamos?', time:'Hoy 08:50' }],
+  c2:[{ me:true, t:'El viernes cerramos el bloque. Te paso el nuevo el sábado.', time:'Vie 18:00' }],
+};
+
+class Component extends DCLogic {
+  state = { vw: 1280, drawer: false, wsOpen: false, screen: 'dash', clients: CL0, sel: 'c1', q: '', filter: 'all', sort: 'name', ctab: 'res',
+    pgs: PG0, pgId: 'p1', day: 0, libQ: '', assign: null, msgs: MSG0, thread: 'c1', draft: '', toast: null, paid: {}, sh: null, invite: null, report: null };
+  rootRef = el => { if (el && el !== this._root) { this._root = el; this._ro && this._ro.disconnect(); this._ro = new ResizeObserver(() => { cancelAnimationFrame(this._raf); this._raf = requestAnimationFrame(() => { const w = el.clientWidth; if (Math.abs(w - this.state.vw) > 4) this.setState({ vw: w }); }); }); this._ro.observe(el); } };
+  mainRef = el => { this._main = el; };
+  loadShared() { if (window.RepiShared) this.setState({ sh: window.RepiShared.all() }); }
+  componentDidMount() { const boot = () => { if (window.RepiShared) { this.loadShared(); this._unsub = window.RepiShared.subscribe(k => { const before = ((this.state.sh || {}).pains || []).length + ((this.state.sh || {}).requests || []).length; this.loadShared(); const s2 = this.state.sh || {}; if (k === 'remote' && (s2.pains || []).length + (s2.requests || []).length > before) this.flash('Novedad desde la app de Valentina. Revisá Solicitudes.'); }); } else setTimeout(boot, 150); }; boot(); this._key = e => { if (e.key === 'Escape') this.setState({ assign: null, wsOpen: false, drawer: false }); }; window.addEventListener('keydown', this._key); this.enter(); }
+  componentWillUnmount() { this._unsub && this._unsub(); this._ro && this._ro.disconnect(); window.removeEventListener('keydown', this._key); clearTimeout(this._tt); }
+  componentDidUpdate(pp, ps) {
+    const s = this.state;
+    if (ps.screen !== s.screen) this.enter();
+    if (s.assign && !ps.assign && !reduced()) { const m = document.querySelector('[data-modal]'); m && m.animate([{ opacity: 0, transform: 'translateY(8px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: EZ }); }
+    if (s.toast && s.toast !== ps.toast && !reduced()) { const t = document.querySelector('[data-a="toast"]'); t && t.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: EZ }); }
+  }
+  enter() { const m = this._main; if (!m || reduced()) return; [...m.children].slice(0, 5).forEach((c, i) => c.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { delay: i * 30, duration: 220, easing: EZ, fill: 'backwards' })); }
+  flash(t) { clearTimeout(this._tt); this.setState({ toast: t }); this._tt = setTimeout(() => this.setState({ toast: null }), 3000); }
+  go(screen, extra) { this.setState({ screen, drawer: false, wsOpen: false, ...(extra || {}) }); }
+  setPg(fn) { this.setState(s => ({ pgs: { ...s.pgs, [s.pgId]: fn(s.pgs[s.pgId]) } })); }
+  setEx(i, patch) { this.setPg(p => ({ ...p, days: p.days.map((d, j) => j === this.state.day ? { ...d, ex: d.ex.map((e, k) => k === i ? { ...e, ...patch } : e) } : d) })); }
+
+  deep(cl, s, openClient) {
+    const seed = cl.id.charCodeAt(1) * 7;
+    const r = i => ((Math.sin(seed + i * 12.9898) * 43758.5453) % 1 + 1) % 1;
+    const has = cl.lv.length > 0;
+    const spark = arr => { const lo = Math.min(...arr), hi = Math.max(...arr) || 1; return arr.map((v, i) => `${i ? 'L' : 'M'}${(i / (arr.length - 1) * 78 + 1).toFixed(1)},${(22 - (v - lo) / ((hi - lo) || 1) * 20).toFixed(1)}`).join(' '); };
+    const LIFTS = { c1: [['Press de banca', 1], ['Remo con barra', .82], ['Sentadilla', 1.05], ['Press militar', .52]], c2: [['Sentadilla', 1], ['Press de banca', .74], ['Peso muerto rumano', .85]], c3: [['Sentadilla', 1], ['Remo con barra', .9]], c4: [['Peso muerto rumano', 1], ['Sentadilla', .95], ['Press de banca', .7]] }[cl.id] || [];
+    const lifts = has ? LIFTS.map(([n, k], j) => { const arr = cl.lv.map((v, i) => +(v * k * (1 + (r(i + j) - .5) * .02)).toFixed(1)); const a = arr[0] * 1.25, b = arr[arr.length - 1] * 1.25, d = (b - a) / a * 100; return { n, a: `${d1(a)} kg`, b: `${d1(b)} kg`, delta: `${d >= 0 ? '+' : ''}${d1(d)}%`, ink: d > 4 ? '#047857' : d > 0 ? '#0B0F14' : '#B42318', spark: spark(arr), best: `${d1(arr[arr.length - 1])} kg × ${6 + Math.round(r(j) * 4)}` }; }) : [];
+    const groups = [['Pecho', 12, 12], ['Espalda', 12, 8], ['Piernas', 14, 13], ['Glúteos', 8, 8], ['Hombros', 10, 9], ['Core', 6, 3]];
+    const vol = groups.map(([g, p, d], i) => { const dn = has ? Math.round(d * (cl.adh / 86)) : 0; const k = dn / p; return { g, w: `${Math.min(100, k * 100)}%`, c: k >= .9 ? '#00D1FF' : k >= .7 ? '#5DE6D8' : '#F59E0B', txt: `${dn}/${p}` }; });
+    const weakG = vol.filter(v => parseFloat(v.w) < 75).map(v => v.g);
+    const strong = has ? [`${lifts[0] ? lifts[0].n : 'Básicos'}: ${lifts[0] ? lifts[0].delta : ''} en 8 semanas, progresión constante`, `Adherencia ${cl.adh}% con sesiones completas en tren superior`, 'Técnica estable: RPE registrado dentro del rango planificado'] : [];
+    const weak = has ? [...weakG.map(g => `${g}: menos series de las planificadas en la última semana`), ...(cl.adh < 70 ? ['Frecuencia irregular: semanas con 2 de 4 sesiones'] : []), ...(cl.id === 'c1' ? ['Molestia en hombro derecho los días de press: vigilar'] : [])].slice(0, 3) : [];
+    const ck = (base, amp, off) => Array.from({ length: 14 }, (_, i) => Math.max(1, Math.min(10, Math.round(base + Math.sin(i * .9 + off) * amp + (r(i + off) - .5) * 2))));
+    const pathOf = arr => arr.map((v, i) => `${i ? 'L' : 'M'}${(i / 13 * 140).toFixed(1)},${(38 - (v - 1) / 9 * 36).toFixed(1)}`).join(' ');
+    const checkins = has ? [['Energía', ck(7, 1.4, 1), '#00A9CF'], ['Sueño', ck(6.5, 1.6, 3), '#5DE6D8'], ['Esfuerzo percibido (RPE)', ck(7.5, .8, 5), '#2D3B4F']].map(([l, a, c]) => ({ l, c, path: pathOf(a), avg: d1(a.reduce((x, y) => x + y, 0) / a.length) })) : [];
+    const pg = cl.prog ? s.pgs[cl.prog] : null;
+    const notes = { c1: ['Banca 87,5 × 7, ¡récord!', '', 'Hombro derecho molesta un poco al bajar', '', 'Dormí poco, bajé el peso en sentadilla'], c3: ['', 'Cansada, corté antes'] }[cl.id] || [];
+    const liveS = cl.appName ? ((s.sh || {}).sessions || []).filter(x => x.member === cl.appName).map(x => ({ d: x.at, n: x.name, sets: x.sets, setInk: '#0B0F14', rpe: String(x.rpe).replace('.', ','), dur: x.dur, note: x.note + (x.rirAvg != null ? ' (RIR prom. ' + String(x.rirAvg).replace('.', ',') + ')' : ''), hasNote: !!x.note || x.rirAvg != null })) : [];
+    const sessions0 = pg ? ['Hoy', 'Sáb 17', 'Jue 15', 'Mar 13', 'Lun 12', 'Jue 8'].map((d, i) => { const day = pg.days[i % pg.days.length]; const plan = day.ex.reduce((a, e) => a + e.s, 0); const done = Math.max(0, plan - (r(i) < (1 - cl.adh / 100) + .1 ? Math.ceil(r(i + 3) * 4) : 0)); return { d, n: day.n, sets: `${done}/${plan}`, setInk: done < plan ? '#8A5300' : '#0B0F14', rpe: d1(6.5 + r(i + 7) * 2.5), dur: `${38 + Math.round(r(i + 9) * 20)} min`, note: notes[i] || '', hasNote: !!notes[i] }; }).slice(0, cl.adh < 60 ? 3 : 6) : [];
+    const sessions = [...liveS, ...sessions0].slice(0, 7);
+    const goals = { c1: [['Press de banca 90 kg × 5', '87,5 kg', '90 kg', .97], ['Brazo derecho 37 cm', '35,5 cm', '37 cm', .5], ['4 sesiones por semana', '3,4', '4', .85]], c2: [['Sentadilla 120 kg', '112,5 kg', '120 kg', .94], ['Peso muerto rumano 100 kg', '96 kg', '100 kg', .96]], c3: [['Cintura −4 cm', '−1 cm', '−4 cm', .25], ['3 sesiones por semana', '1,6', '3', .53]], c4: [['10 km en < 50 min', '52:10', '50:00', .8], ['Peso muerto rumano 90 kg', '80 kg', '90 kg', .89]] }[cl.id] || [];
+    const health = cl.share.salud, nutri = cl.share.nutri;
+    const INJ = ({ c1: [['Hombro derecho', 'Tendinopatía del supraespinoso (antecedente 2024)', 'mar 2024', 'En seguimiento', 'warn', 'Sin press tras nuca. Rango completo solo sin dolor > 3/10.']], c2: [['Zona lumbar', 'Contractura recurrente', 'ene 2026', 'Resuelta', 'ok', 'Calentamiento con bisagra de cadera antes de peso muerto']], c4: [['Rodilla izquierda', 'Síndrome de cintilla iliotibial', 'abr 2026', 'Activa', 'bad', 'Bajar volumen de carrera 20%; sentadilla sin dolor']] }[cl.id] || []).slice();
+    const painArr = ({ c1: [0, 2, 1, 3, 2, 4, 3, 4], c2: [1, 0, 0, 1, 0, 0, 0, 0], c4: [2, 3, 4, 5, 4, 3, 3, 2] }[cl.id] || [0, 0, 0, 0, 0, 0, 0, 0]).slice();
+    const PAINS = ({ c1: [['Ayer', 'Hombro derecho', 'press de banca, fase excéntrica', 4], ['Jue 15', 'Hombro derecho', 'press militar', 3], ['Mar 6', 'Lumbar', 'sentadilla, última serie', 2]], c2: [['Lun 5', 'Lumbar', 'peso muerto rumano', 1]], c4: [['Sáb 17', 'Rodilla izquierda', 'carrera 8 km, km 6', 4], ['Jue 15', 'Rodilla izquierda', 'sentadilla', 3]] }[cl.id] || []).slice();
+    const HEALTH = { c1: [['Condiciones', 'Ninguna declarada'], ['Medicación', 'Anticonceptivo oral'], ['Alergias', 'Ninguna'], ['Apto físico', 'Vigente hasta mar 2027']], c2: [['Condiciones', 'Hipertensión controlada'], ['Medicación', 'Losartán 50 mg'], ['Alergias', 'Penicilina'], ['Apto físico', 'Vigente hasta dic 2026']], c4: [['Condiciones', 'Asma leve inducida por ejercicio'], ['Medicación', 'Salbutamol según necesidad'], ['Alergias', 'Ninguna'], ['Apto físico', 'Vence en 20 días']] }[cl.id] || [];
+    const kcalT = cl.id === 'c4' ? 2600 : 2200;
+    const kc = [2150, 2320, 1980, 2240, 2410, 2600, 2050].map((v, i) => Math.round(v * kcalT / 2200));
+    const kmax = kcalT * 1.3;
+    const wv = cl.id === 'c4' ? [76.2, 76.0, 75.8, 75.9, 75.5, 75.4, 75.1, 75.0] : [73.6, 73.4, 73.5, 73.1, 72.9, 72.8, 72.6, 72.4];
+    const wlo = Math.min(...wv) - .5, whi = Math.max(...wv) + .5;
+    const SHd = s.sh || {}; const linked = cl.appName ? cl.appName : null;
+    if (linked) {
+      const myP = (SHd.pains || []).filter(p => p.member === linked).map(p => [p.at, p.zone, p.ctx + (p.note ? ' · "' + p.note + '"' : ''), p.level]);
+      PAINS.unshift(...myP);
+      const hi = (SHd.health || {})[linked]; if (hi && hi.injuries) { INJ.length = 0; hi.injuries.forEach(i => INJ.push([i.zone, i.detail, i.since, i.status, i.status === 'Resuelta' ? 'ok' : i.status === 'Activa' ? 'bad' : 'warn', i.status === 'Resuelta' ? 'Sin restricción' : 'Revisar ejercicios que cargan la zona'])); }
+      if (myP.length) painArr.push(...myP.map(p => p[3])); while (painArr.length > 8) painArr.shift();
+    }
+    const alerts = [];
+    if (health && PAINS[0] && PAINS[0][3] >= 4) alerts.push({ t: `Molestia ${PAINS[0][3]}/10 en ${PAINS[0][1].toLowerCase()}`, d: `reportada ${PAINS[0][0].toLowerCase()} durante ${PAINS[0][2].split(',')[0]}`, cta: 'Ver salud', dot: '#F59E0B', bg: '#FFF4DE', go: () => this.setState({ ctab: 'salud' }) });
+    if (cl.flag === 'Sin actividad 9 días') alerts.push({ t: 'Sin entrenar hace 9 días', d: 'adherencia en baja desde la semana 5', cta: 'Escribir', dot: '#F59E0B', bg: '#FFF4DE', go: () => this.go('msgs', { thread: cl.id }) });
+    if (lifts[0] && parseFloat(lifts[0].delta) > 10) alerts.push({ t: `Récord en ${lifts[0].n}`, d: lifts[0].best, cta: 'Ver rendimiento', dot: '#00D1FF', bg: '#E6F9FE', go: () => this.setState({ ctab: 'rend' }) });
+    return {
+      alerts, goals: goals.map(([t, now, target, p]) => ({ t, now, target, pct: `${p * 100}%`, pctTxt: `${Math.round(p * 100)}%`, c: p >= .9 ? '#00D1FF' : p >= .6 ? '#5DE6D8' : '#F59E0B' })), noGoals: !goals.length,
+      lifts, vol, strong: strong.map(t => ({ t })), weak: (weak.length ? weak : ['Sin puntos débiles claros con los datos actuales']).map(t => ({ t })), checkins, sessions,
+      healthLocked: !health, healthOpen: health,
+      injuries: INJ.map(([z, t, d, st, k, rr]) => ({ z, t, d, st, r: rr, bg: CH[k][0], ink: CH[k][1] })), noInjuries: !INJ.length,
+      painBars: painArr.map((v, i) => ({ v, h: `${Math.max(4, v * 10)}%`, c: v >= 4 ? '#F59E0B' : v ? '#5DE6D8' : '#E2E8F0', l: `S${i + 1}` })),
+      pains: PAINS.map(([d, z, ctx, v]) => ({ d, z, ctx, v, ink: v >= 4 ? '#8A5300' : '#0B0F14' })),
+      health: HEALTH.map(([l, v]) => ({ l, v })),
+      nutriLocked: !nutri, nutriOpen: nutri,
+      nKpis: [['Objetivo diario', `${nfm(kcalT)} kcal`, cl.id === 'c4' ? 'Rendimiento en carrera' : 'Superávit leve'], ['Días en rango', '5 de 7', '±10% del objetivo'], ['Hidratación', cl.id === 'c4' ? '2,9 L / día' : '2,3 L / día', 'Objetivo 2,5 L'], ['Comidas registradas', '24 de 28', 'Últimos 7 días']].map(([l, v, sub]) => ({ l, v, sub })),
+      macros: [['Proteína', 132, 140, 'g', '#00D1FF'], ['Carbohidratos', 245, 260, 'g', '#5DE6D8'], ['Grasas', 71, 70, 'g', '#2D3B4F'], ['Fibra', 22, 30, 'g', '#9BB0C4']].map(([l, v, t, u, c]) => ({ l, v: `${Math.round(v * kcalT / 2200)} ${u}`, t: `${Math.round(t * kcalT / 2200)} ${u}`, w: `${Math.min(100, v / t * 100)}%`, c })),
+      kcal: kc.map((v, i) => ({ v, h: `${v / kmax * 100}%`, l: ['L', 'M', 'M', 'J', 'V', 'S', 'D'][i], c: Math.abs(v - kcalT) / kcalT <= .1 ? '#00D1FF' : '#F59E0B' })),
+      bandLo: `calc(${kcalT * .9 / kmax * 100}% * .85 + 18px)`, bandH: `calc(${kcalT * .2 / kmax * 100}% * .85)`,
+      wLine: wv.map((v, i) => `${i ? 'L' : 'M'}${(i / 7 * 300).toFixed(1)},${(100 - (v - wlo) / (whi - wlo) * 100).toFixed(1)}`).join(' '), wDelta: `${d1(wv[7] - wv[0])} kg`,
+      meals: [['Desayuno', 'Avena, yogur griego y banana', '520 kcal'], ['Almuerzo', 'Pollo, arroz y ensalada', '780 kcal'], ['Merienda', 'Batido de proteína y tostadas', '410 kcal'], ['Cena', 'Salmón, papas y verduras', '690 kcal']].map(([l, t, k]) => ({ l, t, k })),
+    };
+  }
+  extra(s, cl, SH, RS, openClient) {
+    const arr = k => SH[k] || [];
+    const aType = s.ctab === 'nutri' ? 'nutricion' : 'salud';
+    const accReq = cl.appName ? arr('access').find(a => a.member === cl.appName && a.type === aType) : null;
+    const ACC = { pending: ['Solicitud enviada · esperando respuesta', '#FFF4DE', '#8A5300'], granted: ['Acceso concedido', '#E8F8F1', '#047857'], denied: ['Rechazada por el alumno', '#FDECEC', '#B42318'] };
+    const acct = (SH.accounts || {}).c1 || { status: 'active', rate: 700, count: 'peak', day: 5, billable: 18, peak: 19, notices: [] };
+    const n = acct.count === 'peak' ? acct.peak : acct.billable;
+    const CNT = { peak: 'máximo del período', cur: 'al día de cobro', avg: 'promedio del período' };
+    const ST = { active: 'Al día', trial: 'En prueba', paused: 'Pausada', overdue: 'Pago vencido' };
+    const banners = [];
+    if (acct.status === 'overdue') banners.push({ t: 'Tu suscripción REPI tiene un pago vencido.', d: 'Tus alumnos siguen entrenando 7 días más; después la app queda en solo lectura.', cta: 'Ver suscripción', bg: '#FDECEC', ink: '#7A1A12', go: () => this.go('pay') });
+    if (acct.status === 'paused') banners.push({ t: 'Tu cuenta está pausada.', d: 'No se factura; tus alumnos ven sus datos pero no reciben programas nuevos.', cta: 'Ver suscripción', bg: '#EEF2F6', ink: '#334155', go: () => this.go('pay') });
+    if (acct.status === 'trial') banners.push({ t: 'Estás en período de prueba.', d: 'Termina el 31 may. Después se cobra según tu plan.', cta: 'Ver plan', bg: '#E6F9FE', ink: '#004E63', go: () => this.go('pay') });
+    (acct.notices || []).slice(0, 2).forEach(x => banners.push({ t: 'Cambio en tu suscripción:', d: x.t, cta: 'Ver', bg: '#FFF4DE', ink: '#6B4100', go: () => this.go('pay') }));
+    const reqs = arr('requests').filter(r => r.to === 'coach');
+    const KIND = { rutina: 'Cambiar rutina', tecnica: 'Revisar técnica', consulta: 'Consulta' };
+    const vids = s.vids || {};
+    reqs.filter(r => r.video && !vids[r.id]).forEach(r => RS && RS.getVideo(r.id).then(b => { if (b) this.setState(x => ({ vids: { ...(x.vids || {}), [r.id]: URL.createObjectURL(b) } })); }).catch(() => {}));
+    const I = s.invite || {}, R = s.report || {};
+    const setI = p => this.setState(x => ({ invite: { ...x.invite, ...p } }));
+    const invs = arr('coachInvites');
+    return {
+      acctBanners: banners, billableTxt: n + ' facturables este mes (' + CNT[acct.count] + ')',
+      sub: { total: 'ARS ' + (n * acct.rate).toLocaleString('es-AR'), calc: n + ' alumnos × ARS ' + acct.rate.toLocaleString('es-AR') + ' · criterio: ' + CNT[acct.count], next: 'día ' + acct.day + ' de junio', status: ST[acct.status] || acct.status, notices: (acct.notices || []).map(t => ({ t: t.t })) },
+      accessCanAsk: !accReq || accReq.status === 'denied', accessHasState: !!accReq, accessTxt: accReq ? ACC[accReq.status][0] : '', accessBg: accReq ? ACC[accReq.status][1] : '', accessInk: accReq ? ACC[accReq.status][2] : '',
+      askAccess: () => { if (!cl.appName || !RS) { this.flash('Le enviamos a ' + cl.name.split(' ')[0] + ' una solicitud. Decide en su app qué compartir.'); return; } RS.push('access', { id: RS.uid('ac'), member: cl.appName, from: 'Agustín Pérez', type: aType, status: 'pending', why: aType === 'nutricion' ? 'Para ajustar tu alimentación al bloque de hipertrofia.' : 'Para adaptar ejercicios a tus molestias.', at: RS.now() }); this.flash('Solicitud enviada a ' + cl.name.split(' ')[0] + '. Le llega a su app.'); },
+      inReq: reqs.map(r => ({ ...r, kindTxt: KIND[r.kind] || r.kind, hasVideo: !!vids[r.id], videoEl: vids[r.id] ? React.createElement('video', { src: vids[r.id], controls: true, playsInline: true, style: { width: '100%', maxHeight: 220, borderRadius: 10, background: '#0B0F14' } }) : null, open: r.status !== 'done', closed: r.status === 'done', reply: () => this.go('msgs', { thread: 'c1' }), done: () => { RS.patch('requests', r.id, { status: 'done', doneBy: 'Agustín' }); this.flash('Pedido resuelto. Valentina recibe el aviso.'); } })), noReq: reqs.length === 0,
+      inPain: [...arr('pains').map(p => ({ t: p.member + ' · ' + p.zone + ' ' + p.level + '/10', d: p.ctx, at: p.at, dot: p.level >= 4 ? '#F59E0B' : '#5DE6D8', open: () => { RS.patch('pains', p.id, { seenCoach: true }); openClient('c1', 'salud'); } })), ...arr('checkins').map(c => ({ t: c.member + ' · check-in', d: 'Energía ' + c.energy + '/5 · Sueño ' + c.sleep + '/5 · Ánimo ' + c.mood + '/5', at: c.at, dot: c.sleep <= 2 || c.energy <= 2 ? '#F59E0B' : '#10B981', open: () => openClient('c1', 'rend') })), ...arr('sessions').map(x => ({ t: x.member + ' · terminó ' + x.name, d: 'Esfuerzo ' + x.rpe + '/10' + (x.note ? ' · "' + x.note + '"' : ''), at: x.at, dot: '#00D1FF', open: () => openClient('c1', 'prog') }))].slice(0, 10),
+      noPain: !arr('pains').length && !arr('checkins').length && !arr('sessions').length,
+      inAccess: arr('access').map(a => ({ member: a.member, label: a.type === 'nutricion' ? 'Nutrición' : 'Salud', st: ACC[a.status][0], bg: ACC[a.status][1], ink: ACC[a.status][2] })), noAccess: !arr('access').length,
+      invites: invs.map(i => ({ ...i, st: i.status === 'accepted' ? 'Aceptada' : 'Pendiente', bg: i.status === 'accepted' ? '#E8F8F1' : '#FFF4DE', ink: i.status === 'accepted' ? '#047857' : '#8A5300' })), noInvites: !invs.length,
+      openInvite: () => this.setState({ invite: { step: 'form', name: '', email: '', plan: 'Online mensual', minor: false } }), closeInvite: () => this.setState({ invite: null }), inviteOpen: !!s.invite,
+      invForm: I.step === 'form', invSent: I.step === 'sent', inv: I, setInvName: e => setI({ name: e.target.value }), setInvEmail: e => setI({ email: e.target.value }),
+      invPlans: ['Online mensual', 'Presencial 2×sem', 'Híbrido'].map(l => ({ l, pick: () => setI({ plan: l }), bg: I.plan === l ? '#0B0F14' : '#FFFFFF', ink: I.plan === l ? '#F8FAFC' : '#0B0F14' })),
+      toggleMinor: () => setI({ minor: !I.minor }), minorBg: I.minor ? '#00D1FF' : '#FFFFFF', minorBd: I.minor ? '#00D1FF' : '#C9D2DD', minorOp: I.minor ? 1 : 0,
+      sendInvite: () => { if (!(I.name || '').trim() || !(I.email || '').trim()) { this.flash('Completá nombre y contacto.'); return; } const code = 'R' + Math.random().toString(36).slice(2, 7).toUpperCase(); const ini = I.name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(); this.setState(x => ({ invite: { ...x.invite, step: 'sent', code }, clients: [...x.clients, { id: 'n' + code, name: I.name.trim(), ini, goal: 'Por definir', plan: I.plan, price: '—', since: 'invitado', adh: 0, last: '—', prog: null, pay: 'mute', payTxt: 'Invitación pendiente', lift: '—', lv: [], share: { medidas: false, fotos: false, scan: false, comp: false, salud: false, nutri: false }, flag: I.minor ? 'Menor · requiere tutor' : 'Invitación pendiente', unread: false }] })); RS && RS.push('coachInvites', { id: RS.uid('ci'), name: I.name.trim(), email: I.email.trim(), code, minor: !!I.minor, status: 'pending', at: RS.now() }); },
+      copyInvite: () => { try { navigator.clipboard.writeText('https://repi.app/i/' + I.code); } catch (e) {} this.flash('Enlace copiado.'); },
+      openReport: () => this.setState({ report: { note: 'Gran mes, ' + cl.name.split(' ')[0] + '. Seguimos con el bloque y cuidamos el hombro.' } }), closeReport: () => this.setState({ report: null }), reportOpen: !!s.report,
+      rep: { note: R.note || '', kpis: [['Adherencia', cl.adh ? cl.adh + '%' : '—'], ['Sesiones', String(arr('sessions').filter(x => x.member === cl.appName).length + 13)], ['Récords', '2'], ['Progresión', cl.lv.length ? '+' + String(cl.lv[cl.lv.length - 1] - cl.lv[0]).replace('.', ',') + ' kg' : '—']].map(([l, v]) => ({ l, v })) },
+      setRepNote: e => { const v = e.target.value; this.setState(x => ({ report: { ...x.report, note: v } })); },
+      printReport: () => window.print(), sendReport: () => { this.setState({ report: null }); this.flash('Informe enviado a ' + cl.name.split(' ')[0] + '. Lo ve en su app.'); },
+    };
+  }
+  renderVals() {
+    const s = this.state, vw = s.vw, navMode = vw >= 1100 ? 'full' : vw >= 768 ? 'rail' : 'drawer', isDrawer = navMode === 'drawer', navFull = navMode === 'full' || (isDrawer && s.drawer);
+    const sc = { inbox: s.screen === 'inbox', dash: s.screen === 'dash', clients: s.screen === 'clients', builder: s.screen === 'builder', msgs: s.screen === 'msgs', pay: s.screen === 'pay' };
+    const unread = s.clients.filter(c => c.unread).length;
+    const SH = s.sh || {}, RS = window.RepiShared, arrS = k => SH[k] || [];
+    const inboxN = arrS('requests').filter(r => r.to === 'coach' && r.status === 'open').length + arrS('pains').filter(p => !p.seenCoach).length;
+    const nav = [['dash','Panel',IC.home],['clients','Clientes',IC.users],['builder','Programas',IC.build],['msgs','Mensajes',IC.msg],['inbox','Solicitudes','M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z'],['pay','Pagos',IC.money]].map(([k, l, ic]) => ({ label: l, icon: ic, go: () => this.go(k), cur: s.screen === k ? 'page' : 'false', bg: s.screen === k ? '#1A2433' : 'transparent', ink: s.screen === k ? '#F8FAFC' : '#94A3B8', hasBadge: (k === 'msgs' && unread > 0) || (k === 'inbox' && inboxN > 0), badge: k === 'inbox' ? inboxN : unread }));
+    const openClient = (id, tab) => this.go('clients', { sel: id, ctab: tab || 'res' });
+    const pg = s.pgs[s.pgId];
+    const newProgram = () => { const id = 'p' + (Object.keys(s.pgs).length + 1) + Date.now() % 1000; this.setState(x => ({ screen: 'builder', pgId: id, day: 0, pgs: { ...x.pgs, [id]: { name: 'Programa nuevo', weeks: 6, note: '', days: [{ n: 'Día A', ex: [] }] } } })); };
+    const cl = s.clients.find(c => c.id === s.sel) || s.clients[0];
+    const q = s.q.trim().toLowerCase();
+    let list = s.clients.filter(c => (!q || (c.name + c.goal).toLowerCase().includes(q)) && (s.filter === 'all' || (s.filter === 'active' && c.plan !== 'En pausa') || (s.filter === 'att' && c.flag) || (s.filter === 'noprog' && !c.prog)));
+    list = list.slice().sort((a, b) => s.sort === 'adh' ? a.adh - b.adh : s.sort === 'last' ? (a.last === 'Hoy' ? -1 : 1) : a.name.localeCompare(b.name));
+    const clPg = cl.prog ? s.pgs[cl.prog] : null;
+    const X = (i, n) => n > 1 ? i / (n - 1) * 300 : 0;
+    const lo = cl.lv.length ? Math.min(...cl.lv) - 5 : 0, hi = cl.lv.length ? Math.max(...cl.lv) + 5 : 1;
+    const Y = v => 120 - (v - lo) / (hi - lo) * 120;
+    const line = cl.lv.map((v, i) => `${i ? 'L' : 'M'}${X(i, cl.lv.length).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    const wk = [3,4,4,3,4,4,3,4].map((p, i) => ({ p, d: Math.max(0, Math.min(p, Math.round(p * (cl.adh / 100) + ((i % 3) - 1) * .4))) }));
+    const shareRow = (k, t, v, src) => cl.share[k] ? { t, v, src, ink: '#0B0F14' } : { t, v: 'No compartido', src: 'Sin acceso hasta que el cliente lo habilite', ink: '#5B6B80' };
+    const thread = s.clients.find(c => c.id === s.thread) || s.clients[0];
+    const send = () => { const t = s.draft.trim(); if (!t) return; this.setState(x => ({ draft: '', msgs: { ...x.msgs, [x.thread]: [...(x.msgs[x.thread] || []), { me: true, t, time: 'Ahora' }] }, clients: x.clients.map(c => c.id === x.thread ? { ...c, unread: false } : c) })); };
+    const A = s.assign || { ids: [], start: 'lun' };
+    const libq = s.libQ.trim().toLowerCase();
+    const days = pg.days;
+
+    return {
+      rootRef: this.rootRef, mainRef: this.mainRef, sc, nav, navFull, navRail: !navFull, navDrawer: isDrawer, drawerOpen: isDrawer && s.drawer,
+      showAside: !isDrawer || s.drawer, asidePos: isDrawer ? 'fixed' : 'sticky', sideW: navMode === 'rail' && !s.drawer ? '72px' : '248px',
+      openDrawer: () => this.setState({ drawer: true }), closeDrawer: () => this.setState({ drawer: false }), wsOpen: s.wsOpen, toggleWs: () => this.setState({ wsOpen: !s.wsOpen }),
+      pad: vw < 768 ? '18px 16px 40px' : '28px 32px 48px', toast: s.toast, hasToast: !!s.toast, stop: e => e.stopPropagation(), newProgram,
+      kpis: [['Clientes activos', String(s.clients.filter(c => c.plan !== 'En pausa').length + 13), '18 facturables', () => this.go('clients', { filter: 'active' })], ['Esperado en mayo', 'ARS 612.000', 'Cobrado ARS 574.000 · +8% vs abril', () => this.go('pay')], ['Requieren atención', String(s.clients.filter(c => c.flag).length), 'Inactividad, programas, pagos', () => this.go('clients', { filter: 'att' })], ['Adherencia media', '78%', 'Sesiones hechas ÷ planificadas', () => this.go('clients', { sort: 'adh' })]].map(([l, v, sub, go]) => ({ l, v, sub, go })),
+      todos: [
+        ...s.clients.filter(c => c.flag === 'Sin actividad 9 días').map(c => ({ t: `${c.name} no entrena hace 9 días`, d: 'Adherencia 54% · escribió hoy', dot: '#F59E0B', cta: 'Ver cliente', go: () => openClient(c.id) })),
+        ...s.clients.filter(c => !c.prog && c.plan !== 'En pausa').map(c => ({ t: `${c.name} no tiene programa`, d: 'Alta de hoy', dot: '#00D1FF', cta: 'Crear programa', go: () => { this.setState({ sel: c.id }); newProgram(); } })),
+        { t: 'Valentina reportó molestia en el hombro (4/10)', d: 'Ayer en press de banca · tiene antecedente', dot: '#F59E0B', cta: 'Ver salud', go: () => openClient('c1', 'salud') },
+        ...(unread ? [{ t: `${unread} mensajes sin responder`, d: 'Valentina, Lucía, Carolina', dot: '#00D1FF', cta: 'Responder', go: () => this.go('msgs') }] : []),
+        ...s.clients.filter(c => c.flag === 'Programa vence vie').map(c => ({ t: `El programa de ${c.name} termina el viernes`, d: 'Fuerza base · semana 8 de 8', dot: '#5DE6D8', cta: 'Duplicar y ajustar', go: () => this.go('builder', { pgId: 'p2', day: 0 }) })),
+        ...s.clients.filter(c => c.pay === 'bad' && !s.paid[c.id]).map(c => ({ t: `Pago vencido · ${c.name}`, d: `${c.price} · venció el 15 may`, dot: '#EF4444', cta: 'Ver pagos', go: () => this.go('pay') })),
+      ], todosEmpty: false,
+      agenda: [['14:00', 'Martín Sosa', 'Presencial · Fuerza base, día A'], ['17:30', 'Videollamada · Lucía Romero', 'Ajuste de frecuencia'], ['19:00', 'Diego Álvarez', 'Presencial · evaluación de carrera']].map(([h, c, d]) => ({ h, c, d })),
+      clientCount: s.clients.length + 13, q: s.q, setQ: e => this.setState({ q: e.target.value }),
+      filters: [['all','Todos'],['active','Activos'],['att','Requieren atención'],['noprog','Sin programa']].map(([k, l]) => ({ label: l, pick: () => this.setState({ filter: k }), bg: s.filter === k ? '#0B0F14' : '#FFFFFF', ink: s.filter === k ? '#F8FAFC' : '#0B0F14', bd: s.filter === k ? '#0B0F14' : '#D5DCE5' })),
+      sorts: [['name','Nombre'],['adh','Adherencia'],['last','Actividad']].map(([k, l]) => ({ label: l, pick: () => this.setState({ sort: k }), ink: s.sort === k ? '#0B0F14' : '#5B6B80', ul: s.sort === k ? 'underline' : 'none' })),
+      clientList: list.map(c => ({ ...c, adhTxt: c.adh ? `${c.adh}%` : '—', bg: c.id === s.sel ? '#E6F9FE' : 'transparent', bd: c.id === s.sel ? '#9BE6F7' : 'transparent', flagTxt: c.flag, pick: () => this.setState({ sel: c.id }) })), clientsEmpty: list.length === 0,
+      cl: { ...cl, first: cl.name.split(' ')[0], payBg: CH[cl.pay][0], payInk: CH[cl.pay][1], payTxt: s.paid[cl.id] ? 'Pagado hoy' : cl.payTxt,
+        stats: [['Adherencia', cl.adh ? `${cl.adh}%` : '—', '8 semanas'], ['Última sesión', cl.last, ''], ['Programa', clPg ? clPg.name.split(' · ')[0] : 'Sin programa', clPg ? `${clPg.weeks} semanas` : ''], ['Pago', s.paid[cl.id] ? 'Pagado hoy' : cl.payTxt, cl.price]].map(([l, v, sub]) => ({ l, v, sub })),
+        weeks: wk.map((w, i) => ({ plan: `${w.p / 4 * 100}%`, done: `${w.d / 4 * 100}%`, l: `S${i + 1}` })),
+        progName: clPg ? clPg.name : 'Sin programa', progMeta: clPg ? `${clPg.weeks} semanas · ${clPg.days.length} días` : '', noProg: !clPg,
+        progDays: clPg ? clPg.days.map(d => ({ n: d.n, ex: d.ex.map(e => `${e.name} ${e.s}×${e.r}`).join(' · ') || 'Sin ejercicios' })) : [],
+        liftName: cl.lift, liftDelta: cl.lv.length ? `+${d1(cl.lv[cl.lv.length - 1] - cl.lv[0])} kg en 8 semanas` : 'Sin datos suficientes', liftLine: line, liftArea: cl.lv.length ? `${line} L300,120 L0,120 Z` : '', liftPts: cl.lv.map((v, i) => ({ v: d1(v), l: `S${i + 1}` })),
+        body: [shareRow('medidas', 'Medidas corporales', 'Peso 72,4 kg · cintura 78 cm', 'Cinta y balanza · registro manual · 20 may'), shareRow('fotos', 'Fotos de progreso', '4 vistas · 20 may', 'Cifradas · solo lectura'), shareRow('scan', 'Escaneo 3D', 'Disponible', 'Experimental'), shareRow('comp', 'Informe de composición', 'Bioimpedancia · 2 abr', 'Documento subido por el cliente')],
+        canPay: !s.paid[cl.id] && (cl.pay === 'bad' || cl.pay === 'warn'), markPaid: () => { this.setState(x => ({ paid: { ...x.paid, [cl.id]: true } })); this.flash('Pago de ' + cl.name + ' registrado.'); },
+        payHist: [['Mayo 2026', s.paid[cl.id] ? 'Pagado hoy' : cl.payTxt], ['Abril 2026', 'Pagado 3 abr'], ['Marzo 2026', 'Pagado 2 mar']].map(([a, b]) => ({ a, b })) },
+      ctabs: [['res','Resumen'],['rend','Rendimiento'],['prog','Rutinas'],['progreso','Progreso'],['salud','Salud'],['nutri','Nutrición'],['body','Mi cuerpo'],['pay','Pagos']].map(([k, l]) => ({ label: l, pick: () => this.setState({ ctab: k }), ink: s.ctab === k ? '#0B0F14' : '#5B6B80', line: s.ctab === k ? '#00D1FF' : 'transparent' })),
+      ct: { res: s.ctab === 'res', rend: s.ctab === 'rend', prog: s.ctab === 'prog', progreso: s.ctab === 'progreso', salud: s.ctab === 'salud', nutri: s.ctab === 'nutri', body: s.ctab === 'body', pay: s.ctab === 'pay' },
+      dx: this.deep(cl, s, openClient), ...this.extra(s, cl, SH, RS, openClient),
+      editCta: cl.prog ? 'Editar programa' : 'Crear programa',
+      editClientProgram: () => { if (cl.prog) this.go('builder', { pgId: cl.prog, day: 0 }); else newProgram(); },
+      msgClient: () => this.go('msgs', { thread: cl.id }),
+      // builder
+      pg: { ...pg, forTxt: `Programa · ${s.clients.filter(c => c.prog === s.pgId).map(c => c.name.split(' ')[0]).join(', ') || 'sin clientes asignados'}` },
+      setPgName: e => { const v = e.target.value; this.setPg(p => ({ ...p, name: v })); }, setPgNote: e => { const v = e.target.value; this.setPg(p => ({ ...p, note: v })); },
+      pgList: Object.entries(s.pgs).map(([id, p]) => ({ name: p.name, meta: `${p.weeks} sem · ${p.days.length} días · ${s.clients.filter(c => c.prog === id).length} clientes`, bg: id === s.pgId ? '#E6F9FE' : 'transparent', bd: id === s.pgId ? '#9BE6F7' : 'transparent', pick: () => this.setState({ pgId: id, day: 0 }) })),
+      dayTabs: days.map((d, i) => ({ label: d.n, pick: () => this.setState({ day: i }), bg: s.day === i ? '#FFFFFF' : 'transparent', ink: s.day === i ? '#0B0F14' : '#5B6B80', bd: s.day === i ? '#D5DCE5' : 'transparent' })),
+      addDay: () => { this.setPg(p => ({ ...p, days: [...p.days, { n: `Día ${p.days.length + 1}`, ex: [] }] })); this.setState({ day: days.length }); setTimeout(() => { const el = document.querySelector('input[aria-label="Nombre del día"]'); if (el) { el.focus(); el.select(); } }, 60); },
+      dayCount: days.length,
+      dayName: (days[s.day] || days[0]).n,
+      setDayName: e => { const v = e.target.value; this.setPg(p => ({ ...p, days: p.days.map((d, j) => j === s.day ? { ...d, n: v } : d) })); },
+      canDelDay: days.length > 1,
+      delDay: () => { if (days.length < 2) return; const i = s.day; this.setPg(p => ({ ...p, days: p.days.filter((_, j) => j !== i) })); this.setState({ day: Math.max(0, i - 1) }); this.flash('Día quitado del programa.'); },
+      exRows: (days[s.day] || days[0]).ex.map((e, i) => ({ ...e, n: String(i + 1).padStart(2, '0'),
+        setS: ev => this.setEx(i, { s: Number(ev.target.value) || 1 }), setR: ev => this.setEx(i, { r: ev.target.value }), setRir: ev => this.setEx(i, { rir: Number(ev.target.value) || 0 }), setRest: ev => this.setEx(i, { rest: ev.target.value }),
+        up: () => { if (!i) return; this.setPg(p => ({ ...p, days: p.days.map((d, j) => { if (j !== s.day) return d; const a = d.ex.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; return { ...d, ex: a }; }) })); },
+        remove: () => this.setPg(p => ({ ...p, days: p.days.map((d, j) => j === s.day ? { ...d, ex: d.ex.filter((_, k) => k !== i) } : d) })) })),
+      exEmpty: !(days[s.day] || days[0]).ex.length,
+      libQ: s.libQ, setLibQ: e => this.setState({ libQ: e.target.value }),
+      lib: LIB.filter(([n, g]) => !libq || (n + g).toLowerCase().includes(libq)).map(([n, g]) => ({ n, g, add: () => { this.setPg(p => ({ ...p, days: p.days.map((d, j) => j === s.day ? { ...d, ex: [...d.ex, { name: n, s: 3, r: '8-12', rir: 2, rest: '1:30' }] } : d) })); this.flash(`${n} agregado a ${days[s.day].n}.`); } })),
+      duplicate: () => { const id = 'p' + Date.now() % 100000; this.setState(x => ({ pgId: id, day: 0, pgs: { ...x.pgs, [id]: JSON.parse(JSON.stringify({ ...pg, name: pg.name + ' (copia)' })) } })); this.flash('Programa duplicado. Estás editando la copia.'); },
+      openAssign: () => this.setState({ assign: { ids: s.clients.filter(c => c.id === s.sel && c.prog !== s.pgId && c.plan !== 'En pausa').map(c => c.id), start: 'lun' } }),
+      assignOpen: !!s.assign, closeAssign: () => this.setState({ assign: null }),
+      assignRows: s.clients.filter(c => c.plan !== 'En pausa').map(c => { const on = A.ids.includes(c.id); return { name: c.name, cur: c.prog ? s.pgs[c.prog].name : 'Sin programa', on, bg: on ? '#F4FBFD' : 'transparent', ckBg: on ? '#00D1FF' : '#FFFFFF', ckBd: on ? '#00D1FF' : '#C9D2DD', ckOp: on ? 1 : 0, toggle: () => this.setState(x => ({ assign: { ...x.assign, ids: on ? x.assign.ids.filter(i => i !== c.id) : [...x.assign.ids, c.id] } })) }; }),
+      startOpts: [['hoy','Hoy'],['lun','Lunes 26 may'],['jun','1 de junio']].map(([k, l]) => ({ l, pick: () => this.setState(x => ({ assign: { ...x.assign, start: k } })), bg: A.start === k ? '#0B0F14' : '#FFFFFF', ink: A.start === k ? '#F8FAFC' : '#0B0F14' })),
+      assignN: A.ids.length === 1 ? '1 cliente' : `${A.ids.length} clientes`, assignOp: A.ids.length ? 1 : .45,
+      doAssign: () => { if (!A.ids.length) { this.flash('Elegí al menos un cliente.'); return; } const names = s.clients.filter(c => A.ids.includes(c.id)).map(c => c.name.split(' ')[0]); this.setState(x => ({ assign: null, clients: x.clients.map(c => A.ids.includes(c.id) ? { ...c, prog: x.pgId, flag: c.flag === 'Sin programa' ? null : c.flag, adh: c.adh } : c) })); this.flash(`Programa asignado a ${names.join(', ')}. Lo verán en la app ${A.start === 'hoy' ? 'desde hoy' : A.start === 'lun' ? 'desde el lunes' : 'desde el 1 de junio'}.`); },
+      // msgs
+      threads: s.clients.filter(c => s.msgs[c.id]).map(c => ({ name: c.name, ini: c.ini, last: s.msgs[c.id].slice(-1)[0].t, unread: c.unread, bg: c.id === s.thread ? '#E6F9FE' : 'transparent', pick: () => this.setState(x => ({ thread: c.id, clients: x.clients.map(y => y.id === c.id ? { ...y, unread: false } : y) })) })),
+      thread: { name: thread.name, msgs: (s.msgs[thread.id] || []).map(m => ({ ...m, align: m.me ? 'flex-end' : 'flex-start', bg: m.me ? '#B7EEF9' : '#EEF2F6' })) },
+      openThreadClient: () => openClient(thread.id), draft: s.draft, setDraft: e => this.setState({ draft: e.target.value }), draftKey: e => { if (e.key === 'Enter') send(); }, send,
+      // pay
+      payKpis: [['Cobrado en mayo', 'ARS 574.000', '15 de 18 clientes'], ['Por cobrar', 'ARS 38.000', '1 cliente'], ['Vencido', s.paid.c3 ? 'ARS 0' : 'ARS 38.000', s.paid.c3 ? 'Nada vencido' : '1 cliente'], ['Promociones activas', '1', '10% off pago trimestral']].map(([l, v, sub]) => ({ l, v, sub })),
+      subs: s.clients.map(c => { const k = s.paid[c.id] ? 'ok' : c.pay; return { name: c.name, plan: c.plan, price: c.price, due: c.pay === 'bad' ? 'Venció 15 may' : c.pay === 'warn' ? 'Vence 22 may' : c.pay === 'mute' ? '—' : 'Próximo 1 jun', st: s.paid[c.id] ? 'Pagado hoy' : c.payTxt, bg: CH[k][0], ink: CH[k][1], canMark: !s.paid[c.id] && (c.pay === 'bad' || c.pay === 'warn'), mark: () => { this.setState(x => ({ paid: { ...x.paid, [c.id]: true } })); this.flash(`Pago de ${c.name} registrado.`); } }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+import { randomUUID } from "node:crypto";
+import { and, desc, eq } from "drizzle-orm";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { localDate } from "@repi/domain";
+import { db, schema } from "@/db";
+import { auth } from "@/server/auth";
+import * as acc from "@/server/access/services";
+import * as tr from "@/server/training/services";
+import { AccessError, resetRateLimits } from "@/server/access/util";
+
+const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
+
+const PW = "prueba1234";
+let n = 0;
+const mail = () => `tr${++n}.${Date.now()}@test.repi.local`;
+async function verified(email = mail(), name = "Persona Prueba") {
+  const r = await acc.signUpPerson({ name, email, password: PW, terms: true, birth: "01/01/1990" });
+  const [m] = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, email)).orderBy(desc(schema.devMailbox.createdAt)).limit(1);
+  await auth.api.verifyEmailOTP({ body: { email, otp: /(\d{6})/.exec(m.body)![1] } });
+  return r.userId!;
+}
+const expectErr = async (p: Promise<unknown>, code: string) => {
+  const e = await p.then(() => null, (x) => x);
+  expect(e).toBeInstanceOf(AccessError);
+  expect((e as AccessError).code).toBe(code);
+};
+
+let EX: Record<string, string> = {};
+beforeAll(async () => {
+  for (const [name, g] of [["Press de banca", "Pecho"], ["Remo con barra", "Espalda"], ["Sentadilla", "Piernas"], ["Prensa", "Piernas"]]) {
+    const [e] = await db.insert(schema.exercise).values({ name, muscleGroup: g }).onConflictDoNothing().returning();
+    EX[name] = e?.id ?? (await db.select().from(schema.exercise).where(eq(schema.exercise.name, name)))[0].id;
+  }
+});
+beforeEach(() => resetRateLimits());
+
+const ex = (name: string, sets = 3, reps = "8-10", restSec = 120) => ({ exerciseId: EX[name], name, sets, reps, rir: 2, restSec });
+const DOC = () => ({
+  name: "Hipertrofia · 2 días", weeks: 6, note: "Semana de carga",
+  days: [{ name: "Torso A", exercises: [ex("Press de banca", 3), ex("Remo con barra", 3)] }, { name: "Piernas", exercises: [ex("Sentadilla", 2, "6-8", 150), ex("Prensa", 2)] }],
+});
+
+async function coachWithClients(k = 1) {
+  const coach = await verified();
+  const org = await acc.createCoachOrganization(coach, { brand: `Coach ${n}` });
+  const clients: { userId: string; relId: string }[] = [];
+  for (let i = 0; i < k; i++) {
+    const u = await verified();
+    const inv = await acc.inviteCoachClient(coach, org.id, { email: await emailOf(u) });
+    const r = await acc.acceptInvitation(u, inv.code, []);
+    clients.push({ userId: u, relId: r.relationId });
+  }
+  return { coach, orgId: org.id, clients };
+}
+const today = () => localDate(new Date());
+
+describe("programas versionados y asignación", () => {
+  it("asignar crea copias independientes; editar la plantilla después no toca a los clientes", async () => {
+    const { coach, orgId, clients: [a, b] } = await coachWithClients(2);
+    const pid = await tr.createTemplate(coach, orgId, DOC());
+    expect((await tr.saveProgram(coach, orgId, pid, DOC())).created).toBe(false); // sin cambios, sin versión
+    const r = await tr.assignProgram(coach, orgId, pid, { coachClientIds: [a.relId, b.relId], startsOn: today() });
+    expect(r.names).toHaveLength(2);
+    const edited = { ...DOC(), name: "Hipertrofia v2" };
+    expect(await tr.saveProgram(coach, orgId, pid, edited)).toEqual({ version: 2, created: true });
+    const ta = await tr.myTraining(a.userId);
+    expect(ta.state === "ready" && ta.program.name).toBe("Hipertrofia · 2 días");
+    // Copias distintas: editar la de A no cambia la de B.
+    const detA = await tr.clientDetail(coach, orgId, a.relId);
+    await tr.saveProgram(coach, orgId, detA.program!.programId, { ...DOC(), name: "Sólo para A" });
+    const tb = await tr.myTraining(b.userId);
+    expect(tb.state === "ready" && tb.program.name).toBe("Hipertrofia · 2 días");
+    expect((await tr.listTemplates(coach, orgId))[0]).toMatchObject({ name: "Hipertrofia v2", clients: 2, version: 2 });
+  });
+  it("otro coach no ve ni asigna programas ajenos; no se asigna a clientes de otra organización", async () => {
+    const one = await coachWithClients(1);
+    const two = await coachWithClients(1);
+    const pid = await tr.createTemplate(one.coach, one.orgId, DOC());
+    await expectErr(tr.getProgram(two.coach, one.orgId, pid), "not_found");
+    await expectErr(tr.getProgram(two.coach, two.orgId, pid), "not_found");
+    await expectErr(tr.assignProgram(one.coach, one.orgId, pid, { coachClientIds: [two.clients[0].relId], startsOn: today() }), "not_found");
+    await expectErr(tr.clientDetail(two.coach, two.orgId, one.clients[0].relId), "not_found");
+  });
+  it("valida documento, biblioteca y fecha", async () => {
+    const { coach, orgId, clients: [a] } = await coachWithClients(1);
+    await expectErr(tr.createTemplate(coach, orgId, { ...DOC(), days: [] }), "invalid");
+    await expectErr(tr.createTemplate(coach, orgId, { ...DOC(), days: [{ name: "X", exercises: [{ ...ex("Sentadilla"), exerciseId: randomUUID() }] }] }), "invalid");
+    const pid = await tr.createTemplate(coach, orgId, DOC());
+    await expectErr(tr.assignProgram(coach, orgId, pid, { coachClientIds: [a.relId], startsOn: "2020-01-01" }), "invalid");
+  });
+});
+
+describe("sesión del alumno", () => {
+  async function ready() {
+    const ctx = await coachWithClients(1);
+    const pid = await tr.createTemplate(ctx.coach, ctx.orgId, DOC());
+    await tr.assignProgram(ctx.coach, ctx.orgId, pid, { coachClientIds: [ctx.clients[0].relId], startsOn: today() });
+    const t = await tr.myTraining(ctx.clients[0].userId);
+    if (t.state !== "ready") throw new Error("sin programa");
+    return { ...ctx, user: ctx.clients[0].userId, t };
+  }
+
+  it("el día elegido abre sus ejercicios (Piernas no abre Torso A) y el inicio es idempotente", async () => {
+    const { user, t } = await ready();
+    expect(t.program.nextDay).toBe(0);
+    const id = randomUUID();
+    const s = await tr.startSession(user, { id, dayId: t.program.days[1].id });
+    expect(s.dayName).toBe("Piernas");
+    expect((await tr.startSession(user, { id, dayId: t.program.days[1].id })).id).toBe(id);
+    await expectErr(tr.startSession(user, { id: randomUUID(), dayId: t.program.days[0].id }), "open_session");
+    const g = await tr.getSession(user, id);
+    expect(g.exercises.map((e) => e.name)).toEqual(["Sentadilla", "Prensa"]);
+    expect(g.exercises[0].restSec).toBe(150); // descanso por ejercicio, no global
+  });
+
+  it("series idempotentes, validadas y aisladas por usuario", async () => {
+    const { user, t } = await ready();
+    const sid = randomUUID();
+    await tr.startSession(user, { id: sid, dayId: t.program.days[0].id });
+    const pe = (await tr.getSession(user, sid)).exercises[0];
+    const setId = randomUUID();
+    await tr.logSet(user, sid, { id: setId, programExerciseId: pe.id, setIndex: 0, weightKg: 80, reps: 10, rir: 2 });
+    await tr.logSet(user, sid, { id: setId, programExerciseId: pe.id, setIndex: 0, weightKg: 82.5, reps: 9, rir: 1 }); // reintento/edición
+    const rows = await db.select().from(schema.setLog).where(eq(schema.setLog.sessionId, sid));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ weightKg: "82.5", reps: 9, rir: 1 });
+    await expectErr(tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 3, weightKg: 80, reps: 10, rir: null }), "invalid");
+    await expectErr(tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 1, weightKg: 80.123, reps: 10, rir: null }), "invalid");
+    const otro = await verified();
+    await expectErr(tr.logSet(otro, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 1, weightKg: 80, reps: 10, rir: null }), "not_found");
+    await expectErr(tr.getSession(otro, sid), "not_found");
+  });
+
+  it("pausa no suma tiempo; finalizar sin series descarta; con series completa y acepta RPE", async () => {
+    const { user, t } = await ready();
+    const s1 = randomUUID();
+    const t0 = new Date("2030-01-01T10:00:00Z");
+    await tr.startSession(user, { id: s1, dayId: t.program.days[0].id }, t0);
+    await db.update(schema.workoutSession).set({ startedAt: t0, lastResumedAt: t0 }).where(eq(schema.workoutSession.id, s1));
+    await tr.sessionAction(user, s1, "pause", new Date("2030-01-01T10:10:00Z"));
+    await tr.sessionAction(user, s1, "resume", new Date("2030-01-01T10:40:00Z"));
+    expect((await tr.getSession(user, s1, new Date("2030-01-01T10:45:00Z"))).elapsedSec).toBe(15 * 60);
+    expect((await tr.sessionAction(user, s1, "finish")).status).toBe("abandoned");
+
+    const s2 = randomUUID();
+    await tr.startSession(user, { id: s2, dayId: t.program.days[0].id });
+    const pe = (await tr.getSession(user, s2)).exercises[0];
+    await expectErr(tr.sessionFeedback(user, s2, { rpe: 7 }), "invalid");
+    await tr.logSet(user, s2, { id: randomUUID(), programExerciseId: pe.id, setIndex: 0, weightKg: 80, reps: 10, rir: 2 });
+    expect((await tr.sessionAction(user, s2, "finish")).status).toBe("completed");
+    expect((await tr.sessionAction(user, s2, "finish")).status).toBe("completed");
+    await tr.sessionFeedback(user, s2, { rpe: 8, note: "Hombro bien" });
+    const t2 = await tr.myTraining(user);
+    expect(t2.state === "ready" && t2.program.nextDay).toBe(1); // rotación: después de Torso A viene Piernas
+    expect(t2.stats.weekDone).toBe(1);
+  });
+
+  it("récord sólo contra historia comparable; el resumen sale de lo registrado", async () => {
+    const { user, t, coach, orgId, clients } = await ready();
+    const day = t.program.days[0];
+    const run = async (w: number, r: number) => {
+      const id = randomUUID();
+      await tr.startSession(user, { id, dayId: day.id });
+      const pe = (await tr.getSession(user, id)).exercises[0];
+      await tr.logSet(user, id, { id: randomUUID(), programExerciseId: pe.id, setIndex: 0, weightKg: w, reps: r, rir: null });
+      await tr.sessionAction(user, id, "finish");
+      return tr.sessionSummary(user, id);
+    };
+    const first = await run(85, 6);
+    expect(first.prs).toHaveLength(0);
+    expect(first).toMatchObject({ setsDone: 1, setsTotal: 6, exDone: 0, exTotal: 2, volumeKg: 510 });
+    const second = await run(87.5, 7);
+    expect(second.prs[0]).toMatchObject({ exercise: "Press de banca", previous: { weightKg: 85, reps: 6 }, current: { weightKg: 87.5, reps: 7 } });
+    const third = await run(80, 5);
+    expect(third.prs).toHaveLength(0);
+    const det = await tr.clientDetail(coach, orgId, clients[0].relId);
+    expect(det.sessions.filter((s) => s.status === "completed")).toHaveLength(3);
+    const ov = await tr.coachOverview(coach, orgId);
+    expect(ov.kpis).toMatchObject({ active: 1, noProgram: 0, weekSessions: 3, adherence: 100 });
+  });
+
+  it("editar el programa del cliente durante la semana no reescribe una sesión ya iniciada", async () => {
+    const { user, t, coach, orgId, clients } = await ready();
+    const sid = randomUUID();
+    await tr.startSession(user, { id: sid, dayId: t.program.days[0].id });
+    const det = await tr.clientDetail(coach, orgId, clients[0].relId);
+    const d = DOC();
+    d.days[0].exercises = [ex("Sentadilla", 5, "5")];
+    expect((await tr.saveProgram(coach, orgId, det.program!.programId, d)).created).toBe(true);
+    expect((await tr.getSession(user, sid)).exercises.map((e) => e.name)).toEqual(["Press de banca", "Remo con barra"]);
+    const after = await tr.myTraining(user);
+    expect(after.state === "ready" && after.program.days[0].exercises.map((e) => e.name)).toEqual(["Sentadilla"]);
+  });
+
+  it("programa con inicio futuro: estado programado y sin sesión", async () => {
+    const ctx = await coachWithClients(1);
+    const pid = await tr.createTemplate(ctx.coach, ctx.orgId, DOC());
+    const future = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+    await tr.assignProgram(ctx.coach, ctx.orgId, pid, { coachClientIds: [ctx.clients[0].relId], startsOn: future });
+    const t = await tr.myTraining(ctx.clients[0].userId);
+    expect(t.state).toBe("scheduled");
+    await expectErr(tr.startSession(ctx.clients[0].userId, { id: randomUUID(), dayId: randomUUID() }), "not_started");
+  });
+
+  it("sin programa: estado vacío útil", async () => {
+    const ctx = await coachWithClients(1);
+    expect((await tr.myTraining(ctx.clients[0].userId)).state).toBe("no_program");
+    const ov = await tr.coachOverview(ctx.coach, ctx.orgId);
+    expect(ov.kpis.noProgram).toBe(1);
+    expect(ov.clients[0].adherence).toBeNull();
+  });
+});

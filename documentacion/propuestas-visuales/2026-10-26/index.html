@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es-AR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Repi — Tipografía, íconos y movimiento</title><link rel="icon" href="assets/brand/repi_icon.png"><link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="lab.css"></head>
+<body>
+<header class="sitehead"><a class="brandlink" href="#"><span class="wm"><img src="assets/brand/wm_full.png" alt="Repi"><i></i></span><span class="brandsep"></span><span>ESTUDIO VISUAL</span></a><span class="headnote">Concepto 2 · Paleta y marca originales</span><a class="filelink" href="LEER_PRIMERO.md">Guía del comparador ↗</a></header>
+<main class="lab">
+<div class="intro"><div><p class="eyebrow">EXPLORACIÓN 01 / OCTUBRE 2026</p><h1>Elegí cómo se ve.<br><span>Y cómo se mueve.</span></h1><p class="lead">Probá las combinaciones, tocá las pestañas y encontrá la que se siente Repi.</p></div><div class="introaside"><span class="count">08</span><div>direcciones visuales<br><span>para combinar libremente</span></div><p>Datos de ejemplo · Ninguna opción está aprobada todavía.</p></div></div>
+<nav class="viewnav" aria-label="Vistas del estudio"><button data-view="lab" class="selected">Probar en Repi</button><button data-view="compare">Comparar las 8</button><button data-view="type">Tipografías</button><button data-view="icons">Íconos</button></nav>
+<section id="view-lab" class="labgrid">
+<aside class="controls"><div class="controlhead"><h2>Tu combinación</h2><button id="reset" class="textbtn">Restablecer</button></div><label for="preset">PUNTO DE PARTIDA</label><select id="preset"></select><p id="presetDesc" class="hint"></p>
+<div class="control"><label for="font">01 — TIPOGRAFÍA</label><select id="font"></select><p id="fontHint" class="hint"></p></div>
+<div class="control"><label for="icons">02 — ÍCONOS INTERNOS</label><select id="icons"></select><div id="iconMini" class="iconmini"></div></div>
+<div class="control"><label for="nav">03 — BARRA DE NAVEGACIÓN</label><select id="nav"></select><p id="navHint" class="hint"></p></div>
+<div class="control"><label for="motion">04 — CAMBIO DE PANTALLA</label><select id="motion"></select><p id="motionHint" class="hint"></p></div>
+<label class="checkline"><input id="slow" type="checkbox"><span>Ver en cámara lenta <small>Solo para comparar el movimiento</small></span></label>
+<button id="replay" class="replay">Reproducir transición <span>↗</span></button>
+</aside>
+<div class="previewcol"><div class="previewtop"><span><i class="liveDot"></i> VISTA INTERACTIVA</span><span id="comboCode">A</span></div><div id="phoneMount"></div><p class="previewhint">Tocá Inicio, Entrenar, Progreso, Club o Chat.<br>El selector “Gym Norte” también cambia de espacio.</p></div>
+<aside class="notes"><p class="eyebrow">ESTÁS PROBANDO</p><h2 id="directionName"></h2><p id="directionNote"></p><div class="specstack"><div><span>Títulos</span><strong id="headingFont"></strong></div><div><span>Texto</span><strong id="bodyFont"></strong></div><div><span>Íconos</span><strong id="iconName"></strong></div><div><span>Movimiento</span><strong id="motionSpec"></strong></div></div><div class="miniType"><span>Aa</span><p>Sentadilla<br><strong>52,5 <small>kg</small></strong></p></div><div class="selectionbox"><h3>¿Te gusta esta mezcla?</h3><p>Generá un prompt con la selección exacta para Claude Code.</p><button id="copyPrompt" class="primary">Copiar prompt</button><button id="downloadPrompt" class="secondary">Descargar selección .md</button><p id="copyStatus" role="status" aria-live="polite"></p></div><details><summary>Qué se mantiene</summary><p>Logo, ícono de app, navy, cian y turquesa originales. Las pantallas comparten el mismo contenido para comparar el efecto de cada elección.</p></details></aside>
+</section>
+<section id="view-compare" class="other hidden"><div class="sectionintro"><h2>Ocho maneras de sentir Repi.</h2><p>Elegí una base. Después podés cambiar cualquier parte.</p></div><div id="comparison" class="comparegrid"></div></section>
+<section id="view-type" class="other hidden"><div class="sectionintro"><h2>La voz de la interfaz.</h2><p>Compará las mismas palabras y números. La marca conserva su lettering original.</p></div><div id="typeGrid" class="typegrid"></div></section>
+<section id="view-icons" class="other hidden"><div class="sectionintro"><h2>Distintos trazos. La misma función.</h2><p>Familias reales, con proporciones consistentes y etiquetas accesibles.</p></div><div id="iconGrid" class="icongrid"></div></section>
+<footer><span>Repi · Exploración de interfaz, no aplicación productiva.</span><a href="HANDOFF_CLAUDE_CODE.md">Criterios para desarrollo ↗</a></footer>
+</main><div id="globalToast" role="status" aria-live="polite"></div>
+<script src="icons.js"></script><script src="lab.js"></script></body></html>

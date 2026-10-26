@@ -1,0 +1,24 @@
+# 18 · Registro de decisiones
+
+| ID | Decisión | Requisito original | Decisión actual | Motivo | Módulos | Etapa | ¿Aprobada? | ¿Requiere validación? |
+|---|---|---|---|---|---|---|---|---|
+| DEC-01 | Logo e isotipo | Kit: usar PNG original hasta tener vector verificado | Se usan recortes PNG originales; para animar se separaron píxel a píxel fondo del ícono, r del ícono y letras r·e·p·i; el punto es un círculo #00D1FF del mismo diámetro | Fidelidad a la marca aprobada | Marca, motion | Turno 2 | Sí (usuario eligió 1a) | Sí: vector final verificado pendiente |
+| DEC-02 | Intro de marca | Brief motion: 3 conceptos | Concepto 1a "El punto" aprobado; 1b y 1c quedan como referencia | Elección del usuario | Marca, app alumno | Turno motion | Sí | No |
+| DEC-03 | Texto sobre cian | Brief original: botón cian con texto blanco | Botones cian con texto #0B0F14 | Contraste WCAG AA (blanco sobre #00D1FF ≈1.9:1) | Todos | Turno 1 | Supuesto de diseño | Sí |
+| DEC-04 | Acento de texto en superficies claras | — | #007EA0 para links/acento sobre blanco | Contraste ≥4.5:1 | Desktop | Expansión v2 | Supuesto de diseño | No |
+| DEC-05 | Body Intelligence honesto | Brief BI | Modelo genérico etiquetado; reconstrucción personalizada experimental con fallo honesto; % grasa "Datos insuficientes" salvo DXA/BIA/pliegues; color del modelo = carga registrada | Evitar representaciones engañosas | Body Intelligence | Turno 1 | Sí (no objetado) | Sí: investigación científica |
+| DEC-06 | Consentimiento por tipo de dato | — | 6 tipos, apagados por defecto; guardar ≠ compartir; compartir por destinatario | Privacidad | BI, privacidad | Turno 1 | Sí | Sí: legal Ley 25.326 |
+| DEC-07 | Métricas del personal | Expansión v2 | 5 categorías separadas, sin puntaje combinado; resultados de entrenamiento solo a nivel sede; promedio oculto con n<5; rango ~95% | Equidad | Gym | Expansión v2 | Sí | Sí: umbral n (5 vs 10 en archivo legacy) |
+| DEC-08 | Visibilidad de reseñas | Expansión v2 | Entrenador ve sin nombre del socio; gerencia con nombre; socios no; publicación externa deshabilitada | Evitar represalias | Reseñas | Expansión v2 | Supuesto de diseño | Sí |
+| DEC-09 | Acciones requieren turno activo | — | Tomar/completar tareas y editar programas solo con turno iniciado (flag staff.afterHoursAccess) | Atribución correcta | Gym | Expansión v2 | Supuesto | Sí |
+| DEC-10 | REPI no gestiona cobros del gym a sus socios | Expansión v2 pedía membresías y facturación gym→socio | Eliminadas pantallas de membresías e ingresos del gym; estado del socio es de actividad | Instrucción explícita del usuario (v3) | Gym | v3 | Sí | No |
+| DEC-11 | Gym y coach no ven la app del alumno | Expansión v2 tenía persona "socia (móvil)" en el desktop del gym | Retirada; cada audiencia tiene su superficie propia | Instrucción del usuario (v3) | Gym, coach | v3 | Sí | No |
+| DEC-12 | Coach ve datos completos del alumno en su dashboard | — | Pestañas Rendimiento, Rutinas, Salud, Nutrición, Mi cuerpo; salud/nutrición/cuerpo por consentimiento | Instrucción del usuario (v3) | Coach | v3 | Sí | Sí: consentimiento |
+| DEC-13 | Comunidad del gym en la app | — | Novedades con imagen, descuentos, desafíos con premio en recepción, catálogo informativo sin pago | Instrucción del usuario (v3) | Gym, app | v3 | Sí | No |
+| DEC-14 | Récords con prueba en video | — | Video obligatorio; gym valida; notificación a ambos; sticker + nivel permanente | Instrucción del usuario (v3) | Gym, app | v3 | Sí | Sí: retención/almacenamiento |
+| DEC-15 | Panel admin de REPI | Brief original 3.4 (mínimo) | Ficha editable por cliente; día de cobro 1–28; criterio de conteo por defecto "máximo del período" | Instrucción del usuario: si crecen mes a mes, cobrar el total | Admin, facturación | v4 | Parcial: usuario pidió "que se pague el total"; criterio elegido por diseño | Sí |
+| DEC-16 | Precios | ARS 700/alumno como hipótesis | Coach ARS 700/alumno; Gym tramos 450/380/320, mínimo 150.000, módulo BI 60/socio, 10% anual — todos ilustrativos | Demo | Facturación | Expansión v2 | No (hipótesis) | Sí |
+| DEC-17 | Definición de facturable (gym) | Brief: relación aceptada y vigente; inactividad no quita | Gym: contrato "uso real" (≥1 entrenamiento) con simulación "cuenta activa"; Coach: relación activa + programa asignado; Admin: máximo/al día/promedio | Explorar opciones | Facturación | Varias | No | Sí: decisión comercial pendiente |
+| DEC-18 | Días del programa | Constructor generaba "Día D/E" | "Día N" + campo editable + quitar día | Feedback del usuario | Coach | v4 | Sí | No |
+| DEC-19 | Breakpoints de navegación desktop | — | ≥1100 sidebar completa; 768–1099 rail; <768 drawer | Productividad + responsive | Desktop | Expansión v2 | Supuesto | No |
+| DEC-20 | Moneda y formato | — | es-AR, ARS, coma decimal, números tabulares | Mercado objetivo | Todos | Turno 1 | Sí | No |

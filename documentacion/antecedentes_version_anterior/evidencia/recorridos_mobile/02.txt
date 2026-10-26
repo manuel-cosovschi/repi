@@ -1,0 +1,77 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			67 heading Entrenar, Value: 1
+				68 text Entrenar
+			69 button L 14
+				70 text L
+				71 text 14
+			72 button M 15
+				73 text M
+				74 text 15
+			75 button M 16
+				76 text M
+				77 text 16
+			78 button J 17
+				79 text J
+				80 text 17
+			81 button V 18
+				82 text V
+				83 text 18
+			84 button S 19
+				85 text S
+				86 text 19
+			87 button D 20
+				88 text D
+				89 text 20
+			90 text Lunes 14 de mayo Torso A 4 ejercicios · 45 min AP Indicación de Agustín Semana de carga: buscá RIR 2 en la última serie de cada ejercicio. foto Press de banca 4 series · 8-10 repeticiones Anterior:  80 kg x 10 reps 2:00 foto Remo con barra 4 series · 8-10 repeticiones Anterior:  70 kg x 10 reps 2:00 foto Press militar 3 series · 8-12 repeticiones Anterior:  45 kg x 10 reps 2:00 foto Elevaciones laterales 3 series · 12-15 repeticiones Anterior:  10 kg x 14 reps 2:00
+			91 button Comenzar entrenamiento
+				92 image
+				93 text Comenzar entrenamiento
+			52 button Inicio
+				53 image
+				54 text Inicio
+			55 button Entrenar
+				56 image
+				57 text Entrenar
+			58 button Progreso
+				59 image
+				60 text Progreso
+			61 button Mensajes
+				62 image
+				63 text Mensajes
+			64 button Gym
+				65 image
+				66 text Gym
+
+The focused UI element is 6 button Semana y detalle

@@ -1,0 +1,15 @@
+{
+  "name": "repi",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "pnpm --filter @repi/web dev",
+    "build": "pnpm --filter @repi/web build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @repi/web db:migrate",
+    "db:seed": "pnpm --filter @repi/web db:seed",
+    "inventory": "python3 -I scripts/inventory/build_inventory.py"
+  }
+}

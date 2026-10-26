@@ -1,0 +1,24 @@
+export type PrevSet = { weightKg: number | null; reps: number | null } | null;
+export type TrainEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; prev: PrevSet };
+export type Training = {
+  userId: string; firstName: string; coach: { name: string; org: string } | null; today: string; week: string[];
+  relation: { id: string; kind: "coach" | "gym"; name: string; org: string } | null;
+  relations: { id: string; kind: "coach" | "gym"; name: string; org: string; hasProgram: boolean }[];
+  state: "no_program" | "scheduled" | "ready"; startsOn?: string; openSession: string | null; openSessionDay: string | null;
+  stats: { weekDone: number; doneDates: string[]; volumeThisWeek: number; volumeLastWeek: number };
+  program?: { name: string; weeks: number; note: string; version: number; nextDay: number; days: { id: string; name: string; exercises: TrainEx[] }[] };
+};
+export type SessionLog = { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null };
+export type SessionEx = TrainEx & { note: string | null; defaultWeight: number | null; defaultReps: number | null; logs: SessionLog[] };
+export type Session = {
+  id: string; dayName: string; status: "in_progress" | "paused" | "completed" | "abandoned"; note: string; rpe: number | null; sessionNote: string | null;
+  startedAt: string; endedAt: string | null; activeMs: number; lastResumedAt: string | null; elapsedSec: number; exercises: SessionEx[];
+};
+export type Summary = Session & {
+  exDone: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
+  prs: { exercise: string; current: { weightKg: number; reps: number; e1rm: number }; previous: { weightKg: number; reps: number; e1rm: number }; previousAt: string | null }[];
+};
+
+export const kg = (w: number | null) => (w == null ? "peso corporal" : `${String(w).replace(".", ",")} kg`);
+export const prevTxt = (p: PrevSet) => (p ? `${kg(p.weightKg)} x ${p.reps ?? "—"} reps` : "Sin registro previo");
+export const metaTxt = (e: { sets: number; reps: string }) => `${e.sets} ${e.sets === 1 ? "serie" : "series"} · ${e.reps}${/^\d/.test(e.reps) && !/s$/.test(e.reps) ? " repeticiones" : ""}`;

@@ -1,0 +1,17 @@
+# Checklist de auto-auditoría
+- [x] Todos los módulos conocidos están en el inventario de funcionalidades
+- [x] Todas las pantallas están en el inventario (incluye legacy y no diseñadas)
+- [x] Cada prototipo tiene su fuente o su estado de disponibilidad
+- [x] Animaciones documentadas, separando implementadas de concepto
+- [x] Todos los roles cubiertos (recepción y coordinador figuran como no diseñados)
+- [x] Coach y Gym documentados
+- [x] Desktop incluido
+- [x] Repi Club documentado (en su mayoría no diseñado)
+- [x] Gym Performance Center documentado
+- [x] Reseñas documentadas (falta el prompt del socio en la app v3)
+- [x] Facturación, promociones y pagos cubiertos (checkout no diseñado)
+- [x] Body Intelligence completo, con advertencias
+- [x] Funcionalidades agregadas durante el diseño identificadas
+- [x] Pendientes reportados con honestidad
+- [ ] Capturas por pantalla (no generadas)
+- [ ] Vector del logo verificado (no existe)

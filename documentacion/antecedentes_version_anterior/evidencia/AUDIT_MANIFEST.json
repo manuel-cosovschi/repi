@@ -1,0 +1,45 @@
+{
+  "audit_date": "2026-10-25",
+  "zip_sha256": "112519f221cb6beec579fdff10a5681bbb0fbd3405a443635aacd6b83dd9cae5",
+  "original_files": 89,
+  "original_files_by_extension": {
+    ".json": 8,
+    ".md": 29,
+    ".css": 1,
+    ".html": 8,
+    ".js": 3,
+    ".png": 40
+  },
+  "features": 93,
+  "feature_statuses": {
+    "designed": 1,
+    "interactive_prototype": 63,
+    "specified_not_designed": 22,
+    "partially_designed": 6,
+    "static_mockup": 1
+  },
+  "screen_entries": 97,
+  "screen_statuses": {
+    "interactive_prototype": 73,
+    "future_concept": 2,
+    "static_mockup": 1,
+    "partially_designed": 2,
+    "specified_not_designed": 19
+  },
+  "assets_png_files": 40,
+  "assets_unique_sha256": 20,
+  "source_unchanged": true,
+  "scope_is_open_to_additional_handoff_features": true,
+  "design_contract": "Concepto 2 Friendly Performance",
+  "production_implementation_in_zip": false,
+  "runtime_opened_html": 8,
+  "mobile_panel_entries_visited": 18,
+  "not_claimed": [
+    "97 complete E2E tests",
+    "Full responsive matrix",
+    "Clinical validation",
+    "Payment integration",
+    "Approval of illustrative prices",
+    "Complete previous assistant messages"
+  ]
+}

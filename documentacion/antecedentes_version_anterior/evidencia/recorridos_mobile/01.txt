@@ -1,0 +1,74 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			67 image repi
+			68 button Perfil
+			69 button Notificaciones
+				70 image
+			71 heading Hola, Valen 👋, Value: 1
+				72 text Hola, Valen 👋
+			73 text Hoy es un gran día para entrenar.
+			74 container
+				75 text foto atleta Entrenamiento de hoy Torso A 4 ejercicios · 45 min
+				76 button Comenzar entrenamiento
+					77 image
+			78 text Semana L 14 M 15 M 16 J 17 V 18 S 19 D 20 Tu progreso
+			79 container
+				80 text 3 Entrenamientos
+				81 text esta semana
+			82 container
+				83 text +12% Volumen total
+				84 text vs. mes anterior
+			85 container
+				86 image
+				87 text Mi cuerpo Última evaluación: 20 may · próxima en 6 semanas
+				88 image
+			89 container
+				90 text AP Agustín · tu entrenador 08:12 Sí, 2 min en los básicos y 1:30 en laterales.
+			52 button Inicio
+				53 image
+				54 text Inicio
+			55 button Entrenar
+				56 image
+				57 text Entrenar
+			58 button Progreso
+				59 image
+				60 text Progreso
+			61 button Mensajes
+				62 image
+				63 text Mensajes
+			64 button Gym
+				65 image
+				66 text Gym
+
+The focused UI element is 5 button Inicio

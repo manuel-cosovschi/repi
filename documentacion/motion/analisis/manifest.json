@@ -1,0 +1,82 @@
+[
+  {
+    "file": "IMG_2713.MOV",
+    "duration": 5.971667,
+    "width": 3840,
+    "height": 2160,
+    "fps": "107400/3583",
+    "rotation": [
+      {
+        "side_data_type": "Display Matrix",
+        "displaymatrix": "\n00000000:            0       65536           0\n00000001:       -65536           0           0\n00000002:    141557760           0  1073741824\n",
+        "rotation": -90
+      }
+    ],
+    "bytes": 16885208,
+    "sha256": "b33f5a4ddb125a4ca1b8ae81df64add91b37b62afe2d94ed1191dec5db6e29ac"
+  },
+  {
+    "file": "IMG_2715.MOV",
+    "duration": 11.9,
+    "width": 3840,
+    "height": 2160,
+    "fps": "30/1",
+    "rotation": [
+      {
+        "side_data_type": "Display Matrix",
+        "displaymatrix": "\n00000000:            0       65536           0\n00000001:       -65536           0           0\n00000002:    141557760           0  1073741824\n",
+        "rotation": -90
+      }
+    ],
+    "bytes": 34209730,
+    "sha256": "ce8925b49b07c7ecdd33eaaddfedc97425ba8d73d5920e5cf9e6d4319b9223b8"
+  },
+  {
+    "file": "IMG_2717.MOV",
+    "duration": 10.141667,
+    "width": 3840,
+    "height": 2160,
+    "fps": "36480/1217",
+    "rotation": [
+      {
+        "side_data_type": "Display Matrix",
+        "displaymatrix": "\n00000000:            0       65536           0\n00000001:       -65536           0           0\n00000002:    141557760           0  1073741824\n",
+        "rotation": -90
+      }
+    ],
+    "bytes": 28429353,
+    "sha256": "63a625edab9a737bee903eb336674fb429836980d50b456b0fc8a0c7662a1f6d"
+  },
+  {
+    "file": "IMG_2718.MOV",
+    "duration": 9.2,
+    "width": 3840,
+    "height": 2160,
+    "fps": "30/1",
+    "rotation": [
+      {
+        "side_data_type": "Display Matrix",
+        "displaymatrix": "\n00000000:            0       65536           0\n00000001:       -65536           0           0\n00000002:    141557760           0  1073741824\n",
+        "rotation": -90
+      }
+    ],
+    "bytes": 26609784,
+    "sha256": "9ea0f3f8e0ef0a933b309239a60c8d276ed9e5a7c72090b3d9284ac44abd73ea"
+  },
+  {
+    "file": "IMG_2719.MOV",
+    "duration": 4.67,
+    "width": 3840,
+    "height": 2160,
+    "fps": "14000/467",
+    "rotation": [
+      {
+        "side_data_type": "Display Matrix",
+        "displaymatrix": "\n00000000:            0       65536           0\n00000001:       -65536           0           0\n00000002:    141557760           0  1073741824\n",
+        "rotation": -90
+      }
+    ],
+    "bytes": 12961913,
+    "sha256": "c997c3956773c5193df680c0e201d9cd33a4c00690a3607ba81e3ffd89f641a0"
+  }
+]

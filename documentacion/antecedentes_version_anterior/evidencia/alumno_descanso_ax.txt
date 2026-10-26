@@ -1,0 +1,5 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~				35 text Torso A 13:54  ·  ● Guardado
+~			54 text Descanso 01:07
+The focused UI element is 59 button +30s

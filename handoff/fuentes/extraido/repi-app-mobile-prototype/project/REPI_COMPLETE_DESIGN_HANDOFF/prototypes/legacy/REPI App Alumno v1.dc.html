@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0B0F14;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+a{color:#00D1FF;text-decoration:none}a:hover{color:#5DE6D8}
+input{font-family:inherit}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(1100px 620px at 72% -10%, #13263a 0%, #0B0F14 60%);font-family:'Inter Tight',system-ui,sans-serif;color:#F8FAFC;display:flex;flex-wrap:wrap;gap:48px;justify-content:center;align-items:flex-start;padding:40px 24px 60px;font-variant-numeric:tabular-nums">
+
+<sc-if value="{{ showPanel }}" hint-placeholder-val="{{ true }}">
+<aside style="width:280px;max-width:100%;display:flex;flex-direction:column;gap:20px;padding-top:12px">
+  <div style="display:flex;align-items:center;gap:14px">
+    <img src="assets/repi_icon.png" alt="Ícono de repi" style="width:52px;height:52px;border-radius:14px;display:block">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:16px;font-weight:600">App del alumno</span>
+      <span style="font-size:13px;color:#94A3B8">Prototipo navegable · v1</span>
+    </div>
+  </div>
+  <p style="margin:0;font-size:13px;line-height:1.5;color:#94A3B8;text-wrap:pretty">Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas.</p>
+  <sc-for list="{{ flowGroups }}" as="g" hint-placeholder-count="3">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5DE6D8">{{ g.title }}</span>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ g.items }}" as="f" hint-placeholder-count="3">
+          <button onClick="{{ f.go }}" style="text-align:left;background:{{ f.bg }};color:{{ f.color }};border:0;border-radius:8px;padding:8px 10px;font:500 14px 'Inter Tight',sans-serif;cursor:pointer" style-hover="background:#1A2433">{{ f.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+</aside>
+</sc-if>
+
+<div style="width:414px;height:868px;flex:none;border-radius:64px;background:#05070A;padding:12px;box-shadow:0 0 0 1.5px #2D3B4F, 0 0 0 7px #10161F, 0 40px 120px rgba(0,0,0,.6);position:relative">
+<div style="position:relative;width:390px;height:844px;border-radius:52px;overflow:hidden;background:#0B0F14">
+
+  <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:0 34px 0 44px;pointer-events:none;background:{{ statusBg }}">
+    <span style="font-size:16px;font-weight:600;color:{{ statusInk }}">9:41</span>
+    <div style="position:absolute;left:50%;top:11px;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000"></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <div style="display:flex;gap:2px;align-items:flex-end;height:11px">
+        <span style="width:3px;height:4px;border-radius:1px;background:{{ statusInk }}"></span><span style="width:3px;height:6px;border-radius:1px;background:{{ statusInk }}"></span><span style="width:3px;height:8px;border-radius:1px;background:{{ statusInk }}"></span><span style="width:3px;height:11px;border-radius:1px;background:{{ statusInk }}"></span>
+      </div>
+      <span style="width:24px;height:12px;border-radius:4px;border:1.5px solid {{ statusInk }};padding:1.5px;display:flex"><span style="flex:1;border-radius:2px;background:{{ statusInk }}"></span></span>
+    </div>
+  </div>
+
+  <!-- INICIO -->
+  <sc-if value="{{ s.home }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Inicio" style="position:absolute;inset:0 0 84px 0;overflow-y:auto;scrollbar-width:none;padding:62px 20px 24px;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div role="img" aria-label="repi" style="width:58px;height:28px;overflow:hidden;position:relative">
+        <img src="assets/repi_logo.png" alt="" style="position:absolute;width:87px;left:-13px;top:-7px;mix-blend-mode:lighten;display:block">
+      </div>
+      <button aria-label="Notificaciones" onClick="{{ goMsgs }}" style="width:44px;height:44px;border-radius:22px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;position:relative">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0112 0v5l1.5 2h-15zM10 21h4"></path></svg>
+        <span style="position:absolute;top:10px;right:11px;width:8px;height:8px;border-radius:4px;background:#00D1FF;border:2px solid #0B0F14"></span>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em">Hola, Valen 👋</h1>
+      <span style="font-size:15px;color:#94A3B8">Hoy es un gran día para entrenar.</span>
+    </div>
+    <div onClick="{{ goTrain }}" style="position:relative;border-radius:18px;background:linear-gradient(120deg,#1A2433 0%,#16202d 55%,#0f1822 100%);border:1px solid #233044;overflow:hidden;min-height:150px;cursor:pointer;display:flex">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:46%;background:repeating-linear-gradient(135deg,#1d2a3b 0 8px,#223147 8px 16px);display:flex;align-items:flex-end;justify-content:center;padding-bottom:10px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 35%);mask-image:linear-gradient(90deg,transparent,#000 35%)">
+        <span style="font:400 10px 'JetBrains Mono',monospace;color:#94A3B8">foto atleta</span>
+      </div>
+      <div style="position:relative;padding:20px;display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:14px;color:#E2E8F0">Entrenamiento de hoy</span>
+        <span style="font-size:30px;font-weight:600;letter-spacing:-.02em;margin-top:6px">Torso A</span>
+        <span style="font-size:14px;color:#94A3B8">4 ejercicios · 45 min</span>
+      </div>
+      <button aria-label="Comenzar entrenamiento" onClick="{{ startWorkoutStop }}" style="position:absolute;right:16px;bottom:16px;width:48px;height:48px;border-radius:24px;border:0;background:#00D1FF;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 20px rgba(0,209,255,.35)">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="#F8FAFC"></path></svg>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:18px;font-weight:600">Semana</span>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+        <sc-for list="{{ weekHome }}" as="d" hint-placeholder-count="7">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <span style="width:32px;height:32px;border-radius:16px;display:grid;place-items:center;font-size:13px;font-weight:600;background:{{ d.bg }};color:{{ d.ink }}">{{ d.l }}</span>
+            <span style="font-size:13px;color:{{ d.numInk }}">{{ d.n }}</span>
+            <span style="width:4px;height:4px;border-radius:2px;background:{{ d.dot }}"></span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:18px;font-weight:600">Tu progreso</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div onClick="{{ goProgConst }}" style="background:#1A2433;border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:flex-end;cursor:pointer;min-height:96px">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:30px;font-weight:600">{{ weekDone }}</span><span style="font-size:13px;color:#94A3B8;line-height:1.3">Entrenamientos<br>esta semana</span></div>
+          <div style="display:flex;gap:3px;align-items:flex-end;height:28px"><span style="width:4px;height:8px;background:#00D1FF;border-radius:1px"></span><span style="width:4px;height:14px;background:#00D1FF;border-radius:1px"></span><span style="width:4px;height:20px;background:#00D1FF;border-radius:1px"></span><span style="width:4px;height:28px;background:#00D1FF;border-radius:1px"></span></div>
+        </div>
+        <div onClick="{{ goProgVol }}" style="background:#1A2433;border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:flex-end;cursor:pointer;min-height:96px">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:30px;font-weight:600">+12%</span><span style="font-size:13px;color:#94A3B8;line-height:1.3">Volumen total<br>vs. mes anterior</span></div>
+          <div style="display:flex;gap:3px;align-items:flex-end;height:28px"><span style="width:4px;height:10px;background:#00D1FF;border-radius:1px"></span><span style="width:4px;height:16px;background:#00D1FF;border-radius:1px"></span><span style="width:4px;height:22px;background:#00D1FF;border-radius:1px"></span><span style="width:4px;height:28px;background:#00D1FF;border-radius:1px"></span></div>
+        </div>
+      </div>
+    </div>
+    <div onClick="{{ goBody }}" style="background:#1A2433;border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;border:1px solid #233044">
+      <div style="width:44px;height:44px;border-radius:12px;background:#0B0F14;display:grid;place-items:center;flex:none">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5DE6D8" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="2.5"></circle><path d="M6 9.5h12M12 9.5v5M12 14.5l-3 6M12 14.5l3 6"></path></svg>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+        <span style="font-size:16px;font-weight:600">Mi cuerpo</span>
+        <span style="font-size:13px;color:#94A3B8">{{ bodyHomeSub }}</span>
+      </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"></path></svg>
+    </div>
+    <div onClick="{{ goMsgs }}" style="display:flex;gap:12px;align-items:flex-start;cursor:pointer">
+      <div style="width:40px;height:40px;border-radius:20px;background:#2D3B4F;display:grid;place-items:center;font-size:14px;font-weight:600;flex:none">AP</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+        <div style="display:flex;justify-content:space-between"><span style="font-size:14px;font-weight:600">Agustín · tu entrenador</span><span style="font-size:12px;color:#94A3B8">08:12</span></div>
+        <span style="font-size:14px;color:#E2E8F0;line-height:1.4;text-wrap:pretty">{{ lastCoachMsg }}</span>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ENTRENAR -->
+  <sc-if value="{{ s.train }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Entrenar" style="position:absolute;inset:0 0 84px 0;overflow-y:auto;scrollbar-width:none;padding:62px 20px 24px;display:flex;flex-direction:column;gap:20px">
+    <h1 style="margin:6px 0 0;font-size:30px;font-weight:600;letter-spacing:-.02em">Entrenar</h1>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+      <sc-for list="{{ weekTrain }}" as="d" hint-placeholder-count="7">
+        <button onClick="{{ d.pick }}" style="border:0;background:{{ d.cellBg }};border-radius:12px;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-family:inherit">
+          <span style="font-size:12px;color:#94A3B8">{{ d.l }}</span>
+          <span style="font-size:16px;font-weight:600;color:{{ d.ink }}">{{ d.n }}</span>
+          <span style="width:5px;height:5px;border-radius:3px;background:{{ d.dot }}"></span>
+        </button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ dayHasWorkout }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:13px;color:#5DE6D8;font-weight:600">{{ dayLabel }}</span>
+        <span style="font-size:26px;font-weight:600;letter-spacing:-.02em">{{ dayWorkout.name }}</span>
+        <span style="font-size:14px;color:#94A3B8">{{ dayWorkout.meta }}</span>
+      </div>
+      <div style="background:#1A2433;border-radius:14px;padding:14px 16px;display:flex;gap:12px">
+        <div style="width:32px;height:32px;border-radius:16px;background:#2D3B4F;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none">AP</div>
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;color:#94A3B8">Indicación de Agustín</span><span style="font-size:14px;line-height:1.45;text-wrap:pretty">{{ dayWorkout.note }}</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ dayWorkout.items }}" as="e" hint-placeholder-count="4">
+          <div style="display:flex;gap:12px;align-items:center;background:#131C28;border-radius:12px;padding:10px">
+            <div style="width:56px;height:56px;border-radius:10px;flex:none;background:repeating-linear-gradient(135deg,#1d2a3b 0 6px,#223147 6px 12px);display:grid;place-items:center"><span style="font:400 9px 'JetBrains Mono',monospace;color:#94A3B8">foto</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0">
+              <span style="font-size:15px;font-weight:600">{{ e.name }}</span>
+              <span style="font-size:13px;color:#94A3B8">{{ e.meta }}</span>
+              <span style="font-size:12px;color:#5DE6D8">Anterior: {{ e.prev }}</span>
+            </div>
+            <span style="font-size:13px;color:#94A3B8;padding-right:4px">{{ e.rest }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <button onClick="{{ startWorkout }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="#0B0F14"></path></svg>Comenzar entrenamiento
+      </button>
+    </sc-if>
+    <sc-if value="{{ dayIsRest }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#1A2433;border-radius:16px;padding:28px 20px;display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+        <span style="font-size:13px;color:#5DE6D8;font-weight:600">{{ dayLabel }}</span>
+        <span style="font-size:22px;font-weight:600">Día de descanso</span>
+        <span style="font-size:14px;color:#94A3B8;line-height:1.5;text-wrap:pretty">La recuperación también es parte del plan. Si querés moverte, una caminata de 30 minutos suma.</span>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ENTRENAMIENTO ACTIVO -->
+  <sc-if value="{{ s.workout }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Entrenamiento activo" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="flex:1;overflow-y:auto;scrollbar-width:none;padding:58px 16px 16px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button aria-label="Volver" onClick="{{ goTrain }}" style="width:44px;height:44px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;margin-left:-8px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+        </button>
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:22px;font-weight:600">Torso A</span>
+          <span style="font-size:13px;color:#94A3B8">{{ elapsedTxt }} · <span style="color:#10B981">● Guardado</span></span>
+        </div>
+        <button onClick="{{ finishWorkout }}" style="height:40px;padding:0 16px;border-radius:10px;border:0;background:#00D1FF;color:#0B0F14;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Finalizar</button>
+      </div>
+      <div style="display:flex;gap:4px">
+        <sc-for list="{{ exProgress }}" as="p" hint-placeholder-count="4">
+          <span style="flex:1;height:3px;border-radius:2px;background:{{ p.bg }}"></span>
+        </sc-for>
+      </div>
+      <div style="background:#F8FAFC;color:#0B0F14;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:13px;color:#64748B">{{ exPos }}</span>
+            <span style="font-size:22px;font-weight:600;letter-spacing:-.01em">{{ curEx.name }}</span>
+            <span style="font-size:14px;color:#64748B">{{ curEx.meta }}</span>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button aria-label="Ejercicio anterior" onClick="{{ prevEx }}" style="width:36px;height:36px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;display:grid;place-items:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
+            <button aria-label="Ejercicio siguiente" onClick="{{ nextEx }}" style="width:36px;height:36px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;display:grid;place-items:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"></path></svg></button>
+          </div>
+        </div>
+        <div style="position:relative;height:150px;border-radius:12px;background:repeating-linear-gradient(135deg,#1A2433 0 8px,#223147 8px 16px);display:grid;place-items:center">
+          <span style="font:400 10px 'JetBrains Mono',monospace;color:#94A3B8">video demostración</span>
+          <span style="position:absolute;right:12px;bottom:12px;width:36px;height:36px;border-radius:18px;background:#00D1FF;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="#fff"></path></svg></span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:13px;color:#64748B">Serie anterior</span>
+          <span style="font-size:15px;font-weight:500">{{ curEx.prev }}</span>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <div style="display:grid;grid-template-columns:52px 1fr 1fr 40px;padding:8px 10px;font-size:13px;font-weight:600;color:#0B0F14;border-bottom:1px solid #E2E8F0">
+            <span>Serie</span><span>Peso (kg)</span><span>Reps</span><span></span>
+          </div>
+          <sc-for list="{{ setRows }}" as="r" hint-placeholder-count="4">
+            <div onClick="{{ r.pick }}" style="display:grid;grid-template-columns:52px 1fr 1fr 40px;align-items:center;padding:0 10px;height:44px;font-size:15px;background:{{ r.bg }};border-radius:8px;cursor:pointer">
+              <span>{{ r.n }}</span><span style="font-weight:500">{{ r.w }}</span><span style="font-weight:500">{{ r.r }}</span>
+              <span style="width:22px;height:22px;border-radius:11px;display:grid;place-items:center;background:{{ r.ckBg }};border:1.5px solid {{ r.ckBorder }}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ r.ckOp }}"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:0 4px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:2px"><path d="M4 5h16v11H9l-5 4z"></path></svg>
+        <span style="font-size:13px;color:#94A3B8;line-height:1.45">{{ curEx.coach }}</span>
+      </div>
+    </div>
+    <div style="flex:none;background:#0B0F14;border-top:1px solid #1A2433;padding:16px 20px 34px;min-height:178px;display:flex;flex-direction:column;justify-content:center">
+      <sc-if value="{{ resting }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:14px;color:#94A3B8">Descanso</span>
+              <span style="font-size:40px;font-weight:600;letter-spacing:-.02em;line-height:1">{{ restTxt }}</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button aria-label="{{ pauseLabel }}" onClick="{{ togglePause }}" style="width:56px;height:56px;border-radius:28px;border:0;background:#F8FAFC;display:grid;place-items:center;cursor:pointer">
+                <sc-if value="{{ restPaused }}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="#0B0F14"></path></svg></sc-if>
+                <sc-if value="{{ restRunning }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="#0B0F14"></rect><rect x="14" y="5" width="4" height="14" rx="1" fill="#0B0F14"></rect></svg></sc-if>
+              </button>
+              <button onClick="{{ add30 }}" style="height:44px;padding:0 14px;border-radius:12px;border:1px solid #2D3B4F;background:#1A2433;color:#F8FAFC;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">+30s</button>
+            </div>
+          </div>
+          <div style="height:4px;border-radius:2px;background:#1A2433;overflow:hidden"><div style="height:100%;width:{{ restPct }};background:#00D1FF;transition:width 1s linear"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#94A3B8"><span>Próxima: {{ nextSetTxt }}</span><button onClick="{{ skipRest }}" style="border:0;background:none;color:#00D1FF;font:600 13px 'Inter Tight',sans-serif;cursor:pointer;padding:0">Saltar descanso</button></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ editing }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:#1A2433;border-radius:14px;padding:8px;display:flex;align-items:center;justify-content:space-between">
+              <button aria-label="Menos peso" onClick="{{ wDown }}" style="width:44px;height:44px;border-radius:10px;border:0;background:#2D3B4F;color:#F8FAFC;font-size:22px;cursor:pointer">−</button>
+              <div style="display:flex;flex-direction:column;align-items:center"><span style="font-size:22px;font-weight:600">{{ curSet.w }}</span><span style="font-size:11px;color:#94A3B8">kg</span></div>
+              <button aria-label="Más peso" onClick="{{ wUp }}" style="width:44px;height:44px;border-radius:10px;border:0;background:#2D3B4F;color:#F8FAFC;font-size:22px;cursor:pointer">+</button>
+            </div>
+            <div style="background:#1A2433;border-radius:14px;padding:8px;display:flex;align-items:center;justify-content:space-between">
+              <button aria-label="Menos repeticiones" onClick="{{ rDown }}" style="width:44px;height:44px;border-radius:10px;border:0;background:#2D3B4F;color:#F8FAFC;font-size:22px;cursor:pointer">−</button>
+              <div style="display:flex;flex-direction:column;align-items:center"><span style="font-size:22px;font-weight:600">{{ curSet.r }}</span><span style="font-size:11px;color:#94A3B8">reps</span></div>
+              <button aria-label="Más repeticiones" onClick="{{ rUp }}" style="width:44px;height:44px;border-radius:10px;border:0;background:#2D3B4F;color:#F8FAFC;font-size:22px;cursor:pointer">+</button>
+            </div>
+          </div>
+          <button onClick="{{ completeSet }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer">Completar serie {{ curSetNum }}</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ exDone }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:14px;color:#94A3B8;text-align:center">{{ exDoneTxt }}</span>
+          <button onClick="{{ afterEx }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer">{{ afterExLabel }}</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- COMPLETADO -->
+  <sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Entrenamiento completado" style="position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding:90px 20px 34px;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+      <div style="width:76px;height:76px;border-radius:38px;background:rgba(0,209,255,.12);display:grid;place-items:center"><div style="width:52px;height:52px;border-radius:26px;background:#00D1FF;display:grid;place-items:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div></div>
+      <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em">¡Torso A completo!</h1>
+      <span style="font-size:15px;color:#94A3B8">Cada repetición cuenta. Hoy sumaste {{ setsDone }} series.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:24px;font-weight:600">{{ elapsedShort }}</span><span style="font-size:12px;color:#94A3B8">Duración</span></div>
+      <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:24px;font-weight:600">{{ exCompleted }}/4</span><span style="font-size:12px;color:#94A3B8">Ejercicios</span></div>
+      <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:24px;font-weight:600">{{ setsDone }}/{{ setsTotal }}</span><span style="font-size:12px;color:#94A3B8">Series</span></div>
+    </div>
+    <sc-if value="{{ hasPR }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#1A2433;border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;border:1px solid rgba(245,158,11,.35)">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 14v3M8 20h8M9.5 17h5v3h-5z"></path></svg>
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:#F59E0B;font-weight:600">Nuevo récord personal</span><span style="font-size:18px;font-weight:600">Press de banca · {{ prTxt }}</span><span style="font-size:13px;color:#94A3B8">Anterior: 85 kg × 6 · 12 may</span></div>
+      </div>
+    </sc-if>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:16px;font-weight:600">Resumen</span>
+      <sc-for list="{{ doneRows }}" as="d" hint-placeholder-count="4">
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #1A2433;font-size:15px"><span>{{ d.name }}</span><span style="color:#94A3B8">{{ d.txt }}</span></div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:auto">
+      <button onClick="{{ goProg }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer">Ver mi progreso</button>
+      <button onClick="{{ goHome }}" style="height:48px;border-radius:14px;border:1px solid #2D3B4F;background:transparent;color:#F8FAFC;font:600 15px 'Inter Tight',sans-serif;cursor:pointer">Volver al inicio</button>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- PROGRESO -->
+  <sc-if value="{{ s.prog }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Progreso" style="position:absolute;inset:0 0 84px 0;overflow-y:auto;scrollbar-width:none;padding:62px 20px 24px;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em">Progreso</h1>
+      <button aria-label="Notificaciones" onClick="{{ goMsgs }}" style="width:44px;height:44px;border-radius:22px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0112 0v5l1.5 2h-15zM10 21h4"></path></svg></button>
+    </div>
+    <div style="display:flex;gap:20px;border-bottom:1px solid #1A2433">
+      <sc-for list="{{ progTabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.pick }}" style="border:0;background:none;padding:0 0 10px;font:600 14px 'Inter Tight',sans-serif;color:{{ t.ink }};box-shadow:inset 0 -2px 0 {{ t.line }};cursor:pointer">{{ t.label }}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ pt.fuerza }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button onClick="{{ cycleLift }}" style="height:40px;padding:0 14px;border-radius:10px;border:0;background:#1A2433;color:#F8FAFC;font:600 14px 'Inter Tight',sans-serif;display:flex;gap:8px;align-items:center;cursor:pointer">{{ liftName }}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+        <div style="display:flex;gap:4px">
+          <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="3">
+            <button onClick="{{ r.pick }}" style="height:36px;min-width:44px;padding:0 10px;border-radius:10px;border:0;background:{{ r.bg }};color:{{ r.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ r.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="position:relative;display:grid;grid-template-columns:30px 1fr;gap:6px">
+        <div style="display:flex;flex-direction:column;justify-content:space-between;height:170px;font-size:12px;color:#94A3B8;text-align:right">
+          <sc-for list="{{ chart.ticks }}" as="tk" hint-placeholder-count="5"><span>{{ tk }}</span></sc-for>
+        </div>
+        <div style="position:relative;height:170px">
+          <svg viewBox="0 0 300 160" preserveAspectRatio="none" style="position:absolute;top:5px;left:0;width:100%;height:160px;overflow:visible">
+            <defs><linearGradient id="repiArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00D1FF" stop-opacity=".35"></stop><stop offset="1" stop-color="#00D1FF" stop-opacity="0"></stop></linearGradient></defs>
+            <path d="{{ chart.area }}" fill="url(#repiArea)"></path>
+            <path d="{{ chart.line }}" fill="none" stroke="#00D1FF" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path>
+            <line x1="{{ chart.tx }}" x2="{{ chart.tx }}" y1="{{ chart.ty }}" y2="160" stroke="#94A3B8" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"></line>
+          </svg>
+          <div style="position:absolute;left:{{ chart.tipLeft }};top:{{ chart.tipTop }};transform:translate(-50%,-100%);background:#F8FAFC;color:#0B0F14;border-radius:8px;padding:5px 8px;font-size:12px;line-height:1.25;text-align:center;white-space:nowrap"><strong style="font-weight:600">{{ chart.tipVal }}</strong><br>{{ chart.tipDate }}</div>
+          <div style="position:absolute;left:{{ chart.tipLeft }};top:{{ chart.dotTop }};width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:5px;background:#F8FAFC;border:2px solid #00D1FF"></div>
+        </div>
+        <span></span>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#94A3B8">
+          <sc-for list="{{ chart.labels }}" as="lb" hint-placeholder-count="6"><span>{{ lb }}</span></sc-for>
+        </div>
+      </div>
+      <div style="background:#1A2433;border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 14v3M8 20h8M9.5 17h5v3h-5z"></path></svg>
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;color:#E2E8F0">Máximo personal</span><span style="font-size:26px;font-weight:600">{{ chart.pr }} kg</span><span style="font-size:13px;color:#94A3B8">12 de mayo de 2026</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:16px;font-weight:600">Historial de series</span>
+        <sc-for list="{{ history }}" as="h" hint-placeholder-count="3">
+          <div style="display:flex;justify-content:space-between;align-items:center;background:#131C28;border-radius:10px;padding:0 14px;height:48px;font-size:15px"><span style="display:flex;gap:12px;align-items:center"><span style="width:6px;height:6px;border-radius:3px;background:#5DE6D8"></span>{{ h.s }}</span><span style="color:#94A3B8;font-size:13px">{{ h.d }}</span></div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ pt.volumen }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#94A3B8">Volumen semanal · últimas 8 semanas</span><span style="font-size:30px;font-weight:600">10.500 kg <span style="font-size:15px;color:#10B981;font-weight:600">+12%</span></span><span style="font-size:13px;color:#94A3B8">vs. las 4 semanas anteriores (promedio). Calculado: series × reps × peso.</span></div>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:170px;padding-top:10px">
+        <sc-for list="{{ volBars }}" as="b" hint-placeholder-count="8">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end"><div style="width:100%;height:{{ b.h }};border-radius:6px 6px 2px 2px;background:{{ b.bg }}"></div><span style="font-size:11px;color:#94A3B8">{{ b.l }}</span></div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#94A3B8">Torso</span><span style="font-size:20px;font-weight:600">6.100 kg</span><span style="font-size:12px;color:#10B981">+9%</span></div>
+        <div style="background:#1A2433;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#94A3B8">Piernas</span><span style="font-size:20px;font-weight:600">4.400 kg</span><span style="font-size:12px;color:#10B981">+16%</span></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ pt.constancia }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#94A3B8">Adherencia · últimas 4 semanas</span><span style="font-size:30px;font-weight:600">{{ adherence }}</span><span style="font-size:13px;color:#94A3B8">{{ adherenceTxt }}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
+        <sc-for list="{{ dayLetters }}" as="l" hint-placeholder-count="7"><span style="font-size:12px;color:#94A3B8;text-align:center">{{ l }}</span></sc-for>
+        <sc-for list="{{ consGrid }}" as="c" hint-placeholder-count="28"><div style="aspect-ratio:1;border-radius:10px;background:{{ c.bg }};border:1.5px solid {{ c.bd }}"></div></sc-for>
+      </div>
+      <div style="display:flex;gap:16px;font-size:12px;color:#94A3B8;flex-wrap:wrap">
+        <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#00D1FF"></span>Completado</span>
+        <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;border:1.5px solid #F59E0B"></span>Planificado, no hecho</span>
+        <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#1A2433"></span>Descanso</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ pt.medidas }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#1A2433;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:16px;font-weight:600">Meta · Brazo derecho</span><span style="font-size:22px;font-weight:600;color:#00D1FF">50%</span></div>
+        <div style="height:8px;border-radius:4px;background:#0B0F14;overflow:hidden"><div style="width:50%;height:100%;background:#00D1FF"></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;font-size:13px;color:#94A3B8;gap:6px"><span>Inicio<br><strong style="color:#F8FAFC;font-size:15px;font-weight:600">34,0 cm</strong></span><span>Actual<br><strong style="color:#F8FAFC;font-size:15px;font-weight:600">35,5 cm</strong></span><span>Meta<br><strong style="color:#F8FAFC;font-size:15px;font-weight:600">37,0 cm</strong></span></div>
+        <span style="font-size:12px;color:#94A3B8">Cinta métrica · registro manual · 20 may 2026</span>
+      </div>
+      <sc-for list="{{ measures }}" as="m" hint-placeholder-count="4">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #1A2433">
+          <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:500">{{ m.name }}</span><span style="font-size:12px;color:#94A3B8">{{ m.src }}</span></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span style="font-size:16px;font-weight:600;color:{{ m.ink }}">{{ m.val }}</span><span style="font-size:12px;color:#94A3B8">{{ m.delta }}</span></div>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <div onClick="{{ goBody }}" style="background:#1A2433;border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;border:1px solid #233044">
+      <div style="width:44px;height:44px;border-radius:12px;background:#0B0F14;display:grid;place-items:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5DE6D8" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="2.5"></circle><path d="M6 9.5h12M12 9.5v5M12 14.5l-3 6M12 14.5l3 6"></path></svg></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;font-weight:600">Mi cuerpo</span><span style="font-size:13px;color:#94A3B8">Modelo 3D, medidas y evaluaciones</span></div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"></path></svg>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- MI CUERPO -->
+  <sc-if value="{{ s.body }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Mi cuerpo" style="position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding:58px 20px 34px;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <button aria-label="Volver" onClick="{{ bodyBack }}" style="width:44px;height:44px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;margin-left:-8px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg></button>
+      <span style="flex:1;font-size:17px;font-weight:600">{{ bodyTitle }}</span>
+      <span style="font:500 11px 'JetBrains Mono',monospace;color:#94A3B8">{{ bodyStepTxt }}</span>
+    </div>
+
+    <sc-if value="{{ b.intro }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.1;text-wrap:balance">Seguí tu cuerpo, a tu manera.</h1>
+        <span style="font-size:15px;color:#94A3B8;line-height:1.5;text-wrap:pretty">Medidas, fotos de progreso y evaluaciones en un solo lugar, junto a tu entrenamiento. Vos decidís qué se guarda y quién lo ve.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ introPoints }}" as="p" hint-placeholder-count="3">
+          <div style="background:#1A2433;border-radius:14px;padding:16px;display:flex;gap:14px">
+            <span style="width:28px;height:28px;border-radius:8px;background:#0B0F14;color:#5DE6D8;display:grid;place-items:center;font-size:13px;font-weight:600;flex:none">{{ p.n }}</span>
+            <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:600">{{ p.t }}</span><span style="font-size:13px;color:#94A3B8;line-height:1.45;text-wrap:pretty">{{ p.d }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:auto">
+        <button onClick="{{ toConsent }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer">Elegir qué guardar</button>
+        <button onClick="{{ declineBody }}" style="height:48px;border-radius:14px;border:1px solid #2D3B4F;background:transparent;color:#F8FAFC;font:600 15px 'Inter Tight',sans-serif;cursor:pointer">Ahora no</button>
+        <span style="font-size:12px;color:#94A3B8;text-align:center;line-height:1.4">Tu entrenamiento funciona igual si no activás Mi cuerpo.</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ b.consent }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">¿Qué querés guardar?</h1>
+        <span style="font-size:14px;color:#94A3B8;line-height:1.5">Todo empieza desactivado. Guardar no es compartir: tu entrenador no ve nada hasta que vos lo habilites.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;background:#1A2433;border-radius:14px;padding:4px 16px">
+        <sc-for list="{{ consentRows }}" as="c" hint-placeholder-count="6">
+          <div onClick="{{ c.toggle }}" role="switch" aria-checked="{{ c.on }}" style="display:flex;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid {{ c.sep }};cursor:pointer">
+            <div style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:600">{{ c.t }}</span><span style="font-size:13px;color:#94A3B8;line-height:1.4">{{ c.d }}</span></div>
+            <span style="width:48px;height:28px;border-radius:14px;background:{{ c.track }};padding:3px;display:flex;justify-content:{{ c.justify }};flex:none;transition:background .15s"><span style="width:22px;height:22px;border-radius:11px;background:#F8FAFC"></span></span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:12px;color:#94A3B8;line-height:1.45">Podés cambiar esto, exportar o borrar tus datos cuando quieras desde Perfil › Privacidad. Mi cuerpo no es un servicio médico ni hace diagnósticos.</span>
+      <button onClick="{{ toMethod }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer;opacity:{{ consentCtaOp }}">{{ consentCta }}</button>
+    </sc-if>
+
+    <sc-if value="{{ b.method }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">¿Cómo querés empezar?</h1>
+        <span style="font-size:14px;color:#94A3B8;line-height:1.5">Podés combinar métodos más adelante.</span>
+      </div>
+      <sc-for list="{{ methods }}" as="m" hint-placeholder-count="3">
+        <div onClick="{{ m.pick }}" style="background:#1A2433;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:8px;cursor:pointer;opacity:{{ m.op }};border:1px solid #233044">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:17px;font-weight:600">{{ m.t }}</span><span style="font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;background:{{ m.tagBg }};color:{{ m.tagInk }}">{{ m.tag }}</span></div>
+          <span style="font-size:14px;color:#94A3B8;line-height:1.45">{{ m.d }}</span>
+          <span style="font-size:12px;color:#5DE6D8">{{ m.foot }}</span>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <sc-if value="{{ b.manual }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:8px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Medidas de hoy</h1><span style="font-size:14px;color:#94A3B8">Medí siempre en el mismo momento del día para comparar mejor.</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ manualFields }}" as="f" hint-placeholder-count="4">
+          <label style="background:#1A2433;border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:12px">
+            <span style="flex:1;font-size:15px">{{ f.label }}</span>
+            <input type="number" step="0.1" value="{{ f.val }}" onChange="{{ f.set }}" style="width:90px;height:40px;border-radius:8px;border:1px solid #2D3B4F;background:#0B0F14;color:#F8FAFC;font-size:16px;font-weight:600;text-align:right;padding:0 10px">
+            <span style="width:22px;font-size:13px;color:#94A3B8">{{ f.unit }}</span>
+          </label>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;color:#94A3B8">¿Quién midió?</span>
+        <div style="display:flex;gap:8px">
+          <sc-for list="{{ sources }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.pick }}" style="height:40px;padding:0 14px;border-radius:10px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:#F8FAFC;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">{{ o.label }}</button></sc-for>
+        </div>
+      </div>
+      <button onClick="{{ saveManual }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer;margin-top:8px">Guardar medidas</button>
+    </sc-if>
+
+    <sc-if value="{{ b.capture }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;height:430px;border-radius:20px;overflow:hidden;background:repeating-linear-gradient(135deg,#131C28 0 10px,#172232 10px 20px)">
+        <div style="position:absolute;inset:40px 70px 60px;border:2px dashed {{ frameInk }};border-radius:120px 120px 24px 24px;transition:border-color .15s"></div>
+        <span style="position:absolute;left:0;right:0;top:50%;text-align:center;font:400 11px 'JetBrains Mono',monospace;color:#94A3B8">vista de cámara</span>
+        <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ qChecks }}" as="q" hint-placeholder-count="4"><span style="height:28px;padding:0 10px;border-radius:14px;background:rgba(11,15,20,.8);display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500"><span style="width:7px;height:7px;border-radius:4px;background:{{ q.c }}"></span>{{ q.l }}</span></sc-for>
+        </div>
+        <div style="position:absolute;left:12px;right:12px;bottom:12px;background:rgba(11,15,20,.85);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.4;color:{{ capMsgInk }}">{{ capMsg }}</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:18px;font-weight:600">{{ poseName }}</span><span style="font-size:13px;color:#94A3B8">{{ posePos }} · ropa deportiva, luz frontal</span></div>
+        <button aria-label="Capturar" onClick="{{ shoot }}" style="width:72px;height:72px;border-radius:36px;border:4px solid #F8FAFC;background:#00D1FF;cursor:pointer;flex:none"></button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <sc-for list="{{ poseDots }}" as="p" hint-placeholder-count="4"><span style="flex:1;height:4px;border-radius:2px;background:{{ p.bg }}"></span></sc-for>
+      </div>
+      <span style="font-size:12px;color:#94A3B8;text-align:center">Cámara simulada en este prototipo. No se requieren fotos en ropa interior.</span>
+    </sc-if>
+
+    <sc-if value="{{ b.review }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:8px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Revisá tus fotos</h1><span style="font-size:14px;color:#94A3B8">Repetí las que no estén en la misma postura que la guía.</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <sc-for list="{{ reviewThumbs }}" as="t" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="aspect-ratio:3/4;border-radius:14px;background:repeating-linear-gradient(135deg,#1A2433 0 8px,#1f2c3e 8px 16px);display:grid;place-items:center"><span style="font:400 10px 'JetBrains Mono',monospace;color:#94A3B8">{{ t.ph }}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:500">{{ t.l }}</span><button onClick="{{ t.redo }}" style="border:0;background:none;color:#00D1FF;font:600 13px 'Inter Tight',sans-serif;cursor:pointer;padding:6px 0">Repetir</button></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:#1A2433;border-radius:12px;padding:12px 14px;font-size:13px;color:#94A3B8;line-height:1.45">Se guardan cifradas en tu cuenta. Solo vos podés verlas. Fotos compartidas con tu entrenador: <strong style="color:#F8FAFC;font-weight:600">{{ photoShareTxt }}</strong>.</div>
+      <button onClick="{{ process }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer">Guardar evaluación</button>
+    </sc-if>
+
+    <sc-if value="{{ b.processing }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:80px 0">
+        <span style="font-size:22px;font-weight:600;text-align:center">{{ procTitle }}</span>
+        <div style="height:6px;border-radius:3px;background:#1A2433;overflow:hidden"><div style="height:100%;width:{{ procPct }};background:#00D1FF;transition:width .12s linear"></div></div>
+        <span style="font-size:14px;color:#94A3B8;text-align:center">{{ procStep }}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ b.failed }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:10px;padding-top:20px">
+        <span style="width:52px;height:52px;border-radius:14px;background:rgba(245,158,11,.14);display:grid;place-items:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"></path></svg></span>
+        <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">No pudimos reconstruir tu modelo 3D</h1>
+        <span style="font-size:14px;color:#94A3B8;line-height:1.5;text-wrap:pretty">Las fotos no alcanzan para una reconstrucción confiable. Preferimos no mostrarte un modelo que no se parezca a vos.</span>
+      </div>
+      <div style="background:#1A2433;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:14px">
+        <span style="font-weight:600">Qué pasó</span>
+        <span style="color:#94A3B8">· Cobertura de ángulos incompleta (4 de 24)</span>
+        <span style="color:#94A3B8">· Iluminación distinta entre fotos</span>
+        <span style="color:#94A3B8">· Reconstrucción personalizada: función experimental, no disponible aún</span>
+      </div>
+      <span style="font-size:13px;color:#94A3B8">Tus 4 fotos se guardaron igual como fotos de progreso.</span>
+      <button onClick="{{ toViewer }}" style="height:56px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 16px 'Inter Tight',sans-serif;cursor:pointer">Usar modelo de referencia</button>
+      <button onClick="{{ toCapture }}" style="height:48px;border-radius:14px;border:1px solid #2D3B4F;background:transparent;color:#F8FAFC;font:600 15px 'Inter Tight',sans-serif;cursor:pointer">Intentar de nuevo</button>
+    </sc-if>
+
+    <sc-if value="{{ b.viewer }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <button onClick="{{ cycleDate }}" style="height:36px;padding:0 12px;border-radius:10px;border:0;background:#1A2433;color:#F8FAFC;font:600 13px 'Inter Tight',sans-serif;display:flex;gap:6px;align-items:center;cursor:pointer">{{ bodyDate }}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+        <button onClick="{{ openCompare }}" style="height:36px;padding:0 12px;border-radius:10px;border:1px solid #2D3B4F;background:transparent;color:#00D1FF;font:600 13px 'Inter Tight',sans-serif;cursor:pointer">Comparar fechas</button>
+      </div>
+      <div style="position:relative;height:380px;border-radius:20px;background:radial-gradient(260px 260px at 50% 45%, #17263a, #0E151E);overflow:hidden;border:1px solid #1A2433">
+        <div ref="{{ bodyRef }}" aria-label="Visor 3D del cuerpo. Arrastrá para rotar, tocá una zona para ver datos." style="position:absolute;inset:0;touch-action:none;cursor:grab"></div>
+        <sc-if value="{{ webglFail }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;font-size:14px;color:#94A3B8;line-height:1.5">El visor 3D no está disponible en este dispositivo. Usá la lista de zonas de abajo.</div></sc-if>
+        <div style="position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none">
+          <span style="height:26px;padding:0 10px;border-radius:13px;background:rgba(11,15,20,.85);border:1px solid #2D3B4F;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:3px;background:#94A3B8"></span>{{ modelLabel }}</span>
+        </div>
+        <div style="position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px">
+          <button aria-label="Acercar" onClick="{{ zoomIn }}" style="width:40px;height:40px;border-radius:12px;border:1px solid #2D3B4F;background:rgba(11,15,20,.85);color:#F8FAFC;font-size:20px;cursor:pointer">+</button>
+          <button aria-label="Alejar" onClick="{{ zoomOut }}" style="width:40px;height:40px;border-radius:12px;border:1px solid #2D3B4F;background:rgba(11,15,20,.85);color:#F8FAFC;font-size:20px;cursor:pointer">−</button>
+          <button aria-label="Restablecer vista" onClick="{{ resetCam }}" style="width:40px;height:40px;border-radius:12px;border:1px solid #2D3B4F;background:rgba(11,15,20,.85);display:grid;place-items:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 108-8H8M8 1v6h6" transform="translate(0 1)"></path></svg></button>
+        </div>
+        <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:4px;background:rgba(11,15,20,.85);border-radius:12px;padding:4px">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="4"><button onClick="{{ v.pick }}" style="flex:1;height:34px;border-radius:9px;border:0;background:{{ v.bg }};color:{{ v.ink }};font:600 13px 'Inter Tight',sans-serif;cursor:pointer">{{ v.label }}</button></sc-for>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;background:#1A2433;border-radius:12px;padding:4px">
+        <sc-for list="{{ layers }}" as="l" hint-placeholder-count="3"><button onClick="{{ l.pick }}" style="flex:1;height:38px;border-radius:9px;border:0;background:{{ l.bg }};color:{{ l.ink }};font:600 14px 'Inter Tight',sans-serif;cursor:pointer">{{ l.label }}</button></sc-for>
+      </div>
+      <sc-if value="{{ layerMuscle }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:14px;font-size:12px;color:#94A3B8;flex-wrap:wrap">
+          <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:5px;background:#00D1FF"></span>En plan</span>
+          <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:5px;background:#F59E0B"></span>Requiere atención</span>
+          <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:5px;background:#3A4A60"></span>Sin datos</span>
+        </div>
+      </sc-if>
+      <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px">
+        <sc-for list="{{ regionChips }}" as="r" hint-placeholder-count="9"><button onClick="{{ r.pick }}" style="flex:none;height:36px;padding:0 12px;border-radius:18px;border:1px solid {{ r.bd }};background:{{ r.bg }};color:{{ r.ink }};font:500 13px 'Inter Tight',sans-serif;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="width:6px;height:6px;border-radius:3px;background:{{ r.dot }}"></span>{{ r.label }}</button></sc-for>
+      </div>
+
+      <sc-if value="{{ hasRegion }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#1A2433;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:20px;font-weight:600">{{ reg.name }}</span><span style="font-size:13px;color:#94A3B8">{{ reg.ex }}</span></div>
+            <button aria-label="Cerrar zona" onClick="{{ clearRegion }}" style="width:36px;height:36px;border-radius:10px;border:0;background:#0B0F14;color:#94A3B8;font-size:18px;cursor:pointer">×</button>
+          </div>
+          <sc-if value="{{ reg.flag }}" hint-placeholder-val="{{ false }}"><div style="background:rgba(245,158,11,.12);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45;color:#FCD38A">{{ reg.flagTxt }}</div></sc-if>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:#0B0F14;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#94A3B8">Series esta semana</span><span style="font-size:20px;font-weight:600">{{ reg.sets }}</span><span style="font-size:12px;color:#94A3B8">hechas / planificadas</span></div>
+            <div style="background:#0B0F14;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#94A3B8">Fuerza · 8 semanas</span><span style="font-size:20px;font-weight:600;color:{{ reg.trendInk }}">{{ reg.trend }}</span><span style="font-size:12px;color:#94A3B8">{{ reg.trendSrc }}</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;border-top:1px solid #2D3B4F;padding-top:12px"><span style="font-size:12px;color:#94A3B8">Medida relacionada</span><span style="font-size:15px;font-weight:500">{{ reg.measure }}</span><span style="font-size:12px;color:#94A3B8">{{ reg.measureSrc }}</span></div>
+          <span style="font-size:11px;color:#94A3B8;line-height:1.45">Calculado a partir de tus entrenamientos registrados. El color del modelo no mide tu músculo real.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ layerComp }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#1A2433;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:16px;font-weight:600">Composición corporal</span>
+          <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #2D3B4F"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px">Masa corporal</span><span style="font-size:12px;color:#94A3B8">Balanza hogareña · medido · {{ bodyDate }}</span></div><span style="font-size:18px;font-weight:600">{{ weightTxt }}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px">% grasa · masa magra</span><span style="font-size:12px;color:#94A3B8">Requiere DXA, bioimpedancia o pliegues</span></div><span style="font-size:13px;font-weight:600;color:#94A3B8;background:#0B0F14;padding:6px 10px;border-radius:8px">Datos insuficientes</span></div>
+          <button onClick="{{ uploadSoon }}" style="height:44px;border-radius:12px;border:1px solid #2D3B4F;background:transparent;color:#00D1FF;font:600 14px 'Inter Tight',sans-serif;cursor:pointer">Subir evaluación (PDF o foto)</button>
+          <span style="font-size:11px;color:#94A3B8;line-height:1.45">Las fotos y el modelo 3D no pueden estimar grasa ni músculo con precisión.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showChanges }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:16px;font-weight:600">Cambios recientes</span><span style="font-size:12px;color:#94A3B8">vs. 12 mar 2026</span></div>
+          <sc-for list="{{ changes }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #1A2433"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px">{{ c.n }}</span><span style="font-size:12px;color:#94A3B8">{{ c.src }}</span></div><span style="font-size:15px;font-weight:600">{{ c.v }}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <button onClick="{{ toMethod }}" style="height:52px;border-radius:14px;border:0;background:#00D1FF;color:#0B0F14;font:600 15px 'Inter Tight',sans-serif;cursor:pointer">Nueva evaluación</button>
+      <span style="font-size:12px;color:#94A3B8;text-align:center">Próximo recordatorio: {{ reminderTxt }} · Configurable en Perfil</span>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- COMPARAR -->
+  <sc-if value="{{ compare }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Comparación" style="position:absolute;inset:0;z-index:20;background:rgba(5,7,10,.6);display:flex;align-items:flex-end">
+    <div style="width:100%;background:#131C28;border-radius:24px 24px 0 0;padding:12px 20px 34px;display:flex;flex-direction:column;gap:14px">
+      <span style="width:40px;height:4px;border-radius:2px;background:#2D3B4F;align-self:center"></span>
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:18px;font-weight:600">Comparar · Frente</span><button onClick="{{ closeCompare }}" style="border:0;background:none;color:#00D1FF;font:600 14px 'Inter Tight',sans-serif;cursor:pointer;height:44px">Listo</button></div>
+      <div style="position:relative;height:300px;border-radius:16px;overflow:hidden" onPointerMove="{{ dragSwipe }}" onPointerDown="{{ dragSwipe }}">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg,#1A2433 0 8px,#1f2c3e 8px 16px);display:grid;place-items:center"><span style="font:400 10px 'JetBrains Mono',monospace;color:#94A3B8;transform:translateX(70px)">foto · 20 may</span></div>
+        <div style="position:absolute;top:0;bottom:0;left:0;width:{{ swipePct }};overflow:hidden;background:repeating-linear-gradient(45deg,#16202d 0 8px,#1b2738 8px 16px)"><span style="position:absolute;left:60px;top:50%;font:400 10px 'JetBrains Mono',monospace;color:#94A3B8;white-space:nowrap">foto · 12 mar</span></div>
+        <div style="position:absolute;top:0;bottom:0;left:{{ swipePct }};width:2px;background:#00D1FF"><span style="position:absolute;top:50%;left:-15px;width:32px;height:32px;margin-top:-16px;border-radius:16px;background:#00D1FF;display:grid;place-items:center;color:#0B0F14;font-size:14px;font-weight:700">‹›</span></div>
+        <span style="position:absolute;top:10px;left:10px;font-size:12px;font-weight:600;background:rgba(11,15,20,.85);padding:4px 8px;border-radius:6px">12 mar 2026</span>
+        <span style="position:absolute;top:10px;right:10px;font-size:12px;font-weight:600;background:rgba(11,15,20,.85);padding:4px 8px;border-radius:6px">20 may 2026</span>
+      </div>
+      <div style="background:rgba(245,158,11,.12);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45;color:#FCD38A">La iluminación fue distinta entre estas fotos. Usá las medidas para comparar con más confianza.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <sc-for list="{{ changes }}" as="c" hint-placeholder-count="3"><div style="background:#0B0F14;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#94A3B8">{{ c.n }}</span><span style="font-size:16px;font-weight:600">{{ c.v }}</span></div></sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- MENSAJES -->
+  <sc-if value="{{ s.msgs }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Mensajes" style="position:absolute;inset:0 0 84px 0;display:flex;flex-direction:column">
+    <div style="padding:62px 20px 12px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #1A2433">
+      <div style="width:44px;height:44px;border-radius:22px;background:#2D3B4F;display:grid;place-items:center;font-size:15px;font-weight:600">AP</div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;font-weight:600">Agustín Pérez</span><span style="font-size:13px;color:#10B981">Entrenador · responde en el día</span></div>
+    </div>
+    <div style="flex:1;overflow-y:auto;scrollbar-width:none;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;align-items:{{ m.align }};gap:3px">
+          <div style="max-width:78%;padding:10px 14px;border-radius:16px;background:{{ m.bg }};color:{{ m.ink }};font-size:15px;line-height:1.4">{{ m.t }}</div>
+          <span style="font-size:11px;color:#94A3B8">{{ m.time }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid #1A2433">
+      <input value="{{ draft }}" onChange="{{ setDraft }}" onKeyDown="{{ draftKey }}" placeholder="Escribile a Agustín…" aria-label="Mensaje" style="flex:1;height:44px;border-radius:22px;border:1px solid #2D3B4F;background:#1A2433;color:#F8FAFC;padding:0 16px;font-size:15px;outline:none">
+      <button aria-label="Enviar" onClick="{{ send }}" style="width:44px;height:44px;border-radius:22px;border:0;background:#00D1FF;display:grid;place-items:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- PERFIL -->
+  <sc-if value="{{ s.perfil }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Perfil y privacidad" style="position:absolute;inset:0 0 84px 0;overflow-y:auto;scrollbar-width:none;padding:62px 20px 24px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:14px;align-items:center;margin-top:6px">
+      <div style="width:60px;height:60px;border-radius:30px;background:#2D3B4F;display:grid;place-items:center;font-size:20px;font-weight:600">VG</div>
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:22px;font-weight:600">Valentina Gómez</span><span style="font-size:14px;color:#94A3B8">Objetivo: hipertrofia · desde mar 2026</span></div>
+    </div>
+    <div style="background:#1A2433;border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+      <div style="width:40px;height:40px;border-radius:20px;background:#2D3B4F;display:grid;place-items:center;font-size:14px;font-weight:600">AP</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Agustín Pérez</span><span style="font-size:13px;color:#94A3B8">Tu entrenador · Plan mensual</span></div>
+      <button onClick="{{ goMsgs }}" style="height:36px;padding:0 12px;border-radius:10px;border:1px solid #2D3B4F;background:transparent;color:#00D1FF;font:600 13px 'Inter Tight',sans-serif;cursor:pointer">Mensaje</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:18px;font-weight:600">Privacidad y permisos</span>
+      <span style="font-size:13px;color:#94A3B8;line-height:1.45">Elegí qué puede ver Agustín. Tus entrenamientos siempre se comparten porque son parte del plan.</span>
+      <div style="background:#1A2433;border-radius:14px;padding:4px 16px;display:flex;flex-direction:column">
+        <sc-for list="{{ shareRows }}" as="c" hint-placeholder-count="6">
+          <div onClick="{{ c.toggle }}" role="switch" aria-checked="{{ c.on }}" style="display:flex;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid {{ c.sep }};cursor:pointer">
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ c.t }}</span><span style="font-size:12px;color:{{ c.subInk }}">{{ c.sub }}</span></div>
+            <span style="width:48px;height:28px;border-radius:14px;background:{{ c.track }};padding:3px;display:flex;justify-content:{{ c.justify }};flex:none;opacity:{{ c.op }}"><span style="width:22px;height:22px;border-radius:11px;background:#F8FAFC"></span></span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:16px;font-weight:600">Historial de accesos</span>
+      <sc-for list="{{ shareLog }}" as="l" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1A2433;font-size:14px;gap:12px"><span>{{ l.t }}</span><span style="color:#94A3B8;font-size:12px;flex:none">{{ l.d }}</span></div></sc-for>
+    </div>
+    <div style="background:#1A2433;border-radius:14px;padding:4px 16px;display:flex;flex-direction:column">
+      <div onClick="{{ cycleReminder }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #2D3B4F;cursor:pointer"><span style="font-size:15px">Recordatorio de evaluación</span><span style="font-size:14px;color:#00D1FF;font-weight:600">{{ reminderTxt }}</span></div>
+      <div onClick="{{ exportData }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #2D3B4F;cursor:pointer"><span style="font-size:15px">Exportar mis datos</span><span style="font-size:13px;color:#94A3B8">JSON + fotos</span></div>
+      <div onClick="{{ deleteBody }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;cursor:pointer"><span style="font-size:15px;color:#EF4444">Eliminar datos de Mi cuerpo</span><span style="font-size:13px;color:#94A3B8">{{ deleteHint }}</span></div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- TAB BAR -->
+  <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+  <nav style="position:absolute;left:0;right:0;bottom:0;height:84px;background:#0B0F14;border-top:1px solid #1A2433;display:grid;grid-template-columns:repeat(5,1fr);padding:8px 6px 0;z-index:10">
+    <button onClick="{{ goHome }}" style="border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:{{ tc.home }};font:500 11px 'Inter Tight',sans-serif;height:48px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="{{ tf.home }}" stroke="{{ tc.home }}" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z"></path></svg>Inicio</button>
+    <button onClick="{{ goTrain }}" style="border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:{{ tc.train }};font:500 11px 'Inter Tight',sans-serif;height:48px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tc.train }}" stroke-width="1.8" stroke-linecap="round"><path d="M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"></path></svg>Entrenar</button>
+    <button onClick="{{ goProg }}" style="border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:{{ tc.prog }};font:500 11px 'Inter Tight',sans-serif;height:48px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tc.prog }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="4" height="9" rx="1"></rect><rect x="10" y="5" width="4" height="15" rx="1"></rect><rect x="16" y="8" width="4" height="12" rx="1"></rect></svg>Progreso</button>
+    <button onClick="{{ goMsgs }}" style="border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:{{ tc.msgs }};font:500 11px 'Inter Tight',sans-serif;height:48px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tc.msgs }}" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg>Mensajes</button>
+    <button onClick="{{ goPerfil }}" style="border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:{{ tc.perfil }};font:500 11px 'Inter Tight',sans-serif;height:48px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ tc.perfil }}" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"></path></svg>Perfil</button>
+  </nav>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:absolute;left:20px;right:20px;top:60px;z-index:40;background:#F8FAFC;color:#0B0F14;border-radius:14px;padding:12px 16px;font-size:14px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;gap:10px;align-items:center"><span style="width:8px;height:8px;border-radius:4px;background:#00D1FF;flex:none"></span>{{ toast }}</div>
+  </sc-if>
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#F8FAFC;opacity:.85;z-index:50;pointer-events:none"></div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;restDuration&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[60,90,120,180],&quot;default&quot;:90,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Entrenamiento&quot;},&quot;bodyModel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;generico&quot;,&quot;ajustado&quot;],&quot;default&quot;:&quot;generico&quot;,&quot;tsType&quot;:&quot;'generico' | 'ajustado'&quot;,&quot;section&quot;:&quot;Mi cuerpo&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;train&quot;,&quot;workout&quot;,&quot;prog&quot;,&quot;body&quot;,&quot;msgs&quot;,&quot;perfil&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototipo&quot;},&quot;showFlowPanel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototipo&quot;}}">
+const EX0 = () => [
+  { name: 'Press de banca', meta: '4 series · 8-10 repeticiones', prev: '80 kg x 10 reps', coach: 'Bajá controlado 2 segundos. Si las dos primeras salen limpias, subí a 85 kg.', sets: [{w:80,r:10,done:true},{w:80,r:10,done:true},{w:85,r:8},{w:85,r:8}] },
+  { name: 'Remo con barra', meta: '4 series · 8-10 repeticiones', prev: '70 kg x 10 reps', coach: 'Espalda neutra, tirá hacia el ombligo.', sets: [{w:70,r:10},{w:70,r:10},{w:70,r:10},{w:70,r:9}] },
+  { name: 'Press militar', meta: '3 series · 8-12 repeticiones', prev: '45 kg x 10 reps', coach: 'Glúteos apretados, sin arquear la zona lumbar.', sets: [{w:45,r:10},{w:45,r:10},{w:45,r:9}] },
+  { name: 'Elevaciones laterales', meta: '3 series · 12-15 repeticiones', prev: '10 kg x 14 reps', coach: 'Codos levemente flexionados, subí hasta la altura del hombro.', sets: [{w:10,r:14},{w:10,r:14},{w:10,r:13}] },
+];
+const WEEK = [
+  { l:'L', n:14, w:'A' }, { l:'M', n:15, w:null }, { l:'M', n:16, w:'P' }, { l:'J', n:17, w:null },
+  { l:'V', n:18, w:'B' }, { l:'S', n:19, w:'F' }, { l:'D', n:20, w:null },
+];
+const WORKOUTS = {
+  A: { name:'Torso A', meta:'4 ejercicios · 45 min', note:'Semana de carga: buscá RIR 2 en la última serie de cada ejercicio.', items: EX0().map(e=>({name:e.name, meta:e.meta, prev:e.prev, rest:'2:00'})) },
+  P: { name:'Piernas', meta:'5 ejercicios · 50 min', note:'Calentá bien rodillas. Sentadilla: priorizá profundidad sobre carga.', items:[{name:'Sentadilla',meta:'4 series · 6-8 reps',prev:'90 kg x 8',rest:'2:30'},{name:'Peso muerto rumano',meta:'3 series · 8-10 reps',prev:'70 kg x 10',rest:'2:00'},{name:'Prensa',meta:'3 series · 10-12 reps',prev:'160 kg x 12',rest:'1:30'},{name:'Hip thrust',meta:'3 series · 10 reps',prev:'100 kg x 10',rest:'1:30'},{name:'Gemelos de pie',meta:'3 series · 15 reps',prev:'60 kg x 15',rest:'1:00'}] },
+  B: { name:'Torso B', meta:'4 ejercicios · 45 min', note:'Enfocate en la conexión con la espalda en los jalones.', items:[{name:'Jalón al pecho',meta:'4 series · 10 reps',prev:'55 kg x 10',rest:'2:00'},{name:'Press inclinado mancuernas',meta:'3 series · 10 reps',prev:'24 kg x 10',rest:'2:00'},{name:'Remo en polea',meta:'3 series · 12 reps',prev:'50 kg x 12',rest:'1:30'},{name:'Fondos en paralelas',meta:'3 series · al fallo técnico',prev:'peso corporal x 9',rest:'1:30'}] },
+  F: { name:'Full Body (opcional)', meta:'3 ejercicios · 30 min', note:'Sesión liviana. Si estás cansada, saltala sin culpa.', items:[{name:'Sentadilla goblet',meta:'3 series · 12 reps',prev:'20 kg x 12',rest:'1:00'},{name:'Flexiones',meta:'3 series · 10 reps',prev:'peso corporal x 10',rest:'1:00'},{name:'Plancha',meta:'3 x 40 s',prev:'40 s',rest:'0:45'}] },
+};
+const RANGES = {
+  '3M': { pts:[72.5,75,75,77.5,77.5,80,80,80,82.5,82.5,85,85,85], labels:['Mar','Abr','May','Jun'], tip:10 },
+  '6M': { pts:[60,62.5,65,65,67.5,70,70,72.5,75,77.5,80,82.5,85,85], labels:['Ene','Feb','Mar','Abr','May','Jun'], tip:12 },
+  '1A': { pts:[50,52.5,55,57.5,57.5,60,62.5,62.5,65,67.5,70,72.5,75,77.5,80,82.5,85], labels:['Jul','Sep','Nov','Ene','Mar','May'], tip:16 },
+};
+const LIFTS = [{n:'Press de banca',o:0},{n:'Sentadilla',o:20},{n:'Peso muerto',o:35}];
+const REGIONS = {
+  chest:{name:'Pecho',ex:'Press de banca · Press inclinado · Fondos',sets:'12 / 12',status:'ok',trend:'+6%',trendSrc:'Press de banca 80 → 85 kg',measure:'Pecho 98 cm',measureSrc:'Cinta métrica · registro manual · 20 may 2026'},
+  shoulders:{name:'Hombros',ex:'Press militar · Elevaciones laterales',sets:'9 / 10',status:'ok',trend:'+4%',trendSrc:'Press militar 43 → 45 kg',measure:'Sin medida asociada',measureSrc:'—'},
+  back:{name:'Espalda',ex:'Remo con barra · Jalón al pecho · Remo en polea',sets:'8 / 12',status:'warn',flagTxt:'Exposición menor a la planificada: 2 de las últimas 4 sesiones de Torso B quedaron incompletas.',trend:'+2%',trendSrc:'Remo con barra 68 → 70 kg',measure:'Sin medida asociada',measureSrc:'—'},
+  arms:{name:'Brazos',ex:'Curl con barra · Fondos · Extensión en polea',sets:'6 / 8',status:'ok',trend:'+5%',trendSrc:'Curl con barra 28 → 30 kg',measure:'Brazo derecho 35,5 cm · meta 37 cm (50% del aumento planificado)',measureSrc:'Inicio 34,0 cm · cinta métrica · registro manual · 20 may 2026'},
+  core:{name:'Core',ex:'Plancha · Rueda abdominal',sets:'4 / 6',status:'nodata',trend:'Datos insuficientes',trendSrc:'Sin carga comparable registrada',measure:'Cintura 78 cm',measureSrc:'Cinta métrica · registro manual · 20 may 2026'},
+  glutes:{name:'Glúteos',ex:'Hip thrust · Sentadilla',sets:'10 / 10',status:'ok',trend:'+8%',trendSrc:'Hip thrust 92,5 → 100 kg',measure:'Cadera 96 cm',measureSrc:'Cinta métrica · registro manual · 20 may 2026'},
+  quads:{name:'Cuádriceps',ex:'Sentadilla · Prensa',sets:'10 / 12',status:'warn',flagTxt:'Sentadilla sin progreso en 4 sesiones con condiciones comparables. Agustín lo revisará en tu próximo plan.',trend:'0%',trendSrc:'Sentadilla 90 kg × 8 estable',measure:'Muslo derecho 56 cm',measureSrc:'Cinta métrica · registro manual · 20 may 2026'},
+  hamstrings:{name:'Isquiotibiales',ex:'Peso muerto rumano · Curl femoral',sets:'6 / 8',status:'ok',trend:'+5%',trendSrc:'Peso muerto rumano 67,5 → 70 kg',measure:'Sin medida asociada',measureSrc:'—'},
+  calves:{name:'Pantorrillas',ex:'Gemelos de pie',sets:'3 / 6',status:'nodata',trend:'Datos insuficientes',trendSrc:'Menos de 3 sesiones registradas',measure:'Sin medida asociada',measureSrc:'—'},
+};
+const REG_ORDER = ['chest','shoulders','back','arms','core','glutes','quads','hamstrings','calves'];
+const STATUS_HEX = { ok:0x00D1FF, warn:0xF59E0B, nodata:0x3A4A60 };
+const STATUS_CSS = { ok:'#00D1FF', warn:'#F59E0B', nodata:'#3A4A60' };
+const CONSENT = [
+  { k:'medidas', t:'Medidas corporales', d:'Peso, circunferencias y pliegues.' },
+  { k:'fotos', t:'Fotos de progreso', d:'Frente, espalda y perfiles. Cifradas.' },
+  { k:'scan', t:'Escaneos 3D', d:'Capturas multiángulo. Experimental.' },
+  { k:'comp', t:'Informes de composición', d:'DXA, bioimpedancia, antropometría.' },
+  { k:'lab', t:'Documentos de laboratorio', d:'Análisis de sangre y otros informes.' },
+  { k:'ia', t:'Procesamiento con IA', d:'Extraer valores de documentos. Siempre lo revisás vos.' },
+];
+const POSES = ['Frente','Espalda','Perfil izquierdo','Perfil derecho'];
+const REMINDERS = ['Cada 6 semanas','Cada 8 semanas','Cada 12 semanas','Desactivado'];
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+const nf = v => String(v).replace('.', ',');
+
+class Component extends DCLogic {
+  state = {
+    screen: this.props.startScreen || 'home', day: 0, ex: EX0(), exIdx: 0, sel: null,
+    resting: false, restLeft: 90, restTotal: 90, restPaused: false, elapsed: 754,
+    progTab: 'fuerza', range: '6M', lift: 0,
+    bodyStep: 'intro', bodyOn: false, consent: { medidas:false, fotos:false, scan:false, comp:false, lab:false, ia:false },
+    method: 'fotos', pose: 0, poses: [false,false,false,false], blurOnce: true, qFail: false,
+    procPct: 0, region: null, layer: 'musculos', view: 'front', webglFail: false, dateIdx: 0,
+    compare: false, swipe: 50, manual: { peso:72.4, brazo:35.5, cintura:78, pecho:98 }, source: 'yo',
+    msgs: [
+      { me:false, t:'¡Buenas Valen! Esta semana arrancamos con carga nueva en Torso A.', time:'Lun 08:10' },
+      { me:false, t:'Hoy subí 2,5 kg en banca si las 2 primeras salen limpias.', time:'Lun 08:12' },
+      { me:true, t:'Dale, ¿mantengo los 2 min de descanso?', time:'Lun 08:30' },
+      { me:false, t:'Sí, 2 min en los básicos y 1:30 en laterales.', time:'Lun 08:41' },
+    ],
+    draft: '', share: { medidas:true, fotos:false, scan:false, comp:false, lab:false, ia:false },
+    shareLog: [{ t:'Compartiste Medidas con Agustín', d:'12 mar 2026' }, { t:'Agustín vio tus medidas', d:'20 may 2026' }],
+    reminder: 1, toast: null, done: false,
+  };
+
+  componentDidMount() {
+    this._tick = setInterval(() => {
+      const s = this.state;
+      if (s.screen === 'workout') this.setState({ elapsed: s.elapsed + 1 });
+      if (s.resting && !s.restPaused) {
+        if (s.restLeft <= 1) { this.setState({ resting: false, restLeft: 0 }); this.flash('Descanso terminado. ¡A la próxima serie!'); }
+        else this.setState({ restLeft: s.restLeft - 1 });
+      }
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._tick); clearInterval(this._proc); this.disposeBody(); }
+  componentDidUpdate() { this.paintBody(); }
+
+  flash(t) { clearTimeout(this._tt); this.setState({ toast: t }); this._tt = setTimeout(() => this.setState({ toast: null }), 2600); }
+  go(screen, extra) { this.setState({ screen, compare: false, ...(extra||{}) }); }
+  restSecs() { return Number(this.props.restDuration ?? 90); }
+
+  // ---------- 3D body ----------
+  bodyRef = (el) => {
+    if (el && el !== this._bodyEl) { this.disposeBody(); this._bodyEl = el; this.initBody(el); }
+    else if (!el && this._bodyEl) { this.disposeBody(); this._bodyEl = null; }
+  };
+  async initBody(el) {
+    let THREE;
+    try {
+      THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js');
+      const test = document.createElement('canvas');
+      if (!(test.getContext('webgl2') || test.getContext('webgl'))) throw new Error('no webgl');
+    } catch (e) { this.setState({ webglFail: true }); return; }
+    if (this._bodyEl !== el) return;
+    const w = el.clientWidth, h = el.clientHeight;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(w, h); el.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, w / h, 0.1, 30);
+    camera.position.set(0, 0.05, 4.4);
+    scene.add(new THREE.HemisphereLight(0xdfefff, 0x0b0f14, 1.0));
+    const key = new THREE.DirectionalLight(0xffffff, 1.7); key.position.set(2, 3, 4); scene.add(key);
+    const rim = new THREE.DirectionalLight(0x5DE6D8, 0.9); rim.position.set(-3, 2, -3); scene.add(rim);
+    const g = new THREE.Group(); g.position.y = -0.9; scene.add(g);
+    const meshes = [];
+    const add = (geo, region, p, opt = {}) => {
+      const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x5b6b80, roughness: 0.55, metalness: 0.05 }));
+      m.position.set(p[0], p[1], p[2]);
+      if (opt.s) m.scale.set(opt.s[0], opt.s[1], opt.s[2]);
+      if (opt.rz) m.rotation.z = opt.rz;
+      m.userData.region = region; g.add(m); meshes.push(m); return m;
+    };
+    const half = (rt, rb, hh, front) => new THREE.CylinderGeometry(rt, rb, hh, 32, 1, false, front ? -Math.PI / 2 : Math.PI / 2, Math.PI);
+    const cyl = (rt, rb, hh) => new THREE.CylinderGeometry(rt, rb, hh, 28);
+    const sph = r => new THREE.SphereGeometry(r, 32, 20);
+    add(sph(0.105), null, [0, 1.68, 0], { s: [0.92, 1.12, 1] });
+    add(cyl(0.05, 0.06, 0.12), null, [0, 1.54, 0]);
+    add(half(0.2, 0.165, 0.3, true), 'chest', [0, 1.33, 0], { s: [1, 1, 0.62] });
+    add(half(0.2, 0.165, 0.3, false), 'back', [0, 1.33, 0], { s: [1, 1, 0.62] });
+    add(half(0.165, 0.15, 0.2, true), 'core', [0, 1.08, 0], { s: [1, 1, 0.62] });
+    add(half(0.165, 0.15, 0.2, false), 'back', [0, 1.08, 0], { s: [1, 1, 0.62] });
+    add(half(0.15, 0.17, 0.14, true), 'core', [0, 0.91, 0], { s: [1, 1, 0.65] });
+    add(half(0.15, 0.17, 0.14, false), 'glutes', [0, 0.91, 0], { s: [1, 1, 0.65] });
+    [-1, 1].forEach(sx => {
+      add(sph(0.095), 'glutes', [sx * 0.08, 0.86, -0.035], { s: [1, 1, 0.75] });
+      add(sph(0.078), 'shoulders', [sx * 0.225, 1.43, 0]);
+      add(cyl(0.056, 0.045, 0.28), 'arms', [sx * 0.265, 1.24, 0], { rz: sx * 0.1 });
+      add(cyl(0.045, 0.034, 0.26), 'arms', [sx * 0.292, 0.97, 0.01], { rz: sx * 0.05 });
+      add(sph(0.042), null, [sx * 0.302, 0.81, 0.015], { s: [0.8, 1.1, 0.7] });
+      add(half(0.088, 0.06, 0.42, true), 'quads', [sx * 0.09, 0.63, 0]);
+      add(half(0.088, 0.06, 0.42, false), 'hamstrings', [sx * 0.09, 0.63, 0]);
+      add(sph(0.061), null, [sx * 0.09, 0.415, 0]);
+      add(cyl(0.058, 0.038, 0.36), 'calves', [sx * 0.09, 0.22, 0]);
+      add(new THREE.BoxGeometry(0.075, 0.05, 0.19), null, [sx * 0.09, 0.025, 0.045]);
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.355, 64), new THREE.MeshBasicMaterial({ color: 0x00D1FF, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = -0.9; scene.add(ring);
+
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const t = this._three = { THREE, renderer, scene, camera, g, meshes, rot: 0, rotT: 0, zoom: 4.4, zoomT: 4.4, damp: reduce ? 1 : 0.14 };
+    const ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
+    const ptrs = new Map(); let down = null, moved = 0, pinch0 = 0;
+    const cv = renderer.domElement; cv.style.display = 'block';
+    cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, e); down = { x: e.clientX, y: e.clientY }; moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); } });
+    cv.addEventListener('pointermove', e => {
+      if (!ptrs.has(e.pointerId)) return;
+      const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, e);
+      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); t.zoomT = Math.min(5.5, Math.max(2.2, t.zoomT * (pinch0 / d))); pinch0 = d; moved = 99; return; }
+      const dx = e.clientX - prev.clientX; moved += Math.abs(dx) + Math.abs(e.clientY - prev.clientY); t.rotT += dx * 0.012;
+    });
+    const up = e => {
+      ptrs.delete(e.pointerId);
+      if (down && moved < 6 && ptrs.size === 0) {
+        const r = cv.getBoundingClientRect(); v2.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        ray.setFromCamera(v2, camera); const hit = ray.intersectObjects(meshes)[0];
+        const reg = hit && hit.object.userData.region;
+        this.setState({ region: reg && reg !== this.state.region ? reg : null });
+      }
+      down = null;
+    };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', e => { e.preventDefault(); t.zoomT = Math.min(5.5, Math.max(2.2, t.zoomT + e.deltaY * 0.003)); }, { passive: false });
+    t.ro = new ResizeObserver(() => { const W = el.clientWidth, H = el.clientHeight; if (!W || !H) return; renderer.setSize(W, H); camera.aspect = W / H; camera.updateProjectionMatrix(); });
+    t.ro.observe(el);
+    const loop = () => {
+      t.raf = requestAnimationFrame(loop);
+      t.rot += (t.rotT - t.rot) * t.damp; t.zoom += (t.zoomT - t.zoom) * t.damp;
+      g.rotation.y = t.rot; camera.position.z = t.zoom;
+      const zy = (4.4 - t.zoom) / 2.2 * 0.35; camera.position.y = 0.05 + zy; camera.lookAt(0, zy, 0);
+      renderer.render(scene, camera);
+    };
+    loop(); this.paintBody();
+  }
+  paintBody() {
+    const t = this._three; if (!t) return;
+    const { layer, region } = this.state;
+    t.meshes.forEach(m => {
+      const r = m.userData.region, mat = m.material;
+      let c = 0x7d8da3;
+      if (layer === 'musculos') c = r ? STATUS_HEX[REGIONS[r].status] : 0x3a4a60;
+      if (layer === 'composicion') c = 0x4a5a70;
+      if (region && r !== region && layer === 'musculos') c = r ? 0x2D3B4F : 0x2a3648;
+      mat.color.setHex(c);
+      mat.emissive.setHex(r && r === region ? 0x00D1FF : 0x000000);
+      mat.emissiveIntensity = r && r === region ? (layer === 'musculos' ? 0.25 : 0.45) : 0;
+    });
+  }
+  disposeBody() {
+    const t = this._three; if (!t) return;
+    cancelAnimationFrame(t.raf); t.ro && t.ro.disconnect();
+    t.meshes.forEach(m => { m.geometry.dispose(); m.material.dispose(); });
+    t.renderer.dispose(); t.renderer.domElement.remove(); this._three = null;
+  }
+  setView(v) {
+    this.setState({ view: v });
+    const t = this._three; if (!t) return;
+    const target = { front: 0, back: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 }[v];
+    const k = Math.round((t.rotT - target) / (2 * Math.PI));
+    t.rotT = target + k * 2 * Math.PI;
+  }
+
+  // ---------- workout ----------
+  curSetIdx() { const sets = this.state.ex[this.state.exIdx].sets; const i = sets.findIndex(s => !s.done); return i; }
+  editSet(field, d) {
+    const ex = this.state.ex.map(e => ({ ...e, sets: e.sets.map(s => ({ ...s })) }));
+    const i = this.state.sel ?? this.curSetIdx(); if (i < 0) return;
+    const s = ex[this.state.exIdx].sets[i];
+    s[field] = Math.max(field === 'w' ? 0 : 1, Math.round((s[field] + d) * 10) / 10);
+    this.setState({ ex });
+  }
+  completeSet() {
+    const ex = this.state.ex.map(e => ({ ...e, sets: e.sets.map(s => ({ ...s })) }));
+    const i = this.state.sel ?? this.curSetIdx(); if (i < 0) return;
+    ex[this.state.exIdx].sets[i].done = true;
+    const more = ex[this.state.exIdx].sets.some(s => !s.done);
+    const rs = this.restSecs();
+    this.setState({ ex, sel: null, resting: more, restLeft: rs, restTotal: rs, restPaused: false });
+  }
+
+  renderVals() {
+    const s = this.state, P = this.props;
+    const scr = s.screen;
+    const sFlags = { home: scr === 'home', train: scr === 'train', workout: scr === 'workout', done: scr === 'done', prog: scr === 'prog', body: scr === 'body', msgs: scr === 'msgs', perfil: scr === 'perfil' };
+    const tabOf = { home: 'home', train: 'train', prog: 'prog', body: 'prog', msgs: 'msgs', perfil: 'perfil' }[scr];
+    const tc = {}, tf = {};
+    ['home', 'train', 'prog', 'msgs', 'perfil'].forEach(k => { tc[k] = tabOf === k ? '#00D1FF' : '#94A3B8'; tf[k] = tabOf === k ? '#00D1FF' : 'none'; });
+    const lightTop = false;
+
+    const startWorkout = () => this.go('workout', { resting: false, sel: null });
+    const goBody = () => this.go('body', { bodyStep: s.bodyOn ? 'viewer' : 'intro' });
+
+    // week
+    const weekHome = WEEK.map((d, i) => ({ l: d.l, n: d.n, bg: i === 0 ? '#00D1FF' : '#1A2433', ink: i === 0 ? '#0B0F14' : '#F8FAFC', numInk: i === 0 ? '#00D1FF' : '#94A3B8', dot: d.w ? (i === 0 ? '#00D1FF' : '#2D3B4F') : 'transparent' }));
+    const weekTrain = WEEK.map((d, i) => ({ l: d.l, n: d.n, cellBg: i === s.day ? '#1A2433' : 'transparent', ink: i === s.day ? '#00D1FF' : '#F8FAFC', dot: d.w ? '#00D1FF' : 'transparent', pick: () => this.setState({ day: i }) }));
+    const dw = WEEK[s.day].w;
+    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+    // workout
+    const ex = s.ex[s.exIdx];
+    const ci = this.curSetIdx();
+    const active = s.sel ?? ci;
+    const setRows = ex.sets.map((st, i) => ({
+      n: i + 1, w: nf(st.w), r: st.r,
+      bg: i === active && !s.resting ? '#E0F7FE' : 'transparent',
+      ckBg: st.done ? '#00D1FF' : 'transparent', ckBorder: st.done ? '#00D1FF' : '#CBD5E1', ckOp: st.done ? 1 : 0,
+      pick: () => { if (!st.done) this.setState({ sel: i, resting: false }); },
+    }));
+    const exDone = ci < 0 && !s.resting;
+    const isLast = s.exIdx === s.ex.length - 1;
+    const setsDone = s.ex.reduce((a, e) => a + e.sets.filter(x => x.done).length, 0);
+    const setsTotal = s.ex.reduce((a, e) => a + e.sets.length, 0);
+    const exCompleted = s.ex.filter(e => e.sets.every(x => x.done)).length;
+    const cs = active >= 0 ? ex.sets[active] : ex.sets[0];
+    const nextIdx = ex.sets.findIndex(x => !x.done);
+    const bench = s.ex[0].sets.filter(x => x.done);
+    const best = bench.reduce((b, x) => (x.w > b.w || (x.w === b.w && x.r > b.r)) ? x : b, { w: 0, r: 0 });
+    const hasPR = best.w > 85 || (best.w === 85 && best.r > 6);
+
+    // chart
+    const R = RANGES[s.range], off = LIFTS[s.lift].o;
+    const pts = R.pts.map(v => v + off);
+    const lo = Math.floor((Math.min(...pts) - 10) / 20) * 20, hi = lo + Math.max(80, Math.ceil((Math.max(...pts) + 10 - lo) / 20) * 20);
+    const X = i => i / (pts.length - 1) * 300, Y = v => 160 - (v - lo) / (hi - lo) * 160;
+    const line = pts.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    const ti = R.tip;
+    const ticks = []; for (let k = 4; k >= 0; k--) ticks.push(Math.round(lo + (hi - lo) * k / 4));
+    const chart = { line, area: `${line} L300,160 L0,160 Z`, ticks, labels: R.labels, tx: X(ti), ty: Y(pts[ti]),
+      tipLeft: `${X(ti) / 3}%`, tipTop: `${Y(pts[ti]) + 5 - 10}px`, dotTop: `${Y(pts[ti]) + 5}px`, tipVal: `${nf(pts[ti])} kg`, tipDate: '12 may', pr: nf(Math.max(...pts)) };
+
+    // consistency
+    const pattern = [1, 0, 1, 0, 1, 1, 0];
+    const misses = { 4: 1, 12: 1, 19: 1 };
+    const consGrid = Array.from({ length: 28 }, (_, i) => {
+      const planned = pattern[i % 7]; const future = i > 21;
+      if (!planned) return { bg: '#131C28', bd: 'transparent' };
+      if (future) return { bg: 'transparent', bd: '#2D3B4F' };
+      return misses[i] ? { bg: 'transparent', bd: '#F59E0B' } : { bg: '#00D1FF', bd: '#00D1FF' };
+    });
+
+    // body
+    const bStep = s.bodyStep;
+    const bFlags = {}; ['intro', 'consent', 'method', 'manual', 'capture', 'review', 'processing', 'failed', 'viewer'].forEach(k => bFlags[k] = bStep === k);
+    const anyConsent = Object.values(s.consent).some(Boolean);
+    const reg = s.region ? { ...REGIONS[s.region], flag: REGIONS[s.region].status === 'warn', trendInk: REGIONS[s.region].status === 'nodata' ? '#94A3B8' : '#F8FAFC' } : {};
+    const poseFail = s.qFail;
+    const qChecks = [
+      { l: 'Luz', c: '#10B981' }, { l: 'Distancia', c: '#10B981' }, { l: 'Encuadre', c: '#10B981' },
+      { l: poseFail ? 'Nitidez baja' : 'Nitidez', c: poseFail ? '#EF4444' : '#10B981' },
+    ];
+    const titles = { intro: 'Mi cuerpo', consent: 'Privacidad', method: 'Nueva evaluación', manual: 'Medidas manuales', capture: 'Captura guiada', review: 'Revisión', processing: 'Procesando', failed: 'Reconstrucción', viewer: 'Mi cuerpo' };
+    const steps = { intro: '1/5', consent: '2/5', method: '3/5', manual: '4/5', capture: '4/5', review: '5/5' };
+    const dates = ['20 may 2026', '12 mar 2026'];
+    const changes = [{ n: 'Peso', v: '−1,2 kg', src: 'Balanza · medido' }, { n: 'Brazo der.', v: '+0,8 cm', src: 'Cinta · manual' }, { n: 'Cintura', v: '−2,0 cm', src: 'Cinta · manual' }];
+    const consentKeys = CONSENT.map(c => c.k);
+
+    const methodList = [
+      { k: 'manual', t: 'Medidas manuales', d: 'Peso y circunferencias con cinta métrica. Lo más rápido y comparable.', tag: '2 min', foot: 'Requiere: Medidas corporales', need: 'medidas', on: s.consent.medidas },
+      { k: 'fotos', t: 'Fotos de progreso', d: 'Cuatro vistas guiadas: frente, espalda y ambos perfiles.', tag: '3 min', foot: 'Requiere: Fotos de progreso', need: 'fotos', on: s.consent.fotos },
+      { k: '3d', t: 'Captura 3D avanzada', d: 'Fotos multiángulo para intentar reconstruir tu forma. Puede fallar; en ese caso usamos el modelo de referencia.', tag: 'Experimental', foot: 'Requiere: Escaneos 3D', need: 'scan', on: s.consent.scan },
+    ].map(m => ({ ...m, op: m.on ? 1 : 0.45, tagBg: m.k === '3d' ? 'rgba(245,158,11,.15)' : '#0B0F14', tagInk: m.k === '3d' ? '#F59E0B' : '#5DE6D8',
+      pick: () => {
+        if (!m.on) { this.flash(`Activá "${CONSENT.find(c => c.k === m.need).t}" para usar este método`); this.setState({ bodyStep: 'consent' }); return; }
+        if (m.k === 'manual') this.setState({ bodyStep: 'manual', method: 'manual' });
+        else this.setState({ bodyStep: 'capture', method: m.k, pose: 0, poses: [false, false, false, false], blurOnce: true, qFail: false });
+      } }));
+
+    const shoot = () => {
+      if (s.pose === 2 && s.blurOnce) { this.setState({ qFail: true, blurOnce: false }); return; }
+      const poses = s.poses.slice(); poses[s.pose] = true;
+      const nextP = poses.findIndex(p => !p);
+      if (nextP < 0) this.setState({ poses, qFail: false, bodyStep: 'review' });
+      else this.setState({ poses, pose: nextP, qFail: false });
+    };
+    const process = () => {
+      this.setState({ bodyStep: 'processing', procPct: 0 });
+      clearInterval(this._proc);
+      this._proc = setInterval(() => {
+        const p = this.state.procPct + 5;
+        if (p >= 100) {
+          clearInterval(this._proc);
+          if (this.state.method === '3d') this.setState({ procPct: 100, bodyStep: 'failed' });
+          else { this.setState({ procPct: 100, bodyStep: 'viewer', bodyOn: true }); this.flash('Fotos guardadas. Solo vos podés verlas.'); }
+        } else this.setState({ procPct: p });
+      }, 110);
+    };
+    const procStepTxt = s.procPct < 35 ? 'Cifrando y subiendo fotos…' : s.procPct < 70 ? (s.method === '3d' ? 'Verificando cobertura de ángulos…' : 'Alineando posturas…') : (s.method === '3d' ? 'Intentando reconstrucción…' : 'Guardando evaluación…');
+
+    // perfil
+    const shareRows = CONSENT.map((c, i) => {
+      const stored = s.consent[c.k] || (c.k === 'medidas');
+      const on = s.share[c.k];
+      return { t: c.t, on, sub: !stored ? 'No guardás este dato' : on ? 'Agustín puede ver' : 'Solo vos', subInk: on ? '#10B981' : '#94A3B8',
+        track: on ? '#00D1FF' : '#2D3B4F', justify: on ? 'flex-end' : 'flex-start', op: stored ? 1 : 0.4, sep: i === CONSENT.length - 1 ? 'transparent' : '#2D3B4F',
+        toggle: () => {
+          if (!stored) { this.flash('Primero activá este dato en Mi cuerpo'); return; }
+          const v = !on;
+          this.setState({ share: { ...s.share, [c.k]: v }, shareLog: [{ t: v ? `Compartiste ${c.t} con Agustín` : `Revocaste ${c.t} para Agustín`, d: 'Hoy' }, ...s.shareLog].slice(0, 4) });
+          this.flash(v ? `Agustín ahora puede ver: ${c.t}` : `Agustín ya no puede ver: ${c.t}`);
+        } };
+    });
+
+    const send = () => {
+      const t = s.draft.trim(); if (!t) return;
+      this.setState({ draft: '', msgs: [...s.msgs, { me: true, t, time: 'Ahora' }] });
+      setTimeout(() => this.setState(st => ({ msgs: [...st.msgs, { me: false, t: '¡Recibido! Te respondo después de la clase de las 10.', time: 'Ahora' }] })), 1400);
+    };
+
+    const flowItem = (label, fn, active) => ({ label, go: fn, bg: active ? '#1A2433' : 'transparent', color: active ? '#00D1FF' : '#E2E8F0' });
+    const flowGroups = [
+      { title: 'Entrenamiento', items: [
+        flowItem('Inicio', () => this.go('home'), scr === 'home'),
+        flowItem('Semana y detalle', () => this.go('train'), scr === 'train'),
+        flowItem('Registrar series', () => this.go('workout', { resting: false, sel: null }), scr === 'workout' && !s.resting),
+        flowItem('Temporizador de descanso', () => { const rs = this.restSecs(); this.go('workout', { resting: true, restLeft: rs, restTotal: rs, restPaused: false }); }, scr === 'workout' && s.resting),
+        flowItem('Entrenamiento completado', () => this.go('done'), scr === 'done'),
+        flowItem('Progreso', () => this.go('prog'), scr === 'prog'),
+      ] },
+      { title: 'Mi cuerpo', items: [
+        flowItem('Introducción', () => this.go('body', { bodyStep: 'intro' }), scr === 'body' && bStep === 'intro'),
+        flowItem('Consentimiento', () => this.go('body', { bodyStep: 'consent' }), scr === 'body' && bStep === 'consent'),
+        flowItem('Captura guiada', () => this.go('body', { bodyStep: 'capture', consent: { ...s.consent, fotos: true }, method: 'fotos', pose: 0, poses: [false, false, false, false], blurOnce: true, qFail: false }), scr === 'body' && bStep === 'capture'),
+        flowItem('Fallo de reconstrucción 3D', () => this.go('body', { bodyStep: 'failed', method: '3d' }), scr === 'body' && bStep === 'failed'),
+        flowItem('Visor 3D', () => this.go('body', { bodyStep: 'viewer', bodyOn: true }), scr === 'body' && bStep === 'viewer' && !s.compare),
+        flowItem('Comparar fechas', () => this.go('body', { bodyStep: 'viewer', bodyOn: true, compare: true }), s.compare),
+      ] },
+      { title: 'Cuenta', items: [
+        flowItem('Mensajes', () => this.go('msgs'), scr === 'msgs'),
+        flowItem('Privacidad y permisos', () => this.go('perfil'), scr === 'perfil'),
+      ] },
+    ];
+
+    const restPct = `${Math.round((1 - s.restLeft / Math.max(1, s.restTotal)) * 100)}%`;
+    const swipeHandler = e => { if (e.type === 'pointermove' && e.buttons === 0) return; const r = e.currentTarget.getBoundingClientRect(); this.setState({ swipe: Math.min(96, Math.max(4, (e.clientX - r.left) / r.width * 100)) }); };
+
+    return {
+      showPanel: P.showFlowPanel ?? true, flowGroups,
+      s: sFlags, tc, tf, showTabs: !['workout', 'done', 'body'].includes(scr),
+      statusBg: 'transparent', statusInk: lightTop ? '#0B0F14' : '#F8FAFC',
+      toast: s.toast, hasToast: !!s.toast,
+      goHome: () => this.go('home'), goTrain: () => this.go('train'), goProg: () => this.go('prog'), goMsgs: () => this.go('msgs'), goPerfil: () => this.go('perfil'),
+      goProgConst: () => this.go('prog', { progTab: 'constancia' }), goProgVol: () => this.go('prog', { progTab: 'volumen' }),
+      goBody, startWorkout, startWorkoutStop: e => { e.stopPropagation(); startWorkout(); },
+      weekHome, weekTrain, weekDone: 3,
+      bodyHomeSub: s.bodyOn ? 'Última evaluación: 20 may · próxima en 6 semanas' : 'Nuevo · seguí medidas y fotos, en privado',
+      lastCoachMsg: s.msgs.filter(m => !m.me).slice(-1)[0].t,
+      dayHasWorkout: !!dw, dayIsRest: !dw, dayWorkout: dw ? WORKOUTS[dw] : { items: [] }, dayLabel: `${dayNames[s.day]} ${WEEK[s.day].n} de mayo`,
+      // workout
+      elapsedTxt: fmt(s.elapsed), elapsedShort: `${Math.round(s.elapsed / 60)} min`,
+      exProgress: s.ex.map((e, i) => ({ bg: e.sets.every(x => x.done) ? '#00D1FF' : i === s.exIdx ? '#5DE6D8' : '#2D3B4F' })),
+      exPos: `${s.exIdx + 1}/${s.ex.length}`, curEx: ex, setRows,
+      prevEx: () => this.setState({ exIdx: Math.max(0, s.exIdx - 1), sel: null, resting: false }),
+      nextEx: () => this.setState({ exIdx: Math.min(s.ex.length - 1, s.exIdx + 1), sel: null, resting: false }),
+      finishWorkout: () => this.go('done'),
+      resting: s.resting, editing: !s.resting && active >= 0, exDone,
+      restTxt: fmt(s.restLeft), restPct, restPaused: s.restPaused, restRunning: !s.restPaused, pauseLabel: s.restPaused ? 'Reanudar' : 'Pausar',
+      togglePause: () => this.setState({ restPaused: !s.restPaused }),
+      add30: () => this.setState({ restLeft: s.restLeft + 30, restTotal: s.restTotal + 30 }),
+      skipRest: () => this.setState({ resting: false }),
+      nextSetTxt: nextIdx >= 0 ? `serie ${nextIdx + 1} · ${nf(ex.sets[nextIdx].w)} kg × ${ex.sets[nextIdx].r}` : '—',
+      curSet: { w: nf(cs.w), r: cs.r }, curSetNum: active + 1,
+      wDown: () => this.editSet('w', -2.5), wUp: () => this.editSet('w', 2.5), rDown: () => this.editSet('r', -1), rUp: () => this.editSet('r', 1),
+      completeSet: () => this.completeSet(),
+      exDoneTxt: isLast ? 'Completaste todos los ejercicios.' : `${ex.name} listo · siguiente: ${s.ex[s.exIdx + 1].name}`,
+      afterExLabel: isLast ? 'Terminar entrenamiento' : 'Siguiente ejercicio',
+      afterEx: () => isLast ? this.go('done') : this.setState({ exIdx: s.exIdx + 1, sel: null }),
+      setsDone: `${setsDone} series`.replace(` series`, '') , setsTotal, exCompleted, hasPR, prTxt: `${nf(best.w)} kg × ${best.r}`,
+      doneRows: s.ex.map(e => { const d = e.sets.filter(x => x.done); return { name: e.name, txt: d.length ? `${d.length} × ${d.map(x => x.r).join('/')} · ${nf(Math.max(...d.map(x => x.w)))} kg` : 'No registrado' }; }),
+      // progress
+      progTabs: [['fuerza', 'Fuerza'], ['volumen', 'Volumen'], ['constancia', 'Constancia'], ['medidas', 'Medidas']].map(([k, l]) => ({ label: l, ink: s.progTab === k ? '#F8FAFC' : '#94A3B8', line: s.progTab === k ? '#00D1FF' : 'transparent', pick: () => this.setState({ progTab: k }) })),
+      pt: { fuerza: s.progTab === 'fuerza', volumen: s.progTab === 'volumen', constancia: s.progTab === 'constancia', medidas: s.progTab === 'medidas' },
+      liftName: LIFTS[s.lift].n, cycleLift: () => this.setState({ lift: (s.lift + 1) % LIFTS.length }),
+      ranges: ['3M', '6M', '1A'].map(k => ({ label: k, bg: s.range === k ? 'rgba(0,209,255,.16)' : '#1A2433', ink: s.range === k ? '#00D1FF' : '#94A3B8', pick: () => this.setState({ range: k }) })),
+      chart,
+      history: [{ s: `${nf(85 + off)} kg x 10`, d: '12 may' }, { s: `${nf(80 + off)} kg x 10`, d: '5 may' }, { s: `${nf(80 + off)} kg x 8`, d: '28 abr' }],
+      volBars: [8200, 8900, 8600, 9400, 9100, 9800, 10300, 10500].map((v, i) => ({ h: `${Math.round(v / 10500 * 100)}%`, bg: i === 7 ? '#00D1FF' : i >= 4 ? '#1d6f86' : '#2D3B4F', l: `S${i + 1}` })),
+      adherence: '86%', adherenceTxt: '13 de 15 sesiones planificadas · 2 sin hacer', dayLetters: ['L', 'M', 'M', 'J', 'V', 'S', 'D'], consGrid,
+      measures: [
+        { name: 'Peso', val: '72,4 kg', delta: '−1,2 kg vs 12 mar', src: 'Balanza hogareña · medido · 20 may', ink: '#F8FAFC' },
+        { name: 'Cintura', val: '78,0 cm', delta: '−2,0 cm vs 12 mar', src: 'Cinta métrica · manual · 20 may', ink: '#F8FAFC' },
+        { name: 'Pecho', val: '98,0 cm', delta: '+1,0 cm vs 12 mar', src: 'Cinta métrica · manual · 20 may', ink: '#F8FAFC' },
+        { name: '% grasa corporal', val: 'Datos insuficientes', delta: 'Subí una evaluación', src: 'Requiere DXA, bioimpedancia o pliegues', ink: '#94A3B8' },
+      ],
+      // body
+      b: bFlags, bodyTitle: titles[bStep], bodyStepTxt: steps[bStep] || '',
+      bodyBack: () => {
+        const back = { consent: 'intro', method: s.bodyOn ? 'viewer' : 'consent', manual: 'method', capture: 'method', review: 'capture', failed: 'method' }[bStep];
+        if (back) this.setState({ bodyStep: back }); else this.go(s.bodyOn ? 'prog' : 'home');
+      },
+      introPoints: [
+        { n: '1', t: 'Privado por defecto', d: 'Nada se comparte con tu entrenador sin tu permiso, dato por dato.' },
+        { n: '2', t: 'Sin fotos obligatorias', d: 'Podés usar solo medidas. Las fotos nunca requieren ropa interior.' },
+        { n: '3', t: 'Seguimiento, no diagnóstico', d: 'Mostramos lo que medís. Si algo no se puede medir, te lo decimos.' },
+      ],
+      toConsent: () => this.setState({ bodyStep: 'consent' }),
+      declineBody: () => { this.go('home'); this.flash('Listo. Podés activar Mi cuerpo cuando quieras.'); },
+      consentRows: CONSENT.map((c, i) => ({ t: c.t, d: c.d, on: s.consent[c.k], track: s.consent[c.k] ? '#00D1FF' : '#2D3B4F', justify: s.consent[c.k] ? 'flex-end' : 'flex-start', sep: i === CONSENT.length - 1 ? 'transparent' : '#2D3B4F',
+        toggle: () => this.setState({ consent: { ...s.consent, [c.k]: !s.consent[c.k] } }) })),
+      consentCta: anyConsent ? 'Guardar y continuar' : 'Activá al menos un dato', consentCtaOp: anyConsent ? 1 : 0.5,
+      toMethod: () => { if (bStep === 'consent' && !anyConsent) { this.flash('Activá al menos un tipo de dato, o volvé con "Ahora no".'); return; } this.setState({ bodyStep: 'method', region: null }); },
+      methods: methodList,
+      manualFields: [['peso', 'Peso', 'kg'], ['brazo', 'Brazo derecho', 'cm'], ['cintura', 'Cintura', 'cm'], ['pecho', 'Pecho', 'cm']].map(([k, l, u]) => ({ label: l, unit: u, val: s.manual[k], set: e => this.setState({ manual: { ...s.manual, [k]: e.target.value } }) })),
+      sources: [['yo', 'Lo medí yo'], ['pro', 'Un profesional']].map(([k, l]) => ({ label: l, bg: s.source === k ? 'rgba(0,209,255,.14)' : '#1A2433', bd: s.source === k ? '#00D1FF' : '#2D3B4F', pick: () => this.setState({ source: k }) })),
+      saveManual: () => { this.setState({ bodyStep: 'viewer', bodyOn: true, layer: 'exterior' }); this.flash('Medidas guardadas · solo vos podés verlas'); },
+      frameInk: poseFail ? '#EF4444' : '#5DE6D8', qChecks,
+      capMsg: poseFail ? 'Foto borrosa. Apoyá el teléfono o mantenelo quieto y volvé a capturar.' : ['Parate de frente, brazos levemente separados del cuerpo.', 'Girá de espaldas. Mismos pies, misma distancia.', 'Girá a tu derecha para mostrar tu perfil izquierdo.', 'Último: perfil derecho.'][s.pose],
+      capMsgInk: poseFail ? '#FCA5A5' : '#F8FAFC',
+      poseName: POSES[s.pose], posePos: `${s.pose + 1} de 4`, shoot,
+      poseDots: s.poses.map((p, i) => ({ bg: p ? '#00D1FF' : i === s.pose ? '#5DE6D8' : '#2D3B4F' })),
+      reviewThumbs: POSES.map((l, i) => ({ l, ph: `foto · ${l.toLowerCase()}`, redo: () => { const poses = s.poses.slice(); poses[i] = false; this.setState({ poses, pose: i, bodyStep: 'capture' }); } })),
+      photoShareTxt: s.share.fotos ? 'sí' : 'no', process,
+      procPct: `${s.procPct}%`, procTitle: s.method === '3d' ? 'Analizando tu captura 3D' : 'Guardando tu evaluación', procStep: procStepTxt,
+      toViewer: () => this.setState({ bodyStep: 'viewer', bodyOn: true }), toCapture: () => this.setState({ bodyStep: 'capture', pose: 0, poses: [false, false, false, false] }),
+      bodyRef: this.bodyRef, webglFail: s.webglFail,
+      modelLabel: (P.bodyModel ?? 'generico') === 'ajustado' ? 'Avatar ajustado a tus medidas · aproximado' : 'Modelo genérico de referencia',
+      views: [['front', 'Frente'], ['back', 'Espalda'], ['left', 'Izq.'], ['right', 'Der.']].map(([k, l]) => ({ label: l, bg: s.view === k ? '#2D3B4F' : 'transparent', ink: s.view === k ? '#F8FAFC' : '#94A3B8', pick: () => this.setView(k) })),
+      zoomIn: () => { const t = this._three; if (t) t.zoomT = Math.max(2.2, t.zoomT - 0.7); },
+      zoomOut: () => { const t = this._three; if (t) t.zoomT = Math.min(5.5, t.zoomT + 0.7); },
+      resetCam: () => { const t = this._three; if (t) { t.zoomT = 4.4; } this.setView('front'); this.setState({ region: null }); },
+      layers: [['exterior', 'Exterior'], ['musculos', 'Músculos'], ['composicion', 'Composición']].map(([k, l]) => ({ label: l, bg: s.layer === k ? '#0B0F14' : 'transparent', ink: s.layer === k ? '#00D1FF' : '#94A3B8', pick: () => this.setState({ layer: k }) })),
+      layerMuscle: s.layer === 'musculos', layerComp: s.layer === 'composicion' && !s.region,
+      regionChips: REG_ORDER.map(k => ({ label: REGIONS[k].name, dot: STATUS_CSS[REGIONS[k].status], bg: s.region === k ? 'rgba(0,209,255,.14)' : '#1A2433', bd: s.region === k ? '#00D1FF' : 'transparent', ink: s.region === k ? '#F8FAFC' : '#E2E8F0', pick: () => this.setState({ region: s.region === k ? null : k }) })),
+      hasRegion: !!s.region, reg, clearRegion: () => this.setState({ region: null }),
+      showChanges: !s.region && s.layer !== 'composicion', changes,
+      bodyDate: dates[s.dateIdx], cycleDate: () => this.setState({ dateIdx: (s.dateIdx + 1) % dates.length }),
+      openCompare: () => this.setState({ compare: true }), closeCompare: () => this.setState({ compare: false }),
+      compare: s.compare && scr === 'body', swipePct: `${s.swipe}%`, dragSwipe: swipeHandler,
+      weightTxt: `${nf(s.manual.peso)} kg`,
+      uploadSoon: () => this.flash('Carga de DXA/bioimpedancia: próximo flujo del prototipo'),
+      reminderTxt: REMINDERS[s.reminder], cycleReminder: () => this.setState({ reminder: (s.reminder + 1) % REMINDERS.length }),
+      // msgs
+      msgs: s.msgs.map(m => ({ ...m, align: m.me ? 'flex-end' : 'flex-start', bg: m.me ? '#00D1FF' : '#1A2433', ink: m.me ? '#0B0F14' : '#F8FAFC' })),
+      draft: s.draft, setDraft: e => this.setState({ draft: e.target.value }), draftKey: e => { if (e.key === 'Enter') send(); }, send,
+      // perfil
+      shareRows, shareLog: s.shareLog,
+      exportData: () => this.flash('Exportación preparada (simulado). Te llegará por email.'),
+      deleteHint: s.bodyOn ? 'Fotos, medidas, escaneos' : 'Sin datos',
+      deleteBody: () => { if (!s.bodyOn) { this.flash('No hay datos de Mi cuerpo para eliminar'); return; } this.setState({ bodyOn: false, bodyStep: 'intro', share: { ...s.share, fotos: false, scan: false } }); this.flash('Datos de Mi cuerpo eliminados (simulado)'); },
+    };
+  }
+}
+</script>
+</body>
+</html>

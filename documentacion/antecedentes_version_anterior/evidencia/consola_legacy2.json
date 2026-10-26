@@ -1,0 +1,14 @@
+[
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/legacy/support.js:844:16), <anonymous>:199:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/legacy/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:44:08.995Z",
+    "url": "http://127.0.0.1:8765/legacy/support.js"
+  },
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of undefined (reading 'screen')\n    at Component.componentDidUpdate (eval at evalDcLogic (http://127.0.0.1:8765/legacy/support.js:844:16), <anonymous>:199:12)\n    at StreamableComponent.componentDidUpdate (http://127.0.0.1:8765/legacy/support.js:1013:24)\n    at Ji (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:180:80)\n    at Hi (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:179:278)\n    at Hk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:178:329)\n    at Rk (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:197:312)\n    at xb (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:196:166)\n    at Ni (https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js:187:246)\n    at S (https://unpkg.com/react@18.3.1/umd/react.production.min.js:17:25)\n    at MessagePort.U (https://unpkg.com/react@18.3.1/umd/react.production.min.js:21:229)",
+    "timestamp": "2026-10-25T18:44:09.505Z",
+    "url": "http://127.0.0.1:8765/legacy/support.js"
+  }
+]

@@ -1,0 +1,70 @@
+Browser tab: 1, Title: "127.0.0.1:8765/REPI App Alumno v3.dc.html", URL: "http://127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html".
+0 AXWebArea 127.0.0.1:8765/REPI%20App%20Alumno%20v3.dc.html
+	1 container dc-root
+		2 container
+			3 image Ícono de repi
+			4 text App del alumno Prototipo navegable · v3 · gym + desafíos Saltá a cualquier pantalla o recorré los flujos tocando la app. Datos ficticios. Las funciones simuladas están marcadas. ENTRENAMIENTO
+			5 button Inicio
+			6 button Semana y detalle
+			7 button Registrar series
+			8 button Temporizador de descanso
+			9 button Entrenamiento completado
+			10 button Progreso
+			11 text MI CUERPO
+			12 button Introducción
+			13 button Consentimiento
+			14 button Captura guiada
+			15 button Fallo de reconstrucción 3D
+			16 button Visor 3D
+			17 button Comparar fechas
+			18 text GYM (SOCIO)
+			19 button Novedades y descuentos
+			20 button Desafíos · subir récord
+			21 button Recepción (informativo)
+			22 button Logros y nivel
+			23 text CUENTA
+			24 button Mensajes
+			25 button Privacidad y permisos
+			26 text MOVIMIENTO
+			27 button Intro · primer inicio
+			28 button Intro · inicio regular
+			29 button Celebración final
+		30 container
+			31 text 9:41
+			32 text Gym Norte · Palermo
+			33 heading Tu gym, Value: 1
+				34 text Tu gym
+			35 tab group
+				36 tab (selectable, settable, boolean) Novedades, Value: 0
+				37 tab (selectable, settable, boolean) Desafíos, Value: 0
+				38 tab (selectable, settable, boolean) Recepción, Value: 0
+				39 tab (selectable, settable, boolean) Logros, Value: 0
+			56 text Superá un récord, subí el video y Gym Norte lo valida. El premio se retira en recepción. Dominadas máximas Una serie, agarre prono, mentón sobre la barra, sin balanceo. Récord del gym 16 reps de Lucas B. Premio Shaker REPI + 1 batido Hasta  31 may
+			57 button Subir intento
+				58 image
+				59 text Subir intento
+			60 text Plancha más larga Antebrazos y puntas de pie, cuerpo alineado, cronómetro visible. Récord del gym 4:05 min de Carla M. Premio Remera Gym Norte Hasta  15 jun
+			61 button Subir intento
+				62 image
+				63 text Subir intento
+			64 text Remo 500 m Remoergómetro, resistencia 5, pantalla visible al final. Récord del gym 1:38 min de Diego A. Premio Toalla Gym Norte Hasta  30 jun
+			65 button Subir intento
+				66 image
+				67 text Subir intento
+			41 button Inicio
+				42 image
+				43 text Inicio
+			44 button Entrenar
+				45 image
+				46 text Entrenar
+			47 button Progreso
+				48 image
+				49 text Progreso
+			50 button Mensajes
+				51 image
+				52 text Mensajes
+			53 button Gym
+				54 image
+				55 text Gym
+
+The focused UI element is 20 button Desafíos · subir récord

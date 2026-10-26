@@ -1,0 +1,7355 @@
+{
+  "source": "/Users/manuelcosovschi/Documents/ChatGPT/Proyectos/REPI_Auditoria_2026-10-25/fuentes/REPI_COMPLETE_DESIGN_HANDOFF",
+  "method": "HTMLParser y expresiones regulares. Los data-screen-label son marcadores, no conteo de pantallas conceptuales. sc-if incluye estados, tabs, overlays y condiciones utilitarias. No se deriva implementación de estatus documental.",
+  "counts": {
+    "html_total": 8,
+    "html_current": 5,
+    "html_legacy": 3,
+    "html_with_logic": 7,
+    "screen_label_markers_total": 57,
+    "screen_label_markers_current": 39,
+    "screens_documented": 97,
+    "screen_statuses": {
+      "interactive_prototype": 73,
+      "future_concept": 2,
+      "static_mockup": 1,
+      "partially_designed": 2,
+      "specified_not_designed": 19
+    },
+    "features_documented": 93,
+    "feature_statuses": {
+      "designed": 1,
+      "interactive_prototype": 63,
+      "specified_not_designed": 22,
+      "partially_designed": 6,
+      "static_mockup": 1
+    }
+  },
+  "files": [
+    {
+      "file": "prototypes/REPI Admin.dc.html",
+      "lines": 366,
+      "bytes": 58026,
+      "sha256": "b523e9cc49b7aa8a1a291ad277ff20aa1d825d41995ca7b7e30b82f791192884",
+      "legacy": false,
+      "has_component_logic": true,
+      "screen_label_markers": [
+        {
+          "line": 48,
+          "label": "Admin · Resumen"
+        },
+        {
+          "line": 67,
+          "label": "Admin · Clientes"
+        },
+        {
+          "line": 96,
+          "label": "Admin · Suscripción"
+        },
+        {
+          "line": 167,
+          "label": "Admin · Cobros"
+        },
+        {
+          "line": 182,
+          "label": "Admin · Planes"
+        }
+      ],
+      "conditional_views": [
+        {
+          "line": 25,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 26,
+          "condition": "{{ navRail }}"
+        },
+        {
+          "line": 32,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 33,
+          "condition": "{{ n.hasBadge }}"
+        },
+        {
+          "line": 39,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 47,
+          "condition": "{{ sc.overview }}"
+        },
+        {
+          "line": 61,
+          "condition": "{{ noAttention }}"
+        },
+        {
+          "line": 66,
+          "condition": "{{ sc.clients }}"
+        },
+        {
+          "line": 90,
+          "condition": "{{ rowsEmpty }}"
+        },
+        {
+          "line": 95,
+          "condition": "{{ sc.detail }}"
+        },
+        {
+          "line": 110,
+          "condition": "{{ dirty }}"
+        },
+        {
+          "line": 112,
+          "condition": "{{ isTiered }}"
+        },
+        {
+          "line": 114,
+          "condition": "{{ t.canDel }}"
+        },
+        {
+          "line": 118,
+          "condition": "{{ isPerUnit }}"
+        },
+        {
+          "line": 119,
+          "condition": "{{ isFixed }}"
+        },
+        {
+          "line": 144,
+          "condition": "{{ calc.minApplies }}"
+        },
+        {
+          "line": 145,
+          "condition": "{{ calc.hasDisc }}"
+        },
+        {
+          "line": 156,
+          "condition": "{{ i.canMark }}"
+        },
+        {
+          "line": 166,
+          "condition": "{{ sc.invoices }}"
+        },
+        {
+          "line": 175,
+          "condition": "{{ i.canMark }}"
+        },
+        {
+          "line": 176,
+          "condition": "{{ invEmpty }}"
+        },
+        {
+          "line": 181,
+          "condition": "{{ sc.plans }}"
+        },
+        {
+          "line": 197,
+          "condition": "{{ newOpen }}"
+        },
+        {
+          "line": 209,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 72,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar cliente"
+        },
+        {
+          "line": 114,
+          "tag": "input",
+          "type": "number",
+          "label": "Desde"
+        },
+        {
+          "line": 114,
+          "tag": "input",
+          "type": "number",
+          "label": "Precio por unidad"
+        },
+        {
+          "line": 118,
+          "tag": "input",
+          "type": "number",
+          "label": "Precio por unidad"
+        },
+        {
+          "line": 119,
+          "tag": "input",
+          "type": "number",
+          "label": "Monto fijo"
+        },
+        {
+          "line": 121,
+          "tag": "input",
+          "type": "number",
+          "label": null
+        },
+        {
+          "line": 122,
+          "tag": "input",
+          "type": "number",
+          "label": null
+        },
+        {
+          "line": 127,
+          "tag": "input",
+          "type": "number",
+          "label": "Día de cobro"
+        },
+        {
+          "line": 132,
+          "tag": "textarea",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 202,
+          "tag": "input",
+          "type": "text",
+          "label": "Nombre"
+        },
+        {
+          "line": 203,
+          "tag": "input",
+          "type": "text",
+          "label": "CUIT"
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 30,
+          "tag": "button",
+          "handler": "{{ n.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 50,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 59,
+          "tag": "button",
+          "handler": "{{ goInvoices }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 60,
+          "tag": "button",
+          "handler": "{{ a.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 69,
+          "tag": "button",
+          "handler": "{{ openNew }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 73,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 74,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 80,
+          "tag": "button",
+          "handler": "{{ r.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 97,
+          "tag": "button",
+          "handler": "{{ goClients }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 111,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 114,
+          "tag": "button",
+          "handler": "{{ t.del }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 115,
+          "tag": "button",
+          "handler": "{{ addTier }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 127,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 129,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 131,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 133,
+          "tag": "button",
+          "handler": "{{ discard }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 133,
+          "tag": "button",
+          "handler": "{{ save }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 156,
+          "tag": "button",
+          "handler": "{{ i.mark }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 169,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 175,
+          "tag": "button",
+          "handler": "{{ i.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 175,
+          "tag": "button",
+          "handler": "{{ i.mark }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 198,
+          "tag": "div",
+          "handler": "{{ closeNew }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 199,
+          "tag": "div",
+          "handler": "{{ stop }}",
+          "role": "dialog",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 200,
+          "tag": "button",
+          "handler": "{{ closeNew }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 201,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 205,
+          "tag": "button",
+          "handler": "{{ closeNew }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 205,
+          "tag": "button",
+          "handler": "{{ createNew }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 25,
+          "attribute": "src",
+          "value": "assets/motion/wm_full.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 26,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": [
+        {
+          "id": "SCR-A-01",
+          "name": "Admin · Resumen",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-A-02",
+          "name": "Admin · Clientes (gyms y coaches)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-A-03",
+          "name": "Admin · Ficha de suscripción",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-A-04",
+          "name": "Admin · Cobros",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-A-05",
+          "name": "Admin · Planes y precios",
+          "status": "static_mockup"
+        },
+        {
+          "id": "SCR-AX-01",
+          "name": "Admin · Modal nuevo cliente",
+          "status": "interactive_prototype"
+        }
+      ]
+    },
+    {
+      "file": "prototypes/REPI App Alumno v3.dc.html",
+      "lines": 1582,
+      "bytes": 164494,
+      "sha256": "da74aeeb8f4c9963aa08bd79585ad90116e9f51da53ad736e9336e18e2140e3c",
+      "legacy": false,
+      "has_component_logic": true,
+      "screen_label_markers": [
+        {
+          "line": 63,
+          "label": "Inicio"
+        },
+        {
+          "line": 137,
+          "label": "Entrenar"
+        },
+        {
+          "line": 187,
+          "label": "Entrenamiento activo"
+        },
+        {
+          "line": 294,
+          "label": "Entrenamiento completado"
+        },
+        {
+          "line": 327,
+          "label": "Progreso"
+        },
+        {
+          "line": 429,
+          "label": "Mi cuerpo"
+        },
+        {
+          "line": 640,
+          "label": "Comparación"
+        },
+        {
+          "line": 661,
+          "label": "Mensajes"
+        },
+        {
+          "line": 683,
+          "label": "Perfil y privacidad"
+        },
+        {
+          "line": 721,
+          "label": "Gym"
+        }
+      ],
+      "conditional_views": [
+        {
+          "line": 24,
+          "condition": "{{ showPanel }}"
+        },
+        {
+          "line": 62,
+          "condition": "{{ s.home }}"
+        },
+        {
+          "line": 70,
+          "condition": "{{ hasUnread }}"
+        },
+        {
+          "line": 136,
+          "condition": "{{ s.train }}"
+        },
+        {
+          "line": 148,
+          "condition": "{{ dayHasWorkout }}"
+        },
+        {
+          "line": 175,
+          "condition": "{{ dayIsRest }}"
+        },
+        {
+          "line": 186,
+          "condition": "{{ s.workout }}"
+        },
+        {
+          "line": 244,
+          "condition": "{{ resting }}"
+        },
+        {
+          "line": 255,
+          "condition": "{{ restPaused }}"
+        },
+        {
+          "line": 256,
+          "condition": "{{ restRunning }}"
+        },
+        {
+          "line": 265,
+          "condition": "{{ editing }}"
+        },
+        {
+          "line": 282,
+          "condition": "{{ exDone }}"
+        },
+        {
+          "line": 293,
+          "condition": "{{ s.done }}"
+        },
+        {
+          "line": 305,
+          "condition": "{{ hasPR }}"
+        },
+        {
+          "line": 326,
+          "condition": "{{ s.prog }}"
+        },
+        {
+          "line": 338,
+          "condition": "{{ pt.fuerza }}"
+        },
+        {
+          "line": 378,
+          "condition": "{{ pt.volumen }}"
+        },
+        {
+          "line": 391,
+          "condition": "{{ pt.constancia }}"
+        },
+        {
+          "line": 404,
+          "condition": "{{ pt.medidas }}"
+        },
+        {
+          "line": 428,
+          "condition": "{{ s.body }}"
+        },
+        {
+          "line": 436,
+          "condition": "{{ b.intro }}"
+        },
+        {
+          "line": 456,
+          "condition": "{{ b.consent }}"
+        },
+        {
+          "line": 473,
+          "condition": "{{ b.method }}"
+        },
+        {
+          "line": 487,
+          "condition": "{{ b.manual }}"
+        },
+        {
+          "line": 506,
+          "condition": "{{ b.capture }}"
+        },
+        {
+          "line": 525,
+          "condition": "{{ b.review }}"
+        },
+        {
+          "line": 539,
+          "condition": "{{ b.processing }}"
+        },
+        {
+          "line": 547,
+          "condition": "{{ b.failed }}"
+        },
+        {
+          "line": 564,
+          "condition": "{{ b.viewer }}"
+        },
+        {
+          "line": 571,
+          "condition": "{{ webglFail }}"
+        },
+        {
+          "line": 587,
+          "condition": "{{ layerMuscle }}"
+        },
+        {
+          "line": 598,
+          "condition": "{{ hasRegion }}"
+        },
+        {
+          "line": 604,
+          "condition": "{{ reg.flag }}"
+        },
+        {
+          "line": 614,
+          "condition": "{{ layerComp }}"
+        },
+        {
+          "line": 624,
+          "condition": "{{ showChanges }}"
+        },
+        {
+          "line": 639,
+          "condition": "{{ compare }}"
+        },
+        {
+          "line": 660,
+          "condition": "{{ s.msgs }}"
+        },
+        {
+          "line": 682,
+          "condition": "{{ s.perfil }}"
+        },
+        {
+          "line": 720,
+          "condition": "{{ s.gym }}"
+        },
+        {
+          "line": 725,
+          "condition": "{{ gt.news }}"
+        },
+        {
+          "line": 728,
+          "condition": "{{ p.hasImg }}"
+        },
+        {
+          "line": 738,
+          "condition": "{{ gt.ch }}"
+        },
+        {
+          "line": 742,
+          "condition": "{{ c.hasSt }}"
+        },
+        {
+          "line": 745,
+          "condition": "{{ c.hasReason }}"
+        },
+        {
+          "line": 746,
+          "condition": "{{ c.canTry }}"
+        },
+        {
+          "line": 751,
+          "condition": "{{ gt.shop }}"
+        },
+        {
+          "line": 756,
+          "condition": "{{ i.hasImg }}"
+        },
+        {
+          "line": 757,
+          "condition": "{{ i.noImg }}"
+        },
+        {
+          "line": 758,
+          "condition": "{{ i.hasPromo }}"
+        },
+        {
+          "line": 764,
+          "condition": "{{ gt.logros }}"
+        },
+        {
+          "line": 783,
+          "condition": "{{ showTabs }}"
+        },
+        {
+          "line": 793,
+          "condition": "{{ gymMember }}"
+        },
+        {
+          "line": 794,
+          "condition": "{{ gymBadge }}"
+        },
+        {
+          "line": 794,
+          "condition": "{{ notGymMember }}"
+        },
+        {
+          "line": 799,
+          "condition": "{{ upOpen }}"
+        },
+        {
+          "line": 804,
+          "condition": "{{ upForm }}"
+        },
+        {
+          "line": 806,
+          "condition": "{{ upNoFile }}"
+        },
+        {
+          "line": 809,
+          "condition": "{{ upHasFile }}"
+        },
+        {
+          "line": 815,
+          "condition": "{{ upUploading }}"
+        },
+        {
+          "line": 816,
+          "condition": "{{ upSent }}"
+        },
+        {
+          "line": 821,
+          "condition": "{{ notifOpen }}"
+        },
+        {
+          "line": 831,
+          "condition": "{{ hasAward }}"
+        },
+        {
+          "line": 844,
+          "condition": "{{ introOn }}"
+        },
+        {
+          "line": 862,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 493,
+          "tag": "input",
+          "type": "number",
+          "label": null
+        },
+        {
+          "line": 675,
+          "tag": "input",
+          "type": "text",
+          "label": "Mensaje"
+        },
+        {
+          "line": 807,
+          "tag": "input",
+          "type": "file",
+          "label": null
+        },
+        {
+          "line": 809,
+          "tag": "input",
+          "type": "file",
+          "label": null
+        },
+        {
+          "line": 810,
+          "tag": "input",
+          "type": "number",
+          "label": null
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 39,
+          "tag": "button",
+          "handler": "{{ f.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 68,
+          "tag": "button",
+          "handler": "{{ goPerfil }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 68,
+          "tag": "button",
+          "handler": "{{ openNotifs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 77,
+          "tag": "div",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 86,
+          "tag": "button",
+          "handler": "{{ startWorkoutStop }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 105,
+          "tag": "div",
+          "handler": "{{ goProgConst }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 109,
+          "tag": "div",
+          "handler": "{{ goProgVol }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 115,
+          "tag": "div",
+          "handler": "{{ goBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 125,
+          "tag": "div",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 141,
+          "tag": "button",
+          "handler": "{{ d.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 171,
+          "tag": "button",
+          "handler": "{{ startWorkout }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 190,
+          "tag": "button",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 197,
+          "tag": "button",
+          "handler": "{{ finishWorkout }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 212,
+          "tag": "button",
+          "handler": "{{ prevEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 213,
+          "tag": "button",
+          "handler": "{{ nextEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 229,
+          "tag": "div",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 254,
+          "tag": "button",
+          "handler": "{{ togglePause }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 258,
+          "tag": "button",
+          "handler": "{{ add30 }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 262,
+          "tag": "button",
+          "handler": "{{ skipRest }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 269,
+          "tag": "button",
+          "handler": "{{ wDown }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 271,
+          "tag": "button",
+          "handler": "{{ wUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 274,
+          "tag": "button",
+          "handler": "{{ rDown }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 276,
+          "tag": "button",
+          "handler": "{{ rUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 279,
+          "tag": "button",
+          "handler": "{{ completeSet }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 285,
+          "tag": "button",
+          "handler": "{{ afterEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 319,
+          "tag": "button",
+          "handler": "{{ goProg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 320,
+          "tag": "button",
+          "handler": "{{ goHome }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 330,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 334,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 340,
+          "tag": "button",
+          "handler": "{{ cycleLift }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 343,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 419,
+          "tag": "div",
+          "handler": "{{ goBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 431,
+          "tag": "button",
+          "handler": "{{ bodyBack }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 450,
+          "tag": "button",
+          "handler": "{{ toConsent }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 451,
+          "tag": "button",
+          "handler": "{{ declineBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 463,
+          "tag": "div",
+          "handler": "{{ c.toggle }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 470,
+          "tag": "button",
+          "handler": "{{ toMethod }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 479,
+          "tag": "div",
+          "handler": "{{ m.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 500,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 503,
+          "tag": "button",
+          "handler": "{{ saveManual }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 517,
+          "tag": "button",
+          "handler": "{{ shoot }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 531,
+          "tag": "button",
+          "handler": "{{ t.redo }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 536,
+          "tag": "button",
+          "handler": "{{ process }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 560,
+          "tag": "button",
+          "handler": "{{ toViewer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 561,
+          "tag": "button",
+          "handler": "{{ toCapture }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 566,
+          "tag": "button",
+          "handler": "{{ cycleDate }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 567,
+          "tag": "button",
+          "handler": "{{ openCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 576,
+          "tag": "button",
+          "handler": "{{ zoomIn }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 577,
+          "tag": "button",
+          "handler": "{{ zoomOut }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 578,
+          "tag": "button",
+          "handler": "{{ resetCam }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 581,
+          "tag": "button",
+          "handler": "{{ v.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 585,
+          "tag": "button",
+          "handler": "{{ l.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 595,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 602,
+          "tag": "button",
+          "handler": "{{ clearRegion }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 619,
+          "tag": "button",
+          "handler": "{{ uploadSoon }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 632,
+          "tag": "button",
+          "handler": "{{ toMethod }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 643,
+          "tag": "button",
+          "handler": "{{ closeCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 676,
+          "tag": "button",
+          "handler": "{{ send }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 691,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 698,
+          "tag": "div",
+          "handler": "{{ c.toggle }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 710,
+          "tag": "div",
+          "handler": "{{ cycleReminder }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 711,
+          "tag": "div",
+          "handler": "{{ toggleCeleb }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 712,
+          "tag": "div",
+          "handler": "{{ replayIntro }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 713,
+          "tag": "div",
+          "handler": "{{ exportData }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 714,
+          "tag": "div",
+          "handler": "{{ deleteBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 723,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 746,
+          "tag": "button",
+          "handler": "{{ c.tryIt }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 785,
+          "tag": "button",
+          "handler": "{{ goHome }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 787,
+          "tag": "button",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 789,
+          "tag": "button",
+          "handler": "{{ goProg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 791,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 793,
+          "tag": "button",
+          "handler": "{{ goGym }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 794,
+          "tag": "button",
+          "handler": "{{ goPerfil }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 800,
+          "tag": "div",
+          "handler": "{{ closeUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 801,
+          "tag": "div",
+          "handler": "{{ stopEv }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 803,
+          "tag": "button",
+          "handler": "{{ closeUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 812,
+          "tag": "div",
+          "handler": "{{ toggleUpOk }}",
+          "role": "checkbox",
+          "tabindex": "0",
+          "keyboard_handler": null
+        },
+        {
+          "line": 813,
+          "tag": "button",
+          "handler": "{{ submitUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 816,
+          "tag": "button",
+          "handler": "{{ closeUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 822,
+          "tag": "div",
+          "handler": "{{ closeNotifs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 823,
+          "tag": "div",
+          "handler": "{{ stopEv }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 826,
+          "tag": "button",
+          "handler": "{{ n.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 839,
+          "tag": "button",
+          "handler": "{{ awardToLogros }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 840,
+          "tag": "button",
+          "handler": "{{ closeAward }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 859,
+          "tag": "button",
+          "handler": "{{ skipIntro }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 20,
+          "attribute": "src",
+          "value": "repi-shared.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 27,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 66,
+          "attribute": "src",
+          "value": "assets/repi_logo.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 773,
+          "attribute": "src",
+          "value": "assets/motion/icon_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 834,
+          "attribute": "src",
+          "value": "assets/motion/icon_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 848,
+          "attribute": "src",
+          "value": "assets/motion/tile_empty.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 849,
+          "attribute": "src",
+          "value": "assets/motion/icon_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 853,
+          "attribute": "src",
+          "value": "assets/motion/wm_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 854,
+          "attribute": "src",
+          "value": "assets/motion/wm_e.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 855,
+          "attribute": "src",
+          "value": "assets/motion/wm_p.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 856,
+          "attribute": "src",
+          "value": "assets/motion/wm_i.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": [
+        {
+          "id": "SCR-M-01",
+          "name": "Intro / splash de marca",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-02",
+          "name": "Inicio del alumno",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-03",
+          "name": "Entrenar · semana y detalle de día",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-04",
+          "name": "Entrenamiento activo · registro de series",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-05",
+          "name": "Entrenamiento completado",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-06",
+          "name": "Progreso (Fuerza/Volumen/Constancia/Medidas)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-07",
+          "name": "Mi cuerpo · introducción",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-08",
+          "name": "Mi cuerpo · consentimiento por tipo de dato",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-09",
+          "name": "Mi cuerpo · método",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-10",
+          "name": "Mi cuerpo · medidas manuales",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-11",
+          "name": "Mi cuerpo · captura guiada (4 poses)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-12",
+          "name": "Mi cuerpo · revisión de fotos",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-13",
+          "name": "Mi cuerpo · procesando",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-14",
+          "name": "Mi cuerpo · fallo de reconstrucción 3D",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-15",
+          "name": "Mi cuerpo · visor 3D",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-16",
+          "name": "Comparar fechas (hoja inferior)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-17",
+          "name": "Mensajes con el coach",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-18",
+          "name": "Perfil y privacidad",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-19",
+          "name": "Gym · Novedades y descuentos",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-20",
+          "name": "Gym · Desafíos",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-21",
+          "name": "Subir intento de récord (hoja)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-22",
+          "name": "Gym · Recepción (catálogo informativo)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-23",
+          "name": "Gym · Logros y nivel",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-24",
+          "name": "Notificaciones (hoja)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-M-25",
+          "name": "Logro validado (overlay)",
+          "status": "interactive_prototype"
+        }
+      ]
+    },
+    {
+      "file": "prototypes/REPI Desktop Coach.dc.html",
+      "lines": 533,
+      "bytes": 92063,
+      "sha256": "41eacee0471749f1e2c7655b59906b538e48fc093cd40c9c731747a9ff1ffeeb",
+      "legacy": false,
+      "has_component_logic": true,
+      "screen_label_markers": [
+        {
+          "line": 74,
+          "label": "Panel del coach"
+        },
+        {
+          "line": 96,
+          "label": "Clientes"
+        },
+        {
+          "line": 244,
+          "label": "Constructor de programas"
+        },
+        {
+          "line": 286,
+          "label": "Mensajes del coach"
+        },
+        {
+          "line": 302,
+          "label": "Pagos del coach"
+        }
+      ],
+      "conditional_views": [
+        {
+          "line": 23,
+          "condition": "{{ showAside }}"
+        },
+        {
+          "line": 26,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 27,
+          "condition": "{{ navRail }}"
+        },
+        {
+          "line": 32,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 34,
+          "condition": "{{ wsOpen }}"
+        },
+        {
+          "line": 47,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 48,
+          "condition": "{{ n.hasBadge }}"
+        },
+        {
+          "line": 54,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 58,
+          "condition": "{{ drawerOpen }}"
+        },
+        {
+          "line": 65,
+          "condition": "{{ navDrawer }}"
+        },
+        {
+          "line": 73,
+          "condition": "{{ sc.dash }}"
+        },
+        {
+          "line": 85,
+          "condition": "{{ todosEmpty }}"
+        },
+        {
+          "line": 95,
+          "condition": "{{ sc.clients }}"
+        },
+        {
+          "line": 106,
+          "condition": "{{ c.flag }}"
+        },
+        {
+          "line": 109,
+          "condition": "{{ clientsEmpty }}"
+        },
+        {
+          "line": 119,
+          "condition": "{{ ct.res }}"
+        },
+        {
+          "line": 129,
+          "condition": "{{ dx.noGoals }}"
+        },
+        {
+          "line": 132,
+          "condition": "{{ ct.prog }}"
+        },
+        {
+          "line": 136,
+          "condition": "{{ cl.noProg }}"
+        },
+        {
+          "line": 141,
+          "condition": "{{ r.hasNote }}"
+        },
+        {
+          "line": 144,
+          "condition": "{{ ct.progreso }}"
+        },
+        {
+          "line": 151,
+          "condition": "{{ ct.rend }}"
+        },
+        {
+          "line": 178,
+          "condition": "{{ ct.salud }}"
+        },
+        {
+          "line": 179,
+          "condition": "{{ dx.healthLocked }}"
+        },
+        {
+          "line": 180,
+          "condition": "{{ dx.healthOpen }}"
+        },
+        {
+          "line": 185,
+          "condition": "{{ dx.noInjuries }}"
+        },
+        {
+          "line": 201,
+          "condition": "{{ ct.nutri }}"
+        },
+        {
+          "line": 202,
+          "condition": "{{ dx.nutriLocked }}"
+        },
+        {
+          "line": 203,
+          "condition": "{{ dx.nutriOpen }}"
+        },
+        {
+          "line": 226,
+          "condition": "{{ ct.body }}"
+        },
+        {
+          "line": 233,
+          "condition": "{{ ct.pay }}"
+        },
+        {
+          "line": 243,
+          "condition": "{{ sc.builder }}"
+        },
+        {
+          "line": 261,
+          "condition": "{{ canDelDay }}"
+        },
+        {
+          "line": 274,
+          "condition": "{{ exEmpty }}"
+        },
+        {
+          "line": 285,
+          "condition": "{{ sc.msgs }}"
+        },
+        {
+          "line": 289,
+          "condition": "{{ t.unread }}"
+        },
+        {
+          "line": 301,
+          "condition": "{{ sc.pay }}"
+        },
+        {
+          "line": 308,
+          "condition": "{{ p.canMark }}"
+        },
+        {
+          "line": 322,
+          "condition": "{{ assignOpen }}"
+        },
+        {
+          "line": 335,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 99,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar cliente"
+        },
+        {
+          "line": 245,
+          "tag": "input",
+          "type": "text",
+          "label": "Nombre del programa"
+        },
+        {
+          "line": 260,
+          "tag": "input",
+          "type": "text",
+          "label": "Nombre del día"
+        },
+        {
+          "line": 267,
+          "tag": "input",
+          "type": "number",
+          "label": "Series"
+        },
+        {
+          "line": 268,
+          "tag": "input",
+          "type": "text",
+          "label": "Repeticiones"
+        },
+        {
+          "line": 269,
+          "tag": "input",
+          "type": "number",
+          "label": "RIR"
+        },
+        {
+          "line": 270,
+          "tag": "input",
+          "type": "text",
+          "label": "Descanso"
+        },
+        {
+          "line": 275,
+          "tag": "textarea",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 279,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar ejercicio"
+        },
+        {
+          "line": 296,
+          "tag": "input",
+          "type": "text",
+          "label": "Mensaje"
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 30,
+          "tag": "button",
+          "handler": "{{ toggleWs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 37,
+          "tag": "button",
+          "handler": "{{ toggleWs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 45,
+          "tag": "button",
+          "handler": "{{ n.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 58,
+          "tag": "div",
+          "handler": "{{ closeDrawer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 67,
+          "tag": "button",
+          "handler": "{{ openDrawer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 76,
+          "tag": "button",
+          "handler": "{{ newProgram }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 79,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 84,
+          "tag": "button",
+          "handler": "{{ t.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 100,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 101,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 103,
+          "tag": "button",
+          "handler": "{{ c.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 115,
+          "tag": "button",
+          "handler": "{{ msgClient }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 115,
+          "tag": "button",
+          "handler": "{{ editClientProgram }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 117,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 120,
+          "tag": "button",
+          "handler": "{{ a.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 179,
+          "tag": "button",
+          "handler": "{{ askAccess }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 202,
+          "tag": "button",
+          "handler": "{{ askAccess }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 246,
+          "tag": "button",
+          "handler": "{{ duplicate }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 246,
+          "tag": "button",
+          "handler": "{{ openAssign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 251,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 252,
+          "tag": "button",
+          "handler": "{{ newProgram }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 256,
+          "tag": "button",
+          "handler": "{{ d.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 256,
+          "tag": "button",
+          "handler": "{{ addDay }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 261,
+          "tag": "button",
+          "handler": "{{ delDay }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 271,
+          "tag": "button",
+          "handler": "{{ e.up }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 271,
+          "tag": "button",
+          "handler": "{{ e.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 280,
+          "tag": "button",
+          "handler": "{{ l.add }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 289,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 292,
+          "tag": "button",
+          "handler": "{{ openThreadClient }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 296,
+          "tag": "button",
+          "handler": "{{ send }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 308,
+          "tag": "button",
+          "handler": "{{ p.mark }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 323,
+          "tag": "div",
+          "handler": "{{ closeAssign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 324,
+          "tag": "div",
+          "handler": "{{ stop }}",
+          "role": "dialog",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 325,
+          "tag": "button",
+          "handler": "{{ closeAssign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 328,
+          "tag": "div",
+          "handler": "{{ a.toggle }}",
+          "role": "checkbox",
+          "tabindex": "0",
+          "keyboard_handler": null
+        },
+        {
+          "line": 330,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 331,
+          "tag": "button",
+          "handler": "{{ closeAssign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 331,
+          "tag": "button",
+          "handler": "{{ doAssign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 26,
+          "attribute": "src",
+          "value": "assets/motion/wm_full.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 27,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 38,
+          "attribute": "href",
+          "value": "REPI Desktop Gym.dc.html",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 68,
+          "attribute": "src",
+          "value": "assets/motion/wm_full.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": [
+        {
+          "id": "SCR-C-01",
+          "name": "Panel del coach",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02",
+          "name": "Clientes · directorio + ficha (split)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02a",
+          "name": "Ficha · Resumen",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02b",
+          "name": "Ficha · Rendimiento",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02c",
+          "name": "Ficha · Rutinas",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02d",
+          "name": "Ficha · Progreso",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02e",
+          "name": "Ficha · Salud",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02f",
+          "name": "Ficha · Nutrición",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02g",
+          "name": "Ficha · Mi cuerpo",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-02h",
+          "name": "Ficha · Pagos",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-03",
+          "name": "Constructor de programas",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-CX-01",
+          "name": "Modal · asignar programa",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-04",
+          "name": "Mensajes del coach",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-C-05",
+          "name": "Pagos del coach",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-N-05",
+          "name": "Biblioteca de ejercicios (gestión CRUD, medios, filtros)",
+          "status": "partially_designed"
+        }
+      ]
+    },
+    {
+      "file": "prototypes/REPI Desktop Gym.dc.html",
+      "lines": 1404,
+      "bytes": 205805,
+      "sha256": "5c1f0c6db140fb148c9047afa25cb0d6f60030d6081d119462afc6c97f128ba5",
+      "legacy": false,
+      "has_component_logic": true,
+      "screen_label_markers": [
+        {
+          "line": 92,
+          "label": "Mi turno"
+        },
+        {
+          "line": 139,
+          "label": "Cola de asistencia"
+        },
+        {
+          "line": 171,
+          "label": "Socios"
+        },
+        {
+          "line": 244,
+          "label": "Traspaso de turno"
+        },
+        {
+          "line": 280,
+          "label": "Mi desempeño"
+        },
+        {
+          "line": 320,
+          "label": "Panel de gestión"
+        },
+        {
+          "line": 348,
+          "label": "Performance Center"
+        },
+        {
+          "line": 399,
+          "label": "Equipo"
+        },
+        {
+          "line": 415,
+          "label": "Detalle de entrenador"
+        },
+        {
+          "line": 451,
+          "label": "Tareas operativas"
+        },
+        {
+          "line": 471,
+          "label": "Reseñas"
+        },
+        {
+          "line": 515,
+          "label": "Planificación de turnos"
+        },
+        {
+          "line": 539,
+          "label": "Participación de socios"
+        },
+        {
+          "line": 557,
+          "label": "Ejecutivo"
+        },
+        {
+          "line": 581,
+          "label": "Comparación de sedes"
+        },
+        {
+          "line": 596,
+          "label": "Facturación REPI"
+        },
+        {
+          "line": 633,
+          "label": "Configuración del gym"
+        },
+        {
+          "line": 655,
+          "label": "Comunidad del gym"
+        },
+        {
+          "line": 743,
+          "label": "Validación de récords"
+        }
+      ],
+      "conditional_views": [
+        {
+          "line": 25,
+          "condition": "{{ showAside }}"
+        },
+        {
+          "line": 28,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 32,
+          "condition": "{{ navRail }}"
+        },
+        {
+          "line": 37,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 42,
+          "condition": "{{ wsOpen }}"
+        },
+        {
+          "line": 60,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 61,
+          "condition": "{{ n.hasBadge }}"
+        },
+        {
+          "line": 67,
+          "condition": "{{ navFull }}"
+        },
+        {
+          "line": 71,
+          "condition": "{{ drawerOpen }}"
+        },
+        {
+          "line": 83,
+          "condition": "{{ navDrawer }}"
+        },
+        {
+          "line": 91,
+          "condition": "{{ sc.shift }}"
+        },
+        {
+          "line": 96,
+          "condition": "{{ shiftOff }}"
+        },
+        {
+          "line": 97,
+          "condition": "{{ shiftOn }}"
+        },
+        {
+          "line": 98,
+          "condition": "{{ shiftEnded }}"
+        },
+        {
+          "line": 109,
+          "condition": "{{ noIncoming }}"
+        },
+        {
+          "line": 138,
+          "condition": "{{ sc.queue }}"
+        },
+        {
+          "line": 145,
+          "condition": "{{ shiftGate }}"
+        },
+        {
+          "line": 146,
+          "condition": "{{ shiftOff }}"
+        },
+        {
+          "line": 158,
+          "condition": "{{ t.canTake }}"
+        },
+        {
+          "line": 159,
+          "condition": "{{ t.canAccept }}"
+        },
+        {
+          "line": 161,
+          "condition": "{{ t.canDone }}"
+        },
+        {
+          "line": 162,
+          "condition": "{{ t.isDone }}"
+        },
+        {
+          "line": 166,
+          "condition": "{{ queueEmpty }}"
+        },
+        {
+          "line": 170,
+          "condition": "{{ sc.members }}"
+        },
+        {
+          "line": 182,
+          "condition": "{{ memberNone }}"
+        },
+        {
+          "line": 196,
+          "condition": "{{ t.canTake }}"
+        },
+        {
+          "line": 197,
+          "condition": "{{ t.canDone }}"
+        },
+        {
+          "line": 203,
+          "condition": "{{ mm.hasProg }}"
+        },
+        {
+          "line": 208,
+          "condition": "{{ mm.noProg }}"
+        },
+        {
+          "line": 209,
+          "condition": "{{ mm.hasLog }}"
+        },
+        {
+          "line": 228,
+          "condition": "{{ notesEmpty }}"
+        },
+        {
+          "line": 243,
+          "condition": "{{ sc.handoff }}"
+        },
+        {
+          "line": 245,
+          "condition": "{{ hoNotOn }}"
+        },
+        {
+          "line": 246,
+          "condition": "{{ hoDone }}"
+        },
+        {
+          "line": 247,
+          "condition": "{{ hoReady }}"
+        },
+        {
+          "line": 252,
+          "condition": "{{ hoNoTasks }}"
+        },
+        {
+          "line": 279,
+          "condition": "{{ sc.perf }}"
+        },
+        {
+          "line": 290,
+          "condition": "{{ c.open }}"
+        },
+        {
+          "line": 298,
+          "condition": "{{ respondsOff }}"
+        },
+        {
+          "line": 302,
+          "condition": "{{ r.hasTxt }}"
+        },
+        {
+          "line": 304,
+          "condition": "{{ r.hasResp }}"
+        },
+        {
+          "line": 306,
+          "condition": "{{ r.canRespond }}"
+        },
+        {
+          "line": 307,
+          "condition": "{{ r.canReport }}"
+        },
+        {
+          "line": 319,
+          "condition": "{{ sc.mdash }}"
+        },
+        {
+          "line": 342,
+          "condition": "{{ r.hasTxt }}"
+        },
+        {
+          "line": 347,
+          "condition": "{{ sc.pc }}"
+        },
+        {
+          "line": 351,
+          "condition": "{{ showSede }}"
+        },
+        {
+          "line": 361,
+          "condition": "{{ isOut }}"
+        },
+        {
+          "line": 371,
+          "condition": "{{ notOut }}"
+        },
+        {
+          "line": 372,
+          "condition": "{{ isEng }}"
+        },
+        {
+          "line": 380,
+          "condition": "{{ showDefs }}"
+        },
+        {
+          "line": 389,
+          "condition": "{{ r.low }}"
+        },
+        {
+          "line": 393,
+          "condition": "{{ pcEmpty }}"
+        },
+        {
+          "line": 398,
+          "condition": "{{ sc.staff }}"
+        },
+        {
+          "line": 414,
+          "condition": "{{ sc.tdetail }}"
+        },
+        {
+          "line": 434,
+          "condition": "{{ r.hasTxt }}"
+        },
+        {
+          "line": 434,
+          "condition": "{{ r.hidden }}"
+        },
+        {
+          "line": 435,
+          "condition": "{{ td.noRevs }}"
+        },
+        {
+          "line": 440,
+          "condition": "{{ td.noTasks }}"
+        },
+        {
+          "line": 450,
+          "condition": "{{ sc.tasks }}"
+        },
+        {
+          "line": 463,
+          "condition": "{{ t.canReassign }}"
+        },
+        {
+          "line": 466,
+          "condition": "{{ taskEmpty }}"
+        },
+        {
+          "line": 470,
+          "condition": "{{ sc.reviews }}"
+        },
+        {
+          "line": 473,
+          "condition": "{{ revAn }}"
+        },
+        {
+          "line": 490,
+          "condition": "{{ r.fresh }}"
+        },
+        {
+          "line": 490,
+          "condition": "{{ r.hasTxt }}"
+        },
+        {
+          "line": 494,
+          "condition": "{{ revMod }}"
+        },
+        {
+          "line": 507,
+          "condition": "{{ revAudit }}"
+        },
+        {
+          "line": 514,
+          "condition": "{{ sc.shifts }}"
+        },
+        {
+          "line": 538,
+          "condition": "{{ sc.engage }}"
+        },
+        {
+          "line": 556,
+          "condition": "{{ sc.exec }}"
+        },
+        {
+          "line": 580,
+          "condition": "{{ sc.locs }}"
+        },
+        {
+          "line": 595,
+          "condition": "{{ sc.billing }}"
+        },
+        {
+          "line": 632,
+          "condition": "{{ sc.config }}"
+        },
+        {
+          "line": 637,
+          "condition": "{{ o.hasAct }}"
+        },
+        {
+          "line": 654,
+          "condition": "{{ sc.community }}"
+        },
+        {
+          "line": 661,
+          "condition": "{{ com.news }}"
+        },
+        {
+          "line": 668,
+          "condition": "{{ isDiscount }}"
+        },
+        {
+          "line": 671,
+          "condition": "{{ hasDraftImg }}"
+        },
+        {
+          "line": 678,
+          "condition": "{{ p.hasImg }}"
+        },
+        {
+          "line": 679,
+          "condition": "{{ p.noImg }}"
+        },
+        {
+          "line": 692,
+          "condition": "{{ com.ch }}"
+        },
+        {
+          "line": 711,
+          "condition": "{{ c.hasPending }}"
+        },
+        {
+          "line": 718,
+          "condition": "{{ com.shop }}"
+        },
+        {
+          "line": 732,
+          "condition": "{{ i.hasImg }}"
+        },
+        {
+          "line": 733,
+          "condition": "{{ i.noImg }}"
+        },
+        {
+          "line": 734,
+          "condition": "{{ i.hasPromo }}"
+        },
+        {
+          "line": 742,
+          "condition": "{{ sc.validations }}"
+        },
+        {
+          "line": 744,
+          "condition": "{{ noPendingSubs }}"
+        },
+        {
+          "line": 748,
+          "condition": "{{ v.hasUrl }}"
+        },
+        {
+          "line": 749,
+          "condition": "{{ v.noUrl }}"
+        },
+        {
+          "line": 763,
+          "condition": "{{ noDoneSubs }}"
+        },
+        {
+          "line": 768,
+          "condition": "{{ hasModal }}"
+        },
+        {
+          "line": 773,
+          "condition": "{{ mo.compare }}"
+        },
+        {
+          "line": 781,
+          "condition": "{{ mo.denied }}"
+        },
+        {
+          "line": 788,
+          "condition": "{{ mo.edit }}"
+        },
+        {
+          "line": 800,
+          "condition": "{{ editEmpty }}"
+        },
+        {
+          "line": 804,
+          "condition": "{{ editHasTask }}"
+        },
+        {
+          "line": 808,
+          "condition": "{{ mo.follow }}"
+        },
+        {
+          "line": 815,
+          "condition": "{{ mo.dispute }}"
+        },
+        {
+          "line": 823,
+          "condition": "{{ mo.respond }}"
+        },
+        {
+          "line": 829,
+          "condition": "{{ mo.moderate }}"
+        },
+        {
+          "line": 831,
+          "condition": "{{ cs.hasReview }}"
+        },
+        {
+          "line": 832,
+          "condition": "{{ csIsAttr }}"
+        },
+        {
+          "line": 835,
+          "condition": "{{ cs.open }}"
+        },
+        {
+          "line": 837,
+          "condition": "{{ csIsRep }}"
+        },
+        {
+          "line": 838,
+          "condition": "{{ csIsAttr }}"
+        },
+        {
+          "line": 840,
+          "condition": "{{ cs.resolved }}"
+        },
+        {
+          "line": 843,
+          "condition": "{{ mo.reassign }}"
+        },
+        {
+          "line": 850,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 174,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar socio"
+        },
+        {
+          "line": 229,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Nueva nota"
+        },
+        {
+          "line": 259,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Resumen para el equipo"
+        },
+        {
+          "line": 401,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar en el equipo"
+        },
+        {
+          "line": 666,
+          "tag": "input",
+          "type": "text",
+          "label": "Título"
+        },
+        {
+          "line": 667,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Texto"
+        },
+        {
+          "line": 668,
+          "tag": "input",
+          "type": "text",
+          "label": "Etiqueta del descuento"
+        },
+        {
+          "line": 670,
+          "tag": "input",
+          "type": "file",
+          "label": null
+        },
+        {
+          "line": 696,
+          "tag": "input",
+          "type": "text",
+          "label": "Nombre del desafío"
+        },
+        {
+          "line": 697,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Reglas"
+        },
+        {
+          "line": 700,
+          "tag": "input",
+          "type": "text",
+          "label": "Premio"
+        },
+        {
+          "line": 701,
+          "tag": "input",
+          "type": "text",
+          "label": "Fecha de fin"
+        },
+        {
+          "line": 723,
+          "tag": "input",
+          "type": "text",
+          "label": "Nombre del producto"
+        },
+        {
+          "line": 725,
+          "tag": "input",
+          "type": "text",
+          "label": "Precio"
+        },
+        {
+          "line": 725,
+          "tag": "input",
+          "type": "text",
+          "label": "Promoción"
+        },
+        {
+          "line": 726,
+          "tag": "input",
+          "type": "file",
+          "label": null
+        },
+        {
+          "line": 794,
+          "tag": "input",
+          "type": "number",
+          "label": "Series"
+        },
+        {
+          "line": 795,
+          "tag": "input",
+          "type": "text",
+          "label": "Repeticiones"
+        },
+        {
+          "line": 796,
+          "tag": "input",
+          "type": "number",
+          "label": "Peso en kg"
+        },
+        {
+          "line": 803,
+          "tag": "textarea",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 810,
+          "tag": "textarea",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 818,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Detalle"
+        },
+        {
+          "line": 825,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Respuesta"
+        },
+        {
+          "line": 836,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Nota de resolución"
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 35,
+          "tag": "button",
+          "handler": "{{ toggleWs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 46,
+          "tag": "button",
+          "handler": "{{ w.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 58,
+          "tag": "button",
+          "handler": "{{ n.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 71,
+          "tag": "div",
+          "handler": "{{ closeDrawer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 77,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 85,
+          "tag": "button",
+          "handler": "{{ openDrawer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 96,
+          "tag": "button",
+          "handler": "{{ startShift }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 97,
+          "tag": "button",
+          "handler": "{{ goQueue }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 97,
+          "tag": "button",
+          "handler": "{{ goHandoff }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 103,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 113,
+          "tag": "button",
+          "handler": "{{ t.accept }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 122,
+          "tag": "button",
+          "handler": "{{ t.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 142,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 146,
+          "tag": "button",
+          "handler": "{{ startShift }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 158,
+          "tag": "button",
+          "handler": "{{ t.take }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 159,
+          "tag": "button",
+          "handler": "{{ t.accept }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 160,
+          "tag": "button",
+          "handler": "{{ t.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 161,
+          "tag": "button",
+          "handler": "{{ t.complete }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 176,
+          "tag": "button",
+          "handler": "{{ x.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 189,
+          "tag": "button",
+          "handler": "{{ openFollow }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 190,
+          "tag": "button",
+          "handler": "{{ openEdit }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 196,
+          "tag": "button",
+          "handler": "{{ t.take }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 197,
+          "tag": "button",
+          "handler": "{{ t.complete }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 224,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 230,
+          "tag": "button",
+          "handler": "{{ saveNote }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 245,
+          "tag": "button",
+          "handler": "{{ startShift }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 255,
+          "tag": "div",
+          "handler": "{{ t.toggle }}",
+          "role": "checkbox",
+          "tabindex": "0",
+          "keyboard_handler": null
+        },
+        {
+          "line": 266,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 269,
+          "tag": "button",
+          "handler": "{{ doHandoff }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 282,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 289,
+          "tag": "button",
+          "handler": "{{ c.toggle }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 306,
+          "tag": "button",
+          "handler": "{{ r.respond }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 307,
+          "tag": "button",
+          "handler": "{{ r.report }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 315,
+          "tag": "button",
+          "handler": "{{ a.dispute }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 322,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 326,
+          "tag": "button",
+          "handler": "{{ goStaff }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 327,
+          "tag": "button",
+          "handler": "{{ t.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 330,
+          "tag": "button",
+          "handler": "{{ goTasks }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 335,
+          "tag": "button",
+          "handler": "{{ goEngage }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 341,
+          "tag": "button",
+          "handler": "{{ goReviews }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 350,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 351,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 352,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 355,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 376,
+          "tag": "button",
+          "handler": "{{ toggleDefs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 377,
+          "tag": "button",
+          "handler": "{{ openCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 388,
+          "tag": "button",
+          "handler": "{{ r.toggle }}",
+          "role": "checkbox",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 389,
+          "tag": "button",
+          "handler": "{{ r.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 405,
+          "tag": "button",
+          "handler": "{{ t.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 416,
+          "tag": "button",
+          "handler": "{{ tdBack }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 420,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 445,
+          "tag": "button",
+          "handler": "{{ p.tryOpen }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 452,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 463,
+          "tag": "button",
+          "handler": "{{ t.reassign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 472,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 502,
+          "tag": "button",
+          "handler": "{{ c.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 525,
+          "tag": "button",
+          "handler": "{{ c.cycle }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 553,
+          "tag": "button",
+          "handler": "{{ createProgTasks }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 568,
+          "tag": "button",
+          "handler": "{{ goLocs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 569,
+          "tag": "button",
+          "handler": "{{ x.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 574,
+          "tag": "button",
+          "handler": "{{ goPc }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 575,
+          "tag": "button",
+          "handler": "{{ goCommunity }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 576,
+          "tag": "button",
+          "handler": "{{ goBilling }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 583,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 591,
+          "tag": "button",
+          "handler": "{{ x.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 603,
+          "tag": "button",
+          "handler": "{{ d.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 637,
+          "tag": "button",
+          "handler": "{{ o.act }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 646,
+          "tag": "div",
+          "handler": "{{ toggleResponds }}",
+          "role": "switch",
+          "tabindex": "0",
+          "keyboard_handler": null
+        },
+        {
+          "line": 657,
+          "tag": "button",
+          "handler": "{{ resetShared }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 659,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 665,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 673,
+          "tag": "button",
+          "handler": "{{ publishPost }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 684,
+          "tag": "button",
+          "handler": "{{ p.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 698,
+          "tag": "button",
+          "handler": "{{ u.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 704,
+          "tag": "button",
+          "handler": "{{ publishCh }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 711,
+          "tag": "button",
+          "handler": "{{ goValidations }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 711,
+          "tag": "button",
+          "handler": "{{ c.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 724,
+          "tag": "button",
+          "handler": "{{ c.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 727,
+          "tag": "button",
+          "handler": "{{ addItem }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 734,
+          "tag": "button",
+          "handler": "{{ i.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 754,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 755,
+          "tag": "button",
+          "handler": "{{ v.reject }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 755,
+          "tag": "button",
+          "handler": "{{ v.approve }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 769,
+          "tag": "div",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 770,
+          "tag": "div",
+          "handler": "{{ stop }}",
+          "role": "dialog",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 771,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 785,
+          "tag": "button",
+          "handler": "{{ deniedTasks }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 785,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 797,
+          "tag": "button",
+          "handler": "{{ e.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 802,
+          "tag": "button",
+          "handler": "{{ l.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 804,
+          "tag": "div",
+          "handler": "{{ toggleEditComplete }}",
+          "role": "checkbox",
+          "tabindex": "0",
+          "keyboard_handler": null
+        },
+        {
+          "line": 805,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 805,
+          "tag": "button",
+          "handler": "{{ saveEdit }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 809,
+          "tag": "button",
+          "handler": "{{ c.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 811,
+          "tag": "button",
+          "handler": "{{ c.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 812,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 812,
+          "tag": "button",
+          "handler": "{{ saveFollow }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 817,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 820,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 820,
+          "tag": "button",
+          "handler": "{{ sendDispute }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 826,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 826,
+          "tag": "button",
+          "handler": "{{ sendResp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 837,
+          "tag": "button",
+          "handler": "{{ resKeep }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 837,
+          "tag": "button",
+          "handler": "{{ resEdit }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 837,
+          "tag": "button",
+          "handler": "{{ resRemove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 838,
+          "tag": "button",
+          "handler": "{{ resKeep }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 838,
+          "tag": "button",
+          "handler": "{{ resFix }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 844,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 845,
+          "tag": "button",
+          "handler": "{{ closeModal }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 845,
+          "tag": "button",
+          "handler": "{{ doReassign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 21,
+          "attribute": "src",
+          "value": "repi-shared.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 29,
+          "attribute": "src",
+          "value": "assets/motion/wm_full.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 32,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 86,
+          "attribute": "src",
+          "value": "assets/motion/wm_full.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": [
+        {
+          "id": "SCR-GT-01",
+          "name": "Mi turno (entrenador de sala)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GT-02",
+          "name": "Cola de asistencia",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GT-03",
+          "name": "Socios · búsqueda + ficha institucional",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GT-04",
+          "name": "Traspaso de turno",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GT-05",
+          "name": "Mi desempeño",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-01",
+          "name": "Panel de la sede (gerente)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-02",
+          "name": "Gym Performance Center",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-03",
+          "name": "Equipo (directorio)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-04",
+          "name": "Detalle de entrenador",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-05",
+          "name": "Tareas operativas",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-06",
+          "name": "Reseñas (análisis · moderación · historial de accesos)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-07",
+          "name": "Planificación de turnos",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GM-08",
+          "name": "Participación de socios",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GC-01",
+          "name": "Comunidad del gym (Novedades · Desafíos · Recepción)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GC-02",
+          "name": "Validación de récords",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GO-01",
+          "name": "Ejecutivo (dueño)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GO-02",
+          "name": "Comparación de sedes",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GO-03",
+          "name": "Facturación REPI (gym)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GO-04",
+          "name": "Configuración del gym",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-01",
+          "name": "Modal · comparar con contexto",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-02",
+          "name": "Modal · acceso no disponible",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-03",
+          "name": "Modal · editar programa institucional",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-04",
+          "name": "Modal · nueva tarea",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-05",
+          "name": "Modal · disputa / reporte",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-06",
+          "name": "Modal · responder reseña",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-07",
+          "name": "Modal · moderar caso",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-08",
+          "name": "Modal · reasignar tarea",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-GX-09",
+          "name": "Selector de espacio de trabajo + barra \"ver como\"",
+          "status": "interactive_prototype"
+        }
+      ]
+    },
+    {
+      "file": "prototypes/REPI Motion Intro.dc.html",
+      "lines": 273,
+      "bytes": 27221,
+      "sha256": "b7c3ac8c277ab557bf07ca1e721a4c7b5291bb830fcf3aa3c0e1a35502054028",
+      "legacy": false,
+      "has_component_logic": true,
+      "screen_label_markers": [],
+      "conditional_views": [],
+      "controls": [],
+      "click_bindings": [
+        {
+          "line": 109,
+          "tag": "button",
+          "handler": "{{ c.skip }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 113,
+          "tag": "button",
+          "handler": "{{ c.play }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 115,
+          "tag": "button",
+          "handler": "{{ m.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 117,
+          "tag": "button",
+          "handler": "{{ c.toggleSlow }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 13,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 30,
+          "attribute": "href",
+          "value": "#t1",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 48,
+          "attribute": "href",
+          "value": "{{ c.href }}",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 89,
+          "attribute": "src",
+          "value": "assets/motion/tile_empty.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 92,
+          "attribute": "src",
+          "value": "assets/motion/icon_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 101,
+          "attribute": "src",
+          "value": "assets/motion/wm_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 102,
+          "attribute": "src",
+          "value": "assets/motion/wm_e.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 103,
+          "attribute": "src",
+          "value": "assets/motion/wm_p.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 104,
+          "attribute": "src",
+          "value": "assets/motion/wm_i.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 133,
+          "attribute": "href",
+          "value": "#1a",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 133,
+          "attribute": "href",
+          "value": "#1b",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 133,
+          "attribute": "href",
+          "value": "#1c",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 133,
+          "attribute": "href",
+          "value": "#1a",
+          "kind": "external_or_dynamic_or_anchor"
+        }
+      ],
+      "documented_screens": [
+        {
+          "id": "SCR-MI-01",
+          "name": "Concepto intro 1a · El punto (APROBADO)",
+          "status": "interactive_prototype"
+        },
+        {
+          "id": "SCR-MI-02",
+          "name": "Concepto intro 1b · La repetición",
+          "status": "future_concept"
+        },
+        {
+          "id": "SCR-MI-03",
+          "name": "Concepto intro 1c · Símbolo vivo",
+          "status": "future_concept"
+        }
+      ]
+    },
+    {
+      "file": "prototypes/legacy/REPI App Alumno v1.dc.html",
+      "lines": 1226,
+      "bytes": 117891,
+      "sha256": "4d49b85e6b14c75ed1d15acd54885fd208506ac745138dfd496dd66098ccb9d2",
+      "legacy": true,
+      "has_component_logic": true,
+      "screen_label_markers": [
+        {
+          "line": 62,
+          "label": "Inicio"
+        },
+        {
+          "line": 136,
+          "label": "Entrenar"
+        },
+        {
+          "line": 186,
+          "label": "Entrenamiento activo"
+        },
+        {
+          "line": 291,
+          "label": "Entrenamiento completado"
+        },
+        {
+          "line": 323,
+          "label": "Progreso"
+        },
+        {
+          "line": 425,
+          "label": "Mi cuerpo"
+        },
+        {
+          "line": 636,
+          "label": "Comparación"
+        },
+        {
+          "line": 657,
+          "label": "Mensajes"
+        },
+        {
+          "line": 679,
+          "label": "Perfil y privacidad"
+        }
+      ],
+      "conditional_views": [
+        {
+          "line": 23,
+          "condition": "{{ showPanel }}"
+        },
+        {
+          "line": 61,
+          "condition": "{{ s.home }}"
+        },
+        {
+          "line": 135,
+          "condition": "{{ s.train }}"
+        },
+        {
+          "line": 147,
+          "condition": "{{ dayHasWorkout }}"
+        },
+        {
+          "line": 174,
+          "condition": "{{ dayIsRest }}"
+        },
+        {
+          "line": 185,
+          "condition": "{{ s.workout }}"
+        },
+        {
+          "line": 243,
+          "condition": "{{ resting }}"
+        },
+        {
+          "line": 252,
+          "condition": "{{ restPaused }}"
+        },
+        {
+          "line": 253,
+          "condition": "{{ restRunning }}"
+        },
+        {
+          "line": 262,
+          "condition": "{{ editing }}"
+        },
+        {
+          "line": 279,
+          "condition": "{{ exDone }}"
+        },
+        {
+          "line": 290,
+          "condition": "{{ s.done }}"
+        },
+        {
+          "line": 302,
+          "condition": "{{ hasPR }}"
+        },
+        {
+          "line": 322,
+          "condition": "{{ s.prog }}"
+        },
+        {
+          "line": 334,
+          "condition": "{{ pt.fuerza }}"
+        },
+        {
+          "line": 374,
+          "condition": "{{ pt.volumen }}"
+        },
+        {
+          "line": 387,
+          "condition": "{{ pt.constancia }}"
+        },
+        {
+          "line": 400,
+          "condition": "{{ pt.medidas }}"
+        },
+        {
+          "line": 424,
+          "condition": "{{ s.body }}"
+        },
+        {
+          "line": 432,
+          "condition": "{{ b.intro }}"
+        },
+        {
+          "line": 452,
+          "condition": "{{ b.consent }}"
+        },
+        {
+          "line": 469,
+          "condition": "{{ b.method }}"
+        },
+        {
+          "line": 483,
+          "condition": "{{ b.manual }}"
+        },
+        {
+          "line": 502,
+          "condition": "{{ b.capture }}"
+        },
+        {
+          "line": 521,
+          "condition": "{{ b.review }}"
+        },
+        {
+          "line": 535,
+          "condition": "{{ b.processing }}"
+        },
+        {
+          "line": 543,
+          "condition": "{{ b.failed }}"
+        },
+        {
+          "line": 560,
+          "condition": "{{ b.viewer }}"
+        },
+        {
+          "line": 567,
+          "condition": "{{ webglFail }}"
+        },
+        {
+          "line": 583,
+          "condition": "{{ layerMuscle }}"
+        },
+        {
+          "line": 594,
+          "condition": "{{ hasRegion }}"
+        },
+        {
+          "line": 600,
+          "condition": "{{ reg.flag }}"
+        },
+        {
+          "line": 610,
+          "condition": "{{ layerComp }}"
+        },
+        {
+          "line": 620,
+          "condition": "{{ showChanges }}"
+        },
+        {
+          "line": 635,
+          "condition": "{{ compare }}"
+        },
+        {
+          "line": 656,
+          "condition": "{{ s.msgs }}"
+        },
+        {
+          "line": 678,
+          "condition": "{{ s.perfil }}"
+        },
+        {
+          "line": 714,
+          "condition": "{{ showTabs }}"
+        },
+        {
+          "line": 729,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 489,
+          "tag": "input",
+          "type": "number",
+          "label": null
+        },
+        {
+          "line": 671,
+          "tag": "input",
+          "type": "text",
+          "label": "Mensaje"
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 38,
+          "tag": "button",
+          "handler": "{{ f.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 67,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 76,
+          "tag": "div",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 85,
+          "tag": "button",
+          "handler": "{{ startWorkoutStop }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 104,
+          "tag": "div",
+          "handler": "{{ goProgConst }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 108,
+          "tag": "div",
+          "handler": "{{ goProgVol }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 114,
+          "tag": "div",
+          "handler": "{{ goBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 124,
+          "tag": "div",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 140,
+          "tag": "button",
+          "handler": "{{ d.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 170,
+          "tag": "button",
+          "handler": "{{ startWorkout }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 189,
+          "tag": "button",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 196,
+          "tag": "button",
+          "handler": "{{ finishWorkout }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 211,
+          "tag": "button",
+          "handler": "{{ prevEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 212,
+          "tag": "button",
+          "handler": "{{ nextEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 228,
+          "tag": "div",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 251,
+          "tag": "button",
+          "handler": "{{ togglePause }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 255,
+          "tag": "button",
+          "handler": "{{ add30 }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 259,
+          "tag": "button",
+          "handler": "{{ skipRest }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 266,
+          "tag": "button",
+          "handler": "{{ wDown }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 268,
+          "tag": "button",
+          "handler": "{{ wUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 271,
+          "tag": "button",
+          "handler": "{{ rDown }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 273,
+          "tag": "button",
+          "handler": "{{ rUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 276,
+          "tag": "button",
+          "handler": "{{ completeSet }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 282,
+          "tag": "button",
+          "handler": "{{ afterEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 315,
+          "tag": "button",
+          "handler": "{{ goProg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 316,
+          "tag": "button",
+          "handler": "{{ goHome }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 326,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 330,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 336,
+          "tag": "button",
+          "handler": "{{ cycleLift }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 339,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 415,
+          "tag": "div",
+          "handler": "{{ goBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 427,
+          "tag": "button",
+          "handler": "{{ bodyBack }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 446,
+          "tag": "button",
+          "handler": "{{ toConsent }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 447,
+          "tag": "button",
+          "handler": "{{ declineBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 459,
+          "tag": "div",
+          "handler": "{{ c.toggle }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 466,
+          "tag": "button",
+          "handler": "{{ toMethod }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 475,
+          "tag": "div",
+          "handler": "{{ m.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 496,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 499,
+          "tag": "button",
+          "handler": "{{ saveManual }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 513,
+          "tag": "button",
+          "handler": "{{ shoot }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 527,
+          "tag": "button",
+          "handler": "{{ t.redo }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 532,
+          "tag": "button",
+          "handler": "{{ process }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 556,
+          "tag": "button",
+          "handler": "{{ toViewer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 557,
+          "tag": "button",
+          "handler": "{{ toCapture }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 562,
+          "tag": "button",
+          "handler": "{{ cycleDate }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 563,
+          "tag": "button",
+          "handler": "{{ openCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 572,
+          "tag": "button",
+          "handler": "{{ zoomIn }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 573,
+          "tag": "button",
+          "handler": "{{ zoomOut }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 574,
+          "tag": "button",
+          "handler": "{{ resetCam }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 577,
+          "tag": "button",
+          "handler": "{{ v.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 581,
+          "tag": "button",
+          "handler": "{{ l.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 591,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 598,
+          "tag": "button",
+          "handler": "{{ clearRegion }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 615,
+          "tag": "button",
+          "handler": "{{ uploadSoon }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 628,
+          "tag": "button",
+          "handler": "{{ toMethod }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 639,
+          "tag": "button",
+          "handler": "{{ closeCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 672,
+          "tag": "button",
+          "handler": "{{ send }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 687,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 694,
+          "tag": "div",
+          "handler": "{{ c.toggle }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 706,
+          "tag": "div",
+          "handler": "{{ cycleReminder }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 707,
+          "tag": "div",
+          "handler": "{{ exportData }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 708,
+          "tag": "div",
+          "handler": "{{ deleteBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 716,
+          "tag": "button",
+          "handler": "{{ goHome }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 718,
+          "tag": "button",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 720,
+          "tag": "button",
+          "handler": "{{ goProg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 722,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 724,
+          "tag": "button",
+          "handler": "{{ goPerfil }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 26,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 65,
+          "attribute": "src",
+          "value": "assets/repi_logo.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": []
+    },
+    {
+      "file": "prototypes/legacy/REPI App Alumno v2.dc.html",
+      "lines": 1386,
+      "bytes": 135958,
+      "sha256": "b1aa9bc2f01930f151dfef1ef90699595676ed0f095c828fd783d9d182599060",
+      "legacy": true,
+      "has_component_logic": true,
+      "screen_label_markers": [
+        {
+          "line": 62,
+          "label": "Inicio"
+        },
+        {
+          "line": 136,
+          "label": "Entrenar"
+        },
+        {
+          "line": 186,
+          "label": "Entrenamiento activo"
+        },
+        {
+          "line": 293,
+          "label": "Entrenamiento completado"
+        },
+        {
+          "line": 326,
+          "label": "Progreso"
+        },
+        {
+          "line": 428,
+          "label": "Mi cuerpo"
+        },
+        {
+          "line": 639,
+          "label": "Comparación"
+        },
+        {
+          "line": 660,
+          "label": "Mensajes"
+        },
+        {
+          "line": 682,
+          "label": "Perfil y privacidad"
+        }
+      ],
+      "conditional_views": [
+        {
+          "line": 23,
+          "condition": "{{ showPanel }}"
+        },
+        {
+          "line": 61,
+          "condition": "{{ s.home }}"
+        },
+        {
+          "line": 135,
+          "condition": "{{ s.train }}"
+        },
+        {
+          "line": 147,
+          "condition": "{{ dayHasWorkout }}"
+        },
+        {
+          "line": 174,
+          "condition": "{{ dayIsRest }}"
+        },
+        {
+          "line": 185,
+          "condition": "{{ s.workout }}"
+        },
+        {
+          "line": 243,
+          "condition": "{{ resting }}"
+        },
+        {
+          "line": 254,
+          "condition": "{{ restPaused }}"
+        },
+        {
+          "line": 255,
+          "condition": "{{ restRunning }}"
+        },
+        {
+          "line": 264,
+          "condition": "{{ editing }}"
+        },
+        {
+          "line": 281,
+          "condition": "{{ exDone }}"
+        },
+        {
+          "line": 292,
+          "condition": "{{ s.done }}"
+        },
+        {
+          "line": 304,
+          "condition": "{{ hasPR }}"
+        },
+        {
+          "line": 325,
+          "condition": "{{ s.prog }}"
+        },
+        {
+          "line": 337,
+          "condition": "{{ pt.fuerza }}"
+        },
+        {
+          "line": 377,
+          "condition": "{{ pt.volumen }}"
+        },
+        {
+          "line": 390,
+          "condition": "{{ pt.constancia }}"
+        },
+        {
+          "line": 403,
+          "condition": "{{ pt.medidas }}"
+        },
+        {
+          "line": 427,
+          "condition": "{{ s.body }}"
+        },
+        {
+          "line": 435,
+          "condition": "{{ b.intro }}"
+        },
+        {
+          "line": 455,
+          "condition": "{{ b.consent }}"
+        },
+        {
+          "line": 472,
+          "condition": "{{ b.method }}"
+        },
+        {
+          "line": 486,
+          "condition": "{{ b.manual }}"
+        },
+        {
+          "line": 505,
+          "condition": "{{ b.capture }}"
+        },
+        {
+          "line": 524,
+          "condition": "{{ b.review }}"
+        },
+        {
+          "line": 538,
+          "condition": "{{ b.processing }}"
+        },
+        {
+          "line": 546,
+          "condition": "{{ b.failed }}"
+        },
+        {
+          "line": 563,
+          "condition": "{{ b.viewer }}"
+        },
+        {
+          "line": 570,
+          "condition": "{{ webglFail }}"
+        },
+        {
+          "line": 586,
+          "condition": "{{ layerMuscle }}"
+        },
+        {
+          "line": 597,
+          "condition": "{{ hasRegion }}"
+        },
+        {
+          "line": 603,
+          "condition": "{{ reg.flag }}"
+        },
+        {
+          "line": 613,
+          "condition": "{{ layerComp }}"
+        },
+        {
+          "line": 623,
+          "condition": "{{ showChanges }}"
+        },
+        {
+          "line": 638,
+          "condition": "{{ compare }}"
+        },
+        {
+          "line": 659,
+          "condition": "{{ s.msgs }}"
+        },
+        {
+          "line": 681,
+          "condition": "{{ s.perfil }}"
+        },
+        {
+          "line": 719,
+          "condition": "{{ showTabs }}"
+        },
+        {
+          "line": 734,
+          "condition": "{{ introOn }}"
+        },
+        {
+          "line": 752,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 492,
+          "tag": "input",
+          "type": "number",
+          "label": null
+        },
+        {
+          "line": 674,
+          "tag": "input",
+          "type": "text",
+          "label": "Mensaje"
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 38,
+          "tag": "button",
+          "handler": "{{ f.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 67,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 76,
+          "tag": "div",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 85,
+          "tag": "button",
+          "handler": "{{ startWorkoutStop }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 104,
+          "tag": "div",
+          "handler": "{{ goProgConst }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 108,
+          "tag": "div",
+          "handler": "{{ goProgVol }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 114,
+          "tag": "div",
+          "handler": "{{ goBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 124,
+          "tag": "div",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 140,
+          "tag": "button",
+          "handler": "{{ d.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 170,
+          "tag": "button",
+          "handler": "{{ startWorkout }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 189,
+          "tag": "button",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 196,
+          "tag": "button",
+          "handler": "{{ finishWorkout }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 211,
+          "tag": "button",
+          "handler": "{{ prevEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 212,
+          "tag": "button",
+          "handler": "{{ nextEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 228,
+          "tag": "div",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 253,
+          "tag": "button",
+          "handler": "{{ togglePause }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 257,
+          "tag": "button",
+          "handler": "{{ add30 }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 261,
+          "tag": "button",
+          "handler": "{{ skipRest }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 268,
+          "tag": "button",
+          "handler": "{{ wDown }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 270,
+          "tag": "button",
+          "handler": "{{ wUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 273,
+          "tag": "button",
+          "handler": "{{ rDown }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 275,
+          "tag": "button",
+          "handler": "{{ rUp }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 278,
+          "tag": "button",
+          "handler": "{{ completeSet }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 284,
+          "tag": "button",
+          "handler": "{{ afterEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 318,
+          "tag": "button",
+          "handler": "{{ goProg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 319,
+          "tag": "button",
+          "handler": "{{ goHome }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 329,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 333,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 339,
+          "tag": "button",
+          "handler": "{{ cycleLift }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 342,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 418,
+          "tag": "div",
+          "handler": "{{ goBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 430,
+          "tag": "button",
+          "handler": "{{ bodyBack }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 449,
+          "tag": "button",
+          "handler": "{{ toConsent }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 450,
+          "tag": "button",
+          "handler": "{{ declineBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 462,
+          "tag": "div",
+          "handler": "{{ c.toggle }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 469,
+          "tag": "button",
+          "handler": "{{ toMethod }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 478,
+          "tag": "div",
+          "handler": "{{ m.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 499,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 502,
+          "tag": "button",
+          "handler": "{{ saveManual }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 516,
+          "tag": "button",
+          "handler": "{{ shoot }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 530,
+          "tag": "button",
+          "handler": "{{ t.redo }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 535,
+          "tag": "button",
+          "handler": "{{ process }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 559,
+          "tag": "button",
+          "handler": "{{ toViewer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 560,
+          "tag": "button",
+          "handler": "{{ toCapture }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 565,
+          "tag": "button",
+          "handler": "{{ cycleDate }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 566,
+          "tag": "button",
+          "handler": "{{ openCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 575,
+          "tag": "button",
+          "handler": "{{ zoomIn }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 576,
+          "tag": "button",
+          "handler": "{{ zoomOut }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 577,
+          "tag": "button",
+          "handler": "{{ resetCam }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 580,
+          "tag": "button",
+          "handler": "{{ v.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 584,
+          "tag": "button",
+          "handler": "{{ l.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 594,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 601,
+          "tag": "button",
+          "handler": "{{ clearRegion }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 618,
+          "tag": "button",
+          "handler": "{{ uploadSoon }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 631,
+          "tag": "button",
+          "handler": "{{ toMethod }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 642,
+          "tag": "button",
+          "handler": "{{ closeCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 675,
+          "tag": "button",
+          "handler": "{{ send }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 690,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 697,
+          "tag": "div",
+          "handler": "{{ c.toggle }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 709,
+          "tag": "div",
+          "handler": "{{ cycleReminder }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 710,
+          "tag": "div",
+          "handler": "{{ toggleCeleb }}",
+          "role": "switch",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 711,
+          "tag": "div",
+          "handler": "{{ replayIntro }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 712,
+          "tag": "div",
+          "handler": "{{ exportData }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 713,
+          "tag": "div",
+          "handler": "{{ deleteBody }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 721,
+          "tag": "button",
+          "handler": "{{ goHome }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 723,
+          "tag": "button",
+          "handler": "{{ goTrain }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 725,
+          "tag": "button",
+          "handler": "{{ goProg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 727,
+          "tag": "button",
+          "handler": "{{ goMsgs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 729,
+          "tag": "button",
+          "handler": "{{ goPerfil }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 749,
+          "tag": "button",
+          "handler": "{{ skipIntro }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 26,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 65,
+          "attribute": "src",
+          "value": "assets/repi_logo.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 738,
+          "attribute": "src",
+          "value": "assets/motion/tile_empty.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 739,
+          "attribute": "src",
+          "value": "assets/motion/icon_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 743,
+          "attribute": "src",
+          "value": "assets/motion/wm_r.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 744,
+          "attribute": "src",
+          "value": "assets/motion/wm_e.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 745,
+          "attribute": "src",
+          "value": "assets/motion/wm_p.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 746,
+          "attribute": "src",
+          "value": "assets/motion/wm_i.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": []
+    },
+    {
+      "file": "prototypes/legacy/REPI Escritorio (incompleto).dc.html",
+      "lines": 917,
+      "bytes": 118915,
+      "sha256": "005bb959fa9b7b18a704177da52e293ef63b640674d699ed55f8a3a01a88d994",
+      "legacy": true,
+      "has_component_logic": false,
+      "screen_label_markers": [],
+      "conditional_views": [
+        {
+          "line": 24,
+          "condition": "{{ L.scrim }}"
+        },
+        {
+          "line": 28,
+          "condition": "{{ L.labels }}"
+        },
+        {
+          "line": 31,
+          "condition": "{{ L.mini }}"
+        },
+        {
+          "line": 37,
+          "condition": "{{ L.labels }}"
+        },
+        {
+          "line": 42,
+          "condition": "{{ wsOpen }}"
+        },
+        {
+          "line": 69,
+          "condition": "{{ L.labels }}"
+        },
+        {
+          "line": 70,
+          "condition": "{{ n.hasBadge }}"
+        },
+        {
+          "line": 76,
+          "condition": "{{ L.labels }}"
+        },
+        {
+          "line": 84,
+          "condition": "{{ L.labels }}"
+        },
+        {
+          "line": 90,
+          "condition": "{{ L.narrow }}"
+        },
+        {
+          "line": 101,
+          "condition": "{{ searchShow }}"
+        },
+        {
+          "line": 106,
+          "condition": "{{ searchEmpty }}"
+        },
+        {
+          "line": 117,
+          "condition": "{{ v.cHome }}"
+        },
+        {
+          "line": 137,
+          "condition": "{{ ch.noPending }}"
+        },
+        {
+          "line": 161,
+          "condition": "{{ v.cClients }}"
+        },
+        {
+          "line": 163,
+          "condition": "{{ cc.showList }}"
+        },
+        {
+          "line": 171,
+          "condition": "{{ cc.bulk }}"
+        },
+        {
+          "line": 185,
+          "condition": "{{ r.hasFlag }}"
+        },
+        {
+          "line": 188,
+          "condition": "{{ cc.empty }}"
+        },
+        {
+          "line": 192,
+          "condition": "{{ cc.showDetail }}"
+        },
+        {
+          "line": 195,
+          "condition": "{{ L.single }}"
+        },
+        {
+          "line": 205,
+          "condition": "{{ cd.t.resumen }}"
+        },
+        {
+          "line": 218,
+          "condition": "{{ cd.t.progreso }}"
+        },
+        {
+          "line": 234,
+          "condition": "{{ cd.t.cuerpo }}"
+        },
+        {
+          "line": 236,
+          "condition": "{{ cd.bodyShared }}"
+        },
+        {
+          "line": 245,
+          "condition": "{{ cd.t.pagos }}"
+        },
+        {
+          "line": 255,
+          "condition": "{{ v.cBuilder }}"
+        },
+        {
+          "line": 257,
+          "condition": "{{ pb.showList }}"
+        },
+        {
+          "line": 267,
+          "condition": "{{ pb.showSelect }}"
+        },
+        {
+          "line": 295,
+          "condition": "{{ pb.dayEmpty }}"
+        },
+        {
+          "line": 310,
+          "condition": "{{ v.cMsgs }}"
+        },
+        {
+          "line": 312,
+          "condition": "{{ cm.showList }}"
+        },
+        {
+          "line": 323,
+          "condition": "{{ cm.showThread }}"
+        },
+        {
+          "line": 326,
+          "condition": "{{ L.single }}"
+        },
+        {
+          "line": 343,
+          "condition": "{{ v.cPay }}"
+        },
+        {
+          "line": 356,
+          "condition": "{{ r.canAct }}"
+        },
+        {
+          "line": 373,
+          "condition": "{{ v.fShift }}"
+        },
+        {
+          "line": 374,
+          "condition": "{{ fs.notStarted }}"
+        },
+        {
+          "line": 389,
+          "condition": "{{ fs.started }}"
+        },
+        {
+          "line": 407,
+          "condition": "{{ t.canTake }}"
+        },
+        {
+          "line": 409,
+          "condition": "{{ t.canComplete }}"
+        },
+        {
+          "line": 413,
+          "condition": "{{ fs.nowEmpty }}"
+        },
+        {
+          "line": 426,
+          "condition": "{{ fs.noIncoming }}"
+        },
+        {
+          "line": 437,
+          "condition": "{{ v.fQueue }}"
+        },
+        {
+          "line": 457,
+          "condition": "{{ t.canTake }}"
+        },
+        {
+          "line": 459,
+          "condition": "{{ t.canComplete }}"
+        },
+        {
+          "line": 463,
+          "condition": "{{ fq.empty }}"
+        },
+        {
+          "line": 469,
+          "condition": "{{ v.fMembers }}"
+        },
+        {
+          "line": 471,
+          "condition": "{{ fm.showList }}"
+        },
+        {
+          "line": 483,
+          "condition": "{{ fm.showDetail }}"
+        },
+        {
+          "line": 485,
+          "condition": "{{ fm.none }}"
+        },
+        {
+          "line": 486,
+          "condition": "{{ fm.has }}"
+        },
+        {
+          "line": 489,
+          "condition": "{{ L.single }}"
+        },
+        {
+          "line": 496,
+          "condition": "{{ t.canTake }}"
+        },
+        {
+          "line": 497,
+          "condition": "{{ t.canComplete }}"
+        },
+        {
+          "line": 504,
+          "condition": "{{ md.hasProg }}"
+        },
+        {
+          "line": 506,
+          "condition": "{{ md.noProg }}"
+        },
+        {
+          "line": 512,
+          "condition": "{{ md.hasProg }}"
+        },
+        {
+          "line": 564,
+          "condition": "{{ v.fPerf }}"
+        },
+        {
+          "line": 573,
+          "condition": "{{ m.open }}"
+        },
+        {
+          "line": 586,
+          "condition": "{{ r.hasTxt }}"
+        },
+        {
+          "line": 588,
+          "condition": "{{ r.hasReply }}"
+        },
+        {
+          "line": 589,
+          "condition": "{{ r.replying }}"
+        },
+        {
+          "line": 591,
+          "condition": "{{ r.canReply }}"
+        },
+        {
+          "line": 592,
+          "condition": "{{ r.canReport }}"
+        },
+        {
+          "line": 603,
+          "condition": "{{ x.canDispute }}"
+        },
+        {
+          "line": 604,
+          "condition": "{{ x.disputed }}"
+        },
+        {
+          "line": 606,
+          "condition": "{{ x.disputing }}"
+        },
+        {
+          "line": 614,
+          "condition": "{{ v.mHome }}"
+        },
+        {
+          "line": 659,
+          "condition": "{{ v.mPerf }}"
+        },
+        {
+          "line": 669,
+          "condition": "{{ pc.isTable }}"
+        },
+        {
+          "line": 687,
+          "condition": "{{ pc.empty }}"
+        },
+        {
+          "line": 690,
+          "condition": "{{ pc.showCompare }}"
+        },
+        {
+          "line": 703,
+          "condition": "{{ pc.isOut }}"
+        },
+        {
+          "line": 711,
+          "condition": "{{ v.mTrainer }}"
+        },
+        {
+          "line": 733,
+          "condition": "{{ td.smallSample }}"
+        },
+        {
+          "line": 740,
+          "condition": "{{ td.noTasks }}"
+        },
+        {
+          "line": 745,
+          "condition": "{{ td.denied }}"
+        },
+        {
+          "line": 758,
+          "condition": "{{ v.mTeam }}"
+        },
+        {
+          "line": 771,
+          "condition": "{{ v.mTasks }}"
+        },
+        {
+          "line": 791,
+          "condition": "{{ mk.empty }}"
+        },
+        {
+          "line": 797,
+          "condition": "{{ v.mReviews }}"
+        },
+        {
+          "line": 801,
+          "condition": "{{ mr.isSummary }}"
+        },
+        {
+          "line": 814,
+          "condition": "{{ mr.isMod }}"
+        },
+        {
+          "line": 825,
+          "condition": "{{ mr.noSel }}"
+        },
+        {
+          "line": 826,
+          "condition": "{{ mr.hasSel }}"
+        },
+        {
+          "line": 830,
+          "condition": "{{ mc.open }}"
+        },
+        {
+          "line": 834,
+          "condition": "{{ mc.resolved }}"
+        },
+        {
+          "line": 846,
+          "condition": "{{ v.mShifts }}"
+        },
+        {
+          "line": 874,
+          "condition": "{{ ho.open }}"
+        },
+        {
+          "line": 886,
+          "condition": "{{ ho.none }}"
+        },
+        {
+          "line": 896,
+          "condition": "{{ as.open }}"
+        },
+        {
+          "line": 911,
+          "condition": "{{ hasToast }}"
+        }
+      ],
+      "controls": [
+        {
+          "line": 99,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar"
+        },
+        {
+          "line": 166,
+          "tag": "input",
+          "type": "text",
+          "label": "Filtrar clientes"
+        },
+        {
+          "line": 215,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Nota privada del coach"
+        },
+        {
+          "line": 268,
+          "tag": "select",
+          "type": "text",
+          "label": "Programa"
+        },
+        {
+          "line": 270,
+          "tag": "input",
+          "type": "text",
+          "label": "Nombre del programa"
+        },
+        {
+          "line": 289,
+          "tag": "input",
+          "type": "text",
+          "label": "Series"
+        },
+        {
+          "line": 290,
+          "tag": "input",
+          "type": "text",
+          "label": "Repeticiones"
+        },
+        {
+          "line": 291,
+          "tag": "input",
+          "type": "text",
+          "label": "Descanso"
+        },
+        {
+          "line": 301,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar ejercicio"
+        },
+        {
+          "line": 334,
+          "tag": "input",
+          "type": "text",
+          "label": "Respuesta"
+        },
+        {
+          "line": 473,
+          "tag": "input",
+          "type": "text",
+          "label": "Buscar socio"
+        },
+        {
+          "line": 509,
+          "tag": "select",
+          "type": "text",
+          "label": "Plantilla"
+        },
+        {
+          "line": 518,
+          "tag": "input",
+          "type": "text",
+          "label": "Series"
+        },
+        {
+          "line": 519,
+          "tag": "input",
+          "type": "text",
+          "label": "Repeticiones"
+        },
+        {
+          "line": 520,
+          "tag": "input",
+          "type": "text",
+          "label": "Descanso"
+        },
+        {
+          "line": 526,
+          "tag": "select",
+          "type": "text",
+          "label": "Agregar ejercicio"
+        },
+        {
+          "line": 536,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Nueva nota institucional"
+        },
+        {
+          "line": 544,
+          "tag": "select",
+          "type": "text",
+          "label": "Categoría"
+        },
+        {
+          "line": 545,
+          "tag": "select",
+          "type": "text",
+          "label": "Responsable"
+        },
+        {
+          "line": 547,
+          "tag": "input",
+          "type": "text",
+          "label": "Resumen del seguimiento"
+        },
+        {
+          "line": 589,
+          "tag": "input",
+          "type": "text",
+          "label": "Responder reseña"
+        },
+        {
+          "line": 606,
+          "tag": "input",
+          "type": "text",
+          "label": "Motivo de la disputa"
+        },
+        {
+          "line": 785,
+          "tag": "select",
+          "type": "text",
+          "label": "Responsable"
+        },
+        {
+          "line": 831,
+          "tag": "textarea",
+          "type": "text",
+          "label": "Motivo de la resolución"
+        },
+        {
+          "line": 888,
+          "tag": "select",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 889,
+          "tag": "input",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 900,
+          "tag": "select",
+          "type": "text",
+          "label": null
+        },
+        {
+          "line": 905,
+          "tag": "select",
+          "type": "text",
+          "label": null
+        }
+      ],
+      "click_bindings": [
+        {
+          "line": 24,
+          "tag": "div",
+          "handler": "{{ closeDrawer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 35,
+          "tag": "button",
+          "handler": "{{ toggleWs }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 46,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": "menuitem",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 55,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": "menuitem",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 66,
+          "tag": "button",
+          "handler": "{{ n.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 91,
+          "tag": "button",
+          "handler": "{{ openDrawer }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 104,
+          "tag": "button",
+          "handler": "{{ r.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 120,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 131,
+          "tag": "button",
+          "handler": "{{ p.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 145,
+          "tag": "button",
+          "handler": "{{ a.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 168,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 174,
+          "tag": "button",
+          "handler": "{{ cc.bulkAssign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 175,
+          "tag": "button",
+          "handler": "{{ cc.bulkMsg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 176,
+          "tag": "button",
+          "handler": "{{ cc.bulkClear }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 181,
+          "tag": "div",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": "0",
+          "keyboard_handler": "{{ r.key }}"
+        },
+        {
+          "line": 182,
+          "tag": "button",
+          "handler": "{{ r.check }}",
+          "role": "checkbox",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 195,
+          "tag": "button",
+          "handler": "{{ cc.back }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 198,
+          "tag": "button",
+          "handler": "{{ cd.msg }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 199,
+          "tag": "button",
+          "handler": "{{ cd.assign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 202,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 220,
+          "tag": "button",
+          "handler": "{{ x.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 260,
+          "tag": "button",
+          "handler": "{{ p.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 261,
+          "tag": "button",
+          "handler": "{{ pb.create }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 274,
+          "tag": "button",
+          "handler": "{{ pb.dup }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 275,
+          "tag": "button",
+          "handler": "{{ pb.assign }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 279,
+          "tag": "button",
+          "handler": "{{ d.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 280,
+          "tag": "button",
+          "handler": "{{ pb.addDay }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 292,
+          "tag": "button",
+          "handler": "{{ e.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 303,
+          "tag": "button",
+          "handler": "{{ x.add }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 315,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 326,
+          "tag": "button",
+          "handler": "{{ cm.back }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 335,
+          "tag": "button",
+          "handler": "{{ cm.send }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 349,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 356,
+          "tag": "button",
+          "handler": "{{ r.remind }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 356,
+          "tag": "button",
+          "handler": "{{ r.paid }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 367,
+          "tag": "button",
+          "handler": "{{ cp.history }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 384,
+          "tag": "button",
+          "handler": "{{ fs.start }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 393,
+          "tag": "button",
+          "handler": "{{ fs.openHandoff }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 397,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 401,
+          "tag": "button",
+          "handler": "{{ goQueue }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 407,
+          "tag": "button",
+          "handler": "{{ t.take }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 408,
+          "tag": "button",
+          "handler": "{{ t.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 409,
+          "tag": "button",
+          "handler": "{{ t.complete }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 423,
+          "tag": "button",
+          "handler": "{{ t.accept }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 423,
+          "tag": "button",
+          "handler": "{{ t.decline }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 440,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 457,
+          "tag": "button",
+          "handler": "{{ t.take }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 458,
+          "tag": "button",
+          "handler": "{{ t.open }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 459,
+          "tag": "button",
+          "handler": "{{ t.complete }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 475,
+          "tag": "button",
+          "handler": "{{ r.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 489,
+          "tag": "button",
+          "handler": "{{ fm.back }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 496,
+          "tag": "button",
+          "handler": "{{ t.take }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 497,
+          "tag": "button",
+          "handler": "{{ t.complete }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 504,
+          "tag": "button",
+          "handler": "{{ md.save }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 509,
+          "tag": "button",
+          "handler": "{{ md.loadTpl }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 521,
+          "tag": "button",
+          "handler": "{{ e.remove }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 527,
+          "tag": "button",
+          "handler": "{{ md.addEx }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 537,
+          "tag": "button",
+          "handler": "{{ md.saveNote }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 548,
+          "tag": "button",
+          "handler": "{{ md.createFu }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 572,
+          "tag": "button",
+          "handler": "{{ m.toggle }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 589,
+          "tag": "button",
+          "handler": "{{ r.sendReply }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 591,
+          "tag": "button",
+          "handler": "{{ r.startReply }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 592,
+          "tag": "button",
+          "handler": "{{ r.report }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 603,
+          "tag": "button",
+          "handler": "{{ x.openDispute }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 606,
+          "tag": "button",
+          "handler": "{{ x.send }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 617,
+          "tag": "button",
+          "handler": "{{ k.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 626,
+          "tag": "button",
+          "handler": "{{ goShifts }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 628,
+          "tag": "button",
+          "handler": "{{ t.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 638,
+          "tag": "button",
+          "handler": "{{ o.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 662,
+          "tag": "button",
+          "handler": "{{ o.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 666,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 673,
+          "tag": "button",
+          "handler": "{{ pc.toggleCompare }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 681,
+          "tag": "div",
+          "handler": "{{ r.open }}",
+          "role": null,
+          "tabindex": "0",
+          "keyboard_handler": "{{ r.key }}"
+        },
+        {
+          "line": 682,
+          "tag": "button",
+          "handler": "{{ r.check }}",
+          "role": "checkbox",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 713,
+          "tag": "button",
+          "handler": "{{ td.back }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 744,
+          "tag": "button",
+          "handler": "{{ td.tryPrivate }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 761,
+          "tag": "button",
+          "handler": "{{ p.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 773,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 799,
+          "tag": "button",
+          "handler": "{{ t.pick }}",
+          "role": "tab",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 805,
+          "tag": "button",
+          "handler": "{{ r.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 818,
+          "tag": "button",
+          "handler": "{{ c.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 832,
+          "tag": "button",
+          "handler": "{{ a.go }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 848,
+          "tag": "button",
+          "handler": "{{ f.pick }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 857,
+          "tag": "button",
+          "handler": "{{ c.cycle }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 875,
+          "tag": "div",
+          "handler": "{{ ho.close }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 876,
+          "tag": "div",
+          "handler": "{{ stop }}",
+          "role": "dialog",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 881,
+          "tag": "button",
+          "handler": "{{ t.toggle }}",
+          "role": "checkbox",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 890,
+          "tag": "button",
+          "handler": "{{ ho.close }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 890,
+          "tag": "button",
+          "handler": "{{ ho.confirm }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 897,
+          "tag": "div",
+          "handler": "{{ as.close }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 898,
+          "tag": "div",
+          "handler": "{{ stop }}",
+          "role": "dialog",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 903,
+          "tag": "button",
+          "handler": "{{ c.toggle }}",
+          "role": "checkbox",
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 906,
+          "tag": "button",
+          "handler": "{{ as.close }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        },
+        {
+          "line": 906,
+          "tag": "button",
+          "handler": "{{ as.confirm }}",
+          "role": null,
+          "tabindex": null,
+          "keyboard_handler": null
+        }
+      ],
+      "src_href_references": [
+        {
+          "line": 6,
+          "attribute": "src",
+          "value": "./support.js",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 11,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 12,
+          "attribute": "href",
+          "value": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+          "kind": "external_or_dynamic_or_anchor"
+        },
+        {
+          "line": 29,
+          "attribute": "src",
+          "value": "assets/motion/wm_full.png",
+          "kind": "local",
+          "exists": true
+        },
+        {
+          "line": 31,
+          "attribute": "src",
+          "value": "assets/repi_icon.png",
+          "kind": "local",
+          "exists": true
+        }
+      ],
+      "documented_screens": [
+        {
+          "id": "SCR-L-01",
+          "name": "REPI Escritorio (desktop unificado, incompleto)",
+          "status": "partially_designed"
+        }
+      ]
+    }
+  ]
+}
