@@ -42,6 +42,10 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
   const flash = useCallback((t: string) => { clearTimeout(tt.current); setToast(t); tt.current = setTimeout(() => setToast(null), 3000); }, []);
   const reload = useCallback(() => api<Overview>(`/api/coach/${orgId}/overview`).then(setOv).catch((e) => setErr(e.message)), [orgId]);
   useEffect(() => { reload(); }, [reload]);
+  // F-BL-05: cambios de condiciones REPI sin «Entendido»; se recalcula al cambiar de pantalla.
+  const [termsNew, setTermsNew] = useState(0);
+  const termsSeen = useCallback(() => { api<{ unacked: number }>(`/api/conditions/${orgId}`).then((x) => setTermsNew(x.unacked)).catch(() => setTermsNew(0)); }, [orgId]);
+  useEffect(() => { termsSeen(); }, [termsSeen, screen]);
 
   // Estado de navegación en la URL: recargar conserva pantalla, cliente y programa (lectura inicial desde el servidor).
   useEffect(() => {
@@ -87,6 +91,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "inbox" && !!ov?.inbox && <span className="nbadge" aria-label={`${ov.inbox} sin ver`}>{ov.inbox}</span>}
               {k === "msgs" && !!ov?.msgs && <span className="nbadge" aria-label={`${ov.msgs} conversaciones sin leer`}>{ov.msgs}</span>}
+              {k === "terms" && termsNew > 0 && <span className="nbadge" aria-label={`${termsNew} cambios de condiciones sin revisar`}>{termsNew}</span>}
             </button>
           ))}
         </nav>
@@ -113,7 +118,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
               {screen === "msgs" && <ChatPane listUrl={`/api/coach/${orgId}/messages`} kicker="Conversaciones privadas entre vos y cada cliente" emptyText="Todavía no tenés clientes. Las conversaciones aparecen cuando aceptan tu invitación."
                 initial={sel} onSeen={reload} profile={(t) => <button type="button" className="btn sm" onClick={() => go("clients", { sel: t.relId })}>Ver perfil →</button>} />}
               {screen === "pay" && <CoachPayments orgId={orgId} flash={flash} openClient={(id) => go("clients", { sel: id })} />}
-              {screen === "terms" && <ConditionsScreen orgId={orgId} flash={flash} unit="alumnos" />}
+              {screen === "terms" && <ConditionsScreen orgId={orgId} flash={flash} unit="alumnos" onSeen={termsSeen} />}
             </>
           )}
         </div>

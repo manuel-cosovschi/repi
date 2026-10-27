@@ -1131,6 +1131,23 @@ export const billingPayment = pgTable("billing_payment", {
   voidedAt: ts("voided_at"),
 }, (t) => [index("billing_payment_contract_idx").on(t.contractId, t.receivedOn)]);
 
+// Avisos al cliente sobre sus condiciones (F-BL-05, D103): cambio de cantidad/precio, prueba, suspensión y criterio de
+// conteo. Inmutables; el correo al responsable queda con su entrega real y el «Entendido» con quién y cuándo.
+export const contractNotice = pgTable("contract_notice", {
+  id: id(),
+  contractId: text("contract_id").notNull().references(() => clientContract.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["term", "trial", "trial_ending", "trial_ended", "suspended", "enabled", "definition"] }).notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  effectiveFrom: text("effective_from"), // AAAA-MM-DD, si el cambio tiene fecha de efecto
+  dedupeKey: text("dedupe_key").notNull(), // los automáticos (fin de prueba) no se repiten
+  createdBy: text("created_by").references(() => user.id), // null = generado por el job
+  createdAt: now("created_at"),
+  delivery: text("delivery", { enum: ["submitted", "local_only", "failed"] }),
+  ackBy: text("ack_by").references(() => user.id),
+  ackAt: ts("ack_at"),
+}, (t) => [uniqueIndex("contract_notice_dedupe_uq").on(t.contractId, t.dedupeKey), index("contract_notice_contract_idx").on(t.contractId, t.createdAt)]);
+
 export const correctionRequest = pgTable("correction_request", {
   id: id(),
   contractId: text("contract_id").notNull().references(() => clientContract.id, { onDelete: "cascade" }),

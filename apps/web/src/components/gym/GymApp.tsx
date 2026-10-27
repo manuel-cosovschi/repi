@@ -60,7 +60,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const [loc, setLoc] = useState<string | null>(initial.loc ?? null);
   const [toast, setToast] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
-  const [badges, setBadges] = useState<{ queue: number; msgs: number; validations: number; joins: number; notices: number }>({ queue: 0, msgs: 0, validations: 0, joins: 0, notices: 0 });
+  const [badges, setBadges] = useState<{ queue: number; msgs: number; validations: number; joins: number; notices: number; billing: number }>({ queue: 0, msgs: 0, validations: 0, joins: 0, notices: 0, billing: 0 });
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mainRef = useRef<HTMLDivElement>(null);
   const flash = useCallback((t: string) => { clearTimeout(tt.current); setToast(t); tt.current = setTimeout(() => setToast(null), 3500); }, []);
@@ -76,6 +76,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
 
   const refreshBadges = useCallback(() => {
     if (ctx && navFor(ctx).some((n) => n[0] === "notices")) api<{ unread: number }>(`/api/gym/${orgId}/notices`).then((x) => setBadges((b) => ({ ...b, notices: x.unread }))).catch(() => {});
+    if (ctx?.roles.includes("owner")) api<{ unacked: number }>(`/api/conditions/${orgId}`).then((x) => setBadges((b) => ({ ...b, billing: x.unacked }))).catch(() => {});
     if (ctx && can(ctx, "challenges.validate")) api<{ pending: unknown[] }>(`/api/gym/${orgId}/validations`).then((v) => setBadges((b) => ({ ...b, validations: v.pending.length }))).catch(() => {});
     if (ctx && (can(ctx, "members.approve") || can(ctx, "members.validate"))) {
       api<{ canActAt: { id: string }[]; requests: { status: string; locationId: string }[] }>(`/api/gym/${orgId}/joins`)
@@ -135,6 +136,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
             <button key={k} type="button" title={l} aria-current={screen === k ? "page" : undefined} onClick={() => go(k)}>
               <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
+              {k === "billing" && badges.billing > 0 && <span className="nbadge" aria-label={`${badges.billing} cambios de condiciones sin revisar`}>{badges.billing}</span>}
               {k === "notices" && badges.notices > 0 && <span className="nbadge" aria-label={`${badges.notices} avisos sin leer`}>{badges.notices}</span>}
               {k === "queue" && badges.queue > 0 && <span className="nbadge" aria-label={`${badges.queue} pendientes`}>{badges.queue}</span>}
               {k === "msgs" && badges.msgs > 0 && <span className="nbadge" aria-label={`${badges.msgs} conversaciones sin leer`}>{badges.msgs}</span>}
@@ -176,7 +178,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "reception" && <ReceptionScreen shell={shell} />}
           {screen === "community" && <CommunityScreen shell={shell} />}
           {screen === "validations" && <ValidationsScreen shell={shell} />}
-          {screen === "billing" && <ConditionsScreen orgId={orgId} flash={flash} unit="socios" />}
+          {screen === "billing" && <ConditionsScreen orgId={orgId} flash={flash} unit="socios" onSeen={refreshBadges} />}
           {screen === "joins" && <JoinsScreen shell={shell} />}
           {screen === "accesses" && <AccessesScreen shell={shell} />}
         </div>

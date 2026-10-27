@@ -54,6 +54,8 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       case "accept": return cm.recordAcceptance(me, b, await body(req, z.object({ method: z.enum(["external", "in_app"]), ref: z.string().max(200), acceptedAt: day, termsVersion: z.string().max(40) })));
       case "enable": return cm.enableClient(me, b, await body(req, z.object({ trialUntil: day.nullable().optional() })));
       case "suspend": return cm.suspendClient(me, b, (await body(req, z.object({ reason: z.string().max(300) }))).reason);
+      case "trial": return cm.setTrial(me, b, await body(req, z.object({ trialUntil: day.nullable(), reason: z.string().max(300) })));
+      case "definition": return cm.setQuantityDefinition(me, b, await body(req, z.object({ definition: z.string().max(300), reason: z.string().max(300) })));
       case "terms": return cm.addTerm(me, b, await body(req, z.object({ kind: z.enum(["quantity", "unit_price"]), value: z.number().int().nonnegative(), effectiveFrom: day, reason: z.string().max(300), evidence: z.string().max(300).nullable().optional() })));
       case "payments": return bp.recordPayment(me, b, await body(req, z.object({
         amountMinor: z.number().int(), receivedOn: day, method: z.enum(["transferencia", "deposito", "efectivo", "otro"]), reference: z.string().max(200),

@@ -29,8 +29,11 @@ type Detail = {
   invitations: { id: string; email: string | null; status: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null; expiresAt: string; createdAt: string }[];
   snapshots: { id: string; periodStart: string; periodEnd: string; quantity: number; unitPriceMinor: number; currency: string; subtotalTxt: string; createdAt: string }[];
   corrections: { id: string; text: string; status: string; answer: string | null; createdAt: string }[];
+  notices: { id: string; kind: string; title: string; body: string; at: string; delivery: "submitted" | "local_only" | "failed" | null; ackAt: string | null; ackBy: string | null }[];
   pending: string[];
 };
+// Correo de avisos de condiciones (F-BL-05). Igual que la bienvenida: «aceptado por el proveedor» no se destaca.
+const NOTICE_MAIL = { local_only: ["Sólo buzón local", "mute"], failed: ["Correo rechazado · el aviso sigue en la app", "bad"] } as const;
 const CST: Record<string, [string, string]> = { draft: ["Borrador", "mute"], accepted: ["Aceptado", "info"], enabled: ["Habilitado", "ok"], suspended: ["Suspendido", "warn"], ended: ["Finalizado", "mute"] };
 const today = () => new Date().toISOString().slice(0, 10);
 const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); return { start: `${d.slice(0, 7)}-01`, end }; };
@@ -445,6 +448,11 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           </>}
           {c.status === "enabled" && <>
             <span style={{ fontSize: 14 }}>Habilitado {c.enabledAt ? fmt(c.enabledAt) : ""}{c.trialUntil ? ` · prueba hasta ${c.trialUntil}` : ""}</span>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <label className="field" style={{ flex: 1, minWidth: 160 }}>{c.trialUntil ? "Mover fin de prueba a" : "Conceder prueba hasta"}<input type="date" min={today()} value={trial} onChange={(e) => setTrial(e.target.value)} /></label>
+              <button type="button" className="btn" aria-busy={busy === "tr" || undefined} onClick={() => { if (!trial) return flash("Elegí la fecha."); const r = window.prompt("Motivo del cambio (lo ve el cliente)"); if (r) void act("tr", `${base}/trial`, { trialUntil: trial, reason: r }, "Prueba actualizada. Se avisó al cliente."); }}>Guardar prueba</button>
+              {c.trialUntil && <button type="button" className="btn" aria-busy={busy === "trx" || undefined} onClick={() => { const r = window.prompt("Motivo para quitar la prueba (lo ve el cliente)"); if (r) void act("trx", `${base}/trial`, { trialUntil: null, reason: r }, "Prueba quitada. Se avisó al cliente."); }}>Quitar prueba</button>}
+            </div>
             <button type="button" className="btn danger" style={{ alignSelf: "flex-start" }} aria-busy={busy === "sus" || undefined} onClick={() => { const r = window.prompt("Motivo de la suspensión"); if (r) void act("sus", `${base}/suspend`, { reason: r }, "Cliente suspendido: no admite nuevas altas."); }}>Suspender</button>
           </>}
         </section>
@@ -473,6 +481,11 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           <button type="button" className="btn sm" onClick={() => setTerm("unit_price")}>Nuevo precio</button>
         </div>
         <span className="muted" style={{ fontSize: 13 }}>{c.kind === "gym" ? "Se factura por todos los socios del acuerdo, usen o no REPI." : "Se factura por todos los alumnos vigentes, tengan o no la app activada."} Accesos habilitados hoy: {v.enabledAccesses} (dato de adopción, no factura).</span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 14 }}>
+          <span style={{ flex: 1 }}><b>Qué cuenta como vigente:</b> {c.quantityDefinition ?? <span className="muted">sin definir</span>}</span>
+          <button type="button" className="btn sm" aria-busy={busy === "def" || undefined} onClick={() => { const def = window.prompt("Qué cuenta como vigente", c.quantityDefinition ?? ""); const r = def ? window.prompt("Motivo del cambio (lo ve el cliente)") : null; if (def && r) void act("def", `${base}/definition`, { definition: def, reason: r }, "Criterio actualizado. Se avisó al cliente."); }}>Cambiar criterio</button>
+        </div>
+        <span className="muted" style={{ fontSize: 13 }}>Cada cambio de cantidad, precio, prueba, suspensión o criterio le llega al cliente como aviso en «Condiciones REPI» y por correo al responsable.</span>
         {!v.terms.length ? <div className="empty">Sin condiciones cargadas.</div> : (
           <div style={{ overflowX: "auto" }}>
             <table className="gy-table">
@@ -503,6 +516,17 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           <table className="gy-table"><thead><tr><th>Período</th><th>Cantidad</th><th>Unitario</th><th>Subtotal</th><th>Guardado</th></tr></thead>
             <tbody>{v.snapshots.map((s) => <tr key={s.id}><td>{s.periodStart} → {s.periodEnd}</td><td>{s.quantity}</td><td>{fmtMoney(s.unitPriceMinor, s.currency as Currency)}</td><td>{s.subtotalTxt}</td><td>{fmt(s.createdAt)}</td></tr>)}</tbody></table>
         </>}
+      </section>
+
+      <section className="card" aria-label="Avisos al cliente">
+        <h2 style={{ margin: 0, fontSize: 18 }}>Avisos al cliente</h2>
+        {!v.notices.length ? <span className="muted" style={{ fontSize: 14 }}>Sin avisos todavía.</span> : v.notices.slice(0, 12).map((n) => (
+          <div key={n.id} className="trow" style={{ flexWrap: "wrap" }}>
+            <span style={{ flex: 1, minWidth: 220 }}>{n.title}<br /><small className="muted">{fmt(n.at)} · {n.body}</small></span>
+            {n.delivery === null ? <span className="chip mute">Sin correo (demo)</span> : n.delivery !== "submitted" && <span className={`chip ${NOTICE_MAIL[n.delivery][1]}`}>{NOTICE_MAIL[n.delivery][0]}</span>}
+            <span className={`chip ${n.ackAt ? "ok" : "warn"}`}>{n.ackAt ? `Entendido${n.ackBy ? ` · ${n.ackBy}` : ""} · ${fmt(n.ackAt)}` : "Sin confirmar"}</span>
+          </div>
+        ))}
       </section>
 
       <PaymentsCard id={id} flash={flash} />

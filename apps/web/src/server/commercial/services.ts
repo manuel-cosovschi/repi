@@ -3,7 +3,7 @@
 // Nada de esto emite cobros reales: la vista previa y el cierre simulado no son facturas (D01–D05 siguen pendientes).
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
-  ACTIVATION_LABEL, TERMS_VERSION, activationStage, fmtMoney, isCurrency, isEmail, normalizeEmail, overAgreed, previewPeriod,
+  ACTIVATION_LABEL, TERMS_VERSION, activationStage, fmtMoney, isCurrency, isEmail, localDate, normalizeEmail, overAgreed, previewPeriod,
   type ContractStatus, type Currency, type Term,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -13,6 +13,7 @@ import { logError } from "../log";
 import { enabledAccesses } from "../join/services";
 import { supportCounts } from "../support/services";
 import { paymentsThisMonth } from "./payments";
+import { dayTxt, noticesOf, publishNotice, requireOwner, unitWord } from "./notices";
 
 const { user, organization, gymLocation, staffMembership, invitation, clientContract, contractTerm, billingSnapshot, correctionRequest, commercialLead, legalAcceptance } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -155,6 +156,7 @@ export async function contractDetail(actorId: string, contractId: string, period
   const invites = await db.select().from(invitation).where(and(eq(invitation.orgId, c.orgId), eq(invitation.kind, "org_owner"))).orderBy(desc(invitation.createdAt));
   const snaps = await db.select().from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id)).orderBy(desc(billingSnapshot.periodStart));
   const corrections = await db.select().from(correctionRequest).where(eq(correctionRequest.contractId, c.id)).orderBy(desc(correctionRequest.createdAt));
+  const notices = await noticesOf(c.id);
   const enabled = await enabledAccesses(c.orgId);
   const pr = period ?? currentPeriod();
   const prev = previewPeriod(terms.map(asTerm), pr);
@@ -165,7 +167,7 @@ export async function contractDetail(actorId: string, contractId: string, period
     terms: terms.map((t) => ({ ...t, author: authors.get(t.createdBy) ?? "", display: t.kind === "unit_price" ? fmtMoney(t.value, (t.currency ?? c.currency) as Currency) : String(t.value) })),
     preview: prev.ok ? { ...prev, subtotalTxt: fmtMoney(prev.subtotal, prev.currency), period: pr } : { ...prev, period: pr },
     invitations: invites.map((i) => ({ id: i.id, email: i.email, status: i.status, delivery: i.delivery, expiresAt: i.expiresAt, createdAt: i.createdAt })),
-    snapshots: snaps.map((s) => ({ ...s, subtotalTxt: fmtMoney(s.subtotalMinor, s.currency as Currency) })), corrections,
+    snapshots: snaps.map((s) => ({ ...s, subtotalTxt: fmtMoney(s.subtotalMinor, s.currency as Currency) })), corrections, notices,
     pending: ["Qué socios/alumnos cuentan como vigentes", "Ciclo, corte y prorrateo", "Mora y suspensión", "Cobertura multisede sin duplicados"].filter((x, i) => i !== 0 || !c.quantityDefinition),
   };
 }
@@ -192,16 +194,47 @@ export async function recordAcceptance(actorId: string, contractId: string, p: {
 export async function enableClient(actorId: string, contractId: string, p: { trialUntil?: string | null }) {
   await requireAdmin(actorId);
   if (p.trialUntil && !/^\d{4}-\d{2}-\d{2}$/.test(p.trialUntil)) throw new AccessError("invalid", "Fecha de prueba inválida.");
-  return db.transaction(async (tx) => {
+  const r = await db.transaction(async (tx) => {
     const [c] = await tx.select().from(clientContract).where(eq(clientContract.id, contractId)).for("update");
     if (!c) throw NOT_FOUND();
     if (c.status !== "accepted" && c.status !== "suspended") throw new AccessError("invalid_state", "Primero registrá la aceptación del acuerdo.", 409);
     await tx.update(clientContract).set({ status: "enabled", enabledBy: actorId, enabledAt: new Date(), trialUntil: p.trialUntil ?? c.trialUntil, updatedAt: new Date() }).where(eq(clientContract.id, c.id));
-    await tx.update(organization).set({ commercialStatus: "enabled", trialEndsAt: p.trialUntil ? new Date(`${p.trialUntil}T23:59:59-03:00`) : null }).where(eq(organization.id, c.orgId));
+    await tx.update(organization).set({ commercialStatus: "enabled", trialEndsAt: trialEnd(p.trialUntil ?? c.trialUntil) }).where(eq(organization.id, c.orgId));
     await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.enabled", resourceType: "client_contract", resourceId: c.id, meta: { trialUntil: p.trialUntil ?? null } });
-    return { status: "enabled" };
+    return { before: c, after: { ...c, status: "enabled" as const, trialUntil: p.trialUntil ?? c.trialUntil } };
   });
+  // F-BL-05: la primera habilitación no es un cambio (el cliente recibe la bienvenida); rehabilitar o mover la prueba sí.
+  const { before, after } = r;
+  const at = Date.now();
+  if (before.status === "suspended") await publishNotice(after, { kind: "enabled", title: "Tu espacio volvió a estar habilitado", body: "REPI levantó la suspensión: ya podés volver a dar altas.", dedupeKey: `enabled:${at}`, createdBy: actorId });
+  if (p.trialUntil && before.enabledAt && p.trialUntil !== before.trialUntil) {
+    await publishNotice(after, { kind: "trial", title: `Prueba gratuita hasta el ${dayTxt(p.trialUntil)}`,
+      body: `${before.trialUntil ? `Antes terminaba el ${dayTxt(before.trialUntil)}. ` : ""}Al terminar rigen la cantidad y el precio acordados que ves en esta sección.`, dedupeKey: `trial:${p.trialUntil}:${at}`, createdBy: actorId });
+  }
+  return { status: "enabled" };
 }
+const trialEnd = (d: string | null) => (d ? new Date(`${d}T23:59:59-03:00`) : null);
+
+/** Extender, acortar o quitar la prueba de un cliente habilitado: con motivo y aviso al cliente (F-BL-05). */
+export async function setTrial(actorId: string, contractId: string, p: { trialUntil: string | null; reason: string }, now = new Date()) {
+  await requireAdmin(actorId);
+  if (p.trialUntil && (!isDay(p.trialUntil) || p.trialUntil < localDate(now))) throw new AccessError("invalid", "La prueba no puede terminar antes de hoy.");
+  if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
+  const c = await contractFor(contractId);
+  if (c.status !== "enabled") throw new AccessError("invalid_state", "La prueba se ajusta con el cliente habilitado.", 409);
+  if ((p.trialUntil ?? null) === c.trialUntil) throw new AccessError("invalid", "Es la misma fecha que ya está cargada.");
+  await db.update(clientContract).set({ trialUntil: p.trialUntil, updatedAt: now }).where(eq(clientContract.id, c.id));
+  await db.update(organization).set({ trialEndsAt: trialEnd(p.trialUntil) }).where(eq(organization.id, c.orgId));
+  await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.trial_changed", resourceType: "client_contract", resourceId: c.id, meta: { from: c.trialUntil, to: p.trialUntil } });
+  const why = ` Motivo: ${p.reason.trim().slice(0, 200)}.`;
+  await publishNotice({ ...c, trialUntil: p.trialUntil }, p.trialUntil
+    ? { kind: "trial", title: `Prueba gratuita hasta el ${dayTxt(p.trialUntil)}`, dedupeKey: `trial:${p.trialUntil}:${now.getTime()}`, createdBy: actorId,
+      body: `${c.trialUntil ? `Antes terminaba el ${dayTxt(c.trialUntil)}. ` : ""}Al terminar rigen la cantidad y el precio acordados que ves en esta sección.${why}` }
+    : { kind: "trial", title: "Tu espacio ya no está en prueba gratuita", dedupeKey: `trial:none:${now.getTime()}`, createdBy: actorId,
+      body: `Rigen desde hoy la cantidad y el precio acordados que ves en esta sección.${why}` });
+  return { trialUntil: p.trialUntil };
+}
+
 /** Suspensión explícita (política del contrato): bloquea nuevas altas operativas; no marca a los socios como morosos del gym. */
 export async function suspendClient(actorId: string, contractId: string, reason: string) {
   await requireAdmin(actorId);
@@ -210,6 +243,8 @@ export async function suspendClient(actorId: string, contractId: string, reason:
   await db.update(clientContract).set({ status: "suspended", updatedAt: new Date() }).where(eq(clientContract.id, c.id));
   await db.update(organization).set({ commercialStatus: "suspended" }).where(eq(organization.id, c.orgId));
   await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.suspended", resourceType: "client_contract", resourceId: c.id, meta: { reason: reason.trim().slice(0, 200) } });
+  await publishNotice({ ...c, status: "suspended" }, { kind: "suspended", title: "Tu espacio está suspendido",
+    body: `Motivo: ${reason.trim().slice(0, 200)}. Mientras dure no se pueden dar altas nuevas; quienes ya están siguen igual. Si creés que es un error, pedí la corrección.`, dedupeKey: `suspended:${Date.now()}`, createdBy: actorId });
   return { status: "suspended" };
 }
 
@@ -224,7 +259,7 @@ export async function addTerm(actorId: string, contractId: string, p: { kind: "q
   if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000)) throw new AccessError("invalid", "Valor inválido.");
   if (!isDay(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
   if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
-  return db.transaction(async (tx) => {
+  const t = await db.transaction(async (tx) => {
     await lockContract(tx, c.id);
     const closed = await tx.select({ s: billingSnapshot.periodEnd }).from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id));
     if (closed.some((s) => s.s >= p.effectiveFrom)) throw new AccessError("closed_period", "Esa fecha cae en un período ya cerrado: registrá un ajuste explícito en lugar de reescribirlo.", 409);
@@ -232,8 +267,30 @@ export async function addTerm(actorId: string, contractId: string, p: { kind: "q
     const [t] = await tx.insert(contractTerm).values({ contractId: c.id, kind: p.kind, version: v + 1, value: p.value, currency: p.kind === "unit_price" ? c.currency : null, effectiveFrom: p.effectiveFrom,
       reason: p.reason.trim().slice(0, 300), evidence: p.evidence?.trim().slice(0, 300) || null, createdBy: actorId }).returning();
     await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.term_added", resourceType: "contract_term", resourceId: t.id, meta: { kind: p.kind, version: t.version } });
-    return { version: t.version };
+    const [prev] = await tx.select().from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, p.kind), eq(contractTerm.version, v))).limit(1);
+    return { t, prev };
   });
+  // F-BL-05: el cliente ve qué cambió, desde cuándo, la versión anterior y el motivo.
+  const show = (x: { value: number; currency: string | null }) => (p.kind === "unit_price" ? fmtMoney(x.value, (x.currency ?? c.currency) as Currency) : `${x.value} ${unitWord(c.kind)}`);
+  const what = p.kind === "quantity" ? `Cantidad acordada: ${show(t.t)}` : `Precio por ${unitWord(c.kind, false)}: ${show(t.t)}`;
+  await publishNotice(c, { kind: "term", title: `${what} desde el ${dayTxt(p.effectiveFrom)}`, effectiveFrom: p.effectiveFrom, dedupeKey: `term:${t.t.id}`, createdBy: actorId,
+    body: `Versión ${t.t.version}${t.prev ? ` (antes: ${show(t.prev)})` : ""}. Motivo: ${t.t.reason}.` });
+  return { version: t.t.version };
+}
+
+/** Criterio de conteo (qué socios/alumnos cuentan como vigentes): cambia con motivo y avisa al cliente. */
+export async function setQuantityDefinition(actorId: string, contractId: string, p: { definition: string; reason: string }) {
+  await requireAdmin(actorId);
+  const c = await contractFor(contractId);
+  const def = (p.definition ?? "").trim().slice(0, 300);
+  if (def.length < 5) throw new AccessError("invalid", "Escribí qué cuenta como vigente.");
+  if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
+  if (def === c.quantityDefinition) throw new AccessError("invalid", "Es el mismo criterio que ya está cargado.");
+  await db.update(clientContract).set({ quantityDefinition: def, updatedAt: new Date() }).where(eq(clientContract.id, c.id));
+  await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.definition_changed", resourceType: "client_contract", resourceId: c.id });
+  await publishNotice({ ...c, quantityDefinition: def }, { kind: "definition", title: `Cambió qué ${unitWord(c.kind)} cuentan como vigentes`, dedupeKey: `definition:${Date.now()}`, createdBy: actorId,
+    body: `Ahora: ${def}. ${c.quantityDefinition ? `Antes: ${c.quantityDefinition}.` : "Antes no estaba definido."} Motivo: ${p.reason.trim().slice(0, 200)}.` });
+  return { ok: true };
 }
 
 /** Cierre simulado del período: guarda un snapshot inmutable. No es un cobro (política de corte y cobro pendientes). */
@@ -346,25 +403,25 @@ export async function acceptOwnerInvitation(userId: string, token: string) {
 
 // ── Condiciones visibles para el cliente ────────────────────────────────────
 export async function myConditions(actorId: string, orgId: string) {
-  const roles = (await db.select({ r: staffMembership.role }).from(staffMembership).where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active")))).map((x) => x.r);
-  if (!roles.some((r) => r === "owner" || r === "coach_owner")) throw NOT_FOUND();
+  await requireOwner(actorId, orgId);
   const [c] = await db.select().from(clientContract).where(eq(clientContract.orgId, orgId));
   const [o] = await db.select().from(organization).where(eq(organization.id, orgId));
   const enabled = await enabledAccesses(orgId);
-  if (!c) return { contract: null, commercialStatus: o.commercialStatus, enabledAccesses: enabled, terms: [], corrections: [] };
+  if (!c) return { contract: null, commercialStatus: o.commercialStatus, enabledAccesses: enabled, terms: [], corrections: [], notices: [], unacked: 0 };
   const terms = await termsOf([c.id]);
   const corrections = await db.select().from(correctionRequest).where(eq(correctionRequest.contractId, c.id)).orderBy(desc(correctionRequest.createdAt));
+  const notices = await noticesOf(c.id);
   const today = new Date().toISOString().slice(0, 10);
   return {
     commercialStatus: o.commercialStatus, enabledAccesses: enabled,
     contract: { status: c.status, legalName: c.legalName, currency: c.currency, scope: c.scope, scopeNote: c.scopeNote, quantityDefinition: c.quantityDefinition, termsVersion: c.termsVersion, acceptedAt: c.acceptedAt, trialUntil: c.trialUntil },
     terms: terms.map((t) => ({ kind: t.kind, version: t.version, display: t.kind === "unit_price" ? fmtMoney(t.value, (t.currency ?? c.currency) as Currency) : String(t.value), effectiveFrom: t.effectiveFrom, current: t.effectiveFrom <= today })),
     corrections: corrections.map((x) => ({ text: x.text, status: x.status, answer: x.answer, at: x.createdAt })),
+    notices: notices.map(({ delivery: _d, ...n }) => n), unacked: notices.filter((n) => !n.ackAt).length,
   };
 }
 export async function requestCorrection(actorId: string, orgId: string, text: string) {
-  const roles = (await db.select({ r: staffMembership.role }).from(staffMembership).where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active")))).map((x) => x.r);
-  if (!roles.some((r) => r === "owner" || r === "coach_owner")) throw NOT_FOUND();
+  await requireOwner(actorId, orgId);
   const [c] = await db.select().from(clientContract).where(eq(clientContract.orgId, orgId));
   if (!c) throw new AccessError("no_contract", "Tu espacio todavía no tiene condiciones cargadas.", 409);
   if ((text ?? "").trim().length < 5) throw new AccessError("invalid", "Contá qué hay que corregir.");

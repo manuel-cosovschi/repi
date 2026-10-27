@@ -3,10 +3,12 @@
 import { sqlClient } from "@/db";
 import { escalatePending } from "@/server/join/services";
 import { processOutbox } from "@/server/push/services";
+import { trialNotices } from "@/server/commercial/notices";
 
 (async () => {
   const e = await escalatePending();
   const p = await processOutbox();
-  console.log(`solicitudes escaladas: ${e.escalated} · avisos procesados: ${p.processed}${"sent" in p ? ` (aceptados por el proveedor: ${p.sent})` : ""}`);
+  const t = await trialNotices();
+  console.log(`solicitudes escaladas: ${e.escalated} · avisos procesados: ${p.processed}${"sent" in p ? ` (aceptados por el proveedor: ${p.sent})` : ""} · avisos de prueba: ${t.created}`);
   await sqlClient.end();
 })();

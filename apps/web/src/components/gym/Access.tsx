@@ -282,10 +282,49 @@ type Conditions = {
   contract: { status: string; legalName: string; currency: string; scope: string; scopeNote: string | null; quantityDefinition: string | null; termsVersion: string | null; acceptedAt: string | null; trialUntil: string | null } | null;
   terms: { kind: "quantity" | "unit_price"; version: number; display: string; effectiveFrom: string; current: boolean }[];
   corrections: { text: string; status: string; answer: string | null; at: string }[];
+  notices: Notice[]; unacked: number;
 };
+type Notice = { id: string; kind: string; title: string; body: string; effectiveFrom: string | null; at: string; ackAt: string | null; ackBy: string | null };
+const day = (d: string) => fmt(`${d}T12:00:00Z`, { day: "numeric", month: "long", year: "numeric" });
+
+// F-BL-05: cambios que hizo REPI (cantidad, precio, prueba, suspensión, criterio). Los pendientes arriba con «Entendido».
+function ConditionNotices({ orgId, notices, flash, reload, onSeen }: { orgId: string; notices: Notice[]; flash: (t: string) => void; reload: () => void; onSeen?: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const pending = notices.filter((n) => !n.ackAt), seen = notices.filter((n) => n.ackAt);
+  const ack = async (id: string | null) => {
+    setBusy(id ?? "all");
+    try { await api(`/api/conditions/${orgId}`, { method: "PATCH", body: { id } }); reload(); onSeen?.(); } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+  };
+  if (!notices.length) return null;
+  const item = (n: Notice) => (
+    <li key={n.id} className="gy-task" style={{ alignItems: "flex-start" }}>
+      <span style={{ flex: 1, minWidth: 220 }}>
+        <strong style={{ fontSize: 14 }}>{n.title}</strong><br />
+        <small className="muted">{n.body}</small><br />
+        <small className="muted">{fmt(n.at, { day: "numeric", month: "short" })}{n.effectiveFrom ? ` · rige desde el ${day(n.effectiveFrom)}` : ""}{n.ackAt ? ` · Entendido${n.ackBy ? ` por ${n.ackBy}` : ""} el ${fmt(n.ackAt, { day: "numeric", month: "short" })}` : ""}</small>
+      </span>
+      {!n.ackAt && <button type="button" className="btn" aria-busy={busy === n.id || undefined} onClick={() => ack(n.id)}>Entendido</button>}
+    </li>
+  );
+  return (
+    <section className="card" aria-label="Cambios en tus condiciones">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}>{pending.length ? `Cambios en tus condiciones (${pending.length})` : "Cambios en tus condiciones"}</h2>
+        {pending.length > 1 && <button type="button" className="btn" aria-busy={busy === "all" || undefined} onClick={() => ack(null)}>Marcar todos como entendidos</button>}
+      </div>
+      {pending.length ? <ul style={{ display: "flex", flexDirection: "column", gap: 8, margin: 0, padding: 0, listStyle: "none" }}>{pending.map(item)}</ul>
+        : <p className="muted" style={{ margin: 0 }}>No hay cambios nuevos. Te avisamos acá y por correo al responsable cuando REPI modifique algo.</p>}
+      {seen.length > 0 && <>
+        <button type="button" className="btn" style={{ alignSelf: "flex-start" }} aria-expanded={all} onClick={() => setAll(!all)}>{all ? "Ocultar avisos anteriores" : `Avisos anteriores (${seen.length})`}</button>
+        {all && <ul style={{ display: "flex", flexDirection: "column", gap: 8, margin: 0, padding: 0, listStyle: "none" }}>{seen.map(item)}</ul>}
+      </>}
+    </section>
+  );
+}
 const CST: Record<string, string> = { draft: "Borrador", accepted: "Aceptado", enabled: "Habilitado", suspended: "Suspendido", ended: "Finalizado" };
 
-export function ConditionsScreen({ orgId, flash, unit }: { orgId: string; flash: (t: string) => void; unit: "socios" | "alumnos" }) {
+export function ConditionsScreen({ orgId, flash, unit, onSeen }: { orgId: string; flash: (t: string) => void; unit: "socios" | "alumnos"; onSeen?: () => void }) {
   const d = useLoad<Conditions>(`/api/conditions/${orgId}`);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -299,6 +338,7 @@ export function ConditionsScreen({ orgId, flash, unit }: { orgId: string; flash:
     <>
       <Head kicker="Lo que acordaste con REPI. Sólo REPI Admin modifica estos valores; si algo no coincide, pedí la corrección." title="Condiciones y facturación REPI" />
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
+      {v?.contract && <ConditionNotices orgId={orgId} notices={v.notices} flash={flash} reload={d.reload} onSeen={onSeen} />}
       {!v ? <p className="muted">Cargando…</p> : !v.contract ? <div className="empty">{v.commercialStatus === "legacy" ? "Tu espacio es anterior al nuevo esquema comercial: REPI va a registrar tus condiciones. Mientras tanto seguís operando." : "Todavía no hay condiciones registradas."}</div> : <>
         <div className="grid-kpi">
           <div className="kpi"><strong>{cur("quantity")?.display ?? "—"}</strong><span>{unit === "socios" ? "Socios acordados" : "Alumnos vigentes acordados"}</span></div>
@@ -313,12 +353,14 @@ export function ConditionsScreen({ orgId, flash, unit }: { orgId: string; flash:
             {v.contract.quantityDefinition && <div><dt>Definición de vigente</dt><dd>{v.contract.quantityDefinition}</dd></div>}
             <div><dt>Alcance</dt><dd>{v.contract.scope === "locations" ? "Sedes incluidas en el acuerdo" : "Toda la organización"}{v.contract.scopeNote ? ` · ${v.contract.scopeNote}` : ""}</dd></div>
             <div><dt>Aceptación</dt><dd>{v.contract.acceptedAt ? `${fmt(v.contract.acceptedAt, { day: "numeric", month: "long", year: "numeric" })} · versión ${v.contract.termsVersion ?? "—"}` : "Pendiente"}</dd></div>
-            {v.contract.trialUntil && <div><dt>Prueba acordada</dt><dd>Hasta {v.contract.trialUntil}</dd></div>}
+            {v.contract.trialUntil && <div><dt>Prueba acordada</dt><dd>Hasta el {day(v.contract.trialUntil)}{v.contract.trialUntil < new Date().toISOString().slice(0, 10) ? " (terminada)" : ""}</dd></div>}
             <div><dt>Ciclo, prorrateo y mora</dt><dd>A definir en el acuerdo comercial. No se generan cobros automáticos desde REPI en esta versión.</dd></div>
           </dl>
           <h3 style={{ margin: "8px 0 0", fontSize: 15 }}>Historial</h3>
-          <table className="gy-table"><thead><tr><th>Concepto</th><th>Valor</th><th>Desde</th><th>Versión</th></tr></thead>
-            <tbody>{v.terms.map((t) => <tr key={`${t.kind}${t.version}`}><td>{t.kind === "quantity" ? "Cantidad acordada" : "Precio por unidad"}</td><td>{t.display}</td><td>{t.effectiveFrom}</td><td>{t.version}{!t.current ? " · futura" : ""}</td></tr>)}</tbody></table>
+          <div style={{ overflowX: "auto" }}>
+            <table className="gy-table"><thead><tr><th>Concepto</th><th>Valor</th><th>Desde</th><th>Versión</th></tr></thead>
+              <tbody>{v.terms.map((t) => <tr key={`${t.kind}${t.version}`}><td>{t.kind === "quantity" ? "Cantidad acordada" : "Precio por unidad"}</td><td>{t.display}</td><td>{day(t.effectiveFrom)}</td><td>{t.version}{!t.current ? " · futura" : ""}</td></tr>)}</tbody></table>
+          </div>
         </section>
         <section className="card" aria-label="Pedir corrección">
           <h2 style={{ margin: 0, fontSize: 18 }}>¿Algo no coincide?</h2>
