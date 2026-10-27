@@ -78,6 +78,13 @@
       "when": 1793076707276,
       "tag": "0010_coach_charges",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793078493845,
+      "tag": "0011_demo_sandbox",
+      "breakpoints": true
     }
   ]
 }

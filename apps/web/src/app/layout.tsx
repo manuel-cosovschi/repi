@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
+import { DemoTour } from "@/components/demo/DemoTour";
 
 // Fuentes OFL autoalojadas por next/font (sin pedidos a Google en tiempo de ejecución).
 // Selección G · Atlética (REPI_SELECCION_VISUAL.md): Barlow en interfaz, Barlow Condensed sólo en títulos destacados.
@@ -24,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es-AR" className={`${ui.variable} ${display.variable} ${mono.variable}`}>
       <head><script dangerouslySetInnerHTML={{ __html: CATCH_INSTALL }} /></head>
-      <body>{children}</body>
+      <body>{children}<DemoTour /></body>
     </html>
   );
 }

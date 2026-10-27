@@ -474,6 +474,17 @@ export const mediaObject = pgTable("media_object", {
   deletedAt: ts("deleted_at"),
 });
 
+// Entornos de la demo guiada (D85): uno por visita, con sus personas y organizaciones ficticias; se borran al vencer.
+export const demoSandbox = pgTable("demo_sandbox", {
+  id: id(),
+  tag: text("tag").notNull().unique(),
+  role: text("role", { enum: ["owner", "floor", "member", "coach"] }).notNull(),
+  userIds: jsonb("user_ids").notNull().default(sql`'[]'::jsonb`),
+  orgIds: jsonb("org_ids").notNull().default(sql`'[]'::jsonb`),
+  createdAt: now("created_at"),
+  expiresAt: ts("expires_at").notNull(),
+}, (t) => [index("demo_sandbox_expires_idx").on(t.expiresAt)]);
+
 // Cobros manuales del coach a sus clientes (F-BL-01, D80). Registro, no pasarela: REPI no mueve dinero.
 // Separado de lo que REPI le factura al coach (client_contract). Importes en unidades menores enteras.
 export const coachCharge = pgTable("coach_charge", {

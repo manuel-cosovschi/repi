@@ -10,6 +10,8 @@ export type Mail = { to: string; subject: string; body: string };
 // En producción sin proveedor configurado falla de forma explícita en lugar de fingir un envío.
 // Nunca se registra el cuerpo: lleva códigos y enlaces personales.
 export async function sendMail(mail: Mail): Promise<void> {
+  // Dominio reservado (demo guiada, D85): nunca sale a un proveedor; queda en el buzón DEV.
+  if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(mail); return; }
   const resend = resendConfig();
   // DEMO con proveedor (D82): copia en el buzón DEV y envío real; si el proveedor rechaza (p. ej. dominio sin verificar),
   // se registra y el flujo sigue con el buzón. Fuera de DEMO, un rechazo es un error.

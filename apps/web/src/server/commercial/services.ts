@@ -41,7 +41,9 @@ const asTerm = (t: typeof contractTerm.$inferSelect): Term => ({ id: t.id, kind:
 
 export async function listClients(actorId: string) {
   await requireAdmin(actorId);
-  const orgs = await db.select().from(organization).orderBy(asc(organization.name));
+  // Las organizaciones de la demo guiada (D85) son de cada visitante y se borran solas: no se listan.
+  const sandbox = new Set((await db.select({ o: schema.demoSandbox.orgIds }).from(schema.demoSandbox)).flatMap((b) => b.o as string[]));
+  const orgs = (await db.select().from(organization).orderBy(asc(organization.name))).filter((o) => !sandbox.has(o.id));
   const contracts = await db.select().from(clientContract);
   const terms = await termsOf(contracts.map((c) => c.id));
   const owners = await db.select({ org: staffMembership.orgId }).from(staffMembership).where(and(inArray(staffMembership.role, ["owner", "coach_owner"]), eq(staffMembership.status, "active")));

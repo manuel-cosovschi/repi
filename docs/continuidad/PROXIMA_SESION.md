@@ -2,12 +2,17 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Storage por Edge Function, dominio y Resend (D83, D84)
+## Último bloque cerrado — 27/10/2026 · Demo interactiva guiada por perfil (D85)
+
+- **Hecho:** `src/server/sandbox/services.ts` (startDemo, sealDemo, purgeSandboxes, demoRoleOf), migración `0011_demo_sandbox` (dev local y Supabase), rutas `POST /api/demo` y `GET /api/demo/me`, página `/demo` + `components/demo/DemoPicker.tsx`, recorrido `components/demo/DemoTour.tsx` montado en `layout.tsx`, estilos `.dt-*` en `globals.css`, acceso «Probá REPI sin cuenta» en el login, purga en `/api/cron/notifications`, mailer nunca envía a `.invalid`, Admin excluye organizaciones de demo.
+- **Pruebas:** `tests/sandbox.test.ts` (entorno coherente, aislamiento y borrado completo); web 110/110; los cuatro recorridos verificados de punta a punta en Chrome headless (`documentacion/demo/verificar-recorridos.mjs`, capturas en `documentacion/demo/`): entrada en ~2 s, cada paso navega a la pantalla correcta.
+- **Pendiente:** probar en teléfono real; textos de venta a revisar por el titular; el paso «aprobá a Camila» no verifica que se haya hecho (es guía, no tutorial con validación).
+
+## Bloque anterior — 27/10/2026 · Storage por Edge Function, dominio y Resend (D83, D84)
 
 - **Hecho:** Edge Function `repi-storage` desplegada y probada (subida, lectura con rango, URL firmada de subida, borrado, 404 sin secreto); driver proxy en `storage.ts`; variables `SUPABASE_STORAGE_PROXY_URL`, `STORAGE_PROXY_SECRET`, `AUTH_TRUSTED_ORIGINS` en Vercel; repiclub.com + www agregados al proyecto; `mailer.ts#resendDomain` + `/api/cron/mail-domain`; Resend se activa sólo con `RESEND_API_KEY`.
 - **Pendiente del titular:** nameservers de GoDaddy → `ns1.vercel-dns.com` / `ns2.vercel-dns.com`; cargar `RESEND_API_KEY` en Vercel (Claude no carga claves de cuentas del titular); revocar el token `sbp_…` compartido en el chat (no se usó).
 - **Después de eso (Claude):** URLs de auth al dominio nuevo, registros DNS de Resend, `MAIL_FROM` con el dominio, prueba de alta con email real.
-- **Pedido diferido del usuario:** demo interactiva guiada por rol (dueño/gerente, entrenador de piso, alumno, personal trainer) desde la pantalla principal, para vender sin explicar. Hacer después de lo principal.
 
 ## Bloque anterior — 27/10/2026 · Guía sin «Continuar en el navegador» y Resend en DEMO (D82)
 

@@ -25,3 +25,26 @@ a:hover { color: var(--core-turquoise); }
 .wm { position: relative; display: block; flex: none; }
 .wm img { width: 100%; height: auto; display: block; }
 .wm i { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--core-cyan); }
+
+/* Demo guiada (D85): tarjeta del recorrido y anillo sobre el elemento a tocar. Concepto 2; sin animación propia. */
+.dt-ring { position: fixed; z-index: 90; border: 2px solid var(--core-cyan); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(11, 15, 20, .35); pointer-events: none; }
+.dt-card { position: fixed; z-index: 91; right: 24px; bottom: 24px; width: min(380px, calc(100vw - 32px)); background: var(--core-navy900); color: var(--core-white);
+  border: 1px solid rgba(0, 209, 255, .35); border-radius: 18px; padding: 18px; box-shadow: 0 18px 48px rgba(0, 0, 0, .45); display: flex; flex-direction: column; gap: 10px; outline: none; font-family: var(--font-ui); }
+.dt-card h2 { margin: 0; font: 700 22px/1.05 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
+.dt-card p { margin: 0; font-size: 15px; line-height: 1.45; color: #CBD5E1; }
+.dt-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dt-badge { font: 600 11px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--core-cyan); }
+.dt-n { font: 500 12px var(--font-mono); color: #94A3B8; }
+.dt-act { display: flex; gap: 8px; margin-top: 4px; }
+.dt-pri, .dt-sec { flex: 1; min-height: 44px; border-radius: 12px; font: 600 15px var(--font-ui); cursor: pointer; display: grid; place-items: center; text-decoration: none; }
+.dt-pri { background: var(--core-cyan); color: var(--core-navy900); border: 0; }
+.dt-sec { background: transparent; color: var(--core-white); border: 1px solid rgba(248, 250, 252, .25); }
+.dt-x { align-self: center; background: none; border: 0; color: #94A3B8; font: 500 13px var(--font-ui); cursor: pointer; min-height: 36px; text-decoration: underline; }
+.dt-pill { position: fixed; z-index: 91; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px;
+  background: var(--core-navy900); color: var(--core-white); border: 1px solid rgba(0, 209, 255, .35); font: 600 12px var(--font-ui); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.dt-pill > span { color: var(--core-cyan); text-transform: uppercase; font-family: var(--font-mono); margin-right: 4px; }
+.dt-pill button, .dt-pill a { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(248, 250, 252, .08); color: var(--core-white); font: 600 13px var(--font-ui); cursor: pointer; display: grid; place-items: center; text-decoration: none; }
+@media (max-width: 760px) {
+  .dt-card { left: 16px; right: 16px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .dt-pill { bottom: calc(92px + env(safe-area-inset-bottom)); }
+}

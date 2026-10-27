@@ -15,7 +15,7 @@ import { InstallGuide } from "./InstallGuide";
 import { clearEntry, entryHref, parseEntryInput, readEntry, saveEntry, type Entry } from "@/lib/entry";
 import { detectEnv, guideDone } from "@/lib/platform";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowLeft, Barbell, CaretRight, EnvelopeSimple, QrCode, Storefront, type Icon } from "@phosphor-icons/react";
+import { ArrowLeft, Barbell, CaretRight, EnvelopeSimple, Play, QrCode, Storefront, type Icon } from "@phosphor-icons/react";
 
 const IC = { coach: Barbell, gym: Storefront, invite: EnvelopeSimple, member: QrCode };
 
@@ -297,7 +297,13 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         await signIn(s("email"), s("pw"));
       }) },
       social: true,
-      extra: resume ? (
+      extra: !resume ? (
+        <button type="button" className="ac-opt" onClick={() => { window.location.href = "/demo"; }}>
+          <span className="ac-opt-ic" aria-hidden="true"><Ic i={Play} size={22} color="#00D1FF" /></span>
+          <span><strong>Probá REPI sin cuenta</strong><small>Demo guiada para dueños, entrenadores, alumnos y personal trainers.</small></span>
+          <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
+        </button>
+      ) : resume ? (
         <button type="button" className="ac-opt" onClick={() => { window.location.href = entryHref(resume); }}>
           <span className="ac-opt-ic" aria-hidden="true"><Ic i={resume.k === "join" ? QrCode : EnvelopeSimple} size={22} color="#00D1FF" /></span>
           <span><strong>Retomá tu alta</strong><small>{resume.label ?? (resume.k === "join" ? "Tu pedido de acceso al gimnasio" : resume.k === "code" ? "Tu invitación" : "La bienvenida de tu espacio")}</small></span>
@@ -309,6 +315,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         { pre: "¿No tenés cuenta?", label: "Crear cuenta", go: () => to("choose") },
         { pre: "¿Te invitaron?", label: "Tengo un código", go: () => to("code", "invite") },
         { pre: "", label: "¿Venís de un QR o una invitación?", go: () => to("recover") },
+        { pre: "¿Querés conocer REPI?", label: "Probá la demo guiada", go: () => { window.location.href = "/demo"; } },
       ],
     }),
     recover: () => ({
