@@ -1,6 +1,7 @@
 // Carga .env.local y apunta todo a la base de pruebas ANTES de importar @/db.
+import { fileURLToPath } from "node:url";
 import { assertTestDatabaseTarget } from "../scripts/lib/database-target";
-try { process.loadEnvFile(new URL("../.env.local", import.meta.url).pathname); } catch {}
+try { process.loadEnvFile(fileURLToPath(new URL("../.env.local", import.meta.url))); } catch {}
 process.env.DATABASE_URL = assertTestDatabaseTarget(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL, process.env);
 // Las pruebas nunca usan proveedores ni credenciales de correo reales heredados del shell.
 delete process.env.RESEND_API_KEY;

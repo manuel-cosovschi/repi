@@ -6,6 +6,7 @@
 //   npx tsx scripts/operations/backup.ts --source=local            # repi_dev de .env.local
 //   npx tsx scripts/operations/backup.ts --source=hosted [--storage] # Supabase (~/.repi-secrets/supabase.env, sesión 5432)
 // Salida: ~/.repi-secrets/backups/<fecha>/ (0700) con manifest.json, db/*.copy y storage/ si se pidió.
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -26,7 +27,7 @@ async function hostedUrl() {
   return line.slice("DATABASE_URL_SESSION=".length).trim().replace(/^"|"$/g, "");
 }
 async function localUrl() {
-  try { process.loadEnvFile(new URL("../../.env.local", import.meta.url).pathname); } catch { /* */ }
+  try { process.loadEnvFile(fileURLToPath(new URL("../../.env.local", import.meta.url))); } catch { /* */ }
   return localTarget(process.env.DATABASE_URL, "backup").href;
 }
 

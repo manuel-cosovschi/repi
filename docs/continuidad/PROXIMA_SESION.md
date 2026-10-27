@@ -1,13 +1,23 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, objetivos acordados (D97). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, migración a `~/Proyectos Locales/Repi`. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Objetivos acordados (F-CO-03 / F-HX-02, D97)
+## Último bloque cerrado — 27/10/2026 · Migración fuera de iCloud
+
+- **Repo nuevo y único:** `~/Proyectos Locales/Repi` (fuera de iCloud). Clon limpio de `github.com/manuel-cosovschi/repi`, `main` en a516c7a + rama local `codex/lanzamiento-repi` (ya incluida en main) recuperada del bundle. Los 1100 archivos versionados se compararon byte a byte con la carpeta vieja: idénticos.
+- **Copiado aparte (no versionado):** `apps/web/.env.local` (0600), `.vercel/` (vínculo del proyecto) y `apps/web/.storage/` (archivos privados de desarrollo). Dependencias reinstaladas con `pnpm install --frozen-lockfile`; no se copiaron `node_modules`, `.next` ni cachés.
+- **Respaldo:** `~/.repi-secrets/migracion/repi-todas-las-ramas.bundle` (todas las ramas). La carpeta `~/Desktop/Repi` quedó intacta y congelada en a516c7a: **no trabajar ahí**; la borra el titular cuando quiera.
+- **Arreglo de código:** rutas con espacios. `tests/setup-env.ts`, `tests/global-setup.ts`, `scripts/operations/backup.ts` y `scripts/migrate.ts` armaban rutas con `URL.pathname` (deja `%20`): no cargaban `.env.local` y `pnpm db:migrate` terminaba sin migrar ni avisar. Ahora usan `fileURLToPath`/`pathToFileURL`.
+- **Pruebas en la nueva ruta:** typecheck OK, dominio 81/81, guardas 11/11, web 144/144 (`repi_test` local), `pnpm db:migrate` sobre `repi_dev` OK, `next build` OK.
+- **Bases y servicios:** sin cambios (PostgreSQL local `repi_dev`/`repi_test`, Supabase, Vercel y secretos en `~/.repi-secrets/`). Vercel despliega desde GitHub, no desde la carpeta.
+- **Siguiente:** F-CO-10 calendario/asistencia del coach o F-CO-11 importación CSV; F-HX-26 centro de notificaciones del staff.
+
+## Bloque anterior — 27/10/2026 · Objetivos acordados (F-CO-03 / F-HX-02, D97)
 
 - **Hecho:** dominio `packages/domain/src/goals.ts` (GOAL_KINDS, GOAL_SOURCES, ventana 28 días, `goalProgress`, `goalTitle`) + tests; tabla `client_goal` (migración `0016_client_goal`, dev local y **Supabase**, RLS); `src/server/training/goals.ts` (listGoals, createGoal, updateGoal, myGoals); rutas `GET/POST /api/coach/[orgId]/clients/[relId]/goals`, `POST /api/coach/[orgId]/goals/[id]`, `GET /api/me/goals`; `components/coach/CoachGoals.tsx` en la pestaña Progreso de la ficha; sección «Objetivos» en Progreso del alumno (`MemberApp.tsx#MyGoals`); estilos `.goalbar` (coach.css) y `.goal*` (member.css).
 - **Pruebas:** web 144/144 (nuevo `tests/goals.test.ts`, 4), dominio 81/81, guardas 11/11, build OK. Navegador local: coach del seed crea «Jalón al pecho 60 kg × 8» desde la ficha → la alumna lo ve en Progreso (375 px). Ese objetivo quedó en `repi_dev` como dato de prueba.
 - **Bug encontrado y corregido en la prueba:** `/api/coach/[orgId]/library` devuelve `{ exercises }`, no un array.
-- **iCloud otra vez (muy grave):** a las 12:41 iCloud quitó la extensión a `AccessFlow.tsx`, `CoachApp.tsx`, `GymApp.tsx`, `member/Gym.tsx` y `MemberApp.tsx` y borró archivos de caché de Turbopack. Se restauraron desde git (eran idénticos a HEAD). Además `apps/web/tsconfig` era un `tsbuildinfo` renombrado por iCloud y commiteado en cf124b1: se sacó del repo. **Bloqueante operativo: mover el repo fuera de iCloud.**
+- **iCloud otra vez (muy grave):** a las 12:41 iCloud quitó la extensión a `AccessFlow.tsx`, `CoachApp.tsx`, `GymApp.tsx`, `member/Gym.tsx` y `MemberApp.tsx` y borró archivos de caché de Turbopack. Se restauraron desde git (eran idénticos a HEAD). Además `apps/web/tsconfig` era un `tsbuildinfo` renombrado por iCloud y commiteado en cf124b1: se sacó del repo. Resuelto con la migración a `~/Proyectos Locales/Repi`.
 - **Siguiente:** F-CO-10 calendario/asistencia del coach o F-CO-11 importación CSV; F-HX-26 centro de notificaciones del staff.
 
 ## Bloque anterior — 27/10/2026 · Informe mensual (F-CO-16, D96)

@@ -1,10 +1,11 @@
+import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { runMigrations } from "../scripts/migrate";
 import { assertLocalDatabaseIdentity, assertTestDatabaseTarget } from "../scripts/lib/database-target";
 
 // Recrea el esquema de la base de pruebas en cada corrida.
 export default async function setup() {
-  try { process.loadEnvFile(new URL("../.env.local", import.meta.url).pathname); } catch {}
+  try { process.loadEnvFile(fileURLToPath(new URL("../.env.local", import.meta.url))); } catch {}
   const url = assertTestDatabaseTarget(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL, process.env);
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   try {
