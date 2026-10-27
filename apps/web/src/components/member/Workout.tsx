@@ -10,6 +10,7 @@ import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } fr
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { useUnit } from "./units";
 import { PainSheet } from "./FollowSheets";
+import { PlatesSheet } from "./PlatesSheet";
 import { Confetti } from "@/components/motion/Confetti";
 import { StepSlider } from "@/components/motion/StepSlider";
 import { seedOf } from "@/lib/confetti";
@@ -59,6 +60,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pain, setPain] = useState(false);
+  const [plates, setPlates] = useState(false);
 
   const commit = useCallback(async (next: LocalSession) => { setS(next); await putLocal(next); }, []);
 
@@ -306,6 +308,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
               <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>
             </div>
+            {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn plates-open" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
             <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
             <div className="feel" role="group" aria-label="¿Cómo se sintió la serie? (opcional)">
               {(Object.keys(SET_FEEL) as SetFeel[]).filter((k) => gym || k !== "ayuda").map((k) => {
@@ -327,6 +330,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
         )}
       </div>
       {painSheet}
+      {plates && curRow && <PlatesSheet kgWeight={curRow.w} unit={unit} onClose={() => setPlates(false)} />}
     </div>
   );
 }

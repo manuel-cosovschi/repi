@@ -10,3 +10,4 @@ export * from "./units";
 export * from "./goals";
 export * from "./agenda";
 export * from "./csv";
+export * from "./plates";

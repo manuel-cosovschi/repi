@@ -197,6 +197,18 @@
 .sheet-group div { display: flex; gap: 6px; flex-wrap: wrap; }
 .sheet-group button { height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--dark-border); background: var(--dark-surface); color: var(--dark-ink); font: 600 13px var(--font-ui); cursor: pointer; }
 .sheet-group button[aria-pressed="true"] { background: var(--core-cyan); border-color: var(--core-cyan); color: var(--core-navy900); }
+/* Discos y entrada en calor (F-HX-21, D105) */
+.plates { display: flex; flex-direction: column; gap: 8px; }
+.plates h3 { margin: 6px 0 0; font: 600 14px var(--font-ui); color: #CBD5E1; }
+.plates p { margin: 0; font-size: 14px; line-height: 1.45; }
+.plates-side strong { font: 700 22px var(--font-ui); font-variant-numeric: tabular-nums; color: var(--dark-ink); }
+.plates-side span { color: var(--dark-muted); }
+.plates-warm { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.plates-warm li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--dark-surface); font-size: 15px; }
+.plates-warm li span { color: var(--dark-muted); }
+.plates-warm li strong { font-variant-numeric: tabular-nums; }
+.plates-note { font-size: 12px !important; }
+.plates-open { align-self: center; height: 44px; }
 .sheet-warn { margin: 0; background: rgba(245, 158, 11, .14); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #FCD38A; line-height: 1.45; }
 .sheet textarea { border: 1px solid var(--dark-border); background: var(--dark-bg); color: var(--dark-ink); border-radius: 12px; padding: 12px; font: 14px var(--font-ui); resize: none; }
 .sheet-video { height: 56px; border-radius: 12px; border: 1.5px dashed var(--dark-border); display: flex; gap: 10px; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--core-turquoise); }

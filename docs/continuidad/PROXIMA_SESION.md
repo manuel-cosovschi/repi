@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, sitio público (D104). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, discos y entrada en calor (D105). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Sitio público con contacto comercial (F-PU-01, D104)
+## Último bloque cerrado — 27/10/2026 · Discos y entrada en calor en la sesión activa (F-HX-21 parcial, D105)
+
+- **Hecho:** `packages/domain/src/plates.ts` (+ tests) exportado desde el índice; `apps/web/src/components/member/PlatesSheet.tsx`; botón «Discos y entrada en calor» en `member/Workout.tsx` (sólo peso > 0 y ejercicios por repeticiones); estilos `.plates*` en `member.css`. Sin migración ni cambios de sincronización: no se registra nada.
+- **Pruebas:** dominio 92/92 (nuevo `plates.test.ts`, 5), web 159/159, build OK. Navegador local (375 px, Valentina, Piernas → Sentadilla 100 kg): 20 kg → «1 × 25 + 1 × 15» y escalones 20×10, 40×5, 60×3, 80×2; barra 15 → «1 × 25 + 1 × 15 + 1 × 2,5» y se recuerda. Quedó una sesión «Piernas» en curso sin series en `repi_dev`.
+- **Coordinación:** `Workout.tsx` no está entre los archivos que Codex modifica; `MemberApp.tsx` no se tocó.
+- **Siguiente:** resto de F-HX-21 (nota por serie, saltar y sustituir: requieren campo nuevo en `set_log`/estado de ejercicio y pasar por la cola offline y los conflictos; diseñar con cuidado) o F-HX-22 (aviso local del descanso con la app en segundo plano).
+
+## Bloque anterior — 27/10/2026 · Sitio público con contacto comercial (F-PU-01, D104)
 
 - **Hecho:** `src/app/page.tsx` muestra `components/site/PublicSite.tsx` a visitantes sin sesión (con sesión, igual que antes; `/?source=pwa` sin sesión → `/acceso`). `components/site/LeadForm.tsx` usa `/api/access/lead` (mismo `commercial_lead` que Acceso → Admin › Contactos). `src/app/legal/[doc]/page.tsx` (`terms`, `privacy`, `dpa`; otro → 404): antes eran enlaces rotos desde la aceptación de términos. Estilos en `src/styles/site.css`. Sin migración.
 - **Copy:** sólo capacidades presentes (ver `docs/comercial/ESTADO_Y_LIMITES.md`): sin tiendas, pagos, facturación, precios publicados ni alta libre. Legales: aviso de texto en preparación con la versión `TERMS_VERSION` y resumen de cómo funciona hoy.
