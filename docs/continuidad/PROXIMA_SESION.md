@@ -1,13 +1,20 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, unidad de peso kg/lb (D95). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, informe mensual (D96). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Unidad de peso kg/lb (F-HX-23 parcial, D95)
+## Último bloque cerrado — 27/10/2026 · Informe mensual (F-CO-16, D96)
+
+- **Hecho:** `src/server/training/report.ts` (`monthBounds`, `myMonthlyReport`, `clientMonthlyReport`; `requireClientOf` ahora exportado de `training/services.ts`); vista `components/report/MonthlyReport.tsx` + `PrintButton.tsx`; estilos `styles/report.css` (con `@media print`); páginas `app/app/informe/page.tsx` y `app/coach/[orgId]/informe/[relId]/page.tsx`; enlaces en Progreso del alumno y pestaña Rendimiento del coach.
+- **Pruebas:** web 139/139 (nuevo `tests/report.test.ts`, 3), guardas 11/11, typecheck y build OK. Navegador local: informe de la alumna del seed (escritorio) y del coach para esa relación en 375 px sin scroll horizontal ni check-in. No se probó «Guardar como PDF» en Safari/iPhone.
+- **iCloud (grave):** durante el build iCloud renombró `apps/web/src/server/access/http.ts` a `http` (sin extensión). Se restauró desde git y el archivo extra fue a la Papelera. Ya van tres incidentes hoy (schema.ts borrado, `schema 2.ts`, `http`). **Mover el repo fuera de Escritorio/Documentos o excluirlo de iCloud** antes de seguir; revisar `git status` y `git ls-files -d` antes de cada commit.
+- **Siguiente:** F-CO-03/F-HX-02 objetivos del cliente con progreso; luego F-CO-10 calendario/asistencia o F-CO-11 importación CSV.
+
+## Bloque anterior — 27/10/2026 · Unidad de peso kg/lb (F-HX-23 parcial, D95)
 
 - **Hecho:** dominio `packages/domain/src/units.ts` (kgTo, toKg, fmtWeight, volumeIn, stepWeightIn, parseWeightIn, WEIGHT_STEPS_LB) con `units.test.ts`; columna `user_pref.weight_unit` (migración `0015_weight_unit`, dev local y **Supabase**); `src/server/settings/services.ts` + `GET/POST /api/me/settings`; `weightUnit` en `myTraining`; contexto `components/member/units.ts` provisto por `MemberApp`; Workout (stepper en lb, resumen, PR/Epley, conflictos, aria), Progreso/historial, «Anterior» del día y vitrinas del Club usan la unidad. Perfil → «Configuración» (radiogroup kg/lb, 44 px).
 - **Pruebas:** web 137/137 (nuevo `tests/settings.test.ts`), dominio 78/78, guardas 11/11, typecheck y build OK. Navegador local 375 px: Perfil → Libras → aviso y Progreso en lb; se volvió a kg. El ± en lb dentro de un entrenamiento no se probó en navegador (cubierto por tests de dominio; no se abrió sesión en dev para no dejar datos).
 - **Fuera de alcance a propósito:** coach/gym siguen en kg; idioma único; menores sin opción hasta política (G11); push al alumno no existe.
-- **Siguiente:** F-CO-16 informe mensual del alumno (PDF desde datos reales) o F-CO-03/F-HX-02 objetivos; V1 restante externo.
+- **Deploy:** 2170e70 en repiclub.com verificado (`/api/me/settings` 401 sin sesión).
 
 ## Bloque anterior — 27/10/2026 · Centro de notificaciones del alumno (F-NT-01, D94)
 

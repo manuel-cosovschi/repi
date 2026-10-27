@@ -1,0 +1,44 @@
+/* Informe mensual imprimible (F-CO-16, D96). Documento claro de escritorio con cabecera navy de la marca. */
+.rp { min-height: 100dvh; background: #EEF2F6; color: #0B0F14; font-family: var(--font-ui); padding: 16px; }
+.rp-tools { max-width: 820px; margin: 0 auto 12px; display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.rp-months { display: flex; gap: 8px; align-items: center; }
+.rp-months b { font: 700 18px var(--font-display); text-transform: uppercase; min-width: 140px; text-align: center; }
+.rp-btn { min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #CBD5E1; background: #fff; color: #0B0F14; font: 600 14px var(--font-ui); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; }
+.rp-btn.pri { background: #00D1FF; border-color: #00D1FF; color: #0B0F14; }
+.rp-btn:focus-visible { outline: 2px solid #00A3C7; outline-offset: 2px; }
+.rp-doc { max-width: 820px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgb(11 15 20 / .08); }
+.rp-head { background: #0B0F14; color: #F8FAFC; padding: 24px; display: flex; gap: 20px; align-items: center; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rp-head > span { display: flex; flex-direction: column; text-align: right; gap: 2px; }
+.rp-head strong { font: 700 28px/1.05 var(--font-display); text-transform: uppercase; }
+.rp-head small { font-size: 13px; color: #94A3B8; }
+.rp-doc section { padding: 20px 24px 4px; break-inside: avoid; }
+.rp-doc h2 { font: 700 18px var(--font-display); text-transform: uppercase; margin: 0 0 10px; letter-spacing: .01em; }
+.rp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.rp-kpis > div { border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.rp-kpis span { font-size: 12px; color: #475569; font-weight: 600; }
+.rp-kpis strong { font: 700 26px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.rp-kpis small { font-size: 12px; color: #64748B; }
+.rp-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.rp-table th, .rp-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+.rp-table thead th { font-size: 12px; color: #475569; font-weight: 600; }
+.rp-table tbody th { font-weight: 600; }
+.rp-table tbody th small { display: block; font-weight: 400; color: #64748B; font-size: 12px; }
+.rp-empty, .rp-line { margin: 0 0 12px; font-size: 14px; color: #334155; line-height: 1.5; }
+.rp-doc > .rp-empty { padding: 24px; }
+.rp-foot { padding: 16px 24px 24px; font-size: 11.5px; color: #64748B; line-height: 1.5; }
+.rp-foot p { margin: 6px 0 0; }
+@media (max-width: 600px) {
+  .rp { padding: 8px; }
+  .rp-head { flex-direction: column; align-items: flex-start; }
+  .rp-head > span { text-align: left; }
+  .rp-doc section { padding: 16px 14px 4px; }
+  .rp-table { font-size: 13px; }
+  .rp-table thead th:nth-child(3), .rp-table tbody td:nth-child(3) { display: none; }
+}
+@media print {
+  .rp { background: #fff; padding: 0; }
+  .rp-tools { display: none; }
+  .rp-doc { box-shadow: none; border-radius: 0; max-width: none; }
+  .rp-table thead th:nth-child(3), .rp-table tbody td:nth-child(3) { display: table-cell; }
+  @page { margin: 14mm; }
+}

@@ -540,6 +540,7 @@ function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; 
         )}
         <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
       </section>
+      <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2>Historial</h2>
         {err ? <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu historial (necesita conexión). <button type="button" className="linkbtn" onClick={retry}>Reintentar</button></span>

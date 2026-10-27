@@ -175,7 +175,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-BL-01 | Cobros manuales del coach a sus clientes | probado 27/10 (D80) · confirmado | Separado de suscripción REPI |
 | F-AD-04 | Admin · cobros | sin_implementar · documentado | Lista de cargos/pagos con estado/evidencia, conciliación y correcciones auditadas; cierre simulado no se declara cobro. |
 | F-PU-01 | Sitio público | sin_implementar · documentado | Sitio responsive con identidad aprobada, producto real, contacto comercial y enlaces legales; no prometer features no disponibles ni alta libre. |
-| F-CO-16 | Informe mensual para el alumno (PDF en la app) | sin_implementar · documentado | Informe generado desde datos persistidos. |
+| F-CO-16 | Informe mensual para el alumno (PDF en la app) | integrado 27/10 (D96; PDF vía impresión del navegador; tests/report.test.ts; navegador local) · documentado | Informe generado desde datos persistidos. |
 | F-CO-17 | Ingresos esperado vs cobrado | probado 27/10 (D80) · documentado | Valores derivados de cargos/pagos registrados. |
 | F-BL-05 | Aviso al cliente de cambio de suscripción, fin de prueba y criterio de conteo | sin_implementar · en_conflicto | Aviso y historial visibles al cliente. |
 | F-HX-02 | Vista de objetivos acordados en la app | sin_implementar · propuesto | Alumno ve objetivos acordados y progreso calculado; edición y autoría claras, sin objetivos ficticios de plantilla. |

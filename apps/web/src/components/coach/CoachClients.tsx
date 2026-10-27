@@ -151,10 +151,12 @@ function PerfTab({ orgId, relId }: { orgId: string; relId: string }) {
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
   if (!d.data) return <p className="muted">Cargando…</p>;
   const { exercises, groups, formula } = d.data;
-  if (!exercises.length && !groups.length) return <div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div>;
+  const report = <a className="btn" href={`/coach/${orgId}/informe/${relId}`} style={{ alignSelf: "flex-start" }}>Informe mensual (imprimible)</a>;
+  if (!exercises.length && !groups.length) return <>{report}<div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div></>;
   const kg = (n: number) => `${n.toLocaleString("es-AR", { maximumFractionDigits: 1 })} kg`;
   return (
     <>
+      {report}
       <section className="card">
         <h2>1RM estimado</h2>
         <span className="muted" style={{ fontSize: 13 }}>{formula} Últimas 4 semanas contra las 4 anteriores.</span>

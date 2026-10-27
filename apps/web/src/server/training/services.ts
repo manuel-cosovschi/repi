@@ -23,7 +23,7 @@ export async function requireCoach(actorId: string, orgId: string) {
 }
 
 /** Relación del coach con acceso a entrenamientos (grant fijo 'training' activo). */
-async function requireClientOf(orgId: string, coachClientId: string, tx: Tx | typeof db = db) {
+export async function requireClientOf(orgId: string, coachClientId: string, tx: Tx | typeof db = db) {
   const [rel] = await tx.select({ rel: coachClient, name: user.name, userId: user.id }).from(coachClient)
     .innerJoin(user, eq(user.id, coachClient.userId))
     .where(and(eq(coachClient.id, coachClientId), eq(coachClient.coachOrgId, orgId)));
