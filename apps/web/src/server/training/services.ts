@@ -197,7 +197,8 @@ export async function assignProgram(actorId: string, orgId: string, programId: s
       const [copy] = await tx.insert(program).values({ orgId, kind: "client_copy", coachClientId: relId, sourceProgramId: src.kind === "template" ? src.id : src.sourceProgramId, sourceVersionId: version.id, createdBy: actorId }).returning();
       await newVersion(tx, copy.id, 1, plain(doc), actorId);
       await tx.update(programAssignment).set({ status: "ended", endedAt: new Date() }).where(and(eq(programAssignment.coachClientId, relId), eq(programAssignment.status, "active")));
-      const [a] = await tx.insert(programAssignment).values({ coachClientId: relId, programId: copy.id, startsOn: p.startsOn, assignedBy: actorId }).returning();
+      // Hora de la app (no la de la transacción): posterior a la de la copia, así una edición se distingue de la asignación (F-CL-14).
+      const [a] = await tx.insert(programAssignment).values({ coachClientId: relId, programId: copy.id, startsOn: p.startsOn, assignedBy: actorId, assignedAt: new Date() }).returning();
       await audit(tx, { actorUserId: actorId, orgId, action: "program.assigned", resourceType: "program_assignment", resourceId: a.id, meta: { source: src.id, version: version.number } });
       names.push(rel.name);
     }
@@ -384,10 +385,20 @@ export async function myTraining(userId: string, now = new Date()) {
     lastIdx = d && dayIds[d.position] ? dayIds[d.position] : null;
   }
   const next = nextDayIndex(dayIds, lastIdx);
+  // F-CL-14: programa nuevo o actualizado, con autor. Cada asignación arranca en la versión 1 de su copia: una versión
+  // nueva (si ya se entrenó con la anterior) o una edición en el lugar (si todavía no) cuentan como actualización.
+  // Margen de 60 s: en asignaciones anteriores la hora de la copia y la de la asignación salían de relojes distintos.
+  const edited = p.updatedAt.getTime() > act.assignment.assignedAt.getTime() + 60_000;
+  const updated = version.number > 1 || edited;
+  const [author] = await db.select({ name: user.name }).from(user).where(eq(user.id, updated ? version.createdBy : act.assignment.assignedBy));
+  const update = {
+    key: `${version.id}:${p.updatedAt.getTime()}`, kind: updated ? ("updated" as const) : ("new" as const), author: author?.name ?? null,
+    at: (updated ? (edited ? p.updatedAt : version.createdAt) : act.assignment.assignedAt).toISOString(), reason: version.reason, hasPrevious: version.number > 1,
+  };
   return {
     ...base, state: "ready" as const, stats, openSession: open[0]?.id ?? null, openSessionDay: open[0]?.dayName ?? null, startsOn: act.assignment.startsOn,
     program: {
-      name: doc.name, weeks: doc.weeks, note: doc.note, version: version.number, nextDay: next,
+      name: doc.name, weeks: doc.weeks, note: doc.note, version: version.number, nextDay: next, update,
       days: doc.days.map((d) => ({
         id: d.id!, name: d.name,
         exercises: d.exercises.map((e) => {
@@ -623,4 +634,20 @@ export async function myHistory(userId: string) {
     const ss = sets.filter((x) => x.sessionId === s.id);
     return { id: s.id, dayName: s.dayName, endedAt: s.endedAt, durationSec: Math.floor(s.activeMs / 1000), sets: ss.length, volumeKg: volumeKg(ss.map(toLogged)), rpe: s.rpe };
   });
+}
+
+/** F-CL-14: la versión anterior del programa vigente, para comparar después de una actualización. Sólo de la asignación propia. */
+export async function previousVersion(userId: string) {
+  const act = await myActive(userId);
+  if (!act?.assignment) throw NOT_FOUND();
+  const [p] = await db.select().from(program).where(eq(program.id, act.assignment.programId));
+  const { version: cur } = await readVersion(p.currentVersionId!);
+  if (cur.number <= 1) throw NOT_FOUND();
+  const [prev] = await db.select({ id: programVersion.id }).from(programVersion).where(and(eq(programVersion.programId, p.id), eq(programVersion.number, cur.number - 1)));
+  if (!prev) throw NOT_FOUND();
+  const { version, doc } = await readVersion(prev.id);
+  return {
+    number: version.number, name: doc.name, weeks: doc.weeks, createdAt: version.createdAt,
+    days: doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec })) })),
+  };
 }

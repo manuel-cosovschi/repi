@@ -488,7 +488,7 @@ export async function saveMemberProgram(actorId: string, orgId: string, gymMembe
     } else {
       const [pr] = await tx.insert(program).values({ orgId, kind: "member_copy", gymMemberId: m.id, createdBy: actorId }).returning();
       await newVersion(tx, pr.id, 1, v.doc, actorId, reason.slice(0, 300));
-      await tx.insert(programAssignment).values({ gymMemberId: m.id, programId: pr.id, startsOn: localDate(new Date()), assignedBy: actorId });
+      await tx.insert(programAssignment).values({ gymMemberId: m.id, programId: pr.id, startsOn: localDate(new Date()), assignedBy: actorId, assignedAt: new Date() }); // ver F-CL-14
     }
     await audit(tx, { actorUserId: actorId, orgId, action: number === 1 ? "member_program.created" : "member_program.revised", resourceType: "gym_member", resourceId: m.id, meta: { revision: number, offShift } });
     let completed: { ref: string; invite: string | null } | null = null;

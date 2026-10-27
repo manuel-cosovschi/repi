@@ -17,7 +17,8 @@ import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./
 import { MemberMessages } from "./Messages";
 import { GymTabView } from "./Gym";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
-import { metaTxt, prevTxt, type Training } from "./types";
+import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
+import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 
@@ -256,6 +257,7 @@ function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, relo
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
         </div>
       )}
+      {t.state === "ready" && t.program?.update && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
       {inbox?.accessRequests.map((a) => (
         <button key={a.id} type="button" className="hbanner cyan" onClick={() => go("perfil")}>
           <span className="dot" style={{ width: 8, height: 8, borderRadius: 4, background: "#00D1FF", flex: "none" }} />
@@ -604,5 +606,45 @@ function MyData({ flash }: { flash: (m: string) => void }) {
         </>
       ) : reqs && <button type="button" className="ghost" onClick={ask}>Pedir que eliminen mi cuenta</button>}
     </section>
+  );
+}
+
+// F-CL-14: aviso de programa nuevo o actualizado, con autor; la versión anterior queda consultable.
+// Visto por versión en este teléfono (no es un dato de salud ni privado de otra persona).
+type PrevVersion = { number: number; name: string; createdAt: string; days: { name: string; exercises: { name: string; sets: number; reps: string; rir: number | null; restSec: number }[] }[] };
+function ProgramNotice({ u, version, name, offline, flash }: { u: ProgramUpdate; version: number; name: string; offline: boolean; flash: (m: string) => void }) {
+  const key = `repi_prog_seen:${u.key}`;
+  const [seen, setSeen] = useState(true);
+  const [prev, setPrev] = useState<PrevVersion | null>(null);
+  useEffect(() => { try { setSeen(localStorage.getItem(key) === "1"); } catch { setSeen(false); } }, [key]);
+  const done = () => { try { localStorage.setItem(key, "1"); } catch { /* */ } setSeen(true); };
+  const open = async () => { try { setPrev(await api<PrevVersion>("/api/me/training/previous")); } catch (e) { flash((e as Error).message); } };
+  if (seen && !prev) return null;
+  const who = u.author?.split(" ")[0] ?? "Tu coach";
+  const when = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(u.at));
+  return (
+    <>
+      {!seen && (
+        <div className="hbanner cyan" style={{ flexWrap: "wrap" }} role="status">
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: "#00D1FF", flex: "none" }} />
+          <span><b>{u.kind === "new" ? `${who} te asignó «${name}»` : `${who} actualizó tu programa`}</b>
+            <small>{u.kind === "new" ? when : `Versión ${version} · ${when}${u.reason ? ` · ${u.reason}` : ""}`}</small></span>
+          <span style={{ display: "flex", gap: 6 }}>
+            {u.kind === "updated" && u.hasPrevious && !offline && <button type="button" className="ghost sm" style={{ height: 36 }} onClick={open}>Ver anterior</button>}
+            <button type="button" className="cta sm" style={{ height: 36 }} onClick={done}>Ok</button>
+          </span>
+        </div>
+      )}
+      {prev && (
+        <Sheet title={`Versión ${prev.number} · ${prev.name}`} sub={`Hasta el ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(u.at))}. Sólo para consultar: entrenás con la versión ${version}.`} onClose={() => setPrev(null)}>
+          {prev.days.map((d) => (
+            <div key={d.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <b style={{ fontSize: 15 }}>{d.name}</b>
+              {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {e.sets} × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""}</span>)}
+            </div>
+          ))}
+        </Sheet>
+      )}
+    </>
   );
 }

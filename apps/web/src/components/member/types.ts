@@ -6,8 +6,10 @@ export type Training = {
   relations: { id: string; kind: "coach" | "gym"; name: string; org: string; hasProgram: boolean }[];
   state: "no_program" | "scheduled" | "ready"; startsOn?: string; openSession: string | null; openSessionDay: string | null;
   stats: { weekDone: number; doneDates: string[]; volumeThisWeek: number; volumeLastWeek: number };
-  program?: { name: string; weeks: number; note: string; version: number; nextDay: number; days: { id: string; name: string; exercises: TrainEx[] }[] };
+  program?: { name: string; weeks: number; note: string; version: number; nextDay: number; days: { id: string; name: string; exercises: TrainEx[] }[]; update?: ProgramUpdate };
 };
+/** F-CL-14: aviso de programa nuevo o actualizado. `key` cambia con cada versión. */
+export type ProgramUpdate = { key: string; kind: "new" | "updated"; author: string | null; at: string; reason: string | null; hasPrevious: boolean };
 export type SessionLog = { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null };
 export type SessionEx = TrainEx & { note: string | null; defaultWeight: number | null; defaultReps: number | null; logs: SessionLog[] };
 export type Session = {

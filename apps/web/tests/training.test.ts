@@ -100,6 +100,34 @@ describe("sesión del alumno", () => {
     return { ...ctx, user: ctx.clients[0].userId, t };
   }
 
+  it("F-CL-14: aviso de programa nuevo con autor; al editarlo pasa a actualizado y la versión anterior se puede consultar", async () => {
+    const ctx = await ready();
+    expect(ctx.t.program.update).toMatchObject({ kind: "new", hasPrevious: false });
+    expect(ctx.t.program.update?.author).toBeTruthy();
+    await expectErr(tr.previousVersion(ctx.user), "not_found");
+    const [a] = await db.select().from(schema.programAssignment).where(and(eq(schema.programAssignment.coachClientId, ctx.clients[0].relId), eq(schema.programAssignment.status, "active")));
+    await db.update(schema.programAssignment).set({ assignedAt: new Date(Date.now() - 5 * 60_000) }).where(eq(schema.programAssignment.id, a.id)); // asignado hace 5 min
+    const doc = DOC();
+    doc.days[0].exercises[0].sets = 5;
+    await tr.saveProgram(ctx.coach, ctx.orgId, a.programId, doc); // sin sesiones: se edita en el lugar
+    const t2 = await tr.myTraining(ctx.user);
+    if (t2.state !== "ready") throw new Error("sin programa");
+    expect(t2.program.version).toBe(1);
+    expect(t2.program.update).toMatchObject({ kind: "updated", hasPrevious: false });
+    expect(t2.program.update?.key).not.toBe(ctx.t.program.update?.key);
+    // Ya entrenó con esa versión: la próxima edición crea la versión 2 y la 1 queda consultable.
+    await tr.startSession(ctx.user, { id: randomUUID(), dayId: t2.program.days[0].id });
+    doc.days[0].exercises[0].sets = 3;
+    await tr.saveProgram(ctx.coach, ctx.orgId, a.programId, doc);
+    const t3 = await tr.myTraining(ctx.user);
+    if (t3.state !== "ready") throw new Error("sin programa");
+    expect(t3.program.version).toBe(2);
+    expect(t3.program.update).toMatchObject({ kind: "updated", hasPrevious: true });
+    const prev = await tr.previousVersion(ctx.user);
+    expect(prev.number).toBe(1);
+    expect(prev.days[0].exercises[0].sets).toBe(5);
+  });
+
   it("el día elegido abre sus ejercicios (Piernas no abre Torso A) y el inicio es idempotente", async () => {
     const { user, t } = await ready();
     expect(t.program.nextDay).toBe(0);

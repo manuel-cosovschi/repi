@@ -2,7 +2,13 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Registro de errores sin datos sensibles (D76)
+## Último bloque cerrado — 27/10/2026 · Aviso de programa nuevo/actualizado (D77, F-CL-14)
+
+- **Hecho:** `training/services.ts` (`program.update` en `myTraining`, `previousVersion`), `assignedAt` explícito en asignaciones (coach y gym), ruta `/api/me/training/previous`, `ProgramNotice` en `MemberApp.tsx`, tipo `ProgramUpdate`.
+- **Pruebas:** web 103/103 (test nuevo en `tests/training.test.ts`), build OK, captura headless del aviso.
+- **Quedan V1 sin implementar del catálogo:** F-PR-03 (notas institucionales vs personales), F-PR-04 (acceso denegado + auditoría), F-AD-01 (resumen Admin).
+
+## Bloque anterior — 27/10/2026 · Registro de errores sin datos sensibles (D76)
 
 - **Hecho:** `src/server/log.ts` + uso en `access/http.ts#handle`, `/api/media/[id]`, `/api/cron/*`; `tests/log.test.ts`.
 - **Pruebas:** web 102/102, typecheck y build OK.
