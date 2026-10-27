@@ -1,38 +1,16 @@
-# REPI — Carpeta lista para desarrollo
+# REPI — Continuidad lista para otro Claude
 
-Abrí esta carpeta completa como espacio de trabajo para Claude Code. El punto de partida es [MASTER_PROMPT.md](MASTER_PROMPT.md). El [mensaje inicial](PROMPT_INICIAL.md) está listo para copiar.
+Abrí esta misma carpeta en Claude Code y pegá el contenido de [PROMPT_INICIAL.md](PROMPT_INICIAL.md). **Es un solo prompt**: apunta al máster completo y al estado del proyecto, sin depender del chat anterior.
 
-## Organización
+- [MASTER_PROMPT.md](MASTER_PROMPT.md): producto completo, diseño y reglas vigentes, prioridad V1 y desarrollo posterior.
+- [Estado actual](docs/continuidad/ESTADO_ACTUAL.md): lo que existe, evidencia y bloqueos observados.
+- [Próxima sesión](docs/continuidad/PROXIMA_SESION.md): por dónde retomar y cómo dejar un checkpoint.
+- [Plan de lanzamiento y roadmap](docs/continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md): núcleo V1, gates y fases posteriores.
+- [Catálogo completo](docs/continuidad/CATALOGO_COMPLETO.md): 209 entradas, con JSON que conserva requisitos y fuentes anteriores.
+- [Decisiones pendientes](docs/continuidad/DECISIONES_PENDIENTES.md): sólo lo que sigue abierto.
+- [Fuentes y precedencia](docs/continuidad/FUENTES_Y_PRECEDENCIA.md): rutas reales y resolución de contradicciones.
+- [Guía de traspaso](docs/continuidad/GUIA_TRASPASO.md): misma computadora frente a cambio de entorno; base de datos y secretos no viajan automáticamente con la carpeta.
 
-```text
-Repi/
-├── MASTER_PROMPT.md       Guía activa: leer primero
-├── CLAUDE.md              Instrucciones de entrada del proyecto
-├── PROMPT_INICIAL.md      Mensaje listo para copiar
-├── LEER_PRIMERO.md        Esta guía
-└── handoff/
-    ├── entregables/       Análisis, decisiones y mapa de pantallas
-    ├── evidencia/         Auditorías, inventarios, pruebas y capturas
-    ├── fuentes/
-    │   ├── REPI_COMPLETE_DESIGN_HANDOFF/
-    │   │   ├── prototypes/     Código de los prototipos
-    │   │   ├── assets/         Marca Concepto 2 y referencias
-    │   │   └── …              Especificaciones e inventarios completos
-    │   ├── Investigacion_Tecnica_REPI_Body_Intelligence.pdf
-    │   └── REPI App Mobile Prototype.zip
-    └── LEER_PRIMERO.md    Guía original del paquete auditado
-```
+El código está en apps/ y packages/. El handoff nuevo está en handoff/fuentes/extraido/ y su ZIP original en la raíz. Body Intelligence: PDF en documentacion/investigacion/ y auditoría en documentacion/antecedentes_version_anterior/evidencia/. Diseño elegido en REPI_SELECCION_VISUAL.md; motion en motion.md y design/motion/.
 
-Los archivos de configuración que ya estaban en esta carpeta se conservaron. Se copió el paquete auditado completo; las fuentes originales permanecen intactas. El máster de la raíz tiene las rutas adaptadas a esta organización. La copia dentro del handoff conserva la versión auditada como antecedente.
-
-## Orden de trabajo
-
-1. Leer el máster completo.
-2. Revisar [análisis](handoff/entregables/01_ANALISIS_DEL_ZIP_Y_HANDOFF.md), [decisiones pendientes](handoff/entregables/03_DECISIONES_Y_FALTANTES.md) y todo el handoff de Claude Design.
-3. Incorporar funcionalidades adicionales descubiertas, incluyendo las ausentes de los resúmenes.
-4. Contrastar [investigación Body Intelligence](handoff/fuentes/Investigacion_Tecnica_REPI_Body_Intelligence.pdf) con su [auditoría](handoff/evidencia/BODY_INTELLIGENCE_AUDIT.md).
-5. Iniciar desarrollo desde la raíz, por etapas verificables, conservando Concepto 2 y diferenciando implementaciones reales de simulaciones.
-
-No hace falta pasar la investigación por separado: ya está incluida. El desarrollo debe usar las fuentes y auditorías; el paquete todavía no equivale a una aplicación productiva.
-
-Verificación de organización: [integridad de la copia y archivos preservados](handoff/evidencia/ORGANIZACION_DESKTOP.json).
+Las entradas previas se conservaron en documentacion/historial/2026-10-27_antes_de_continuidad/. No se reinstaló el handoff viejo que el usuario había retirado. El nuevo máster evita rehacer funcionalidades ya implementadas; los resultados históricos deben verificarse antes de declarar producción lista.

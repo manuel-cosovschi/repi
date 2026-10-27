@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-27",
+  "result": "PASS",
+  "scope": "Integridad y cobertura documental; no prueba funcional de producción",
+  "catalog_total": 209,
+  "prior_ids_preserved": 166,
+  "added_entries": 43,
+  "retired_preserved": 6,
+  "nonempty_acceptance_criteria": 209,
+  "broken_links": [],
+  "links_checked": 9,
+  "historical_backups": 6,
+  "product_code_changes_in_tracked_diff": false,
+  "application_tests_executed": false,
+  "independent_review": "Sin contradicciones importantes ni preguntas adicionales que impidan planificar. Dependencias externas explícitas.",
+  "files": [
+    {
+      "path": "MASTER_PROMPT.md",
+      "sha256": "90a2accce5242153c9f752997b0a85e23e530d3125e0fa44fc94111b159d86a4",
+      "words": 3777
+    },
+    {
+      "path": "PROMPT_INICIAL.md",
+      "sha256": "93201154cfd36d5af5ff68b5d6e9de86ab647d8597f9e58d2ee961e48c9e704a",
+      "words": 186
+    },
+    {
+      "path": "LEER_PRIMERO.md",
+      "sha256": "36c0994495528e11c7474f3e8b9abecd7f7dfc7cb7591e99d2d764cf47e47305",
+      "words": 212
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "6e8d7092ad79d50c13b8a856cc9d5eafe9d502d9ebb373af43df7900ba5c6492",
+      "words": 273
+    },
+    {
+      "path": "docs/continuidad/GUIA_TRASPASO.md",
+      "sha256": "b752344c0b0b135347f0071b4163eadc10245a9a3dc791d02100ddca456bf9cb",
+      "words": 431
+    },
+    {
+      "path": "docs/continuidad/DECISIONES_PENDIENTES.md",
+      "sha256": "7dda54226f1b0d0bef7bfdcb7fc283919ef6b3bac4defbc81e5b77f134e6cb0f",
+      "words": 550
+    },
+    {
+      "path": "docs/continuidad/ESTADO_ACTUAL.md",
+      "sha256": "13b79d99056ca0ed998ecda2a7000cd376474b2d6e6018df609f75a622f47dc3",
+      "words": 758
+    },
+    {
+      "path": "docs/continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md",
+      "sha256": "262962cf52b600b868eefd22ecca08f48ce02fb2916530cd02f33c948eeb82a2",
+      "words": 1448
+    },
+    {
+      "path": "docs/continuidad/PROXIMA_SESION.md",
+      "sha256": "3bba79693fcd9b3c04bfbab5dc85b691f61b0ae77cdcf909b307590f6fce0ff2",
+      "words": 392
+    },
+    {
+      "path": "docs/continuidad/FUENTES_Y_PRECEDENCIA.md",
+      "sha256": "6496caf3f8c3af592d2ef67ec4f196a73e999c3d1a5d1d503cf2a8415c8f83a3",
+      "words": 528
+    },
+    {
+      "path": "docs/continuidad/CATALOGO_COMPLETO.md",
+      "sha256": "a32aec31c42da2db7ac678b70075a28026c666522a89469ec98e7eecb8e12e07",
+      "words": 6374
+    }
+  ]
+}

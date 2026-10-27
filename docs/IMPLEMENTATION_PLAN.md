@@ -1,3 +1,5 @@
+> **Prioridad actualizada 27/10/2026:** este archivo conserva las etapas históricas. Para continuar, usar [plan de lanzamiento y roadmap](continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md) y [máster activo](../MASTER_PROMPT.md). Lanzar primero el núcleo V1; el alcance posterior se conserva. No reiniciar etapas ya entregadas por sus encabezados antiguos.
+
 # REPI — Plan de implementación
 
 Cortes verticales sobre el inventario completo (`docs/PRODUCT_INVENTORY.md`, 166 entradas). El orden sigue `MASTER_PROMPT.md` §16 ajustado a dependencias reales. Ninguna etapa reduce alcance; cada una termina con evidencia en `docs/IMPLEMENTATION_STATUS.md`.

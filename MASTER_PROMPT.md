@@ -1,363 +1,167 @@
-# MÁSTER PROMPT — REPI COMPLETO PARA CLAUDE CODE
+# REPI — Máster de continuidad, primera versión y producto completo
 
-Versión consolidada auditada · 25/10/2026 · Marca Concepto 2 Friendly Performance.
+Versión 27/10/2026. Encargo activo del usuario: continuar el desarrollo existente, lanzar cuanto antes una primera versión con todo lo principal y completar después todo el alcance. Este archivo reemplaza el máster del 25/10, conservado en `documentacion/historial/2026-10-27_antes_de_continuidad/MASTER_PROMPT.md`. No es una orden de empezar de cero ni una certificación de que producción ya funciona.
 
-Este es un encargo de desarrollo integral. El handoff incluido en esta carpeta es una base de diseño y especificación, no una aplicación terminada. Implementá REPI preservando el diseño aprobado, conectando de verdad sus flujos y demostrando cada resultado. No te detengas en un análisis, una maqueta, una landing o un MVP que omita el resto del alcance. Trabajá por entregas verificables y mantené explícito lo que dependa de una decisión o de validación externa.
+## 1. Tu misión y primer paso
 
-## 1. Regla central: el alcance es abierto al handoff completo
+Actuá como responsable de continuidad del desarrollo de Repi. Usá esta carpeta completa como repositorio. No necesitás acceso al chat anterior para comenzar. Construí sobre el código existente; preservá cambios de otros agentes y datos. Primero cerrá los bloqueos y recorridos de la primera versión. No demores ese lanzamiento para terminar Body Intelligence experimental, IA, tiendas móviles o cada ampliación futura. Tampoco borres esas capacidades del plan.
 
-El usuario aclaró expresamente que existen más funcionalidades nuevas además de las mencionadas en sus mensajes y que las vas a encontrar en el handoff. Por lo tanto:
+Orden de lectura inicial, acotado para ahorrar contexto:
 
-1. Inspeccioná **todos** los archivos, documentos, prototipos, estados, pantallas, componentes, assets, datos, notas, decisiones y anexos de la entrega más reciente. No uses este prompt ni la conversación como una lista exhaustiva.
-2. Descubrí las funcionalidades adicionales, incluso si no aparecen en `features.json`, en los 93 IDs actuales o en este documento. Considerá también controles, variantes, reglas y requisitos originales agrupados dentro de una sola entrada.
-3. Agregá cada hallazgo al inventario consolidado con fuente exacta, audiencia, propósito y estado real. No inventes funcionalidades para llenar categorías vacías. “Hay novedades que relevar” no define cuáles son ni confirma que funcionen.
-4. Conservá los IDs existentes; asigná IDs nuevos a requisitos no representados. Separá duplicados, reemplazos, funcionalidades retiradas y alternativas no elegidas. No reactives una capacidad explícitamente retirada sólo porque quede en legacy.
-5. Si un handoff posterior agrega o corrige algo, documentá el delta contra la versión auditada. No dejes que un resumen anterior reduzca el producto. Si contradice una instrucción humana vigente, presentá el conflicto y su impacto sin dar la contradicción por resuelta.
-6. Un prototipo, un status “interactive”, un toast, una etiqueta “Guardado” o un documento que dice “completo” no acreditan implementación productiva.
+1. Este máster completo y `CLAUDE.md`/AGENTS.md aplicables.
+2. `docs/continuidad/ESTADO_ACTUAL.md` y `PROXIMA_SESION.md`.
+3. `docs/continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md` y `DECISIONES_PENDIENTES.md`.
+4. `REPI_SELECCION_VISUAL.md`, `docs/DESIGN_CONTRACT.md` y `motion.md` §12 para no rehacer diseño/motion ya integrado.
+5. Consultá `docs/continuidad/CATALOGO_COMPLETO.md` y su JSON para el módulo que vas a tocar. Contienen todas las entradas del inventario anterior más requisitos posteriores y necesidades operativas.
+6. Leé los archivos relevantes de `docs/DECISIONS.md`, `docs/IMPLEMENTATION_STATUS.md`, los anexos y el handoff vigente según `docs/continuidad/FUENTES_Y_PRECEDENCIA.md`.
 
-La entrega final debe rendir cuentas sobre el inventario completo descubierto, no solamente sobre lo enumerado a continuación. Las fases ordenan el trabajo; no eliminan alcance.
+Inspeccioná Git, scripts, migraciones y código actual. Elegí el primer bloqueo real del lanzamiento que puedas resolver y ejecutá un corte verificable. No gastes toda la sesión regenerando inventarios, reinstalando dependencias o leyendo de nuevo cada archivo ya auditado. Sí revisá el contexto necesario y descubrí novedades del handoff cuando trabajes en ese módulo. Cada entrega debe dejar código funcional, evidencia y próximo paso; si falta una decisión externa, continuá el trabajo independiente.
 
-## 2. Fuentes, lectura y autoridad
+## 2. Autoridad, certeza y alcance completo
 
-La raíz de trabajo es esta carpeta `Repi/`. Este `MASTER_PROMPT.md` es la entrada activa para iniciar el desarrollo. Las referencias del paquete están organizadas así, con rutas relativas a esta raíz:
+Mandato más reciente del usuario > decisiones explícitamente confirmadas > este máster consolidado y selección Atlética > anexos vigentes > decisiones documentadas con su grado de certeza > handoff actual > investigación/propuestas > legacy. El código demuestra qué existe, no convierte automáticamente una decisión de un agente en aprobación comercial o jurídica. Un documento que dice probado no reemplaza una prueba actual.
 
-| Material | Ubicación |
-|---|---|
-| Handoff completo de Claude Design | `handoff/fuentes/REPI_COMPLETE_DESIGN_HANDOFF/` |
-| Prototipos actuales y legacy | `handoff/fuentes/REPI_COMPLETE_DESIGN_HANDOFF/prototypes/` |
-| Marca, assets y brief original | `handoff/fuentes/REPI_COMPLETE_DESIGN_HANDOFF/assets/` |
-| Investigación original Body Intelligence | `handoff/fuentes/Investigacion_Tecnica_REPI_Body_Intelligence.pdf` |
-| Análisis, decisiones y mapa de pantallas | `handoff/entregables/` |
-| Auditorías, inventarios, capturas y verificaciones | `handoff/evidencia/` |
-| ZIP original de Claude Design | `handoff/fuentes/REPI App Mobile Prototype.zip` |
+Conservá tres ejes: certeza de producto, estado técnico y fase de entrega. Usá confirmado/documentado/propuesto/en conflicto/retirado; no implementado/parcial/integrado/verificado; V1/V1.1/V2/BI experimental/futuro. Un feature marcado probado en el inventario viejo puede cubrir sólo una parte de su nombre. Los criterios vacíos se completan con comportamiento y prueba; no se marcan satisfechos por inferencia.
 
-Cuando se cite un archivo del diseño sin prefijo, resolvelo dentro de `handoff/fuentes/REPI_COMPLETE_DESIGN_HANDOFF/`. La copia del máster en `handoff/entregables/` conserva la versión auditada anterior a esta organización; usá este archivo de raíz como punto de entrada, con las rutas actualizadas. Los prompts históricos dentro de los assets son fuentes de requisitos, no instrucciones alternativas para arrancar. Si cambia la ubicación de la carpeta, encontrá los archivos por nombre y contenido; no dependas de rutas absolutas de otra computadora.
+Hay funcionalidades nuevas dentro del handoff que no estaban en mensajes ni IDs iniciales. No limites el producto a 93 ni a 166 entradas. Agregá hallazgos con fuente y aceptación. El catálogo es una base de cobertura, no una promesa de anticipar toda necesidad futura. La petición «todo lo necesario» autoriza completar flujos y operación; no autoriza inventar reglas de precio, diagnósticos, acceso sensible, cobros reales o servicios pagos.
 
-Desarrollá el proyecto desde la raíz `Repi/`, inspeccionando y respetando los archivos existentes. Conservá `handoff/` como material de referencia: el código productivo y los documentos vivos del desarrollo se crean fuera de esa carpeta. Si necesitás modificar un prototipo para probar una hipótesis, hacelo sobre una copia de trabajo y mantené intacta la fuente auditada.
+El catálogo conserva los requisitos retirados con motivo: **no reactivar** cobro de cuota gym→socio, autoalta comercial libre, trial automático, padrón/DNI obligatorio, precios demo por defecto ni impersonación desde los paneles. Los nombres viejos de algunas entradas están normalizados en el catálogo de continuidad.
 
-Leé:
+## 3. Producto, personas y modelo comercial
 
-- Los 24 documentos 00–23, README, CHECKLIST y MANIFEST.
-- `features.json`, `screens.json`, `navigation.json`, `roles-permissions.json`, `implementation-backlog.json`, ambos tokens JSON y `tokens.css`.
-- Los cinco HTML actuales y los tres legacy, `support.js` y `repi-shared.js`.
-- El brief original dentro de `assets/brand-original/MASTER_PROMPT_ANTIGRAVITY_REPI_FIEL.md`, la imagen maestra y los recortes.
-- `assets/previous-handoff/REPI_Coach_Gym_Handoff_v3.md`, respetando sus correcciones y partes superadas.
-- `01_ANALISIS_DEL_ZIP_Y_HANDOFF.md`, `03_DECISIONES_Y_FALTANTES.md` y las auditorías de código, requisitos, navegador y Body Intelligence.
-- La investigación completa `Investigacion_Tecnica_REPI_Body_Intelligence.pdf`, como propuesta a contrastar, no como código ni ciencia ya validados.
-- Cualquier archivo adicional del handoff nuevo que recibas y las instrucciones del repositorio destino.
+Repi es una plataforma de entrenamiento y seguimiento con una sola identidad por persona y varias relaciones/contextos:
 
-Jerarquía para resolver conflictos:
+- Alumno/socio: web/PWA móvil para entrenar, registrar, progresar, comunicarse y controlar privacidad.
+- Coach: profesional independiente presencial, remoto o híbrido; clientes, programas, seguimiento y cobros propios.
+- Gym: socio, entrenador de piso, coordinador, recepción, gerente y dueño; operación por sede y cadena.
+- Escritorio: herramientas de trabajo de Coach, Gym y Admin; no un teléfono agrandado.
+- Repi Admin: altas comerciales, contratos, facturación SaaS y operación, sin acceso universal a datos privados.
+- Comunidad/Repi Club, Body Intelligence, notificaciones, pagos e IA como módulos con permisos y etapas propias.
 
-1. Instrucciones humanas vigentes y decisiones humanas comprobables posteriores.
-2. Concepto 2 y assets maestros aprobados para identidad/fidelidad visual.
-3. Correcciones funcionales documentadas en la versión vigente, dejando clara su procedencia si no se dispone del mensaje humano original.
-4. Requisitos originales que no hayan sido explícitamente retirados y expansión documentada vigente.
-5. Prototipos actuales como evidencia de intención visual/interacción y de comportamiento realmente observable.
-6. Propuestas técnicas, investigación y roadmap, con supuestos identificados.
-7. Legacy como historia, nunca como autorización para restaurar decisiones superadas.
+Una persona puede ser alumno, coach privado y empleado de un gym. No duplicar cuentas ni heredar permisos entre relaciones. Un socio con gym y coach elige el programa/contexto de su sesión; la sesión conserva su origen aunque cambie de pantalla. Chat, métricas, datos compartidos y asignaciones respetan esa separación.
 
-No conviertas “no objetado”, “supuesto” o “ilustrativo” en aprobación. Si falta una fuente, registralo. No reconstruyas mensajes inaccesibles ni anuncies que leíste adjuntos no disponibles.
+**Confirmado:** Gym paga por todos los socios acordados, aunque no hayan activado Repi. Admin carga manualmente la cantidad acordada; preparar integración futura. Coach paga por todos sus alumnos vigentes, aunque no tengan cuenta o no usen la app. Precio unitario negociable por cliente, modificable por Repi Admin con vigencia, autor y motivo. Cantidad y precio son versiones distintas; cambios no reescriben períodos cerrados. Uso/cuentas habilitadas son adopción, no facturación. Si superan el total acordado, alertar para revisión sin cobro o bloqueo automático. No usar ARS 700 ni tramos demo como precio aprobado.
 
-## 3. Descubrimiento y primer entregable ejecutable
+Mantener separados: (1) Coach cobra manualmente a alumnos; (2) Coach/Gym paga a Repi; (3) cuota Gym→socio fuera del alcance. Catálogo de recepción informativo, sin checkout. Cantidades, monedas, corte, descuentos, impuestos, mora y prorrateos necesitan reglas explícitas antes de cobrar. No elegir un proveedor como si ya estuviera contratado.
 
-Antes de diseñar tablas o instalar dependencias, inspeccioná el repositorio real, su estado, stack, instrucciones y cambios existentes. No sobrescribas trabajo ajeno ni reinicies una base útil. Separá claramente el código del repositorio del código contenido en este ZIP.
+## 4. Diseño aprobado y motion
 
-Prepará y mantené:
+**Concepto 2 + variante G · Atlética**, confirmados. Paleta #0B0F14, #1A2433, #2D3B4F, #00D1FF, #5DE6D8, #F8FAFC. Alumno oscuro; escritorios claros con navegación navy donde corresponda. Logo e ícono originales, proporciones y punto cian intactos. No escribir el logo con una fuente ni redibujarlo. Barlow Condensed 700 en títulos destacados, Barlow en cuerpo e interfaz; JetBrains Mono sólo para códigos/usos técnicos existentes. Números tabulares, español rioplatense, es-AR y unidades explícitas.
 
-- `docs/PRODUCT_INVENTORY.md` y un JSON equivalente: ID, fuente/localizador, módulo, rol, propósito, regla, pantalla/estado, acción, datos, permiso, dependencias, certeza, estado actual, trabajo pendiente y aceptación.
-- `docs/DECISIONS.md`: decisión, alternativas, fuente, qué está confirmado, qué falta, consecuencia y módulo afectado.
-- `docs/DESIGN_CONTRACT.md`: referencias visuales, tokens, componentes y motion; distingue diseño existente de extensión propuesta.
-- `docs/IMPLEMENTATION_PLAN.md`: cortes verticales y dependencias para todo el alcance, incluidas novedades descubiertas.
-- `docs/IMPLEMENTATION_STATUS.md`: estados demostrados, pruebas, capturas, limitaciones y pendientes; nunca una lista de checks sin evidencia.
+Phosphor Bold para íconos internos; las excepciones de reproducción documentadas no cambian el estilo general. Barra móvil Cristal flotante con indicador interior; cambio de sección por fundido de 160 ms, barra estable y conservación de scroll. No imponer tabbar móvil a escritorio ni eliminar destinos para copiar el laboratorio.
 
-Usá dos ejes separados para cada requisito: **certeza de producto** (confirmado/documentado/propuesto/en conflicto/retirado) y **estado técnico** (sin diseño/estático/interactivo local/simulado/integrado/persistente/probado). Una misma función puede estar confirmada y no implementada.
+M01 selección de día; M02 resumen/celebración con datos reales; M03 carga ambiental/revelado; M04 RPE y RIR separados; M05 carrusel de novedades. Ya hay implementación reportada y código: leer `motion.md` §12 y probar antes de cambiar. HyperFrames vive en `design/motion/` para composiciones/previews, no sustituye controles web. No reconstruir todo motion ni incorporar otro motor sin necesidad. La aprobación de la dirección G no equivale a aceptación visual de cada pantalla final.
 
-No uses “93 funcionalidades” como techo: el ZIP ya agrupa funcionalidades originales y contiene criterios vacíos. Tampoco interpretes 97 entradas de pantalla como 97 rutas. Corregí referencias como `F-RC-01..05` a IDs reales. Descomponé el backlog; el archivo actual es una proyección de features, no un plan ejecutable completo.
+Conservar intro 1a “El punto” como backlog: primera apertura saltable, regular ≤500 ms, nunca durante una sesión; no bloquear V1 por la intro. Teclado, foco/restauración, nombres accesibles, áreas táctiles ≥44 px, contraste, reduced-motion, safe areas, texto ampliado y estados honestos. Diseñar extensiones nuevas con el mismo sistema sin atribuirlas a un prototipo inexistente. Fuentes/assets locales con licencias; ningún video de referencia se usa como UI de producción.
 
-Avanzá después de ese relevamiento. Resolvé decisiones técnicas reversibles con criterio y documentación. Prepará propuestas concretas para decisiones de negocio, permisos, costo o validación que sí necesitan una definición; continuá las tareas que no dependan de ellas. No solicites aprobación para cada componente o detalle rutinario. No pongas reglas comerciales o acceso sensible en producción por haber vencido una espera.
+## 5. Acceso, altas y PWA: condición de primera versión
 
-## 4. Producto y límites confirmados
+Identidad y pertenencia son distintas. Registro/login no dan derecho a usar una organización. Priorizar email verificado y credenciales existentes; Google/Apple no son necesarios para V1 ni deben conceder membresía. Ocultar acciones no disponibles en producción; no restaurar onboarding comercial libre. Recuperación, cambio de credenciales, expiración y revocación de sesiones, invitación reenviada/vencida/revocada, otra cuenta y relaciones múltiples deben funcionar.
 
-REPI es una plataforma de entrenamiento, performance, seguimiento y comunicación. Marca `repi`, lema “Cada repetición cuenta.” Una identidad y un motor compartidos, con experiencias por audiencia:
+Admin crea cliente comercial en borrador, registra acuerdo/aceptación, habilita e invita al email del responsable. La persona crea sus credenciales por enlace seguro; no enviar contraseñas generadas por Admin. Invitaciones por destinatario, consumo único y revocación al reenviar. Trial sólo si fue concedido expresamente. Staff invitado por rol/sede; 2FA y recuperación de administradores con procedimiento verificable.
 
-- **REPI Coach:** entrenador independiente, presencial/online/híbrido, con sus clientes.
-- **REPI Gym:** gimnasio/cadena y sus socios, entrenadores de sala, coordinadores, gerentes y dueños.
-- **Alumno/socio:** app PWA móvil centrada en entrenar, registrar, consultar progreso y controlar privacidad.
-- **Escritorio:** Coach; staff de piso y remoto cuando corresponda; gerencia y dueño; no se limita al teléfono ampliado.
-- **REPI Admin:** cuentas, contratos, facturación y operación de la plataforma, sin acceso automático a chats o datos sensibles.
-- **Repi Club, Body Intelligence, pagos, comunicaciones e IA:** módulos relacionados pero con contratos y grados de madurez distintos.
+Gym publica QR fijo por sede desde su dashboard: escanear sólo localiza el gym y permite solicitar acceso después de verificar identidad. La solicitud aparece inmediatamente en la misma bandeja de piso y recepción. Piso puede aprobar con capacidad, sede y turno válido; recepción/gerencia/dueño según permisos sin depender del celular del entrenador. Push intenta avisar al personal autorizado en turno, pero la bandeja y el fallback funcionan con push rechazado, teléfono apagado o sin personal disponible. Ninguna autoaprobación. Decisiones concurrentes deben producir un solo vínculo y resultado auditado.
 
-Una cuenta puede tener varias relaciones y roles. No dupliques identidades porque la persona sea coach privado, staff de un gym y alumno a la vez. Cada relación tiene contexto, datos autorizados y ciclo de vida propios.
+Gestionar pendiente, aprobada, rechazada, cancelada, vencida, ampliación de sede, pausa, baja y reactivación; nada se reabre por reescanear QR, cambiar email o recuperar contraseña. Baja corta autorización en servidor y se aplica al reconectar. Como no hay padrón obligatorio, hace falta un responsable operativo y una revisión de accesos para bajas: el QR solo no detecta al exsocio. No vincular automáticamente acceso con una cuota que Repi no administra.
 
-El modelo comercial Gym cobra por socio y busca un precio unitario menor por volumen. Los importes y fórmulas finales siguen abiertos. El alumno no compra micropagos a REPI por registrar entrenamientos. El Gym puede incorporar el costo a su cuota comercialmente, pero **REPI no administra ni cobra la cuota del gym al socio** según la corrección vigente. El Coach conserva sus cobros manuales a clientes. El catálogo de recepción no es un checkout.
+**Primera distribución web/PWA.** QR y links de invitación presentan antes del primer registro/login móvil una guía interactiva para agregar a inicio. Adaptar instrucciones al dispositivo y navegador interno; ofrecer continuar en navegador y recuperar la guía después. Respetar sesiones existentes y no repetirla sin necesidad. Detectar capacidades en vez de afirmar instalación por un clic. Conservar/recuperar destino gym/sede/invitación al pasar de navegador a acceso directo, sin asumir cookies compartidas. Invitar no se consume al abrir la guía o por un escáner de emails. No incluir tokens privados en manifest/start_url, logs ni caché. Recuperación de invitación ligada al correo verificado o código válido.
 
-Los managers deben poder supervisar servicio, efectividad, seguimiento y reviews con el alcance autorizado. **Nunca deben leer chats privados entrenador–alumno ni notas personales del entrenador.** No conviertas supervisión en impersonación de una cuenta de alumno.
+Completar iconos y manifest con dimensiones reales y fidelidad a la marca; HTTPS, entrada pública sin bucles y service worker compatible con sesiones pendientes. Una actualización no debe borrar la cola ni cortar un entrenamiento. Push tras acción explícita del usuario autorizado. Probar instalación y entrega real en dispositivos; una captura responsive no lo demuestra. App Store/Play Store son futuro: backend compartido, enlaces estables, no dos apps nativas antes de V1.
 
-## 5. Contrato de diseño: conservar Concepto 2
+## 6. Alumno y motor de entrenamiento
 
-No propongas una identidad alternativa. Conservá Concepto 2 Friendly Performance, wordmark e isotipo exactos, punto cian, proporciones, composición y tono. Usá la imagen maestra y PNG aprobados hasta disponer de un vector verificado. No reconstruyas el logo escribiendo `repi` con una fuente, no uses un SVG rechazado y no redibujes la r por aproximación.
+Inicio/semana/detalle/estado sin programa/solicitud de programa. Seleccionar el día correcto y empezar o retomar una sola sesión coherente con su relación y versión inmutable. Registro con valores previos, series/repeticiones/carga/RIR, descanso prescrito, pausa, reanudar, editar, finalizar y resumen derivado. Peso fino confirmado: entrada decimal y pasos 0,25/0,5/1/1,25/2,5 kg; no volver al paso fijo como única opción. Prescripción y realizado son datos distintos.
 
-Referencia principal: `assets/brand-original/00_ORIGINAL/REPI_MARCA_APROBADA_REFERENCIA_MAESTRA.png`. Usá además recortes de marca, Coach y alumno y prototipos canónicos. Las capturas son referencia, nunca fondos con botones superpuestos.
+RPE de sesión 1–10 con nota; RIR por serie separado y opcional. Preservar valores históricos; no convertir RIR 5 a otra cosa silenciosamente. Sensación por serie: Fácil/Bien/Difícil/Al límite/Con molestia y pedir ayuda al piso. Alertas al equipo pertinente y deduplicación; la fuente de sede actual debe resolverse para no avisar a la sede equivocada. No publicar sensaciones/salud en el Club ni diagnosticar.
 
-Paleta base:
+Relojes por timestamps, no frames. Guardando/guardado local/pendiente/sincronizado/error según hechos. Offline en núcleo: programa/sesión en IndexedDB, IDs estables, cola, reintentos, idempotencia, conflicto conservando ambas versiones, retorno de fondo y recarga sin pérdida. Probar actualización de app durante cola pendiente. Cambio de cuenta/logout limpia datos de la anterior; bajas no deben dejar una cola bloqueada para siempre ni permitir nuevas operaciones prohibidas. Ofrecer recuperación de registros propios autorizados según política, sin transferirlos a otro contexto.
 
-| Uso | Valor |
-|---|---|
-| Navy principal | `#0B0F14` |
-| Superficie navy | `#1A2433` |
-| Navy secundario/bordes oscuros | `#2D3B4F` |
-| Cian | `#00D1FF` |
-| Turquesa | `#5DE6D8` |
-| Blanco de marca | `#F8FAFC` |
+Resumen, volumen, historial, constancia, PR/1RM estimado con fórmulas, unidades y fuentes. Datos insuficientes en lugar de cifras inventadas. Check-in saltable, molestias, lesiones/antecedentes y solicitud de ayuda/revisión técnica con consentimiento. Avisos de programa nuevo/actualizado, autor y versión. Evolución completa, objetivos y captura de medidas se amplían por etapas.
 
-Alumno oscuro, escritorios claros con sidebar navy. Inter Tight para UI; JetBrains Mono para usos técnicos ya presentes. Cargá archivos y licencias de fuentes de forma adecuada; no confundas la fuente de UI con el lettering del logo. Números tabulares, formato es-AR, ARS y español rioplatense.
+Mantener en alcance tipos de ejercicio por tiempo/distancia/asistencia/peso corporal/unilateralidad, calentamiento, sustitución, salto justificado, notas de serie, calculadora de discos, kg/lb y notificación de descanso en segundo plano según soporte real. No presentar estas ampliaciones como integradas hasta verificarlas.
 
-Extraé los tokens completos a una fuente de verdad reutilizable. `tokens.css` sólo contiene una parte de los JSON. Conservá jerarquía, densidad, radios, espacios y estados. Corregí contraste sin cambiar la marca: la divergencia blanco/oscuro sobre cian debe quedar explicitada; no perpetúes un contraste insuficiente sólo por copiar un texto antiguo.
+## 7. Coach completo
 
-Construí componentes accesibles: botones, campos, formularios, steppers, tabs, chips, selectores, KPI, tablas, split view, sidebars, tabbar, sheets, modales, toasts, gráficos, registro de series, descanso, visor y logros. Estados loading, empty, error, retry, disabled, success, permiso denegado y falta de conexión cuando correspondan.
+Dashboard y pendientes accionables; directorio, búsqueda/filtros/orden/paginación; invitación por email y ciclo de cliente con pausa/reactivación/baja; ficha Resumen, Rendimiento, Rutinas, Progreso, Salud, Nutrición, Mi cuerpo y Pagos. Cada dato necesita productor, permiso, fecha, unidad y fuente. Datos sensibles requieren grant específico; pedir acceso, aceptar/rechazar, vencer/revocar y estados en ambos extremos.
 
-Las pantallas nuevas necesarias deben extender el mismo sistema. Marcá su diseño como extensión propuesta derivada de requisitos, sin fingir que ya existía una pantalla aprobada.
+Constructor: ejercicios/biblioteca base y propios, medios con licencia, músculos/equipo/favoritos; plantillas/programas/versiones, semanas/días editables, prescripción, notas, orden accesible, duplicar y asignar con fecha. Copia por cliente y congelado histórico: editar no altera otras asignaciones ni sesiones pasadas. Completar progresivamente superseries/biseries/circuitos, tempo, descanso, RPE/RIR, sustituciones, tiempo/distancia, borrador/publicación y búsqueda de biblioteca. Catálogo inicial útil no debe bloquear entrenar por falta de un video premium.
 
-### Motion
+Registro de sesiones/RPE/check-ins, progreso por ejercicio y volumen por grupo, objetivos acordados, informes mensuales PDF desde datos reales. Calendario, sesiones presenciales, confirmación, cancelación y asistencia como entidades separadas del entrenamiento. Importación CSV con mapeo/preview/errores/deduplicación; perfil y configuración; promociones. Chat real privado, solicitudes/resolución; posteriormente adjuntos/audio/plantillas/difusión con permisos y preferencias. Nada de suplantar al alumno con “ver su app”.
 
-No confundir la identidad **Concepto 2** con la intro **1a “El punto”**, seleccionada según el log. Conservar esa intro; 1b/1c son alternativas históricas. Primera apertura saltable, inicio regular breve, reduced-motion, nunca interrumpir sesión activa ni repetir al volver del fondo. Resolver 520 ms frente a aceptación ≤500 ms antes de declarar cumplimiento.
-
-Mantener microinteracciones de series, descanso, transiciones, progreso, visor, resumen y logros donde aporten información. PR sólo si el dato lo justifica. Motion no bloquea inputs ni inventa progreso de un proceso inexistente. Sonido/háptica son opcionales y pendientes; no instalar simultáneamente todas las tecnologías sugeridas en el catálogo.
-
-La exportación tiene un error de lifecycle: `support.js` pasa sólo prevProps y los componentes usan prevState. No copies ese runtime como base productiva ni afirmes que las 24 animaciones declaradas ya funcionan. Reimplementá o repará y verificá cada comportamiento en la arquitectura elegida, con snapshots de estado correctos.
-
-### Responsive y accesibilidad
-
-La carcasa fija de teléfono es presentación del prototipo; la app real usa el viewport y safe areas. Validá 375/390/430/768/1024/1280/1440/1920 según superficie. Sidebar completa desde 1100, rail 768–1099 y drawer inferior según contrato; Admin también debe tener comportamiento móvil adecuado.
-
-Control por teclado, foco visible, foco inicial/restaurado/trap en modales, fondo inerte, nombres accesibles, anuncios oportunos, alternativas a drag y controles semánticos. Switches y checkboxes activables con teclado; comparador accesible además del gesto. No depender sólo de color. Reduced-motion conserva información. Objetivo WCAG 2.2 AA en flujos importantes, probado, no autodeclarado.
-
-## 6. Alumno: entrenamiento y seguimiento reales
-
-Implementá inicio, semana, detalle, sesión, resumen, historial y progreso conectados al programa asignado. Inicio sin programa tiene un estado útil. El día seleccionado inicia sus ejercicios reales; Piernas no puede abrir Torso A. Cada sesión tiene identidad y versión de prescripción inmutable.
-
-Registro de series con valores anteriores y tipos de ejercicio: carga/reps/rangos, RIR/RPE donde corresponda, tiempo/distancia, asistencia/peso corporal, unilateralidad, notas y sustituciones según definición del dominio. Prescripción y realizado son distintos. Soportar pausa, reanudación, edición y finalización con estados coherentes; no inventar que una sesión duró 12:34 ni que todas las series se completaron.
-
-Temporizador de descanso por reloj/timestamp, pausa/reanudar, saltar y +30s. Verificar retorno del fondo y recarga. La duración total de sesión también necesita semántica real de reloj/pausa, no un contador que se detenga al navegar a otra pantalla.
-
-Autosave real. Mostrar Guardando/Guardado local/Pendiente de sincronizar/Sincronizado/Error según el hecho. Un “Guardado” fijo no es aceptable. Resumen, volumen, constancia, PR y gráficos se derivan de registros persistidos y fórmulas documentadas. Diferenciar 1RM estimado de carga medida; no sumar comparaciones incompatibles ni fabricar historia.
-
-### Offline obligatorio para el núcleo de sesión
-
-Persistencia local, IDs estables de mutación, cola, idempotencia, reintento, control de versión y estrategia de conflicto. Recargar sin conexión conserva la sesión; reconectar no duplica series. Probar fallos en mitad de sync, app en fondo, cierre/retorno y cambio de dispositivo. Conservar las dos versiones cuando no se pueda resolver un conflicto sin perder datos; no sobrescribir silenciosamente.
-
-Limitar datos sensibles offline. Logout, revocación de relación y cambio de cuenta no deben dejar datos de otra persona accesibles. No afirmar que IndexedDB de videos resuelve esto.
-
-## 7. Coach: experiencia completa
-
-Panel de clientes, ingresos propios, adherencia y pendientes accionables, siempre con período y definición. Directorio con búsqueda/filtro/orden/paginación y ciclo de vida: alta, edición, invitación, aceptación, pausa, reactivación, archivado y baja lógica según reglas. CSV con preview, mapeo, deduplicación y errores por fila; nunca confirmar importación por un toast sin procesar.
-
-Ficha con ocho pestañas actuales: Resumen, Rendimiento, Rutinas, Progreso, Salud, Nutrición, Mi cuerpo y Pagos. Incorporá funcionalidades adicionales descubiertas sin limitarte a esos nombres. Cada dato debe tener productor, fuente, fecha, unidad y permiso. Salud/nutrición/cuerpo requieren autorización específica; la ausencia de datos no se rellena con seeds. Diseñá la captura del alumno y sus permisos donde falta: molestias, lesiones, check-in, energía/sueño y nutrición si el módulo se entrega.
-
-Programación: plantillas, programas/versiones, semanas/días con nombres editables, ejercicios, prescripciones, notas, calentamientos, superseries/biseries/circuitos, tempo, RPE/RIR, duración/distancia y sustituciones según el brief vigente. Duplicación de programa/día/semana, orden accesible, borrador/publicación y asignación con fecha. Biblioteca con atributos, músculos/equipo, ejercicios propios de organización, favoritos y medios licenciados.
-
-**Asignar crea la independencia prevista por el contrato:** no compartir un objeto mutable entre alumnos. Versionar historial; cambios futuros nunca reescriben sesiones anteriores. El preview de un programa con datos sintéticos no autoriza entrar a la cuenta real del alumno. Los textos retirados que permitían “ver app alumno” no deben volver.
-
-Calendario y asistencia presencial tienen entidad y reglas propias; no son sinónimos de entrenamiento registrado. Mensajería real entre participantes de relación válida, estados de entrega y políticas de retención. Solicitud de acceso con destinatario, alcance, vencimiento, aceptación/rechazo y revocación efectivos. Nada de respuestas automáticas seed presentadas como otro usuario.
+Cobros propios: plan/cargo, monto/moneda/vencimiento, registro de pago manual, saldo, anulaciones/historial, recordatorios y esperado vs cobrado. Alumno ve su estado autorizado. No mezclar con factura de Repi ni asumir pago online. Nutrición: captura y revisión de comidas/macros/kcal/agua/peso con origen y consentimiento, dentro del alcance profesional definido; no generar prescripciones clínicas automáticas.
 
 ## 8. Gym y escritorio por rol
 
-### Entrenador de sala y trabajo remoto
+Piso: turno, cola, tomar/asignar/completar, prioridad y tiempos, ayuda de socio, ficha institucional, programa/versiones, motivo de revisión, seguimiento, traspaso pendiente/aceptado y atribución/disputa. Permiso de trabajo fuera de turno documentado y auditado, sin confundirlo con autoridad para aprobar altas fuera de las reglas. Concurrencia transaccional. Separar notas institucionales de notas personales y sanear resúmenes de tareas.
 
-Turnos planificados/activos/finalizados, responsabilidades, cola compartida/asignada/completada, prioridad, tiempos, tomar/completar y razones. Las acciones simultáneas se resuelven en transacción para evitar dos asignados incompatibles. Mantener atribución verificable y posibilidad de disputa.
+Recepción: misma bandeja de altas, carnet/QR de socio, ingresos y entrega única de premio, ayuda operativa; no hereda acceso a salud o chats privados. Coordinador/gerente: equipo, roles/sedes/capacidades, tareas/reasignación, turnos/cobertura, seguimiento y métricas institucionales. Dueño: ejecutivo multisede, comparaciones contextuales, configuración y contrato Repi. Cantidad comercial acordada y miembros con acceso son dos cosas distintas.
 
-Ficha institucional del socio, programa, revisiones con autor/motivo, notas institucionales saneadas y notas personales separadas. No copiar chats ni salud a resúmenes operativos. Traspaso exige destinatario, pendientes, aceptación y estados intermedios claros; una solicitud de traspaso no acredita aceptación.
+Performance Center: Operativo, Calidad de servicio, Participación, Resultados de entrenamiento y Satisfacción, separadas. Períodos, fuentes, muestras, denominadores y definiciones visibles. Contextualizar horas/turnos y comparar 2–3 donde corresponda; sin score oculto ni disciplina automática. Resultados deportivos no prueban causalmente calidad del personal. Gerencia no lee chat coach–alumno, notas privadas ni salud para evaluar a empleados.
 
-El gating por turno y `afterHoursAccess` son propuestas a reconciliar con entrenamiento remoto y trabajo autorizado fuera de sala. Diseñá el escritorio remoto y su política; no bloquees toda actividad doméstica porque el prototipo exige turno, ni lo desactives globalmente sin decisión. Escalamientos, atribución compartida y cobertura deben tener reglas explícitas.
+Reseñas por interacción elegible, invitación y límites documentados, promedio con muestra, respuesta, reporte, moderación, apelación y auditoría. No editar el texto del socio como staff, no publicar afuera sin política. Umbrales y plazo son decisiones documentadas a confirmar, no nuevas leyes. Reservas de clases posteriores: calendario/cupo/lista de espera/cancelación/no-show y permisos coherentes; no un botón ficticio.
 
-### Gerencia y dueño
+## 9. Comunidad gym y Repi Club
 
-Panel de sede, equipo, detalle de entrenador, tareas/reasignación, turnos/cobertura, participación, comunidad/validaciones y reviews. Dueño: ejecutivo multi-sede, comparación de sedes, equipo/servicio, contrato REPI y configuración. Roles coordinador y recepción deben tener capacidades y experiencia definidas; reutilizar superficies puede ser válido si se justifica, no omitir el rol por faltar un HTML.
+Novedades/descuentos por gym/sede y vencimiento; carrusel M05; catálogo de recepción informativo con imagen, disponibilidad, horario y promo. Desafíos con reglas, plazo, categorías y premio; intento/video privado → validación → aviso → resultado/récord → retiro único. Archivo/cierre, ranking, mejor marca y concurrencia. Conflicto pendiente de validación presencial sin video: no activar como hecho aprobado. Medios con validación servidor y retención real.
 
-Performance Center con cinco categorías separadas: Operativo, Calidad de servicio, Participación, Resultados de entrenamiento y Satisfacción. Definición, fuente, período, muestra, contexto de turno/horas y manejo de falta de datos. Comparación contextual 2–3 personas donde corresponde. No score compuesto oculto ni decisiones disciplinarias automáticas.
+Club voluntario: feed, publicaciones elegidas, evolución de ejercicio y entrenamiento compartido, perfil/vitrina, reacciones, comentarios, rankings opt-in, bloqueo/reporte/moderación/antispam. Compartir datos con coach no publica en comunidad. No exponer salud, cuerpo, nutrición ni chats. Socios del mismo gym, incluidos alumnos de PT que asisten ahí, pueden participar por su pertenencia; no usar automáticamente sesiones privadas del coach como fuente pública. La publicación de sesiones de otra relación necesita regla y autorización explícitas.
 
-Las métricas se calculan desde eventos reales: horas, tareas atendidas, por 10h, respuesta dentro de turno, vencidas, seguimientos, revisiones y participación. Resultados deportivos no prueban causalmente la calidad de un entrenador. No multiplicar seeds al elegir 7/30/90 días. No convertir ausente en cero.
+Preservar núcleo ya implementado. Después completar ámbitos coach/gym/sede/clase, anuncios de entrenadores, desafíos entre socios, equipos/checkpoints, más perfiles y familia de trofeos/3D. No presión insegura ni ranking universal por cargas brutas sin contexto. Desafíos y premios no deben obligar a publicar datos. La comunidad del coach sigue en el alcance aunque no esté aún programada.
 
-Resolver sede vs organización y visibilidad individual/agregada sin vulnerar el límite de chats privados. Mientras falte definición, no ampliar acceso a datos sensibles por ser gerente. Mantener visible la necesidad de supervisión autorizada; no eliminarla para simplificar permisos.
+## 10. SaaS, pagos y Repi Admin
 
-### Reviews
+Admin: cliente/organización, responsable, acuerdo y evidencia, habilitación, bienvenida, contratos, cantidad y tarifa con versiones/vigencia, preview, períodos/snapshots, estados, auditoría, alertas de diferencia entre total y adopción. No resetear históricos al renegociar. DEMO separado de clientes reales; clientes legacy se regularizan sin suspensiones sorpresivas.
 
-Completar el circuito del socio en la app: interacción elegible, invitación descartable, rating/dimensiones/comentario, límites de frecuencia/duplicación, recepción y estados. El flujo actual de reseña no está migrado a v3. Documentar qué reglas son propuestas: una por interacción, cadencia, identidad visible, umbral de muestra y apelación.
+Cálculo monetario exacto, líneas, descuentos/módulos/mínimos/tramos sólo pactados, ciclo y corte separados del vencimiento. Base acordada y vigencia documentadas; nada de peak de usuarios ni promedio inventado. Implementar avisos de cambios al cliente. Prorrateo/mora/suspensión requieren política; preservar lectura/exportación y definir impacto en alumnos antes de activar una suspensión.
 
-Entrenador responde/reporta sin editar el texto del socio; moderador actúa por permiso, con motivo/log/aviso/apelación. Reseñas retiradas no cuentan en agregados. Probar muestras pequeñas, n = 0/1 y consistencia después de moderación. No usar “rango 95%” sin método y revisión estadística. Identidad del socio y publicación externa se rigen por política confirmada, no por conveniencia de UI.
+Primera versión puede operar con acuerdo y cobro externo registrado manualmente **como propuesta de piloto sujeta a confirmación**, manteniendo conciliación/evidencia y sin simular pasarela ni comprobante fiscal. No es un trial gratis automático. Después integrar proveedor verificado, sandbox y producción separados, firmas de webhooks, idempotencia, eventos duplicados/fuera de orden, conciliación, devoluciones/correcciones autorizadas y comprobantes. Redirect no significa pagado; secretos sólo servidor y sin almacenar tarjetas.
 
-## 9. Comunidad Gym y Repi Club
+Admin completo: cobros, planes por defecto versionados, flags, soporte con acceso mínimo, colas fallidas, salud, costos IA y métricas MRR/ARR/churn con definiciones. “Ver como cliente” no autoriza impersonación; preferir diagnóstico por metadatos y soporte consentido sin contenido privado. Portal de contrato/estado y facturas/comprobantes según naturaleza legal, sin equiparar un cierre simulado con un cobro real.
 
-Comunidad Gym: posts con imagen, novedades y descuentos; desafíos con reglas, unidad, sentido de mejora (`lowerIsBetter`), cierre y premio a retirar en recepción; catálogo informativo por categoría; intentos con video, valor y confirmación; validación/rechazo con motivo, notificaciones y logros persistentes.
+## 11. Body Intelligence: alcance íntegro por madurez
 
-Archivo real validado por tipo/tamaño/duración y procesamiento seguro, con almacenamiento privado y permisos por organización. No aprobar un intento sin la prueba exigida; seeds sin video no crean una excepción de producto. Separar “intento válido” de “nuevo récord”: sólo mejorar según regla actualiza récord; el logro/mensaje debe describir el hecho correcto. Evitar doble validación, duplicado de logro y carrera entre récords. Fecha límite, retención, borrado, moderación y apelación tienen estados concretos.
+Opcional; rechazarlo nunca bloquea entrenar. Primer corte posterior al núcleo: medidas manuales con unidad/fecha/método/fuente, fotos opcionales, historial, corrección, exportación/borrado y permisos granulares. Guardar, procesar con IA y compartir son acciones separadas. Default sin compartir; destinatario/relación/propósito/versionado; revocación efectiva en servidor, objetos, cachés y trabajos pendientes. Retención distinta para originales, derivados, temporales, mallas, documentos y backups.
 
-La notificación a alumno y equipo y el historial sobreviven a recarga y otros dispositivos. Resetear un entorno de prueba debe limpiar objetos huérfanos; borrar metadata no borra un video. No usar nombre visible como ID de propietario.
+Visor: referencia genérica rotulada; aproximado sólo si realmente hay ajuste; personal sólo si existe y pasa validación. Rotación/zoom/vistas/capas/regiones, exposición de entrenamiento, fallback 2D, lazy loading, contexto WebGL perdido y recursos liberados. Mantener nueve regiones visibles inicialmente y resolver taxonomía/lateralidad antes de expandir. Color indica carga registrada, no músculo, grasa o hipertrofia medidos. Comparación por fecha sólo con fuente/método/pose/escala y topología compatibles; no simular transformaciones del usuario con maniquíes genéricos.
 
-El catálogo no procesa pedidos/pagos si no aparece un requisito humano posterior que lo cambie. “Premio en recepción” no implica comercio electrónico.
+Captura guiada real y chequeos de calidad se separan de reconstrucción experimental. Alternativa sin fotos; no exigir ropa interior. El PDF es investigación, no código listo ni ciencia validada. El fitter propuesto no usa los perímetros en su pérdida; RLS no está implementado por un título de SQL; blur facial no anonimiza un cuerpo; defaults TRUE de compartir contradicen producto. No copiar esos defectos. No inferir género/sexo desde imagen, ni inventar variables requeridas o rangos de error.
 
-Repi Club amplio mantiene su alcance: feed/publicaciones voluntarias de logros, ámbitos coach/gym/sede/clase, reacciones/comentarios, rankings, trofeos, equipos/checkpoints/perfiles/anuncios y moderación según fuentes. Diseñá lo faltante sin inventar que ya existe; privacidad/publicación por elección, reglas de visibilidad, bloqueo/reporte y antispam. No reemplaces todo Club por la pestaña Gym ni lo declares entregado por un KPI ficticio de participación. Las novedades del handoff posterior también entran al inventario.
+DXA/BIA/pliegues/laboratorio: método/equipo/ecuación/unidad/fecha; mostrar insuficiente sin fuente. Importación PDF con extracción propuesta, página/zona original, revisión/corrección/aceptación/rechazo antes de graficar. Preservar rangos, < >, cualitativos, desconocidos y unidades. Verificar mapeos/códigos antes de declarar interoperabilidad. No atribuir datos de segmentos a cada músculo.
 
-## 10. Pagos y facturación: tres circuitos separados
+Para inferencia: flag independiente, licencias de código/pesos/assets, evaluación por población, repetibilidad/error/sesgos/incertidumbre/rechazo, revisión especializada y límites de uso antes de habilitar. N=60 es una propuesta, no un estudio ejecutado. Benchmarks/costos del PDF no son garantías. Rollback mantiene registros autorizados y vuelve a referencia genérica sin falsear historia. Desarrollo de registro/visor/documentos puede avanzar sin prometer diagnóstico ni reconstrucción validada.
 
-1. **Coach→cliente:** planes/cargos/pagos manuales, vencimientos, recordatorios, historial, anulaciones y auditoría. Datos del negocio del coach. No afectan el pago de SaaS automáticamente.
-2. **Coach/Gym→REPI:** contratos, precios/versiones, elegibilidad facturable, períodos, snapshots, facturas internas, cobros/conciliación, estado de suscripción.
-3. **Gym→socio:** fuera de REPI conforme a la corrección vigente. El estado de actividad del socio no equivale a estado de su cuota.
+## 12. IA, automatizaciones y ampliación futura
 
-Los precios de demo no son autorizados para vender/cobrar. ARS 700 Coach, tramos Gym 450/380/320, mínimo 150.000, BI 60 y descuento 10% son hipótesis. “Total” no significa automáticamente “máximo del período”.
+Primero métricas deterministas correctas. Asistente de coach después: resúmenes, borradores, alertas explicables y sugerencias revisables, proveedores desacoplados, prompts versionados, datos minimizados, salida validada y presupuesto. Cambios de rutina y mensajes requieren revisión del profesional antes de aplicar/enviar. Sin diagnóstico ni decisiones automáticas sobre personas. Extracción documental y reconstrucción tienen pipelines separados, no un toggle universal IA.
 
-Antes de activar una política, separar:
+Completar centro de notificaciones alumno/staff, preferencias por canal, deep links autorizados, deduplicación y jobs; adjuntos/audio, calendarios/CSV, perfiles públicos y sitio de captación con contacto comercial. No marketing como condición para entrenar. Integraciones de socios/tornos, salud/relojes y tiendas móviles se evalúan al llegar su fase con APIs/documentación vigentes; conservar APIs/cuentas/backend. No prometer disponibilidad o aprobación por el nombre histórico de una plataforma.
 
-- **Elegibilidad:** relación aceptada/vigente, programa, uso, invitación, pausa, baja/reactivación, varios vínculos/sedes; decidir qué cuenta y cómo evitar duplicados.
-- **Agregación temporal:** máximo, foto en fecha o promedio diario de elegibles; son otra dimensión.
-- **Período:** zona horaria, inicio/fin, corte, emisión, vencimiento y día de cobro. No confundirlos.
-- **Tarifa:** por unidad, fijo, tramos marginales o tarifa global por cantidad, límites, mínimo, módulos, orden de descuentos, prorrateo, impuestos y redondeo.
-- **Cambios:** vigencia futura, autorización/auditoría, cancelación, trial/pausa/impago, preservación de histórico.
+## 13. Arquitectura, datos y operación necesaria
 
-Implementá cálculo exacto con decimal/unidades monetarias apropiadas, pruebas de frontera y snapshots inmutables con versión de precio/regla y detalle de unidades. No recalcular facturas pasadas con el contrato nuevo. Peak no puede ser actual×1,04 ni promedio diario la media de dos meses.
+Continuar el monorepo pnpm, Next/React, TypeScript, PostgreSQL/Drizzle, Better Auth, CSS/tokens y PWA existentes. Leer las guías locales de la versión instalada de Next donde lo exige AGENTS.md. No migrar a otro framework, microservicios o proveedor por preferencia. Versiones exactas en lockfile; comprobar documentación/advisories vigentes antes de cambiar dependencias.
 
-Proveedor detrás de adaptador; evaluar el disponible según país, modalidad y documentación oficial vigente. Mercado Pago aparece como candidato, no como conexión existente. Webhooks autenticados, deduplicación, idempotencia, conciliación y estados reales. El redirect no acredita pago. Secretos sólo servidor; nunca almacenar tarjetas. Diferenciar factura interna de comprobante fiscal y resolver integración fiscal requerida.
+Autorización en servidor por usuario + organización + sede + relación + capacidad + recurso + grant cuando aplique. Probar lecturas/escrituras/descargas/exportaciones y denegaciones. No confiar en filtros UI, IDs del cliente ni URLs de objetos. Separación de contextos en caché; nota institucional vs personal; Admin no tiene permiso de lectura sensible universal. Auditoría con actor, acción, recurso, resultado y tiempo, sin secretos ni contenido privado.
 
-Mientras no haya reglas/credenciales/entorno definidos, usar pruebas claramente etiquetadas. No cobrar dinero real ni presentar una integración ausente como operativa. La implementación de prueba y motor configurable puede avanzar sin inventar condiciones comerciales.
+Persistencia transaccional, constraints/índices/paginación, dinero exacto, timestamps y zona horaria documentada. Migraciones versionadas, forward compatible cuando sea posible; rollback y restauración probados. Datos DEMO nunca resultados reales ni cuentas de producción. Configuración dev/test/staging/prod y secretos fuera del repo; bootstrap del primer Admin por canal seguro, no credenciales demo.
 
-## 11. REPI Admin
+Necesidades operativas añadidas para un lanzamiento real: email transaccional y recuperación; reintentos/entrega de invitaciones; almacenamiento privado durable y backups de objetos; jobs programados de notificaciones/retención; límites de abuso compartidos cuando haya varias instancias; sanitización y validación de medios en servidor; logs mínimos/errores/métricas/alertas; soporte y procedimiento de incidentes; exportación/borrado con verificación; monitoreo de disponibilidad y costo; pruebas de despliegue/rollback. Cada una está en el catálogo con origen propuesto, alcance y aceptación.
 
-Cuentas Gym/Coach, alta/edición, estado, contrato por cliente, tarifas/tramos/fijo/mínimo/descuento/módulo, día de cobro, regla de conteo, preview, cambios efectivos e historial. Alta abre una ficha válida después de persistir; no uses el snapshot previo que falla en la demo.
+No ejecutar `pnpm test` ciegamente: el setup actual borra esquemas de TEST_DATABASE_URL. Verificar que es una base exclusivamente descartable, distinta de desarrollo/productiva; endurecer la guarda antes de CI o traspaso. No ejecutar seeds sobre clientes reales. Respaldos reales y credenciales no se guardan en documentos ni ZIP compartidos.
 
-Listado de cobros, estados, conciliación y anulación autorizada. Planes por defecto editables/versionados donde se requiera; las cartas estáticas actuales no lo implementan. Métricas SaaS MRR/ARR/churn sólo con definiciones y fuentes, sin equiparar facturación demo con ingresos recurrentes.
+## 14. Primera versión y fases posteriores
 
-Inventariar y completar flags, soporte, salud del sistema, trabajos fallidos, costos IA y herramientas operativas según requisitos. El rol interno no concede lectura universal de entrenamiento, salud, fotos, documentos ni chat. Soporte con mínimos permisos y trazabilidad; no introducir acceso de impersonación sin requisito y política explícitos.
+V1 es un producto utilizable por gyms y coaches con usuarios reales invitados: alta comercial, correo, QR/aprobación, PWA/guía, programa→entrenamiento→historial, offline probado, comunicación/ayuda, operación de piso/recepción, novedades/Club básico, Admin comercial, privacidad y operación. El alcance exacto, gates y pendientes están en `docs/continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md`.
 
-## 12. Body Intelligence: separar registro, visualización e inferencia
+Los módulos avanzados ya integrados se conservan si pasan pruebas; no reescribirlos por reducir la primera entrega. Un módulo incompleto secundario puede quedar detrás de flag explicado, con backlog y criterio de activación. Autorización, pérdida de datos, funcionamiento del acceso y capacidad de soporte no se posponen para aparentar velocidad.
 
-Módulo opcional. Entrenar sigue funcionando al rechazarlo. Fotos opcionales, sin exigir ropa interior; alternativa manual y accesible. No diagnosticar ni prometer medidas exactas desde imágenes.
+V1.1 completa negocio diario y seguimiento; V2 amplía comunidades, calendarios, programas, métricas y automatización comercial; BI se entrega en registro/visor/documentos y luego investigación validada; tiendas e integraciones futuras conservan backend y usuarios. No hay fecha ni plazo ficticio: estimar desde el código y los bloqueos reales, proponer la siguiente entrega pequeña y terminarla.
 
-### Registro y privacidad
+## 15. Prueba, cierre y continuidad entre Claudes
 
-Medidas con valor/unidad/fecha/fuente/método; fotos de progreso elegidas; informes con procedencia; estado desconocido diferente de cero. Diseñá evaluación, edición/corrección, exportación/borrado y recordatorios reales. No forzar altura/peso/edad para un simple avatar genérico sin necesidad documentada.
+Flujos críticos de punta a punta: Admin habilita e invita → responsable verifica; gym genera QR → socio ve guía/solicita → piso o recepción aprueba; coach invita → alumno acepta; programa asignado/versionado → sesión/descanso/RIR/RPE → historial y feedback; offline/recarga/reconexión/conflicto; pausa/baja/otro usuario; Club voluntario y moderación; contratos con cambios futuros; permisos entre roles y sedes; PWA real y push con fallback.
 
-Separar almacenar, procesar con IA y compartir por tipo, destinatario, propósito, relación y versión de consentimiento. Default sin compartir; no copiar `share.medidas=true` de la seed ni los DEFAULT TRUE del SQL del PDF. Los seis toggles BI no resuelven automáticamente salud, nutrición y check-in; completar su contrato.
+No basta build. Elegir pruebas de dominio/integración/E2E pertinentes, verificación visual contra G, teclado/contraste/reduced-motion y teléfonos reales donde corresponda. Datos falsos etiquetados; archivos/credenciales ajenos nunca expuestos. Si una prueba no se pudo ejecutar, decirlo. No confundir probado en escritorio con probado en iPhone.
 
-Revocación efectiva en servidor y objetos, cachés controladas y tareas pendientes. Retención por originales, derivados, temporales, mallas, PDFs, backups, auditoría y videos. Distinguir dejar de compartir de borrar. Definir qué se conserva legítimamente y comunicar límites; no prometer recuperar copias externas ya descargadas. Logs sin contenido sensible.
+Terminado por función: interfaz fiel + comportamiento real + persistencia + autorización + errores/estados + accesibilidad/responsive + evidencia + documentación. Terminado para lanzamiento: gates V1 resueltos y estado externo claro. “Listo para desplegar” no significa “publicado”; esta instrucción de continuidad no autoriza contratar, cobrar, enviar campañas ni publicar sin la autorización correspondiente. Preparar todo lo revisable antes de pedir esa decisión final.
 
-### Visor
-
-Genérico rotulado, ajustado aproximado sólo si realmente se ajusta y reconstrucción personal sólo si existe y cumple los criterios. La demo arma esferas/cilindros/cajas; cambiar su etiqueta no personaliza geometría.
-
-Mantener navegación/zoom/vistas/capas, selección por zonas y alternativa accesible, lazy loading, fallback 2D/WebGL, manejo de pérdida de contexto, recursos liberados y reduced-motion. Colores indican exposición/carga registrada, no músculo, grasa, hipertrofia o fatiga medidos. Inicialmente conservar las nueve regiones visibles del diseño; resolver taxonomía interna, lateralidad y mapeos antes de agregar números del PDF. El PDF dice 28/14 pares pero enumera 16 grupos.
-
-Comparación exige datos comparables: método, dispositivo, pose, fecha, fuente y versión. Si usa mallas, topología, orden de vértices, escala y alineación compatibles. No simular cambios corporales con dos modelos genéricos y llamarlos resultado del usuario.
-
-### Captura y reconstrucción experimental
-
-La cámara guiada, calidad, cifrado/subida y reconstrucción de la demo están simulados. Reemplazar cada uno por un servicio real o mantenerlo identificado como no disponible. Los cuatro pasos del diseño no equivalen a validación del modelo. Nunca llenar un progreso ficticio para afirmar trabajo real.
-
-El PDF es insumo de investigación. No copiar su fitter: recibe perímetros pero no los utiliza en la pérdida; tampoco entrega lo que promete. No afirmar que su esquema tiene RLS: faltan políticas. No llamar anonimización al simple blur facial; seguir tratando foto/malla vinculadas a cuenta como personales. No inferir sexo/género desde imagen ni convertir todo valor distinto de M en femenino. Separar controles visuales de variables relevantes para medición y definir edades/población/alternativas soportadas.
-
-Comparar proveedores/topologías/LOD y licencias de código, pesos, assets y dependencias por versión. La presencia de Anny/MHR/SOMA/SAM/SMPL-X en un PDF no autoriza su uso comercial ni obliga a integrar todos. Medir resultados, latencia, memoria y costos reales. No copiar precios o FPS como garantías.
-
-Aislar cámara, ajuste, reconstrucción, documentos e IA mediante flags independientes. Antes de habilitar inferencia: protocolo revisado, datos de evaluación apropiados, repetibilidad, error y sesgos por subgrupo, incertidumbre, condiciones de rechazo y evaluación independiente. El estudio N=60 del PDF es propuesto, no ejecutado; su tabla de criterios está dañada. No usar p>0,05 como validación de equivalencia, ni MDC como prueba de causa del cambio.
-
-Rollback: desactivar inferencia conserva entrenamiento, medidas y fotos guardadas con consentimiento; volver a genérico sin reescribir historia; cancelar trabajos revocados, versionar modelo/fórmula/topología y retirar resultados erróneos con trazabilidad.
-
-### Composición y documentos
-
-Sin fuente apropiada, mostrar Datos insuficientes. DXA/BIA/pliegues o laboratorio requieren método, equipo/ecuación cuando aplique, unidad, fecha y comparabilidad. No extrapolar segmentos de un informe a tejido de cada músculo.
-
-Diseñar carga, extracción propuesta, revisión lado a lado con página/zona/texto original, corrección, aceptación/rechazo y auditoría antes de graficar. Conservar valores cualitativos, rangos, `<`/`>`, desconocidos y unidades sin inventar números. Verificar códigos LOINC y conversiones individualmente; no elegir código sólo por nombre ni declarar conformidad FHIR por guardar un JSON.
-
-Revisión jurídica y especializada antes de activar tratamiento sensible/interpretaciones; no diagnosticar ni prescribir. Costos, precisión, normativa y licencias deben comprobarse con fuentes primarias vigentes para el alcance concreto. Consultá las advertencias y enlaces de `handoff/evidencia/BODY_INTELLIGENCE_AUDIT.md`.
-
-## 13. Autorización y datos multi-organización
-
-Modelo contextual: usuario + organización + sede cuando corresponda + relación + capacidad + recurso + propósito + grant cuando aplique. Consentimiento no sustituye pertenencia ni autorización. Validá cada lectura, escritura, exportación y descarga en servidor; nunca confíes en IDs del cliente o filtros de UI.
-
-Separar pertenencia staff, relación gym_member y coach_client. Un grant al coach privado no autoriza a esa misma persona actuando como staff de gym. Cambio de espacio no mezcla cachés, conversaciones, métricas o datos. Revocación/baja se aplica a sesiones y trabajos posteriores.
-
-Managers/dueños: operación institucional y métricas autorizadas, sin chats privados/notas personales ni datos sensibles para evaluar staff. Admin: cuentas/finanzas/operación, sin acceso sensible por defecto. Staff con acceso clínico/corporal es una contradicción pendiente en las fuentes: no ampliar ese permiso hasta resolver destinatarios/finalidades. Mantener mínimo acceso mientras el módulo no está decidido.
-
-Notas institucionales y personales son recursos diferentes. Las tareas usan resúmenes saneados. Community scoped al gym/sede; videos privados a validadores autorizados. Moderación por capability, no sólo por título de gerente. Audit events registran actor/recurso/acción/resultado/tiempo sin copiar el secreto o el contenido médico.
-
-Probar aislamiento horizontal/vertical, sustitución de IDs, cambios de rol/sede, grant vencido/revocado, URLs de objetos, exportaciones y respuestas de error. No revelar existencia ni metadatos de datos ajenos. Un candado o selector de personajes no implementa esto.
-
-## 14. Arquitectura y dominio
-
-Inspeccioná el repo antes de elegir. Preferencia del brief: monolito modular TypeScript, React/Next, PostgreSQL, ORM/migraciones, autenticación mantenida, objetos privados, outbox/jobs y PWA. Es una recomendación técnica, no prueba de código existente ni obligación de migrar una base válida. Verificá versiones/compatibilidad en documentación oficial antes de fijar dependencias. Evitá microservicios o proveedores adicionales sin necesidad.
-
-Lógica de dominio fuera de componentes, validación cliente/servidor, transacciones y APIs tipadas/documentadas. El HTML exportado inspira UI y reglas; su runtime CDN, seeds y estilos duplicados no son la arquitectura productiva.
-
-Cubrir los dominios existentes sin crear tablas por obligación nominal:
-
-| Dominio | Responsabilidades mínimas |
-|---|---|
-| Identidad/tenencia | User, Account, Session, Organization, GymLocation, StaffMembership, roles/capabilities, MemberRelationship, Invitation |
-| Programación | Exercise/media, plantillas, versiones, días/ejercicios/prescripciones, asignaciones/copias y revisiones |
-| Ejecución | WorkoutSession, SetLog, historial, PR, objetivos, asistencia/check-in y sincronización |
-| Salud/nutrición/BI | Registros con procedencia, consentimientos/grants, fotos/objetos, evaluaciones, modelos/jobs, informes y correcciones |
-| Operación Gym | Turnos, solicitudes, tareas/asignaciones, traspasos, notas, interacciones elegibles, métricas/atribución/disputa |
-| Reviews | Reseña, respuesta, moderación, apelación, visibilidad y auditoría |
-| Comunidad/Club | Publicaciones, desafíos/intentos, evidencias, decisiones, récord/logro, catálogo, feed/reacciones/rankings/moderación según inventario |
-| Comunicación | Conversaciones/participantes, mensajes, notificaciones/preferencias y suscripciones push |
-| Coach comercial | Plan/cargo al cliente, pago manual, anulación y recordatorio |
-| SaaS | Contrato/precio/versiones/tramos, período/snapshot, factura/líneas, pago/webhook/eventos e historial de cambios |
-| Operación plataforma | Auditoría, flags, jobs/outbox, idempotencia, soporte, costos y observabilidad |
-
-Diseñar índices, paginación, constraints, estados, transacciones, soft deletes y retención; no pegar el SQL del PDF. Identificadores estables, fechas/zonas coherentes y dinero exacto. Seeds ficticias rotuladas DEMO y separadas de usuarios reales.
-
-Manifest/service worker/instalación PWA y notificaciones según soporte real. Configuración dev/test/staging/prod, `.env.example` sin secretos, scripts de instalación/arranque/pruebas, lockfile y migraciones. Backups con restauración probada, monitoreo sin PII sensible, rate limits y controles de archivos/abuso. No declarar despliegue o integración externa sin haberlos realizado y verificado.
-
-## 15. IA y automatizaciones
-
-Las métricas deterministas y alertas actuales no son un LLM. Implementá primero fuente de verdad y cálculos. Asistente posterior con proveedores intercambiables, prompts versionados, output estructurado/validado, límites/costo, fuentes y flags. Casos del brief: resúmenes, alertas, borradores, sugerencias revisables y explicación de datos. Toda modificación de rutina o mensaje generado requiere revisión del entrenador antes de aplicarse/enviarse.
-
-Sin diagnóstico/tratamiento ni envío autónomo de datos sensibles. Un toggle IA no implica un servicio. Extracción documental y reconstrucción son pipelines separados del asistente. Reintentos no duplican mensajes, cargos o trabajos.
-
-Sitio público, onboarding, perfiles/configuración, notificaciones, calendario, CSV, recepción/coordinación, reservas y demás requisitos originales/nuevos siguen inventariados. Que no estén en los prototipos no los elimina; decidir su entrega por dependencias y dejar evidencia del estado.
-
-## 16. Orden de ejecución propuesto, con alcance íntegro
-
-1. Descubrimiento completo, reconciliación, inventario abierto, contrato visual, decisiones y arquitectura.
-2. Base ejecutable: identidad, contextos/relaciones, permisos, componentes Concepto 2, datos/migraciones, navegación y estados.
-3. Ciclo persistido Coach→programa→asignación→alumno→sesión→progreso, offline, versiones y comunicación.
-4. Gym operación/piso/remoto, gerencia, scopes, métricas y reviews completas; relación dual y capturas faltantes según dependencias.
-5. Comunidad/validaciones, catálogo/logros y notificaciones; Repi Club amplio con sus permisos/moderación.
-6. Pagos manuales, motor SaaS/Admin y proveedor en pruebas; activación comercial sólo con reglas y configuración resueltas.
-7. BI registro/privacidad/visualización, documentos y experimentos separados; IA con revisión humana.
-8. Resto del inventario vigente y novedades descubiertas, hardening, pruebas, QA visual, accesibilidad y operación de lanzamiento.
-
-Este orden es una propuesta de ejecución. Ajustalo al repo y dependencias reales sin reducir la meta. No trates etiquetas MVP/V1/V2 de un archivo como una aprobación para sacar Gym, chat, Club o funciones nuevas del alcance. No pongas un experimento científico en producción para poder marcar el producto “completo”. Cada bloqueo debe dejar trabajo concreto, criterio de salida y responsable de la decisión, mientras seguís con lo independiente.
-
-## 17. Pruebas y criterios de aceptación obligatorios
-
-No basta compilar. Elegí pruebas de lógica, integración de datos/permisos y E2E apropiadas al riesgo y stack; no agregues tests que sólo repitan implementación. Cada requisito nuevo descubierto requiere criterios propios.
-
-1. Coach registra/verifica cuenta, completa onboarding, invita alumno; invitación expira/se revoca; alumno acepta y ve sólo su relación.
-2. Crear/publicar/asignar programa con fecha; alumno inicia el día correcto, registra, descansa, pausa/reanuda/finaliza; historial y progreso del Coach reflejan esos datos persistidos tras recargar.
-3. Copias por cliente y nuevas versiones no alteran otros clientes ni sesiones históricas. Duplicar días/semanas mantiene la semántica definida.
-4. Offline: registrar, cerrar/recargar, volver online, reintentar y conflicto entre dispositivos sin pérdida ni duplicados.
-5. Usuario de otra organización, sede o rol no lee/escribe/descarga/exporta recursos ajenos. Misma persona en Coach y Gym no hereda grants entre contextos.
-6. Manager no accede a chat privado ni notas personales, aunque cambie IDs o revise una queja; sí ve supervisión autorizada.
-7. Turno/afterHours según política; tomar tarea concurrentemente, completar y traspasar con aceptación, atribución y auditoría correctas.
-8. Métricas usan período/fuentes reales y faltantes; moderar/retirar reseña recalcula; muestras pequeñas tienen comportamiento decidido y método documentado.
-9. Reseña desde app sobre interacción elegible; evitar duplicados, responder/reportar/moderar/apelar con permisos y visibilidad correctos.
-10. Novedad/catálogo/desafío aparece en app y emisor sin recargar; intento con video privado→decisión→notificación→logro. Récord sólo si mejora; concurrencia y reintentos sin duplicado. Borrado/retención incluyen blobs.
-11. Pago manual y anulación auditados no modifican SaaS. Cálculo de elegibles, snapshots, tramos, límites, corte, mínimo/descuento/módulo y cambios de precio según contrato; facturas históricas inmutables.
-12. Webhook válido/duplicado/fallido/fuera de orden, conciliación y estados; redirect solo no paga. Sin credenciales no simular dinero real.
-13. BI rechazado no bloquea entrenamiento; guardar no comparte; grant/revocación funciona entre dispositivos y objetos; exportar/borrar cumple alcance comunicado. Falla de reconstrucción conserva sólo lo autorizado.
-14. Visor informa modo y fuente; composición ausente no inventa porcentaje. Modelo/documentos/versiones incompatibles no producen comparación engañosa.
-15. Admin crea/edita contrato y muestra cambios efectivos/historial, sin excepción de alta ni acceso sensible. Planes/defaults no son mockups cuando se declaran implementados.
-16. Auth: recuperación/cambio de credenciales, expiración/revocación de sesiones y relación; antiabuso y estados de error.
-17. Responsive, safe areas, teclado, lector, foco, contraste, reduced-motion, fallback WebGL y rendimiento medidos con capturas reales de viewports relevantes.
-18. Cada funcionalidad nueva de handoff tiene trazabilidad y prueba; ninguna se omite por no figurar en esta lista.
-
-El runtime exportado ya produjo errores de prevState, alta Admin y refresco de store. Agregá verificaciones que eviten heredarlos; no los ocultes con catch ni declares ausencia de errores porque la UI todavía renderiza.
-
-## 18. Definición de terminado y comunicación de entrega
-
-Terminado por funcionalidad significa: diseño fiel + acción real + persistencia + autorización + validación + errores/estados + comportamiento responsive/accesible + pruebas relevantes + documentación y evidencia. Si depende de un mock, proveedor ausente, regla no decidida o ciencia no validada, su estado debe decirlo.
-
-Al cerrar cada entrega informá qué cambió, qué flujo funciona, cómo se probó, fuente del requisito, evidencia visual y límites. Compará capturas reales con la imagen maestra y prototipos al mismo viewport, explicá diferencias y corregí desviaciones; no generes una ilustración para fingir captura.
-
-Conservá las fuentes originales. Entregá código, scripts reproducibles, migraciones, configuración de ejemplo, fixtures DEMO, documentación y matriz de cobertura actualizada. No publiques ni actives cobros por inferirlo de “desarrollar”. No uses métricas de demo como resultados comerciales. No prometas fechas, precisión, costos o cumplimiento sin evidencia.
-
-Comenzá inspeccionando todo el handoff y el repositorio. Integrá las novedades que encuentres, preservá Concepto 2 y avanzá hasta completar el alcance autorizado y verificable, manteniendo separados los bloqueos concretos que requieran decisiones o validación externa.
+Al terminar cada bloque, actualizar estado/plan/inventario y `docs/continuidad/PROXIMA_SESION.md`: commit y cambios sin commit, archivos tocados, comandos/pruebas/resultados, migraciones/dependencias, decisiones, bloqueos y primera acción concreta. Referenciar nombres de variables, nunca valores secretos. No depender del chat ni de tareas en memoria. Cuando quede poco contexto, dejar un corte coherente y retomable, no iniciar un refactor amplio. Seguir trabajando sobre lo autorizado; no concluir con un plan si ya se puede implementar.

@@ -1,11 +1,13 @@
-# REPI — Entrada de desarrollo
+# REPI — Instrucciones de continuidad
 
-Leé primero [MASTER_PROMPT.md](MASTER_PROMPT.md) completo antes de planificar o escribir código. Es la guía activa del encargo, con alcance, fuentes, restricciones, decisiones pendientes y criterios de aceptación.
+Leé MASTER_PROMPT.md como fuente activa del encargo. Después docs/continuidad/ESTADO_ACTUAL.md, PROXIMA_SESION.md y PLAN_LANZAMIENTO_Y_ROADMAP.md. El pedido vigente es **lanzar primero una web/PWA funcional con todo lo principal y completar luego el alcance completo**, no rehacer el proyecto ni terminar toda la investigación antes de lanzar.
 
-Después inspeccioná todo `handoff/`, siguiendo el orden y la jerarquía del máster. Hay funcionalidades nuevas que no están enumeradas en la conversación ni necesariamente en los 93 IDs actuales: descubrílas, documentá su evidencia e incorporalas al inventario sin inventar implementación.
+Consultá CATALOGO_COMPLETO.md/JSON y FUENTES_Y_PRECEDENCIA.md para el módulo que tocás. El handoff vigente está en handoff/fuentes/extraido/repi-app-mobile-prototype/project/. Hay Acceso/Alumno v4/Coach actualizados fuera del subdirectorio REPI_COMPLETE_DESIGN_HANDOFF; no restaurar v3 por error. Descubrir funciones nuevas con evidencia, sin tratar prototipos como backend.
 
-Conservá Concepto 2 Friendly Performance y los assets aprobados. Distinguí código productivo, interacción local, simulaciones y propuestas. Las auditorías explican defectos y contradicciones de la exportación y de la investigación de Body Intelligence.
+Preservá Concepto 2 y G · Atlética de REPI_SELECCION_VISUAL.md. Motion M01–M05 tiene implementación posterior en motion.md §12: probar antes de rehacer. Los documentos anteriores de Inter Tight, autoalta, padrón obligatorio, uso como base facturable y precios demo están superados. Tarifa por cliente y total acordado, no activaciones. Identidad no equivale a pertenencia; QR requiere aprobación.
 
-Trabajá desde la raíz de esta carpeta. Respetá los archivos existentes y conservá `handoff/` como referencia auditada; colocá el desarrollo y su documentación viva fuera de ella. La copia de máster dentro de `handoff/entregables/` y los prompts históricos de assets son fuentes conservadas; el punto de entrada actualizado es `MASTER_PROMPT.md` en la raíz.
+Respetá AGENTS.md del área y las guías locales de Next; mantené stack y cambios existentes. No modificar el handoff original. docs/PRODUCT_INVENTORY.md es generado: actualizar su fuente cuando corresponda, no marcar a mano probado sin evidencia. Separar requisitos confirmados/propuestos de estado técnico y fase.
 
-Relevá el material, prepará el plan e iniciá el desarrollo verificable por etapas. Avanzá con lo definido y con las decisiones técnicas reversibles; dejá explícitas las decisiones de negocio, permisos o validación externa que afecten cada entrega, sin bloquear el trabajo independiente ni presentar supuestos como aprobados.
+Antes de ejecutar tests de DB, inspeccioná apps/web/tests/global-setup.ts: elimina esquemas. Exigir base descartable separada de dev/prod y guardas adecuadas. No seeds sobre datos reales, secretos en logs/docs, despliegues o cargos implícitos. Preparar el trabajo reversible y verificable antes de decisiones externas finales.
+
+Al cerrar cada bloque, actualizar PROXIMA_SESION.md con estado, archivos, pruebas, migraciones, decisiones y próxima acción. No depender de contexto del chat. Avanzar en desarrollo autorizado hasta completar el corte; pedir sólo decisiones que cambian negocio/permisos/gasto y no puedan deducirse de las fuentes, sin detener trabajo independiente.

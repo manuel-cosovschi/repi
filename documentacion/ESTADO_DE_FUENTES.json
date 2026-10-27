@@ -13,7 +13,7 @@
       "bytes": 6074127
     }
   ],
-  "active_handoff_source": "Nuevo adjunto que el usuario entregue en el chat de Claude Code; no disponible en esta carpeta al realizar el cambio.",
+  "active_handoff_source": "REPI App Mobile Prototype-handoff.zip",
   "research_pdf": "documentacion/investigacion/Investigacion_Tecnica_REPI_Body_Intelligence.pdf",
   "research_pdf_sha256": "ad8d4ecb651c1197fb2a332b3fa72371a41b8cda05a1f1fa79c00c69502096e9",
   "historical_documents": "documentacion/antecedentes_version_anterior",
@@ -21,5 +21,10 @@
     ".env.example": "a5cbc5740bbeb4622fd638800246af96e7e720ffc4e7be45d436a3f4024242b1",
     ".gitignore": "65910cd2438f8d0a6789d015f8a713d9954127ddcbf8b5d86b7a260ab7ad700f",
     ".npmrc": "4b84eb91234d80d48c16b50746106405c4cd6d97581f7464001a7dc84dd9d185"
-  }
+  },
+  "updated_at": "2026-10-27",
+  "active_handoff_extracted": "handoff/fuentes/extraido/repi-app-mobile-prototype/project",
+  "active_master": "MASTER_PROMPT.md",
+  "continuity": "docs/continuidad",
+  "note": "El handoff anterior continúa retirado. Se actualiza disponibilidad del nuevo ZIP presente; la versión anterior de este registro se conserva en documentacion/historial/2026-10-27_antes_de_continuidad/."
 }
