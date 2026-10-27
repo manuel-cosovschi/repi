@@ -15,13 +15,14 @@ import { EngageScreen, PanelScreen, ShiftsScreen, TasksScreen, TeamScreen } from
 import { ConfigScreen, ExecScreen, LocsScreen, ReviewsScreen } from "./Owner";
 import { CommunityScreen, DeskCard, ValidationsScreen } from "./Community";
 import { AccessesScreen, ConditionsScreen, JoinsScreen } from "./Access";
+import { NoticesScreen } from "./Notices";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowsLeftRight, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
+import { ArrowsLeftRight, Bell, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
 
 const IC = {
   home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
-  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key,
+  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell,
 };
 type NavItem = [GymScreen, string, Icon, string | null];
 
@@ -46,6 +47,8 @@ function navFor(ctx: GymCtxView): NavItem[] {
   if (can(ctx, "members.approve") || can(ctx, "reception.desk")) add(["reception", r.includes("reception") ? "Recepción" : "Mostrador", IC.desk, null]);
   if (can(ctx, "members.approve")) { add(["joins", "Solicitudes de acceso", IC.door, null]); add(["accesses", "Accesos", IC.key, null]); }
   if (can(ctx, "catalog.publish")) add(["community", r.includes("reception") && !can(ctx, "community.publish") ? "Catálogo" : "Comunidad", IC.users, null]);
+  // F-HX-26: quien recibe avisos de altas o de sala tiene su bandeja, segunda en la lista.
+  if (can(ctx, "floor.work") || can(ctx, "members.approve") || r.some((x) => x === "owner" || x === "manager" || x === "reception")) out.splice(1, 0, ["notices", "Avisos", IC.bell, null]);
   return out;
 }
 
@@ -57,7 +60,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const [loc, setLoc] = useState<string | null>(initial.loc ?? null);
   const [toast, setToast] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
-  const [badges, setBadges] = useState<{ queue: number; msgs: number; validations: number; joins: number }>({ queue: 0, msgs: 0, validations: 0, joins: 0 });
+  const [badges, setBadges] = useState<{ queue: number; msgs: number; validations: number; joins: number; notices: number }>({ queue: 0, msgs: 0, validations: 0, joins: 0, notices: 0 });
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mainRef = useRef<HTMLDivElement>(null);
   const flash = useCallback((t: string) => { clearTimeout(tt.current); setToast(t); tt.current = setTimeout(() => setToast(null), 3500); }, []);
@@ -72,6 +75,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshBadges = useCallback(() => {
+    if (ctx && navFor(ctx).some((n) => n[0] === "notices")) api<{ unread: number }>(`/api/gym/${orgId}/notices`).then((x) => setBadges((b) => ({ ...b, notices: x.unread }))).catch(() => {});
     if (ctx && can(ctx, "challenges.validate")) api<{ pending: unknown[] }>(`/api/gym/${orgId}/validations`).then((v) => setBadges((b) => ({ ...b, validations: v.pending.length }))).catch(() => {});
     if (ctx && (can(ctx, "members.approve") || can(ctx, "members.validate"))) {
       api<{ canActAt: { id: string }[]; requests: { status: string; locationId: string }[] }>(`/api/gym/${orgId}/joins`)
@@ -131,6 +135,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
             <button key={k} type="button" title={l} aria-current={screen === k ? "page" : undefined} onClick={() => go(k)}>
               <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
+              {k === "notices" && badges.notices > 0 && <span className="nbadge" aria-label={`${badges.notices} avisos sin leer`}>{badges.notices}</span>}
               {k === "queue" && badges.queue > 0 && <span className="nbadge" aria-label={`${badges.queue} pendientes`}>{badges.queue}</span>}
               {k === "msgs" && badges.msgs > 0 && <span className="nbadge" aria-label={`${badges.msgs} conversaciones sin leer`}>{badges.msgs}</span>}
               {k === "joins" && badges.joins > 0 && <span className="nbadge" aria-label={`${badges.joins} solicitudes pendientes`}>{badges.joins}</span>}
@@ -151,6 +156,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           <span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>{ctx.org.name}</span>
         </div>
         <div className="co-content" ref={mainRef} key={`${screen}-${loc}`} data-section={screen}>
+          {screen === "notices" && <NoticesScreen shell={shell} />}
           {screen === "shift" && <ShiftScreen shell={shell} />}
           {screen === "queue" && <QueueScreen shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}

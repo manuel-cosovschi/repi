@@ -9,6 +9,7 @@ import * as cm from "@/server/commercial/services";
 import * as join from "@/server/join/services";
 import * as push from "@/server/push/services";
 import * as alerts from "@/server/gym/alerts";
+import * as notices from "@/server/gym/notices";
 import * as gym from "@/server/gym/services";
 import * as tr from "@/server/training/services";
 import * as club from "@/server/community/club";
@@ -382,5 +383,35 @@ describe("pedidos extra: sensación por serie y evolución en el Club", () => {
     expect(v.showcase.map((s) => s.exercise)).toEqual(["Press anexo"]);
     expect(v.monthDays).toBeNull();
     expect(await code(club.setClubProfile(g.socio, w.org, { bio: "mirá https://x.y" }))).toBe("invalid");
+  });
+});
+
+describe("centro de avisos del staff (F-HX-26, D101)", () => {
+  it("persiste el aviso sin push, sólo para la sede; resuelto por otra persona; leído por persona", async () => {
+    const w = await world();
+    await gym.startShift(w.tA, w.org, w.A);
+    await gym.startShift(w.tB, w.org, w.B);
+    const slug = await slugFor(w.owner, w.org, w.A);
+    const socio = await verified("Socia Avisos");
+    const r = await join.requestAccess(socio, slug, { terms: true });
+    const id = "request" in r ? r.request!.id : "";
+    const a = await notices.myStaffNotices(w.tA, w.org);
+    expect(a.items).toHaveLength(1);
+    expect(a.items[0]).toMatchObject({ kind: "join_request", resolved: false, read: false, go: { s: "joins", sel: id } });
+    expect(a.unread).toBe(1);
+    expect((await notices.myStaffNotices(w.tB, w.org)).items).toHaveLength(0); // otra sede
+    await join.escalatePending(new Date(Date.now() + 6 * 60_000));
+    const rec = await notices.myStaffNotices(w.recep, w.org);
+    expect(rec.items.map((x) => x.kind)).toEqual(["join_escalation"]);
+    await join.decideJoin(w.tA, w.org, id, { approve: true, method: "conocimiento_directo" });
+    const rec2 = await notices.myStaffNotices(w.recep, w.org);
+    expect(rec2.items[0]).toMatchObject({ resolved: true, resolution: "Aprobada · Piso A" });
+    expect(rec2.unread).toBe(0); // resuelto no cuenta como pendiente aunque no se haya leído
+    await notices.markStaffNoticesRead(w.tB, w.org, [a.items[0].id]); // id ajeno: no cambia nada
+    expect((await notices.myStaffNotices(w.tA, w.org)).items[0].read).toBe(false);
+    await notices.markStaffNoticesRead(w.tA, w.org, null);
+    expect((await notices.myStaffNotices(w.tA, w.org)).items[0].read).toBe(true);
+    const outsider = await verified("Ajena");
+    expect(await code(notices.myStaffNotices(outsider, w.org))).toBe("not_found");
   });
 });

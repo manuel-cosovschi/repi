@@ -1,12 +1,18 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, entrega de invitaciones (D100). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, centro de avisos del staff (D101). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Entrega de invitaciones de coach y equipo (D100)
+## Último bloque cerrado — 27/10/2026 · Centro de avisos del staff gym (F-HX-26, D101)
+
+- **Hecho:** columna `notification_outbox.read_at` + índice por usuario (migración `0018_staff_notice_read`, dev local y **Supabase**); `src/server/gym/notices.ts` (`myStaffNotices`, `markStaffNoticesRead`); rutas `GET /api/gym/[orgId]/notices` y `POST /api/gym/[orgId]/notices/read` en el dispatcher; `components/gym/Notices.tsx`; ítem «Avisos» con badge en `GymApp.tsx`; estilos `.gy-notice` en `gym.css`.
+- **Pruebas:** web 151/151 (nuevo caso en `tests/annex.test.ts`: aviso sólo de la sede, escalamiento a recepción, resuelto por otro, leído por persona, ajeno 404), guardas 11/11, build OK. Navegador local con recepción del seed: aviso «Solicitud esperando · Palermo» (solicitud de prueba creada en `repi_dev` y luego cancelada) → abre Solicitudes con la solicitud seleccionada y el badge baja a 0.
+- **Siguiente:** revisar V1 restante en el catálogo; candidatos internos: F-AD-04 Admin · cobros (registro manual con evidencia, sin pasarela) o F-BL-05 aviso al cliente de cambios de suscripción; externos: G03/G07 teléfonos, G11 textos legales, G09 modalidad del piloto.
+
+## Bloque anterior — 27/10/2026 · Entrega de invitaciones de coach y equipo (D100)
 
 - **Hecho:** `access/services.ts#deliverInvitation` (privado) usado por `inviteCoachClient` e `inviteGymStaff`, que ahora devuelven `delivery`; rutas `/api/access/coach/[orgId]/invitations`, `/api/access/gym/[orgId]/invitations` (ahora también devuelve `code`) y `/api/access/invitations/resend` exponen `delivery`; `followup/services.ts` lista `delivery` en Solicitudes; UI en `InviteModal.tsx`, `CoachInbox.tsx`, `gym/Manage.tsx#InviteStaff` e informe de importación. Sin migración (columna `invitation.delivery` ya existía, D88).
 - **Pruebas:** web 150/150 (nuevo `tests/invite-delivery.test.ts` con proveedor simulado que responde 503), guardas 11/11, build OK. Los textos de la UI no se miraron en el navegador (cubiertos por tipos; flujo local devuelve `local_only`).
-- **Siguiente:** F-HX-26 centro de notificaciones del staff gym (bandeja con leído/resuelto, destino navegable, filtro por rol/sede).
+- **Deploy:** 8b25ebd verificado.
 
 ## Bloque anterior — 27/10/2026 · Importación CSV de clientes (F-CO-11, D99)
 

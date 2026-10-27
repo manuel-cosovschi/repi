@@ -30,3 +30,10 @@ button.gy-person:hover b { text-decoration: underline; }
 
 .gy-noimg { height: 120px; display: grid; place-items: center; background: repeating-linear-gradient(135deg, #EEF2F6 0 8px, #E6EBF1 8px 16px); font: 400 11px var(--font-mono); color: #5B6B80; }
 .gy-catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; align-items: start; }
+/* Centro de avisos del staff (F-HX-26, D101). */
+.gy-notice { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; width: 100%; text-align: left; padding: 12px 4px; border: 0; border-bottom: 1px solid #EEF2F6; background: none; font: inherit; color: inherit; cursor: pointer; min-height: 44px; }
+.gy-notice:last-child { border-bottom: 0; }
+.gy-notice:focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 2px; border-radius: 8px; }
+.gy-notice .dot { width: 8px; height: 8px; border-radius: 4px; flex: none; }
+.gy-notice[data-unread="1"] b { font-weight: 700; }
+.gy-notice small { overflow-wrap: anywhere; }

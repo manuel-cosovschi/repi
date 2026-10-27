@@ -127,6 +127,13 @@
       "when": 1793119011070,
       "tag": "0017_coach_appointment",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793120074965,
+      "tag": "0018_staff_notice_read",
+      "breakpoints": true
     }
   ]
 }

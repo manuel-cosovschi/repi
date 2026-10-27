@@ -11,6 +11,7 @@ import * as cm from "@/server/community/services";
 import * as club from "@/server/community/club";
 import * as join from "@/server/join/services";
 import * as alerts from "@/server/gym/alerts";
+import * as notices from "@/server/gym/notices";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -35,6 +36,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       const { allowed } = await gym.scopedLocation(ctx, null);
       return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess };
     }
+    case "notices": return notices.myStaffNotices(me, orgId);
     case "shift": return gym.myShift(me, orgId, loc(u));
     case "queue": return gym.listQueue(me, orgId, loc(u) ?? "");
     case "tasks": return gym.managerTasks(me, orgId, loc(u), u.searchParams.get("filter") ?? "all");
@@ -77,6 +79,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   await limit(`gym:${me}`, 120);
   const [a, b, c] = path;
+  if (a === "notices" && b === "read") return notices.markStaffNoticesRead(me, orgId, (await body(req, z.object({ ids: z.array(id).max(100).nullable() }))).ids);
   if (a === "shift" && b === "start") return gym.startShift(me, orgId, (await body(req, z.object({ loc: id }))).loc);
   if (a === "shift" && b === "close") {
     const p = await body(req, z.object({ loc: id, toUserId: id.nullable(), items: z.array(z.object({ taskId: id, summary: z.string().max(500) })).max(50) }));

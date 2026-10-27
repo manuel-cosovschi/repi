@@ -1155,7 +1155,8 @@ export const notificationOutbox = pgTable("notification_outbox", {
   lastError: text("last_error"),
   createdAt: now("created_at"),
   sentAt: ts("sent_at"),
-}, (t) => [index("outbox_pending_idx").on(t.status, t.nextAttemptAt)]);
+  readAt: ts("read_at"), // F-HX-26: leído en el centro de avisos del staff (independiente de si el push llegó)
+}, (t) => [index("outbox_pending_idx").on(t.status, t.nextAttemptAt), index("outbox_user_idx").on(t.userId, t.createdAt)]);
 
 // Alerta de sala por sensación de serie (pedido 26/10): sólo sesiones del programa institucional del gym.
 export const floorAlert = pgTable("floor_alert", {
