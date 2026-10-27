@@ -3,8 +3,9 @@
 // carnet QR y Repi Club. Datos reales de /api/me/gym; ningún ranking ni participante simulado.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { renderSVG } from "uqr";
-import { ATTEMPT_VIDEO_LIMITS, CHALLENGE_CATEGORIES, CHALLENGE_UNITS, CLUB_COMMENT_MAX, CLUB_POST_MAX, DIVISIONS, RANK_FILTERS, attemptValueOk, type ChallengeUnit } from "@repi/domain";
+import { ATTEMPT_VIDEO_LIMITS, CHALLENGE_CATEGORIES, CHALLENGE_UNITS, CLUB_COMMENT_MAX, CLUB_POST_MAX, DIVISIONS, RANK_FILTERS, attemptValueOk, type ChallengeUnit, fmtWeight, kgTo, volumeIn } from "@repi/domain";
 import { api } from "@/lib/api";
+import { useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
@@ -347,6 +348,7 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
 }
 
 function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Home["achievements"]; flash: (t: string) => void }) {
+  const unit = useUnit();
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [text, setText] = useState("");
   const [ach, setAch] = useState<string | null>(null);
@@ -404,8 +406,8 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
             <button type="button" className="linkbtn" aria-label="Más opciones" onClick={() => setMore(p)}>···</button></div>
           {p.hidden && <small style={{ color: "#FCD38A" }}>Oculto por reportes: lo revisa el gym.</small>}
           {p.achievement && <div className="club-ach"><Sticker on size={36} /><span><b>{p.achievement.title}</b><small>{p.achievement.detail}</small></span></div>}
-          {p.payload?.type === "progress" && <div className="club-ach club-prog"><span><b>{p.payload.exercise}</b><small>{p.payload.points[0].kg.toLocaleString("es-AR")} → {p.payload.points.at(-1)!.kg.toLocaleString("es-AR")} kg{p.payload.deltaKg > 0 ? ` · +${p.payload.deltaKg.toLocaleString("es-AR")} kg` : ""} en {p.payload.points.length} entrenamientos</small></span><Spark points={p.payload.points} small /></div>}
-          {p.payload?.type === "session" && <div className="club-ach"><span><b>Entrenamiento completo · {p.payload.dayName}</b><small>{p.payload.minutes} min · {p.payload.sets} series · {Math.round(p.payload.volumeKg).toLocaleString("es-AR")} kg de volumen</small><small>{p.payload.exercises.join(" · ")}</small></span></div>}
+          {p.payload?.type === "progress" && <div className="club-ach club-prog"><span><b>{p.payload.exercise}</b><small>{kgTo(p.payload.points[0].kg, unit).toLocaleString("es-AR")} → {fmtWeight(p.payload.points.at(-1)!.kg, unit)}{p.payload.deltaKg > 0 ? ` · +${fmtWeight(p.payload.deltaKg, unit)}` : ""} en {p.payload.points.length} entrenamientos</small></span><Spark points={p.payload.points} small /></div>}
+          {p.payload?.type === "session" && <div className="club-ach"><span><b>Entrenamiento completo · {p.payload.dayName}</b><small>{p.payload.minutes} min · {p.payload.sets} series · {volumeIn(p.payload.volumeKg, unit).toLocaleString("es-AR")} {unit} de volumen</small><small>{p.payload.exercises.join(" · ")}</small></span></div>}
           {p.text && <p>{p.text}</p>}
           <div className="club-actions">
             <button type="button" aria-pressed={p.applauded} onClick={() => act(api(`/api/me/gym/club/posts/${p.id}/applause${q}`, { body: {} }))}>👏 {p.applause > 0 ? p.applause : "Aplaudir"}</button>
@@ -471,10 +473,11 @@ function ClubRankView({ orgId }: { orgId: string }) {
 
 /** Mini gráfico de evolución (serie más pesada por entrenamiento). Texto alternativo con los valores. */
 function Spark({ points, small }: { points: Pt[]; small?: boolean }) {
+  const unit = useUnit();
   const W = small ? 96 : 280, H = small ? 36 : 64, pad = 4;
   const ys = points.map((p) => p.kg), min = Math.min(...ys), max = Math.max(...ys), span = max - min || 1;
   const xy = points.map((p, i) => [pad + (i * (W - 2 * pad)) / Math.max(1, points.length - 1), H - pad - ((p.kg - min) * (H - 2 * pad)) / span] as const);
-  const label = `Evolución: ${points.map((p) => `${p.kg.toLocaleString("es-AR")} kg × ${p.reps}`).join(", ")}`;
+  const label = `Evolución: ${points.map((p) => `${fmtWeight(p.kg, unit)} × ${p.reps}`).join(", ")}`;
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} style={{ flex: "none" }}>
       <polyline fill="none" stroke="#00D1FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" points={xy.map(([x, y]) => `${x},${y}`).join(" ")} />
@@ -485,6 +488,7 @@ function Spark({ points, small }: { points: Pt[]; small?: boolean }) {
 
 type ProfileView = { mine: boolean; name: string; bio: string; showcase: { exercise: string; points: Pt[] }[]; monthDays: number | null; posts: number; since: string };
 function ProfileSheet({ orgId, userId, onClose }: { orgId: string; userId: string; onClose: () => void }) {
+  const unit = useUnit();
   const [v, setV] = useState<ProfileView | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { api<ProfileView>(`/api/me/gym/club/profile/${userId}?org=${orgId}`).then(setV).catch((e) => setErr(e.message)); }, [orgId, userId]);
@@ -494,7 +498,7 @@ function ProfileSheet({ orgId, userId, onClose }: { orgId: string; userId: strin
       {v && <>
         {v.bio && <p style={{ margin: 0, fontSize: 15, lineHeight: 1.45 }}>{v.bio}</p>}
         {v.monthDays != null && <div className="club-ach"><span><b>{v.monthDays} día{v.monthDays === 1 ? "" : "s"} entrenando este mes</b><small>Programa del gym</small></span></div>}
-        {v.showcase.map((x) => <div key={x.exercise} className="club-ach club-prog"><span><b>{x.exercise}</b><small>Última: {x.points.at(-1)!.kg.toLocaleString("es-AR")} kg × {x.points.at(-1)!.reps}</small></span><Spark points={x.points} small /></div>)}
+        {v.showcase.map((x) => <div key={x.exercise} className="club-ach club-prog"><span><b>{x.exercise}</b><small>Última: {fmtWeight(x.points.at(-1)!.kg, unit)} × {x.points.at(-1)!.reps}</small></span><Spark points={x.points} small /></div>)}
         {!v.bio && !v.showcase.length && v.monthDays == null && <span className="mb-muted">{v.mine ? "Tu perfil está vacío: elegí qué mostrar en «Mi perfil del Club»." : "Esta persona todavía no eligió qué mostrar."}</span>}
       </>}
     </Sheet>

@@ -392,12 +392,13 @@ async function lastSetByExercise(userId: string, exerciseIds: string[], excludeS
 export async function myTraining(userId: string, now = new Date()) {
   const act = await myActive(userId);
   const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId));
+  const [pref] = await db.select({ weightUnit: userPref.weightUnit }).from(userPref).where(eq(userPref.userId, userId));
   const week = weekOf(now);
   const relation = act ? { id: act.id, kind: act.kind, name: act.name, org: act.place } : null;
   const relations = act ? act.all.map((r) => ({ id: r.id, kind: r.kind, name: r.name, org: r.place, hasProgram: !!r.assignment })) : [];
   const base = {
     userId, firstName: (u?.name ?? "").split(" ")[0], coach: act?.kind === "coach" ? { name: act.name, org: act.place } : null,
-    relation, relations, today: localDate(now), week,
+    relation, relations, today: localDate(now), week, weightUnit: pref?.weightUnit ?? ("kg" as const),
   };
   const open = await db.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"])));
   const completed = await db.select({ endedAt: workoutSession.endedAt, dayId: workoutSession.dayId, id: workoutSession.id }).from(workoutSession)

@@ -621,6 +621,7 @@ export const userPref = pgTable("user_pref", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
   activeRelationId: text("active_relation_id"),
   notificationsSeenAt: ts("notifications_seen_at"), // F-NT-01: lo anterior figura como leído en el centro de notificaciones
+  weightUnit: text("weight_unit", { enum: ["kg", "lb"] }).notNull().default("kg"), // F-HX-23: sólo presentación; se guarda en kg
   updatedAt: now("updated_at"),
 });
 

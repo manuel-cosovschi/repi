@@ -3,11 +3,12 @@
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FEEL_ALERTS, SET_FEEL, WEIGHT_STEPS, activeSeconds, formatClock, parseReps, parseWeight, restLeft, stepReps, stepWeight, volumeKg, type SetFeel } from "@repi/domain";
+import { FEEL_ALERTS, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
+import { useUnit } from "./units";
 import { PainSheet } from "./FollowSheets";
 import { Confetti } from "@/components/motion/Confetti";
 import { StepSlider } from "@/components/motion/StepSlider";
@@ -22,7 +23,7 @@ type DoneData = {
   prs: Summary["prs"]; rows: { name: string; txt: string }[]; rpe: number | null; sessionNote: string | null; local: boolean;
 };
 
-function localSummary(s: LocalSession): DoneData {
+function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
   const done = Object.entries(s.sets).filter(([, x]) => x.done);
   return {
     id: s.id, dayName: s.dayName, activeMs: s.activeMs, local: true, prs: [], rpe: s.rpe, sessionNote: s.sessionNote,
@@ -31,19 +32,20 @@ function localSummary(s: LocalSession): DoneData {
     volumeKg: volumeKg(done.map(([, x]) => ({ exerciseId: "", weightKg: x.w, reps: x.r, completed: true }))),
     rows: s.exercises.map((e) => {
       const xs = Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]).filter((x) => x?.done);
-      return xs.length ? { name: e.name, txt: `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w)))].join(" / ")}` } : null;
+      return xs.length ? { name: e.name, txt: `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w, unit)))].join(" / ")}` } : null;
     }).filter(Boolean) as { name: string; txt: string }[],
   };
 }
-function serverSummary(x: Summary): DoneData {
+function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   return {
     id: x.id, dayName: x.dayName, activeMs: x.activeMs, exDone: x.exDone, exTotal: x.exTotal, setsDone: x.setsDone, setsTotal: x.setsTotal, volumeKg: x.volumeKg,
     prs: x.prs, rpe: x.rpe, sessionNote: x.sessionNote, local: false,
-    rows: x.exercises.filter((e) => e.logs.length).map((e) => ({ name: e.name, txt: `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg)))].join(" / ")}` })),
+    rows: x.exercises.filter((e) => e.logs.length).map((e) => ({ name: e.name, txt: `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}` })),
   };
 }
 
 export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { sessionId: string; coachFirst: string; gym: boolean; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void }) {
+  const unit = useUnit();
   const [s, setS] = useState<LocalSession | null>(null);
   const [exIdx, setExIdx] = useState(0);
   const [sel, setSel] = useState<number | null>(null);
@@ -63,9 +65,9 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   const showSummary = useCallback(async (local: LocalSession) => {
     // Con conexión y sin pendientes: resumen del servidor (incluye récords). Si no, el local.
     try {
-      if ((await pendingFor(local.id)) === 0) { setSummary(serverSummary(await api<Summary>(`/api/me/sessions/${local.id}/summary`))); return; }
+      if ((await pendingFor(local.id)) === 0) { setSummary(serverSummary(await api<Summary>(`/api/me/sessions/${local.id}/summary`), unit)); return; }
     } catch { /* sin red */ }
-    setSummary(localSummary(local));
+    setSummary(localSummary(local, unit));
   }, []);
 
   const load = useCallback(async () => {
@@ -245,8 +247,8 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
           return (
             <div key={k} className="conflict" role="alert">
               <strong>Serie {Number(idx) + 1} de {e?.name}: hay dos versiones</strong>
-              <span>{x.conflict!.appliedIsMine ? "Guardada" : "Este dispositivo"}: {kg(x.w)} × {x.r}. {x.conflict!.appliedIsMine ? "Desde otro dispositivo" : "Otro dispositivo"}: {kg(x.conflict!.other.weightKg)} × {x.conflict!.other.reps}. No se pisó ninguna.</span>
-              <div><button type="button" className="cta sm" onClick={() => resolveSet(k, "mine")}>Usar {kg(x.w)} × {x.r}</button><button type="button" className="ghost sm" onClick={() => resolveSet(k, "other")}>Usar {kg(x.conflict!.other.weightKg)} × {x.conflict!.other.reps}</button></div>
+              <span>{x.conflict!.appliedIsMine ? "Guardada" : "Este dispositivo"}: {kg(x.w, unit)} × {x.r}. {x.conflict!.appliedIsMine ? "Desde otro dispositivo" : "Otro dispositivo"}: {kg(x.conflict!.other.weightKg, unit)} × {x.conflict!.other.reps}. No se pisó ninguna.</span>
+              <div><button type="button" className="cta sm" onClick={() => resolveSet(k, "mine")}>Usar {kg(x.w, unit)} × {x.r}</button><button type="button" className="ghost sm" onClick={() => resolveSet(k, "other")}>Usar {kg(x.conflict!.other.weightKg, unit)} × {x.conflict!.other.reps}</button></div>
             </div>
           );
         })}
@@ -262,10 +264,10 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
           <div className="video" aria-hidden="true">video demostración (pendiente)</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>
           <div className="sets" role="list" aria-label="Series">
-            <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso (kg)</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
+            <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
             {rows.map((r, i) => (
               <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); }}
-                aria-label={`Serie ${i + 1}: ${String(r.w).replace(".", ",")} kg, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.conflict ? ", con conflicto" : ""}`}>
+                aria-label={`Serie ${i + 1}: ${kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.conflict ? ", con conflicto" : ""}`}>
                 <span>{i + 1}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
                 <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
               </button>
@@ -296,12 +298,12 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
                 <button type="button" className="plus30" onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + 30, total: rest.total + 30 } : { ...rest, end: (rest.end ?? Date.now()) + 30_000, total: rest.total + 30 } })}>+30s</button>
               </div>
             </div>
-            <div className="rest-foot"><span>Próxima: serie {cur + 1} · {String(curRow?.w ?? 0).replace(".", ",")} kg × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
+            <div className="rest-foot"><span>Próxima: serie {cur + 1} · {kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
           </>
         ) : curRow && (!exComplete || sel != null) ? (
           <>
             <div className="steppers">
-              <WeightStepper key={`${ex.id}:${cur}`} exerciseId={ex.exerciseId} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
+              <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>
             </div>
             <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
@@ -338,6 +340,7 @@ function celebrationFor(sum: DoneData, justFinished: boolean): "full" | "quiet" 
 }
 
 function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData; coachFirst: string; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void; justFinished: boolean }) {
+  const unit = useUnit();
   const [cel] = useState(() => celebrationFor(sum, justFinished));
   const [burst, setBurst] = useState(() => cel === "full" && !prefersReducedMotion());
   const ring = useRef<HTMLDivElement>(null);
@@ -376,14 +379,14 @@ function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData;
       {pr && (
         <div className="pr" data-reveal={cel ? "1" : undefined}>
           <Ic i={Trophy} size={34} color="#F59E0B" />
-          <div><small>Nuevo récord personal · 1RM estimado</small><strong>{pr.exercise} · {kg(pr.current.weightKg)} × {pr.current.reps}</strong>
-            <span>Anterior: {kg(pr.previous.weightKg)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {String(pr.previous.e1rm).replace(".", ",")} → {String(pr.current.e1rm).replace(".", ",")} kg</span></div>
+          <div><small>Nuevo récord personal · 1RM estimado</small><strong>{pr.exercise} · {kg(pr.current.weightKg, unit)} × {pr.current.reps}</strong>
+            <span>Anterior: {kg(pr.previous.weightKg, unit)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {kgTo(pr.previous.e1rm, unit).toLocaleString("es-AR")} → {kgTo(pr.current.e1rm, unit).toLocaleString("es-AR")} {unit}</span></div>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 style={{ fontSize: 16 }}>Resumen</h2>
         {sum.rows.map((r) => <div key={r.name} className="sumrow"><span>{r.name}</span><span className="mb-muted">{r.txt}</span></div>)}
-        <div className="sumrow"><span>Volumen total</span><span className="mb-muted">{sum.volumeKg.toLocaleString("es-AR")} kg</span></div>
+        <div className="sumrow"><span>Volumen total</span><span className="mb-muted">{volumeIn(sum.volumeKg, unit).toLocaleString("es-AR")} {unit}</span></div>
       </div>
       <div className="fb">
         <h2 style={{ fontSize: 16 }}>¿Cómo te fue?</h2>
@@ -406,35 +409,38 @@ function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData;
   );
 }
 
-/** Peso con paso elegible (0,25 a 2,5 kg) y carga directa con decimales: hay discos y mancuernas de pesos intermedios. */
-function WeightStepper({ exerciseId, w, onChange, flash }: { exerciseId: string; w: number; onChange: (w: number) => void; flash: (t: string) => void }) {
-  const key = `repi:wstep:${exerciseId}`;
-  const [step, setStep] = useState<number>(() => { try { const v = Number(localStorage.getItem(key)); return (WEIGHT_STEPS as readonly number[]).includes(v) ? v : 2.5; } catch { return 2.5; } });
+/** Peso con paso elegible (0,25 a 2,5 kg o 0,5 a 5 lb) y carga directa con decimales en la unidad elegida (F-HX-23).
+ *  Se guarda siempre en kg: en lb el ± parte del valor mostrado para no acumular redondeos. */
+function WeightStepper({ exerciseId, unit, w, onChange, flash }: { exerciseId: string; unit: WeightUnit; w: number; onChange: (w: number) => void; flash: (t: string) => void }) {
+  const key = `repi:wstep:${unit === "kg" ? "" : "lb:"}${exerciseId}`;
+  const opts: readonly number[] = unit === "kg" ? WEIGHT_STEPS : WEIGHT_STEPS_LB;
+  const [step, setStep] = useState<number>(() => { try { const v = Number(localStorage.getItem(key)); return opts.includes(v) ? v : unit === "kg" ? 2.5 : 5; } catch { return unit === "kg" ? 2.5 : 5; } });
   const [typing, setTyping] = useState<string | null>(null);
   const [steps, setSteps] = useState(false);
   const pick = (v: number) => { setStep(v); setSteps(false); try { localStorage.setItem(key, String(v)); } catch { /* sin almacenamiento: vale para esta sesión */ } };
   const done = () => {
     if (typing == null) return;
-    const v = parseWeight(typing);
-    if (v == null) flash("Peso inválido: hasta 2 decimales, entre 0 y 1000 kg.");
+    const v = parseWeightIn(typing, unit);
+    if (v == null) flash(`Peso inválido: hasta 2 decimales, entre 0 y ${unit === "kg" ? "1000 kg" : "2204 lb"}.`);
     else onChange(v);
     setTyping(null);
   };
-  const fmtKg = (n: number) => n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  const fmt = (n: number) => n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  const shown = kgTo(w, unit);
   return (
     <div className="stepper wstep">
-      <button type="button" aria-label={`Menos ${fmtKg(step)} kg`} onClick={() => onChange(stepWeight(w, -1, step))}>−</button>
+      <button type="button" aria-label={`Menos ${fmt(step)} ${unit}`} onClick={() => onChange(stepWeightIn(w, -1, step, unit))}>−</button>
       <span>
         {typing != null
-          ? <input autoFocus inputMode="decimal" aria-label="Peso en kg" value={typing} onChange={(e) => setTyping(e.target.value.replace(/[^\d.,]/g, "").slice(0, 7))}
+          ? <input autoFocus inputMode="decimal" aria-label={`Peso en ${unit}`} value={typing} onChange={(e) => setTyping(e.target.value.replace(/[^\d.,]/g, "").slice(0, 7))}
             onBlur={done} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); done(); } if (e.key === "Escape") setTyping(null); }} />
-          : <button type="button" className="wval" aria-label={`${fmtKg(w)} kg. Tocá para escribir el peso`} onClick={() => setTyping(String(w).replace(".", ","))}><strong>{fmtKg(w)}</strong></button>}
-        <button type="button" className="wsteps" aria-expanded={steps} aria-label={`Paso de ${fmtKg(step)} kg. Cambiar`} onClick={() => setSteps((x) => !x)}>kg · ±{fmtKg(step)}</button>
+          : <button type="button" className="wval" aria-label={`${fmt(shown)} ${unit}. Tocá para escribir el peso`} onClick={() => setTyping(String(shown).replace(".", ","))}><strong>{fmt(shown)}</strong></button>}
+        <button type="button" className="wsteps" aria-expanded={steps} aria-label={`Paso de ${fmt(step)} ${unit}. Cambiar`} onClick={() => setSteps((x) => !x)}>{unit} · ±{fmt(step)}</button>
       </span>
-      <button type="button" aria-label={`Más ${fmtKg(step)} kg`} onClick={() => onChange(stepWeight(w, 1, step))}>+</button>
+      <button type="button" aria-label={`Más ${fmt(step)} ${unit}`} onClick={() => onChange(stepWeightIn(w, 1, step, unit))}>+</button>
       {steps && (
         <div className="wstep-pop" role="group" aria-label="Paso del peso">
-          {WEIGHT_STEPS.map((v) => <button type="button" key={v} aria-pressed={v === step} onClick={() => pick(v)}>{fmtKg(v)}</button>)}
+          {opts.map((v) => <button type="button" key={v} aria-pressed={v === step} onClick={() => pick(v)}>{fmt(v)}</button>)}
         </div>
       )}
     </div>

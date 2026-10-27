@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, centro de notificaciones del alumno (D94). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, unidad de peso kg/lb (D95). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Centro de notificaciones del alumno (F-NT-01, D94)
+## Último bloque cerrado — 27/10/2026 · Unidad de peso kg/lb (F-HX-23 parcial, D95)
+
+- **Hecho:** dominio `packages/domain/src/units.ts` (kgTo, toKg, fmtWeight, volumeIn, stepWeightIn, parseWeightIn, WEIGHT_STEPS_LB) con `units.test.ts`; columna `user_pref.weight_unit` (migración `0015_weight_unit`, dev local y **Supabase**); `src/server/settings/services.ts` + `GET/POST /api/me/settings`; `weightUnit` en `myTraining`; contexto `components/member/units.ts` provisto por `MemberApp`; Workout (stepper en lb, resumen, PR/Epley, conflictos, aria), Progreso/historial, «Anterior» del día y vitrinas del Club usan la unidad. Perfil → «Configuración» (radiogroup kg/lb, 44 px).
+- **Pruebas:** web 137/137 (nuevo `tests/settings.test.ts`), dominio 78/78, guardas 11/11, typecheck y build OK. Navegador local 375 px: Perfil → Libras → aviso y Progreso en lb; se volvió a kg. El ± en lb dentro de un entrenamiento no se probó en navegador (cubierto por tests de dominio; no se abrió sesión en dev para no dejar datos).
+- **Fuera de alcance a propósito:** coach/gym siguen en kg; idioma único; menores sin opción hasta política (G11); push al alumno no existe.
+- **Siguiente:** F-CO-16 informe mensual del alumno (PDF desde datos reales) o F-CO-03/F-HX-02 objetivos; V1 restante externo.
+
+## Bloque anterior — 27/10/2026 · Centro de notificaciones del alumno (F-NT-01, D94)
 
 - **Hecho:** `src/server/notifications/feed.ts` (`myNotifications`, `markNotificationsSeen`) arma la lista desde fuentes existentes (member_notice, pedidos coach y sala, solicitudes de acceso, reseñas, hilos sin leer, novedades del gym, cobros pendientes del coach); rutas `GET /api/me/notifications` y `POST /api/me/notifications/seen`; columna `user_pref.notifications_seen_at` (migración `0014_notifications_seen`, aplicada en dev local y **Supabase**). Cliente: campana con punto en Inicio (`MemberApp.tsx#Head`), hoja `NotifSheet`, aviso de programa sumado en el cliente (`withProgramNotice`), navegación a pestaña, sub-pestaña del Gym (`GymTabView initialTab`) u hoja de reseña. `myInbox` y `myReviewInvites` ahora devuelven `createdAt`. Estilos `.bell-dot`, `.notif*` en `member.css`.
 - **Pruebas:** web 135/135 (nuevo `tests/notifications.test.ts`, 2), guardas 11/11, typecheck y `next build` OK (build con el dev server detenido). Navegador local 375 px con el alumno del seed: «Notificaciones, 5 sin leer» → hoja con novedades, pedido y programa → tocar novedad abre Gym · Novedades → al recargar, sin no leídas.

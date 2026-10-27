@@ -3,7 +3,7 @@
 // Diferencia documentada (D30): los días del programa no tienen día de semana fijo; se elige el día y se sugiere
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { fmtMoney, formatClock, formatRest, formatDayEs, WEEK_LETTERS, type Currency } from "@repi/domain";
+import { fmtMoney, formatClock, formatRest, formatDayEs, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { allLocal, delLocal, ensureOwner, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
@@ -18,6 +18,7 @@ import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
 import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
+import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
@@ -151,15 +152,16 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const tabs = ([["home", "Inicio", House], ["train", "Entrenar", Barbell], ["prog", "Progreso", ChartLineUp], ["msgs", "Mensajes", ChatCircle],
     ...(inbox?.gym ? [["gym", "Gym", Storefront] as const] : [])] as const);
 
+  const unit: WeightUnit = t?.weightUnit ?? "kg";
   if (workout) return (
-    <div className="mb"><div className="mb-col">
+    <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
       <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
       <Toast t={toast} />
-    </div></div>
+    </div></div></UnitContext.Provider>
   );
 
   return (
-    <div className="mb"><div className="mb-col">
+    <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
       <main className="mb-scroll">
         {err && <p role="alert" className="mb-err">{err}</p>}
         {offlineAt && <p className="offline-bar" role="status">Sin conexión · programa guardado el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(offlineAt))}</p>}
@@ -172,7 +174,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
-            {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} />}
+            {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
           </div>
         )}
       </main>
@@ -199,7 +201,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         setNotifOpen(false); setFeed((f) => (f ? { ...f, unread: 0, items: f.items.map((x) => ({ ...x, unread: false })), seenAt: new Date().toISOString() } : f));
       }} />}
       {sheet?.type === "injury" && <InjurySheet flash={flash} onClose={() => setSheet(null)} onSaved={() => setPrivKey((k) => k + 1)} />}
-    </div></div>
+    </div></div></UnitContext.Provider>
   );
 }
 
@@ -491,6 +493,7 @@ function DayDetail({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: stri
 }
 
 function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string }) {
+  const unit = useUnit();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -504,7 +507,7 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
       <div className="exlist">
         {d.exercises.map((e) => (
           <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">foto</span>
-            <span><b>{e.name}</b><small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev)}</em></span>
+            <span><b>{e.name}</b><small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit)}</em></span>
             <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>
           </div>
         ))}
@@ -515,6 +518,7 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
 }
 
 function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; err: boolean; retry: () => void }) {
+  const unit = useUnit();
   const rv = useReveal(!!hist || err);
   // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico.
   const weeks = new Map<string, number>();
@@ -530,7 +534,7 @@ function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; 
       <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2>Volumen por semana</h2>
         {entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
-          <div className="volbars" role="img" aria-label={`Volumen semanal: ${entries.map(([k, v]) => `${k} ${Math.round(v)} kg`).join(", ")}`}>
+          <div className="volbars" role="img" aria-label={`Volumen semanal: ${entries.map(([k, v]) => `${k} ${volumeIn(v, unit).toLocaleString("es-AR")} ${unit}`).join(", ")}`}>
             {entries.map(([k, v]) => <div key={k}><i style={{ height: `${(v / max) * 100}%` }} /><span>{k}</span></div>)}
           </div>
         )}
@@ -542,7 +546,7 @@ function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; 
           : !hist ? (rv.ambient ? <Ambient label="Cargando tu historial" /> : null)
           : !hist.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no completaste entrenamientos.</span> : (
           <div className={`hist${rv.leaving ? " m03-in" : ""}`} style={{ position: "relative" }}>{rv.leaving && <Ambient label="Cargando tu historial" leaving />}{hist.map((s) => (
-            <div key={s.id}><span><b>{s.dayName}</b><br /><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" }).format(new Date(s.endedAt))} · {formatClock(s.durationSec)}{s.rpe ? ` · RPE ${s.rpe}` : ""}</small></span><span className="mb-muted">{s.sets} series · {s.volumeKg.toLocaleString("es-AR")} kg</span></div>
+            <div key={s.id}><span><b>{s.dayName}</b><br /><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" }).format(new Date(s.endedAt))} · {formatClock(s.durationSec)}{s.rpe ? ` · RPE ${s.rpe}` : ""}</small></span><span className="mb-muted">{s.sets} series · {volumeIn(s.volumeKg, unit).toLocaleString("es-AR")} {unit}</span></div>
           ))}</div>
         )}
       </section>
@@ -565,7 +569,9 @@ const HIST: Record<string, string> = { requested: "pidió ver", read: "vio" };
 const MINE: Record<string, string> = { granted: "Compartiste", denied: "Rechazaste compartir", revoked: "Dejaste de compartir" };
 const CYCLE: Record<InjuryStatus, InjuryStatus> = { active: "monitoring", monitoring: "resolved", resolved: "active" };
 
-function Perfil({ t, inbox, reloadInbox, flash, onInjury }: { t: Training; inbox: Inbox | null; reloadInbox: () => void; flash: (x: string) => void; onInjury: () => void }) {
+function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }: {
+  t: Training; inbox: Inbox | null; reloadInbox: () => void; flash: (x: string) => void; onInjury: () => void; onSettings: () => void; offline: boolean;
+}) {
   const [p, setP] = useState<Privacy | null>(null);
   const [perr, setPerr] = useState<string | null>(null);
   const load = useCallback(() => api<Privacy>("/api/me/privacy").then(setP).catch((e) => setPerr(e.message)), []);
@@ -646,12 +652,36 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury }: { t: Training; inbox
         ))}
       </section>
       <MyCharges />
+      <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>
       <a className="ghost" href="/ayuda?desde=/app" style={{ display: "grid", placeItems: "center" }}>Ayuda y soporte</a>
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
       <button type="button" className="ghost" onClick={logout}>Cerrar sesión</button>
     </>
+  );
+}
+
+// Configuración (F-HX-23, D95): unidad de peso. Sólo cambia cómo se ve y se carga; lo registrado sigue igual (en kg).
+function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offline: boolean; flash: (m: string) => void; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const pick = async (u: WeightUnit) => {
+    if (u === unit || busy) return;
+    if (offline) { flash("Necesitás conexión para cambiar la unidad."); return; }
+    setBusy(true);
+    try { await api("/api/me/settings", { body: { weightUnit: u } }); flash(u === "kg" ? "Ahora ves los pesos en kilos." : "Ahora ves los pesos en libras."); onChanged(); }
+    catch (e) { flash((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <h2 style={{ fontSize: 16 }}>Configuración</h2>
+      <div className="unitseg" role="radiogroup" aria-label="Unidad de peso" aria-busy={busy || undefined}>
+        {(["kg", "lb"] as const).map((u) => (
+          <button key={u} type="button" role="radio" aria-checked={unit === u} onClick={() => pick(u)}>{u === "kg" ? "Kilos (kg)" : "Libras (lb)"}</button>
+        ))}
+      </div>
+      <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Cambia cómo ves y cargás los pesos. Tus registros no se modifican; tu coach los sigue viendo en kg.</span>
+    </section>
   );
 }
 

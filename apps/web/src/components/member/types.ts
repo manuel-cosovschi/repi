@@ -1,7 +1,8 @@
+import { fmtWeight, type WeightUnit } from "@repi/domain";
 export type PrevSet = { weightKg: number | null; reps: number | null } | null;
 export type TrainEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; prev: PrevSet };
 export type Training = {
-  userId: string; firstName: string; coach: { name: string; org: string } | null; today: string; week: string[];
+  userId: string; firstName: string; coach: { name: string; org: string } | null; today: string; week: string[]; weightUnit?: WeightUnit;
   relation: { id: string; kind: "coach" | "gym"; name: string; org: string } | null;
   relations: { id: string; kind: "coach" | "gym"; name: string; org: string; hasProgram: boolean }[];
   state: "no_program" | "scheduled" | "ready"; startsOn?: string; openSession: string | null; openSessionDay: string | null;
@@ -21,6 +22,7 @@ export type Summary = Session & {
   prs: { exercise: string; current: { weightKg: number; reps: number; e1rm: number }; previous: { weightKg: number; reps: number; e1rm: number }; previousAt: string | null }[];
 };
 
-export const kg = (w: number | null) => (w == null ? "peso corporal" : `${String(w).replace(".", ",")} kg`);
-export const prevTxt = (p: PrevSet) => (p ? `${kg(p.weightKg)} x ${p.reps ?? "—"} reps` : "Sin registro previo");
+/** Peso guardado (kg) en la unidad elegida (F-HX-23). */
+export const kg = (w: number | null, unit: WeightUnit = "kg") => (w == null ? "peso corporal" : fmtWeight(w, unit));
+export const prevTxt = (p: PrevSet, unit: WeightUnit = "kg") => (p ? `${kg(p.weightKg, unit)} x ${p.reps ?? "—"} reps` : "Sin registro previo");
 export const metaTxt = (e: { sets: number; reps: string }) => `${e.sets} ${e.sets === 1 ? "serie" : "series"} · ${e.reps}${/^\d/.test(e.reps) && !/s$/.test(e.reps) ? " repeticiones" : ""}`;
