@@ -1,7 +1,7 @@
 // Servicios de programación (coach) y ejecución (alumno). Toda autorización se resuelve aquí.
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  activeSeconds, applySessionAction, clampClientTime, decideSetWrite, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
+  activeSeconds, applySessionAction, bestE1rm, clampClientTime, decideSetWrite, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, type LoggedSet, type ProgramDoc, type SetFeel,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -256,6 +256,46 @@ export async function coachOverview(actorId: string, orgId: string, now = new Da
       adherence: withProg.length ? Math.round(withProg.reduce((a, c) => a + (c.adherence ?? 0), 0) / withProg.length) : null,
       pendingInvites: pendingInv?.n ?? 0,
     },
+  };
+}
+
+/**
+ * F-CO-04: rendimiento del cliente desde series reales de esta relación (últimas 8 semanas).
+ * 1RM estimado con Epley (series de 1 a 12 reps con carga; heurística revisable, no un test máximo) y su tendencia
+ * contra las 4 semanas previas; volumen (Σ peso × reps) por grupo muscular esta semana vs la anterior.
+ */
+export async function clientPerformance(actorId: string, orgId: string, coachClientId: string, now = new Date()) {
+  await requireCoach(actorId, orgId);
+  await requireClientOf(orgId, coachClientId);
+  const since = new Date(now.getTime() - 56 * 86_400_000), mid = new Date(now.getTime() - 28 * 86_400_000);
+  const rows = await db.select({ l: setLog, name: exercise.name, group: exercise.muscleGroup }).from(setLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+    .where(and(eq(workoutSession.coachClientId, coachClientId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, since)));
+  const byEx = new Map<string, { name: string; group: string; recent: typeof rows; before: typeof rows }>();
+  for (const r of rows) {
+    const e = byEx.get(r.l.exerciseId) ?? { name: r.name, group: r.group, recent: [], before: [] };
+    (r.l.completedAt >= mid ? e.recent : e.before).push(r);
+    byEx.set(r.l.exerciseId, e);
+  }
+  const exercises = [...byEx.values()].map((e) => {
+    const cur = bestE1rm(e.recent.map((r) => toLogged(r.l)));
+    const prev = bestE1rm(e.before.map((r) => toLogged(r.l)));
+    return { name: e.name, group: e.group, best: cur, previous: prev, sets: e.recent.length };
+  }).filter((e) => e.best || e.previous).sort((a, b) => (b.best?.e1rm ?? 0) - (a.best?.e1rm ?? 0));
+  const week = weekOf(now);
+  const start = new Date(`${week[0]}T03:00:00Z`), prevStart = new Date(start.getTime() - 7 * 86_400_000);
+  const groups = new Map<string, { thisWeek: number; lastWeek: number }>();
+  for (const r of rows) {
+    const g = groups.get(r.group) ?? { thisWeek: 0, lastWeek: 0 };
+    const v = volumeKg([toLogged(r.l)]);
+    if (r.l.completedAt >= start) g.thisWeek += v; else if (r.l.completedAt >= prevStart) g.lastWeek += v;
+    groups.set(r.group, g);
+  }
+  return {
+    formula: "1RM estimado (Epley) = peso × (1 + repeticiones / 30), con series de 1 a 12 repeticiones. Es una estimación, no un máximo medido.",
+    exercises,
+    groups: [...groups.entries()].map(([group, v]) => ({ group, thisWeek: Math.round(v.thisWeek * 10) / 10, lastWeek: Math.round(v.lastWeek * 10) / 10 }))
+      .filter((g) => g.thisWeek || g.lastWeek).sort((a, b) => b.thisWeek - a.thisWeek),
   };
 }
 

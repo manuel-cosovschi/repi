@@ -7,6 +7,7 @@ import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overvie
 import { Ic } from "@/components/ui/Ic";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { ClientPayTab } from "./CoachPayments";
+import { useLoad } from "@/components/gym/shared";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -111,11 +112,11 @@ function Tab({ tab, det, row, orgId, flash }: { tab: string; det: Detail; row: C
       ))}
     </section>
   ) : <div className="empty">Sin programa asignado.</div>;
+  if (tab === "rend") return <PerfTab key={det.id} orgId={orgId} relId={det.id} />;
   if (tab === "pay") return <ClientPayTab key={det.id} orgId={orgId} relId={det.id} name={det.name} flash={flash} />;
   const SENS: Record<string, "health" | "nutrition" | "measurements"> = { salud: "health", nutri: "nutrition", body: "measurements" };
   if (SENS[tab]) return <SensitiveTab key={`${det.id}-${tab}`} orgId={orgId} relId={det.id} name={det.name} item={SENS[tab]} flash={flash} />;
   const msg: Record<string, string> = {
-    rend: "1RM estimado y volumen por grupo todavía no están disponibles. Los check-ins están en la pestaña Salud.",
     progreso: "Los gráficos de progreso todavía no están disponibles. El registro de sesiones está en Resumen.",
   };
   return <div className="empty">{msg[tab]}</div>;
@@ -139,5 +140,49 @@ function Sessions({ det }: { det: Detail }) {
         </div>
       )}
     </section>
+  );
+}
+
+// F-CO-04: rendimiento desde series reales. Fórmula visible; tendencia contra las 4 semanas previas.
+type Perf = { formula: string; exercises: { name: string; group: string; best: { e1rm: number; weightKg: number; reps: number } | null; previous: { e1rm: number } | null; sets: number }[];
+  groups: { group: string; thisWeek: number; lastWeek: number }[] };
+function PerfTab({ orgId, relId }: { orgId: string; relId: string }) {
+  const d = useLoad<Perf>(`/api/coach/${orgId}/clients/${relId}/performance`);
+  if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
+  if (!d.data) return <p className="muted">Cargando…</p>;
+  const { exercises, groups, formula } = d.data;
+  if (!exercises.length && !groups.length) return <div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div>;
+  const kg = (n: number) => `${n.toLocaleString("es-AR", { maximumFractionDigits: 1 })} kg`;
+  return (
+    <>
+      <section className="card">
+        <h2>1RM estimado</h2>
+        <span className="muted" style={{ fontSize: 13 }}>{formula} Últimas 4 semanas contra las 4 anteriores.</span>
+        <div className="table">
+          {exercises.map((e) => {
+            const diff = e.best && e.previous ? Math.round((e.best.e1rm - e.previous.e1rm) * 10) / 10 : null;
+            return (
+              <div key={e.name} className="trow">
+                <b style={{ flex: "1 1 160px" }}>{e.name}<small className="muted" style={{ display: "block", fontWeight: 400 }}>{e.group}</small></b>
+                <span style={{ flex: "0 0 auto" }}>{e.best ? <>{kg(e.best.e1rm)} <small className="muted">({kg(e.best.weightKg)} × {e.best.reps})</small></> : <span className="muted">Sin series recientes</span>}</span>
+                {diff != null && <span className={`chip ${diff > 0 ? "ok" : diff < 0 ? "warn" : "mute"}`}>{diff > 0 ? "+" : ""}{kg(diff)}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <section className="card">
+        <h2>Volumen por grupo</h2>
+        <span className="muted" style={{ fontSize: 13 }}>Σ peso × repeticiones de series con carga. Semana actual contra la anterior.</span>
+        <div className="table">
+          {groups.map((g) => (
+            <div key={g.group} className="trow">
+              <b style={{ flex: "1 1 140px" }}>{g.group}</b>
+              <span style={{ flex: "0 0 auto" }}>{kg(g.thisWeek)} <small className="muted">· antes {kg(g.lastWeek)}</small></span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
   );
 }

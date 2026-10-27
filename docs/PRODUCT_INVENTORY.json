@@ -631,7 +631,7 @@
    "diseno": "prototipo interactivo",
    "certeza": "confirmado",
    "conflicto": null,
-   "estado_tecnico": "sin_implementar",
+   "estado_tecnico": "integrado",
    "dependencias": "F-CL-03",
    "aceptacion": "Fórmula Epley documentada; heurística revisable",
    "pendiente": "",

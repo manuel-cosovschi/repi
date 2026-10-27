@@ -4,7 +4,7 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6, persistente 9, probado 80, sin_implementar 46.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6, persistente 9, probado 80, sin_implementar 45.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
@@ -40,7 +40,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-CO-01 | Panel del coach con pendientes accionables | Coach | Coach | documentado | prototipo interactivo | persistente | features.json · F-CO-01 | Cada pendiente con acción directa |
 | F-CO-02 | Directorio de clientes split view | Coach | Coach | documentado | prototipo interactivo | probado | features.json · F-CO-02 | Búsqueda, filtros, orden |
 | F-CO-03 | Objetivos del cliente con progreso | Coach | Coach | documentado | prototipo interactivo | sin_implementar | features.json · F-CO-03 | Criterio de aceptación vacío en el handoff: definir |
-| F-CO-04 | Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in | Coach | Coach | confirmado | prototipo interactivo | sin_implementar | features.json · F-CO-04 | Fórmula Epley documentada; heurística revisable |
+| F-CO-04 | Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in | Coach | Coach | confirmado | prototipo interactivo | integrado | features.json · F-CO-04 | Fórmula Epley documentada; heurística revisable |
 | F-CO-05 | Registro de sesiones con notas del alumno | Coach | Coach | confirmado | prototipo interactivo | probado | features.json · F-CO-05 | Criterio de aceptación vacío en el handoff: definir |
 | F-CO-06 | Salud: lesiones, molestias 0–10, condiciones | Coach | Coach | confirmado | prototipo interactivo | probado | features.json · F-CO-06 | No diagnosticar; derivar a profesional |
 | F-CO-07 | Nutrición: macros, kcal, hidratación, peso, comidas | Coach | Coach, alumno | documentado | diseño parcial | sin_implementar | features.json · F-CO-07 | La captura del lado alumno no está diseñada |

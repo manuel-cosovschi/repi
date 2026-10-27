@@ -275,3 +275,26 @@ describe("cobros manuales del coach (F-BL-01, D80)", () => {
     expect((await cp.myCharges(b.userId, now)).coaches).toEqual([]);
   });
 });
+
+describe("rendimiento del cliente (F-CO-04)", () => {
+  it("1RM estimado por Epley desde series reales, volumen por grupo y sin acceso de otro coach", async () => {
+    const ctx = await coachWithClients(1);
+    const pid = await tr.createTemplate(ctx.coach, ctx.orgId, DOC());
+    await tr.assignProgram(ctx.coach, ctx.orgId, pid, { coachClientIds: [ctx.clients[0].relId], startsOn: today() });
+    const user = ctx.clients[0].userId;
+    const t = await tr.myTraining(user);
+    if (t.state !== "ready") throw new Error("sin programa");
+    const sid = randomUUID();
+    await tr.startSession(user, { id: sid, dayId: t.program.days[0].id });
+    const s = await tr.getSession(user, sid);
+    const bench = s.exercises.find((e) => e.name === "Press de banca")!;
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: bench.id, setIndex: 0, weightKg: 100, reps: 10, rir: 2 });
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: bench.id, setIndex: 1, weightKg: 60, reps: 15, rir: 2 }); // > 12 reps: no estima
+    const p = await tr.clientPerformance(ctx.coach, ctx.orgId, ctx.clients[0].relId);
+    expect(p.exercises.find((e) => e.name === "Press de banca")?.best).toEqual({ e1rm: 133.3, weightKg: 100, reps: 10 });
+    expect(p.groups.find((g) => g.group === "Pecho")?.thisWeek).toBe(1900);
+    expect(p.formula).toMatch(/Epley/);
+    const otro = await coachWithClients(1);
+    await expectErr(tr.clientPerformance(otro.coach, otro.orgId, ctx.clients[0].relId), "not_found");
+  });
+});
