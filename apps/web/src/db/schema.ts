@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
+  bigint, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -472,6 +472,20 @@ export const mediaObject = pgTable("media_object", {
   sizeBytes: integer("size_bytes").notNull(),
   createdAt: now("created_at"),
   deletedAt: ts("deleted_at"),
+});
+
+// Límites de intentos compartidos entre instancias serverless (D74). La memoria de cada función no sirve en Vercel.
+// rate_limit: tabla de Better Auth (modelo «rateLimit»). app_rate_limit: ventana fija por clave para las rutas propias.
+export const rateLimit = pgTable("rate_limit", {
+  id: id(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
+export const appRateLimit = pgTable("app_rate_limit", {
+  key: text("key").primaryKey(),
+  windowStart: ts("window_start").notNull(),
+  count: integer("count").notNull(),
 });
 
 // Subida directa al almacenamiento (D71): el navegador sube al bucket con una URL firmada de un solo uso y el servidor

@@ -32,7 +32,7 @@ export const auth = betterAuth({
     provider: "pg",
     schema: {
       user: schema.user, session: schema.session, account: schema.account,
-      verification: schema.verification, twoFactor: schema.twoFactor,
+      verification: schema.verification, twoFactor: schema.twoFactor, rateLimit: schema.rateLimit,
     },
   }),
   user: {
@@ -53,7 +53,8 @@ export const auth = betterAuth({
   },
   emailVerification: { autoSignInAfterVerification: true, sendOnSignIn: true, sendOnSignUp: false },
   socialProviders: social,
-  rateLimit: { enabled: true, window: 60, max: 30 },
+  // En base (D74): compartido entre instancias serverless; en memoria cada función tendría su propio contador.
+  rateLimit: { enabled: true, window: 60, max: 30, storage: "database", modelName: "rateLimit" },
   plugins: [
     emailOTP({
       otpLength: 6,

@@ -2,7 +2,12 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Defectos de ESTADO_ACTUAL §7 y §8 (D72, D73)
+## Último bloque cerrado — 27/10/2026 · Límites de intentos compartidos (D74)
+
+- **Hecho:** migración `0008_shared_rate_limits` (aplicada en dev local y Supabase), `access/util.ts#rateLimit` en base (async), Better Auth `rateLimit.storage = "database"`, `tests/ratelimit.test.ts` (ventana, reinicio y concurrencia).
+- **Pruebas:** web 97/97, typecheck y build OK.
+
+## Bloque anterior — 27/10/2026 · Defectos de ESTADO_ACTUAL §7 y §8 (D72, D73)
 
 - **Multisede (D72):** `src/server/gym/alerts.ts#alertLocation` usa el ingreso registrado por recepción (≤ 4 h, sede con acceso vigente); test nuevo en `tests/annex.test.ts`.
 - **Cola tras pausa/baja (D73):** `lib/offline/queue.ts` + `store.ts` (`rejected`), aviso con «Reintentar» / «Descartar de este teléfono» en `Workout.tsx`, botón «Continuar entrenamiento en curso» en el inicio (`MemberApp.tsx`). Verificado en local con Chrome headless: pausar vínculo → serie → aviso persistente tras recargar → reactivar → «Reintentar» → «Guardado».

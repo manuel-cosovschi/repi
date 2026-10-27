@@ -13,7 +13,7 @@ export async function sessionUserId(): Promise<string> {
 export async function limit(bucket: string, max = 10, windowMs = 60_000) {
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
-  rateLimit(`${bucket}:${ip}`, max, windowMs);
+  await rateLimit(`${bucket}:${ip}`, max, windowMs);
 }
 
 export function handle<C = unknown>(fn: (req: Request, ctx: C) => Promise<unknown>) {

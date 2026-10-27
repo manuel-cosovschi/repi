@@ -57,6 +57,13 @@
       "when": 1793074867416,
       "tag": "0007_direct_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793075475275,
+      "tag": "0008_shared_rate_limits",
+      "breakpoints": true
     }
   ]
 }

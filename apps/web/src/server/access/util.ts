@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { makeInviteCode, normalizeDni } from "@repi/domain";
 import { db, schema } from "@/db";
 import { requireEnv } from "../env";
@@ -28,12 +29,17 @@ export async function audit(
 export type { Tx };
 
 // Límite simple en memoria por clave (IP+ruta). Limitación conocida: no se comparte entre procesos.
-const hits = new Map<string, number[]>();
-export function rateLimit(key: string, max: number, windowMs: number) {
-  const t = Date.now();
-  const arr = (hits.get(key) ?? []).filter((x) => t - x < windowMs);
-  if (arr.length >= max) throw new AccessError("rate_limited", "Demasiados intentos. Esperá un minuto y probá de nuevo.", 429);
-  arr.push(t);
-  hits.set(key, arr);
+/** Ventana fija por clave, atómica en la base (D74): vale igual con varias instancias serverless. */
+export async function rateLimit(key: string, max: number, windowMs: number) {
+  const secs = Math.max(1, Math.round(windowMs / 1000));
+  const t = schema.appRateLimit;
+  const [row] = await db.insert(t).values({ key, windowStart: new Date(), count: 1 }).onConflictDoUpdate({
+    target: t.key,
+    set: {
+      count: sql`case when ${t.windowStart} < now() - make_interval(secs => ${secs}) then 1 else ${t.count} + 1 end`,
+      windowStart: sql`case when ${t.windowStart} < now() - make_interval(secs => ${secs}) then now() else ${t.windowStart} end`,
+    },
+  }).returning({ count: t.count });
+  if (row.count > max) throw new AccessError("rate_limited", "Demasiados intentos. Esperá un minuto y probá de nuevo.", 429);
 }
-export const resetRateLimits = () => hits.clear();
+export const resetRateLimits = async () => { await db.delete(schema.appRateLimit); await db.delete(schema.rateLimit); };
