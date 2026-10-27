@@ -42,4 +42,10 @@ export async function rateLimit(key: string, max: number, windowMs: number) {
   }).returning({ count: t.count });
   if (row.count > max) throw new AccessError("rate_limited", "Demasiados intentos. Esperá un minuto y probá de nuevo.", 429);
 }
+/** Contadores viejos (> 1 día) no aportan nada: el job diario los borra. */
+export async function purgeRateLimits() {
+  const a = await db.delete(schema.appRateLimit).where(sql`${schema.appRateLimit.windowStart} < now() - interval '1 day'`).returning({ k: schema.appRateLimit.key });
+  const b = await db.delete(schema.rateLimit).where(sql`${schema.rateLimit.lastRequest} < ${Date.now() - 86_400_000}`).returning({ k: schema.rateLimit.key });
+  return a.length + b.length;
+}
 export const resetRateLimits = async () => { await db.delete(schema.appRateLimit); await db.delete(schema.rateLimit); };

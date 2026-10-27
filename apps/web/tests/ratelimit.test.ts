@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { rateLimit, resetRateLimits } from "@/server/access/util";
+import { purgeRateLimits, rateLimit, resetRateLimits } from "@/server/access/util";
 
 // D74: el límite vive en la base, así lo comparten todas las instancias serverless.
 beforeEach(() => resetRateLimits());
@@ -18,5 +18,12 @@ describe("límite de intentos compartido", () => {
   it("pedidos simultáneos cuentan todos (sin carreras)", async () => {
     const r = await Promise.allSettled(Array.from({ length: 8 }, () => rateLimit("prueba:carrera", 5, 60_000)));
     expect(r.filter((x) => x.status === "rejected")).toHaveLength(3);
+  });
+  it("la limpieza diaria borra sólo contadores viejos", async () => {
+    await rateLimit("prueba:vieja", 5, 60_000);
+    await rateLimit("prueba:nueva", 5, 60_000);
+    await db.update(schema.appRateLimit).set({ windowStart: new Date(Date.now() - 2 * 86_400_000) }).where(eq(schema.appRateLimit.key, "prueba:vieja"));
+    expect(await purgeRateLimits()).toBe(1);
+    expect((await db.select().from(schema.appRateLimit)).map((r) => r.key)).toEqual(["prueba:nueva"]);
   });
 });
