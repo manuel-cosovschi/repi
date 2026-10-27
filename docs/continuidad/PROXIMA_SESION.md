@@ -9,7 +9,9 @@ Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MAST
 - **Pruebas:** web 128/128 (vitest, `repi_test` local), dominio 74/74, guardas `tsx --test tests/safety/*.check.ts tests/operations/*.check.ts` 11/11, typecheck y `next build` OK.
 - **Ojo — iCloud:** el Escritorio se sincroniza con iCloud Drive. Durante este bloque borró `apps/web/src/db/schema.ts` y dejó copias `* 2` (`.git/index 2`, etc.). Se restauró de git. Recomendación al titular: mover el repo fuera de Desktop/Documents o excluirlo de iCloud. Revisar `git status` al arrancar.
 - **Hoy no hay REPI Admin en Supabase.** Para crearlo: correr `scripts/first-admin.ts` (ver docs/DESPLIEGUE.md) y que el titular abra el enlace guardado en `~/.repi-secrets/primer-admin.txt`, cree su cuenta, verifique email y active 2FA.
-- **Siguiente (plan, Bloque B/C):** scripts de respaldo y restauración ensayada sobre `repi_restore_check` usando las guardas ya probadas; CI (typecheck/build/tests con base descartable); actualizaciones PWA con cola pendiente; luego catálogo V1.1 (F-HX-23 kg/lb, F-CO-16 informe mensual, F-NT-01 centro de notificaciones).
+- **Deploy:** 697a5ca en producción (repiclub.com): `/activar-admin`, íconos `/pwa-icon/192|512`, manifest nuevo y demo (200 en ~5 s) comprobados.
+- **Respaldos y CI (D91):** `pnpm ops:backup` / `pnpm ops:restore` en `apps/web/scripts/operations/`; ensayo local y hospedado verificados, `repi_restore_check` vaciada después. CI en `.github/workflows/ci.yml`.
+- **Siguiente:** revisar el primer run de CI en GitHub; actualizaciones PWA con cola pendiente (Bloque B, último ítem); flujos gym/coach completos en el entorno; luego catálogo V1.1 (F-HX-23 kg/lb, F-CO-16 informe mensual, F-NT-01 centro de notificaciones).
 
 ## Bloque anterior — 27/10/2026 · Dominio repiclub.com activo
 

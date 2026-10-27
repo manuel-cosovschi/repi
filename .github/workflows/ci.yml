@@ -1,0 +1,49 @@
+# Comprobación de cada push y PR: tipos, guardas de bases, pruebas con PostgreSQL descartable y build.
+# Sin secretos reales: las claves son valores de prueba y la base existe sólo dentro del job.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: repi
+          POSTGRES_PASSWORD: repi-ci-only
+          POSTGRES_DB: repi_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U repi -d repi_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_test
+      DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_dev
+      BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-00
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      ROSTER_HMAC_SECRET: ci-only-roster
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - name: Guardas de bases y respaldos
+        run: pnpm --filter @repi/web test:guards
+      - name: Pruebas (dominio y web sobre repi_test del job)
+        run: pnpm test
+      - run: pnpm build

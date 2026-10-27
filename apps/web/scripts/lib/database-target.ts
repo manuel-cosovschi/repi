@@ -46,7 +46,7 @@ export function assertSeedDatabaseTarget(url: string | undefined, env: DatabaseE
 }
 
 /** Segunda barrera contra túneles, resoluciones inesperadas o un servidor diferente al indicado por la URL. */
-export function assertLocalDatabaseIdentity(identity: DatabaseIdentity, database: "repi_dev" | "repi_test") {
+export function assertLocalDatabaseIdentity(identity: DatabaseIdentity, database: "repi_dev" | "repi_test" | "repi_restore_check") {
   if (identity.database !== database || !identity.serverAddress || !LOCAL_ADDRESSES.has(identity.serverAddress)) {
     throw new Error(`Operación bloqueada: PostgreSQL no confirmó la base ${database} en una dirección local.`);
   }

@@ -14,7 +14,11 @@
     "db:seed": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "tokens": "tsx scripts/gen-tokens.ts",
     "jobs:purge-media": "tsx --env-file=.env.local scripts/purge-media.ts",
-    "jobs:notifications": "tsx --env-file=.env.local scripts/notifications.ts"
+    "jobs:notifications": "tsx --env-file=.env.local scripts/notifications.ts",
+    "test:guards": "tsx --test tests/safety/database-target.check.ts tests/operations/guards.check.ts",
+    "ops:backup": "tsx scripts/operations/backup.ts",
+    "ops:restore": "tsx scripts/operations/restore.ts",
+    "ops:first-admin": "tsx scripts/first-admin.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "2.1.10",

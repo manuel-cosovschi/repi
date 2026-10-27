@@ -56,10 +56,21 @@ Correos: en `REPI_DEPLOY=demo` además quedan en `/dev/mailbox`, visible sólo p
 
 Cuentas del seed (`@demo.repi.app`): **fuera de uso en el entorno hospedado (D87)**. El 27/10 se les quitó contraseña, rol Admin y sesiones en Supabase, y Better Auth rechaza sus sesiones en cualquier despliegue. Para mostrar REPI usar la demo guiada (`/demo`, D85). REPI Admin: la cuenta personal del titular activada con `scripts/first-admin.ts` (D87).
 
+## Respaldos (D91)
+
+```bash
+# Desde apps/web. Sólo lee; el resultado queda en ~/.repi-secrets/backups/<fecha>-hosted/ (no en el repo).
+pnpm ops:backup --source=hosted --storage
+# Ensayo de restauración en la base local descartable (una vez: createdb -h localhost repi_restore_check)
+RESTORE_DATABASE_URL=postgresql://<usuario>@localhost:5432/repi_restore_check pnpm ops:restore ~/.repi-secrets/backups/<carpeta>
+```
+
+Nunca restaurar sobre Supabase con estos scripts: lo bloquean. Una restauración real del entorno hospedado es una decisión del titular y se hace a un proyecto nuevo, no encima del actual.
+
 ## Límites conocidos
 
 1. Vercel Hobby: cuerpo de petición de funciones ≤ 4,5 MB. Los videos suben directo al bucket con URL firmada (D71); necesita `SUPABASE_SECRET_KEY` cargada. Sin probar todavía contra Supabase real.
 2. Sin proveedor de email: altas y recuperación reales no funcionan fuera del modo DEMO (D24).
 3. Push: claves VAPID productivas generadas; entrega en teléfonos reales no probada.
-4. Plan gratuito de Supabase pausa el proyecto tras 7 días sin actividad; el cron de avisos lo mantiene activo. Sin backups PITR (gate G10 pendiente).
+4. Plan gratuito de Supabase pausa el proyecto tras 7 días sin actividad; el cron de avisos lo mantiene activo. Sin backups PITR: respaldo lógico manual con `pnpm ops:backup` (D91); frecuencia y guarda externa pendientes.
 5. Hobby es para uso no comercial: pasar a Pro antes de clientes reales (decisión de gasto del titular).

@@ -44,8 +44,8 @@
 
 ## Bloque C — operación y venta
 
-- [ ] Backups DB + objetos, restauración ensayada sobre destino aislado; nunca sobrescribir producción para probar.
-- [ ] CI tipado/build/tests locales descartables y comprobaciones de migración.
+- [x] Backups DB + objetos, restauración ensayada sobre destino aislado; nunca sobrescribir producción para probar.
+- [x] CI tipado/build/tests locales descartables y comprobaciones de migración.
 - [ ] Guías por rol, alta comercial, ventas/demo y propuesta editable con funcionalidades reales.
 - [ ] Preparar release/despliegue verificable, comprobar correo/QR/programa/comunidad/media en entorno autorizado.
 - [ ] Actualizar estado, decisiones, gates y continuidad. Diferenciar verificaciones automáticas de pendientes físicos/jurídicos/contratación.
