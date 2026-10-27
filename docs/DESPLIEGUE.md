@@ -31,7 +31,8 @@ Los valores secretos se generaron localmente y están sólo en la máquina del t
 ## Seguridad de la base
 
 - RLS activado en todas las tablas de `public` y sin privilegios para `anon`/`authenticated`: la API REST pública de Supabase no expone nada. `repi_app` es dueño y no está sujeto a RLS.
-- Migraciones nuevas: después de aplicar, volver a activar RLS en tablas nuevas (ver comando abajo) o la API REST seguiría sin privilegios igual (default privileges revocados), pero queda advertencia en Supabase Advisors.
+- Migraciones nuevas: `scripts/migrate.ts` activa RLS en cualquier tabla nueva de `public` después de migrar.
+- Migraciones aplicadas en Supabase: 0000–0007.
 
 ## Operación
 
@@ -49,7 +50,7 @@ Correos: en `REPI_DEPLOY=demo` quedan en `/dev/mailbox`, visible sólo para una 
 
 ## Límites conocidos
 
-1. Vercel Hobby: cuerpo de petición de funciones ≤ 4,5 MB. Videos de seguimiento (60 MB) y de desafíos (80 MB) **no suben** por `/api/...`; falta subida directa al bucket con URL firmada (próximo corte).
+1. Vercel Hobby: cuerpo de petición de funciones ≤ 4,5 MB. Los videos suben directo al bucket con URL firmada (D71); necesita `SUPABASE_SECRET_KEY` cargada. Sin probar todavía contra Supabase real.
 2. Sin proveedor de email: altas y recuperación reales no funcionan fuera del modo DEMO (D24).
 3. Push: claves VAPID productivas generadas; entrega en teléfonos reales no probada.
 4. Plan gratuito de Supabase pausa el proyecto tras 7 días sin actividad; el cron de avisos lo mantiene activo. Sin backups PITR (gate G10 pendiente).

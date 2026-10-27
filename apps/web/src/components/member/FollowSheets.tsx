@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { INJURY_STATUS, INJURY_ZONES, PAIN_WARN_LEVEL, PAIN_ZONES, REVIEW_DIMS, VIDEO_LIMITS, type InjuryStatus, type RequestKind } from "@repi/domain";
 import { api } from "@/lib/api";
+import { uploadVideo } from "@/lib/upload";
 import { Sheet } from "./Sheet";
 
 type Privacy = { coach: { name: string; org: string } | null; items: { key: string; on: boolean; restricted: boolean }[] };
@@ -85,11 +86,7 @@ export function HelpSheet({ initialKind = "rutina", coachName, gymPlace, initial
     try {
       let videoId: string | null = null;
       if (file && kind === "tecnica") {
-        const fd = new FormData(); fd.append("file", file);
-        const res = await fetch("/api/me/videos", { method: "POST", body: fd, credentials: "same-origin" });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error ?? "No se pudo subir el video.");
-        videoId = data.id;
+        videoId = (await uploadVideo({ purpose: "request_video", file, legacyUrl: "/api/me/videos" })).id;
       }
       if (to === "gym") {
         const r = await api<{ duplicate: boolean }>("/api/me/gym/requests", { body: { kind, text, videoId } });

@@ -55,7 +55,7 @@ export async function authorizeCommunityMedia(actorId: string, m: typeof mediaOb
   return false;
 }
 
-async function memberOf(userId: string, orgId: string) {
+export async function memberOf(userId: string, orgId: string) {
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")));
   return m ?? null;
 }

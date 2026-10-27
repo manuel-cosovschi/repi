@@ -3,7 +3,7 @@
 // el navegador nunca recibe URLs del bucket, sólo pasa por /api/media con sus permisos.
 // Sin Supabase, producción exige STORAGE_DIR explícito (volumen durable operado aparte).
 import { createReadStream } from "node:fs";
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 
@@ -61,4 +61,40 @@ export async function deleteObject(key: string) {
     return;
   }
   await rm(safe(key), { force: true });
+}
+
+/** Subida directa desde el navegador (D71). Sólo con Supabase: URL firmada de un solo uso para esa clave (vence en 2 h).
+ *  En disco local devuelve null y el cliente usa la subida por /api de siempre. */
+export async function directUploadTarget(key: string): Promise<{ url: string; method: "PUT" } | null> {
+  const s = supabase();
+  if (!s) return null;
+  const r = await expectOk(await fetch(`${s.base}/upload/sign/${s.bucket}/${checkKey(key)}`, { method: "POST", headers: s.headers }), "firma de subida");
+  const { url } = (await r.json()) as { url: string };
+  return { url: `${s.base.replace(/\/object$/, "")}${url}`, method: "PUT" };
+}
+
+/** Tamaño real y primeros bytes de un objeto (para validar la firma del archivo sin descargarlo entero). Null si no existe. */
+export async function probeObject(key: string, n = 64): Promise<{ size: number; head: Uint8Array } | null> {
+  const s = supabase();
+  if (s) {
+    const r = await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, Range: `bytes=0-${n - 1}` } });
+    if (r.status === 400 || r.status === 404) return null;
+    await expectOk(r, "lectura");
+    const total = Number(r.headers.get("content-range")?.split("/")[1] ?? r.headers.get("content-length") ?? 0);
+    const reader = r.body!.getReader();
+    const parts: Uint8Array[] = [];
+    let got = 0;
+    while (got < n) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.byteLength; }
+    await reader.cancel().catch(() => {});
+    const head = new Uint8Array(Math.min(got, n));
+    let o = 0;
+    for (const p of parts) { const take = Math.min(p.byteLength, head.byteLength - o); head.set(p.subarray(0, take), o); o += take; if (o >= head.byteLength) break; }
+    return { size: total, head };
+  }
+  try {
+    const p = safe(key);
+    const st = await stat(p);
+    const fh = await open(p, "r");
+    try { const buf = new Uint8Array(Math.min(n, st.size)); await fh.read(buf, 0, buf.byteLength, 0); return { size: st.size, head: buf }; } finally { await fh.close(); }
+  } catch { return null; }
 }

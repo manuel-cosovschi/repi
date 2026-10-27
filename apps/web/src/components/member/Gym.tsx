@@ -9,6 +9,7 @@ import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Carousel } from "@/components/motion/Carousel";
+import { uploadVideo } from "@/lib/upload";
 import { Check, QrCode, VideoCamera } from "@phosphor-icons/react";
 
 type Home = {
@@ -207,15 +208,7 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
     if (!ok) { flash("Confirmá que el video muestra el intento completo."); return; }
     setPct(4);
     try {
-      const fd = new FormData(); fd.append("file", file);
-      const vid = await new Promise<{ id: string }>((res, rej) => {
-        const x = new XMLHttpRequest();
-        x.open("POST", `/api/me/gym/attempt-video?org=${orgId}`);
-        x.upload.onprogress = (e) => { if (e.lengthComputable) setPct(Math.max(4, Math.round((e.loaded / e.total) * 95))); };
-        x.onload = () => { const d = JSON.parse(x.responseText || "{}"); if (x.status < 300) res(d); else rej(new Error(d.error ?? "No se pudo subir el video.")); };
-        x.onerror = () => rej(new Error("Sin conexión. Probá de nuevo."));
-        x.send(fd);
-      });
+      const vid = await uploadVideo({ purpose: "attempt_video", orgId, file, legacyUrl: `/api/me/gym/attempt-video?org=${orgId}`, onProgress: (p) => setPct(Math.max(4, Math.round(p * 95))) });
       await api("/api/me/gym/attempts", { body: { challengeId: c.id, value: num, division: div, videoId: vid.id, confirm: true } });
       setPct(100); setSent(true);
     } catch (e) { setPct(null); flash((e as Error).message); }

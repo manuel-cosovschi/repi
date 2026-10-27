@@ -474,6 +474,20 @@ export const mediaObject = pgTable("media_object", {
   deletedAt: ts("deleted_at"),
 });
 
+// Subida directa al almacenamiento (D71): el navegador sube al bucket con una URL firmada de un solo uso y el servidor
+// confirma tamaño y tipo real antes de crear el media_object. Una intención vencida se borra junto con su archivo.
+export const uploadIntent = pgTable("upload_intent", {
+  id: id(),
+  ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image"] }).notNull(),
+  orgId: text("org_id"),
+  storageKey: text("storage_key").notNull(),
+  mime: text("mime").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  createdAt: now("created_at"),
+}, (t) => [index("upload_intent_expires_idx").on(t.expiresAt)]);
+
 // Pedido del alumno a su coach (F-CL-13/F-CL-15). El destino equipo de sala llega con la Etapa 5.
 export const studentRequest = pgTable("student_request", {
   id: id(),

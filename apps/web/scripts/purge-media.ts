@@ -2,5 +2,6 @@
 // Uso: pnpm jobs:purge-media
 import { sqlClient } from "@/db";
 import { purgeMedia } from "@/server/followup/services";
+import { purgeUploadIntents } from "@/server/uploads";
 
-purgeMedia().then((r) => { console.log(`videos borrados: ${r.retention} por retención, ${r.orphans} huérfanos`); return sqlClient.end(); });
+purgeMedia().then(async (r) => { const i = await purgeUploadIntents(); console.log(`videos borrados: ${r.retention} por retención, ${r.orphans} huérfanos · subidas sin confirmar: ${i}`); return sqlClient.end(); });
