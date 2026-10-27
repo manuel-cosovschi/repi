@@ -12,8 +12,8 @@ Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MAST
 - **Deploy:** 697a5ca en producción (repiclub.com): `/activar-admin`, íconos `/pwa-icon/192|512`, manifest nuevo y demo (200 en ~5 s) comprobados.
 - **Respaldos y CI (D91):** `pnpm ops:backup` / `pnpm ops:restore` en `apps/web/scripts/operations/`; ensayo local y hospedado verificados, `repi_restore_check` vaciada después. CI en `.github/workflows/ci.yml`.
 - **Actualización PWA (D92):** `UpdateWatcher` + `/api/version`; sincroniza la cola antes de ofrecer «Actualizar».
-- **CI:** el primer run falló en pruebas (PostgreSQL en contenedor no reporta dirección local y la guarda bloquea, como corresponde); se pasó al PostgreSQL nativo del runner. Revisar el run en GitHub Actions.
-- **Siguiente:** flujos gym/coach completos en el entorno; luego catálogo V1.1 (F-HX-23 kg/lb, F-CO-16 informe mensual, F-NT-01 centro de notificaciones).
+- **CI:** el primer run falló en pruebas (PostgreSQL en contenedor no reporta dirección local y la guarda bloquea, como corresponde); se pasó al PostgreSQL nativo del runner. Run de 883f288: **verde** (typecheck, guardas, tests, build). Deploy 883f288 en repiclub.com con `repi-version` 883f2884ea10. El aviso «Actualizar» no se probó en navegador (se ve recién con el próximo deploy en una pestaña abierta).
+- **Siguiente:** F-NT-01 centro de notificaciones del alumno (base: `member_notice`, `notification_outbox`, `/api/me/inbox`; pantalla nueva en `MemberApp`); flujos gym/coach completos en el entorno; luego catálogo V1.1 (F-HX-23 kg/lb, F-CO-16 informe mensual, F-NT-01 centro de notificaciones).
 
 ## Bloque anterior — 27/10/2026 · Dominio repiclub.com activo
 
