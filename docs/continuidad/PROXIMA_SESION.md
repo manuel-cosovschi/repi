@@ -2,7 +2,13 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Aviso de programa nuevo/actualizado (D77, F-CL-14)
+## Último bloque cerrado — 27/10/2026 · Accesos denegados auditados y resumen Admin (D78, D79)
+
+- **Hecho:** `access/http.ts#recordDenied` (en `handle` y `/api/media`), `commercial/services.ts#adminSummary`, `GET /api/admin/summary`, pantalla «Resumen» en `AdminApp.tsx`. Tests `tests/denied.test.ts` y resumen en `tests/privacy.test.ts`.
+- **Pruebas:** web 105/105, typecheck y build OK.
+- **V1 del catálogo sin implementar:** F-PR-03 (notas institucionales vs personales).
+
+## Bloque anterior — 27/10/2026 · Aviso de programa nuevo/actualizado (D77, F-CL-14)
 
 - **Hecho:** `training/services.ts` (`program.update` en `myTraining`, `previousVersion`), `assignedAt` explícito en asignaciones (coach y gym), ruta `/api/me/training/previous`, `ProgramNotice` en `MemberApp.tsx`, tipo `ProgramUpdate`.
 - **Pruebas:** web 103/103 (test nuevo en `tests/training.test.ts`), build OK, captura headless del aviso.

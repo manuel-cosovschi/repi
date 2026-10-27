@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import * as svc from "@/server/access/services";
 import * as pv from "@/server/privacy/services";
+import * as cm from "@/server/commercial/services";
 
 // F-PR-02 / D75: exportación propia y pedido de eliminación con registro verificable.
 let n = 0;
@@ -56,5 +57,20 @@ describe("pedido de eliminación", () => {
     const done = await pv.resolvePrivacyRequest(admin, r.id, { status: "done", resolution: "Cuenta y entrenamientos borrados; auditoría conservada." });
     expect(done).toMatchObject({ status: "done", resolvedBy: admin });
     await expect(pv.resolvePrivacyRequest(admin, r.id, { status: "rejected", resolution: "x" })).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("resumen de Admin (F-AD-01)", () => {
+  it("cuenta pedidos pendientes y accesos denegados; no informa cobrado; exige Admin", async () => {
+    const admin = await person("Admin Resumen"), yo = await person();
+    await expect(cm.adminSummary(yo)).rejects.toMatchObject({ status: 404 });
+    await db.update(schema.user).set({ platformRole: "admin", twoFactorEnabled: true }).where(eq(schema.user.id, admin));
+    const before = await cm.adminSummary(admin);
+    await pv.requestDeletion(yo);
+    await db.insert(schema.auditEvent).values({ action: "access.denied", resourceType: "api", result: "denied" });
+    const after = await cm.adminSummary(admin);
+    expect(after.privacyPending).toBe(before.privacyPending + 1);
+    expect(after.deniedLast7d).toBe(before.deniedLast7d + 1);
+    expect(after.collected).toBeNull();
   });
 });

@@ -14,6 +14,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const [a, b] = (await params).path ?? [];
   const me = await sessionUserId();
   const u = new URL(req.url);
+  if (a === "summary") return cm.adminSummary(me);
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "contracts" && b) {

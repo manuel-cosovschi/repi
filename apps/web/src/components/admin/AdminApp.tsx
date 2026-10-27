@@ -35,7 +35,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); return { start: `${d.slice(0, 7)}-01`, end }; };
 
 export function AdminApp({ me }: { me: { name: string } }) {
-  const [screen, setScreen] = useState<"clients" | "leads" | "privacy">("clients");
+  const [screen, setScreen] = useState<"summary" | "clients" | "leads" | "privacy">("summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
       <aside className="co-side" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["clients", "Clientes"], ["leads", "Contactos"], ["privacy", "Privacidad"]] as const).map(([k, l]) => (
+          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["privacy", "Privacidad"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
             </button>
@@ -84,6 +84,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
             </>
           )}
           {screen === "clients" && sel && <ContractView id={sel} flash={flash} back={() => { setSel(null); list.reload(); }} />}
+          {screen === "summary" && <Summary go={(k) => { setScreen(k); setSel(null); }} />}
           {screen === "privacy" && <PrivacyRequests flash={flash} />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
         </div>
@@ -135,6 +136,35 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
           {l.status !== "discarded" && l.status !== "converted" && <button type="button" className="btn sm" onClick={() => set(l.id, "discarded")}>Descartar</button>}
         </div>
       ))}
+    </>
+  );
+}
+
+// F-AD-01: resumen desde acuerdos y eventos reales, sin DEMO. «Acordado» y «adopción» van separados; no hay «cobrado».
+type Sum = { clients: { total: number; enabled: number; draft: number; legacy: number; gyms: number; coaches: number }; agreed: number; adoption: number; overAgreed: number;
+  collected: null; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number };
+function Summary({ go }: { go: (k: "clients" | "leads" | "privacy") => void }) {
+  const d = useLoad<Sum>("/api/admin/summary");
+  const k = d.data;
+  const tiles: [string, string, string, () => void][] = k ? [
+    ["Clientes habilitados", String(k.clients.enabled), `${k.clients.total} en total · ${k.clients.gyms} gyms · ${k.clients.coaches} coaches`, () => go("clients")],
+    ["Por habilitar", String(k.clients.draft), k.clients.legacy ? `${k.clients.legacy} a regularizar` : "Borrador o aceptados", () => go("clients")],
+    ["Cantidad acordada", String(k.agreed), "Suma de contratos habilitados (base de facturación)", () => go("clients")],
+    ["Accesos habilitados", String(k.adoption), k.overAgreed ? `${k.overAgreed} cliente(s) por encima de lo acordado` : "Adopción real; no se factura por esto", () => go("clients")],
+    ["Cobrado", "—", "Sin registro de pagos reales todavía", () => go("clients")],
+    ["Contactos nuevos", String(k.leadsNew), "Pidieron que los contacten", () => go("leads")],
+    ["Pedidos de privacidad", String(k.privacyPending), "Eliminaciones pendientes", () => go("privacy")],
+    ["Accesos denegados (7 días)", String(k.deniedLast7d), `Avisos push fallidos (24 h): ${k.pushFailedLast24h}`, () => go("clients")],
+  ] : [];
+  return (
+    <>
+      <Head kicker="Acuerdos, adopción y operación. Excluye datos DEMO. Sin cobros reales." title="Resumen" />
+      {d.err && <p role="alert" className="err-box">{d.err}</p>}
+      {!k ? <p className="muted">Cargando…</p> : (
+        <div className="grid-kpi">
+          {tiles.map(([l, v, sub, fn]) => <button type="button" key={l} className="kpi" onClick={fn}><span>{l}</span><strong>{v}</strong><small>{sub}</small></button>)}
+        </div>
+      )}
     </>
   );
 }

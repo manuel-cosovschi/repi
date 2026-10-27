@@ -1,7 +1,7 @@
 // Alta comercial y condiciones por cliente (anexo 26/10 §4 y §9). Sólo REPI Admin (con 2FA) crea clientes, registra
 // aceptaciones, habilita y edita cantidad/precio. El cliente ve sus condiciones y pide correcciones; nunca las edita.
 // Nada de esto emite cobros reales: la vista previa y el cierre simulado no son facturas (D01–D05 siguen pendientes).
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
   ACTIVATION_LABEL, TERMS_VERSION, activationStage, fmtMoney, isCurrency, isEmail, normalizeEmail, overAgreed, previewPeriod,
   type ContractStatus, type Currency, type Term,
@@ -63,6 +63,34 @@ export async function listClients(actorId: string) {
   }
   const leads = await db.select().from(commercialLead).orderBy(desc(commercialLead.createdAt)).limit(30);
   return { clients: out.filter((x) => !x.demo), demo: out.filter((x) => x.demo), leads };
+}
+
+/**
+ * F-AD-01: resumen de Admin desde acuerdos y eventos reales, sin DEMO. Separa lo acordado (cantidad × precio del contrato)
+ * de la adopción (accesos habilitados) y no muestra cobros: todavía no se registran pagos reales (D24/§12 del anexo).
+ */
+export async function adminSummary(actorId: string, now = new Date()) {
+  const { clients, leads } = await listClients(actorId);
+  const since7 = new Date(now.getTime() - 7 * 86_400_000), since1 = new Date(now.getTime() - 86_400_000);
+  const count = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+  const n = sql<number>`count(*)::int`;
+  const enabled = clients.filter((c) => c.commercialStatus === "enabled");
+  return {
+    clients: {
+      total: clients.length, enabled: enabled.length,
+      draft: clients.filter((c) => c.stage && c.commercialStatus !== "enabled").length,
+      legacy: clients.filter((c) => c.commercialStatus === "legacy").length,
+      gyms: clients.filter((c) => c.kind === "gym").length, coaches: clients.filter((c) => c.kind === "coach").length,
+    },
+    agreed: enabled.reduce((a, c) => a + (c.agreed ?? 0), 0),
+    adoption: enabled.reduce((a, c) => a + c.enabledAccesses, 0),
+    overAgreed: clients.filter((c) => c.overAgreed).length,
+    collected: null as null, // sin registro de pagos reales: no se informa «cobrado»
+    leadsNew: leads.filter((l) => l.status === "new").length,
+    privacyPending: await count(db.select({ n }).from(schema.privacyRequest).where(eq(schema.privacyRequest.status, "pending"))),
+    deniedLast7d: await count(db.select({ n }).from(schema.auditEvent).where(and(eq(schema.auditEvent.action, "access.denied"), gte(schema.auditEvent.at, since7)))),
+    pushFailedLast24h: await count(db.select({ n }).from(schema.notificationOutbox).where(and(eq(schema.notificationOutbox.status, "failed"), gte(schema.notificationOutbox.createdAt, since1)))),
+  };
 }
 
 /** Alta comercial: crea la ficha y una organización SIN habilitar (no admite altas operativas) y el contrato en borrador. */
