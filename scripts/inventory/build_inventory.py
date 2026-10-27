@@ -72,6 +72,7 @@ REPO_STATUS = {
     "F-AD-02": "probado", "F-AD-03": "probado", "F-BL-02": "integrado", "F-BL-03": "integrado", "F-NT-02": "integrado",
     # 27/10/2026 · evidencia en docs/IMPLEMENTATION_STATUS.md (D75–D79) y tests (privacy, denied, training, gym)
     "F-PR-02": "probado", "F-PR-03": "probado", "F-PR-04": "probado", "F-AD-01": "probado", "F-CL-14": "probado",
+    "F-BL-01": "probado", "F-CO-17": "probado", "F-HX-06": "probado",
 }
 
 NEW = [

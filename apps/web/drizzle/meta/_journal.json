@@ -71,6 +71,13 @@
       "when": 1793075721741,
       "tag": "0009_privacy_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793076707276,
+      "tag": "0010_coach_charges",
+      "breakpoints": true
     }
   ]
 }

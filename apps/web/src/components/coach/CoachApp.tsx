@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { Wordmark } from "@/components/access/Wordmark";
 import { CoachDash } from "./CoachDash";
+import { CoachPayments } from "./CoachPayments";
 import { CoachClients } from "./CoachClients";
 import { ProgramBuilder } from "./ProgramBuilder";
 import { InviteModal } from "./InviteModal";
@@ -17,10 +18,10 @@ import { CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tr
 
 const IC = { home: House, users: Users, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt };
 
-// Cobros del coach a sus alumnos: Etapa 7 (flujo separado del cobro de REPI al coach, anexo §10).
+// Cobros del coach a sus alumnos (F-BL-01, D80): registro manual, separado del cobro de REPI al coach (anexo §10).
 const NAV: [Screen, string, Icon, string | null][] = [
   ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["builder", "Programas", IC.build, null],
-  ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, "Etapa 7"],
+  ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, null],
   ["terms", "Condiciones REPI", IC.receipt, null],
 ];
 
@@ -108,7 +109,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
               {screen === "inbox" && <CoachInbox orgId={orgId} flash={flash} go={go} onChanged={reload} />}
               {screen === "msgs" && <ChatPane listUrl={`/api/coach/${orgId}/messages`} kicker="Conversaciones privadas entre vos y cada cliente" emptyText="Todavía no tenés clientes. Las conversaciones aparecen cuando aceptan tu invitación."
                 initial={sel} onSeen={reload} profile={(t) => <button type="button" className="btn sm" onClick={() => go("clients", { sel: t.relId })}>Ver perfil →</button>} />}
-              {screen === "pay" && <Pending screen={screen} />}
+              {screen === "pay" && <CoachPayments orgId={orgId} flash={flash} openClient={(id) => go("clients", { sel: id })} />}
               {screen === "terms" && <ConditionsScreen orgId={orgId} flash={flash} unit="alumnos" />}
             </>
           )}
@@ -121,12 +122,3 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
   );
 }
 
-function Pending({ screen }: { screen: Screen }) {
-  const t = { pay: ["Cobros a alumnos", "Los cobros manuales a tus alumnos se construyen en la Etapa 7. Son independientes de lo que REPI te factura a vos (ver Condiciones REPI)."] }[screen as "pay"];
-  return (
-    <>
-      <div className="co-head"><div><h1 tabIndex={-1}>{t[0]}</h1></div></div>
-      <div className="empty">{t[1]}</div>
-    </>
-  );
-}

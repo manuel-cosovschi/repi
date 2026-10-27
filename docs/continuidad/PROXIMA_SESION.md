@@ -2,7 +2,13 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Accesos denegados auditados y resumen Admin (D78, D79)
+## Último bloque cerrado — 27/10/2026 · Cobros manuales coach → alumno (D80)
+
+- **Hecho:** migración `0010_coach_charges` (dev local y Supabase), `src/server/coachpay/services.ts`, rutas `/api/coach/[orgId]/payments`, `/payments/[id]`, `/clients/[relId]/charges`, `/api/me/charges`; `components/coach/CoachPayments.tsx` (pantalla, modales, pestaña de la ficha), vista «Pagos con tu coach» en Perfil.
+- **Pruebas:** web 106/106 (test en `tests/training.test.ts`), build OK, captura headless de la pantalla.
+- **Siguiente V1.1 sugerido:** F-CO-04 (1RM estimado Epley, volumen por grupo), F-HX-23 (configuración kg/lb, notificaciones), F-CO-16 (informe mensual).
+
+## Bloque anterior — 27/10/2026 · Accesos denegados auditados y resumen Admin (D78, D79)
 
 - **Hecho:** `access/http.ts#recordDenied` (en `handle` y `/api/media`), `commercial/services.ts#adminSummary`, `GET /api/admin/summary`, pantalla «Resumen» en `AdminApp.tsx`. Tests `tests/denied.test.ts` y resumen en `tests/privacy.test.ts`.
 - **Pruebas:** web 105/105, typecheck y build OK.

@@ -6,6 +6,7 @@ import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
 import * as tr from "@/server/training/services";
+import * as cp from "@/server/coachpay/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
 
 const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
@@ -236,5 +237,41 @@ describe("sesión del alumno", () => {
     const ov = await tr.coachOverview(ctx.coach, ctx.orgId);
     expect(ov.kpis.noProgram).toBe(1);
     expect(ov.clients[0].adherence).toBeNull();
+  });
+});
+
+describe("cobros manuales del coach (F-BL-01, D80)", () => {
+  it("cargo → pago → KPIs por moneda; anular exige motivo; otro coach no ve nada; el alumno ve lo suyo", async () => {
+    const { coach, orgId, clients } = await coachWithClients(2);
+    const [a, b] = clients;
+    const now = new Date("2026-10-15T15:00:00Z");
+    await expectErr(cp.createCharge(coach, orgId, { coachClientId: a.relId, concept: " ", amountMinor: 100, currency: "ARS", dueOn: "2026-10-10" }), "invalid");
+    await expectErr(cp.createCharge(coach, orgId, { coachClientId: a.relId, concept: "Plan", amountMinor: 0, currency: "ARS", dueOn: "2026-10-10" }), "invalid");
+    const vencido = await cp.createCharge(coach, orgId, { coachClientId: a.relId, concept: "Plan octubre", amountMinor: 3_000_000, currency: "ARS", dueOn: "2026-10-10" });
+    await cp.createCharge(coach, orgId, { coachClientId: a.relId, concept: "Plan noviembre", amountMinor: 3_000_000, currency: "ARS", dueOn: "2026-11-10" });
+    const usd = await cp.createCharge(coach, orgId, { coachClientId: b.relId, concept: "Online", amountMinor: 5_000, currency: "USD", dueOn: "2026-10-20" });
+    let p = await cp.coachPayments(coach, orgId, now);
+    expect(p.totals.ARS).toEqual({ collectedMonth: 0, pending: 3_000_000, overdue: 3_000_000 });
+    expect(p.totals.USD).toEqual({ collectedMonth: 0, pending: 5_000, overdue: 0 });
+    await expectErr(cp.registerPayment(coach, orgId, vencido.id, { paidOn: "2099-01-01", method: "efectivo" }), "invalid");
+    await cp.registerPayment(coach, orgId, vencido.id, { paidOn: "2026-10-12", method: "transferencia", note: "CBU" });
+    await expectErr(cp.registerPayment(coach, orgId, vencido.id, { paidOn: "2026-10-12", method: "efectivo" }), "invalid");
+    p = await cp.coachPayments(coach, orgId, now);
+    expect(p.totals.ARS).toEqual({ collectedMonth: 3_000_000, pending: 3_000_000, overdue: 0 });
+    await expectErr(cp.voidCharge(coach, orgId, usd.id, " "), "invalid");
+    await cp.voidCharge(coach, orgId, usd.id, "Se cargó dos veces");
+    expect((await cp.coachPayments(coach, orgId, now)).totals.USD).toEqual({ collectedMonth: 0, pending: 0, overdue: 0 });
+    const hist = await cp.clientCharges(coach, orgId, b.relId, now);
+    expect(hist.charges[0]).toMatchObject({ status: "void", voidReason: "Se cargó dos veces" });
+    // Otro coach no accede ni por id.
+    const otro = await coachWithClients(1);
+    await expectErr(cp.coachPayments(otro.coach, orgId), "not_found");
+    await expectErr(cp.registerPayment(otro.coach, otro.orgId, vencido.id, { paidOn: "2026-10-12", method: "efectivo" }), "not_found");
+    await expectErr(cp.createCharge(coach, orgId, { coachClientId: otro.clients[0].relId, concept: "X", amountMinor: 1, currency: "ARS", dueOn: "2026-10-10" }), "not_found");
+    // El alumno ve sus cargos (no los de otra persona ni anulados nunca pagados).
+    const mine = await cp.myCharges(a.userId, now);
+    expect(mine.coaches).toHaveLength(1);
+    expect(mine.coaches[0].charges.map((c) => c.concept).sort()).toEqual(["Plan noviembre", "Plan octubre"]);
+    expect((await cp.myCharges(b.userId, now)).coaches).toEqual([]);
   });
 });

@@ -474,6 +474,26 @@ export const mediaObject = pgTable("media_object", {
   deletedAt: ts("deleted_at"),
 });
 
+// Cobros manuales del coach a sus clientes (F-BL-01, D80). Registro, no pasarela: REPI no mueve dinero.
+// Separado de lo que REPI le factura al coach (client_contract). Importes en unidades menores enteras.
+export const coachCharge = pgTable("coach_charge", {
+  id: id(),
+  coachOrgId: text("coach_org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
+  concept: text("concept").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  currency: text("currency").notNull(),
+  dueOn: text("due_on").notNull(), // AAAA-MM-DD
+  status: text("status", { enum: ["pending", "paid", "void"] }).notNull().default("pending"),
+  paidOn: text("paid_on"),
+  method: text("method", { enum: ["efectivo", "transferencia", "otro"] }),
+  note: text("note"),
+  voidReason: text("void_reason"),
+  createdBy: text("created_by").notNull().references(() => user.id),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [index("coach_charge_org_idx").on(t.coachOrgId, t.status), index("coach_charge_client_idx").on(t.coachClientId)]);
+
 // Pedidos de derechos sobre los datos propios (F-PR-02, D75). V1: canal autenticado y registro verificable;
 // el borrado lo ejecuta REPI con el procedimiento de docs/PRIVACIDAD_OPERACION.md (retención pendiente de definir).
 export const privacyRequest = pgTable("privacy_request", {

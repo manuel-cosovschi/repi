@@ -4,7 +4,7 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6, persistente 9, probado 77, sin_implementar 49.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6, persistente 9, probado 80, sin_implementar 46.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
@@ -49,7 +49,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-CO-10 | Calendario / asistencia | Coach | Coach | documentado | sin diseño | sin_implementar | features.json · F-CO-10 | Criterio de aceptación vacío en el handoff: definir |
 | F-CO-11 | Importación CSV | Coach / gym | Coach, dueño | documentado | sin diseño | sin_implementar | features.json · F-CO-11 | Criterio de aceptación vacío en el handoff: definir |
 | F-CO-12 | Configuración / perfil público | Coach | Coach | documentado | sin diseño | sin_implementar | features.json · F-CO-12 | Criterio de aceptación vacío en el handoff: definir |
-| F-BL-01 | Cobros manuales del coach a sus clientes | Pagos coach | Coach | confirmado | prototipo interactivo | sin_implementar | features.json · F-BL-01 | Separado de suscripción REPI |
+| F-BL-01 | Cobros manuales del coach a sus clientes | Pagos coach | Coach | confirmado | prototipo interactivo | probado | features.json · F-BL-01 | Separado de suscripción REPI |
 | F-BL-02 | Suscripción REPI Coach (por alumno facturable) | Facturación SaaS | Coach | confirmado | prototipo interactivo | integrado | features.json · F-BL-02 | Estimado y regla visibles |
 | F-BL-03 | Facturación REPI Gym (tramos, mínimo, módulos) | Facturación SaaS | Dueño | confirmado | prototipo interactivo | integrado | features.json · F-BL-03 | Uso ≠ facturable; snapshot fin de período |
 | F-BL-04 | Checkout / pasarela (Mercado Pago) | Pagos | Coach | documentado | sin diseño | sin_implementar | features.json · F-BL-04 | Webhooks idempotentes; nunca acreditar por redirect |
@@ -137,7 +137,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-CO-14 | Bandeja 'Pedidos de alumnos' (pedidos, molestias, invitaciones) con 'Marcar resuelto' | Coach | Coach | documentado | prototipo interactivo | probado | REPI Desktop Coach.dc.html ('Pedidos de alumnos', 'Marcar resuelto') | Estados sincronizados con la app. |
 | F-CO-15 | Solicitud de acceso del coach con motivo y estado | Coach / privacidad | Coach | confirmado | prototipo interactivo | probado | REPI Desktop Coach.dc.html ('Para adaptar ejercicios a tus molestias.', 'Acceso concedido') | Ver F-PR-06. |
 | F-CO-16 | Informe mensual para el alumno (PDF en la app) | Coach | Coach, alumno | documentado | prototipo interactivo | sin_implementar | REPI Desktop Coach.dc.html ('Informe mensual', 'No incluye datos de salud salvo que lo marques') | Informe generado desde datos persistidos. |
-| F-CO-17 | Ingresos esperado vs cobrado | Pagos coach | Coach | documentado | prototipo interactivo | sin_implementar | REPI Desktop Coach.dc.html ('Esperado en mayo', 'Cobrado ARS 574.000'); Auditoría §Coach | Valores derivados de cargos/pagos registrados. |
+| F-CO-17 | Ingresos esperado vs cobrado | Pagos coach | Coach | documentado | prototipo interactivo | probado | REPI Desktop Coach.dc.html ('Esperado en mayo', 'Cobrado ARS 574.000'); Auditoría §Coach | Valores derivados de cargos/pagos registrados. |
 | F-BL-05 | Aviso al cliente de cambio de suscripción, fin de prueba y criterio de conteo | Facturación SaaS | Coach, dueño | en_conflicto | prototipo interactivo | sin_implementar | REPI Desktop Coach.dc.html ('Cambio en tu suscripción:', 'Termina el 31 may', 'máximo del período'); Auditoría 4.1–4.4 🔴 | Aviso y historial visibles al cliente. |
 | F-CO-18 | Molestias y check-ins recientes en la ficha | Coach | Coach | documentado | prototipo interactivo | probado | REPI Desktop Coach.dc.html ('Molestias y check-ins recientes', 'Revisar ejercicios que cargan la zona') | Sin seeds presentados como datos reales. |
 | F-HX-01 | Registro de nutrición del alumno o integración | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 1.6 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
@@ -145,7 +145,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-HX-03 | Ficha de salud + apto médico con aviso de vencimiento | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 1.8 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-04 | Descanso por ejercicio desde la prescripción | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 2.2 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-05 | Indicación del coach por ejercicio en sesión activa | Auditoría de huecos |  | propuesto | sin diseño | integrado | REPI Auditoría de huecos.md · 2.3 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
-| F-HX-06 | Plan y estado de pago con el coach visible al alumno | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 2.4 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
+| F-HX-06 | Plan y estado de pago con el coach visible al alumno | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 2.4 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-07 | Próxima sesión presencial, calendario y confirmación de asistencia | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 2.6 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-08 | Chat con adjuntos, audios, difusión y plantillas | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 2.8 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-09 | Selector de relación activa gym/coach y regla de programa | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 3.4 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |

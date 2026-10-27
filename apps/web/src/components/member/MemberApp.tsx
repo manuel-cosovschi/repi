@@ -3,7 +3,7 @@
 // Diferencia documentada (D30): los días del programa no tienen día de semana fijo; se elige el día y se sugiere
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { formatClock, formatRest, formatDayEs, WEEK_LETTERS } from "@repi/domain";
+import { fmtMoney, formatClock, formatRest, formatDayEs, WEEK_LETTERS, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { allLocal, delLocal, ensureOwner, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
@@ -570,6 +570,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury }: { t: Training; inbox
           </div>
         ))}
       </section>
+      <MyCharges />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
@@ -646,5 +647,28 @@ function ProgramNotice({ u, version, name, offline, flash }: { u: ProgramUpdate;
         </Sheet>
       )}
     </>
+  );
+}
+
+// F-HX-06: lo que tu coach registró que le pagaste o le debés. Registro manual del coach; REPI no cobra.
+type MyCharge = { id: string; concept: string; amountMinor: number; currency: string; dueOn: string; status: "pending" | "paid" | "void"; overdue: boolean; paidOn: string | null };
+function MyCharges() {
+  const [d, setD] = useState<{ coaches: { coach: string; charges: MyCharge[] }[] } | null>(null);
+  useEffect(() => { api<{ coaches: { coach: string; charges: MyCharge[] }[] }>("/api/me/charges").then(setD).catch(() => setD(null)); }, []);
+  if (!d?.coaches.length) return null;
+  const day = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <h2 style={{ fontSize: 16 }}>Pagos con tu coach</h2>
+      <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Lo registra tu coach. REPI no cobra ni procesa estos pagos.</span>
+      {d.coaches.map((c) => c.charges.map((x) => (
+        <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderBottom: "1px solid #1A2433", fontSize: 14 }}>
+          <span>{x.concept}<small className="mb-muted" style={{ display: "block", fontSize: 12 }}>{c.coach} · vence {day(x.dueOn)}</small></span>
+          <span style={{ textAlign: "right", flex: "none" }}>{fmtMoney(x.amountMinor, x.currency as Currency)}
+            <small style={{ display: "block", fontSize: 12, color: x.status === "paid" ? "#5DE6D8" : x.status === "void" ? "#8A9BB0" : x.overdue ? "#FCA5A5" : "#F59E0B" }}>
+              {x.status === "paid" ? `Pagado${x.paidOn ? ` ${day(x.paidOn)}` : ""}` : x.status === "void" ? "Anulado" : x.overdue ? "Vencido" : "Pendiente"}</small></span>
+        </div>
+      )))}
+    </section>
   );
 }

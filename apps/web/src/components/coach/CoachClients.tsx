@@ -6,6 +6,7 @@ import { SensitiveTab } from "./CoachHealth";
 import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overview, type Screen } from "./types";
 import { Ic } from "@/components/ui/Ic";
 import { MagnifyingGlass } from "@phosphor-icons/react";
+import { ClientPayTab } from "./CoachPayments";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -110,12 +111,12 @@ function Tab({ tab, det, row, orgId, flash }: { tab: string; det: Detail; row: C
       ))}
     </section>
   ) : <div className="empty">Sin programa asignado.</div>;
+  if (tab === "pay") return <ClientPayTab key={det.id} orgId={orgId} relId={det.id} name={det.name} flash={flash} />;
   const SENS: Record<string, "health" | "nutrition" | "measurements"> = { salud: "health", nutri: "nutrition", body: "measurements" };
   if (SENS[tab]) return <SensitiveTab key={`${det.id}-${tab}`} orgId={orgId} relId={det.id} name={det.name} item={SENS[tab]} flash={flash} />;
   const msg: Record<string, string> = {
     rend: "1RM estimado y volumen por grupo todavía no están disponibles. Los check-ins están en la pestaña Salud.",
     progreso: "Los gráficos de progreso todavía no están disponibles. El registro de sesiones está en Resumen.",
-    pay: "Cobros manuales a este cliente: Etapa 7.",
   };
   return <div className="empty">{msg[tab]}</div>;
 }

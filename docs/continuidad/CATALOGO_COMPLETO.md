@@ -172,14 +172,14 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-CO-10 | Calendario / asistencia | sin_implementar · documentado | Sesión presencial con fecha/zona, participantes y estados confirmada/cancelada/realizada; asistencia separada del registro deportivo. |
 | F-CO-11 | Importación CSV | sin_implementar · documentado | Preview CSV con mapeo, validación por fila, deduplicación e informe; confirmar sólo filas válidas sin duplicar al reintentar. |
 | F-CO-12 | Configuración / perfil público | sin_implementar · documentado | Perfil/configuración editables y persistidos; distinguir campos públicos de privados y preview antes de exponer datos. |
-| F-BL-01 | Cobros manuales del coach a sus clientes | sin_implementar · confirmado | Separado de suscripción REPI |
+| F-BL-01 | Cobros manuales del coach a sus clientes | probado 27/10 (D80) · confirmado | Separado de suscripción REPI |
 | F-AD-04 | Admin · cobros | sin_implementar · documentado | Lista de cargos/pagos con estado/evidencia, conciliación y correcciones auditadas; cierre simulado no se declara cobro. |
 | F-PU-01 | Sitio público | sin_implementar · documentado | Sitio responsive con identidad aprobada, producto real, contacto comercial y enlaces legales; no prometer features no disponibles ni alta libre. |
 | F-CO-16 | Informe mensual para el alumno (PDF en la app) | sin_implementar · documentado | Informe generado desde datos persistidos. |
-| F-CO-17 | Ingresos esperado vs cobrado | sin_implementar · documentado | Valores derivados de cargos/pagos registrados. |
+| F-CO-17 | Ingresos esperado vs cobrado | probado 27/10 (D80) · documentado | Valores derivados de cargos/pagos registrados. |
 | F-BL-05 | Aviso al cliente de cambio de suscripción, fin de prueba y criterio de conteo | sin_implementar · en_conflicto | Aviso y historial visibles al cliente. |
 | F-HX-02 | Vista de objetivos acordados en la app | sin_implementar · propuesto | Alumno ve objetivos acordados y progreso calculado; edición y autoría claras, sin objetivos ficticios de plantilla. |
-| F-HX-06 | Plan y estado de pago con el coach visible al alumno | sin_implementar · propuesto | Alumno ve plan/cargos/pagos del coach y moneda/vencimiento reales; no los mezcla con SaaS o cuota de gym. |
+| F-HX-06 | Plan y estado de pago con el coach visible al alumno | probado 27/10 (D80) · propuesto | Alumno ve plan/cargos/pagos del coach y moneda/vencimiento reales; no los mezcla con SaaS o cuota de gym. |
 | F-HX-07 | Próxima sesión presencial, calendario y confirmación de asistencia | sin_implementar · propuesto | Próxima cita y confirmación sincronizadas con calendario; cancelación y asistencia con estados, sin deducir asistencia de entrenar. |
 | F-HX-17 | Estado de cuenta del cliente: vencido/pausada, gracia, efecto en alumnos | sin_implementar · propuesto | Estados de cuenta y gracia visibles sólo según política acordada; definir efecto en alumnos antes de suspensión automática. |
 | F-HX-18 | Medio de pago, comprobantes, facturas descargables, recordatorio | sin_implementar · propuesto | Medio de pago y comprobante con fuente/estado; descarga autorizada y recordatorio deduplicado; distinguir fiscal/interno. |
