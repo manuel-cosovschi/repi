@@ -40,7 +40,7 @@
 - [x] Completar iconos 192/512 derivados del original, manifest/guía y pruebas de navegador.
 - [x] Lectura de video con Range/206/416 y limpieza reintentable de objetos huérfanos.
 - [x] Bienvenida comercial con error/reintento honesto y cierre/condiciones serializados.
-- [ ] Actualizaciones PWA con cola pendiente, recarga offline y flujos gym/coach completos.
+- [x] Actualizaciones PWA con cola pendiente, recarga offline y flujos gym/coach completos.
 
 ## Bloque C — operación y venta
 

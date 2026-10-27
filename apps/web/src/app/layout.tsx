@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { SessionBoundary } from "@/components/session/SessionBoundary";
+import { UpdateWatcher } from "@/components/session/UpdateWatcher";
+import { appVersion } from "@/server/version";
 import { DemoTour } from "@/components/demo/DemoTour";
 
 // Fuentes OFL autoalojadas por next/font (sin pedidos a Google en tiempo de ejecución).
@@ -25,8 +27,8 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es-AR" className={`${ui.variable} ${display.variable} ${mono.variable}`}>
-      <head><script dangerouslySetInnerHTML={{ __html: CATCH_INSTALL }} /></head>
-      <body><SessionBoundary />{children}<DemoTour /></body>
+      <head><meta name="repi-version" content={appVersion()} /><script dangerouslySetInnerHTML={{ __html: CATCH_INSTALL }} /></head>
+      <body><SessionBoundary />{children}<DemoTour /><UpdateWatcher /></body>
     </html>
   );
 }

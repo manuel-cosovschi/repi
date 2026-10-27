@@ -1,4 +1,4 @@
-# Comprobación de cada push y PR: tipos, guardas de bases, pruebas con PostgreSQL descartable y build.
+# Comprobación de cada push y PR: tipos, guardas de bases, pruebas con PostgreSQL descartable del runner y build.
 # Sin secretos reales: las claves son valores de prueba y la base existe sólo dentro del job.
 name: CI
 on:
@@ -14,17 +14,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: repi
-          POSTGRES_PASSWORD: repi-ci-only
-          POSTGRES_DB: repi_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U repi -d repi_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       TEST_DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_test
       DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_dev
@@ -40,6 +29,12 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      # PostgreSQL del propio runner (no un contenedor): las guardas exigen que el servidor confirme una dirección local.
+      - name: Base descartable repi_test
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -qc "create role repi login superuser password 'repi-ci-only'"
+          sudo -u postgres createdb -O repi repi_test
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - name: Guardas de bases y respaldos

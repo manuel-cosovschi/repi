@@ -44,6 +44,12 @@ a:hover { color: var(--core-turquoise); }
   background: var(--core-navy900); color: var(--core-white); border: 1px solid rgba(0, 209, 255, .35); font: 600 12px var(--font-ui); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
 .dt-pill > span { color: var(--core-cyan); text-transform: uppercase; font-family: var(--font-mono); margin-right: 4px; }
 .dt-pill button, .dt-pill a { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(248, 250, 252, .08); color: var(--core-white); font: 600 13px var(--font-ui); cursor: pointer; display: grid; place-items: center; text-decoration: none; }
+/* Aviso de versión nueva (D92): arriba, sin tapar la navegación inferior ni la píldora de la demo. */
+.up-bar { position: fixed; z-index: 92; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
+  max-width: calc(100vw - 32px); padding: 4px 4px 4px 14px; border-radius: 999px; background: var(--core-navy900); color: var(--core-white);
+  border: 1px solid rgba(0, 209, 255, .35); font: 600 13px var(--font-ui); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.up-bar button { min-height: 36px; min-width: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(248, 250, 252, .08); color: var(--core-white); font: 600 13px var(--font-ui); cursor: pointer; }
+.up-bar button:first-of-type { background: var(--core-cyan); color: var(--core-navy900); }
 @media (max-width: 760px) {
   .dt-card { left: 16px; right: 16px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); }
   .dt-pill { bottom: calc(92px + env(safe-area-inset-bottom)); }
