@@ -2,12 +2,20 @@
 // Uso: pnpm db:seed. Nunca correr contra producción: todas las organizaciones quedan con is_demo = true.
 // Credenciales de prueba (sólo entorno local): ver DEMO_PASSWORD abajo.
 import { and, eq } from "drizzle-orm";
-import { db, schema, sqlClient } from "@/db";
-import { auth } from "@/server/auth";
-import { dniHmac, dniLast3, addDays } from "@/server/access/util";
-import { createTemplate } from "@/server/training/services";
+import postgres from "postgres";
+import { assertLocalDatabaseIdentity, assertSeedDatabaseTarget } from "./lib/database-target";
 
-if (process.env.NODE_ENV === "production") throw new Error("seed DEMO bloqueado en producción");
+const target = assertSeedDatabaseTarget(process.env.DATABASE_URL, process.env);
+const probe = postgres(target, { max: 1 });
+try {
+  const [identity] = await probe<{ database: string; serverAddress: string }[]>`select current_database() as database, host(inet_server_addr()) as "serverAddress"`;
+  assertLocalDatabaseIdentity(identity, "repi_dev");
+} finally { await probe.end(); }
+// Importar servicios sólo después de comprobar el destino del seed con credenciales conocidas.
+const { db, schema, sqlClient } = await import("@/db");
+const { auth } = await import("@/server/auth");
+const { dniHmac, dniLast3, addDays } = await import("@/server/access/util");
+const { createTemplate } = await import("@/server/training/services");
 
 const DEMO_PASSWORD = "Demo12345";
 

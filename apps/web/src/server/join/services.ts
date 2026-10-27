@@ -9,7 +9,7 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
-import { NOT_FOUND, gymContext, inScope, need, scopedLocations } from "../gym/services";
+import { NOT_FOUND, gymContext, inScope, need, needRoles, scopedLocations } from "../gym/services";
 import { enqueue } from "../push/services";
 
 const { user, organization, gymLocation, staffMembership, gymMember, gymMemberLocation, membershipRequest, locationJoinLink, shiftLog, legalAcceptance } = schema;
@@ -19,7 +19,7 @@ const slug = () => randomBytes(9).toString("base64url"); // 72 bits, no adivinab
 // ── QR por sede ─────────────────────────────────────────────────────────────
 export async function joinLinks(actorId: string, orgId: string) {
   const ctx = await gymContext(actorId, orgId);
-  if (!ctx.roles.some((r) => r === "owner" || r === "manager")) throw new AccessError("forbidden", "Sólo dueño o gerencia generan el QR de alta.", 403);
+  needRoles(ctx, ["owner", "manager"]);
   const locs = await scopedLocations(ctx, null);
   const links = await db.select().from(locationJoinLink).where(and(eq(locationJoinLink.orgId, orgId), inArray(locationJoinLink.locationId, locs.map((l) => l.id)))).orderBy(desc(locationJoinLink.createdAt));
   return locs.map((l) => ({ location: { id: l.id, name: l.name }, active: links.find((x) => x.locationId === l.id && x.active) ?? null, history: links.filter((x) => x.locationId === l.id && !x.active).slice(0, 5).map((x) => ({ createdAt: x.createdAt, revokedAt: x.revokedAt })) }));
@@ -28,7 +28,7 @@ export async function joinLinks(actorId: string, orgId: string) {
 /** Genera o regenera el QR de una sede: el anterior queda revocado (no crea nuevas solicitudes). */
 export async function regenerateJoinLink(actorId: string, orgId: string, locationId: string) {
   const ctx = await gymContext(actorId, orgId);
-  if (!ctx.roles.some((r) => r === "owner" || r === "manager")) throw new AccessError("forbidden", "Sólo dueño o gerencia generan el QR de alta.", 403);
+  needRoles(ctx, ["owner", "manager"]);
   if (!inScope(ctx, locationId)) throw NOT_FOUND();
   return db.transaction(async (tx) => {
     const [loc] = await tx.select().from(gymLocation).where(and(eq(gymLocation.id, locationId), eq(gymLocation.orgId, orgId)));
@@ -41,7 +41,8 @@ export async function regenerateJoinLink(actorId: string, orgId: string, locatio
 }
 export async function revokeJoinLink(actorId: string, orgId: string, locationId: string) {
   const ctx = await gymContext(actorId, orgId);
-  if (!ctx.roles.some((r) => r === "owner" || r === "manager") || !inScope(ctx, locationId)) throw NOT_FOUND();
+  needRoles(ctx, ["owner", "manager"]);
+  if (!inScope(ctx, locationId)) throw NOT_FOUND();
   await db.update(locationJoinLink).set({ active: false, revokedAt: new Date(), revokedBy: actorId }).where(and(eq(locationJoinLink.orgId, orgId), eq(locationJoinLink.locationId, locationId), eq(locationJoinLink.active, true)));
   await audit(db, { actorUserId: actorId, orgId, action: "join_link.revoked", resourceType: "gym_location", resourceId: locationId });
   return { ok: true };
@@ -91,6 +92,8 @@ export async function requestAccess(userId: string, s: string, p: { name?: strin
   // Límite de frecuencia por persona (no por IP: una red compartida no bloquea a todo el gimnasio).
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(membershipRequest).where(and(eq(membershipRequest.userId, userId), gte(membershipRequest.createdAt, new Date(Date.now() - 86_400_000))));
   return db.transaction(async (tx) => {
+    const [currentLink] = await tx.select().from(locationJoinLink).where(eq(locationJoinLink.id, r.l.id)).for("update");
+    if (!currentLink?.active) throw new AccessError("invalid_link", "Este QR ya no está vigente. Pedí el QR actual en recepción.", 404);
     await expireOld(tx);
     if (!u.name?.trim() && name) await tx.update(user).set({ name: name.slice(0, 80) }).where(eq(user.id, userId));
     const [m] = await tx.select().from(gymMember).where(and(eq(gymMember.orgId, r.org.id), eq(gymMember.userId, userId))).for("update");
@@ -270,6 +273,7 @@ export async function setAccess(actorId: string, orgId: string, gymMemberId: str
   need(ctx, "members.approve");
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId)));
   if (!m || !inScope(ctx, m.locationId)) throw NOT_FOUND();
+  if (action === "reactivate" && m.status === "pending_consent") throw new AccessError("invalid_state", "El socio todavía debe aceptar el consentimiento.", 409);
   const status = action === "suspend" ? "suspended" : action === "end" ? "ended" : "active";
   if (action === "reactivate" && m.status === "active") return { status };
   await db.update(gymMember).set({ status }).where(eq(gymMember.id, m.id));

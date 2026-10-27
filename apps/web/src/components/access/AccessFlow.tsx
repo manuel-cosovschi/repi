@@ -9,6 +9,7 @@ import {
   CONSENT_CATALOG, OTP_RE, classifyAge, isCodeShape, isEmail, normalizeCode, parseBirthDate, passwordHint, passwordOk,
 } from "@repi/domain";
 import { authClient } from "@/lib/auth-client";
+import { signOutSafely } from "@/lib/session-cleanup";
 import { api, ApiError } from "@/lib/api";
 import { Wordmark } from "./Wordmark";
 import { InstallGuide } from "./InstallGuide";
@@ -65,7 +66,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const [signedIn, setSignedIn] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [totp, setTotp] = useState<{ uri: string; backup: string[] } | null>(null);
-  const [next, setNext] = useState<string | null>(initial.next && initial.next.startsWith("/") ? initial.next : null);
+  const [next, setNext] = useState<string | null>(initial.next && /^\/(?!\/)/.test(initial.next) && !/[\\\r\n]/.test(initial.next) ? initial.next : null);
   const [backupMode, setBackupMode] = useState(false);
   // Anexo PWA: guía antes del alta/login en el teléfono y contexto de entrada recuperable al abrir desde el ícono.
   const [guide, setGuide] = useState(false);
@@ -141,6 +142,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     }
     const m = await loadMe();
     setHist([]);
+    if (next) { window.location.assign(next); return; }
     if (m.member.step === "consentGym") { setFlow("member"); setStep("consentGym"); return; }
     if (m.member.step === "memberPending") {
       const reqs = await api<JoinReq[]>("/api/me/gym/joins");
@@ -472,7 +474,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
             if (!f.terms) return fail("Aceptá los términos para continuar.");
             await requestJoin();
           }) },
-          links: [{ pre: "¿No sos vos?", label: "Usar otra cuenta", go: run(async () => { await authClient.signOut(); setSignedIn(false); setMe(null); }) }],
+          links: [{ pre: "¿No sos vos?", label: "Usar otra cuenta", go: run(async () => { if (!await signOutSafely()) return; setSignedIn(false); setMe(null); }) }],
         };
       }
       return {
@@ -530,7 +532,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         info, title: "Activá tu espacio", sub: `La invitación es para ${a.emailHint}. Tenés que estar con la cuenta de ese email.`,
         note: a.kind === "gym" ? "Como responsable vas a configurar sedes, equipo y el QR de recepción. La cuenta del dueño exige verificación en dos pasos." : undefined,
         cta: { label: "Aceptar y entrar", go: run(acceptActivation) },
-        links: [{ pre: "¿Otra cuenta?", label: "Cerrar sesión", go: run(async () => { await authClient.signOut(); setSignedIn(false); setMe(null); }) }],
+        links: [{ pre: "¿Otra cuenta?", label: "Cerrar sesión", go: run(async () => { if (!await signOutSafely()) return; setSignedIn(false); setMe(null); }) }],
       };
       return {
         info, title: "Bienvenido/a a REPI", sub: `REPI habilitó ${a.orgName}. La invitación es para ${a.emailHint}: creá tu cuenta o ingresá con ese email.`,
@@ -653,7 +655,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           ...(resume ? [{ label: "Retomar mi alta", go: () => { window.location.href = entryHref(resume); } }] : []),
           { label: "Tengo un código", go: () => to("code", "invite") }, { label: "Quiero usar REPI", go: () => to("choose") },
         ] : undefined,
-        links: [{ pre: "", label: "Cerrar sesión", go: run(async () => { await authClient.signOut(); setMe(null); start("login", "login"); }) }],
+        links: [{ pre: "", label: "Cerrar sesión", go: run(async () => { if (!await signOutSafely()) return; setMe(null); start("login", "login"); }) }],
       };
     },
   };

@@ -21,6 +21,7 @@ export type GymCtx = {
   userId: string; name: string; org: typeof organization.$inferSelect; roles: string[]; caps: GymCap[];
   /** null = todas las sedes de la organización (dueño). */
   locationIds: string[] | null; afterHoursAccess: boolean;
+  memberships: { role: string; locationId: string | null; afterHoursAccess: boolean }[];
 };
 
 export async function gymContext(actorId: string, orgId: string): Promise<GymCtx> {
@@ -38,9 +39,22 @@ export async function gymContext(actorId: string, orgId: string): Promise<GymCtx
   return {
     userId: actorId, name: rows[0].name, org: rows[0].org, roles, caps: gymCaps(roles),
     locationIds: all ? null : [...new Set(rows.map((r) => r.m.locationId!))], afterHoursAccess: rows.some((r) => r.m.afterHoursAccess),
+    memberships: rows.map(({ m }) => ({ role: m.role, locationId: m.locationId, afterHoursAccess: m.afterHoursAccess })),
   };
 }
-export function need(ctx: GymCtx, cap: GymCap) { if (!gymCan(ctx.roles, cap)) throw FORBIDDEN(); }
+/** Cada contexto es nuevo por operación. Acotar capacidad también acota sus sedes: nunca unir rol de A con sede de B. */
+function restrictContext(ctx: GymCtx, memberships: GymCtx["memberships"]) {
+  if (!memberships.length) throw FORBIDDEN();
+  ctx.memberships = memberships;
+  ctx.roles = [...new Set(memberships.map(m => m.role))];
+  ctx.caps = gymCaps(ctx.roles);
+  ctx.locationIds = memberships.some(m => m.locationId === null) ? null : [...new Set(memberships.map(m => m.locationId!))];
+  ctx.afterHoursAccess = memberships.some(m => m.afterHoursAccess);
+}
+export function need(ctx: GymCtx, cap: GymCap) { restrictContext(ctx, ctx.memberships.filter(m => gymCan([m.role], cap))); }
+export function needRoles(ctx: GymCtx, roles: string[]) { restrictContext(ctx, ctx.memberships.filter(m => roles.includes(m.role))); }
+export const rolesAt = (ctx: GymCtx, locationId: string) => ctx.memberships.filter(m => m.locationId === null || m.locationId === locationId).map(m => m.role);
+const afterHoursAt = (ctx: GymCtx, locationId: string) => ctx.memberships.some(m => m.afterHoursAccess && (m.locationId === null || m.locationId === locationId) && gymCan([m.role], "floor.work"));
 export const inScope = (ctx: GymCtx, locationId: string) => ctx.locationIds === null || ctx.locationIds.includes(locationId);
 
 /** Sede pedida (o la primera permitida). Una sede ajena responde 404. */
@@ -49,10 +63,12 @@ export async function scopedLocation(ctx: GymCtx, locationId?: string | null) {
   const allowed = locs.filter((l) => inScope(ctx, l.id));
   const loc = locationId ? allowed.find((l) => l.id === locationId) : allowed[0];
   if (!loc) throw NOT_FOUND();
+  restrictContext(ctx, ctx.memberships.filter(m => m.locationId === null || m.locationId === loc.id));
   return { loc, allowed };
 }
 export async function scopedLocations(ctx: GymCtx, locationId?: string | null) {
-  const { allowed } = await scopedLocation(ctx, null);
+  const all = await db.select().from(gymLocation).where(eq(gymLocation.orgId, ctx.org.id)).orderBy(asc(gymLocation.createdAt));
+  const allowed = all.filter(l => inScope(ctx, l.id));
   if (!locationId) return allowed;
   const one = allowed.find((l) => l.id === locationId);
   if (!one) throw NOT_FOUND();
@@ -77,7 +93,7 @@ async function activeShift(userId: string, tx: Tx | typeof db = db) {
 /** D08: turno activo en esa sede, o permiso de trabajo fuera de turno. */
 async function gate(ctx: GymCtx, locationId: string, what: string, tx: Tx | typeof db = db) {
   const s = await activeShift(ctx.userId, tx);
-  const r = floorActionAllowed({ shiftActive: !!s && s.locationId === locationId, afterHoursAccess: ctx.afterHoursAccess });
+  const r = floorActionAllowed({ shiftActive: !!s && s.locationId === locationId, afterHoursAccess: afterHoursAt(ctx, locationId) });
   if (!r.ok) throw new AccessError("no_shift", `Iniciá tu turno para ${what}.`, 409);
   return r.offShift;
 }
@@ -98,7 +114,7 @@ export async function myShift(actorId: string, orgId: string, locationId?: strin
     status: active ? (active.locationId === loc.id ? "on" : "elsewhere") : lastEnded?.endedAt ? "ended" : "off",
     startedAt: active?.startedAt ?? null, activeLocationId: active?.locationId ?? null,
     plan: plan ? { code: plan.code, ...SHIFT_CODES[plan.code] } : null,
-    afterHoursAccess: ctx.afterHoursAccess, ...q,
+    afterHoursAccess: afterHoursAt(ctx, loc.id), ...q,
   };
 }
 
@@ -439,9 +455,9 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
   return {
     id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
-    program: prog, tasks: await decorate(tasks, gymCan(ctx.roles, "floor.work")),
+    program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
     notes: notes.map((x) => ({ id: x.n.id, kind: x.n.kind, text: x.n.text, author: x.author, mine: x.n.authorUserId === actorId, at: x.n.createdAt })),
-    canEdit: gymCan(ctx.roles, "program.edit"), canWriteNotes: gymCan(ctx.roles, "floor.work"), restricted: GYM_NEVER_SEES,
+    canEdit: gymCan(rolesAt(ctx, m.m.locationId), "program.edit"), canWriteNotes: gymCan(rolesAt(ctx, m.m.locationId), "floor.work"), restricted: GYM_NEVER_SEES,
   };
 }
 
@@ -532,11 +548,11 @@ export async function teamList(actorId: string, orgId: string, locationId: strin
     .where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active"), ne(staffMembership.role, "owner"),
       or(isNull(staffMembership.locationId), inArray(staffMembership.locationId, ids))));
   const uids = [...new Set(rows.map((r) => r.m.userId))];
-  const active = uids.length ? await db.select().from(shiftLog).where(and(inArray(shiftLog.userId, uids), isNull(shiftLog.endedAt))) : [];
+  const active = uids.length ? await db.select().from(shiftLog).where(and(inArray(shiftLog.userId, uids), inArray(shiftLog.locationId, ids), isNull(shiftLog.endedAt))) : [];
   const open = uids.length ? await db.select({ u: gymTask.assigneeUserId, n: sql<number>`count(*)::int` }).from(gymTask)
-    .where(and(inArray(gymTask.assigneeUserId, uids), inArray(gymTask.status, ["open", "pending_acceptance"]))).groupBy(gymTask.assigneeUserId) : [];
+    .where(and(inArray(gymTask.assigneeUserId, uids), inArray(gymTask.locationId, ids), inArray(gymTask.status, ["open", "pending_acceptance"]))).groupBy(gymTask.assigneeUserId) : [];
   const today = localDate(new Date());
-  const plans = uids.length ? await db.select().from(shiftPlan).where(and(inArray(shiftPlan.userId, uids), eq(shiftPlan.date, today))) : [];
+  const plans = uids.length ? await db.select().from(shiftPlan).where(and(inArray(shiftPlan.userId, uids), inArray(shiftPlan.locationId, ids), eq(shiftPlan.date, today))) : [];
   const locName = new Map(locs.map((l) => [l.id, l.name]));
   return {
     canManage: ctx.roles.some((r) => r === "owner" || r === "manager"),
@@ -555,10 +571,11 @@ export async function teamList(actorId: string, orgId: string, locationId: strin
 
 export async function setAfterHours(actorId: string, orgId: string, userId: string, on: boolean) {
   const ctx = await gymContext(actorId, orgId);
-  if (!ctx.roles.some((r) => r === "owner" || r === "manager")) throw FORBIDDEN();
+  needRoles(ctx, ["owner", "manager"]);
   const rows = await db.select().from(staffMembership).where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.userId, userId), eq(staffMembership.status, "active"), inArray(staffMembership.role, [...FLOOR_ROLES])));
-  if (!rows.length || !rows.some((r) => !r.locationId || inScope(ctx, r.locationId))) throw NOT_FOUND();
-  await db.update(staffMembership).set({ afterHoursAccess: on }).where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.userId, userId), inArray(staffMembership.role, [...FLOOR_ROLES])));
+  const allowed = rows.filter(r => r.locationId ? inScope(ctx, r.locationId) : ctx.locationIds === null);
+  if (!allowed.length) throw NOT_FOUND();
+  await db.update(staffMembership).set({ afterHoursAccess: on }).where(inArray(staffMembership.id, allowed.map(r => r.id)));
   await audit(db, { actorUserId: actorId, orgId, action: on ? "staff.after_hours_granted" : "staff.after_hours_revoked", resourceType: "staff_membership", resourceId: userId });
   return { afterHoursAccess: on };
 }

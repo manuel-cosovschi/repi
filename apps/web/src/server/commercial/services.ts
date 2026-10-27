@@ -8,7 +8,8 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, newInviteCode, newToken, sha256 } from "../access/util";
-import { sendMail } from "../mailer";
+import { MailError, deliverMail } from "../mailer";
+import { logError } from "../log";
 import { enabledAccesses } from "../join/services";
 
 const { user, organization, gymLocation, staffMembership, invitation, clientContract, contractTerm, billingSnapshot, correctionRequest, commercialLead, legalAcceptance } = schema;
@@ -47,7 +48,7 @@ export async function listClients(actorId: string) {
   const contracts = await db.select().from(clientContract);
   const terms = await termsOf(contracts.map((c) => c.id));
   const owners = await db.select({ org: staffMembership.orgId }).from(staffMembership).where(and(inArray(staffMembership.role, ["owner", "coach_owner"]), eq(staffMembership.status, "active")));
-  const invites = await db.select({ org: invitation.orgId, status: invitation.status }).from(invitation).where(eq(invitation.kind, "org_owner"));
+  const invites = await db.select({ org: invitation.orgId, status: invitation.status, delivery: invitation.delivery }).from(invitation).where(eq(invitation.kind, "org_owner"));
   const today = new Date().toISOString().slice(0, 10);
   const out = [];
   for (const o of orgs) {
@@ -56,7 +57,7 @@ export async function listClients(actorId: string) {
     const q = ts.filter((t) => t.kind === "quantity" && t.effectiveFrom <= today).at(-1) ?? null;
     const p = ts.filter((t) => t.kind === "unit_price" && t.effectiveFrom <= today).at(-1) ?? null;
     const enabled = await enabledAccesses(o.id);
-    const stage = c ? activationStage({ contract: c.status as ContractStatus, invitationSent: invites.some((i) => i.org === o.id), ownerJoined: owners.some((x) => x.org === o.id), setupDone: !!c.setupDoneAt || owners.some((x) => x.org === o.id) }) : null;
+    const stage = c ? activationStage({ contract: c.status as ContractStatus, invitationSent: invites.some((i) => i.org === o.id && invitationSent(i)), ownerJoined: owners.some((x) => x.org === o.id), setupDone: !!c.setupDoneAt || owners.some((x) => x.org === o.id) }) : null;
     out.push({
       orgId: o.id, name: o.name, kind: o.kind, demo: o.isDemo, commercialStatus: o.commercialStatus, contractId: c?.id ?? null,
       stage, stageLabel: stage ? ACTIVATION_LABEL[stage] : o.commercialStatus === "legacy" ? "A regularizar (cliente previo al anexo)" : "Sin contrato",
@@ -138,6 +139,9 @@ async function contractFor(contractId: string) {
   return c;
 }
 
+/** Cuenta como enviada si el proveedor la aceptó o si ya se usó. Buzón local o rechazo no; null = registro previo a D88. */
+const invitationSent = (i: { status: string; delivery: string | null }) => i.status === "accepted" || i.delivery === "submitted" || i.delivery === null;
+
 export async function contractDetail(actorId: string, contractId: string, period?: { start: string; end: string }) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
@@ -156,7 +160,7 @@ export async function contractDetail(actorId: string, contractId: string, period
     quantityAgeDays: latestQ ? Math.floor((Date.now() - latestQ.createdAt.getTime()) / 86_400_000) : null,
     terms: terms.map((t) => ({ ...t, author: authors.get(t.createdBy) ?? "", display: t.kind === "unit_price" ? fmtMoney(t.value, (t.currency ?? c.currency) as Currency) : String(t.value) })),
     preview: prev.ok ? { ...prev, subtotalTxt: fmtMoney(prev.subtotal, prev.currency), period: pr } : { ...prev, period: pr },
-    invitations: invites.map((i) => ({ id: i.id, email: i.email, status: i.status, expiresAt: i.expiresAt, createdAt: i.createdAt })),
+    invitations: invites.map((i) => ({ id: i.id, email: i.email, status: i.status, delivery: i.delivery, expiresAt: i.expiresAt, createdAt: i.createdAt })),
     snapshots: snaps.map((s) => ({ ...s, subtotalTxt: fmtMoney(s.subtotalMinor, s.currency as Currency) })), corrections,
     pending: ["Qué socios/alumnos cuentan como vigentes", "Ciclo, corte y prorrateo", "Mora y suspensión", "Cobertura multisede sin duplicados"].filter((x, i) => i !== 0 || !c.quantityDefinition),
   };
@@ -205,17 +209,21 @@ export async function suspendClient(actorId: string, contractId: string, reason:
   return { status: "suspended" };
 }
 
+const isDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+/** Cambio de condiciones y cierre toman el mismo lock de fila del contrato: el cierre ve el cambio completo o el cambio ve el cierre. */
+const lockContract = (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], id: string) => tx.select({ id: clientContract.id }).from(clientContract).where(eq(clientContract.id, id)).for("update");
+
 /** Nueva versión de cantidad acordada o precio por unidad. Nunca cambia snapshots ya cerrados. */
 export async function addTerm(actorId: string, contractId: string, p: { kind: "quantity" | "unit_price"; value: number; effectiveFrom: string; reason: string; evidence?: string | null }) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
   if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000)) throw new AccessError("invalid", "Valor inválido.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
+  if (!isDay(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
   if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
-  const closed = await db.select({ s: billingSnapshot.periodEnd }).from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id));
-  if (closed.some((s) => s.s >= p.effectiveFrom)) throw new AccessError("closed_period", "Esa fecha cae en un período ya cerrado: registrá un ajuste explícito en lugar de reescribirlo.", 409);
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`terms:${c.id}:${p.kind}`}))`);
+    await lockContract(tx, c.id);
+    const closed = await tx.select({ s: billingSnapshot.periodEnd }).from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id));
+    if (closed.some((s) => s.s >= p.effectiveFrom)) throw new AccessError("closed_period", "Esa fecha cae en un período ya cerrado: registrá un ajuste explícito en lugar de reescribirlo.", 409);
     const [{ v }] = await tx.select({ v: sql<number>`coalesce(max(${contractTerm.version}), 0)::int` }).from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, p.kind)));
     const [t] = await tx.insert(contractTerm).values({ contractId: c.id, kind: p.kind, version: v + 1, value: p.value, currency: p.kind === "unit_price" ? c.currency : null, effectiveFrom: p.effectiveFrom,
       reason: p.reason.trim().slice(0, 300), evidence: p.evidence?.trim().slice(0, 300) || null, createdBy: actorId }).returning();
@@ -228,17 +236,22 @@ export async function addTerm(actorId: string, contractId: string, p: { kind: "q
 export async function closePeriodSimulated(actorId: string, contractId: string, period: { start: string; end: string }) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
-  const terms = (await termsOf([c.id])).map(asTerm);
-  const prev = previewPeriod(terms, period);
-  if (!prev.ok) throw new AccessError("incomplete", `No se puede cerrar: ${prev.reason}`, 409);
-  const [s] = await db.insert(billingSnapshot).values({
-    contractId: c.id, periodStart: period.start, periodEnd: period.end, mode: "simulated_close", quantity: prev.quantity.value, quantityTermId: prev.quantity.id,
-    unitPriceMinor: prev.price.value, priceTermId: prev.price.id, currency: prev.currency, subtotalMinor: prev.subtotal, lines: prev.lines,
-    rules: { base: "cantidad acordada × precio unitario vigentes al inicio", prorrateo: "pendiente (D04)", note: prev.note, contractStatus: c.status, termsVersion: c.termsVersion },
-    createdBy: actorId,
-  }).onConflictDoNothing().returning();
-  if (!s) throw new AccessError("exists", "Ese período ya tiene un cierre simulado.", 409);
-  await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "billing.simulated_close", resourceType: "billing_snapshot", resourceId: s.id });
+  if (!isDay(period.start) || !isDay(period.end) || period.start > period.end) throw new AccessError("invalid", "Período inválido: revisá las fechas de inicio y fin.");
+  const s = await db.transaction(async (tx) => {
+    await lockContract(tx, c.id);
+    const terms = (await tx.select().from(contractTerm).where(eq(contractTerm.contractId, c.id)).orderBy(asc(contractTerm.version))).map(asTerm);
+    const prev = previewPeriod(terms, period);
+    if (!prev.ok) throw new AccessError("incomplete", `No se puede cerrar: ${prev.reason}`, 409);
+    const [row] = await tx.insert(billingSnapshot).values({
+      contractId: c.id, periodStart: period.start, periodEnd: period.end, mode: "simulated_close", quantity: prev.quantity.value, quantityTermId: prev.quantity.id,
+      unitPriceMinor: prev.price.value, priceTermId: prev.price.id, currency: prev.currency, subtotalMinor: prev.subtotal, lines: prev.lines,
+      rules: { base: "cantidad acordada × precio unitario vigentes al inicio", prorrateo: "pendiente (D04)", note: prev.note, contractStatus: c.status, termsVersion: c.termsVersion },
+      createdBy: actorId,
+    }).onConflictDoNothing().returning();
+    if (!row) throw new AccessError("exists", "Ese período ya tiene un cierre simulado.", 409);
+    await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "billing.simulated_close", resourceType: "billing_snapshot", resourceId: row.id });
+    return row;
+  });
   return { id: s.id, subtotal: fmtMoney(s.subtotalMinor, s.currency as Currency) };
 }
 
@@ -252,14 +265,25 @@ export async function sendOwnerInvitation(actorId: string, contractId: string) {
   const inv = await db.transaction(async (tx) => {
     await tx.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.orgId, c.orgId), eq(invitation.kind, "org_owner"), eq(invitation.status, "pending")));
     const [i] = await tx.insert(invitation).values({ code: `O${newInviteCode()}${newInviteCode()}`, kind: "org_owner", orgId: c.orgId, role: c.kind === "gym" ? "owner" : "coach_owner",
-      email: c.responsibleEmail, invitedBy: actorId, tokenHash: sha256(token), contractId: c.id, expiresAt: addDays(new Date(), OWNER_INVITE_DAYS) }).returning();
+      email: c.responsibleEmail, invitedBy: actorId, tokenHash: sha256(token), contractId: c.id, expiresAt: addDays(new Date(), OWNER_INVITE_DAYS), delivery: "pending" }).returning();
     await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.owner_invited", resourceType: "invitation", resourceId: i.id });
     return i;
   });
   const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
-  await sendMail({ to: c.responsibleEmail, subject: `Bienvenido a REPI · ${o.name}`, body: `Activá tu espacio en ${appUrl()}/activar/${token}\nEs personal: sólo funciona con ${c.responsibleEmail}. Vence en ${OWNER_INVITE_DAYS} días.` })
-    .catch(() => { /* el envío fallido no pierde la invitación: Admin puede reenviar (D24) */ });
-  return { id: inv.id, expiresAt: inv.expiresAt };
+  // Entrega honesta (D88): un rechazo no se presenta como enviado. La invitación sigue pendiente y Admin la reenvía.
+  let delivery: "submitted" | "local_only" | "failed";
+  let providerStatus: number | undefined;
+  try {
+    delivery = await deliverMail({ to: c.responsibleEmail, subject: `Bienvenido a REPI · ${o.name}`, body: `Activá tu espacio en ${appUrl()}/activar/${token}\nEs personal: sólo funciona con ${c.responsibleEmail}. Vence en ${OWNER_INVITE_DAYS} días.` });
+  } catch (e) {
+    delivery = "failed";
+    if (e instanceof MailError) providerStatus = e.status; else logError("commercial.invite_mail", e);
+  }
+  await db.update(invitation).set({ delivery }).where(eq(invitation.id, inv.id));
+  await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.owner_invitation_delivery", resourceType: "invitation", resourceId: inv.id,
+    result: delivery === "failed" ? "error" : "ok", meta: { delivery, ...(providerStatus !== undefined ? { providerStatus } : {}) } });
+  if (delivery === "failed") throw new AccessError("mail_failed", "El proveedor de correo no aceptó la bienvenida. No se envió: probá reenviarla en unos minutos.", 502);
+  return { id: inv.id, expiresAt: inv.expiresAt, delivery };
 }
 export async function revokeOwnerInvitation(actorId: string, contractId: string) {
   await requireAdmin(actorId);

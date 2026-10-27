@@ -41,7 +41,12 @@ export async function beginUpload(userId: string, p: { purpose: UploadPurpose; o
 export async function completeUpload(userId: string, id: string, now = new Date()) {
   const [it] = await db.select().from(uploadIntent).where(and(eq(uploadIntent.id, id), eq(uploadIntent.ownerUserId, userId)));
   if (!it) throw new AccessError("not_found", "No encontrado.", 404);
-  const discard = async () => { await deleteObject(it.storageKey).catch(() => {}); await db.delete(uploadIntent).where(eq(uploadIntent.id, id)); };
+  const discard = async () => {
+    // Si Storage falla, conservar la referencia y vencerla para que la purga pueda reintentar.
+    await db.update(uploadIntent).set({ expiresAt: now }).where(eq(uploadIntent.id, id));
+    try { await deleteObject(it.storageKey); } catch { return; }
+    await db.delete(uploadIntent).where(eq(uploadIntent.id, id));
+  };
   const rule = RULES[it.purpose as UploadPurpose];
   if (it.expiresAt <= now) { await discard(); throw new AccessError("expired", "La subida venció. Probá de nuevo.", 410); }
   const o = await probeObject(it.storageKey);
@@ -58,9 +63,11 @@ export async function completeUpload(userId: string, id: string, now = new Date(
 /** Intenciones vencidas sin confirmar: se borra el archivo (si llegó) y la intención. Lo llama el job diario de archivos. */
 export async function purgeUploadIntents(now = new Date()) {
   const old = await db.select().from(uploadIntent).where(lt(uploadIntent.expiresAt, now)).limit(500);
+  let removed = 0;
   for (const it of old) {
-    await deleteObject(it.storageKey).catch(() => {});
+    try { await deleteObject(it.storageKey); } catch { continue; }
     await db.delete(uploadIntent).where(eq(uploadIntent.id, it.id));
+    removed++;
   }
-  return old.length;
+  return removed;
 }

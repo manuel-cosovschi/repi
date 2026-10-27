@@ -253,3 +253,15 @@ describe("Repi Club", () => {
     expect(r.rows).toEqual([{ pos: 1, name: "Vos", days: 1, me: true }]);
   });
 });
+
+
+it("salir de Repi Club también retira sus comentarios del feed", async () => {
+  const w = await world(), a = await w.member("Persona A"), b = await w.member("Persona B");
+  await club.joinClub(a.userId, w.org, { showName: true, inRanking: false });
+  await club.joinClub(b.userId, w.org, { showName: true, inRanking: false });
+  const post = await club.createClubPost(a.userId, w.org, { text: "Entrenamiento de hoy" });
+  await club.commentPost(b.userId, w.org, post.id, "Buen entrenamiento");
+  expect((await club.feed(a.userId, w.org))[0].comments).toHaveLength(1);
+  await club.leaveClub(b.userId, w.org);
+  expect((await club.feed(a.userId, w.org))[0].comments).toHaveLength(0);
+});

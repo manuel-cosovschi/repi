@@ -38,21 +38,23 @@ Estado 27/10: **activo**. `RESEND_API_KEY` cargada por el titular; repiclub.com 
 
 - RLS activado en todas las tablas de `public` y sin privilegios para `anon`/`authenticated`: la API REST pública de Supabase no expone nada. `repi_app` es dueño y no está sujeto a RLS.
 - Migraciones nuevas: `scripts/migrate.ts` activa RLS en cualquier tabla nueva de `public` después de migrar.
-- Migraciones aplicadas en Supabase: 0000–0011. **Aplicar migraciones antes de hacer push del código que las necesita** (el deploy es automático).
+- Migraciones aplicadas en Supabase: 0000–0012. **Aplicar migraciones antes de hacer push del código que las necesita** (el deploy es automático).
 
 ## Operación
 
 ```bash
 # Migraciones (desde apps/web; usar la URL de sesión 5432)
 DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts
-# Seed DEMO (sólo en el entorno DEMO; idempotente)
-set -a; . ~/.repi-secrets/vercel.env; set +a
-DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" BETTER_AUTH_URL=https://repi-app.vercel.app npx tsx scripts/seed-demo.ts
+# Seed DEMO: sólo local (repi_dev en localhost). Bloqueado contra Supabase/Vercel desde D87.
+# Primer REPI Admin (una vez; vence en 24 h; el enlace queda en ~/.repi-secrets/primer-admin.txt)
+DATABASE_URL="…sesión…" NEXT_PUBLIC_APP_URL=https://repiclub.com npx tsx scripts/first-admin.ts
 # (Re)programar avisos cada minuto
 DATABASE_URL="…sesión…" APP_URL=https://repi-app.vercel.app CRON_SECRET=… npx tsx scripts/schedule-cron.ts
 ```
 
-Correos: en `REPI_DEPLOY=demo` quedan en `/dev/mailbox`, visible sólo para una cuenta con `platformRole = admin` (admin@demo.repi.app del seed). Usuarios DEMO y contraseña: `apps/web/scripts/seed-demo.ts`.
+Correos: en `REPI_DEPLOY=demo` además quedan en `/dev/mailbox`, visible sólo para REPI Admin.
+
+Cuentas del seed (`@demo.repi.app`): **fuera de uso en el entorno hospedado (D87)**. El 27/10 se les quitó contraseña, rol Admin y sesiones en Supabase, y Better Auth rechaza sus sesiones en cualquier despliegue. Para mostrar REPI usar la demo guiada (`/demo`, D85). REPI Admin: la cuenta personal del titular activada con `scripts/first-admin.ts` (D87).
 
 ## Límites conocidos
 

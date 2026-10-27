@@ -1,13 +1,11 @@
 import type { MetadataRoute } from "next";
 
-// Manifest PWA. Ícono: PNG original aprobado (162 px). Los tamaños 192/512 para instalación esperan el vector
-// verificado (DEC-01): no se reescala la marca. Sin ellos Chrome no ofrece su instalador y la guía muestra los pasos
-// manuales (D35). Identidad y punto de inicio estables para todos: nunca tokens, códigos ni datos por gimnasio.
-// "/" decide: sin sesión → Acceso (que retoma el alta guardada); con sesión → el espacio que corresponda.
+// Manifest estable: nunca tokens, invitaciones ni datos privados. Los PNG de instalación son
+// renders del ícono original aprobado, conservando dibujo y proporciones (no un rediseño).
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "REPI", short_name: "REPI", description: "Cada repetición cuenta.", lang: "es-AR",
     id: "/", start_url: "/?source=pwa", scope: "/", display: "standalone", background_color: "#0B0F14", theme_color: "#0B0F14",
-    icons: [{ src: "/brand/repi_icon.png", sizes: "162x162", type: "image/png" }],
+    icons: [{ src: "/pwa-icon/192", sizes: "192x192", type: "image/png", purpose: "any" }, { src: "/pwa-icon/512", sizes: "512x512", type: "image/png", purpose: "any" }],
   };
 }

@@ -57,22 +57,47 @@ export async function putObject(key: string, bytes: Uint8Array) {
   await mkdir(path.dirname(p), { recursive: true });
   await writeFile(p, bytes, { mode: 0o600 });
 }
-export async function readObject(key: string): Promise<{ stream: ReadableStream; size: number }> {
+export class StorageRangeError extends Error {
+  constructor(readonly total: number) { super("Rango de archivo no disponible"); }
+}
+type ObjectRead = { stream: ReadableStream; size: number; status: 200 | 206; contentRange?: string };
+function byteRange(range: string, total: number) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+  if (!match || (!match[1] && !match[2])) throw new StorageRangeError(total);
+  const start = match[1] ? Number(match[1]) : Math.max(0, total - Number(match[2]));
+  const end = match[1] && match[2] ? Math.min(Number(match[2]), total - 1) : total - 1;
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= total) throw new StorageRangeError(total);
+  return { start, end };
+}
+async function remoteRead(response: Response): Promise<ObjectRead> {
+  if (response.status === 416) {
+    const total = Number(response.headers.get("content-range")?.split("/")[1] ?? 0);
+    await response.body?.cancel();
+    throw new StorageRangeError(total);
+  }
+  const r = await expectOk(response, "lectura");
+  return { stream: r.body!, size: Number(r.headers.get("content-length") ?? 0), status: r.status === 206 ? 206 : 200,
+    ...(r.headers.has("content-range") ? { contentRange: r.headers.get("content-range")! } : {}) };
+}
+export async function readObject(key: string, range?: string | null): Promise<ObjectRead> {
+  const rangeHeader: Record<string, string> = range ? { Range: range } : {};
   const s = supabase();
   if (s) {
-    const r = await expectOk(await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: s.headers }), "lectura");
-    return { stream: r.body!, size: Number(r.headers.get("content-length") ?? 0) };
+    return remoteRead(await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, ...rangeHeader } }));
   }
   const px = proxy();
   if (px) {
     const url = await proxyReadUrl(px, key);
     if (!url) throw new Error("almacenamiento: objeto inexistente");
-    const r = await expectOk(await fetch(url), "lectura");
-    return { stream: r.body!, size: Number(r.headers.get("content-length") ?? 0) };
+    return remoteRead(await fetch(url, { headers: rangeHeader }));
   }
   const p = safe(key);
   const st = await stat(p);
-  return { stream: Readable.toWeb(createReadStream(p)) as ReadableStream, size: st.size };
+  if (range) {
+    const { start, end } = byteRange(range, st.size);
+    return { stream: Readable.toWeb(createReadStream(p, { start, end })) as ReadableStream, size: end - start + 1, status: 206, contentRange: `bytes ${start}-${end}/${st.size}` };
+  }
+  return { stream: Readable.toWeb(createReadStream(p)) as ReadableStream, size: st.size, status: 200 };
 }
 export async function deleteObject(key: string) {
   const s = supabase();

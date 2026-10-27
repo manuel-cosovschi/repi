@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GYM_ROLE_LABEL, type GymRole } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
 import { ChatPane } from "@/components/messages/ChatPane";
 import { HandoffScreen, NewTaskModal, QueueScreen, ShiftScreen } from "./Floor";
@@ -139,7 +140,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         </nav>
         <div className="co-me">
           <span className="av">{initials(ctx.name)}</span>
-          <span><b>{ctx.name}</b><small><button type="button" onClick={async () => { await authClient.signOut(); window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
+          <span><b>{ctx.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
         </div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}

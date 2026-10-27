@@ -27,6 +27,26 @@ export async function sendMail(mail: Mail): Promise<void> {
   await db.insert(schema.devMailbox).values(mail);
 }
 
+export type Delivery = "submitted" | "local_only";
+/**
+ * Como sendMail, pero informa qué pasó y nunca silencia un rechazo del proveedor, tampoco en DEMO: para envíos que la UI
+ * presenta como enviados (bienvenida comercial). "submitted" sólo significa que el proveedor lo aceptó, no que llegó.
+ */
+export async function deliverMail(mail: Mail): Promise<Delivery> {
+  if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(mail); return "local_only"; }
+  const resend = resendConfig();
+  if (resend) {
+    if (isDemoDeploy()) await db.insert(schema.devMailbox).values(mail);
+    await sendResend(resend, mail);
+    return "submitted";
+  }
+  if (process.env.NODE_ENV === "production" && !isDemoDeploy()) {
+    throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
+  }
+  await db.insert(schema.devMailbox).values(mail);
+  return "local_only";
+}
+
 type ResendConfig = { key: string; from: string; replyTo?: string };
 function resendConfig(): ResendConfig | null {
   // Con RESEND_API_KEY cargada alcanza: MAIL_DRIVER sólo hace falta para forzar el driver.

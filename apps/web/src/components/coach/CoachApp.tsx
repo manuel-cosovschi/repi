@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
 import { CoachDash } from "./CoachDash";
 import { CoachPayments } from "./CoachPayments";
@@ -90,7 +91,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
         </nav>
         <div className="co-me">
           <span className="av">{initials(me.name)}</span>
-          <span><b>{me.name}</b><small><button type="button" onClick={async () => { await authClient.signOut(); window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
+          <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
         </div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}

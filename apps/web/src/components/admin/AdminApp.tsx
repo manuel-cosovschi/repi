@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtMoney, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
 import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, initials, useLoad } from "@/components/gym/shared";
@@ -25,7 +26,7 @@ type Detail = {
   org: { name: string; commercialStatus: string }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
   preview: { ok: boolean; reason?: string; subtotalTxt?: string; note?: string | null; period: { start: string; end: string }; changes: { kind: string; version: number; effectiveFrom: string }[];
     lines?: { concept: string; quantity: number; unitMinor: number; totalMinor: number }[]; currency?: Currency };
-  invitations: { id: string; email: string | null; status: string; expiresAt: string; createdAt: string }[];
+  invitations: { id: string; email: string | null; status: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null; expiresAt: string; createdAt: string }[];
   snapshots: { id: string; periodStart: string; periodEnd: string; quantity: number; unitPriceMinor: number; currency: string; subtotalTxt: string; createdAt: string }[];
   corrections: { id: string; text: string; status: string; answer: string | null; createdAt: string }[];
   pending: string[];
@@ -33,6 +34,9 @@ type Detail = {
 const CST: Record<string, [string, string]> = { draft: ["Borrador", "mute"], accepted: ["Aceptado", "info"], enabled: ["Habilitado", "ok"], suspended: ["Suspendido", "warn"], ended: ["Finalizado", "mute"] };
 const today = () => new Date().toISOString().slice(0, 10);
 const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); return { start: `${d.slice(0, 7)}-01`, end }; };
+
+// Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
+const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
 export function AdminApp({ me }: { me: { name: string } }) {
   const [screen, setScreen] = useState<"summary" | "clients" | "leads" | "privacy">("summary");
@@ -59,7 +63,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
         </nav>
         <div className="co-me">
           <span className="av">{initials(me.name)}</span>
-          <span><b>{me.name}</b><small><button type="button" onClick={async () => { await authClient.signOut(); window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
+          <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
         </div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
@@ -248,9 +252,10 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
   const [acc, setAcc] = useState({ ref: "", date: today(), version: "" });
   const [trial, setTrial] = useState("");
   const [answer, setAnswer] = useState<Record<string, string>>({});
-  const act = async (key: string, url: string, body: unknown, ok: string) => {
+  const act = async (key: string, url: string, body: unknown, ok: string | ((r: unknown) => string)) => {
     setBusy(key);
-    try { await api(url, { body }); flash(ok); d.reload(); } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+    // Recargar también ante error: un envío rechazado queda registrado y debe verse (D88).
+    try { const r = await api(url, { body }); flash(typeof ok === "string" ? ok : ok(r)); d.reload(); } catch (e) { flash((e as Error).message); d.reload(); } finally { setBusy(null); }
   };
   const v = d.data;
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
@@ -296,11 +301,12 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           <span className="muted" style={{ fontSize: 13 }}>Ligada a {c.responsibleEmail}. Vence a los 7 días, es de un solo uso y reenviarla invalida la anterior. No se crean contraseñas desde Admin.</span>
           {v.invitations.slice(0, 4).map((i) => (
             <div key={i.id} className="trow"><span style={{ flex: 1 }}>{i.email}</span><span className={`chip ${i.status === "accepted" ? "ok" : i.status === "pending" && new Date(i.expiresAt) > new Date() ? "warn" : "mute"}`}>
-              {i.status === "accepted" ? "Aceptada" : i.status === "revoked" ? "Revocada" : new Date(i.expiresAt) > new Date() ? `Pendiente · vence ${fmt(i.expiresAt)}` : "Vencida"}</span></div>
+              {i.status === "accepted" ? "Aceptada" : i.status === "revoked" ? "Revocada" : new Date(i.expiresAt) > new Date() ? `Pendiente · vence ${fmt(i.expiresAt)}` : "Vencida"}</span>
+              {i.status === "pending" && i.delivery && i.delivery !== "submitted" && <span className={`chip ${i.delivery === "failed" ? "bad" : "mute"}`}>{DELIVERY[i.delivery]}</span>}</div>
           ))}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="btn pri" aria-disabled={c.status !== "enabled"} aria-busy={busy === "inv" || undefined}
-              onClick={() => c.status === "enabled" ? act("inv", `${base}/invite`, {}, pendingInv ? "Invitación reenviada. La anterior quedó revocada." : "Invitación enviada.") : flash("Habilitá al cliente antes de invitar al responsable.")}>{pendingInv ? "Reenviar" : "Enviar invitación"}</button>
+              onClick={() => c.status === "enabled" ? act("inv", `${base}/invite`, {}, (r) => (r as { delivery?: string }).delivery === "local_only" ? "Invitación creada. Quedó en el buzón local: este entorno no envía correos reales." : pendingInv ? "El proveedor aceptó el reenvío. La anterior quedó revocada." : "El proveedor de correo aceptó la invitación.") : flash("Habilitá al cliente antes de invitar al responsable.")}>{pendingInv ? "Reenviar" : "Enviar invitación"}</button>
             {pendingInv && <button type="button" className="btn" aria-busy={busy === "rev" || undefined} onClick={() => act("rev", `${base}/revoke-invite`, {}, "Invitación revocada.")}>Revocar</button>}
             <button type="button" className="btn" onClick={() => { const name = window.prompt("Nombre del nuevo responsable", c.responsibleName); const email = name ? window.prompt("Email del nuevo responsable", c.responsibleEmail) : null; if (name && email) void act("resp", `${base}/responsible`, { name, email }, "Responsable actualizado. Las invitaciones vigentes se revocaron."); }}>Cambiar responsable</button>
           </div>

@@ -161,6 +161,9 @@ export const invitation = pgTable("invitation", {
   acceptedBy: text("accepted_by").references(() => user.id),
   acceptedAt: ts("accepted_at"),
   revokedAt: ts("revoked_at"),
+  // Bienvenida comercial: qué pasó con el envío. "submitted" = el proveedor lo aceptó (no prueba que llegó);
+  // "local_only" = quedó en el buzón DEV; "failed" = rechazo o sin respuesta. null = invitación anterior a este registro.
+  delivery: text("delivery", { enum: ["pending", "submitted", "local_only", "failed"] }),
   createdAt: now("created_at"),
 }, (t) => [index("invitation_org_idx").on(t.orgId)]);
 

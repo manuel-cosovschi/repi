@@ -86,3 +86,17 @@ describe("subida directa de videos", () => {
     expect(calls.some((c) => c.url.includes("/object/sign/"))).toBe(true);
   });
 });
+
+
+it("un fallo al borrar Storage conserva la intención vencida para reintentar la purga", async () => {
+  fakeSupabase(null);
+  const uid = await person();
+  const b = await beginUpload(uid, { purpose: "request_video", mime: "video/mp4", size: 2000 });
+  await db.update(schema.uploadIntent).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.uploadIntent.id, b.id!));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("unavailable", { status: 503 })));
+  expect(await purgeUploadIntents()).toBe(0);
+  expect(await db.select().from(schema.uploadIntent).where(eq(schema.uploadIntent.id, b.id!))).toHaveLength(1);
+  fakeSupabase(null);
+  expect(await purgeUploadIntents()).toBeGreaterThanOrEqual(1);
+  expect(await db.select().from(schema.uploadIntent).where(eq(schema.uploadIntent.id, b.id!))).toHaveLength(0);
+});

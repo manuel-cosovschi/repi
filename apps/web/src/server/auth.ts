@@ -1,4 +1,6 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
+import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
@@ -7,6 +9,14 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { db, schema } from "@/db";
 import { requireEnv } from "./env";
 import { sendMail } from "./mailer";
+
+// Estas identidades se sembraron con claves públicas. La demo guiada usa otros dominios
+// reservados y sesiones aisladas; las cuentas del seed sólo existen para desarrollo local.
+export function retiredDemoEmail(email: string) {
+  return /@demo\.repi\.app$/i.test(email.trim()) &&
+    (process.env.NODE_ENV === "production" || !!process.env.REPI_DEPLOY || !!process.env.VERCEL);
+}
+const blockedDemo = () => new APIError("FORBIDDEN", { code: "ACCOUNT_UNAVAILABLE", message: "Esta cuenta no está disponible. Usá tu cuenta personal o la demo guiada." });
 
 const OTP_SUBJECT = {
   "email-verification": "Tu código para verificar el email",
@@ -37,6 +47,16 @@ export const auth = betterAuth({
       verification: schema.verification, twoFactor: schema.twoFactor, rateLimit: schema.rateLimit,
     },
   }),
+  databaseHooks: {
+    user: {
+      create: { before: async (u) => { if (retiredDemoEmail(u.email)) throw blockedDemo(); } },
+      update: { before: async (u) => { if (u.email && retiredDemoEmail(u.email)) throw blockedDemo(); } },
+    },
+    session: { create: { before: async (s) => {
+      const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, s.userId));
+      if (!u || retiredDemoEmail(u.email)) throw blockedDemo();
+    } } },
+  },
   user: {
     additionalFields: {
       birthDate: { type: "string", required: false, input: false },

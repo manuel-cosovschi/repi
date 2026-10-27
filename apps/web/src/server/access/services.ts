@@ -376,6 +376,11 @@ export async function completeGymConsent(userId: string, orgId: string, requeste
   return db.transaction(async (tx) => {
     const [m] = await tx.select().from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.orgId, orgId))).for("update");
     if (!m || m.status === "ended") throw new AccessError("not_found", "No encontramos tu membresía.", 404);
+    if (m.status !== "pending_consent") throw new AccessError("invalid_state", "Tu acceso no está pendiente de consentimiento. Consultá con recepción.", 409);
+    const [org] = await tx.select().from(organization).where(eq(organization.id, orgId)).for("share");
+    if (!org || org.status === "paused" || org.status === "closed" || org.commercialStatus === "suspended" || org.commercialStatus === "pending") {
+      throw new AccessError("org_unavailable", "El gimnasio no tiene el acceso habilitado en este momento.", 403);
+    }
     await tx.update(gymMember).set({ status: "active" }).where(eq(gymMember.id, m.id));
     const grants = await writeGrants(tx, userId, "gym_member", m.id, orgId, requested, restricted);
     return { grants };

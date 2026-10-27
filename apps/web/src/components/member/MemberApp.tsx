@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fmtMoney, formatClock, formatRest, formatDayEs, WEEK_LETTERS, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
-import { authClient } from "@/lib/auth-client";
+import { signOutSafely } from "@/lib/session-cleanup";
 import { allLocal, delLocal, ensureOwner, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
 import { ApiError } from "@/lib/api";
@@ -504,12 +504,8 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury }: { t: Training; inbox
     try { await api(`/api/me/injuries/${id}`, { body }); load(); } catch (e) { flash((e as Error).message); }
   };
   const logout = async () => {
-    // Al cerrar sesión no quedan datos de esta cuenta en el dispositivo (master §6 offline).
-    const pend = await pendingFor().catch(() => 0);
-    if (pend && !window.confirm(`Hay ${pend} cambios sin sincronizar. Si cerrás sesión se pierden. ¿Cerrar igual?`)) return;
-    await wipeLocal().catch(() => {});
-    try { if ("caches" in window) for (const k of await caches.keys()) await caches.delete(k); } catch { /* */ }
-    await authClient.signOut();
+    try { if (!await signOutSafely()) return; }
+    catch (e) { flash(e instanceof Error ? e.message : "No pudimos cerrar la sesión."); return; }
     window.location.href = "/acceso";
   };
   const health = p?.items.find((i) => i.key === "health");

@@ -1,7 +1,10 @@
 // Carga .env.local y apunta todo a la base de pruebas ANTES de importar @/db.
+import { assertTestDatabaseTarget } from "../scripts/lib/database-target";
 try { process.loadEnvFile(new URL("../.env.local", import.meta.url).pathname); } catch {}
-if (!process.env.TEST_DATABASE_URL) throw new Error("TEST_DATABASE_URL no está configurada");
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+process.env.DATABASE_URL = assertTestDatabaseTarget(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL, process.env);
+// Las pruebas nunca usan proveedores ni credenciales de correo reales heredados del shell.
+delete process.env.RESEND_API_KEY;
+process.env.MAIL_DRIVER = "dev";
 process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-00";
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 process.env.ROSTER_HMAC_SECRET ??= "test-roster-secret";

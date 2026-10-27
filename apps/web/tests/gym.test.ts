@@ -347,3 +347,27 @@ describe("mensajería (D40)", () => {
     expect((await err(msg.floorThreads(w.manager, w.org, w.A)))?.code).toBe("not_found");
   });
 });
+
+
+describe("roles distintos por sede no se combinan", () => {
+  it("gerente A + recepción B no puede gestionar ni leer fichas de B", async () => {
+    const w = await world();
+    await db.insert(schema.staffMembership).values({ userId: w.manager, orgId: w.org, locationId: w.B, role: "reception" });
+    const b = await w.member(w.B);
+    expect((await err(gym.listMembers(w.manager, w.org, w.B)))?.code).toBe("not_found");
+    expect((await err(gym.memberDetail(w.manager, w.org, b.memberId)))?.code).toBe("not_found");
+    expect((await err(gym.weekPlan(w.manager, w.org, w.B)))?.code).toBe("not_found");
+    expect((await gym.teamList(w.manager, w.org, null)).staff.some(x => x.id === w.tB)).toBe(false);
+    expect((await gym.createTask(w.manager, w.org, w.B, { summary: "Consulta recepción", category: "consulta" })).id).toBeTruthy();
+  });
+  it("autorización fuera de turno sólo modifica y habilita la sede administrada", async () => {
+    const w = await world();
+    await db.insert(schema.staffMembership).values({ userId: w.t1, orgId: w.org, locationId: w.B, role: "floor_trainer" });
+    await gym.setAfterHours(w.manager, w.org, w.t1, true);
+    const memberships = await db.select().from(schema.staffMembership).where(eq(schema.staffMembership.userId, w.t1));
+    expect(memberships.find(x => x.locationId === w.A)?.afterHoursAccess).toBe(true);
+    expect(memberships.find(x => x.locationId === w.B)?.afterHoursAccess).toBe(false);
+    const b = await gym.createTask(w.tB, w.org, w.B, { summary: "Consulta sede B", category: "consulta" });
+    expect((await err(gym.takeTask(w.t1, w.org, b.id)))?.code).toBe("no_shift");
+  });
+});

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
+import { SessionBoundary } from "@/components/session/SessionBoundary";
 import { DemoTour } from "@/components/demo/DemoTour";
 
 // Fuentes OFL autoalojadas por next/font (sin pedidos a Google en tiempo de ejecución).
@@ -13,7 +14,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variab
 export const metadata: Metadata = {
   title: "REPI",
   description: "Cada repetición cuenta.",
-  icons: { icon: "/brand/repi_icon.png", apple: "/brand/repi_icon.png" },
+  icons: { icon: "/brand/repi_icon.png", apple: "/pwa-icon/180" },
   appleWebApp: { capable: true, title: "REPI", statusBarStyle: "black-translucent" },
 };
 
@@ -25,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es-AR" className={`${ui.variable} ${display.variable} ${mono.variable}`}>
       <head><script dangerouslySetInnerHTML={{ __html: CATCH_INSTALL }} /></head>
-      <body>{children}<DemoTour /></body>
+      <body><SessionBoundary />{children}<DemoTour /></body>
     </html>
   );
 }

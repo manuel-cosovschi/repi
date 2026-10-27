@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from
 import { METRIC_DEFS, PERIODS, REVIEW_MIN_N, median, per10h, reviewAggregate, type Period, type ReviewStatus } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit } from "../access/util";
-import { createTask, gymContext, need, rosterCounts, scopedLocations, staleHandoffs } from "./services";
+import { createTask, gymContext, need, rolesAt, rosterCounts, scopedLocations, staleHandoffs } from "./services";
 
 const { user, staffMembership, gymLocation, gymMember, program, programVersion, programAssignment, workoutSession, shiftLog, gymTask, review, organization } = schema;
 
@@ -147,7 +147,7 @@ export async function trainerDetail(actorId: string, orgId: string, trainerId: s
   const named = gymCanNamed(ctx.roles);
   return {
     id: s.id, name: s.name, period, metrics: m, weeks, dist: agg.dist,
-    reviews: revs.filter(({ r }) => r.status !== "removed").slice(0, 6).map(({ r, member }) => ({ id: r.id, stars: r.stars, text: r.status === "published" ? r.text : null, hidden: r.status !== "published", member: named ? member : null, at: r.createdAt })),
+    reviews: revs.filter(({ r }) => r.status !== "removed").slice(0, 6).map(({ r, member }) => ({ id: r.id, stars: r.stars, text: r.status === "published" ? r.text : null, hidden: r.status !== "published", member: named && gymCanNamed(rolesAt(ctx, r.locationId)) ? member : null, at: r.createdAt })),
     tasks: tasks.map((t) => ({ ref: `T-${t.number}`, category: t.category, status: t.status, completedAt: t.completedAt, completedByThem: t.completedBy === trainerId })),
     private: [
       ["Conversaciones privadas", "Mensajes entre entrenador y socios"],

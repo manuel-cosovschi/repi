@@ -35,7 +35,7 @@ export async function joinClub(userId: string, orgId: string, p: { showName: boo
   await audit(db, { actorUserId: userId, orgId, action: "club.joined", resourceType: "club_member", meta: { showName: !!p.showName, inRanking: !!p.inRanking } });
   return clubState(userId, orgId);
 }
-/** Salir: deja de aparecer en el ranking y sus publicaciones se ocultan (no se borran: siguen siendo suyas). */
+/** Salir: deja de aparecer en el ranking y sus publicaciones y comentarios se ocultan (no se borran: siguen siendo suyos). */
 export async function leaveClub(userId: string, orgId: string) {
   await joined(userId, orgId);
   await db.update(clubMember).set({ leftAt: new Date(), inRanking: false }).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, userId)));
@@ -64,7 +64,8 @@ export async function feed(userId: string, orgId: string, before?: string | null
     .from(clubReaction).where(inArray(clubReaction.postId, ids)).groupBy(clubReaction.postId) : [];
   const comments = ids.length ? await db.select({ c: clubComment, name: user.name, show: clubMember.showName }).from(clubComment).innerJoin(user, eq(user.id, clubComment.userId))
     .leftJoin(clubMember, and(eq(clubMember.orgId, orgId), eq(clubMember.userId, clubComment.userId)))
-    .where(and(inArray(clubComment.postId, ids), or(eq(clubComment.status, "visible"), eq(clubComment.userId, userId)), ne(clubComment.status, "removed")))
+    .where(and(inArray(clubComment.postId, ids), or(eq(clubComment.status, "visible"), eq(clubComment.userId, userId)), ne(clubComment.status, "removed"),
+      or(eq(clubComment.userId, userId), isNull(clubMember.leftAt))))
     .orderBy(clubComment.createdAt) : [];
   return posts.map(({ p, name, show, a }) => {
     const r = reacts.find((x) => x.post === p.id);
