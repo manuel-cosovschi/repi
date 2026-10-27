@@ -28,7 +28,7 @@ export async function audit(
 }
 export type { Tx };
 
-// Límite simple en memoria por clave (IP+ruta). Limitación conocida: no se comparte entre procesos.
+// Límite por clave (IP+ruta) compartido en la base entre procesos e instancias (D74).
 /** Ventana fija por clave, atómica en la base (D74): vale igual con varias instancias serverless. */
 export async function rateLimit(key: string, max: number, windowMs: number) {
   const secs = Math.max(1, Math.round(windowMs / 1000));

@@ -568,9 +568,41 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury }: { t: Training; inbox
           </div>
         ))}
       </section>
+      <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
       <button type="button" className="ghost" onClick={logout}>Cerrar sesión</button>
     </>
+  );
+}
+
+// Derechos sobre los datos propios (F-PR-02, D75): copia descargable y pedido de eliminación que REPI revisa.
+type PrivacyReq = { id: string; status: "pending" | "done" | "rejected" | "cancelled"; createdAt: string; resolution: string | null };
+function MyData({ flash }: { flash: (m: string) => void }) {
+  const [reqs, setReqs] = useState<PrivacyReq[] | null>(null);
+  const load = useCallback(() => api<PrivacyReq[]>("/api/me/deletion").then(setReqs).catch(() => setReqs([])), []);
+  useEffect(() => { void load(); }, [load]);
+  const pending = reqs?.find((r) => r.status === "pending");
+  const ask = async () => {
+    if (!window.confirm("¿Pedir que eliminen tu cuenta? REPI lo revisa antes de borrar y algunos registros pueden conservarse el tiempo que exija la ley. Podés cancelarlo mientras esté pendiente.")) return;
+    try { await api("/api/me/deletion", { body: {} }); flash("Pedido registrado. REPI lo revisa y te avisa."); void load(); } catch (e) { flash((e as Error).message); }
+  };
+  const cancel = async (id: string) => {
+    try { await api(`/api/me/deletion/${id}`, { method: "DELETE" }); flash("Cancelaste el pedido de eliminación."); void load(); } catch (e) { flash((e as Error).message); }
+  };
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <h2 style={{ fontSize: 16 }}>Tus datos</h2>
+      <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>Descargá una copia de lo que cargaste y de lo que se registró sobre vos.</span>
+      <a className="ghost" href="/api/me/export" download style={{ display: "grid", placeItems: "center" }}>Descargar mis datos</a>
+      {pending ? (
+        <>
+          <span className="mb-muted" role="status" style={{ fontSize: 14, lineHeight: 1.45 }}>
+            Pediste eliminar tu cuenta el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(pending.createdAt))}. REPI lo revisa; mientras tanto podés seguir usando la app.
+          </span>
+          <button type="button" className="ghost" onClick={() => cancel(pending.id)}>Cancelar el pedido</button>
+        </>
+      ) : reqs && <button type="button" className="ghost" onClick={ask}>Pedir que eliminen mi cuenta</button>}
+    </section>
   );
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";
 import { AccessError } from "@/server/access/util";
 import * as cm from "@/server/commercial/services";
+import * as pv from "@/server/privacy/services";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -14,6 +15,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   const u = new URL(req.url);
   if (a === "clients") return cm.listClients(me);
+  if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "contracts" && b) {
     const start = u.searchParams.get("start"), end = u.searchParams.get("end");
     return cm.contractDetail(me, b, start && end && day.safeParse(start).success && day.safeParse(end).success ? { start, end } : undefined);
@@ -31,6 +33,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       scope: z.enum(["organization", "locations"]).optional(), scopeNote: z.string().max(300).nullable().optional(), quantityDefinition: z.string().max(300).nullable().optional(), locations: z.array(z.string().max(80)).max(30).optional(),
     })));
   }
+  if (a === "privacy" && b && c === "resolve") return pv.resolvePrivacyRequest(me, b, await body(req, z.object({ status: z.enum(["done", "rejected"]), resolution: z.string().max(500) })));
   if (a === "clients" && b && c === "regularize") {
     return cm.regularize(me, b, await body(req, z.object({ legalName: z.string().max(160), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3) })));
   }

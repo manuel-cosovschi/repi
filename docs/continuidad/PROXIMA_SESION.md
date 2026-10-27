@@ -2,7 +2,13 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Límites de intentos compartidos (D74)
+## Último bloque cerrado — 27/10/2026 · Exportación y eliminación de datos (D75)
+
+- **Hecho:** migración `0009_privacy_requests` (dev local y Supabase), `src/server/privacy/services.ts`, rutas `/api/me/export`, `/api/me/deletion`, `/api/me/deletion/[id]`, Admin `GET /api/admin/privacy` y `POST /api/admin/privacy/:id/resolve`; Perfil «Tus datos»; Admin «Privacidad»; `docs/PRIVACIDAD_OPERACION.md`.
+- **Pruebas:** `tests/privacy.test.ts` (3); web 101/101, typecheck y build OK.
+- **Pendiente del titular:** política de retención, responsable del tratamiento y textos legales.
+
+## Bloque anterior — 27/10/2026 · Límites de intentos compartidos (D74)
 
 - **Hecho:** migración `0008_shared_rate_limits` (aplicada en dev local y Supabase), `access/util.ts#rateLimit` en base (async), Better Auth `rateLimit.storage = "database"`, `tests/ratelimit.test.ts` (ventana, reinicio y concurrencia).
 - **Pruebas:** web 97/97, typecheck y build OK.

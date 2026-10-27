@@ -64,6 +64,13 @@
       "when": 1793075475275,
       "tag": "0008_shared_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793075721741,
+      "tag": "0009_privacy_requests",
+      "breakpoints": true
     }
   ]
 }

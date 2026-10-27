@@ -35,7 +35,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); return { start: `${d.slice(0, 7)}-01`, end }; };
 
 export function AdminApp({ me }: { me: { name: string } }) {
-  const [screen, setScreen] = useState<"clients" | "leads">("clients");
+  const [screen, setScreen] = useState<"clients" | "leads" | "privacy">("clients");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
       <aside className="co-side" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["clients", "Clientes"], ["leads", "Contactos"]] as const).map(([k, l]) => (
+          {([["clients", "Clientes"], ["leads", "Contactos"], ["privacy", "Privacidad"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
             </button>
@@ -84,6 +84,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
             </>
           )}
           {screen === "clients" && sel && <ContractView id={sel} flash={flash} back={() => { setSel(null); list.reload(); }} />}
+          {screen === "privacy" && <PrivacyRequests flash={flash} />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
         </div>
       </main>
@@ -132,6 +133,37 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
           {l.status === "new" && <button type="button" className="btn sm" onClick={() => set(l.id, "contacted")}>Marcar contactado</button>}
           {l.status !== "converted" && l.status !== "discarded" && <button type="button" className="btn sm" onClick={() => { void set(l.id, "converted"); onCreate(); }}>Dar de alta</button>}
           {l.status !== "discarded" && l.status !== "converted" && <button type="button" className="btn sm" onClick={() => set(l.id, "discarded")}>Descartar</button>}
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Pedidos de eliminación de cuenta (F-PR-02, D75). Se ejecutan a mano con docs/PRIVACIDAD_OPERACION.md y acá se registra el resultado.
+type PReq = { id: string; userId: string | null; emailAtRequest: string; status: string; note: string | null; resolution: string | null; createdAt: string; resolvedAt: string | null };
+function PrivacyRequests({ flash }: { flash: (t: string) => void }) {
+  const list = useLoad<PReq[]>("/api/admin/privacy");
+  const resolve = async (r: PReq, status: "done" | "rejected") => {
+    const resolution = window.prompt(status === "done" ? "¿Qué se eliminó y qué se conservó (y por qué)?" : "¿Por qué no se puede eliminar?");
+    if (!resolution?.trim()) return;
+    try { await api(`/api/admin/privacy/${r.id}/resolve`, { body: { status, resolution } }); flash("Pedido actualizado."); list.reload(); } catch (e) { flash((e as Error).message); }
+  };
+  const ST: Record<string, [string, string]> = { pending: ["Pendiente", "warn"], done: ["Resuelto", "ok"], rejected: ["Rechazado", "mute"], cancelled: ["Cancelado por la persona", "mute"] };
+  return (
+    <>
+      <Head kicker="Pedidos de eliminación de cuenta. Seguí el procedimiento de docs/PRIVACIDAD_OPERACION.md y registrá el resultado: esta pantalla no borra datos." title="Privacidad" />
+      {list.err && <p role="alert" className="err-box">{list.err}</p>}
+      {!list.data ? <p className="muted">Cargando…</p> : !list.data.length ? <div className="empty">No hay pedidos.</div> : list.data.map((r) => (
+        <div key={r.id} className="gy-task">
+          <span style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: 2 }}>
+            <b>{r.emailAtRequest}</b>
+            <small className="muted">Pedido {fmt(r.createdAt)}{r.resolvedAt ? ` · cerrado ${fmt(r.resolvedAt)}` : ""}{r.userId ? "" : " · cuenta ya eliminada"}</small>
+            {r.note && <small>{r.note}</small>}
+            {r.resolution && <small className="muted">{r.resolution}</small>}
+          </span>
+          <span className={`chip ${ST[r.status]?.[1] ?? "mute"}`}>{ST[r.status]?.[0] ?? r.status}</span>
+          {r.status === "pending" && <button type="button" className="btn sm" onClick={() => resolve(r, "done")}>Registrar como resuelto</button>}
+          {r.status === "pending" && <button type="button" className="btn sm" onClick={() => resolve(r, "rejected")}>Rechazar</button>}
         </div>
       ))}
     </>

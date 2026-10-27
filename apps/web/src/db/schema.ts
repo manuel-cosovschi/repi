@@ -474,6 +474,21 @@ export const mediaObject = pgTable("media_object", {
   deletedAt: ts("deleted_at"),
 });
 
+// Pedidos de derechos sobre los datos propios (F-PR-02, D75). V1: canal autenticado y registro verificable;
+// el borrado lo ejecuta REPI con el procedimiento de docs/PRIVACIDAD_OPERACION.md (retención pendiente de definir).
+export const privacyRequest = pgTable("privacy_request", {
+  id: id(),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  emailAtRequest: text("email_at_request").notNull(),
+  kind: text("kind", { enum: ["delete"] }).notNull(),
+  status: text("status", { enum: ["pending", "done", "rejected", "cancelled"] }).notNull().default("pending"),
+  note: text("note"),
+  resolution: text("resolution"),
+  resolvedBy: text("resolved_by"),
+  resolvedAt: ts("resolved_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("privacy_request_status_idx").on(t.status)]);
+
 // Límites de intentos compartidos entre instancias serverless (D74). La memoria de cada función no sirve en Vercel.
 // rate_limit: tabla de Better Auth (modelo «rateLimit»). app_rate_limit: ventana fija por clave para las rutas propias.
 export const rateLimit = pgTable("rate_limit", {
