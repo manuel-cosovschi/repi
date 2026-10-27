@@ -78,6 +78,7 @@ export async function flush(): Promise<void> {
       } catch { offline = true; break; } // sin red o servidor caído: se reintenta solo
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        if (s.rejected) { const cur = await getLocal(it.sid); if (cur) await putLocal({ ...cur, rejected: undefined }); }
         await applyResult(it, b, data);
         continue;
       }
@@ -86,6 +87,14 @@ export async function flush(): Promise<void> {
         blocked.add(it.sid); conflict = true; continue;
       }
       if (res.status >= 500 || res.status === 429) { offline = true; break; }
+      // Acceso no vigente: no se descarta nada ni se reintenta en bucle; la persona decide (ver LocalSession.rejected).
+      if (res.status === 403 && data.code === "relation_inactive") {
+        const message: string = data.error ?? "Tu acceso no está vigente.";
+        hadError = message;
+        const cur = await getLocal(it.sid); // el estado vigente: pudo cambiar mientras viajaba el pedido
+        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString() } });
+        blocked.add(it.sid); continue;
+      }
       if (res.status === 401) { hadError = "Tu sesión venció. Ingresá de nuevo para sincronizar (no se borra nada)."; break; }
       // 4xx: el servidor rechazó el dato. Se informa; no se reintenta en silencio.
       await idbDel("queue", it.seq!);

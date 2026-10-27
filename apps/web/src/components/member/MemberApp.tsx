@@ -235,6 +235,11 @@ function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, relo
         <span className="mb-muted" style={{ fontSize: 15 }}>{t.openSession ? "Tenés un entrenamiento en curso." : "Hoy es un gran día para entrenar."}</span>
       </div>
       <RelationPicker t={t} offline={offline} busyOpen={!!t.openSession} onChange={onRelation} flash={flash} />
+      {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
+          ahí se ve qué pasó con su sincronización y se decide qué hacer con lo guardado en el teléfono. */}
+      {t.openSession && !(t.state === "ready" && next) && (
+        <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="#0B0F14" />Continuar entrenamiento en curso</button>
+      )}
       {t.state === "ready" && next ? (
         <div style={{ position: "relative" }}>
           <button type="button" className="today" onClick={() => (t.openSession ? onStart(next.id) : go("train"))} aria-label={t.openSession ? `Continuar ${t.openSessionDay}` : `Ver ${next.name}`}>

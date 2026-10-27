@@ -14,6 +14,9 @@ export type LocalSession = {
   exercises: LocalEx[]; sets: Record<string, LocalSet>; // clave `${programExerciseId}:${setIndex}`
   synced: boolean; closeOther?: boolean;
   conflict?: { kind: "open_session"; other: { id: string; dayName: string; startedAt: string; sets: number } };
+  // El servidor rechazó la sesión porque el acceso (coach o gym) dejó de estar vigente: los datos quedan en el teléfono,
+  // la cola no se borra y se vuelve a intentar sólo ante un evento (volver a la app, reconectar, «Reintentar»).
+  rejected?: { message: string; at: string };
   rest?: { end: number | null; total: number; left: number; paused: boolean } | null;
   updatedAt: string;
 };

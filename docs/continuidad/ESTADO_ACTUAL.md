@@ -21,14 +21,14 @@ El historial declara 74 pruebas de dominio y 80 de integración después del ane
 
 ## Bloqueos/evidencia directa
 
-1. `apps/web/src/server/mailer.ts` lanza error explícito en producción porque no hay proveedor. Registro/verificación/recuperación/bienvenida requieren resolverlo antes de usuarios reales.
+1. `apps/web/src/server/mailer.ts` lanza error explícito en producción porque no hay proveedor (27/10: adaptador Resend listo, D70; falta que el titular elija proveedor). Registro/verificación/recuperación/bienvenida requieren resolverlo antes de usuarios reales.
 2. `apps/web/src/app/manifest.ts` declara sólo icono 162×162 y start_url /app. Hay que completar/verificar instalación y entrada sin sesión. La búsqueda puntual de guía/beforeinstallprompt en acceso/activar/unirse no halló implementación: tratar como pendiente a confirmar, no como prueba exhaustiva de ausencia.
-3. `server/storage.ts` usa almacenamiento local privado; en producción exige STORAGE_DIR. Puede funcionar con volumen durable correctamente operado, pero no asumir que el hosting elegido lo ofrece. Falta decisión/validación de almacenamiento, backups y retención.
+3. `server/storage.ts` usa almacenamiento local privado; en producción exige STORAGE_DIR (27/10: driver Supabase Storage y subida directa, D68/D71; falta `SUPABASE_SECRET_KEY`). Puede funcionar con volumen durable correctamente operado, pero no asumir que el hosting elegido lo ofrece. Falta decisión/validación de almacenamiento, backups y retención.
 4. Push tiene código Web Push y jobs, pero el estado declara claves de desarrollo y ninguna entrega real en teléfono verificada; falta configuración/ejecución de producción.
 5. `apps/web/tests/global-setup.ts` hace DROP SCHEMA public y drizzle. La guarda sólo comprueba que TEST_DATABASE_URL contiene repi_test. Antes de ejecutar la suite, asegurar DB descartable distinta de las otras y reforzar guardas; no mostrar valores de conexión en logs/documentos.
 6. Textos legales aún reportados como borrador; condiciones de menores, mora/corte/fiscalidad y algunos permisos permanecen pendientes. No declarar resuelto por existir aceptación en DB.
-7. Alertas por sensación de serie tienen limitación reportada de sede principal; resolver contexto o delimitar piloto sin informar al equipo equivocado.
-8. Baja con cola offline puede dejar rechazo persistente; definir resolución/recuperación sin reactivar acceso.
+7. ~~Alertas por sensación de serie limitadas a la sede principal.~~ Resuelto 27/10 (D72): usa el ingreso registrado por recepción.
+8. ~~Baja con cola offline deja rechazo persistente.~~ Resuelto 27/10 (D73): datos conservados, reintento por evento y descarte manual.
 9. Pruebas de instalación/offline/push en dispositivos reales pendientes según el registro. La guía PWA y el icono requieren pruebas específicas.
 
 ## Documentación desactualizada que se resolvió en este traspaso

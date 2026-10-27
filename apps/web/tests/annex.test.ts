@@ -338,6 +338,20 @@ describe("pedidos extra: sensación por serie y evolución en el Club", () => {
     expect(await code(set(0, null))).toBe("relation_inactive");
   });
 
+  it("multisede: con ingreso registrado en otra sede habilitada, avisa a esa sede; sin acceso a esa sede, a la principal", async () => {
+    const w = await world();
+    const g = await gymSession(w);
+    await gym.startShift(w.tB, w.org, w.B);
+    await db.insert(schema.attendance).values({ orgId: w.org, locationId: w.B, gymMemberId: g.memberId, source: "recepcion_qr" });
+    const set = (i: number) => tr.logSet(g.socio, g.sid, { id: randomUUID(), programExerciseId: g.pe, setIndex: i, weightKg: 20, reps: 8, rir: 2, feel: "ayuda" });
+    await set(0); // sin acceso a Belgrano: el registro no alcanza, va a la principal
+    expect((await alerts.listAlerts(w.tA, w.org, w.A)).length).toBe(1);
+    await db.insert(schema.gymMemberLocation).values({ gymMemberId: g.memberId, locationId: w.B });
+    await set(1);
+    expect((await alerts.listAlerts(w.tB, w.org, w.B)).length).toBe(1);
+    expect((await alerts.listAlerts(w.tA, w.org, w.A)).length).toBe(1);
+  });
+
   it("serie sincronizada tarde no avisa; las sensaciones nunca aparecen en el Club", async () => {
     const w = await world();
     const g = await gymSession(w);

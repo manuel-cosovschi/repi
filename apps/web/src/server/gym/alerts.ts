@@ -1,7 +1,7 @@
 // Aviso en vivo al piso (pedido del usuario 26/10): el socio marca cómo se sintió una serie y, si pide atención,
 // el entrenador de piso en turno en su sede recibe un push con texto mínimo y lo ve en «Mi turno».
 // La alerta guardada es la fuente de verdad: el push es un atajo, no garantiza entrega.
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { FLOOR_ALERT_COOLDOWN_MIN, FLOOR_ALERT_MAX_AGE_MIN, PUSH_FLOOR, SET_FEEL, type SetFeel } from "@repi/domain";
 import { db, schema } from "@/db";
 import { audit } from "../access/util";
@@ -9,12 +9,29 @@ import { enqueue } from "../push/services";
 import { floorOnShift } from "../join/services";
 import { gymContext, inScope, need, NOT_FOUND } from "./services";
 
-const { floorAlert, gymMember, setLog, user } = schema;
+const { floorAlert, gymMember, gymMemberLocation, attendance, setLog, user } = schema;
+
+/** Presencia verificada para elegir la sede del aviso: ingreso registrado por recepción en las últimas 4 horas. */
+const PRESENCE_HOURS = 4;
+
+/**
+ * Sede donde está entrenando el socio. Si recepción registró su ingreso hace poco en una sede a la que tiene acceso, esa;
+ * si no, su sede principal (sin inventar presencia). Así un socio multisede no avisa al equipo equivocado.
+ */
+export async function alertLocation(gm: { id: string; orgId: string; locationId: string }, now = new Date()) {
+  const [last] = await db.select({ locationId: attendance.locationId }).from(attendance)
+    .where(and(eq(attendance.gymMemberId, gm.id), gte(attendance.at, new Date(now.getTime() - PRESENCE_HOURS * 3_600_000))))
+    .orderBy(desc(attendance.at)).limit(1);
+  if (!last || last.locationId === gm.locationId) return gm.locationId;
+  const [extra] = await db.select({ id: gymMemberLocation.locationId }).from(gymMemberLocation)
+    .where(and(eq(gymMemberLocation.gymMemberId, gm.id), eq(gymMemberLocation.locationId, last.locationId), isNull(gymMemberLocation.revokedAt)));
+  return extra ? last.locationId : gm.locationId;
+}
 
 type Raise = { gymMemberId: string; sessionId: string; setLogId: string; exerciseName: string; feel: SetFeel; at: Date };
 
 /**
- * Crea la alerta y avisa al piso en turno de la sede principal del socio.
+ * Crea la alerta y avisa al piso en turno de la sede donde entrena el socio (ver alertLocation).
  * No avisa: series sincronizadas tarde (> 10 min), ni otra alerta del mismo socio dentro de 10 min (salvo pedido de ayuda).
  */
 export async function raiseFloorAlert(r: Raise, now = new Date()) {
@@ -26,10 +43,11 @@ export async function raiseFloorAlert(r: Raise, now = new Date()) {
       .where(and(eq(floorAlert.gymMemberId, gm.id), gte(floorAlert.createdAt, new Date(now.getTime() - FLOOR_ALERT_COOLDOWN_MIN * 60_000)))).limit(1);
     if (recent) return null;
   }
-  const [a] = await db.insert(floorAlert).values({ orgId: gm.orgId, locationId: gm.locationId, gymMemberId: gm.id, sessionId: r.sessionId, setLogId: r.setLogId, exerciseName: r.exerciseName, feel: r.feel })
+  const locationId = await alertLocation(gm, now);
+  const [a] = await db.insert(floorAlert).values({ orgId: gm.orgId, locationId, gymMemberId: gm.id, sessionId: r.sessionId, setLogId: r.setLogId, exerciseName: r.exerciseName, feel: r.feel })
     .onConflictDoNothing().returning();
   if (!a) return null;
-  const to = await floorOnShift(gm.orgId, gm.locationId);
+  const to = await floorOnShift(gm.orgId, locationId);
   await enqueue(to, { kind: "floor_alert", dedupe: `floor:${a.id}`, ...PUSH_FLOOR, url: `/gym/${gm.orgId}?s=shift&sel=${a.id}` });
   return { id: a.id, notified: to.length };
 }

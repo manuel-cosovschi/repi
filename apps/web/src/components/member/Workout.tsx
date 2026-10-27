@@ -222,7 +222,16 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
           </div>
           <button type="button" className="fin" onClick={finish} aria-busy={busy || undefined}>Finalizar</button>
         </div>
-        {sync.kind === "error" && <p role="alert" className="mb-err">{sync.error}</p>}
+        {s.rejected ? (
+          <div className="conflict" role="alert">
+            <strong>No se pudo guardar en tu cuenta</strong>
+            <span>{s.rejected.message} Tus series siguen en este teléfono y no se borran. Si tu acceso vuelve a estar vigente, se guardan solas.</span>
+            <div><button type="button" className="cta sm" onClick={() => void flush()}>Reintentar</button><button type="button" className="ghost sm" onClick={async () => {
+              if (!window.confirm("¿Descartar este entrenamiento de este teléfono? No se puede deshacer.")) return;
+              await dropSession(s.id); await delLocal(s.id); flash("Descartaste el entrenamiento de este teléfono."); onExit("home");
+            }}>Descartar de este teléfono</button></div>
+          </div>
+        ) : sync.kind === "error" && <p role="alert" className="mb-err">{sync.error}</p>}
         {s.conflict?.kind === "open_session" && (
           <div className="conflict" role="alert">
             <strong>Hay otro entrenamiento abierto en otro dispositivo</strong>
