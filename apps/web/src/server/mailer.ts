@@ -3,11 +3,38 @@ import { isDemoDeploy } from "./deploy";
 
 export type Mail = { to: string; subject: string; body: string };
 
-// Adaptador de correo (T05). Sin proveedor configurado (D24) sólo existe el buzón DEV.
-// En producción falla de forma explícita en lugar de fingir un envío, salvo en un despliegue DEMO declarado (D68).
+// Adaptador de correo (T05, D24, D70). Drivers:
+// · "resend": API HTTP de Resend con MAIL_FROM y RESEND_API_KEY (proveedor y dominio remitente los define el titular).
+// · buzón DEV: desarrollo, tests y despliegue DEMO declarado (D68).
+// En producción sin proveedor configurado falla de forma explícita en lugar de fingir un envío.
+// Nunca se registra el cuerpo: lleva códigos y enlaces personales.
 export async function sendMail(mail: Mail): Promise<void> {
+  const resend = resendConfig();
+  if (resend) return sendResend(resend, mail);
   if (process.env.NODE_ENV === "production" && !isDemoDeploy()) {
     throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
   }
   await db.insert(schema.devMailbox).values(mail);
+}
+
+type ResendConfig = { key: string; from: string; replyTo?: string };
+function resendConfig(): ResendConfig | null {
+  if (process.env.MAIL_DRIVER !== "resend") return null;
+  const key = process.env.RESEND_API_KEY, from = process.env.MAIL_FROM;
+  if (!key || !from) throw new Error("MAIL_DRIVER=resend exige RESEND_API_KEY y MAIL_FROM");
+  return { key, from, replyTo: process.env.MAIL_REPLY_TO || undefined };
+}
+
+export class MailError extends Error {
+  constructor(message: string, readonly status: number, readonly retryable: boolean) { super(message); }
+}
+
+async function sendResend(c: ResendConfig, m: Mail) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${c.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: c.from, to: [m.to], subject: m.subject, text: m.body, ...(c.replyTo ? { reply_to: c.replyTo } : {}) }),
+    signal: AbortSignal.timeout(10_000),
+  }).catch((e: unknown) => { throw new MailError(`email: sin respuesta del proveedor (${e instanceof Error ? e.name : "error"})`, 0, true); });
+  if (!res.ok) throw new MailError(`email: el proveedor rechazó el envío (${res.status})`, res.status, res.status === 429 || res.status >= 500);
 }
