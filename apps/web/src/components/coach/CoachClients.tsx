@@ -7,6 +7,7 @@ import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overvie
 import { Ic } from "@/components/ui/Ic";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { ClientPayTab } from "./CoachPayments";
+import { GoalsTab } from "./CoachGoals";
 import { useLoad } from "@/components/gym/shared";
 
 type Detail = {
@@ -116,10 +117,8 @@ function Tab({ tab, det, row, orgId, flash }: { tab: string; det: Detail; row: C
   if (tab === "pay") return <ClientPayTab key={det.id} orgId={orgId} relId={det.id} name={det.name} flash={flash} />;
   const SENS: Record<string, "health" | "nutrition" | "measurements"> = { salud: "health", nutri: "nutrition", body: "measurements" };
   if (SENS[tab]) return <SensitiveTab key={`${det.id}-${tab}`} orgId={orgId} relId={det.id} name={det.name} item={SENS[tab]} flash={flash} />;
-  const msg: Record<string, string> = {
-    progreso: "Los gráficos de progreso todavía no están disponibles. El registro de sesiones está en Resumen.",
-  };
-  return <div className="empty">{msg[tab]}</div>;
+  if (tab === "progreso") return <GoalsTab key={det.id} orgId={orgId} relId={det.id} name={det.name} flash={flash} />;
+  return null;
 }
 
 function Sessions({ det }: { det: Detail }) {

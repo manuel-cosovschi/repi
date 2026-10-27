@@ -113,6 +113,13 @@
       "when": 1793114737387,
       "tag": "0015_weight_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793115539372,
+      "tag": "0016_client_goal",
+      "breakpoints": true
     }
   ]
 }

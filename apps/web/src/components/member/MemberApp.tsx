@@ -540,6 +540,7 @@ function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; 
         )}
         <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
       </section>
+      <MyGoals />
       <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2>Historial</h2>
@@ -660,6 +661,34 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
       <button type="button" className="ghost" onClick={logout}>Cerrar sesión</button>
     </>
+  );
+}
+
+// Objetivos acordados con el coach (F-HX-02, D97): sólo lectura, mismo cálculo que ve el coach. Sin objetivos, no se muestra
+// nada inventado. Sin conexión no hay lista (se calcula en el servidor).
+type MyGoal = { id: string; title: string; unit: string; target: number; baseline: number | null; current: number | null; progress: number | null;
+  source: string; dueOn: string | null; status: "active" | "achieved" | "cancelled"; by: string; manualAt: string | null };
+function MyGoals() {
+  const [g, setG] = useState<MyGoal[] | null>(null);
+  useEffect(() => { api<MyGoal[]>("/api/me/goals").then(setG).catch(() => setG(null)); }, []);
+  if (!g?.length) return null;
+  const n = (x: number) => x.toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  const day = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso.slice(0, 10)}T12:00:00Z`));
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h2>Objetivos</h2>
+      {g.map((x) => {
+        const pct = x.progress == null ? null : Math.round(x.progress * 100);
+        return (
+          <div key={x.id} className="goal">
+            <span className="goal-top"><b>{x.title}</b>{x.status === "achieved" ? <span className="pill-cyan">Logrado</span> : x.status === "cancelled" ? <small className="mb-muted">Cancelado</small> : null}</span>
+            <span className="goal-bar" role="img" aria-label={pct == null ? "Sin datos para calcular el avance" : `Avance ${pct}%`}><i style={{ width: `${pct ?? 0}%` }} /></span>
+            <small className="mb-muted">{x.current == null ? "Datos insuficientes todavía" : `${n(x.current)} de ${n(x.target)} ${x.unit} · ${pct}%`}{x.baseline != null ? ` · desde ${n(x.baseline)}` : ""}{x.dueOn ? ` · plazo ${day(x.dueOn)}` : ""}</small>
+            <small className="mb-muted">Acordado con {x.by.split(" ")[0]}. {x.source}</small>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

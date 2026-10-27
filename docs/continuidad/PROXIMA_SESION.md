@@ -1,13 +1,21 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, informe mensual (D96). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, objetivos acordados (D97). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Informe mensual (F-CO-16, D96)
+## Último bloque cerrado — 27/10/2026 · Objetivos acordados (F-CO-03 / F-HX-02, D97)
+
+- **Hecho:** dominio `packages/domain/src/goals.ts` (GOAL_KINDS, GOAL_SOURCES, ventana 28 días, `goalProgress`, `goalTitle`) + tests; tabla `client_goal` (migración `0016_client_goal`, dev local y **Supabase**, RLS); `src/server/training/goals.ts` (listGoals, createGoal, updateGoal, myGoals); rutas `GET/POST /api/coach/[orgId]/clients/[relId]/goals`, `POST /api/coach/[orgId]/goals/[id]`, `GET /api/me/goals`; `components/coach/CoachGoals.tsx` en la pestaña Progreso de la ficha; sección «Objetivos» en Progreso del alumno (`MemberApp.tsx#MyGoals`); estilos `.goalbar` (coach.css) y `.goal*` (member.css).
+- **Pruebas:** web 144/144 (nuevo `tests/goals.test.ts`, 4), dominio 81/81, guardas 11/11, build OK. Navegador local: coach del seed crea «Jalón al pecho 60 kg × 8» desde la ficha → la alumna lo ve en Progreso (375 px). Ese objetivo quedó en `repi_dev` como dato de prueba.
+- **Bug encontrado y corregido en la prueba:** `/api/coach/[orgId]/library` devuelve `{ exercises }`, no un array.
+- **iCloud otra vez (muy grave):** a las 12:41 iCloud quitó la extensión a `AccessFlow.tsx`, `CoachApp.tsx`, `GymApp.tsx`, `member/Gym.tsx` y `MemberApp.tsx` y borró archivos de caché de Turbopack. Se restauraron desde git (eran idénticos a HEAD). Además `apps/web/tsconfig` era un `tsbuildinfo` renombrado por iCloud y commiteado en cf124b1: se sacó del repo. **Bloqueante operativo: mover el repo fuera de iCloud.**
+- **Siguiente:** F-CO-10 calendario/asistencia del coach o F-CO-11 importación CSV; F-HX-26 centro de notificaciones del staff.
+
+## Bloque anterior — 27/10/2026 · Informe mensual (F-CO-16, D96)
 
 - **Hecho:** `src/server/training/report.ts` (`monthBounds`, `myMonthlyReport`, `clientMonthlyReport`; `requireClientOf` ahora exportado de `training/services.ts`); vista `components/report/MonthlyReport.tsx` + `PrintButton.tsx`; estilos `styles/report.css` (con `@media print`); páginas `app/app/informe/page.tsx` y `app/coach/[orgId]/informe/[relId]/page.tsx`; enlaces en Progreso del alumno y pestaña Rendimiento del coach.
 - **Pruebas:** web 139/139 (nuevo `tests/report.test.ts`, 3), guardas 11/11, typecheck y build OK. Navegador local: informe de la alumna del seed (escritorio) y del coach para esa relación en 375 px sin scroll horizontal ni check-in. No se probó «Guardar como PDF» en Safari/iPhone.
 - **iCloud (grave):** durante el build iCloud renombró `apps/web/src/server/access/http.ts` a `http` (sin extensión). Se restauró desde git y el archivo extra fue a la Papelera. Ya van tres incidentes hoy (schema.ts borrado, `schema 2.ts`, `http`). **Mover el repo fuera de Escritorio/Documentos o excluirlo de iCloud** antes de seguir; revisar `git status` y `git ls-files -d` antes de cada commit.
-- **Siguiente:** F-CO-03/F-HX-02 objetivos del cliente con progreso; luego F-CO-10 calendario/asistencia o F-CO-11 importación CSV.
+- **Deploy:** eb66819 en repiclub.com verificado (`/app/informe` 307 a acceso sin sesión).
 
 ## Bloque anterior — 27/10/2026 · Unidad de peso kg/lb (F-HX-23 parcial, D95)
 

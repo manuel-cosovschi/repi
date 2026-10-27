@@ -271,6 +271,12 @@
 .mb-chat .chat-compose button:disabled { opacity: .4; }
 
 /* Etapa 6: pestaña Gym (SCR-M-19..25) y Repi Club */
+.goal { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: var(--dark-surface, #1A2433); }
+.goal-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.goal-top b { font-size: 15px; font-weight: 600; }
+.goal-bar { display: block; height: 6px; border-radius: 3px; background: #2D3B4F; overflow: hidden; }
+.goal-bar i { display: block; height: 100%; border-radius: 3px; background: var(--core-cyan); }
+.goal small { font-size: 12.5px; line-height: 1.4; }
 .unitseg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--dark-surface, #1A2433); }
 .unitseg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--dark-ink); font: 600 14px var(--font-ui); cursor: pointer; }
 .unitseg button[aria-checked="true"] { background: var(--core-cyan); color: var(--core-navy900); }

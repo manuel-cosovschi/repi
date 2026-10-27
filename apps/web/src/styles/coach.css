@@ -183,3 +183,6 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 .chat-compose textarea { flex: 1; min-height: 44px; max-height: 140px; resize: vertical; border-radius: 12px; border: 1px solid var(--light-border-strong); padding: 11px 14px; font: 15px var(--font-ui); }
 .chat-compose button { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--core-cyan); display: grid; place-items: center; cursor: pointer; flex: none; }
 .chat-compose button:disabled { opacity: .4; cursor: default; }
+/* Barra de avance de objetivos (F-CO-03, D97). */
+.goalbar { display: block; height: 6px; border-radius: 3px; background: #E2E8F0; overflow: hidden; }
+.goalbar i { display: block; height: 100%; border-radius: 3px; }

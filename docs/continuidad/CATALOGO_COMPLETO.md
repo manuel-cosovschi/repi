@@ -167,7 +167,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | --- | --- | --- | --- |
 | F-BR-02 | Intro de marca 1a + inicio regular + reducido | sin_implementar · confirmado | 1ª vez ~2,6 s saltable; luego ≤0,5 s; reduced-motion = fade; nunca durante entrenamiento activo; termina en pantalla real |
 | F-NT-01 | Centro de notificaciones del alumno | integrado 27/10 (D94; tests/notifications.test.ts; recorrido en navegador local) · documentado | Destinos navegables; sin datos de salud en lock screen |
-| F-CO-03 | Objetivos del cliente con progreso | sin_implementar · documentado | Objetivo acordado con indicador, unidad, plazo y fuente; progreso calculado y visible al alumno; sin prometer resultados. |
+| F-CO-03 | Objetivos del cliente con progreso | integrado 27/10 (D97; tests/goals.test.ts; navegador local) · documentado | Objetivo acordado con indicador, unidad, plazo y fuente; progreso calculado y visible al alumno; sin prometer resultados. |
 | F-CO-04 | Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in | integrado 27/10 (D81: 1RM y volumen; fortalezas pendientes) · confirmado | Fórmula Epley documentada; heurística revisable |
 | F-CO-10 | Calendario / asistencia | sin_implementar · documentado | Sesión presencial con fecha/zona, participantes y estados confirmada/cancelada/realizada; asistencia separada del registro deportivo. |
 | F-CO-11 | Importación CSV | sin_implementar · documentado | Preview CSV con mapeo, validación por fila, deduplicación e informe; confirmar sólo filas válidas sin duplicar al reintentar. |
@@ -178,7 +178,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-CO-16 | Informe mensual para el alumno (PDF en la app) | integrado 27/10 (D96; PDF vía impresión del navegador; tests/report.test.ts; navegador local) · documentado | Informe generado desde datos persistidos. |
 | F-CO-17 | Ingresos esperado vs cobrado | probado 27/10 (D80) · documentado | Valores derivados de cargos/pagos registrados. |
 | F-BL-05 | Aviso al cliente de cambio de suscripción, fin de prueba y criterio de conteo | sin_implementar · en_conflicto | Aviso y historial visibles al cliente. |
-| F-HX-02 | Vista de objetivos acordados en la app | sin_implementar · propuesto | Alumno ve objetivos acordados y progreso calculado; edición y autoría claras, sin objetivos ficticios de plantilla. |
+| F-HX-02 | Vista de objetivos acordados en la app | integrado 27/10 (D97; Progreso del alumno) · propuesto | Alumno ve objetivos acordados y progreso calculado; edición y autoría claras, sin objetivos ficticios de plantilla. |
 | F-HX-06 | Plan y estado de pago con el coach visible al alumno | probado 27/10 (D80) · propuesto | Alumno ve plan/cargos/pagos del coach y moneda/vencimiento reales; no los mezcla con SaaS o cuota de gym. |
 | F-HX-07 | Próxima sesión presencial, calendario y confirmación de asistencia | sin_implementar · propuesto | Próxima cita y confirmación sincronizadas con calendario; cancelación y asistencia con estados, sin deducir asistencia de entrenar. |
 | F-HX-17 | Estado de cuenta del cliente: vencido/pausada, gracia, efecto en alumnos | sin_implementar · propuesto | Estados de cuenta y gracia visibles sólo según política acordada; definir efecto en alumnos antes de suspensión automática. |

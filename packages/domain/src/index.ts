@@ -7,3 +7,4 @@ export * from "./gym";
 export * from "./community";
 export * from "./commercial";
 export * from "./units";
+export * from "./goals";

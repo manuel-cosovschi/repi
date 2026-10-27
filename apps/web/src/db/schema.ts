@@ -508,6 +508,30 @@ export const coachCharge = pgTable("coach_charge", {
   updatedAt: now("updated_at"),
 }, (t) => [index("coach_charge_org_idx").on(t.coachOrgId, t.status), index("coach_charge_client_idx").on(t.coachClientId)]);
 
+// Objetivos acordados coach ↔ alumno (F-CO-03 / F-HX-02, D97). Indicadores automáticos (1RM estimado, carga × reps,
+// entrenamientos por semana) se calculan desde las series de la relación; «manual» lo carga el coach con fecha.
+// Decimales como texto exacto, igual que set_log.weight_kg. La línea base es el valor al acordar.
+export const clientGoal = pgTable("client_goal", {
+  id: id(),
+  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["e1rm", "load", "frequency", "manual"] }).notNull(),
+  title: text("title").notNull(),
+  exerciseId: text("exercise_id").references(() => exercise.id),
+  target: text("target").notNull(),
+  targetReps: integer("target_reps"),
+  unit: text("unit").notNull(),
+  baseline: text("baseline"),
+  manualValue: text("manual_value"),
+  manualAt: ts("manual_at"),
+  dueOn: text("due_on"), // AAAA-MM-DD
+  status: text("status", { enum: ["active", "achieved", "cancelled"] }).notNull().default("active"),
+  note: text("note"),
+  createdBy: text("created_by").notNull().references(() => user.id),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+  closedAt: ts("closed_at"),
+}, (t) => [index("client_goal_rel_idx").on(t.coachClientId, t.status)]);
+
 // Pedidos de derechos sobre los datos propios (F-PR-02, D75). V1: canal autenticado y registro verificable;
 // el borrado lo ejecuta REPI con el procedimiento de docs/PRIVACIDAD_OPERACION.md (retención pendiente de definir).
 export const privacyRequest = pgTable("privacy_request", {
