@@ -392,3 +392,13 @@ Detalle, mediciones y pendientes: `motion.md` §12 y `docs/DESIGN_CONTRACT.md` �
 - Body Intelligence para M03.
 - Decisión sobre RIR 5.
 - Aprobación visual del usuario.
+
+# Entorno DEMO hospedado — Vercel + Supabase (27/10/2026, D68)
+
+Pedido del usuario: hosting en Vercel y base en Supabase. Detalle y comandos: docs/DESPLIEGUE.md.
+
+- https://repi-app.vercel.app en Vercel Hobby (gru1), deploy automático desde `main`.
+- Supabase `repi` (sa-east-1): migraciones 0000–0006, seed DEMO, RLS en las 74 tablas, sin privilegios anon, bucket privado.
+- Avisos cada minuto con pg_cron + pg_net (verificado: respuesta 200). Purga de videos diaria con Vercel Cron.
+- Correos en modo DEMO al buzón DEV (sólo REPI Admin). Sigue sin proveedor real (D24).
+- Pendientes reales: `SUPABASE_SECRET_KEY` (subidas), subida directa de videos (> 4,5 MB), login hospedado probado por el titular, backups/PITR, plan Pro antes de clientes.
