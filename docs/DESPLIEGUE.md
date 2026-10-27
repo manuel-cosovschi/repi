@@ -28,7 +28,7 @@ Registrado en GoDaddy, nameservers en Vercel (`ns1/ns2.vercel-dns.com`, verifica
 
 ## Correo real (cuando el titular elija proveedor, D24/D70/D82)
 
-Estado 27/10: el titular eligió Resend. Falta cargar `RESEND_API_KEY` y `MAIL_DRIVER=resend` en Vercel (lo hace el titular) y verificar un dominio en Resend: sin dominio, Resend sólo entrega desde `onboarding@resend.dev` al email dueño de la cuenta. En DEMO cada correo además queda en `/dev/mailbox`.
+Estado 27/10: **activo**. `RESEND_API_KEY` cargada por el titular; repiclub.com verificado en Resend (registros en Vercel DNS: `resend._domainkey` TXT, `send` MX y TXT, `rsend` CNAME, `_dmarc` TXT); `MAIL_FROM=REPI <hola@repiclub.com>`. Prueba de entrega: `GET /api/cron/mail-test?to=<email>` con `Authorization: Bearer CRON_SECRET`. En DEMO cada correo además queda en `/dev/mailbox`.
 
 1. Crear cuenta en Resend (u otro proveedor; Resend ya tiene adaptador) y verificar el dominio remitente (registros SPF/DKIM).
 2. En Vercel: `MAIL_DRIVER=resend`, `RESEND_API_KEY`, `MAIL_FROM` (p. ej. `REPI <hola@dominio>`), opcional `MAIL_REPLY_TO`; redeploy.

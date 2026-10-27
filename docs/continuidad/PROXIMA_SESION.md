@@ -5,7 +5,7 @@ Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MAST
 ## Último bloque cerrado — 27/10/2026 · Dominio repiclub.com activo
 
 - Nameservers en Vercel; `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y `VAPID_SUBJECT` = `https://repiclub.com`; pg_cron reprogramado a repiclub.com (200); demo probada en repiclub.com.
-- **Falta:** `RESEND_API_KEY` en Vercel (el titular; en su terminal `vercel` no está en el PATH: usar la ruta completa de nvm), después alta del dominio en Resend vía `/api/cron/mail-domain?verify=1`, registros DNS con `vercel dns add` y `MAIL_FROM=REPI <hola@repiclub.com>`.
+- **Correo real activo (D86):** repiclub.com verificado en Resend, registros en Vercel DNS, `MAIL_FROM=REPI <hola@repiclub.com>`, ruta de prueba `/api/cron/mail-test`. Pendiente: que el titular pruebe un alta real con su email (Claude no crea cuentas en el entorno publicado).
 
 ## Bloque anterior — 27/10/2026 · Demo interactiva guiada por perfil (D85)
 

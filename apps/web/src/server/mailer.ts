@@ -57,6 +57,13 @@ export async function resendDomain(name: string, verify = false) {
   return { configured: true as const, name: full.name, status: full.status, records: full.records.map(({ record, type, name: n, value, priority, status }) => ({ record, type, name: n, value, priority, status })) };
 }
 
+/** Envío directo por el proveedor, sin buzón ni tolerancia DEMO: para comprobar la entrega (D84). */
+export async function sendViaProvider(mail: Mail) {
+  const c = resendConfig();
+  if (!c) throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
+  await sendResend(c, mail);
+}
+
 export class MailError extends Error {
   constructor(message: string, readonly status: number, readonly retryable: boolean) { super(message); }
 }
