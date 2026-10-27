@@ -68,4 +68,21 @@ describe("subida directa de videos", () => {
     expect(await purgeUploadIntents()).toBeGreaterThanOrEqual(1);
     expect(await db.select().from(schema.uploadIntent).where(eq(schema.uploadIntent.id, b.id!))).toHaveLength(0);
   });
+  it("con el proxy de Supabase (D83): firma por la función, valida por URL firmada de lectura y no usa la clave secreta", async () => {
+    vi.stubEnv("SUPABASE_STORAGE_PROXY_URL", "https://proyecto.supabase.test/functions/v1/repi-storage");
+    vi.stubEnv("STORAGE_PROXY_SECRET", "secreto-proxy");
+    const calls: { url: string; proxy: string | null }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, proxy: (init?.headers as Record<string, string> | undefined)?.["x-repi-proxy"] ?? null });
+      if (url.includes("op=sign_upload")) return Response.json({ url: "https://proyecto.supabase.test/storage/v1/object/upload/sign/repi-private/x?token=t" });
+      if (url.includes("op=sign_read")) return Response.json({ url: "https://proyecto.supabase.test/storage/v1/object/sign/repi-private/x?token=r" });
+      return new Response(new Blob([MP4 as Uint8Array<ArrayBuffer>]), { status: 206, headers: { "content-range": `bytes 0-15/3000` } });
+    }));
+    const uid = await person();
+    const b = await beginUpload(uid, { purpose: "request_video", mime: "video/mp4", size: 3000 });
+    expect(b.upload?.url).toContain("/upload/sign/");
+    expect(await completeUpload(uid, b.id!)).toEqual({ id: b.id });
+    expect(calls.filter((c) => c.url.includes("/functions/v1/repi-storage")).every((c) => c.proxy === "secreto-proxy")).toBe(true);
+    expect(calls.some((c) => c.url.includes("/object/sign/"))).toBe(true);
+  });
 });

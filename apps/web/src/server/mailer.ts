@@ -27,10 +27,32 @@ export async function sendMail(mail: Mail): Promise<void> {
 
 type ResendConfig = { key: string; from: string; replyTo?: string };
 function resendConfig(): ResendConfig | null {
-  if (process.env.MAIL_DRIVER !== "resend") return null;
+  // Con RESEND_API_KEY cargada alcanza: MAIL_DRIVER sólo hace falta para forzar el driver.
+  if ((process.env.MAIL_DRIVER || (process.env.RESEND_API_KEY ? "resend" : "")) !== "resend") return null;
   const key = process.env.RESEND_API_KEY, from = process.env.MAIL_FROM;
   if (!key || !from) throw new Error("MAIL_DRIVER=resend exige RESEND_API_KEY y MAIL_FROM");
   return { key, from, replyTo: process.env.MAIL_REPLY_TO || undefined };
+}
+
+/**
+ * Dominio remitente en Resend (D84): lo da de alta si falta, pide verificarlo y devuelve los registros DNS a cargar.
+ * Corre en el servidor con la clave del entorno; quien lo dispara (job con CRON_SECRET) nunca ve la clave.
+ */
+export async function resendDomain(name: string, verify = false) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { configured: false as const };
+  const h = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  const api = async (path: string, init?: RequestInit) => {
+    const r = await fetch(`https://api.resend.com${path}`, { ...init, headers: h, signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) throw new MailError(`email: Resend ${path} respondió ${r.status}`, r.status, r.status >= 500);
+    return r.json();
+  };
+  const list = (await api("/domains")) as { data: { id: string; name: string }[] };
+  let d = list.data.find((x) => x.name === name);
+  if (!d) d = (await api("/domains", { method: "POST", body: JSON.stringify({ name, region: "sa-east-1" }) })) as { id: string; name: string };
+  if (verify) await api(`/domains/${d.id}/verify`, { method: "POST" });
+  const full = (await api(`/domains/${d.id}`)) as { name: string; status: string; records: { record: string; type: string; name: string; value: string; priority?: number; status: string }[] };
+  return { configured: true as const, name: full.name, status: full.status, records: full.records.map(({ record, type, name: n, value, priority, status }) => ({ record, type, name: n, value, priority, status })) };
 }
 
 export class MailError extends Error {

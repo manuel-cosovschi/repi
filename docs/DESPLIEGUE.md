@@ -18,9 +18,13 @@ Actualizado: 27/10/2026. Decisión: docs/DECISIONS.md D68. **Es un entorno DEMO*
 
 `DATABASE_URL` (pooler 6543), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `ROSTER_HMAC_SECRET`, `CRON_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` (= URL de la app), `REPI_DEPLOY=demo`, `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`.
 
-**Falta** `SUPABASE_SECRET_KEY` (clave secreta `sb_secret_…` del proyecto): sin ella las subidas de video/imagen fallan con error explícito. Cargarla: Supabase → Project Settings → API Keys → Secret key, y `vercel env add SUPABASE_SECRET_KEY production` + redeploy. No se pudo obtener por las herramientas disponibles sin el login del titular.
+**Ya no hace falta** (D83: proxy `repi-storage`). Antes faltaba `SUPABASE_SECRET_KEY` (clave secreta `sb_secret_…` del proyecto): sin ella las subidas de video/imagen fallan con error explícito. Cargarla: Supabase → Project Settings → API Keys → Secret key, y `vercel env add SUPABASE_SECRET_KEY production` + redeploy. No se pudo obtener por las herramientas disponibles sin el login del titular.
 
 Los valores secretos se generaron localmente y están sólo en la máquina del titular, en `~/.repi-secrets/` (permisos 600, fuera del repo): `supabase_repi_app_pw`, `supabase.env` (URLs de conexión), `vercel.env` (secretos de app). La contraseña de `repi_app` nunca viajó: a Supabase se envió sólo su verificador SCRAM. Si se cambia de computadora: rotar (nuevo verificador con `ALTER ROLE repi_app PASSWORD …` desde el SQL editor y nuevas variables en Vercel) en lugar de copiar esos archivos por canales inseguros.
+
+## Dominio repiclub.com (D84)
+
+Registrado en GoDaddy. Agregado al proyecto Vercel (repiclub.com y www). Paso del titular en GoDaddy: cambiar los nameservers a `ns1.vercel-dns.com` y `ns2.vercel-dns.com`. Después: `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y `VAPID_SUBJECT` pasan a `https://repiclub.com`, se cargan los registros DNS de Resend (`GET /api/cron/mail-domain?verify=1` con `Authorization: Bearer CRON_SECRET`) y `MAIL_FROM` pasa a `REPI <hola@repiclub.com>`.
 
 ## Correo real (cuando el titular elija proveedor, D24/D70/D82)
 

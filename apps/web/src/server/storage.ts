@@ -1,7 +1,8 @@
 // Adaptador de almacenamiento privado (D39). Desarrollo: disco local fuera de /public, nunca servido estáticamente.
 // Hospedado (D68): Supabase Storage en un bucket privado, accedido sólo desde el servidor con la clave secreta;
 // el navegador nunca recibe URLs del bucket, sólo pasa por /api/media con sus permisos.
-// Sin Supabase, producción exige STORAGE_DIR explícito (volumen durable operado aparte).
+// Con SUPABASE_SECRET_KEY la app habla directo con Storage; sin ella, con el proxy `repi-storage` (Edge Function de
+// Supabase, D83), que usa la clave de servicio dentro de Supabase. Sin ninguno, producción exige STORAGE_DIR.
 import { createReadStream } from "node:fs";
 import { mkdir, open, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,6 +26,18 @@ function supabase() {
   const base = `${url.replace(/\/$/, "")}/storage/v1/object`;
   return { base, bucket, headers: { apikey: key, Authorization: `Bearer ${key}` } };
 }
+function proxy() {
+  const url = process.env.SUPABASE_STORAGE_PROXY_URL, secret = process.env.STORAGE_PROXY_SECRET;
+  if (!url || !secret) return null;
+  return (op: "sign_upload" | "sign_read" | "put" | "delete", key: string, body?: BodyInit) =>
+    fetch(`${url}?op=${op}&key=${encodeURIComponent(checkKey(key))}`, { method: "POST", headers: { "x-repi-proxy": secret }, body });
+}
+/** URL firmada de lectura (60 s) vía proxy; null si el objeto no existe. */
+async function proxyReadUrl(call: NonNullable<ReturnType<typeof proxy>>, key: string) {
+  const r = await call("sign_read", key);
+  if (r.status === 404) return null;
+  return ((await (await expectOk(r, "firma de lectura")).json()) as { url: string }).url;
+}
 async function expectOk(r: Response, what: string) {
   if (!r.ok) throw new Error(`almacenamiento: ${what} falló (${r.status})`);
   return r;
@@ -38,6 +51,8 @@ export async function putObject(key: string, bytes: Uint8Array) {
     }), "subida");
     return;
   }
+  const px = proxy();
+  if (px) { await expectOk(await px("put", key, new Blob([bytes as Uint8Array<ArrayBuffer>])), "subida"); return; }
   const p = safe(key);
   await mkdir(path.dirname(p), { recursive: true });
   await writeFile(p, bytes, { mode: 0o600 });
@@ -46,6 +61,13 @@ export async function readObject(key: string): Promise<{ stream: ReadableStream;
   const s = supabase();
   if (s) {
     const r = await expectOk(await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: s.headers }), "lectura");
+    return { stream: r.body!, size: Number(r.headers.get("content-length") ?? 0) };
+  }
+  const px = proxy();
+  if (px) {
+    const url = await proxyReadUrl(px, key);
+    if (!url) throw new Error("almacenamiento: objeto inexistente");
+    const r = await expectOk(await fetch(url), "lectura");
     return { stream: r.body!, size: Number(r.headers.get("content-length") ?? 0) };
   }
   const p = safe(key);
@@ -60,6 +82,8 @@ export async function deleteObject(key: string) {
     }), "borrado");
     return;
   }
+  const px = proxy();
+  if (px) { await expectOk(await px("delete", key), "borrado"); return; }
   await rm(safe(key), { force: true });
 }
 
@@ -67,7 +91,11 @@ export async function deleteObject(key: string) {
  *  En disco local devuelve null y el cliente usa la subida por /api de siempre. */
 export async function directUploadTarget(key: string): Promise<{ url: string; method: "PUT" } | null> {
   const s = supabase();
-  if (!s) return null;
+  if (!s) {
+    const px = proxy();
+    if (!px) return null;
+    return { url: ((await (await expectOk(await px("sign_upload", key), "firma de subida")).json()) as { url: string }).url, method: "PUT" };
+  }
   const r = await expectOk(await fetch(`${s.base}/upload/sign/${s.bucket}/${checkKey(key)}`, { method: "POST", headers: s.headers }), "firma de subida");
   const { url } = (await r.json()) as { url: string };
   return { url: `${s.base.replace(/\/object$/, "")}${url}`, method: "PUT" };
@@ -75,9 +103,11 @@ export async function directUploadTarget(key: string): Promise<{ url: string; me
 
 /** Tamaño real y primeros bytes de un objeto (para validar la firma del archivo sin descargarlo entero). Null si no existe. */
 export async function probeObject(key: string, n = 64): Promise<{ size: number; head: Uint8Array } | null> {
-  const s = supabase();
-  if (s) {
-    const r = await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, Range: `bytes=0-${n - 1}` } });
+  const s = supabase(), px = s ? null : proxy();
+  if (s || px) {
+    const url = s ? `${s.base}/authenticated/${s.bucket}/${checkKey(key)}` : await proxyReadUrl(px!, key);
+    if (!url) return null;
+    const r = await fetch(url, { headers: { ...(s?.headers ?? {}), Range: `bytes=0-${n - 1}` } });
     if (r.status === 400 || r.status === 404) return null;
     await expectOk(r, "lectura");
     const total = Number(r.headers.get("content-range")?.split("/")[1] ?? r.headers.get("content-length") ?? 0);

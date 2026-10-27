@@ -27,6 +27,8 @@ export const auth = betterAuth({
   appName: "REPI",
   secret: requireEnv("BETTER_AUTH_SECRET"),
   baseURL: requireEnv("BETTER_AUTH_URL"),
+  // Dominios adicionales que sirven la misma app (p. ej. repiclub.com y el alias de Vercel durante el cambio de dominio).
+  trustedOrigins: (process.env.AUTH_TRUSTED_ORIGINS ?? "").split(",").map((x) => x.trim()).filter(Boolean),
   telemetry: { enabled: false },
   database: drizzleAdapter(db, {
     provider: "pg",
