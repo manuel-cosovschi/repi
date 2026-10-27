@@ -6,7 +6,7 @@ Actualizado: 27/10/2026. Decisión: docs/DECISIONS.md D68. **Es un entorno DEMO*
 
 | Pieza | Valor |
 | --- | --- |
-| URL | https://repi-app.vercel.app (alias automáticos: repi-henna.vercel.app y otros; la app sólo confía en repi-app) |
+| URL | **https://repiclub.com** (desde 27/10; www también). Siguen respondiendo repi-app.vercel.app y otros alias de Vercel |
 | Vercel | cuenta `manuel-cosovschi`, proyecto `repi` (`prj_6fMiibV39EF6glUaqGFYXb1UfuGB`), plan Hobby, Root Directory `apps/web`, funciones en `gru1` (São Paulo) |
 | Deploy | automático en cada push a `main` de github.com/manuel-cosovschi/repi (Git conectado). Manual: `vercel --prod` desde la raíz del repo |
 | Supabase | org «repi org», proyecto `repi` (ref `qiamewdridgdvsyysmog`), región `sa-east-1`, plan gratuito, Postgres 17 |
@@ -24,7 +24,7 @@ Los valores secretos se generaron localmente y están sólo en la máquina del t
 
 ## Dominio repiclub.com (D84)
 
-Registrado en GoDaddy. Agregado al proyecto Vercel (repiclub.com y www). Paso del titular en GoDaddy: cambiar los nameservers a `ns1.vercel-dns.com` y `ns2.vercel-dns.com`. Después: `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y `VAPID_SUBJECT` pasan a `https://repiclub.com`, se cargan los registros DNS de Resend (`GET /api/cron/mail-domain?verify=1` con `Authorization: Bearer CRON_SECRET`) y `MAIL_FROM` pasa a `REPI <hola@repiclub.com>`.
+Registrado en GoDaddy, nameservers en Vercel (`ns1/ns2.vercel-dns.com`, verificado 27/10). Hecho: app y pg_cron apuntan a `https://repiclub.com`. Falta: se cargan los registros DNS de Resend (`GET /api/cron/mail-domain?verify=1` con `Authorization: Bearer CRON_SECRET`) y `MAIL_FROM` pasa a `REPI <hola@repiclub.com>`.
 
 ## Correo real (cuando el titular elija proveedor, D24/D70/D82)
 

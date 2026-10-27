@@ -2,7 +2,12 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Demo interactiva guiada por perfil (D85)
+## Último bloque cerrado — 27/10/2026 · Dominio repiclub.com activo
+
+- Nameservers en Vercel; `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y `VAPID_SUBJECT` = `https://repiclub.com`; pg_cron reprogramado a repiclub.com (200); demo probada en repiclub.com.
+- **Falta:** `RESEND_API_KEY` en Vercel (el titular; en su terminal `vercel` no está en el PATH: usar la ruta completa de nvm), después alta del dominio en Resend vía `/api/cron/mail-domain?verify=1`, registros DNS con `vercel dns add` y `MAIL_FROM=REPI <hola@repiclub.com>`.
+
+## Bloque anterior — 27/10/2026 · Demo interactiva guiada por perfil (D85)
 
 - **Hecho:** `src/server/sandbox/services.ts` (startDemo, sealDemo, purgeSandboxes, demoRoleOf), migración `0011_demo_sandbox` (dev local y Supabase), rutas `POST /api/demo` y `GET /api/demo/me`, página `/demo` + `components/demo/DemoPicker.tsx`, recorrido `components/demo/DemoTour.tsx` montado en `layout.tsx`, estilos `.dt-*` en `globals.css`, acceso «Probá REPI sin cuenta» en el login, purga en `/api/cron/notifications`, mailer nunca envía a `.invalid`, Admin excluye organizaciones de demo.
 - **Pruebas:** `tests/sandbox.test.ts` (entorno coherente, aislamiento y borrado completo); web 110/110; los cuatro recorridos verificados de punta a punta en Chrome headless (`documentacion/demo/verificar-recorridos.mjs`, capturas en `documentacion/demo/`): entrada en ~2 s, cada paso navega a la pantalla correcta.
