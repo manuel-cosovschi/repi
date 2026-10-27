@@ -1,8 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, avisos de cambios de condiciones (D103). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, sitio público (D104). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Avisos al cliente de cambios de condiciones (F-BL-05, D103)
+## Último bloque cerrado — 27/10/2026 · Sitio público con contacto comercial (F-PU-01, D104)
+
+- **Hecho:** `src/app/page.tsx` muestra `components/site/PublicSite.tsx` a visitantes sin sesión (con sesión, igual que antes; `/?source=pwa` sin sesión → `/acceso`). `components/site/LeadForm.tsx` usa `/api/access/lead` (mismo `commercial_lead` que Acceso → Admin › Contactos). `src/app/legal/[doc]/page.tsx` (`terms`, `privacy`, `dpa`; otro → 404): antes eran enlaces rotos desde la aceptación de términos. Estilos en `src/styles/site.css`. Sin migración.
+- **Copy:** sólo capacidades presentes (ver `docs/comercial/ESTADO_Y_LIMITES.md`): sin tiendas, pagos, facturación, precios publicados ni alta libre. Legales: aviso de texto en preparación con la versión `TERMS_VERSION` y resumen de cómo funciona hoy.
+- **Pruebas:** typecheck, build y guardas 11/11 OK (sin tests nuevos: es presentación; la ruta del lead ya estaba cubierta). Navegador local: `/` 200 sin sesión, `/?source=pwa` redirige, con sesión de Valentina `/` → `/app`; legales 200 y `/legal/nope` 404; envío del formulario → «Recibimos tus datos» (quedó el lead «Gym Prueba Landing» / `laura.landing@example.test` en `repi_dev`); 1280 px y 375 px sin desborde; el punto decorativo se oculta bajo 720 px porque pisaba el título.
+- **Pendiente del titular:** textos legales (G11), email público de contacto, revisar el copy del sitio antes de difundir la URL.
+- **Siguiente:** otro ítem del catálogo que no toque agenda ni privacidad mientras Codex siga en eso (revisar `docs/continuidad/CODEX_PARA_CLAUDE.md` antes de empezar).
+
+## Bloque anterior — 27/10/2026 · Avisos al cliente de cambios de condiciones (F-BL-05, D103)
 
 - **Coordinación con Codex:** al empezar, Codex trabajaba en `codex/continuidad-2026-10-27` (checkout `~/Proyectos Locales/Repi-codex-continuidad`, base e11684c, sin commits todavía) sobre concurrencia de agenda, `.ics` y exportación de datos propios. Este bloque no tocó esos archivos (`training/agenda.ts`, `privacy/*`, `MemberApp.tsx`). Su handoff es `docs/continuidad/CODEX_PARA_CLAUDE.md` (sin versionar; no integrar hasta que diga LISTO PARA INTEGRAR). Para su exportación: `contract_notice.ack_by` es dato del dueño (quién confirmó un aviso).
 - **Hecho:** tabla `contract_notice` (migración `0020_contract_notice`, dev local y **Supabase**, RLS); `src/server/commercial/notices.ts` (`publishNotice`, `noticesOf`, `ackNotices`, `trialNotices`, `requireOwner`); en `commercial/services.ts` avisos desde `addTerm`, `suspendClient`, `enableClient` (rehabilitación) y los nuevos `setTrial` y `setQuantityDefinition`; rutas Admin `POST /api/admin/contracts/[id]/trial` y `/definition`; `PATCH /api/conditions/[orgId]` («Entendido»); job `trialNotices` en `/api/cron/notifications` y `pnpm jobs:notifications`. UI: «Cambios en tus condiciones» en `gym/Access.tsx#ConditionsScreen` (gym y coach), badge en «Condiciones REPI» (`GymApp.tsx`, `CoachApp.tsx`), y en Admin (`AdminApp.tsx`) ajuste de prueba, cambio de criterio y tarjeta «Avisos al cliente».
