@@ -1141,10 +1141,11 @@ export const contractNotice = pgTable("contract_notice", {
   body: text("body").notNull(),
   effectiveFrom: text("effective_from"), // AAAA-MM-DD, si el cambio tiene fecha de efecto
   dedupeKey: text("dedupe_key").notNull(), // los automáticos (fin de prueba) no se repiten
-  createdBy: text("created_by").references(() => user.id), // null = generado por el job
+  // set null: borrar una cuenta (procedimiento D75) no puede quedar bloqueado por un aviso; el aviso se conserva.
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }), // null = generado por el job o autor borrado
   createdAt: now("created_at"),
   delivery: text("delivery", { enum: ["submitted", "local_only", "failed"] }),
-  ackBy: text("ack_by").references(() => user.id),
+  ackBy: text("ack_by").references(() => user.id, { onDelete: "set null" }),
   ackAt: ts("ack_at"),
 }, (t) => [uniqueIndex("contract_notice_dedupe_uq").on(t.contractId, t.dedupeKey), index("contract_notice_contract_idx").on(t.contractId, t.createdAt)]);
 

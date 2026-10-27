@@ -108,6 +108,16 @@ describe("avisos de cambio de condiciones", () => {
     expect((await kinds(soon.contractId)).sort()).toEqual(["trial_ended", "trial_ending"]);
   });
 
+  it("borrar la cuenta del dueño (procedimiento D75) no queda bloqueado por avisos confirmados", async () => {
+    const c = await setup();
+    await cm.addTerm(c.admin, c.contractId, { kind: "quantity", value: 3, effectiveFrom: "2026-11-01", reason: "Acuerdo inicial" });
+    await ackNotices(c.owner, c.orgId, null);
+    await db.delete(schema.user).where(eq(schema.user.id, c.owner));
+    const [n] = (await cm.contractDetail(c.admin, c.contractId)).notices;
+    expect(n.ackAt).not.toBeNull();
+    expect(n.ackBy).toBeNull();
+  });
+
   it("si el proveedor rechaza el correo, el cambio queda hecho y el aviso visible con la entrega fallida", async () => {
     const c = await setup();
     vi.stubEnv("MAIL_DRIVER", "resend");

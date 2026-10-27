@@ -148,6 +148,13 @@
       "when": 1793131355377,
       "tag": "0020_contract_notice",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793132052322,
+      "tag": "0021_contract_notice_user_delete",
+      "breakpoints": true
     }
   ]
 }
