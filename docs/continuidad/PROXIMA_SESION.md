@@ -1,8 +1,17 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, soporte e incidentes (D93). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Cierre de seguridad de lanzamiento (D87–D90)
+## Último bloque cerrado — 27/10/2026 · Soporte e incidentes (N-O11, D93)
+
+- **Por qué este:** era el primer pendiente V1 con código faltante (gate G10 «soporte»); los demás V1 abiertos dependen de teléfonos reales, textos legales o decisiones del titular.
+- **Hecho:** tabla `support_ticket` (migración `0013_support_ticket`, aplicada en dev local y **Supabase**, RLS activo); `src/server/support/services.ts` (openTicket con/sin sesión, diagnóstico de lista cerrada, deduplicación, límites; myTickets; listTickets/updateTicket para Admin; supportCounts en `adminSummary`); rutas `POST /api/support` (sesión opcional, helper `optionalUserId` en `access/http.ts`), `GET /api/me/support`, Admin `GET/POST /api/admin/support[/id]`; página pública `/ayuda` (`components/access/Support.tsx`); enlaces en login, Perfil del alumno y menú de Coach/Gym/Admin; `/acceso?step=rec1` abre «Olvidé mi contraseña»; pantalla Admin «Soporte» con badge, modal (incidente, tomar, nota interna, respuesta, reabrir) y tarjeta en Resumen. Procedimiento en `docs/SOPORTE_OPERACION.md`.
+- **Pruebas:** web 133/133 (nuevo `tests/support.test.ts`, 5), dominio 74/74, guardas 11/11, typecheck y `next build` OK. En navegador local (dev): `/ayuda` sin sesión en 375 px → consulta enviada con código; Admin → Resumen «Consultas de soporte 1» → Soporte → responder → sale de «Abiertas». Para esa prueba se marcó 2FA del Admin del seed sólo en `repi_dev` y se revirtió.
+- **Ojo:** `next build` en `apps/web` borra artefactos del `next dev` que esté corriendo (comparten `.next`): el dev server de la sesión de Codex en :3000 quedó devolviendo 500 y se reinició con el mismo comando (`pnpm --filter @repi/web dev`). Evitar build con un dev server activo, o reiniciarlo después.
+- **Pendiente del titular:** responsables y horario de soporte, correo público de contacto, verificación de identidad para 2FA perdido sin códigos de respaldo.
+- **Siguiente:** F-NT-01 centro de notificaciones del alumno (base: `member_notice`, `notification_outbox`, `/api/me/inbox`); luego V1.1 (F-HX-23 kg/lb, F-CO-16 informe mensual). V1 restante es externo: G03/G07 en teléfonos reales, G11 textos legales, G09 modalidad del piloto.
+
+## Bloque anterior — 27/10/2026 · Cierre de seguridad de lanzamiento (D87–D90)
 
 - **Origen:** plan `docs/superpowers/plans/2026-10-27-lanzamiento-repi.md` (otro agente lo empezó en la rama `codex/lanzamiento-repi`; Claude revisó su trabajo, completó lo que faltaba y lo llevó a `main`).
 - **Hecho:** cuentas del seed bloqueadas en el entorno hospedado y en Better Auth (D87); guardas de base local para tests/seed (`scripts/lib/database-target.ts`); primer Admin con ticket de un solo uso (`scripts/first-admin.ts`, `/activar-admin`, `src/server/admin/bootstrap.ts`); autorización por sede/turno sin mezclar roles, consentimiento y QR (D89); salida segura multipestaña, video con Range, íconos 192/512 (D90); bienvenida comercial con entrega honesta y condiciones serializadas, migración 0012 `invitation.delivery` aplicada en Supabase (D88); comentarios ocultos al salir de Repi Club; guardas de respaldo/restauración (`scripts/operations/guards.ts`).

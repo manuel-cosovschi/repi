@@ -4,6 +4,7 @@ import { body, handle, limit, sessionUserId } from "@/server/access/http";
 import { AccessError } from "@/server/access/util";
 import * as cm from "@/server/commercial/services";
 import * as pv from "@/server/privacy/services";
+import * as sp from "@/server/support/services";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -17,6 +18,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "summary") return cm.adminSummary(me);
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
+  if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" ? f : "active"); }
   if (a === "contracts" && b) {
     const start = u.searchParams.get("start"), end = u.searchParams.get("end");
     return cm.contractDetail(me, b, start && end && day.safeParse(start).success && day.safeParse(end).success ? { start, end } : undefined);
@@ -32,6 +34,12 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     return cm.createClient(me, await body(req, z.object({
       kind: z.enum(["gym", "coach"]), orgName: z.string().max(120), legalName: z.string().max(160), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3),
       scope: z.enum(["organization", "locations"]).optional(), scopeNote: z.string().max(300).nullable().optional(), quantityDefinition: z.string().max(300).nullable().optional(), locations: z.array(z.string().max(80)).max(30).optional(),
+    })));
+  }
+  if (a === "support" && b && !c) {
+    return sp.updateTicket(me, b, await body(req, z.object({
+      status: z.enum(["open", "in_progress", "resolved"]).optional(), severity: z.enum(["normal", "incident"]).optional(),
+      internalNote: z.string().max(1000).nullable().optional(), resolution: z.string().max(1000).nullable().optional(),
     })));
   }
   if (a === "privacy" && b && c === "resolve") return pv.resolvePrivacyRequest(me, b, await body(req, z.object({ status: z.enum(["done", "rejected"]), resolution: z.string().max(500) })));

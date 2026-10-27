@@ -38,7 +38,7 @@ Estado 27/10: **activo**. `RESEND_API_KEY` cargada por el titular; repiclub.com 
 
 - RLS activado en todas las tablas de `public` y sin privilegios para `anon`/`authenticated`: la API REST pública de Supabase no expone nada. `repi_app` es dueño y no está sujeto a RLS.
 - Migraciones nuevas: `scripts/migrate.ts` activa RLS en cualquier tabla nueva de `public` después de migrar.
-- Migraciones aplicadas en Supabase: 0000–0012. **Aplicar migraciones antes de hacer push del código que las necesita** (el deploy es automático).
+- Migraciones aplicadas en Supabase: 0000–0013. **Aplicar migraciones antes de hacer push del código que las necesita** (el deploy es automático).
 
 ## Operación
 

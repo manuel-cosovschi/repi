@@ -154,7 +154,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     setStep("workspace");
   }
 
-  // Parámetros de entrada: ?code= (enlace de invitación), ?sede= (QR de recepción), ?step=workspace|twofaSetup.
+  // Parámetros de entrada: ?code= (enlace de invitación), ?sede= (QR de recepción), ?step=workspace|twofaSetup|rec1.
   useEffect(() => {
     if (entry) saveEntry(entry.k, entry.v);
     else { const e = readEntry(); if (e) setResume(e); }
@@ -197,7 +197,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         if (session.data) {
           if (initial.step === "twofaSetup") { await loadMe(); setStep("twofaSetup"); return; }
           await afterAuth(null);
-        }
+        } else if (initial.step === "rec1") { setHist(["login"]); setStep("rec1"); } // desde Ayuda: «Olvidé mi contraseña»
       } catch (e) { fail(e instanceof Error ? e.message : "No pudimos cargar tu sesión."); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,6 +318,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         { pre: "¿Te invitaron?", label: "Tengo un código", go: () => to("code", "invite") },
         { pre: "", label: "¿Venís de un QR o una invitación?", go: () => to("recover") },
         { pre: "¿Querés conocer REPI?", label: "Probá la demo guiada", go: () => { window.location.href = "/demo"; } },
+        { pre: "¿No podés entrar?", label: "Ayuda y soporte", go: () => { window.location.href = "/ayuda?desde=/acceso"; } },
       ],
     }),
     recover: () => ({

@@ -2,7 +2,7 @@
 // REPI Admin (anexo 26/10 §3–4, §9): alta comercial, aceptación registrada, habilitación, cantidad y precio por cliente
 // con versiones, vista previa del período, cierre simulado e invitación de bienvenida al responsable.
 // No hay cobros reales: ciclo, prorrateo, mora y proveedor de pagos siguen pendientes (§12).
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { fmtMoney, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -38,8 +38,10 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
+type Screen = "summary" | "clients" | "leads" | "support" | "privacy";
+
 export function AdminApp({ me }: { me: { name: string } }) {
-  const [screen, setScreen] = useState<"summary" | "clients" | "leads" | "privacy">("summary");
+  const [screen, setScreen] = useState<Screen>("summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -49,21 +51,24 @@ export function AdminApp({ me }: { me: { name: string } }) {
   const [create, setCreate] = useState(false);
   const [regularize, setRegularize] = useState<Client | null>(null);
   const newLeads = list.data?.leads.filter((l) => l.status === "new").length ?? 0;
+  const sum = useLoad<Sum>("/api/admin/summary");
+  const openSupport = sum.data?.supportOpen ?? 0;
 
   return (
     <div className="co" data-drawer={drawer ? "1" : "0"}>
       <aside className="co-side" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["privacy", "Privacidad"]] as const).map(([k, l]) => (
-            <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); }}>
+          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["support", "Soporte"], ["privacy", "Privacidad"]] as const).map(([k, l]) => (
+            <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); if (k === "summary") void sum.reload(); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
+              {k === "support" && openSupport > 0 && <span className="nbadge" aria-label={`${openSupport} consultas abiertas`}>{openSupport}</span>}
             </button>
           ))}
         </nav>
         <div className="co-me">
           <span className="av">{initials(me.name)}</span>
-          <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button></small></span>
+          <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button> · <a href="/ayuda?desde=/admin" style={{ color: "inherit" }}>Ayuda</a></small></span>
         </div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
@@ -88,7 +93,8 @@ export function AdminApp({ me }: { me: { name: string } }) {
             </>
           )}
           {screen === "clients" && sel && <ContractView id={sel} flash={flash} back={() => { setSel(null); list.reload(); }} />}
-          {screen === "summary" && <Summary go={(k) => { setScreen(k); setSel(null); }} />}
+          {screen === "summary" && <Summary d={sum} go={(k) => { setScreen(k); setSel(null); }} />}
+          {screen === "support" && <SupportDesk flash={flash} onChange={sum.reload} />}
           {screen === "privacy" && <PrivacyRequests flash={flash} />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
         </div>
@@ -146,9 +152,8 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
 
 // F-AD-01: resumen desde acuerdos y eventos reales, sin DEMO. «Acordado» y «adopción» van separados; no hay «cobrado».
 type Sum = { clients: { total: number; enabled: number; draft: number; legacy: number; gyms: number; coaches: number }; agreed: number; adoption: number; overAgreed: number;
-  collected: null; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number };
-function Summary({ go }: { go: (k: "clients" | "leads" | "privacy") => void }) {
-  const d = useLoad<Sum>("/api/admin/summary");
+  collected: null; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number; supportOpen: number; incidentsOpen: number };
+function Summary({ d, go }: { d: { data: Sum | null; err: string | null }; go: (k: Exclude<Screen, "summary">) => void }) {
   const k = d.data;
   const tiles: [string, string, string, () => void][] = k ? [
     ["Clientes habilitados", String(k.clients.enabled), `${k.clients.total} en total · ${k.clients.gyms} gyms · ${k.clients.coaches} coaches`, () => go("clients")],
@@ -157,6 +162,7 @@ function Summary({ go }: { go: (k: "clients" | "leads" | "privacy") => void }) {
     ["Accesos habilitados", String(k.adoption), k.overAgreed ? `${k.overAgreed} cliente(s) por encima de lo acordado` : "Adopción real; no se factura por esto", () => go("clients")],
     ["Cobrado", "—", "Sin registro de pagos reales todavía", () => go("clients")],
     ["Contactos nuevos", String(k.leadsNew), "Pidieron que los contacten", () => go("leads")],
+    ["Consultas de soporte", String(k.supportOpen), k.incidentsOpen ? `${k.incidentsOpen} incidente(s) abierto(s)` : "Abiertas o en revisión", () => go("support")],
     ["Pedidos de privacidad", String(k.privacyPending), "Eliminaciones pendientes", () => go("privacy")],
     ["Accesos denegados (7 días)", String(k.deniedLast7d), `Avisos push fallidos (24 h): ${k.pushFailedLast24h}`, () => go("clients")],
   ] : [];
@@ -170,6 +176,87 @@ function Summary({ go }: { go: (k: "clients" | "leads" | "privacy") => void }) {
         </div>
       )}
     </>
+  );
+}
+
+// Soporte e incidentes (N-O11, D93). Procedimiento: docs/SOPORTE_OPERACION.md. Identificación mínima: nombre y correo
+// de la cuenta si escribió con sesión; sin sesión, el correo no está verificado y no se liga a ninguna cuenta.
+// Desde acá no se entra a la cuenta de nadie ni se cambian credenciales.
+type Ticket = {
+  id: string; code: string; identity: "session" | "unverified"; contactEmail: string; category: string; message: string; status: "open" | "in_progress" | "resolved";
+  severity: "normal" | "incident"; internalNote: string | null; resolution: string | null; createdAt: string; resolvedAt: string | null;
+  diagnostics: Record<string, string | number | boolean> | null; account: { name: string | null; email: string | null; emailVerified: boolean | null } | null;
+};
+const TCAT: Record<string, string> = { access: "No puede entrar", training: "Entrenamiento", sync: "Datos sin guardar", billing: "Pagos o contrato", privacy: "Privacidad", other: "Otro" };
+const TST: Record<Ticket["status"], [string, string]> = { open: ["Nueva", "warn"], in_progress: ["En revisión", "info"], resolved: ["Respondida", "ok"] };
+const DIAG: Record<string, string> = { appVersion: "Versión", platform: "Navegador", standalone: "Instalada", online: "Con conexión", pendingSync: "Sin sincronizar", path: "Pantalla" };
+function SupportDesk({ flash, onChange }: { flash: (t: string) => void; onChange: () => void }) {
+  const [filter, setFilter] = useState<"active" | "resolved" | "all">("active");
+  const list = useLoad<Ticket[]>(`/api/admin/support?filter=${filter}`);
+  const [open, setOpen] = useState<Ticket | null>(null);
+  return (
+    <>
+      <Head kicker="Consultas de alumnos, staff y clientes. Respondé por el correo de contacto y registrá acá qué se hizo. Sin sesión, el correo no está verificado: no hagas cambios de cuenta sin verificar identidad." title="Soporte">
+        <select aria-label="Filtrar consultas" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="btn">
+          <option value="active">Abiertas</option><option value="resolved">Respondidas</option><option value="all">Todas</option>
+        </select>
+      </Head>
+      {list.err && <p role="alert" className="err-box">{list.err}</p>}
+      {!list.data ? <p className="muted">Cargando…</p> : !list.data.length ? <div className="empty">{filter === "active" ? "No hay consultas abiertas." : "No hay consultas."}</div> : list.data.map((t) => (
+        <div key={t.id} className="gy-task">
+          <span style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <b>{t.code} · {TCAT[t.category] ?? t.category}{t.severity === "incident" && <> <span className="chip bad">Incidente</span></>}</b>
+            <small className="muted">{t.account ? `${t.account.name ?? "Cuenta"} · ${t.account.email}` : `${t.contactEmail} · sin sesión (no verificado)`} · {fmt(t.createdAt)}</small>
+            <small style={{ overflowWrap: "anywhere" }}>{t.message.length > 180 ? `${t.message.slice(0, 180)}…` : t.message}</small>
+          </span>
+          <span className={`chip ${TST[t.status][1]}`}>{TST[t.status][0]}</span>
+          <button type="button" className="btn sm" onClick={() => setOpen(t)}>Abrir</button>
+        </div>
+      ))}
+      {open && <TicketModal t={open} flash={flash} onClose={(changed) => { setOpen(null); if (changed) { list.reload(); onChange(); } }} />}
+    </>
+  );
+}
+
+function TicketModal({ t, flash, onClose }: { t: Ticket; flash: (t: string) => void; onClose: (changed: boolean) => void }) {
+  const [note, setNote] = useState(t.internalNote ?? "");
+  const [reply, setReply] = useState(t.resolution ?? "");
+  const [busy, setBusy] = useState(false);
+  const save = async (patch: Partial<Pick<Ticket, "status" | "severity">>, msg: string) => {
+    setBusy(true);
+    try {
+      await api(`/api/admin/support/${t.id}`, { body: { ...patch, internalNote: note, resolution: reply } });
+      flash(msg); onClose(true);
+    } catch (e) { flash((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Modal label={`Consulta ${t.code}`} onClose={() => onClose(false)} wide>
+      <div className="mhead"><h2>{t.code} · {TCAT[t.category] ?? t.category}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
+      <p className="muted" style={{ margin: 0 }}>
+        {t.account ? <>Con sesión: <b>{t.account.name}</b> · {t.account.email}{t.account.emailVerified ? " (verificado)" : " (sin verificar)"}</>
+          : <>Sin sesión · escribió <b>{t.contactEmail}</b>. Identidad no verificada: antes de cualquier cambio de cuenta, verificá con el procedimiento.</>}
+        {" "}· {fmt(t.createdAt)}
+      </p>
+      <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: 0 }}>{t.message}</p>
+      {t.diagnostics && (
+        <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 12px", margin: 0, fontSize: 13 }}>
+          {Object.entries(t.diagnostics).map(([k, v]) => (
+            <Fragment key={k}><dt className="muted">{DIAG[k] ?? k}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{typeof v === "boolean" ? (v ? "Sí" : "No") : String(v)}</dd></Fragment>
+          ))}
+        </dl>
+      )}
+      <label className="field">Nota interna (no la ve la persona)<textarea className="note" rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      <label className="field">{t.identity === "session" ? "Respuesta (la ve en Ayuda y soporte)" : "Qué se respondió por correo"}<textarea className="note" rows={3} maxLength={1000} value={reply} onChange={(e) => setReply(e.target.value)} /></label>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <button type="button" className="btn" disabled={busy} onClick={() => save({ severity: t.severity === "incident" ? "normal" : "incident" }, t.severity === "incident" ? "Ya no figura como incidente." : "Marcada como incidente.")}>
+          {t.severity === "incident" ? "Quitar incidente" : "Marcar como incidente"}</button>
+        {t.status === "open" && <button type="button" className="btn" disabled={busy} onClick={() => save({ status: "in_progress" }, "En revisión.")}>Tomar</button>}
+        {t.status === "resolved"
+          ? <button type="button" className="btn" disabled={busy} onClick={() => save({ status: "open" }, "Consulta reabierta.")}>Reabrir</button>
+          : <button type="button" className="btn pri" disabled={busy} onClick={() => save({ status: "resolved" }, "Consulta respondida.")}>Marcar como respondida</button>}
+        {t.status !== "resolved" && <button type="button" className="btn" disabled={busy} onClick={() => save({}, "Guardado.")}>Guardar</button>}
+      </div>
+    </Modal>
   );
 }
 

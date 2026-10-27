@@ -76,6 +76,11 @@
 }
 .ac-field input:focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 2px; }
 .ac-field input[aria-invalid="true"] { border-color: var(--semantic-error); }
+.ac-field textarea {
+  min-height: 120px; border-radius: 12px; border: 1px solid var(--t-border); background: var(--t-input); color: var(--t-ink);
+  padding: 12px 14px; font: 400 16px/1.45 var(--font-ui); width: 100%; resize: vertical;
+}
+.ac-field textarea:focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 2px; }
 .ac-field input.code { height: 60px; font: 600 26px var(--font-mono); letter-spacing: .4em; }
 .ac-hint { font-size: 12px; font-weight: 500; color: var(--t-muted); }
 .ac-hint.ok { color: var(--access-success-ink); }
@@ -105,6 +110,7 @@ button.ac-row:hover { border-color: var(--core-cyan); }
 .ac-row small { font-size: 12px; color: var(--t-muted); }
 .ac-badge { height: 24px; padding: 0 8px; border-radius: 7px; background: var(--t-badge-bg); color: var(--t-badge-ink); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; flex: none; }
 .ac-badge.cyan { background: var(--core-cyan); color: var(--core-navy900); }
+.ac-badge.ok { background: var(--semantic-chip-ok-bg, var(--core-turquoise)); color: var(--semantic-chip-ok-ink, var(--core-navy900)); }
 .ac-badge.warn { background: var(--semantic-chip-warn-bg); color: var(--semantic-chip-warn-ink); }
 
 .ac-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.45; color: var(--t-ink2); }

@@ -523,6 +523,28 @@ export const privacyRequest = pgTable("privacy_request", {
   createdAt: now("created_at"),
 }, (t) => [index("privacy_request_status_idx").on(t.status)]);
 
+// Soporte e incidentes (N-O11, D93). Una consulta con sesión queda ligada a la cuenta; sin sesión sólo guarda el correo
+// que escribió la persona (identidad no verificada: no se vincula a una cuenta por coincidir el email). Sin contenido de
+// otras personas ni datos de salud: el diagnóstico es una lista cerrada de datos técnicos que la persona aceptó adjuntar.
+export const supportTicket = pgTable("support_ticket", {
+  id: id(),
+  code: text("code").notNull().unique(), // referencia para hablar con la persona (S-XXXXXX); no da acceso a nada
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  contactEmail: text("contact_email").notNull(),
+  identity: text("identity", { enum: ["session", "unverified"] }).notNull(),
+  category: text("category", { enum: ["access", "training", "sync", "billing", "privacy", "other"] }).notNull(),
+  message: text("message").notNull(),
+  diagnostics: jsonb("diagnostics"),
+  status: text("status", { enum: ["open", "in_progress", "resolved"] }).notNull().default("open"),
+  severity: text("severity", { enum: ["normal", "incident"] }).notNull().default("normal"),
+  internalNote: text("internal_note"), // sólo REPI Admin
+  resolution: text("resolution"), // respuesta visible para la persona con sesión
+  resolvedBy: text("resolved_by"),
+  resolvedAt: ts("resolved_at"),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [index("support_ticket_status_idx").on(t.status, t.severity), index("support_ticket_user_idx").on(t.userId)]);
+
 // Límites de intentos compartidos entre instancias serverless (D74). La memoria de cada función no sirve en Vercel.
 // rate_limit: tabla de Better Auth (modelo «rateLimit»). app_rate_limit: ventana fija por clave para las rutas propias.
 export const rateLimit = pgTable("rate_limit", {

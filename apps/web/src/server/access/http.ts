@@ -12,6 +12,12 @@ export async function sessionUserId(): Promise<string> {
   return s.user.id;
 }
 
+/** Rutas abiertas a quien no tiene sesión (soporte): el usuario si la hay, si no null. */
+export async function optionalUserId(): Promise<string | null> {
+  const s = await auth.api.getSession({ headers: await headers() }).catch(() => null);
+  return s?.user.id ?? null;
+}
+
 export async function limit(bucket: string, max = 10, windowMs = 60_000) {
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";

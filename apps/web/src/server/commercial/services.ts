@@ -11,6 +11,7 @@ import { AccessError, addDays, audit, newInviteCode, newToken, sha256 } from "..
 import { MailError, deliverMail } from "../mailer";
 import { logError } from "../log";
 import { enabledAccesses } from "../join/services";
+import { supportCounts } from "../support/services";
 
 const { user, organization, gymLocation, staffMembership, invitation, clientContract, contractTerm, billingSnapshot, correctionRequest, commercialLead, legalAcceptance } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -93,6 +94,7 @@ export async function adminSummary(actorId: string, now = new Date()) {
     privacyPending: await count(db.select({ n }).from(schema.privacyRequest).where(eq(schema.privacyRequest.status, "pending"))),
     deniedLast7d: await count(db.select({ n }).from(schema.auditEvent).where(and(eq(schema.auditEvent.action, "access.denied"), gte(schema.auditEvent.at, since7)))),
     pushFailedLast24h: await count(db.select({ n }).from(schema.notificationOutbox).where(and(eq(schema.notificationOutbox.status, "failed"), gte(schema.notificationOutbox.createdAt, since1)))),
+    ...(await supportCounts()),
   };
 }
 
