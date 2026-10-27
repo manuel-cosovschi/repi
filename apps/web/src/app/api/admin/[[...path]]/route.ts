@@ -5,6 +5,7 @@ import { AccessError } from "@/server/access/util";
 import * as cm from "@/server/commercial/services";
 import * as pv from "@/server/privacy/services";
 import * as sp from "@/server/support/services";
+import * as bp from "@/server/commercial/payments";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -12,13 +13,14 @@ const id = z.string().min(1).max(64);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const GET = handle<Ctx>(async (req, { params }) => {
-  const [a, b] = (await params).path ?? [];
+  const [a, b, c] = (await params).path ?? [];
   const me = await sessionUserId();
   const u = new URL(req.url);
   if (a === "summary") return cm.adminSummary(me);
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" ? f : "active"); }
+  if (a === "contracts" && b && c === "payments") return bp.contractPayments(me, b);
   if (a === "contracts" && b) {
     const start = u.searchParams.get("start"), end = u.searchParams.get("end");
     return cm.contractDetail(me, b, start && end && day.safeParse(start).success && day.safeParse(end).success ? { start, end } : undefined);
@@ -42,6 +44,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       internalNote: z.string().max(1000).nullable().optional(), resolution: z.string().max(1000).nullable().optional(),
     })));
   }
+  if (a === "payments" && b && c === "void") return bp.voidPayment(me, b, (await body(req, z.object({ reason: z.string().max(200) }))).reason);
   if (a === "privacy" && b && c === "resolve") return pv.resolvePrivacyRequest(me, b, await body(req, z.object({ status: z.enum(["done", "rejected"]), resolution: z.string().max(500) })));
   if (a === "clients" && b && c === "regularize") {
     return cm.regularize(me, b, await body(req, z.object({ legalName: z.string().max(160), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3) })));
@@ -52,6 +55,10 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       case "enable": return cm.enableClient(me, b, await body(req, z.object({ trialUntil: day.nullable().optional() })));
       case "suspend": return cm.suspendClient(me, b, (await body(req, z.object({ reason: z.string().max(300) }))).reason);
       case "terms": return cm.addTerm(me, b, await body(req, z.object({ kind: z.enum(["quantity", "unit_price"]), value: z.number().int().nonnegative(), effectiveFrom: day, reason: z.string().max(300), evidence: z.string().max(300).nullable().optional() })));
+      case "payments": return bp.recordPayment(me, b, await body(req, z.object({
+        amountMinor: z.number().int(), receivedOn: day, method: z.enum(["transferencia", "deposito", "efectivo", "otro"]), reference: z.string().max(200),
+        snapshotId: z.string().max(64).nullable().optional(), note: z.string().max(300).nullable().optional(),
+      })));
       case "close": return cm.closePeriodSimulated(me, b, await body(req, z.object({ start: day, end: day })));
       case "invite": return cm.sendOwnerInvitation(me, b);
       case "revoke-invite": return cm.revokeOwnerInvitation(me, b);

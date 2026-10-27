@@ -173,7 +173,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-CO-11 | Importación CSV | integrado 27/10 (D99; importa invitaciones, no cuentas; tests/import.test.ts; navegador local) · documentado | Preview CSV con mapeo, validación por fila, deduplicación e informe; confirmar sólo filas válidas sin duplicar al reintentar. |
 | F-CO-12 | Configuración / perfil público | sin_implementar · documentado | Perfil/configuración editables y persistidos; distinguir campos públicos de privados y preview antes de exponer datos. |
 | F-BL-01 | Cobros manuales del coach a sus clientes | probado 27/10 (D80) · confirmado | Separado de suscripción REPI |
-| F-AD-04 | Admin · cobros | sin_implementar · documentado | Lista de cargos/pagos con estado/evidencia, conciliación y correcciones auditadas; cierre simulado no se declara cobro. |
+| F-AD-04 | Admin · cobros | parcial 27/10 (D102: registro manual de pagos externos con evidencia y conciliación; sin pasarela ni comprobante fiscal) · documentado | Lista de cargos/pagos con estado/evidencia, conciliación y correcciones auditadas; cierre simulado no se declara cobro. |
 | F-PU-01 | Sitio público | sin_implementar · documentado | Sitio responsive con identidad aprobada, producto real, contacto comercial y enlaces legales; no prometer features no disponibles ni alta libre. |
 | F-CO-16 | Informe mensual para el alumno (PDF en la app) | integrado 27/10 (D96; PDF vía impresión del navegador; tests/report.test.ts; navegador local) · documentado | Informe generado desde datos persistidos. |
 | F-CO-17 | Ingresos esperado vs cobrado | probado 27/10 (D80) · documentado | Valores derivados de cargos/pagos registrados. |

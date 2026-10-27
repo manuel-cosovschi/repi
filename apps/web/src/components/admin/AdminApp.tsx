@@ -152,7 +152,7 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
 
 // F-AD-01: resumen desde acuerdos y eventos reales, sin DEMO. «Acordado» y «adopción» van separados; no hay «cobrado».
 type Sum = { clients: { total: number; enabled: number; draft: number; legacy: number; gyms: number; coaches: number }; agreed: number; adoption: number; overAgreed: number;
-  collected: null; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number; supportOpen: number; incidentsOpen: number };
+  collected: null; externalPaymentsMonth: string[]; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number; supportOpen: number; incidentsOpen: number };
 function Summary({ d, go }: { d: { data: Sum | null; err: string | null }; go: (k: Exclude<Screen, "summary">) => void }) {
   const k = d.data;
   const tiles: [string, string, string, () => void][] = k ? [
@@ -160,7 +160,7 @@ function Summary({ d, go }: { d: { data: Sum | null; err: string | null }; go: (
     ["Por habilitar", String(k.clients.draft), k.clients.legacy ? `${k.clients.legacy} a regularizar` : "Borrador o aceptados", () => go("clients")],
     ["Cantidad acordada", String(k.agreed), "Suma de contratos habilitados (base de facturación)", () => go("clients")],
     ["Accesos habilitados", String(k.adoption), k.overAgreed ? `${k.overAgreed} cliente(s) por encima de lo acordado` : "Adopción real; no se factura por esto", () => go("clients")],
-    ["Cobrado", "—", "Sin registro de pagos reales todavía", () => go("clients")],
+    ["Pagos externos (mes)", k.externalPaymentsMonth.length ? k.externalPaymentsMonth.join(" · ") : "—", "Registrados a mano; REPI no cobra ni factura", () => go("clients")],
     ["Contactos nuevos", String(k.leadsNew), "Pidieron que los contacten", () => go("leads")],
     ["Consultas de soporte", String(k.supportOpen), k.incidentsOpen ? `${k.incidentsOpen} incidente(s) abierto(s)` : "Abiertas o en revisión", () => go("support")],
     ["Pedidos de privacidad", String(k.privacyPending), "Eliminaciones pendientes", () => go("privacy")],
@@ -331,6 +331,72 @@ function ClientModal({ flash, onClose, regularize }: { flash: (t: string) => voi
   );
 }
 
+// Pagos externos registrados (F-AD-04, N-O22, D102): constancia manual con evidencia y conciliación contra cierres.
+// No es una pasarela, no es un cobro de REPI ni un comprobante fiscal.
+type Pays = {
+  currency: Currency; methods: Record<string, string>; unassignedTxt: string;
+  payments: { id: string; snapshotId: string | null; amountTxt: string; receivedOn: string; method: string; reference: string; note: string | null; status: "recorded" | "voided"; voidReason: string | null; by: string }[];
+  reconciliation: { snapshotId: string; period: string; expectedTxt: string; paidTxt: string; balanceTxt: string; state: "paid" | "partial" | "unpaid" | "over" }[];
+};
+const REC: Record<Pays["reconciliation"][number]["state"], [string, string]> = { paid: ["Saldado", "ok"], partial: ["Saldo pendiente", "warn"], unpaid: ["Sin pagos registrados", "mute"], over: ["Excedente", "info"] };
+function PaymentsCard({ id, flash }: { id: string; flash: (t: string) => void }) {
+  const d = useLoad<Pays>(`/api/admin/contracts/${id}/payments`);
+  const [f, setF] = useState({ amount: "", receivedOn: today(), method: "transferencia", reference: "", snapshotId: "", note: "" });
+  const [busy, setBusy] = useState(false);
+  if (!d.data) return <section className="card"><h2 style={{ margin: 0, fontSize: 18 }}>5 · Pagos externos registrados</h2>{d.err ? <p role="alert" className="err-box">{d.err}</p> : <p className="muted">Cargando…</p>}</section>;
+  const v = d.data;
+  const save = async () => {
+    const minor = parseMoney(f.amount, v.currency);
+    if (minor == null || minor <= 0) { flash("Escribí un importe válido."); return; }
+    setBusy(true);
+    try {
+      await api(`/api/admin/contracts/${id}/payments`, { body: { amountMinor: minor, receivedOn: f.receivedOn, method: f.method, reference: f.reference, snapshotId: f.snapshotId || null, note: f.note || null } });
+      flash("Pago registrado. Es una constancia, no un comprobante fiscal."); setF({ ...f, amount: "", reference: "", note: "" }); d.reload();
+    } catch (e) { flash((e as Error).message); } finally { setBusy(false); }
+  };
+  const annul = async (pid: string) => {
+    const reason = window.prompt("¿Por qué se anula este pago? Queda en el historial.");
+    if (!reason?.trim()) return;
+    try { await api(`/api/admin/payments/${pid}/void`, { body: { reason } }); flash("Pago anulado."); d.reload(); } catch (e) { flash((e as Error).message); }
+  };
+  return (
+    <section className="card" aria-label="Pagos externos registrados">
+      <h2 style={{ margin: 0, fontSize: 18 }}>5 · Pagos externos registrados</h2>
+      <span className="muted" style={{ fontSize: 13 }}>Propuesta de piloto: el cliente paga por fuera y acá queda la constancia con su evidencia. REPI no cobra ni mueve dinero; esto no es un comprobante fiscal.</span>
+      {v.reconciliation.length > 0 && (
+        <table className="gy-table"><thead><tr><th>Cierre</th><th>Esperado</th><th>Registrado</th><th>Estado</th></tr></thead>
+          <tbody>{v.reconciliation.map((r) => <tr key={r.snapshotId}><td>{r.period}</td><td>{r.expectedTxt}</td><td>{r.paidTxt}</td>
+            <td><span className={`chip ${REC[r.state][1]}`}>{REC[r.state][0]}{r.state === "partial" || r.state === "over" ? ` · ${r.balanceTxt}` : ""}</span></td></tr>)}</tbody></table>
+      )}
+      <form onSubmit={(e) => { e.preventDefault(); void save(); }} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <label className="field" style={{ flex: "1 1 140px" }}>Importe ({v.currency})<input required inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="120.000" /></label>
+          <label className="field" style={{ flex: "1 1 140px" }}>Fecha de pago<input type="date" required max={today()} value={f.receivedOn} onChange={(e) => setF({ ...f, receivedOn: e.target.value })} /></label>
+          <label className="field" style={{ flex: "1 1 140px" }}>Medio<select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{Object.entries(v.methods).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <label className="field" style={{ flex: "2 1 220px" }}>Evidencia<input required maxLength={200} value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} placeholder="N.º de operación, comprobante enviado por el cliente…" /></label>
+          <label className="field" style={{ flex: "1 1 180px" }}>Cierre<select value={f.snapshotId} onChange={(e) => setF({ ...f, snapshotId: e.target.value })}><option value="">Sin asignar</option>{v.reconciliation.map((r) => <option key={r.snapshotId} value={r.snapshotId}>{r.period}</option>)}</select></label>
+        </div>
+        <label className="field">Nota (opcional)<input maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+        <button type="submit" className="btn" style={{ alignSelf: "flex-start" }} aria-busy={busy || undefined}>Registrar pago</button>
+      </form>
+      {!v.payments.length ? <span className="muted" style={{ fontSize: 14 }}>Sin pagos registrados.</span> : (
+        <table className="gy-table"><thead><tr><th>Fecha</th><th>Importe</th><th>Medio y evidencia</th><th>Cierre</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+          <tbody>{v.payments.map((p) => (
+            <tr key={p.id} style={{ opacity: p.status === "voided" ? 0.55 : 1 }}>
+              <td>{p.receivedOn}</td><td><b>{p.amountTxt}</b></td>
+              <td>{v.methods[p.method] ?? p.method} · {p.reference}{p.note ? <><br /><small className="muted">{p.note}</small></> : null}<br /><small className="muted">Registró {p.by}{p.status === "voided" ? ` · Anulado: ${p.voidReason}` : ""}</small></td>
+              <td>{v.reconciliation.find((r) => r.snapshotId === p.snapshotId)?.period ?? "Sin asignar"}</td>
+              <td>{p.status === "recorded" && <button type="button" className="btn sm" onClick={() => annul(p.id)}>Anular</button>}</td>
+            </tr>
+          ))}</tbody></table>
+      )}
+      {v.unassignedTxt && v.payments.some((p) => !p.snapshotId && p.status === "recorded") && <span className="muted" style={{ fontSize: 13 }}>Sin asignar a un cierre: {v.unassignedTxt}</span>}
+    </section>
+  );
+}
+
 function ContractView({ id, flash, back }: { id: string; flash: (t: string) => void; back: () => void }) {
   const [period, setPeriod] = useState(monthOf(today()));
   const d = useLoad<Detail>(`/api/admin/contracts/${id}?start=${period.start}&end=${period.end}`);
@@ -438,6 +504,8 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
             <tbody>{v.snapshots.map((s) => <tr key={s.id}><td>{s.periodStart} → {s.periodEnd}</td><td>{s.quantity}</td><td>{fmtMoney(s.unitPriceMinor, s.currency as Currency)}</td><td>{s.subtotalTxt}</td><td>{fmt(s.createdAt)}</td></tr>)}</tbody></table>
         </>}
       </section>
+
+      <PaymentsCard id={id} flash={flash} />
 
       <div className="grid-2">
         <section className="card" aria-label="Pedidos de corrección">

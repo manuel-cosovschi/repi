@@ -12,6 +12,7 @@ import { MailError, deliverMail } from "../mailer";
 import { logError } from "../log";
 import { enabledAccesses } from "../join/services";
 import { supportCounts } from "../support/services";
+import { paymentsThisMonth } from "./payments";
 
 const { user, organization, gymLocation, staffMembership, invitation, clientContract, contractTerm, billingSnapshot, correctionRequest, commercialLead, legalAcceptance } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -89,7 +90,8 @@ export async function adminSummary(actorId: string, now = new Date()) {
     agreed: enabled.reduce((a, c) => a + (c.agreed ?? 0), 0),
     adoption: enabled.reduce((a, c) => a + c.enabledAccesses, 0),
     overAgreed: clients.filter((c) => c.overAgreed).length,
-    collected: null as null, // sin registro de pagos reales: no se informa «cobrado»
+    collected: null as null, // REPI no cobra: no se informa «cobrado»
+    externalPaymentsMonth: await paymentsThisMonth(now), // pagos externos registrados a mano (D102), por moneda
     leadsNew: leads.filter((l) => l.status === "new").length,
     privacyPending: await count(db.select({ n }).from(schema.privacyRequest).where(eq(schema.privacyRequest.status, "pending"))),
     deniedLast7d: await count(db.select({ n }).from(schema.auditEvent).where(and(eq(schema.auditEvent.action, "access.denied"), gte(schema.auditEvent.at, since7)))),

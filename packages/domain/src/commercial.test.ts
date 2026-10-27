@@ -33,6 +33,11 @@ describe("facturación por cantidad acordada (anexo §9, criterios 12–16)", ()
     expect(parseMoney("450")).toBe(45000);
     expect(parseMoney("12,5")).toBe(1250);
     expect(parseMoney("abc")).toBeNull();
+    // Punto de miles sin decimales (como se escribe en es-AR): «25.000» y «1.250.000».
+    expect(parseMoney("25.000")).toBe(2_500_000);
+    expect(parseMoney("1.250.000")).toBe(125_000_000);
+    expect(parseMoney("150.5")).toBe(15050);
+    expect(parseMoney("1.2345")).toBeNull();
   });
 });
 

@@ -1110,6 +1110,27 @@ export const billingSnapshot = pgTable("billing_snapshot", {
   createdAt: now("created_at"),
 }, (t) => [uniqueIndex("billing_snapshot_period_unique").on(t.contractId, t.periodStart, t.mode)]);
 
+// Pagos externos registrados por REPI Admin (F-AD-04, N-O22, D102). Propuesta de piloto sujeta a confirmación: el cliente
+// paga por fuera (transferencia, etc.) y Admin registra el pago con evidencia, opcionalmente contra un cierre de período.
+// No es una pasarela, no mueve dinero y no es comprobante fiscal. Anular exige motivo; nada se borra.
+export const billingPayment = pgTable("billing_payment", {
+  id: id(),
+  contractId: text("contract_id").notNull().references(() => clientContract.id, { onDelete: "cascade" }),
+  snapshotId: text("snapshot_id").references(() => billingSnapshot.id),
+  amountMinor: integer("amount_minor").notNull(),
+  currency: text("currency").notNull(),
+  receivedOn: text("received_on").notNull(), // AAAA-MM-DD
+  method: text("method", { enum: ["transferencia", "deposito", "efectivo", "otro"] }).notNull(),
+  reference: text("reference").notNull(), // evidencia: n.º de operación, comprobante del cliente, etc.
+  note: text("note"),
+  status: text("status", { enum: ["recorded", "voided"] }).notNull().default("recorded"),
+  voidReason: text("void_reason"),
+  createdBy: text("created_by").notNull().references(() => user.id),
+  voidedBy: text("voided_by").references(() => user.id),
+  createdAt: now("created_at"),
+  voidedAt: ts("voided_at"),
+}, (t) => [index("billing_payment_contract_idx").on(t.contractId, t.receivedOn)]);
+
 export const correctionRequest = pgTable("correction_request", {
   id: id(),
   contractId: text("contract_id").notNull().references(() => clientContract.id, { onDelete: "cascade" }),

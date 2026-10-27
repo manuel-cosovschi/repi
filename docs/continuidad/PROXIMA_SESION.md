@@ -1,12 +1,20 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, centro de avisos del staff (D101). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, pagos externos registrados (D102). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Centro de avisos del staff gym (F-HX-26, D101)
+## Último bloque cerrado — 27/10/2026 · Pagos externos registrados por Admin (F-AD-04 parcial, D102)
+
+- **Hecho:** tabla `billing_payment` (migración `0019_billing_payment`, dev local y **Supabase**, RLS); `src/server/commercial/payments.ts` (`contractPayments`, `recordPayment`, `voidPayment`, `paymentsThisMonth`); rutas Admin `GET /api/admin/contracts/[id]/payments`, `POST /api/admin/contracts/[id]/payments`, `POST /api/admin/payments/[id]/void`; `PaymentsCard` en `AdminApp.tsx` (ficha del contrato) y tarjeta «Pagos externos (mes)» en el Resumen (`adminSummary.externalPaymentsMonth`).
+- **Bug corregido:** `parseMoney` rechazaba montos con punto de miles («25.000», «150.000»): afectaba Cobros del coach (D80) y el nuevo registro. Tests agregados en `packages/domain/src/commercial.test.ts`.
+- **Pruebas:** web 153/153 (nuevo `tests/payments.test.ts`, 2), dominio 87/87, guardas 11/11, build OK. Navegador local (Admin del seed con 2FA marcado temporalmente en `repi_dev` y revertido): registrar ARS 150.000 con evidencia → aparece en la tabla «Sin asignar» → se anuló por API con motivo. El Resumen no lo suma porque Gym Norte es DEMO (correcto).
+- **Pendiente del titular (G09):** confirmar si el piloto opera con pago externo registrado; ciclo, corte, mora y fiscalidad siguen sin definir (D04–D05).
+- **Siguiente:** F-BL-05 aviso al cliente de cambios de condiciones (historial visible en «Condiciones REPI») o F-PU-01 sitio público con contacto comercial.
+
+## Bloque anterior — 27/10/2026 · Centro de avisos del staff gym (F-HX-26, D101)
 
 - **Hecho:** columna `notification_outbox.read_at` + índice por usuario (migración `0018_staff_notice_read`, dev local y **Supabase**); `src/server/gym/notices.ts` (`myStaffNotices`, `markStaffNoticesRead`); rutas `GET /api/gym/[orgId]/notices` y `POST /api/gym/[orgId]/notices/read` en el dispatcher; `components/gym/Notices.tsx`; ítem «Avisos» con badge en `GymApp.tsx`; estilos `.gy-notice` en `gym.css`.
 - **Pruebas:** web 151/151 (nuevo caso en `tests/annex.test.ts`: aviso sólo de la sede, escalamiento a recepción, resuelto por otro, leído por persona, ajeno 404), guardas 11/11, build OK. Navegador local con recepción del seed: aviso «Solicitud esperando · Palermo» (solicitud de prueba creada en `repi_dev` y luego cancelada) → abre Solicitudes con la solicitud seleccionada y el badge baja a 0.
-- **Siguiente:** revisar V1 restante en el catálogo; candidatos internos: F-AD-04 Admin · cobros (registro manual con evidencia, sin pasarela) o F-BL-05 aviso al cliente de cambios de suscripción; externos: G03/G07 teléfonos, G11 textos legales, G09 modalidad del piloto.
+- **Deploy:** 52cd4fe verificado.
 
 ## Bloque anterior — 27/10/2026 · Entrega de invitaciones de coach y equipo (D100)
 

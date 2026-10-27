@@ -28,7 +28,9 @@ export const isCurrency = (x: unknown): x is Currency => typeof x === "string" &
 export function parseMoney(input: string, currency: Currency = "ARS"): number | null {
   const t = input.trim().replace(/\s/g, "");
   if (!t) return null;
-  const norm = /,\d{1,2}$/.test(t) ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, "");
+  // es-AR: «1.234,56» (coma decimal), «150.000» (punto de miles), «150000» o «150.5». Tres dígitos tras un punto = miles.
+  const norm = /,\d{1,2}$/.test(t) ? t.replace(/\./g, "").replace(",", ".")
+    : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, "") : t.replace(/,/g, "");
   if (!/^\d{1,12}(\.\d{1,2})?$/.test(norm)) return null;
   const [i, d = ""] = norm.split(".");
   const dec = CURRENCIES[currency];
