@@ -4,7 +4,7 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6, persistente 9, probado 72, sin_implementar 54.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6, persistente 9, probado 77, sin_implementar 49.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
@@ -29,9 +29,9 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-BI-10 | Coach ve Mi cuerpo compartido | Body Intelligence | Coach | documentado | prototipo interactivo | sin_implementar | features.json · F-BI-10 | Solo tipos compartidos; "No compartido" si no |
 | F-BI-11 | Carga de DXA/bioimpedancia/laboratorio (PDF) + extracción revisada | Body Intelligence | Alumno | documentado | sin diseño | sin_implementar | features.json · F-BI-11 | Revisión humana obligatoria; requiere revisión legal |
 | F-PR-01 | Compartir/revocar por tipo de dato con historial de accesos | Privacidad | Alumno | confirmado | prototipo interactivo | probado | features.json · F-PR-01 | Cada cambio en log; revocación inmediata |
-| F-PR-02 | Exportar y eliminar datos | Privacidad | Alumno | documentado | diseño parcial | sin_implementar | features.json · F-PR-02 | Simulado en prototipo |
-| F-PR-03 | Notas institucionales vs personales | Privacidad | Entrenador de sala | documentado | prototipo interactivo | sin_implementar | features.json · F-PR-03 | Etiqueta de visibilidad; personales nunca en traspasos/reportes |
-| F-PR-04 | Acceso denegado + auditoría de intentos | Privacidad | Gerente, dueño | documentado | prototipo interactivo | sin_implementar | features.json · F-PR-04 | Intento registrado; estado explícito, no vacío |
+| F-PR-02 | Exportar y eliminar datos | Privacidad | Alumno | documentado | diseño parcial | probado | features.json · F-PR-02 | Simulado en prototipo |
+| F-PR-03 | Notas institucionales vs personales | Privacidad | Entrenador de sala | documentado | prototipo interactivo | probado | features.json · F-PR-03 | Etiqueta de visibilidad; personales nunca en traspasos/reportes |
+| F-PR-04 | Acceso denegado + auditoría de intentos | Privacidad | Gerente, dueño | documentado | prototipo interactivo | probado | features.json · F-PR-04 | Intento registrado; estado explícito, no vacío |
 | F-PR-05 | Datos de salud del alumno al coach por consentimiento | Privacidad | Coach | confirmado | prototipo interactivo | probado | features.json · F-PR-05 | Bloqueado sin grant; "Pedir acceso" envía solicitud |
 | F-MS-01 | Chat coach–alumno | Mensajería | Coach, alumno | documentado | prototipo interactivo | probado | features.json · F-MS-01 | Solo relaciones activas |
 | F-MS-02 | Mensajería autorizada en el gym | Mensajería | Entrenador de sala, socio | documentado | sin diseño | probado | features.json · F-MS-02 | Criterio de aceptación vacío en el handoff: definir |
@@ -85,7 +85,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-GR-02 | Reservas de clases | Gym | Socio | documentado | sin diseño | sin_implementar | features.json · F-GR-02 | Criterio de aceptación vacío en el handoff: definir |
 | F-MO-01 | Cuenta multi-organización y selector de espacio | Multi-organización | Todos | documentado | prototipo interactivo | persistente | features.json · F-MO-01 | Permisos nunca se cruzan |
 | F-MO-02 | Socio con gym + coach privado (dos relaciones) | Multi-organización | Alumno | en_conflicto (GAP-24: selector de relación activa sin regla de programa) | diseño parcial | probado | features.json · F-MO-02 · v4 no agrega selector de relación; sigue GAP-24 | Prototipado en gym v2 (retirado); app v3 sólo tweak alumnoTipo |
-| F-AD-01 | Admin · resumen | Administración REPI | REPI Admin | documentado | prototipo interactivo | sin_implementar | features.json · F-AD-01 | Criterio de aceptación vacío en el handoff: definir |
+| F-AD-01 | Admin · resumen | Administración REPI | REPI Admin | documentado | prototipo interactivo | probado | features.json · F-AD-01 | Criterio de aceptación vacío en el handoff: definir |
 | F-AD-02 | Admin · clientes y alta | Administración REPI | REPI Admin | confirmado | prototipo interactivo | probado | features.json · F-AD-02 | Criterio de aceptación vacío en el handoff: definir |
 | F-AD-03 | Admin · suscripción editable (plan, tramos, mínimo, descuento, día de cobro, criterio de conteo) | Administración REPI | REPI Admin | confirmado | prototipo interactivo | probado | features.json · F-AD-03 | Cambios rigen desde el próximo cobro; log |
 | F-AD-04 | Admin · cobros | Administración REPI | REPI Admin | documentado | prototipo interactivo | sin_implementar | features.json · F-AD-04 | Criterio de aceptación vacío en el handoff: definir |
@@ -124,7 +124,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 24, no_aplica 6,
 | F-CL-11 | Nota y RPE de sesión al finalizar | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | REPI App Alumno v4.dc.html ('Después de entrenar', 'Elegí el esfuerzo de la sesión'); Auditoría 1.4/1.5 | Persistido con la sesión. |
 | F-CL-12 | RIR opcional por serie | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | REPI App Alumno v4.dc.html ('Reps en reserva'); Auditoría 1.5 | Opcional; no bloquea completar serie. |
 | F-CL-13 | Solicitudes del alumno: pedir ayuda, cambiar rutina, revisar técnica (video opcional) | Entrenamiento / Gym / Coach | Alumno, socio | documentado | prototipo interactivo | probado | REPI App Alumno v4.dc.html ('Cambiar mi rutina', 'Revisar mi técnica', 'Adjuntar video (opcional)'); Auditoría 3.1 🔴, 2.7 | Pedido llega como tarea al destinatario correcto y cambia de estado en ambos lados. |
-| F-CL-14 | Aviso de programa nuevo/actualizado con autor | Entrenamiento | Alumno | documentado | prototipo interactivo | sin_implementar | REPI App Alumno v4.dc.html ('Programa nuevo', 'actualizó tu programa'); Auditoría 2.1/3.2 🔴 | Asignación genera aviso; versión anterior consultable. |
+| F-CL-14 | Aviso de programa nuevo/actualizado con autor | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | REPI App Alumno v4.dc.html ('Programa nuevo', 'actualizó tu programa'); Auditoría 2.1/3.2 🔴 | Asignación genera aviso; versión anterior consultable. |
 | F-CL-15 | Estado vacío sin programa + 'Pedir mi programa' | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | REPI App Alumno v4.dc.html ('Todavía no tenés programa'); GAP-20 | Pedido llega a coach/equipo de sala. |
 | F-CL-16 | Indicador offline / pendiente de sincronizar / guardado en el teléfono | Entrenamiento | Alumno | documentado | prototipo interactivo (simulado) | probado | REPI App Alumno v4.dc.html ('Sin conexión...', 'series pendientes', 'Simular sin conexión'); GAP-02 | Ver F-CL-07. |
 | F-PR-06 | Solicitudes de acceso del coach recibidas en la app: aceptar/rechazar | Privacidad | Alumno, coach | confirmado | prototipo interactivo | probado | REPI App Alumno v4.dc.html ('Solicitudes de acceso', 'Quiere ver tu'); Desktop Coach ('Solicitud enviada · esperando respuesta', 'Rechazada por el alumno'); Auditoría 1.9 🔴 | Circuito cerrado en ambas superficies; revocación efectiva. |

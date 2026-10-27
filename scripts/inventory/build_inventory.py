@@ -70,6 +70,8 @@ REPO_STATUS = {
     "F-RC-01": "probado", "F-RC-02": "probado", "F-RC-03": "probado", "F-RC-05": "probado",
     # Anexo 26/10/2026 · alta comercial, condiciones por cliente, QR de sede y push (sin cobros reales)
     "F-AD-02": "probado", "F-AD-03": "probado", "F-BL-02": "integrado", "F-BL-03": "integrado", "F-NT-02": "integrado",
+    # 27/10/2026 · evidencia en docs/IMPLEMENTATION_STATUS.md (D75–D79) y tests (privacy, denied, training, gym)
+    "F-PR-02": "probado", "F-PR-03": "probado", "F-PR-04": "probado", "F-AD-01": "probado", "F-CL-14": "probado",
 }
 
 NEW = [

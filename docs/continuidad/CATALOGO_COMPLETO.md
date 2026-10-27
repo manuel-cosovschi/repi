@@ -19,9 +19,9 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-CL-06 | Progreso (fuerza, volumen, constancia, medidas) | persistente · documentado | Volumen = series×reps×peso documentado; "Datos insuficientes" para lo no medido |
 | F-CL-07 | Offline + sincronización idempotente | probado · documentado | Sin pérdida ni duplicado al reconectar (E2E 5 del brief) |
 | F-PR-01 | Compartir/revocar por tipo de dato con historial de accesos | probado · confirmado | Cada cambio en log; revocación inmediata |
-| F-PR-02 | Exportar/eliminar datos propios con procedimiento operativo | sin_implementar · documentado | V1: canal autenticado y procedimiento verificable; automatización completa V1.1. Retención y backups deben explicarse. |
-| F-PR-03 | Notas institucionales vs personales | sin_implementar · documentado | Etiqueta de visibilidad; personales nunca en traspasos/reportes |
-| F-PR-04 | Acceso denegado + auditoría de intentos | sin_implementar · documentado | Intento registrado; estado explícito, no vacío |
+| F-PR-02 | Exportar/eliminar datos propios con procedimiento operativo | probado 27/10 (D75) · documentado | V1: canal autenticado y procedimiento verificable; automatización completa V1.1. Retención y backups deben explicarse. |
+| F-PR-03 | Notas institucionales vs personales | probado 27/10 (test gym «notas personales») · documentado | Etiqueta de visibilidad; personales nunca en traspasos/reportes |
+| F-PR-04 | Acceso denegado + auditoría de intentos | probado 27/10 (D78) · documentado | Intento registrado; estado explícito, no vacío |
 | F-PR-05 | Datos de salud del alumno al coach por consentimiento | probado · confirmado | Bloqueado sin grant; "Pedir acceso" envía solicitud |
 | F-MS-01 | Chat coach–alumno | probado · documentado | Solo relaciones activas |
 | F-MS-02 | Mensajería autorizada en el gym | probado · documentado | Conversación por relación/sede autorizada; envío persistente y visible a participantes; identificar quién respondió, bloquear acceso ajeno y relaciones inactivas. |
@@ -65,7 +65,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-GR-01 | Rol recepción | integrado · documentado | Recepción aprueba altas, registra ingreso/entrega premio autorizado sin turno de piso; no hereda fichas sensibles. |
 | F-MO-01 | Cuenta multi-organización y selector de espacio | persistente · documentado | Permisos nunca se cruzan |
 | F-MO-02 | Socio con gym + coach privado (dos relaciones) | probado · en_conflicto | Prototipado en gym v2 (retirado); app v3 sólo tweak alumnoTipo |
-| F-AD-01 | Admin · resumen | sin_implementar · documentado | Resumen operativo/comercial desde acuerdos y eventos reales; separar cantidades acordadas/adopción/cobrado; sin métricas DEMO. |
+| F-AD-01 | Admin · resumen | probado 27/10 (D79) · documentado | Resumen operativo/comercial desde acuerdos y eventos reales; separar cantidades acordadas/adopción/cobrado; sin métricas DEMO. |
 | F-AD-02 | Admin · clientes y alta | probado · confirmado | Crear ficha comercial válida, registrar aceptación/habilitación e invitar; reabrir ficha tras persistir; no autohabilitar. |
 | F-AD-03 | Admin: cantidad acordada y tarifa versionadas por cliente | probado · confirmado | Cambios futuros y snapshots inmutables; no cambiar base a uso ni restaurar precios demo. |
 | F-RC-01 | Repi Club · feed y publicaciones de logros | probado · documentado | Voluntario; nunca datos de salud |
@@ -98,7 +98,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-CL-11 | Nota y RPE de sesión al finalizar | probado · documentado | Persistido con la sesión. |
 | F-CL-12 | RIR opcional por serie | probado · documentado | Opcional; no bloquea completar serie. |
 | F-CL-13 | Solicitudes del alumno: pedir ayuda, cambiar rutina, revisar técnica (video opcional) | probado · documentado | Pedido llega como tarea al destinatario correcto y cambia de estado en ambos lados. |
-| F-CL-14 | Aviso de programa nuevo/actualizado con autor | sin_implementar · documentado | Asignación genera aviso; versión anterior consultable. |
+| F-CL-14 | Aviso de programa nuevo/actualizado con autor | probado 27/10 (D77) · documentado | Asignación genera aviso; versión anterior consultable. |
 | F-CL-15 | Estado vacío sin programa + 'Pedir mi programa' | probado · documentado | Pedido llega a coach/equipo de sala. |
 | F-CL-16 | Indicador offline / pendiente de sincronizar / guardado en el teléfono | probado · documentado | Ver F-CL-07. |
 | F-PR-06 | Solicitudes de acceso del coach recibidas en la app: aceptar/rechazar | probado · confirmado | Circuito cerrado en ambas superficies; revocación efectiva. |
