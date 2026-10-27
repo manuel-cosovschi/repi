@@ -4,7 +4,7 @@ Este laboratorio responde a la corrección humana del 26/10/2026: conservar exac
 
 ## Antes de integrar
 
-Esperar una selección concreta del usuario o el archivo `REPI_SELECCION_VISUAL.md` exportado por él. No interpretar la opción B inicial, una preferencia del asistente o una captura como aprobación. El comparador no edita el proyecto productivo. Después de recibir la selección, adaptar el código activo y los documentos de diseño correspondientes; no reiniciar ni copiar la demo por encima de la aplicación.
+Selección confirmada el 26/10/2026: **G · Atlética**. Leer [REPI_SELECCION_VISUAL.md](../../../REPI_SELECCION_VISUAL.md) y [motion.md](../../../motion.md) en la raíz de Repi. La espera de una selección ya está resuelta; aplicar la configuración G registrada allí. La opción B inicial y las capturas de otras variantes no son aprobaciones. El comparador no edita el proyecto productivo. Después de recibir la selección, adaptar el código activo y los documentos de diseño correspondientes; no reiniciar ni copiar la demo por encima de la aplicación.
 
 Leer la configuración en `lab.js`: `FONTS`, `ICONS`, `NAVS`, `MOTIONS`, `PRESETS`. La exportación de la interfaz indica los cuatro valores exactos. `lab.css` demuestra proporciones y estados; las implementaciones finales deben usar los componentes/stack ya elegidos.
 
@@ -23,7 +23,7 @@ Se copiaron sin modificar `wm_full.png` y `repi_icon.png` de los assets de Repi.
 
 ## Tipografía
 
-Elegir una sola dirección entre DM Sans, Manrope, Plus Jakarta Sans, Outfit, Sora, Space Grotesk + DM Sans, Barlow Condensed + Barlow y Geist. Inter Tight aparece como comparación con la fuente declarada en el proyecto. No sustituir la tipografía de marca.
+La dirección elegida es **Barlow Condensed + Barlow** (G · Atlética). Las demás familias del laboratorio son alternativas descartadas para esta integración. Inter Tight aparece como comparación con la fuente declarada en el proyecto. No sustituir la tipografía de marca.
 
 - El cuerpo permanece legible; Barlow Condensed se reserva a títulos grandes y no se usa para texto largo, chat, campos o tablas.
 - Usar números tabulares en métricas, cargas, repeticiones y cronómetros. No mantener monoespaciado generalizado si la elección es usar números de la familia de UI.

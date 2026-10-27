@@ -3,6 +3,8 @@
 // Accesible: diálogo modal, foco inicial y atrapado, Esc cierra, fondo inerte, foco restaurado.
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Ic } from "@/components/ui/Ic";
+import { VideoCamera } from "@phosphor-icons/react";
 
 export type SheetGroup<T extends string | number> = { label: string; minW?: number; opts: [T, string][]; value: T | null | undefined; onPick: (v: T) => void };
 
@@ -49,7 +51,7 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
         {text && <textarea rows={3} value={text.value} maxLength={1000} placeholder={text.placeholder} aria-label={text.placeholder} onChange={(e) => text.onChange(e.target.value)} />}
         {video && (
           <label className="sheet-video">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7h12v10H3zM15 10l6-3v10l-6-3" /></svg>
+            <Ic i={VideoCamera} size={20} />
             {video.file ? `Video listo · ${(video.file.size / 1_048_576).toFixed(1).replace(".", ",")} MB` : video.label ?? "Adjuntar video (opcional)"}
             <input type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" onChange={(e) => video.onPick(e.target.files?.[0] ?? null)} />
           </label>

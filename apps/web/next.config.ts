@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const config: NextConfig = {
   transpilePackages: ["@repi/domain"],
+  // Importa sólo los íconos usados (Phosphor exporta más de 1.500).
+  experimental: { optimizePackageImports: ["@phosphor-icons/react"] },
   poweredByHeader: false,
   async headers() {
     return [{

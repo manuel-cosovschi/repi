@@ -13,6 +13,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--core-cyan); text-decoration: none; }
 a:hover { color: var(--core-turquoise); }
 :focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 2px; }
+/* Títulos destacados G · Atlética: Barlow Condensed 700 en mayúsculas visuales (el texto del DOM no cambia).
+   Sólo h1 y héroes; chats, formularios, tablas e instrucciones siguen en Barlow. */
+.display { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: -.015em; line-height: 1.02; text-wrap: balance; overflow-wrap: anywhere; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

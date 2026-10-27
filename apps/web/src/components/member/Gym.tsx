@@ -6,6 +6,10 @@ import { renderSVG } from "uqr";
 import { ATTEMPT_VIDEO_LIMITS, CHALLENGE_CATEGORIES, CHALLENGE_UNITS, CLUB_COMMENT_MAX, CLUB_POST_MAX, DIVISIONS, RANK_FILTERS, attemptValueOk, type ChallengeUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
+import { Ic } from "@/components/ui/Ic";
+import { Ambient, useReveal } from "@/components/motion/Ambient";
+import { Carousel } from "@/components/motion/Carousel";
+import { Check, QrCode, VideoCamera } from "@phosphor-icons/react";
 
 type Home = {
   org: { id: string; name: string }; location: { id: string; name: string; receptionHours: string | null }; safety: string; minorRestricted: boolean; onFloor: string[];
@@ -29,6 +33,7 @@ export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash
   const [card, setCard] = useState(false);
   const [award, setAward] = useState<Home["notices"][number] | null>(null);
   const load = useCallback(() => api<Home>("/api/me/gym/home").then((x) => { setH(x); setErr(null); return x; }).catch((e) => { setErr(e.message); return null; }), []);
+  const rv = useReveal(!!h || !!err || offline);
   useEffect(() => { if (offline) return; void load().then((x) => {
     // Overlay de logro validado (AN-21) con el aviso más reciente sin ver.
     const n = x?.notices.find((y) => y.unseen && y.kind === "attempt_approved");
@@ -37,13 +42,14 @@ export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash
     if (x?.notices.some((y) => y.unseen) || x?.achievements.some((y) => y.unseen)) void api("/api/me/gym/notices/seen", { body: {} }).then(onSeen).catch(() => {});
   }); }, [load, offline]); // eslint-disable-line react-hooks/exhaustive-deps
   if (offline) return <><h1 tabIndex={-1} style={{ marginTop: 6 }}>Tu gym</h1><div className="dashed-card"><span>Sin conexión. La comunidad del gym necesita conexión.</span></div></>;
-  if (err) return <p className="mb-err" role="alert">{err}</p>;
-  if (!h) return <span className="mb-muted">Cargando…</span>;
+  if (err) return <><p className="mb-err" role="alert">{err}</p><button type="button" className="ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => void load()}>Reintentar</button></>;
+  if (!h) return rv.ambient ? <Ambient label="Cargando tu gym" /> : null;
   return (
-    <>
+    <div className={rv.leaving ? "m03-in" : undefined} style={{ display: "flex", flexDirection: "column", gap: 22, position: "relative" }}>
+      {rv.leaving && <Ambient label="Cargando tu gym" leaving />}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={{ fontSize: 13, color: "#5DE6D8", fontWeight: 600 }}>{h.org.name} · {h.location.name}</span><h1 tabIndex={-1}>Tu gym</h1></div>
       <button type="button" className="hbanner" onClick={() => setCard(true)}>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00D1FF" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2" /></svg>
+        <Ic i={QrCode} size={28} color="#00D1FF" />
         <span><b style={{ fontSize: 15 }}>Mi carnet</b><small>{h.readyPrizes ? "Tenés premios para retirar" : "QR para recepción, premios y descuentos"}</small></span>
         {h.readyPrizes > 0 && <span className="pill-cyan">{h.readyPrizes} premio{h.readyPrizes === 1 ? "" : "s"}</span>}
       </button>
@@ -58,8 +64,8 @@ export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash
           )}
           {h.notices.slice(0, 3).map((n) => <div key={n.id} className="hbanner" style={{ cursor: "default" }}><span style={{ width: 8, height: 8, borderRadius: 4, background: n.kind === "attempt_rejected" ? "#EF4444" : "#00D1FF", flex: "none" }} /><span><b>{n.title}</b><small>{n.body}</small></span></div>)}
           {!h.posts.length && <div className="dashed-card" style={{ textAlign: "center" }}><span>{h.org.name} todavía no publicó novedades.</span></div>}
-          {h.posts.map((p) => (
-            <article key={p.id} className="gpost">
+          <Carousel items={h.posts} label={`Novedades de ${h.org.name}`} resetKey={`${h.org.id}:${h.location.id}`} render={(p) => (
+            <article className="gpost">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {p.imageId && <img src={`/api/media/${p.imageId}`} alt="" />}
               <div>
@@ -67,7 +73,7 @@ export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash
                 <b>{p.title}</b>{p.text && <p>{p.text}</p>}
               </div>
             </article>
-          ))}
+          )} />
         </>
       )}
       {tab === "ch" && (
@@ -95,7 +101,7 @@ export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash
                 </div>
                 {c.status === "active" && st !== "pending" && !h.minorRestricted && (
                   <button type="button" className="cta" style={{ height: 46, fontSize: 15 }} onClick={() => setUp(c)}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7h12v10H3zM15 10l6-3v10l-6-3" /></svg>
+                    <Ic i={VideoCamera} size={18} color="#0B0F14" />
                     {st === "rejected" ? "Intentar de nuevo" : st === "approved" ? "Superar mi marca" : "Subir intento"}
                   </button>
                 )}
@@ -125,7 +131,7 @@ export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash
       {rank && <RankSheet c={rank} onClose={() => setRank(null)} />}
       {card && <CardSheet onClose={() => setCard(false)} />}
       {award && <Award n={award} onClose={() => { setAward(null); setTab("logros"); }} />}
-    </>
+    </div>
   );
 }
 
@@ -219,7 +225,7 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
     <Sheet title={c.title} closeLabel="Cerrar" onClose={() => (pct !== null && !sent ? undefined : onClose(sent))}>
       {sent ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", padding: "20px 0" }}>
-          <span className="okdot" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#00D1FF" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+          <span className="okdot" aria-hidden="true"><Ic i={Check} size={26} color="#00D1FF" /></span>
           <span style={{ fontSize: 20, fontWeight: 600 }}>Enviado para validar</span>
           <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>El equipo revisa el video. Te avisamos cuando lo validen.</span>
           <button type="button" className="ghost" style={{ height: 46, padding: "0 22px" }} onClick={() => onClose(true)}>Listo</button>
@@ -234,7 +240,7 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
           <p className="mb-note"><strong style={{ color: "#F8FAFC" }}>Regla:</strong> {c.rule}</p>
           {!file ? (
             <label className="sheet-video" style={{ height: 150, flexDirection: "column" }}>
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00D1FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7h12v10H3zM15 10l6-3v10l-6-3" /></svg>
+              <Ic i={VideoCamera} size={30} color="#00D1FF" />
               <span style={{ fontSize: 15, fontWeight: 600 }}>Grabar o elegir video</span><small className="mb-muted">Que se vea el intento completo, de principio a fin</small>
               <input type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
             </label>

@@ -2,7 +2,7 @@
 // App del alumno (PWA móvil). Estructura y jerarquía de handoff/.../REPI App Alumno v4.dc.html; datos de /api/me.
 // Diferencia documentada (D30): los días del programa no tienen día de semana fijo; se elige el día y se sugiere
 // el próximo por rotación. La semana muestra días entrenados reales.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { formatClock, formatRest, formatDayEs, WEEK_LETTERS } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -10,12 +10,16 @@ import { allLocal, delLocal, ensureOwner, loadTraining, openLocal, putLocal, sav
 import { enqueue, pendingFor } from "@/lib/offline/queue";
 import { ApiError } from "@/lib/api";
 import { Wordmark } from "@/components/access/Wordmark";
+import { prefersReducedMotion } from "@/lib/motion";
+import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Workout } from "./Workout";
 import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./FollowSheets";
 import { MemberMessages } from "./Messages";
 import { GymTabView } from "./Gym";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
 import { metaTxt, prevTxt, type Training } from "./types";
+import { Ic } from "@/components/ui/Ic";
+import { Barbell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -69,7 +73,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     return null;
   }, [loadInbox]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (tab === "prog") api<{ sessions: History }>("/api/me/history").then((r) => setHist(r.sessions)).catch(() => setHist(null)); }, [tab]);
+  const [histErr, setHistErr] = useState(false);
+  const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist(r.sessions)).catch(() => { setHist(null); setHistErr(true); }); }, []);
+  useEffect(() => { if (tab === "prog") loadHist(); }, [tab, loadHist]);
   // Service worker sólo en producción (en desarrollo interfiere con la recarga en caliente).
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
@@ -79,9 +85,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       (reg.active ?? navigator.serviceWorker.controller)?.postMessage({ type: "cache", urls });
     }).catch(() => {});
   }, []);
-  useEffect(() => { window.scrollTo(0, 0); }, [tab, workout]);
+  // Cambio de sección (G · Atlética): la barra queda fija, el contenido entra con un fundido de 160 ms (CSS .tab-pane)
+  // y cada sección recupera su scroll. Lo no sincronizado vive en IndexedDB y no depende de la pestaña montada.
+  const scrolls = useRef<Record<string, number>>({});
+  useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [tab, workout]);
 
-  const go = (x: Tab) => { setTab(x); setWorkout(null); };
+  const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); };
   // Con el programa institucional activo, quien indica es el equipo de sala (D11).
   const coachFirst = t?.relation?.kind === "gym" ? "el equipo de sala" : t?.coach?.name.split(" ")[0] ?? "tu coach";
   const days = t?.program?.days ?? [];
@@ -116,6 +125,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     } catch { flash("Este navegador no permite guardar datos en el teléfono; no se puede entrenar sin conexión."); }
   };
 
+  const tabs = ([["home", "Inicio", House], ["train", "Entrenar", Barbell], ["prog", "Progreso", ChartLineUp], ["msgs", "Mensajes", ChatCircle],
+    ...(inbox?.gym ? [["gym", "Gym", Storefront] as const] : [])] as const);
+
   if (workout) return (
     <div className="mb"><div className="mb-col">
       <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
@@ -129,22 +141,24 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         {err && <p role="alert" className="mb-err">{err}</p>}
         {offlineAt && <p className="offline-bar" role="status">Sin conexión · programa guardado el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(offlineAt))}</p>}
         {!t ? <p className="mb-muted">Cargando…</p> : (
-          <>
+          <div key={tab} className="tab-pane">
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} go={go}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} /><Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} /></>}
-            {tab === "prog" && <Progress t={t} hist={hist} />}
+            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} />}
-          </>
+          </div>
         )}
       </main>
-      <nav className="tabbar" aria-label="Principal" style={{ ["--n" as string]: inbox?.gym ? 5 : 4 }}>
-        {([["home", "Inicio", "M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z"], ["train", "Entrenar", "M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"], ["prog", "Progreso", "M4 11h4v9H4zM10 5h4v15h-4zM16 8h4v12h-4z"], ["msgs", "Mensajes", "M4 5h16v11H9l-5 4z"],
-          ...(inbox?.gym ? [["gym", "Gym", "M4 10h16l-1.6-5H5.6zM5 10v10h14V10M10 20v-5h4v5"] as const] : [])] as const).map(([k, l, d]) => (
+      {/* Barra Cristal flotante: cápsula con indicador interior; los rótulos quedan para lectores de pantalla. */}
+      <div className="tabfade" aria-hidden="true" />
+      <nav className="tabbar" aria-label="Principal" style={{ ["--n" as string]: tabs.length, ["--i" as string]: tabs.findIndex((x) => x[0] === tab) }}>
+        <i className="tab-ind" aria-hidden="true" data-off={tabs.some((x) => x[0] === tab) ? undefined : "1"} />
+        {tabs.map(([k, l, d]) => (
           <button key={k} type="button" aria-current={tab === k ? "page" : undefined} onClick={() => go(k)} style={{ position: "relative" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>{l}
+            <Ic i={d} size={24} /><span className="tab-lbl">{l}</span>
             {k === "msgs" && !!inbox?.unreadThreads && <span className="tab-badge" aria-label={`${inbox.unreadThreads} conversaciones sin leer`}>{inbox.unreadThreads}</span>}
             {k === "gym" && !!inbox?.gymUnseen && <span className="tab-dot" aria-label={`${inbox.gymUnseen} ${inbox.gymUnseen === 1 ? "aviso" : "avisos"} del gym`} />}
           </button>
@@ -208,10 +222,10 @@ function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, relo
     } catch (e) { flash((e as Error).message); }
   };
   const pendingProgram = gymRel ? inbox?.gymRequests.some((r) => r.category === "programa_nuevo" && r.status !== "done") : inbox?.requests.some((r) => r.kind === "programa" && r.status === "open");
-  const QUICK: [string, string, () => void][] = [
-    ["Pedir ayuda", "M12 18h.01M9.1 9a3 3 0 015.8 1c0 2-3 2.5-3 4M12 21a9 9 0 110-18 9 9 0 010 18z", () => onSheet({ type: "help" })],
-    ["Molestia", "M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z", () => onSheet({ type: "pain" })],
-    ["Check-in", "M5 12.5l4.5 4.5L19 7.5", () => (inbox?.checkinToday ? flash("Ya hiciste el check-in de hoy.") : next ? onSheet({ type: "checkin", dayId: "" }) : flash("Sin programa no hay entrenamiento para iniciar."))],
+  const QUICK: [string, Icon, () => void][] = [
+    ["Pedir ayuda", Question, () => onSheet({ type: "help" })],
+    ["Molestia", Warning, () => onSheet({ type: "pain" })],
+    ["Check-in", CheckCircle, () => (inbox?.checkinToday ? flash("Ya hiciste el check-in de hoy.") : next ? onSheet({ type: "checkin", dayId: "" }) : flash("Sin programa no hay entrenamiento para iniciar."))],
   ];
   return (
     <>
@@ -227,7 +241,7 @@ function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, relo
             <span className="today-art" aria-hidden="true" />
             <span className="today-txt"><small>{t.openSession ? "Entrenamiento en curso" : "Próximo entrenamiento"}</small><strong>{t.openSessionDay ?? next.name}</strong><span>{t.openSession ? "Tocá para continuar donde lo dejaste" : `${next.exercises.length} ejercicios · ${next.exercises.reduce((a, e) => a + e.sets, 0)} series`}</span></span>
           </button>
-          <button type="button" className="play" aria-label={t.openSession ? "Continuar entrenamiento" : "Comenzar entrenamiento"} onClick={() => onStart(next.id)}><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="#F8FAFC" /></svg></button>
+          <button type="button" className="play" aria-label={t.openSession ? "Continuar entrenamiento" : "Comenzar entrenamiento"} onClick={() => onStart(next.id)}><Ic i={Play} size={20} weight="fill" color="#F8FAFC" /></button>
         </div>
       ) : t.state === "scheduled" ? (
         <div className="dashed-card"><strong>Tu programa empieza el {formatDayEs(t.startsOn!)}</strong><span>{cap(coachFirst)} ya te lo asignó. Ese día lo vas a ver acá.</span></div>
@@ -267,7 +281,7 @@ function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, relo
       ))}
       {!offline && (
         <div className="quick">{QUICK.map(([l, d, fn]) => (
-          <button key={l} type="button" onClick={fn}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5DE6D8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>{l}</button>
+          <button key={l} type="button" onClick={fn}><Ic i={d} size={20} color="#5DE6D8" />{l}</button>
         ))}</div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}><h2>Semana</h2><WeekStrip t={t} /></div>
@@ -315,20 +329,91 @@ function Train({ t, sel, setSel, coachFirst, onStart }: { t: Training; sel: numb
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
-      <div className="daytabs" role="tablist" aria-label={`Días de ${t.program.name}`}>
-        {t.program.days.map((x, i) => (
-          <button key={x.id} type="button" role="tab" className="daytab" aria-selected={i === sel} onClick={() => setSel(i)} aria-label={`Día ${i + 1}: ${x.name}${i === t.program!.nextDay ? " (próximo)" : ""}`}>
-            <small>Día {i + 1}</small><b>{x.name}</b>{i === t.program!.nextDay && <span className="nxt">Próximo</span>}
-          </button>
-        ))}
-      </div>
+      <DayTabs t={t} sel={sel} setSel={setSel} />
+      <DayDetail t={t} d={d} coachFirst={coachFirst} />
+      {d.exercises.length > 0 && (
+        <button type="button" className="cta" onClick={() => onStart(d.id)}>
+          <Ic i={Play} size={18} weight="fill" color="#0B0F14" />{t.openSession ? "Continuar entrenamiento en curso" : "Comenzar entrenamiento"}
+        </button>
+      )}
+    </>
+  );
+}
+
+type Day = NonNullable<Training["program"]>["days"][number];
+
+/**
+ * M01 (motion.md): la superficie de selección se transfiere al día elegido en 200 ms con cubic-bezier(.2,0,0,1)
+ * y retargetea desde su posición actual ante toques rápidos (transición CSS, sin cola). Elegir no inicia la sesión.
+ */
+function DayTabs({ t, sel, setSel }: { t: Training; sel: number; setSel: (i: number) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [ind, setInd] = useState<{ x: number; w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const b = box.current?.querySelectorAll<HTMLElement>(".daytab")[sel];
+    if (!b) return;
+    setInd({ x: b.offsetLeft, w: b.offsetWidth, h: b.offsetHeight });
+    b.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [sel, t.program?.days.length]);
+  const days = t.program!.days;
+  const key = (e: React.KeyboardEvent) => {
+    const n = e.key === "ArrowRight" ? sel + 1 : e.key === "ArrowLeft" ? sel - 1 : e.key === "Home" ? 0 : e.key === "End" ? days.length - 1 : null;
+    if (n == null) return;
+    e.preventDefault();
+    const i = (n + days.length) % days.length;
+    setSel(i);
+    box.current?.querySelectorAll<HTMLElement>(".daytab")[i]?.focus();
+  };
+  return (
+    <div className="daytabs" role="tablist" aria-label={`Días de ${t.program!.name}`} ref={box} onKeyDown={key}>
+      {ind && <i className="daytab-ind" aria-hidden="true" style={{ transform: `translateX(${ind.x}px)`, width: ind.w, height: ind.h }} />}
+      {days.map((x, i) => (
+        <button key={x.id} type="button" role="tab" className="daytab" aria-selected={i === sel} tabIndex={i === sel ? 0 : -1} aria-controls="day-detail" onClick={() => setSel(i)}
+          aria-label={`Día ${i + 1}: ${x.name}${i === t.program!.nextDay ? " (próximo)" : ""}`}>
+          <small>Día {i + 1}</small><b>{x.name}</b>{i === t.program!.nextDay && <span className="nxt">Próximo</span>}
+          <span className="daytab-ck" aria-hidden="true"><Ic i={Check} size={12} /></span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * M01: el detalle anterior se retira en 100 ms mientras el nuevo entra a los 50 ms (150 ms, opacidad y 4 px vertical).
+ * La copia saliente es inerte y oculta a lectores de pantalla: no duplica foco ni anuncios. Movimiento reducido: cambio inmediato.
+ */
+function DayDetail({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string }) {
+  const [ghost, setGhost] = useState<{ d: Day; n: number } | null>(null);
+  const prev = useRef(d);
+  const n = useRef(0);
+  useLayoutEffect(() => {
+    if (prev.current.id === d.id) return;
+    const old = prev.current;
+    prev.current = d;
+    if (prefersReducedMotion()) return;
+    const k = ++n.current;
+    setGhost({ d: old, n: k });
+    const tm = setTimeout(() => setGhost((g) => (g?.n === k ? null : g)), 160);
+    return () => clearTimeout(tm);
+  }, [d]);
+  return (
+    <div className="daydetail" id="day-detail" role="tabpanel" aria-label={d.name}>
+      {ghost && <div className="daydetail-out" key={`g${ghost.n}`} aria-hidden="true" inert><DayBody t={t} d={ghost.d} coachFirst={coachFirst} /></div>}
+      <div className={ghost ? "daydetail-in" : undefined} key={d.id}><DayBody t={t} d={d} coachFirst={coachFirst} /></div>
+    </div>
+  );
+}
+
+function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span className="kick">{t.program.name} · versión {t.program.version}</span>
-        <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-.02em" }}>{d.name}</span>
+        <span className="kick">{t.program!.name} · versión {t.program!.version}</span>
+        <span className="dayname">{d.name}</span>
         <span className="mb-muted" style={{ fontSize: 14 }}>{d.exercises.length} ejercicios · {d.exercises.reduce((a, e) => a + e.sets, 0)} series</span>
       </div>
-      {t.program.note && (
-        <div className="coachnote"><span className="av32" aria-hidden="true">{(t.relation?.kind === "gym" ? "Equipo Sala" : t.coach?.name ?? "C").split(" ").map((w) => w[0]).slice(0, 2).join("")}</span><span><small>{t.relation?.kind === "gym" ? "Indicación del equipo de sala" : `Indicación de ${coachFirst}`}</small><p>{t.program.note}</p></span></div>
+      {t.program!.note && (
+        <div className="coachnote"><span className="av32" aria-hidden="true">{(t.relation?.kind === "gym" ? "Equipo Sala" : t.coach?.name ?? "C").split(" ").map((w) => w[0]).slice(0, 2).join("")}</span><span><small>{t.relation?.kind === "gym" ? "Indicación del equipo de sala" : `Indicación de ${coachFirst}`}</small><p>{t.program!.note}</p></span></div>
       )}
       <div className="exlist">
         {d.exercises.map((e) => (
@@ -339,16 +424,12 @@ function Train({ t, sel, setSel, coachFirst, onStart }: { t: Training; sel: numb
         ))}
         {!d.exercises.length && <span className="mb-muted">Este día no tiene ejercicios todavía.</span>}
       </div>
-      {d.exercises.length > 0 && (
-        <button type="button" className="cta" onClick={() => onStart(d.id)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="#0B0F14" /></svg>{t.openSession ? "Continuar entrenamiento en curso" : "Comenzar entrenamiento"}
-        </button>
-      )}
-    </>
+    </div>
   );
 }
 
-function Progress({ t, hist }: { t: Training; hist: History | null }) {
+function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; err: boolean; retry: () => void }) {
+  const rv = useReveal(!!hist || err);
   // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico.
   const weeks = new Map<string, number>();
   for (const s of hist ?? []) {
@@ -371,8 +452,10 @@ function Progress({ t, hist }: { t: Training; hist: History | null }) {
       </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2>Historial</h2>
-        {!hist ? <span className="mb-muted">Cargando… (necesita conexión)</span> : !hist.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no completaste entrenamientos.</span> : (
-          <div className="hist">{hist.map((s) => (
+        {err ? <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu historial (necesita conexión). <button type="button" className="linkbtn" onClick={retry}>Reintentar</button></span>
+          : !hist ? (rv.ambient ? <Ambient label="Cargando tu historial" /> : null)
+          : !hist.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no completaste entrenamientos.</span> : (
+          <div className={`hist${rv.leaving ? " m03-in" : ""}`} style={{ position: "relative" }}>{rv.leaving && <Ambient label="Cargando tu historial" leaving />}{hist.map((s) => (
             <div key={s.id}><span><b>{s.dayName}</b><br /><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" }).format(new Date(s.endedAt))} · {formatClock(s.durationSec)}{s.rpe ? ` · RPE ${s.rpe}` : ""}</small></span><span className="mb-muted">{s.sets} series · {s.volumeKg.toLocaleString("es-AR")} kg</span></div>
           ))}</div>
         )}

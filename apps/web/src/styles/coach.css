@@ -38,12 +38,15 @@
 .co-scrim { position: fixed; inset: 0; background: rgba(11, 15, 20, .5); z-index: 39; }
 .co-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .co-content { flex: 1; width: 100%; max-width: 1560px; padding: 28px 32px 48px; display: flex; flex-direction: column; gap: 20px; }
+/* Fundido entre secciones de escritorio (G · Atlética): 160 ms sólo en el contenido; la navegación lateral no se anima. */
+.co-content[data-section] { animation: co-section-in var(--dur-section-fade) var(--ease-std); }
+@keyframes co-section-in { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 767px) { .co-content { padding: 18px 16px 40px; } }
 
 .co-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
 .co-head > div:first-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .co-kicker { font-size: 13px; color: var(--light-muted); }
-.co h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.02em; }
+.co h1 { margin: 0; font: 700 34px/1.04 var(--font-display); text-transform: uppercase; letter-spacing: -.01em; text-wrap: balance; overflow-wrap: anywhere; }
 .co h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .co-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn { height: 42px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--light-border-strong); background: var(--light-surface); color: var(--light-ink); font: 600 14px var(--font-ui); cursor: pointer; white-space: nowrap; }

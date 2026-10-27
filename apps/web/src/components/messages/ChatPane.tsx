@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MESSAGE_MAX } from "@repi/domain";
 import { api } from "@/lib/api";
+import { Ic } from "@/components/ui/Ic";
+import { PaperPlaneRight } from "@phosphor-icons/react";
 
 export type ThreadRow = { id: string; relId?: string; name: string; active: boolean; unread: number; last: { body: string; at: string; mine: boolean } | null };
 type Msg = { id: string; body: string; at: string; mine: boolean; sender: string | null; state: string | null; stateLabel: string | null; pending?: boolean; failed?: boolean };
@@ -98,7 +100,7 @@ export function Conversation({ id, title, extra, onChanged, dark }: { id: string
         <form className="chat-compose" onSubmit={(e) => { e.preventDefault(); if (online && !over) void send(draft); }}>
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={1} aria-label="Mensaje" placeholder={online ? `Escribile a ${/^(el|la) /.test(title) ? title : title.split(" ")[0]}…` : "Sin conexión: no se pueden enviar mensajes"} disabled={!online}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (online && !over) void send(draft); } }} maxLength={MESSAGE_MAX + 200} />
-          <button type="submit" aria-label="Enviar" disabled={!online || !draft.trim() || over}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
+          <button type="submit" aria-label="Enviar" disabled={!online || !draft.trim() || over}><Ic i={PaperPlaneRight} size={18} color="#0B0F14" /></button>
         </form>
       )}
       {over && <small className="err-box">Hasta {MESSAGE_MAX} caracteres.</small>}

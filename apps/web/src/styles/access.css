@@ -31,7 +31,7 @@
   }
 }
 .ac-brand-claim { display: flex; flex-direction: column; gap: 14px; position: relative; }
-.ac-brand-claim strong { font-size: 34px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
+.ac-brand-claim strong { font: 700 44px/1.02 var(--font-display); text-transform: uppercase; letter-spacing: -.015em; text-wrap: balance; }
 .ac-brand-claim span { font-size: 15px; color: var(--dark-muted); line-height: 1.55; max-width: 340px; }
 .ac-brand-foot { font-size: 12px; color: var(--access-footer-muted); }
 .ac-brand-ring { position: absolute; right: -90px; bottom: -90px; width: 300px; height: 300px; border-radius: 50%; border: 1px solid var(--core-navy800); }
@@ -55,7 +55,7 @@
 
 .ac-head { display: flex; flex-direction: column; gap: 8px; }
 .ac-head h1:focus { outline: none; }
-.ac-head h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; text-wrap: balance; }
+.ac-head h1 { margin: 0; font: 700 36px/1.04 var(--font-display); text-transform: uppercase; letter-spacing: -.015em; text-wrap: balance; overflow-wrap: anywhere; }
 .ac-sub { font-size: 15px; color: var(--t-muted); line-height: 1.5; text-wrap: pretty; margin: 0; }
 
 .ac-info { background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 16px; padding: 16px; display: flex; gap: 14px; align-items: center; }

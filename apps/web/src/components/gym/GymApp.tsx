@@ -15,18 +15,14 @@ import { ConfigScreen, ExecScreen, LocsScreen, ReviewsScreen } from "./Owner";
 import { CommunityScreen, DeskCard, ValidationsScreen } from "./Community";
 import { AccessesScreen, ConditionsScreen, JoinsScreen } from "./Access";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
+import { Ic } from "@/components/ui/Ic";
+import { ArrowsLeftRight, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
 
 const IC = {
-  home: "M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z", queue: "M4 6h16M4 12h16M4 18h10",
-  users: "M9 11a4 4 0 100-8 4 4 0 000 8zM2 21c0-4 3-6 7-6s7 2 7 6M16 3.5a4 4 0 010 7.5M22 21c0-3-1.7-5-4.5-5.7", swap: "M7 7h13l-4-4M17 17H4l4 4",
-  chart: "M5 20V11M11 20V5M17 20v-6M3 20h18", gauge: "M12 14l4-4M3.5 17a9 9 0 1117 0", check: "M4 12.5l5 5L20 6.5",
-  star: "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z", cal: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
-  pulse: "M3 12h4l3-7 4 14 3-7h4", pin: "M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z",
-  receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6", gear: "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4", msg: "M4 5h16v11H9l-5 4z",
-  desk: "M3 7h18M5 7v12M19 7v12M8 11h8", door: "M5 21V4h10l4 2v15M5 21h14M12 12h.01M15 4v17",
-  key: "M15 7a4 4 0 11-3.9 4.9L4 19v2h3v-2h2v-2h2l1.1-1.1A4 4 0 0115 7z",
+  home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
+  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key,
 };
-type NavItem = [GymScreen, string, string, string | null];
+type NavItem = [GymScreen, string, Icon, string | null];
 
 function navFor(ctx: GymCtxView): NavItem[] {
   const r = ctx.roles;
@@ -119,7 +115,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         <a className="co-ws" href="/acceso?step=workspace" aria-label="Cambiar espacio de trabajo">
           <span className="co-ini">{initials(ctx.org.name)}</span>
           <span className="co-ws-txt"><b>{ctx.org.name} · {locName}</b><small>{roleTxt}</small></span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M8 10l4-4 4 4M8 14l4 4 4-4" /></svg>
+          <Ic i={CaretUpDown} size={16} color="#94A3B8" />
         </a>
         {multi && (
           <label className="gy-locpick"><span>Sede</span>
@@ -132,7 +128,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         <nav className="co-nav" aria-label="Principal">
           {nav.map(([k, l, ic, soon]) => (
             <button key={k} type="button" title={l} aria-current={screen === k ? "page" : undefined} onClick={() => go(k)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}><path d={ic} /></svg>
+              <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "queue" && badges.queue > 0 && <span className="nbadge" aria-label={`${badges.queue} pendientes`}>{badges.queue}</span>}
               {k === "msgs" && badges.msgs > 0 && <span className="nbadge" aria-label={`${badges.msgs} conversaciones sin leer`}>{badges.msgs}</span>}
@@ -149,11 +145,11 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
         <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
           <Wordmark width={50} />
           <span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>{ctx.org.name}</span>
         </div>
-        <div className="co-content" ref={mainRef} key={`${screen}-${loc}`}>
+        <div className="co-content" ref={mainRef} key={`${screen}-${loc}`} data-section={screen}>
           {screen === "shift" && <ShiftScreen shell={shell} />}
           {screen === "queue" && <QueueScreen shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}

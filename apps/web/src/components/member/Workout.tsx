@@ -2,13 +2,19 @@
 // Sesión activa y resumen (App Alumno v4 · «Entrenamiento activo» / «Entrenamiento completado»).
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FEEL_ALERTS, SET_FEEL, WEIGHT_STEPS, activeSeconds, formatClock, parseReps, parseWeight, restLeft, stepReps, stepWeight, volumeKg, type SetFeel } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { PainSheet } from "./FollowSheets";
+import { Confetti } from "@/components/motion/Confetti";
+import { StepSlider } from "@/components/motion/StepSlider";
+import { seedOf } from "@/lib/confetti";
+import { prefersReducedMotion } from "@/lib/motion";
+import { Ic } from "@/components/ui/Ic";
+import { ArrowLeft, CaretLeft, CaretRight, ChatCircleText, Check, Pause, Play, Trophy } from "@phosphor-icons/react";
 
 const RING = 207.35;
 type DoneData = {
@@ -46,6 +52,8 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   const [now, setNow] = useState(Date.now());
   const [sync, setSync] = useState<SyncState>({ kind: "idle", pending: 0 });
   const [summary, setSummary] = useState<DoneData | null>(null);
+  // M02: sólo el cierre hecho en esta pantalla puede celebrar; abrir un resumen existente o recargar no.
+  const [justFinished, setJustFinished] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pain, setPain] = useState(false);
@@ -156,6 +164,10 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
       await commit(done);
       await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action: "finish", at: new Date().toISOString() });
       await flush();
+      // Si otra pasada de la cola seguía en curso, esperar (hasta ~2 s) a que se vacíe: así el resumen sale del servidor
+      // con récords confirmados. Sin conexión no se espera: el resumen local lo dice y no celebra como confirmado (M02).
+      for (let i = 0; i < 12 && navigator.onLine && (await pendingFor(s.id)) > 0; i++) { await new Promise((r) => setTimeout(r, 160)); await flush(); }
+      setJustFinished(true);
       await showSummary(done);
       window.scrollTo(0, 0);
     } finally { setBusy(false); }
@@ -182,7 +194,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   };
 
   if (err) return <div className="mb-scroll nobar"><p role="alert" className="mb-err">{err}</p><button type="button" className="ghost" onClick={() => onExit("train")}>Volver</button></div>;
-  if (summary) return <Done sum={summary} coachFirst={coachFirst} onExit={onExit} flash={flash} />;
+  if (summary) return <Done sum={summary} coachFirst={coachFirst} onExit={onExit} flash={flash} justFinished={justFinished} />;
   const painSheet = pain && s && ex ? <PainSheet exerciseName={ex.name} sessionId={s.id} flash={flash} onClose={() => setPain(false)} /> : null;
   if (!s || !ex) return <div className="mb-scroll nobar"><p className="mb-muted">Cargando entrenamiento…</p></div>;
 
@@ -203,7 +215,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
     <div className="wo">
       <div className="wo-body">
         <div className="wo-head">
-          <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => onExit("train")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button>
+          <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => onExit("train")}><Ic i={ArrowLeft} size={22} color="#F8FAFC" /></button>
           <div>
             <strong>{s.dayName}</strong>
             <small><span aria-label={`Duración ${formatClock(elapsed)}`}>{formatClock(elapsed)}</span> · <span role="status" style={{ color: savedInk }}>{savedTxt}</span> · <button type="button" className="linkbtn" onClick={() => act(paused ? "resume" : "pause")}>{paused ? "Reanudar" : "Pausar"}</button></small>
@@ -234,8 +246,8 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
           <div className="excard-top">
             <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null ? ` · RIR ${ex.rir}` : ""}</small></div>
             <div className="nav2">
-              <button type="button" aria-label="Ejercicio anterior" disabled={exIdx === 0} onClick={() => { setExIdx(exIdx - 1); setSel(null); setRir(null); }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="2" strokeLinecap="round"><path d="M15 5l-7 7 7 7" /></svg></button>
-              <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="2" strokeLinecap="round"><path d="M9 5l7 7-7 7" /></svg></button>
+              <button type="button" aria-label="Ejercicio anterior" disabled={exIdx === 0} onClick={() => { setExIdx(exIdx - 1); setSel(null); setRir(null); }}><Ic i={CaretLeft} size={16} /></button>
+              <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); }}><Ic i={CaretRight} size={16} /></button>
             </div>
           </div>
           <div className="video" aria-hidden="true">video demostración (pendiente)</div>
@@ -246,13 +258,13 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
               <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); }}
                 aria-label={`Serie ${i + 1}: ${String(r.w).replace(".", ",")} kg, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.conflict ? ", con conflicto" : ""}`}>
                 <span>{i + 1}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
-                <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}</span>
+                <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
               </button>
             ))}
           </div>
         </div>
         {(ex.note || s.note) && (
-          <div className="coach-tip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.8" strokeLinecap="round" style={{ flex: "none", marginTop: 2 }}><path d="M4 5h16v11H9l-5 4z" /></svg><span>{ex.note || s.note}</span></div>
+          <div className="coach-tip"><Ic i={ChatCircleText} size={16} color="#94A3B8" style={{ marginTop: 2 }} /><span>{ex.note || s.note}</span></div>
         )}
       </div>
       <div className="dock">
@@ -269,7 +281,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
                 <div className="ring">
                   <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="33" fill="none" stroke="#1A2433" strokeWidth="4" /><circle cx="36" cy="36" r="33" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - left / rest.total)} style={{ transition: "stroke-dashoffset 250ms linear" }} /></svg>
                   <button type="button" aria-label={rest.paused ? "Reanudar descanso" : "Pausar descanso"} onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, paused: false, end: Date.now() + rest.left * 1000 } : { ...rest, paused: true, left, end: null } })}>
-                    {rest.paused ? <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="#0B0F14" /></svg> : <svg width="20" height="20" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="#0B0F14" /><rect x="14" y="5" width="4" height="14" rx="1" fill="#0B0F14" /></svg>}
+                    {rest.paused ? <Ic i={Play} size={20} weight="fill" color="#0B0F14" /> : <Ic i={Pause} size={20} weight="fill" color="#0B0F14" />}
                   </button>
                 </div>
                 <button type="button" className="plus30" onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + 30, total: rest.total + 30 } : { ...rest, end: (rest.end ?? Date.now()) + 30_000, total: rest.total + 30 } })}>+30s</button>
@@ -283,12 +295,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
               <WeightStepper key={`${ex.id}:${cur}`} exerciseId={ex.exerciseId} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>
             </div>
-            <div className="rir" role="group" aria-label="Reps en reserva (opcional)"><span>Reps en reserva</span>
-              {([[0, "0"], [1, "1"], [2, "2"], [3, "3"], [4, "4+"]] as const).map(([k, l]) => (
-                <button type="button" key={k} aria-pressed={(curRow.done ? curRow.rir : rir) === k} onClick={() => (curRow.done ? editCur({ rir: curRow.rir === k ? null : k }) : setRir(rir === k ? null : k))}>{l}</button>
-              ))}
-              <button type="button" className="painbtn" aria-label="Reportar molestia" onClick={() => setPain(true)}>Molestia</button>
-            </div>
+            <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
             <div className="feel" role="group" aria-label="¿Cómo se sintió la serie? (opcional)">
               {(Object.keys(SET_FEEL) as SetFeel[]).filter((k) => gym || k !== "ayuda").map((k) => {
                 const on = (curRow.done ? curRow.feel ?? null : feel) === k;
@@ -313,7 +320,18 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   );
 }
 
-function Done({ sum, coachFirst, onExit, flash }: { sum: DoneData; coachFirst: string; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void }) {
+/** M02: «full» con partículas sólo si el cierre se confirmó en el servidor y está completo; parcial u offline, confirmación discreta. */
+function celebrationFor(sum: DoneData, justFinished: boolean): "full" | "quiet" | null {
+  if (!justFinished) return null;
+  const k = `repi:celebrated:${sum.id}`;
+  try { if (sessionStorage.getItem(k)) return null; sessionStorage.setItem(k, "1"); } catch { /* sin almacenamiento: vale el estado en memoria */ }
+  return !sum.local && sum.setsDone >= sum.setsTotal ? "full" : "quiet";
+}
+
+function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData; coachFirst: string; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void; justFinished: boolean }) {
+  const [cel] = useState(() => celebrationFor(sum, justFinished));
+  const [burst, setBurst] = useState(() => cel === "full" && !prefersReducedMotion());
+  const ring = useRef<HTMLDivElement>(null);
   const [rpe, setRpe] = useState<number | null>(sum.rpe);
   const [note, setNote] = useState(sum.sessionNote ?? "");
   const [sent, setSent] = useState<"no" | "local" | "server">(sum.rpe != null ? "server" : "no");
@@ -325,15 +343,18 @@ function Done({ sum, coachFirst, onExit, flash }: { sum: DoneData; coachFirst: s
     if (s) await putLocal({ ...s, rpe, sessionNote: note || null });
     await enqueue({ key: `feedback:${sum.id}`, kind: "feedback", sid: sum.id });
     await flush();
+    // Si otra pasada de la cola estaba en curso, esperar a que termine antes de decir «guardado en el teléfono».
+    for (let i = 0; i < 12 && navigator.onLine && (await pendingFor(sum.id)) > 0; i++) { await new Promise((r) => setTimeout(r, 160)); await flush(); }
     setSent((await pendingFor(sum.id)) ? "local" : "server");
   };
   const pr = sum.prs[0];
   const complete = sum.setsDone >= sum.setsTotal;
   return (
-    <div className="mb-scroll nobar" style={{ paddingTop: "max(60px, env(safe-area-inset-top))" }}>
+    <div className="mb-scroll nobar done" data-cel={cel ?? undefined} style={{ paddingTop: "max(60px, env(safe-area-inset-top))" }}>
+      {burst && <Confetti seed={seedOf(sum.id)} origin={() => { const r = ring.current?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; }} onDone={() => setBurst(false)} />}
       <div className="done-hero">
-        <div className="done-ring"><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" stroke="#1A2433" strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#00D1FF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+        <div className="done-ring" ref={ring}><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" stroke="#1A2433" strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>
+          <Ic i={Check} size={34} color="#00D1FF" /></div>
         <h1 tabIndex={-1}>{complete ? `¡${sum.dayName} completo!` : `${sum.dayName} registrado`}</h1>
         <span className="mb-muted" style={{ fontSize: 15 }}>Cada repetición cuenta. Hoy sumaste {sum.setsDone} {sum.setsDone === 1 ? "serie" : "series"}.</span>
       </div>
@@ -344,8 +365,8 @@ function Done({ sum, coachFirst, onExit, flash }: { sum: DoneData; coachFirst: s
         <div><strong>{sum.setsDone}/{sum.setsTotal}</strong><span>Series</span></div>
       </div>
       {pr && (
-        <div className="pr">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 14v3M8 20h8M9.5 17h5v3h-5z" /></svg>
+        <div className="pr" data-reveal={cel ? "1" : undefined}>
+          <Ic i={Trophy} size={34} color="#F59E0B" />
           <div><small>Nuevo récord personal · 1RM estimado</small><strong>{pr.exercise} · {kg(pr.current.weightKg)} × {pr.current.reps}</strong>
             <span>Anterior: {kg(pr.previous.weightKg)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {String(pr.previous.e1rm).replace(".", ",")} → {String(pr.current.e1rm).replace(".", ",")} kg</span></div>
         </div>
@@ -359,8 +380,8 @@ function Done({ sum, coachFirst, onExit, flash }: { sum: DoneData; coachFirst: s
         <h2 style={{ fontSize: 16 }}>¿Cómo te fue?</h2>
         {sent === "no" ? (
           <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}><span className="mb-muted" style={{ fontSize: 13 }} id="rpe-l">Esfuerzo de la sesión (1 = muy fácil · 10 = máximo)</span>
-              <div className="rpe" role="group" aria-labelledby="rpe-l">{Array.from({ length: 10 }, (_, i) => i + 1).map((v) => <button type="button" key={v} aria-pressed={rpe === v} onClick={() => setRpe(v)}>{v}</button>)}</div></div>
+            <StepSlider label="Esfuerzo de la sesión (1 = muy fácil · 10 = máximo)" steps={RPE_STEPS} value={rpe} onChange={setRpe} ends={["1 · muy fácil", "10 · máximo"]}
+              show={(v) => `${v} de 10`} collapsed={(v) => (v == null ? "Registrar esfuerzo" : `Esfuerzo ${v} de 10 · cambiar`)} />
             <textarea rows={2} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} placeholder={`Nota para ${coachFirst} (opcional)`} aria-label="Nota de la sesión" />
             <div style={{ display: "flex", gap: 8 }}><button type="button" className="cta" style={{ height: 44, fontSize: 15, flex: 1 }} onClick={send}>Enviar a {coachFirst}</button><button type="button" className="ghost sm" style={{ height: 44 }} onClick={() => setPain(true)}>Reportar molestia</button></div>
           </>
@@ -407,6 +428,25 @@ function WeightStepper({ exerciseId, w, onChange, flash }: { exerciseId: string;
           {WEIGHT_STEPS.map((v) => <button type="button" key={v} aria-pressed={v === step} onClick={() => pick(v)}>{fmtKg(v)}</button>)}
         </div>
       )}
+    </div>
+  );
+}
+
+const RPE_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+const RIR_STEPS = [0, 1, 2, 3, 4] as const;
+/**
+ * M04, variante de serie: RIR 0–4+ (se guarda 0–4, «Sin registrar» = null). No se convierte a RPE: más reserva no es más esfuerzo.
+ * Un valor histórico fuera de la escala visible (5, que el servidor admite) se muestra tal cual y no se reescribe.
+ */
+function RirControl({ value, onChange, onPain }: { value: number | null; onChange: (v: number | null) => void; onPain: () => void }) {
+  const legacy = value != null && !(RIR_STEPS as readonly number[]).includes(value);
+  return (
+    <div className="rirx">
+      {legacy ? <span className="ss-pill" role="note">RIR guardado: {value}</span>
+        : <StepSlider label="Reps en reserva" steps={RIR_STEPS} value={value} onChange={onChange} ends={["0 · ninguna", "4+ · cuatro o más"]}
+          show={(v) => (v === 4 ? "4+" : String(v))} collapsed={(v) => (v == null ? "Reps en reserva: sin registrar" : `Reps en reserva: ${v === 4 ? "4+" : v}`)} />}
+      {value != null && <button type="button" className="ghost sm" onClick={() => onChange(null)}>Sin registrar</button>}
+      <button type="button" className="painbtn" aria-label="Reportar molestia" onClick={onPain}>Molestia</button>
     </div>
   );
 }

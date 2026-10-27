@@ -88,13 +88,14 @@ export const tokens = {
     }
   },
   "typography": {
-    "family_ui": "Inter Tight (Google Fonts, SIL OFL) 400/500/600/700",
+    "family_ui": "Barlow (SIL OFL) 400/500/600/700 · selección G · Atlética (REPI_SELECCION_VISUAL.md, 26/10/2026)",
+    "family_display": "Barlow Condensed 700 (SIL OFL), mayúsculas visuales; sólo títulos destacados (h1 y héroes). Nunca chats, formularios, tablas ni textos largos",
     "family_mono": "JetBrains Mono 400/500 (etiquetas técnicas, IDs, horarios)",
     "numerals": "tabular-nums en todo",
     "scale": {
-      "display": "30–40/600 -0.02em",
-      "h1_mobile": "30/600",
-      "h1_desktop": "26–28/600 -0.02em",
+      "display": "38–40/700 -0.015em uppercase (Barlow Condensed)",
+      "h1_mobile": "38/700 -0.015em uppercase (Barlow Condensed)",
+      "h1_desktop": "30–34/700 -0.01em uppercase (Barlow Condensed)",
       "h2": "16–22/600",
       "body": "14–15/400–500",
       "small": "13",
@@ -181,6 +182,7 @@ export const tokens = {
       "modal": 200,
       "screen_desktop": 220,
       "screen_mobile": 240,
+      "section_fade": 160,
       "depth": 320,
       "sheet": 320,
       "contextual": 480,

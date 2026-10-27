@@ -17,6 +17,7 @@
     "jobs:notifications": "tsx --env-file=.env.local scripts/notifications.ts"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "@repi/domain": "workspace:*",
     "better-auth": "1.7.7",
     "drizzle-orm": "0.45.4",

@@ -11,13 +11,10 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { api, ApiError } from "@/lib/api";
 import { Wordmark } from "./Wordmark";
+import { Ic } from "@/components/ui/Ic";
+import { ArrowLeft, Barbell, CaretRight, EnvelopeSimple, QrCode, Storefront, type Icon } from "@phosphor-icons/react";
 
-const IC = {
-  coach: "M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11",
-  gym: "M4 10h16l-1.6-5H5.6zM5 10v10h14V10M10 20v-5h4v5",
-  invite: "M4 6h16v12H4zM4 7l8 6 8-6",
-  member: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
-};
+const IC = { coach: Barbell, gym: Storefront, invite: EnvelopeSimple, member: QrCode };
 
 type Step =
   | "login" | "choose" | "coach1" | "gym1" | "leadDone" | "verify"
@@ -41,7 +38,7 @@ type Row = { ini: string; title: string; detail: string; go?: () => void; badge?
 type Btn = { label: string; go: () => void | Promise<void>; disabled?: boolean };
 type View = {
   title: string; sub?: string; stepLabel?: string; info?: { ini: string; t: string; d: string };
-  options?: { t: string; d: string; icon: string; go: () => void }[]; fields?: FieldV[]; chips?: Chip[]; toggles?: Toggle[];
+  options?: { t: string; d: string; icon: Icon; go: () => void }[]; fields?: FieldV[]; chips?: Chip[]; toggles?: Toggle[];
   list?: Row[]; listLabel?: string; checks?: { k: string; t: string }[]; note?: string; cta?: Btn & { ready?: boolean };
   social?: boolean; secondary?: Btn[]; links?: { pre: string; label: string; go: () => void }[]; extra?: React.ReactNode;
 };
@@ -613,7 +610,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         onSubmit={(e) => { e.preventDefault(); v.cta?.go(); }}>
         <div className="ac-top">
           {canBack
-            ? <button type="button" className="ac-back" onClick={back} aria-label="Volver"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></button>
+            ? <button type="button" className="ac-back" onClick={back} aria-label="Volver"><Ic i={ArrowLeft} size={22} /></button>
             : <Wordmark width={62} />}
           <span className="ac-step">{v.stepLabel ?? ""}</span>
         </div>
@@ -624,9 +621,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         {v.info && <div className="ac-info"><span className="ac-ini" aria-hidden="true">{v.info.ini}</span><span><strong>{v.info.t}</strong>{v.info.d && <small>{v.info.d}</small>}</span></div>}
         {v.options?.map((o) => (
           <button type="button" key={o.t} className="ac-opt" onClick={o.go}>
-            <span className="ac-opt-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00D1FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={o.icon} /></svg></span>
+            <span className="ac-opt-ic" aria-hidden="true"><Ic i={o.icon} size={22} color="#00D1FF" /></span>
             <span><strong>{o.t}</strong><small>{o.d}</small></span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" style={{ color: "var(--t-muted)" }}><path d="M9 5l7 7-7 7" /></svg>
+            <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
           </button>
         ))}
         {v.extra}

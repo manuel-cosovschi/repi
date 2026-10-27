@@ -16,7 +16,8 @@ for (const [group, vals] of Object.entries(tokens.color)) {
 }
 for (const [k, v] of Object.entries(tokens.motion.easing)) lines.push(`  --ease-${k}: ${v};`);
 for (const [k, v] of Object.entries(tokens.motion.duration_ms)) lines.push(`  --dur-${kebab(k)}: ${v}ms;`);
-lines.push(`  --font-ui: var(--font-inter-tight), "Inter Tight", system-ui, sans-serif;`);
+lines.push(`  --font-ui: var(--font-barlow), "Barlow", system-ui, sans-serif;`);
+lines.push(`  --font-display: var(--font-barlow-condensed), "Barlow Condensed", var(--font-ui);`);
 lines.push(`  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;`);
 writeFileSync(new URL("../src/styles/tokens.css", import.meta.url), `/* Generado por scripts/gen-tokens.ts. No editar. */\n:root {\n${lines.join("\n")}\n}\n`);
 console.log(lines.length, "tokens");

@@ -26,7 +26,7 @@ export function CoachDash({ ov, first, onInvite, onNewProgram, go }: {
         <div className="co-actions"><button type="button" className="btn" onClick={onInvite}>Invitar cliente</button><button type="button" className="btn pri" onClick={onNewProgram}>Nuevo programa</button></div>
       </div>
       {ov.org.status === "trial" && (
-        <div className="banner"><span><strong>Estás en período de prueba.</strong>{ov.org.trialEndsAt ? ` Termina el ${fmtDate(ov.org.trialEndsAt, { day: "numeric", month: "long" })}.` : ""} El precio por alumno activo está a confirmar.</span></div>
+        <div className="banner"><span><strong>Estás en período de prueba.</strong>{ov.org.trialEndsAt ? ` Termina el ${fmtDate(ov.org.trialEndsAt, { day: "numeric", month: "long" })}.` : ""} Tus condiciones (alumnos vigentes acordados y precio) están en «Condiciones REPI».</span></div>
       )}
       <div className="grid-kpi">
         {kpis.map(([l, v, sub, fn]) => <button type="button" key={l} className="kpi" onClick={fn}><span>{l}</span><strong>{v}</strong><small>{sub}</small></button>)}

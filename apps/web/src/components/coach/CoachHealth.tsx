@@ -5,6 +5,8 @@ import { ACCESS_ITEMS, INJURY_STATUS, PAIN_CONTEXT, type AccessItem, type Injury
 import { api } from "@/lib/api";
 import { ACCESS_ST } from "./CoachInbox";
 import { fmtDate } from "./types";
+import { Ic } from "@/components/ui/Ic";
+import { Lock } from "@phosphor-icons/react";
 
 type Health = {
   granted: boolean;
@@ -26,7 +28,7 @@ function LockCard({ orgId, relId, item, first, status, retryAt, onRequested, fla
   const canAsk = (status === "none" || status === "denied" || status === "expired") && !retryAt; // D38: 7 días tras un rechazo
   return (
     <section className="card lock" style={{ flexDirection: "row" }}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+      <Ic i={Lock} size={22} color="#5B6B80" />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2>{label}: no compartido</h2>
         <span className="muted" style={{ fontSize: 14 }}>Sin acceso hasta que {first} lo habilite. {ACCESS_ITEMS[item].reason}</span>

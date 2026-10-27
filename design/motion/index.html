@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=780, height=1688" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 780px; height: 1688px; overflow: hidden; background: #0B0F14; }
+    </style>
+  </head>
+  <!-- REPI · previews de motion M01–M05 (motion.md). Datos DEMO; tamaño lógico 390×844 a 2×. Los tiempos replican los de la app. -->
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="26.4" data-width="780" data-height="1688">
+      <div id="m01" data-composition-id="m01" data-composition-src="compositions/m01.html" data-start="0.0" data-duration="5.2" data-track-index="1" data-track-kind="graphics" data-width="780" data-height="1688"></div>
+      <div id="m02" data-composition-id="m02" data-composition-src="compositions/m02.html" data-start="5.2" data-duration="5.6" data-track-index="1" data-track-kind="graphics" data-width="780" data-height="1688"></div>
+      <div id="m03" data-composition-id="m03" data-composition-src="compositions/m03.html" data-start="10.8" data-duration="5.0" data-track-index="1" data-track-kind="graphics" data-width="780" data-height="1688"></div>
+      <div id="m04" data-composition-id="m04" data-composition-src="compositions/m04.html" data-start="15.8" data-duration="5.6" data-track-index="1" data-track-kind="graphics" data-width="780" data-height="1688"></div>
+      <div id="m05" data-composition-id="m05" data-composition-src="compositions/m05.html" data-start="21.4" data-duration="5.0" data-track-index="1" data-track-kind="graphics" data-width="780" data-height="1688"></div>
+    </div>
+    <script>
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

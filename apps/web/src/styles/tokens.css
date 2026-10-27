@@ -63,12 +63,14 @@
   --dur-modal: 200ms;
   --dur-screen-desktop: 220ms;
   --dur-screen-mobile: 240ms;
+  --dur-section-fade: 160ms;
   --dur-depth: 320ms;
   --dur-sheet: 320ms;
   --dur-contextual: 480ms;
   --dur-celebration: 1200ms;
   --dur-intro-first: 2670ms;
   --dur-intro-quick: 520ms;
-  --font-ui: var(--font-inter-tight), "Inter Tight", system-ui, sans-serif;
+  --font-ui: var(--font-barlow), "Barlow", system-ui, sans-serif;
+  --font-display: var(--font-barlow-condensed), "Barlow Condensed", var(--font-ui);
   --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
 }

@@ -48,3 +48,7 @@ coverage/
 
 # TypeScript incremental
 *.tsbuildinfo
+
+# HyperFrames (artefactos locales de check, snapshots y renders)
+design/motion/.hyperframes/
+design/motion/renders/

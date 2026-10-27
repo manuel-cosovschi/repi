@@ -365,3 +365,30 @@ Pruebas: 74 de dominio + 80 de integración (14 nuevas del anexo y pedidos extra
 - **Push en iPhone:** requiere agregar REPI a la pantalla de inicio.
 - **Datos previos:** los pedidos por DNI y los DNI HMAC guardados quedan sin uso nuevo; borrarlos es una decisión legal (D27).
 - **Club:** desafíos entre socios, pendientes.
+
+# Selección visual G · Atlética y motion M01–M05 (26/10/2026)
+
+Detalle, mediciones y pendientes: `motion.md` §12 y `docs/DESIGN_CONTRACT.md` § Selección visual aprobada.
+
+## Qué funciona hoy
+- **Tipografía:** Barlow y Barlow Condensed en alumno, Acceso, Coach, Gym y Admin.
+- **Íconos:** Phosphor Bold en todas las navegaciones y controles.
+- **Barra móvil:** cápsula Cristal en la app del alumno.
+- **Cambio de sección:** fundido de 160 ms; cada sección conserva su scroll.
+- **M01:** selección de día.
+- **M02:** celebración sólo en un cierre completo confirmado.
+- **M03:** carga ambiental en Progreso y Gym, con error y reintento.
+- **M04:** slider de RPE y RIR, con teclado y arrastre.
+- **M05:** carrusel de novedades.
+- **Preview:** HyperFrames en `design/motion/` con export MP4 de 60 fps.
+
+## Defectos encontrados en la verificación y corregidos
+- Progreso quedaba en «Cargando…» para siempre si fallaba el historial.
+- El resumen y el envío del RPE mostraban «guardado en el teléfono» con conexión cuando otra pasada de la cola seguía en curso.
+- Se retiró del panel coach el texto «precio por alumno activo a confirmar», contradicho por el anexo.
+
+## Pendientes
+- Pruebas en dispositivos físicos (iOS/Android).
+- Body Intelligence para M03.
+- Decisión sobre RIR 5.
+- Aprobación visual del usuario.

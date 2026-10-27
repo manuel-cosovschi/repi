@@ -273,7 +273,7 @@ describe("concurrencia y turnos (criterios 2, 5, 7)", () => {
 });
 
 /** enqueue dispara el envío sin esperar: se espera a que la fila salga de «pending». */
-async function settled(userId: string, kind: string) {
+async function settled(userId: string, kind: (typeof schema.notificationOutbox.$inferSelect)["kind"]) {
   let rows: (typeof schema.notificationOutbox.$inferSelect)[] = [];
   for (let i = 0; i < 40; i++) {
     await push.processOutbox();

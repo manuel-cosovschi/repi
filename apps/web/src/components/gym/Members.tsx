@@ -7,6 +7,8 @@ import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { NewTaskModal, TaskCard } from "./Floor";
 import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task } from "./shared";
+import { Ic } from "@/components/ui/Ic";
+import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -31,7 +33,7 @@ export function MembersScreen({ shell }: { shell: Shell }) {
       {list.err && <p role="alert" className="err-box">{list.err}</p>}
       <div className="split">
         <div className="list-pane">
-          <label className="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar socio" aria-label="Buscar socio" /></label>
+          <label className="search"><Ic i={MagnifyingGlass} size={16} color="#5B6B80" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar socio" aria-label="Buscar socio" /></label>
           {list.data?.members.map((m) => (
             <button key={m.id} type="button" className="crow" aria-current={m.id === current} onClick={() => shell.setSel(m.id)}>
               <span className="av36">{initials(m.name)}</span>
@@ -136,7 +138,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
         {!notes.length && <span className="muted" style={{ fontSize: 14 }}>Sin notas.</span>}
       </section>
       <section className="card lock" style={{ flexDirection: "row" }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+        <Ic i={Lock} size={22} color="#5B6B80" />
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <h2>Datos restringidos</h2>
           <span className="muted" style={{ fontSize: 14 }}>{m.restricted.join(" · ")}. El gym no los ve: son del socio y de las relaciones que él autorice.</span>

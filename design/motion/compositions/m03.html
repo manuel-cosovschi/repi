@@ -1,0 +1,63 @@
+<template>
+  <style>
+@font-face { font-family: "Barlow"; font-weight: 400; src: url("assets/fonts/barlow-400.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; src: url("assets/fonts/barlow-500.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url("assets/fonts/barlow-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("assets/fonts/barlowcondensed-700.woff2") format("woff2"); }
+#root { position: absolute; inset: 0; background: #0B0F14; overflow: hidden; font-family: "Barlow", sans-serif; color: #F8FAFC; font-variant-numeric: tabular-nums; }
+#root .phone { position: absolute; left: 0; top: 0; width: 390px; height: 844px; transform: scale(2); transform-origin: 0 0; }
+#root .cap { position: absolute; left: 20px; right: 20px; top: 16px; display: flex; justify-content: space-between; align-items: center; font: 500 11px "Barlow"; letter-spacing: .08em; text-transform: uppercase; color: #94A3B8; }
+#root .cap b { color: #5DE6D8; font-weight: 600; }
+#root .demo { border: 1px solid #2D3B4F; border-radius: 6px; padding: 2px 6px; color: #94A3B8; }
+#root .wm { position: absolute; left: 20px; top: 44px; width: 62px; }
+#root .wm img { width: 100%; display: block; }
+#root .wm i { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: #00D1FF; }
+#root h1 { margin: 0; font: 700 38px/1.02 "Barlow Condensed"; text-transform: uppercase; letter-spacing: -.015em; }
+#root .ico { display: inline-block; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+#root .speed { position: absolute; left: 20px; bottom: 22px; font: 600 12px "Barlow"; color: #F8FAFC; background: #1A2433; border: 1px solid #2D3B4F; border-radius: 14px; padding: 5px 10px; }
+#root .finger { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: rgba(248,250,252,.35); border: 2px solid rgba(248,250,252,.7); opacity: 0; }
+
+#root .h1 { position: absolute; left: 20px; top: 92px; }
+#root .panel { position: absolute; left: 20px; right: 20px; top: 150px; height: 260px; }
+#root .amb { position: absolute; inset: 0; border-radius: 18px; overflow: hidden; display: grid; place-items: center; align-content: center; gap: 18px;
+  background: radial-gradient(120% 90% at 50% 40%, rgba(0,209,255,.14), rgba(93,230,216,.06) 45%, transparent 70%), #0B0F14; }
+#root .halo { position: absolute; left: 65px; top: 20px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(93,230,216,.18), transparent 65%); }
+#root .orb { position: relative; width: 72px; height: 72px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(248,250,252,.95), rgba(93,230,216,.55) 40%, rgba(0,209,255,.35) 70%, rgba(26,36,51,.2)); box-shadow: 0 0 40px rgba(0,209,255,.25); }
+#root .txt { position: relative; font-size: 14px; color: #E2E8F0; }
+#root .hist { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; }
+#root .hist div { background: #1A2433; border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; font-size: 15px; } #root .hist small { color: #94A3B8; font-size: 13px; }
+#root .note { position: absolute; left: 20px; right: 20px; top: 430px; font-size: 12px; color: #94A3B8; }
+</style>
+  <div id="root" data-composition-id="m03" data-width="780" data-height="1688" data-start="0" data-duration="5.0">
+    <div class="phone">
+      <div class="cap"><span><b>M03</b> · Carga a contenido</span><span class="demo">DEMO</span></div>
+      <div class="wm"><img src="assets/brand/wm_full.png" alt="repi" /><i></i></div>
+      
+      <h1 class="h1">Progreso</h1>
+      <div class="panel">
+        <div id="m03-amb" class="amb" style="opacity:0"><span class="halo"></span><span id="m03-orb" class="orb"></span><span class="txt">Cargando tu historial</span></div>
+        <div id="m03-hist" class="hist" style="opacity:0" data-layout-allow-overlap><div><span>Torso B<br /><small>lun 26 oct · 42:10 · RPE 7</small></span><small>13 series · 3.180 kg</small></div>
+          <div><span>Piernas<br /><small>sáb 24 oct · 51:03</small></span><small>13 series · 5.420 kg</small></div><div><span>Torso A · empuje<br /><small>jue 22 oct · 47:40</small></span><small>14 series · 4.010 kg</small></div></div>
+      </div>
+      <div id="m03-note" class="note">Respuesta simulada a los 3,1 s sólo en esta preview. En la app el ambiente aparece si la carga supera 180 ms y sale cuando llegan los datos.</div>
+
+      <div id="m03-speed" class="speed">Tiempo real</div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const E = "power3.out"; // aproxima cubic-bezier(.2,0,0,1) de la app (GSAP no trae esa curva sin CustomEase)
+    // Los estados iniciales están en el HTML; cada fromTo arranca en su posición (sin render inmediato) para que repetir la secuencia sea estable.
+    const ft = (target, from, to, at) => tl.fromTo(target, from, { ...to, immediateRender: false }, at);
+
+    // Pedido en 0,5 s; si sigue pendiente a los 180 ms, entra el ambiente (200 ms).
+    ft("#m03-amb", { opacity: 0 }, { opacity: 1, duration: .2, ease: E }, .68);
+    // Flotación decorativa ±4 px, ciclo 2400 ms (seno), escala .98–1.02, mientras está pendiente.
+    const f = { t: 0 }; ft(f, { t: 0 }, { t: 2.42, duration: 2.42, ease: "none", onUpdate: () => { const s = Math.sin(f.t / 2.4 * Math.PI * 2); gsap.set("#m03-orb", { y: -4 * Math.cos(f.t / 2.4 * Math.PI * 2), scale: 1 + .02 * s }); } }, .68);
+    // Datos listos (3,1 s): ambiente sale 200 ms y contenido entra 240 ms, solapados.
+    tl.to("#m03-amb", { opacity: 0, duration: .2, ease: E }, 3.1);
+    ft("#m03-hist", { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: .24, ease: E }, 3.1);
+
+    window.__timelines["m03"] = tl;
+  </script>
+</template>

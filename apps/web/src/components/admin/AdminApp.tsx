@@ -9,6 +9,8 @@ import { authClient } from "@/lib/auth-client";
 import { Wordmark } from "@/components/access/Wordmark";
 import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, initials, useLoad } from "@/components/gym/shared";
+import { Ic } from "@/components/ui/Ic";
+import { List } from "@phosphor-icons/react";
 
 type Client = {
   orgId: string; name: string; kind: "gym" | "coach"; demo: boolean; commercialStatus: string; contractId: string | null; stage: string | null; stageLabel: string;
@@ -63,9 +65,9 @@ export function AdminApp({ me }: { me: { name: string } }) {
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
         <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
           <Wordmark width={50} /><span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>REPI Admin</span></div>
-        <div className="co-content">
+        <div className="co-content" key={`${screen}-${sel ?? ""}`} data-section={screen}>
           {list.err && <p role="alert" className="err-box">{list.err}</p>}
           {screen === "clients" && !sel && (
             <>

@@ -1,0 +1,79 @@
+<template>
+  <style>
+@font-face { font-family: "Barlow"; font-weight: 400; src: url("assets/fonts/barlow-400.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; src: url("assets/fonts/barlow-500.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url("assets/fonts/barlow-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("assets/fonts/barlowcondensed-700.woff2") format("woff2"); }
+#root { position: absolute; inset: 0; background: #0B0F14; overflow: hidden; font-family: "Barlow", sans-serif; color: #F8FAFC; font-variant-numeric: tabular-nums; }
+#root .phone { position: absolute; left: 0; top: 0; width: 390px; height: 844px; transform: scale(2); transform-origin: 0 0; }
+#root .cap { position: absolute; left: 20px; right: 20px; top: 16px; display: flex; justify-content: space-between; align-items: center; font: 500 11px "Barlow"; letter-spacing: .08em; text-transform: uppercase; color: #94A3B8; }
+#root .cap b { color: #5DE6D8; font-weight: 600; }
+#root .demo { border: 1px solid #2D3B4F; border-radius: 6px; padding: 2px 6px; color: #94A3B8; }
+#root .wm { position: absolute; left: 20px; top: 44px; width: 62px; }
+#root .wm img { width: 100%; display: block; }
+#root .wm i { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: #00D1FF; }
+#root h1 { margin: 0; font: 700 38px/1.02 "Barlow Condensed"; text-transform: uppercase; letter-spacing: -.015em; }
+#root .ico { display: inline-block; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+#root .speed { position: absolute; left: 20px; bottom: 22px; font: 600 12px "Barlow"; color: #F8FAFC; background: #1A2433; border: 1px solid #2D3B4F; border-radius: 14px; padding: 5px 10px; }
+#root .finger { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: rgba(248,250,252,.35); border: 2px solid rgba(248,250,252,.7); opacity: 0; }
+
+#root .h1 { position: absolute; left: 20px; top: 92px; }
+#root .vp { position: absolute; left: 20px; right: 0; top: 150px; height: 230px; overflow: hidden; }
+#root .row { position: absolute; left: 0; top: 0; display: flex; gap: 12px; }
+#root .post { width: 294px; height: 220px; background: #1A2433; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+#root .img { height: 96px; background: repeating-linear-gradient(135deg, #1d2a3b 0 8px, #223147 8px 16px); }
+#root .post div { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+#root .meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #94A3B8; } #root .tag { background: #0B0F14; color: #F8FAFC; border-radius: 6px; padding: 2px 6px; font-weight: 600; } #root .tag.c { background: #00D1FF; color: #0B0F14; }
+#root .post b { font-size: 17px; font-weight: 600; } #root .post p { margin: 0; font-size: 14px; color: #CBD5E1; line-height: 1.4; }
+#root .bar { position: absolute; left: 20px; right: 20px; top: 392px; display: flex; justify-content: space-between; align-items: center; }
+#root .bbtn { width: 44px; height: 44px; border-radius: 22px; border: 1px solid #2D3B4F; background: #1A2433; display: grid; place-items: center; color: #F8FAFC; }
+#root .count { font-size: 13px; color: #94A3B8; }
+</style>
+  <div id="root" data-composition-id="m05" data-width="780" data-height="1688" data-start="0" data-duration="5.0">
+    <div class="phone">
+      <div class="cap"><span><b>M05</b> · Novedades del gym</span><span class="demo">DEMO</span></div>
+      <div class="wm"><img src="assets/brand/wm_full.png" alt="repi" /><i></i></div>
+      
+      <h1 class="h1">Tu gym</h1>
+      <div class="vp"><div id="m05-row" class="row">
+        <div class="post"><span class="img"></span><div><span class="meta"><span class="tag">Novedad</span>26 oct</span><b>Clase abierta de movilidad</b><p>Sábado 10:00 en el salón 2.</p></div></div>
+        <div class="post"><span class="img"></span><div><span class="meta"><span class="tag c">20% off</span>25 oct · hasta el 30 oct</span><b>20% off en proteína whey</b><p>Mostrá tu carnet en recepción.</p></div></div>
+        <div class="post"><span class="img"></span><div><span class="meta"><span class="tag">Novedad</span>24 oct</span><b>Nueva zona de peso libre</b><p>Dos racks más en planta alta.</p></div></div>
+      </div></div>
+      <div class="bar"><span id="m05-prev" class="bbtn" style="opacity:.35"><i class="ico" style="--m:url(assets/brand/ph-caret-left-bold.svg);width:18px;height:18px;color:currentColor"></i></span><span class="count"><span id="m05-n">1</span> de 3</span><span id="m05-next" class="bbtn"><i class="ico" style="--m:url(assets/brand/ph-caret-right-bold.svg);width:18px;height:18px;color:currentColor"></i></span></div>
+      <div id="m05-finger" class="finger"></div>
+
+      <div id="m05-speed" class="speed">Tiempo real</div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const E = "power3.out"; // aproxima cubic-bezier(.2,0,0,1) de la app (GSAP no trae esa curva sin CustomEase)
+    // Los estados iniciales están en el HTML; cada fromTo arranca en su posición (sin render inmediato) para que repetir la secuencia sea estable.
+    const ft = (target, from, to, at) => tl.fromTo(target, from, { ...to, immediateRender: false }, at);
+
+    const STEP = 306; // ancho de tarjeta 294 + gap 12
+    function swipe(t, k) {
+      // Arrastre manual: la pista sigue al dedo; al soltar, scroll-snap asienta en la tarjeta siguiente.
+      ft("#m05-finger", { opacity: 0, x: 280, y: 260 }, { opacity: 1, duration: .08 * k }, t - .08 * k);
+      tl.to("#m05-row", { x: -110, duration: .25 * k, ease: "none" }, t);
+      tl.to("#m05-finger", { x: 170, duration: .25 * k, ease: "none" }, t);
+      tl.to("#m05-row", { x: -STEP, duration: .26 * k, ease: E }, t + .25 * k);
+      tl.to("#m05-finger", { opacity: 0, duration: .12 * k }, t + .25 * k);
+      tl.set("#m05-n", { textContent: "2" }, t + .51 * k); tl.set("#m05-prev", { opacity: 1 }, t + .51 * k);
+    }
+    function tap(t, k) {
+      // Botón Siguiente: desplazamiento suave del navegador (~260 ms medidos en Chrome; depende del navegador).
+      ft("#m05-finger", { opacity: 0, x: 348, y: 414 }, { opacity: 1, duration: .08 * k }, t - .1 * k);
+      tl.to("#m05-finger", { opacity: 0, duration: .12 * k }, t + .05 * k);
+      tl.to("#m05-row", { x: -2 * STEP, duration: .26 * k, ease: E }, t);
+      tl.set("#m05-n", { textContent: "3" }, t + .26 * k); tl.set("#m05-next", { opacity: .35 }, t + .26 * k);
+    }
+    swipe(.8, 1); tap(1.7, 1);
+    tl.set("#m05-speed", { textContent: "×3 más lento" }, 2.4);
+    tl.set("#m05-row", { x: 0 }, 2.5); tl.set("#m05-n", { textContent: "1" }, 2.5); tl.set("#m05-prev", { opacity: .35 }, 2.5); tl.set("#m05-next", { opacity: 1 }, 2.5);
+    swipe(2.85, 2.6);
+
+    window.__timelines["m05"] = tl;
+  </script>
+</template>

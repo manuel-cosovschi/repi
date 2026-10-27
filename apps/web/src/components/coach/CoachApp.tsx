@@ -12,19 +12,13 @@ import { ConditionsScreen } from "@/components/gym/Access";
 import { CoachInbox } from "./CoachInbox";
 import { ChatPane } from "@/components/messages/ChatPane";
 import { initials, type Overview, type Screen } from "./types";
+import { Ic } from "@/components/ui/Ic";
+import { CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, type Icon } from "@phosphor-icons/react";
 
-const IC = {
-  home: "M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4z",
-  users: "M9 11a4 4 0 100-8 4 4 0 000 8zM2 21c0-4 3-6 7-6s7 2 7 6M16 3.5a4 4 0 010 7.5M22 21c0-3-1.7-5-4.5-5.8",
-  build: "M4 6h16M4 12h10M4 18h7M17 15l4 4-4 4",
-  msg: "M4 5h16v11H9l-5 4z",
-  inbox: "M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z",
-  money: "M3 7h18v10H3zM12 9.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5z",
-  receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6",
-};
+const IC = { home: House, users: Users, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt };
 
 // Cobros del coach a sus alumnos: Etapa 7 (flujo separado del cobro de REPI al coach, anexo §10).
-const NAV: [Screen, string, string, string | null][] = [
+const NAV: [Screen, string, Icon, string | null][] = [
   ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["builder", "Programas", IC.build, null],
   ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, "Etapa 7"],
   ["terms", "Condiciones REPI", IC.receipt, null],
@@ -81,12 +75,12 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
         <a className="co-ws" href="/acceso?step=workspace" aria-label="Cambiar espacio de trabajo">
           <span className="co-ini">{initials(orgName || "R")}</span>
           <span className="co-ws-txt"><b>{orgName}</b><small>Coach independiente</small></span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M8 10l4-4 4 4M8 14l4 4 4-4" /></svg>
+          <Ic i={CaretUpDown} size={16} color="#94A3B8" />
         </a>
         <nav className="co-nav" aria-label="Principal">
           {NAV.map(([k, l, ic, soon]) => (
             <button key={k} type="button" title={l} aria-current={screen === k ? "page" : undefined} onClick={() => go(k)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}><path d={ic} /></svg>
+              <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "inbox" && !!ov?.inbox && <span className="nbadge" aria-label={`${ov.inbox} sin ver`}>{ov.inbox}</span>}
               {k === "msgs" && !!ov?.msgs && <span className="nbadge" aria-label={`${ov.msgs} conversaciones sin leer`}>{ov.msgs}</span>}
@@ -101,10 +95,10 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
         <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
           <Wordmark width={50} />
         </div>
-        <div className="co-content" ref={mainRef}>
+        <div className="co-content" ref={mainRef} key={screen} data-section={screen}>
           {err && <p role="alert" className="err-box">{err}</p>}
           {!ov ? <p className="muted">Cargando…</p> : (
             <>

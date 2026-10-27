@@ -4,6 +4,8 @@ import { formatClock, formatRest, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { SensitiveTab } from "./CoachHealth";
 import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overview, type Screen } from "./types";
+import { Ic } from "@/components/ui/Ic";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -49,7 +51,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, go, flash }: {
       ) : (
         <div className="split">
           <div className="list-pane">
-            <label className="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6B80" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente" /></label>
+            <label className="search"><Ic i={MagnifyingGlass} size={16} color="#5B6B80" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente" /></label>
             <div className="pills">{FILTERS.map(([k, l]) => <button type="button" key={k} className="pill" aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}</div>
             <div className="sorts">Ordenar: {SORTS.map(([k, l]) => <button type="button" key={k} aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>)}</div>
             {list.map((c) => (
