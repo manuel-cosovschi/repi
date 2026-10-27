@@ -8,3 +8,4 @@ export * from "./community";
 export * from "./commercial";
 export * from "./units";
 export * from "./goals";
+export * from "./agenda";

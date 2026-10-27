@@ -338,6 +338,7 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
         </div>
       )}
+      {!offline && <NextAppointment flash={flash} />}
       {t.state === "ready" && t.program?.update && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
       {inbox?.accessRequests.map((a) => (
         <button key={a.id} type="button" className="hbanner cyan" onClick={() => go("perfil")}>
@@ -660,6 +661,47 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       <a className="ghost" href="/ayuda?desde=/app" style={{ display: "grid", placeItems: "center" }}>Ayuda y soporte</a>
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
       <button type="button" className="ghost" onClick={logout}>Cerrar sesión</button>
+    </>
+  );
+}
+
+// Próxima sesión con el coach (F-HX-07, D98): confirmar, avisar que no puede o agregarla al calendario (.ics). Muestra la
+// próxima agendada de los siguientes 14 días y las canceladas de los últimos 3 días, para que se entere.
+type Appt = { id: string; startsAt: string; date: string; time: string; durationMin: number; modality: "presencial" | "online"; place: string | null; note: string | null;
+  status: "scheduled" | "cancelled" | "done" | "no_show"; clientResponse: "pending" | "confirmed" | "declined"; cancelReason: string | null; coach: string };
+function NextAppointment({ flash }: { flash: (m: string) => void }) {
+  const [list, setList] = useState<Appt[] | null>(null);
+  const load = useCallback(() => api<Appt[]>("/api/me/agenda").then(setList).catch(() => setList(null)), []);
+  useEffect(() => { void load(); }, [load]);
+  if (!list) return null;
+  const now = Date.now();
+  const show = list.filter((a) => (a.status === "scheduled" && new Date(a.startsAt).getTime() + a.durationMin * 60_000 > now && new Date(a.startsAt).getTime() - now < 14 * 86_400_000)
+    || (a.status === "cancelled" && now - new Date(a.startsAt).getTime() < 3 * 86_400_000 && new Date(a.startsAt).getTime() > now - 86_400_000)).slice(0, 2);
+  const when = (a: Appt) => new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires", hourCycle: "h23" }).format(new Date(a.startsAt));
+  const answer = async (a: Appt, response: "confirmed" | "declined") => {
+    try { await api(`/api/me/agenda/${a.id}`, { body: { response } }); flash(response === "confirmed" ? "Confirmaste la sesión." : `Le avisamos a ${a.coach.split(" ")[0]} que no podés.`); void load(); }
+    catch (e) { flash((e as Error).message); }
+  };
+  return (
+    <>
+      {show.map((a) => (
+        <div key={a.id} className={`hbanner${a.status === "scheduled" ? " cyan" : ""}`} style={{ flexWrap: "wrap", cursor: "default" }}>
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: a.status === "cancelled" ? "#EF4444" : "#00D1FF", flex: "none" }} />
+          <span>
+            <b>{a.status === "cancelled" ? `Cancelada: sesión con ${a.coach.split(" ")[0]}` : `Sesión con ${a.coach.split(" ")[0]}`}</b>
+            <small style={{ textTransform: "none" }}>{when(a)} · {a.durationMin} min · {a.modality === "online" ? "Online" : "Presencial"}{a.place ? ` · ${a.place}` : ""}</small>
+            {a.status === "cancelled" && a.cancelReason && <small>Motivo: {a.cancelReason}</small>}
+            {a.status === "scheduled" && a.clientResponse !== "pending" && <small>{a.clientResponse === "confirmed" ? "Confirmaste." : "Avisaste que no podés."}</small>}
+          </span>
+          {a.status === "scheduled" && (
+            <span style={{ display: "flex", gap: 6, flexWrap: "wrap", flexBasis: "100%", paddingLeft: 20 }}>
+              {a.clientResponse !== "confirmed" && <button type="button" className="cta sm" style={{ height: 36 }} onClick={() => answer(a, "confirmed")}>Confirmar</button>}
+              {a.clientResponse !== "declined" && <button type="button" className="ghost sm" style={{ height: 36 }} onClick={() => answer(a, "declined")}>No puedo</button>}
+              <a className="ghost sm" style={{ height: 36, display: "inline-grid", placeItems: "center", padding: "0 12px" }} href={`/api/agenda/${a.id}/ics`}>Agregar al calendario</a>
+            </span>
+          )}
+        </div>
+      ))}
     </>
   );
 }

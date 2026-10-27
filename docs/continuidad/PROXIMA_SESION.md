@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, migración a `~/Proyectos Locales/Repi`. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, agenda y asistencia (D98). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Migración fuera de iCloud
+## Último bloque cerrado — 27/10/2026 · Agenda y asistencia (F-CO-10 / F-HX-07, D98)
+
+- **Hecho:** dominio `packages/domain/src/agenda.ts` (estados, `arToUtc`, `arParts`, `overlaps`, `appointmentIcs`) + tests; tabla `coach_appointment` (migración `0017_coach_appointment`, dev local y **Supabase**, RLS); `src/server/training/agenda.ts`; rutas `/api/coach/[orgId]/agenda` (GET/POST), `/api/coach/[orgId]/agenda/[id]` (POST), `/api/me/agenda` (GET), `/api/me/agenda/[id]` (POST), `/api/agenda/[id]/ics`; `components/coach/CoachAgenda.tsx` (pantalla «Agenda» + `TodayAgenda` en el panel); `NextAppointment` en Inicio del alumno; avisos en `notifications/feed.ts`.
+- **Pruebas:** web 147/147 (nuevo `tests/agenda.test.ts`, 3), dominio 84/84, guardas 11/11, typecheck y build OK. Navegador local: coach del seed agenda «jue 29/10 18:00 · Gym Norte · sala 2» → .ics 200 `text/calendar` con DTSTART 21:00Z → alumna confirma desde Inicio (375 px). Esa sesión quedó en `repi_dev`. No se probó abrir el .ics en iPhone/Android.
+- **Entorno:** la herramienta de vista previa del escritorio sigue leyendo `.claude/launch.json` de `~/Desktop/Repi` y arranca ahí. Se agregó `repi-local` (con `--dir` absoluto) al launch.json nuevo, pero la herramienta no lo ve hasta abrir una sesión nueva en `~/Proyectos Locales/Repi`. En esta sesión el dev server se corrió con `pnpm dev` desde `apps/web` de la ruta nueva.
+- **Siguiente:** F-CO-11 importación CSV de clientes o F-HX-26 centro de notificaciones del staff gym.
+
+## Bloque anterior — 27/10/2026 · Migración fuera de iCloud
 
 - **Repo nuevo y único:** `~/Proyectos Locales/Repi` (fuera de iCloud). Clon limpio de `github.com/manuel-cosovschi/repi`, `main` en a516c7a + rama local `codex/lanzamiento-repi` (ya incluida en main) recuperada del bundle. Los 1100 archivos versionados se compararon byte a byte con la carpeta vieja: idénticos.
 - **Copiado aparte (no versionado):** `apps/web/.env.local` (0600), `.vercel/` (vínculo del proyecto) y `apps/web/.storage/` (archivos privados de desarrollo). Dependencias reinstaladas con `pnpm install --frozen-lockfile`; no se copiaron `node_modules`, `.next` ni cachés.
@@ -10,7 +17,7 @@ Actualizado: 27/10/2026, migración a `~/Proyectos Locales/Repi`. Máster activo
 - **Arreglo de código:** rutas con espacios. `tests/setup-env.ts`, `tests/global-setup.ts`, `scripts/operations/backup.ts` y `scripts/migrate.ts` armaban rutas con `URL.pathname` (deja `%20`): no cargaban `.env.local` y `pnpm db:migrate` terminaba sin migrar ni avisar. Ahora usan `fileURLToPath`/`pathToFileURL`.
 - **Pruebas en la nueva ruta:** typecheck OK, dominio 81/81, guardas 11/11, web 144/144 (`repi_test` local), `pnpm db:migrate` sobre `repi_dev` OK, `next build` OK.
 - **Bases y servicios:** sin cambios (PostgreSQL local `repi_dev`/`repi_test`, Supabase, Vercel y secretos en `~/.repi-secrets/`). Vercel despliega desde GitHub, no desde la carpeta.
-- **Siguiente:** F-CO-10 calendario/asistencia del coach o F-CO-11 importación CSV; F-HX-26 centro de notificaciones del staff.
+- **Deploy:** e58b372 verificado en repiclub.com.
 
 ## Bloque anterior — 27/10/2026 · Objetivos acordados (F-CO-03 / F-HX-02, D97)
 

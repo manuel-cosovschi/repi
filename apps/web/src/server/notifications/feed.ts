@@ -12,6 +12,7 @@ import { myGymRelations, myGymTasks } from "../gym/services";
 import { myReviewInvites } from "../gym/reviews";
 import { myThreads } from "../messages/services";
 import { myCharges } from "../coachpay/services";
+import { myAppointments } from "../training/agenda";
 
 const { memberNotice, communityPost, userPref } = schema;
 
@@ -29,10 +30,11 @@ const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 export async function myNotifications(userId: string, now = new Date()) {
   const since = addDays(now, -WINDOW_DAYS);
-  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices] = await Promise.all([
+  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts] = await Promise.all([
     db.select({ seenAt: userPref.notificationsSeenAt }).from(userPref).where(eq(userPref.userId, userId)),
     myInbox(userId), myGymRelations(userId), myGymTasks(userId), myReviewInvites(userId), myThreads(userId), myCharges(userId, now),
     db.select().from(memberNotice).where(and(eq(memberNotice.userId, userId), gte(memberNotice.createdAt, since))).orderBy(desc(memberNotice.createdAt)).limit(20),
+    myAppointments(userId, now),
   ]);
   const posts = gymRels.length ? await db.select({ p: communityPost }).from(communityPost).where(and(
     inArray(communityPost.orgId, gymRels.map((r) => r.org.id)), isNull(communityPost.deletedAt), gte(communityPost.createdAt, since),
@@ -83,6 +85,16 @@ export async function myNotifications(userId: string, now = new Date()) {
       id: `charge:${x.id}`, title: x.overdue ? `Pago vencido · ${x.concept}` : `Pago con tu coach · ${x.concept}`,
       body: `${money(x.amountMinor, x.currency)} · ${x.overdue ? "venció" : "vence"} el ${ddmm(x.dueOn)} · ${c.coach}`, at: iso(x.createdAt), tone: x.overdue ? "bad" : "turq", dest: { tab: "perfil" },
     });
+  }
+  // Sesiones con el coach (D98): agendadas a futuro y canceladas. La fecha del aviso es cuándo cambió, no cuándo es.
+  const whenTxt = (iso: string) => new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires", hourCycle: "h23" }).format(new Date(iso));
+  for (const a of appts) {
+    const future = new Date(a.startsAt).getTime() > now.getTime();
+    if (a.status === "scheduled" && future) {
+      items.push({ id: `appt:${a.id}:${a.startsAt}`, title: `Sesión con ${a.coach.split(" ")[0]} · ${whenTxt(a.startsAt)}`, body: `${a.modality === "online" ? "Online" : "Presencial"}${a.place ? ` · ${a.place}` : ""}${a.clientResponse === "pending" ? " · Confirmá en Inicio" : ""}`, at: iso(a.updatedAt), tone: "cyan", dest: { tab: "home" } });
+    } else if (a.status === "cancelled" && future) {
+      items.push({ id: `appt:${a.id}:cancelled`, title: `Cancelada: sesión del ${whenTxt(a.startsAt)}`, body: a.cancelReason ? `Motivo: ${clip(a.cancelReason)}` : `La canceló ${a.coach.split(" ")[0]}.`, at: iso(a.updatedAt), tone: "bad", dest: { tab: "home" } });
+    }
   }
   const seen = pref?.seenAt ?? null;
   const list = items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX).map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen }));

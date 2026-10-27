@@ -186,3 +186,5 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 /* Barra de avance de objetivos (F-CO-03, D97). */
 .goalbar { display: block; height: 6px; border-radius: 3px; background: #E2E8F0; overflow: hidden; }
 .goalbar i { display: block; height: 100%; border-radius: 3px; }
+/* Horas de la agenda (F-CO-10): mono tabular como en REPI Desktop Coach. */
+.mono { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; }

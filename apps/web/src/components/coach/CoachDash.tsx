@@ -1,10 +1,11 @@
 "use client";
 import { fmtDate, type Overview, type Screen } from "./types";
+import { TodayAgenda } from "./CoachAgenda";
 
 const greet = () => { const h = Number(new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "numeric", hour12: false }).format(new Date())); return h < 13 ? "Buen día" : h < 20 ? "Buenas tardes" : "Buenas noches"; };
 
-export function CoachDash({ ov, first, onInvite, onNewProgram, go }: {
-  ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
+export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
+  orgId: string; ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
 }) {
   const today = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const k = ov.kpis;
@@ -41,7 +42,7 @@ export function CoachDash({ ov, first, onInvite, onNewProgram, go }: {
         </section>
         <section className="card" style={{ gap: 6 }}>
           <h2 style={{ marginBottom: 6 }}>Agenda de hoy</h2>
-          <span className="muted" style={{ fontSize: 14 }}>El calendario y la asistencia presencial todavía no están disponibles (F-CO-10).</span>
+          <TodayAgenda orgId={orgId} go={() => go("agenda")} />
         </section>
       </div>
     </>

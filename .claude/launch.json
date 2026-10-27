@@ -2,6 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "repi-local",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/manuelcosovschi/Proyectos Locales/Repi/apps/web",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
       "name": "repi-web",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

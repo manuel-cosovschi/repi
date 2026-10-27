@@ -12,16 +12,17 @@ import { ProgramBuilder } from "./ProgramBuilder";
 import { InviteModal } from "./InviteModal";
 import { ConditionsScreen } from "@/components/gym/Access";
 import { CoachInbox } from "./CoachInbox";
+import { CoachAgenda } from "./CoachAgenda";
 import { ChatPane } from "@/components/messages/ChatPane";
 import { initials, type Overview, type Screen } from "./types";
 import { Ic } from "@/components/ui/Ic";
-import { CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, type Icon } from "@phosphor-icons/react";
+import { CalendarBlank, CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, type Icon } from "@phosphor-icons/react";
 
-const IC = { home: House, users: Users, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt };
+const IC = { home: House, users: Users, cal: CalendarBlank, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt };
 
 // Cobros del coach a sus alumnos (F-BL-01, D80): registro manual, separado del cobro de REPI al coach (anexo §10).
 const NAV: [Screen, string, Icon, string | null][] = [
-  ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["builder", "Programas", IC.build, null],
+  ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["agenda", "Agenda", IC.cal, null], ["builder", "Programas", IC.build, null],
   ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, null],
   ["terms", "Condiciones REPI", IC.receipt, null],
 ];
@@ -104,7 +105,8 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
           {err && <p role="alert" className="err-box">{err}</p>}
           {!ov ? <p className="muted">Cargando…</p> : (
             <>
-              {screen === "dash" && <CoachDash ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} />}
+              {screen === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}
+              {screen === "dash" && <CoachDash orgId={orgId} ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} />}
               {screen === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} go={go} flash={flash} />}
               {screen === "builder" && <ProgramBuilder orgId={orgId} ov={ov} pid={pid} setPid={setPid} flash={flash} onNewProgram={newProgram} onAssigned={reload} />}
               {screen === "inbox" && <CoachInbox orgId={orgId} flash={flash} go={go} onChanged={reload} />}

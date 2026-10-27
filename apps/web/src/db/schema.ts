@@ -532,6 +532,27 @@ export const clientGoal = pgTable("client_goal", {
   closedAt: ts("closed_at"),
 }, (t) => [index("client_goal_rel_idx").on(t.coachClientId, t.status)]);
 
+// Agenda coach ↔ alumno (F-CO-10 / F-HX-07, D98). Turno propio, separado del entrenamiento registrado: el coach marca
+// realizada/no asistió y el alumno confirma o avisa que no puede. Hora guardada en UTC; se muestra en hora argentina.
+export const coachAppointment = pgTable("coach_appointment", {
+  id: id(),
+  coachOrgId: text("coach_org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
+  startsAt: ts("starts_at").notNull(),
+  durationMin: integer("duration_min").notNull(),
+  modality: text("modality", { enum: ["presencial", "online"] }).notNull(),
+  place: text("place"),
+  note: text("note"),
+  status: text("status", { enum: ["scheduled", "cancelled", "done", "no_show"] }).notNull().default("scheduled"),
+  clientResponse: text("client_response", { enum: ["pending", "confirmed", "declined"] }).notNull().default("pending"),
+  respondedAt: ts("responded_at"),
+  cancelReason: text("cancel_reason"),
+  cancelledBy: text("cancelled_by").references(() => user.id),
+  createdBy: text("created_by").notNull().references(() => user.id),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [index("appt_org_starts_idx").on(t.coachOrgId, t.startsAt), index("appt_client_starts_idx").on(t.coachClientId, t.startsAt)]);
+
 // Pedidos de derechos sobre los datos propios (F-PR-02, D75). V1: canal autenticado y registro verificable;
 // el borrado lo ejecuta REPI con el procedimiento de docs/PRIVACIDAD_OPERACION.md (retención pendiente de definir).
 export const privacyRequest = pgTable("privacy_request", {
