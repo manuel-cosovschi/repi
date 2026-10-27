@@ -2,7 +2,13 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Exportación y eliminación de datos (D75)
+## Último bloque cerrado — 27/10/2026 · Registro de errores sin datos sensibles (D76)
+
+- **Hecho:** `src/server/log.ts` + uso en `access/http.ts#handle`, `/api/media/[id]`, `/api/cron/*`; `tests/log.test.ts`.
+- **Pruebas:** web 102/102, typecheck y build OK.
+- **Cómo mirar errores en vivo:** `vercel logs repi-app.vercel.app` o el panel de Vercel → Logs (filtrar `"level":"error"`).
+
+## Bloque anterior — 27/10/2026 · Exportación y eliminación de datos (D75)
 
 - **Hecho:** migración `0009_privacy_requests` (dev local y Supabase), `src/server/privacy/services.ts`, rutas `/api/me/export`, `/api/me/deletion`, `/api/me/deletion/[id]`, Admin `GET /api/admin/privacy` y `POST /api/admin/privacy/:id/resolve`; Perfil «Tus datos»; Admin «Privacidad»; `docs/PRIVACIDAD_OPERACION.md`.
 - **Pruebas:** `tests/privacy.test.ts` (3); web 101/101, typecheck y build OK.

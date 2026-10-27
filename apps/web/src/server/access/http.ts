@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "../auth";
 import { AccessError, rateLimit } from "./util";
+import { logError } from "../log";
 
 export async function sessionUserId(): Promise<string> {
   const s = await auth.api.getSession({ headers: await headers() });
@@ -24,7 +25,7 @@ export function handle<C = unknown>(fn: (req: Request, ctx: C) => Promise<unknow
     } catch (e) {
       if (e instanceof AccessError) return NextResponse.json({ error: e.message, code: e.code, ...(e.data ? { data: e.data } : {}) }, { status: e.status });
       if (e instanceof z.ZodError) return NextResponse.json({ error: "Revisá los datos ingresados.", code: "invalid" }, { status: 400 });
-      console.error("[access]", e instanceof Error ? e.message : e);
+      logError("api", e, req);
       return NextResponse.json({ error: "Algo falló de nuestro lado. Probá de nuevo.", code: "error" }, { status: 500 });
     }
   };
