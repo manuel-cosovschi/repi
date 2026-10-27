@@ -3,45 +3,59 @@
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FEEL_ALERTS, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type LocalSession } from "@/lib/offline/store";
+import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { useUnit } from "./units";
 import { PainSheet } from "./FollowSheets";
 import { PlatesSheet } from "./PlatesSheet";
+import { ExerciseChangeSheet } from "./ExerciseChange";
+import { Sheet } from "./Sheet";
+import { cancelRestAlert, disableRestAlert, enableRestAlert, restAlertState, scheduleRestAlert, type RestAlertState } from "@/lib/restAlert";
 import { Confetti } from "@/components/motion/Confetti";
 import { StepSlider } from "@/components/motion/StepSlider";
 import { seedOf } from "@/lib/confetti";
 import { prefersReducedMotion } from "@/lib/motion";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowLeft, CaretLeft, CaretRight, ChatCircleText, Check, Pause, Play, Trophy } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, NotePencil, Pause, Play, Trophy } from "@phosphor-icons/react";
 
 const RING = 207.35;
 type DoneData = {
-  id: string; dayName: string; activeMs: number; exDone: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
+  id: string; dayName: string; activeMs: number; exDone: number; exSkipped: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
   prs: Summary["prs"]; rows: { name: string; txt: string }[]; rpe: number | null; sessionNote: string | null; local: boolean;
 };
 
+/** Nombre de lo que se hizo (F-HX-21): el reemplazo, si lo hubo. */
+const doneName = (e: { name: string; change?: ExChange | null }) => (e.change?.kind === "substitute" && e.change.substitute ? `${e.change.substitute.name} (en lugar de ${e.name})` : e.name);
+const skipTxt = (c?: ExChange | null) => `Salteado · ${c ? EXERCISE_CHANGE_REASONS[c.reason].toLowerCase() : ""}`;
+
 function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
   const done = Object.entries(s.sets).filter(([, x]) => x.done);
+  const full = (e: LocalEx) => Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]?.done).every(Boolean);
   return {
     id: s.id, dayName: s.dayName, activeMs: s.activeMs, local: true, prs: [], rpe: s.rpe, sessionNote: s.sessionNote,
-    exDone: s.exercises.filter((e) => Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]?.done).every(Boolean)).length,
+    exDone: s.exercises.filter(full).length, exSkipped: s.exercises.filter((e) => e.change?.kind === "skip" && !full(e)).length,
     exTotal: s.exercises.length, setsDone: done.length, setsTotal: s.exercises.reduce((a, e) => a + e.sets, 0),
     volumeKg: volumeKg(done.map(([, x]) => ({ exerciseId: "", weightKg: x.w, reps: x.r, completed: true }))),
     rows: s.exercises.map((e) => {
       const xs = Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]).filter((x) => x?.done);
-      return xs.length ? { name: e.name, txt: `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w, unit)))].join(" / ")}` } : null;
+      const sets = xs.length ? `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w, unit)))].join(" / ")}` : "";
+      if (e.change?.kind === "skip" && !full(e)) return { name: e.name, txt: sets ? `${sets} · ${skipTxt(e.change)}` : skipTxt(e.change) };
+      return xs.length ? { name: doneName(e), txt: sets } : null;
     }).filter(Boolean) as { name: string; txt: string }[],
   };
 }
 function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   return {
-    id: x.id, dayName: x.dayName, activeMs: x.activeMs, exDone: x.exDone, exTotal: x.exTotal, setsDone: x.setsDone, setsTotal: x.setsTotal, volumeKg: x.volumeKg,
+    id: x.id, dayName: x.dayName, activeMs: x.activeMs, exDone: x.exDone, exSkipped: x.exSkipped ?? 0, exTotal: x.exTotal, setsDone: x.setsDone, setsTotal: x.setsTotal, volumeKg: x.volumeKg,
     prs: x.prs, rpe: x.rpe, sessionNote: x.sessionNote, local: false,
-    rows: x.exercises.filter((e) => e.logs.length).map((e) => ({ name: e.name, txt: `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}` })),
+    rows: x.exercises.filter((e) => e.logs.length || e.change?.kind === "skip").map((e) => {
+      const sets = e.logs.length ? `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}` : "";
+      if (e.change?.kind === "skip" && e.logs.length < e.sets) return { name: e.name, txt: sets ? `${sets} · ${skipTxt(e.change)}` : skipTxt(e.change) };
+      return { name: doneName(e), txt: sets };
+    }),
   };
 }
 
@@ -61,6 +75,12 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   const [busy, setBusy] = useState(false);
   const [pain, setPain] = useState(false);
   const [plates, setPlates] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  // Nota de la serie en edición (F-HX-21): como RIR y sensación, se guarda al completar o guardar la serie.
+  const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  const [restAlert, setRestAlert] = useState<RestAlertState>("unsupported");
+  useEffect(() => { setRestAlert(restAlertState()); return cancelRestAlert; }, []);
 
   const commit = useCallback(async (next: LocalSession) => { setS(next); await putLocal(next); }, []);
 
@@ -88,7 +108,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
     if (!x) return;
     setS(x);
     if (x.status === "completed" || x.status === "abandoned") { await showSummary(x); return; }
-    const firstOpen = x.exercises.findIndex((e) => Array.from({ length: e.sets }, (_, i) => x!.sets[setKey(e.id, i)]).some((y) => !y.done));
+    const firstOpen = x.exercises.findIndex((e) => e.change?.kind !== "skip" && Array.from({ length: e.sets }, (_, i) => x!.sets[setKey(e.id, i)]).some((y) => !y.done));
     setExIdx(firstOpen < 0 ? Math.max(0, x.exercises.length - 1) : firstOpen);
   }, [sessionId, showSummary]);
   useEffect(() => { load().catch((e) => setErr((e as Error).message)); }, [load]);
@@ -105,6 +125,12 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   useEffect(() => { if (s && rest && !rest.paused && left <= 0) { void commit({ ...s, rest: null }); flash("Descanso terminado. ¡A la próxima serie!"); } }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const ex = s?.exercises[exIdx];
+  // F-HX-22: aviso local al terminar el descanso si la app pasa a segundo plano (opcional, por dispositivo).
+  const restEnd = rest && !rest.paused ? rest.end : null;
+  useEffect(() => {
+    if (!restEnd || restAlert !== "on") { cancelRestAlert(); return; }
+    scheduleRestAlert(restEnd, ex ? `Seguí con ${ex.change?.substitute?.name ?? ex.name}.` : "Seguí con la próxima serie.");
+  }, [restEnd, restAlert]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => (s && ex ? Array.from({ length: ex.sets }, (_, i) => s.sets[setKey(ex.id, i)]) : []), [s, ex]);
   const cur = sel ?? rows.findIndex((r) => !r.done);
   const curRow = cur >= 0 ? rows[cur] : null;
@@ -132,11 +158,11 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
     const k = setKey(ex.id, cur);
     const wasDone = curRow.done;
     const f = wasDone ? curRow.feel ?? null : feel;
-    const sets = { ...s.sets, [k]: { ...curRow, rir: wasDone ? curRow.rir : rir, feel: f, done: true, at: curRow.at ?? new Date().toISOString() } };
+    const sets = { ...s.sets, [k]: { ...curRow, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done) sets[kk] = { ...sets[kk], w: curRow.w }; }
     const more = !wasDone && Array.from({ length: ex.sets }, (_, i) => sets[setKey(ex.id, i)]).some((x) => !x.done);
     const next = { ...s, sets, rest: more && ex.restSec > 0 ? { end: Date.now() + ex.restSec * 1000, total: ex.restSec, left: ex.restSec, paused: false } : s.rest };
-    setRir(null); setFeel(null); setSel(null);
+    setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
     await commit(next);
     await enqueue({ key: `set:${s.id}:${k}`, kind: "set", sid: s.id, peId: ex.id, idx: cur });
     if (!wasDone && gym && f && FEEL_ALERTS.includes(f as SetFeel) && !navigator.onLine) flash("Sin conexión: el aviso a sala sale al reconectar (si pasaron menos de 10 minutos).");
@@ -197,15 +223,39 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
     } catch (e) { flash((e as Error).message); }
   };
 
+  /** Saltar, reemplazar o volver al original sólo en esta sesión (F-HX-21). Viaja por la cola como el resto. */
+  const applyChange = async (c: ExChange | null, prev?: LocalEx["prev"]) => {
+    if (!s || !ex) return;
+    const wasSub = ex.change?.kind === "substitute";
+    const nextEx: LocalEx = {
+      ...ex, change: c,
+      prev: c?.kind === "substitute" ? prev ?? null : wasSub ? ex.origPrev ?? null : ex.prev,
+      origPrev: c?.kind === "substitute" ? (wasSub ? ex.origPrev ?? null : ex.prev) : undefined,
+    };
+    const sets = { ...s.sets };
+    // Otro ejercicio no tiene la misma carga: las series pendientes arrancan de su último registro (o de 0).
+    if (c?.kind === "substitute") for (let i = 0; i < ex.sets; i++) { const k = setKey(ex.id, i); if (!sets[k].done) sets[k] = { ...sets[k], w: prev?.weightKg ?? 0 }; }
+    const exercises = s.exercises.map((e) => (e.id === ex.id ? nextEx : e));
+    setSel(null); setRir(null); setFeel(null); setNoteDraft(null);
+    await commit({ ...s, exercises, sets });
+    await enqueue({ key: `exchange:${s.id}:${ex.id}`, kind: "exchange", sid: s.id, peId: ex.id });
+    flash(!c ? `Volviste a ${ex.name}.` : c.kind === "skip" ? `Salteaste ${ex.name}.` : `Hacés ${c.substitute?.name} en lugar de ${ex.name}.`);
+  };
+
   if (err) return <div className="mb-scroll nobar"><p role="alert" className="mb-err">{err}</p><button type="button" className="ghost" onClick={() => onExit("train")}>Volver</button></div>;
   if (summary) return <Done sum={summary} coachFirst={coachFirst} onExit={onExit} flash={flash} justFinished={justFinished} />;
   const painSheet = pain && s && ex ? <PainSheet exerciseName={ex.name} sessionId={s.id} flash={flash} onClose={() => setPain(false)} /> : null;
   if (!s || !ex) return <div className="mb-scroll nobar"><p className="mb-muted">Cargando entrenamiento…</p></div>;
 
-  const exComplete = rows.every((r) => r.done);
   const rowsOf = (i: number) => Array.from({ length: s.exercises[i].sets }, (_, j) => s.sets[setKey(s.exercises[i].id, j)]);
-  const nextEx = s.exercises.findIndex((_, i) => i > exIdx && rowsOf(i).some((r) => !r.done));
-  const anyOpen = s.exercises.some((_, i) => rowsOf(i).some((r) => !r.done));
+  // Salteado = resuelto para avanzar y finalizar; sus series no hechas no se registran.
+  const skippedAt = (i: number) => s.exercises[i].change?.kind === "skip";
+  const resolved = (i: number) => skippedAt(i) || rowsOf(i).every((r) => r.done);
+  const exSkipped = skippedAt(exIdx);
+  const exComplete = rows.every((r) => r.done) || exSkipped;
+  const nextEx = s.exercises.findIndex((_, i) => i > exIdx && !resolved(i));
+  const anyOpen = s.exercises.some((_, i) => !resolved(i));
+  const sub = ex.change?.kind === "substitute" ? ex.change.substitute : null;
   const anyDone = Object.values(s.sets).some((x) => x.done);
   const savedTxt = sync.kind === "saving" ? "Guardando…"
     : sync.kind === "offline" ? `Sin conexión · ${sync.pending} pendiente${sync.pending === 1 ? "" : "s"}`
@@ -254,13 +304,15 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
             </div>
           );
         })}
-        <div className="prog" aria-hidden="true">{s.exercises.map((e, i) => <i key={e.id} className={rowsOf(i).every((r) => r.done) ? "done" : i === exIdx ? "cur" : ""} />)}</div>
+        <div className="prog" aria-hidden="true">{s.exercises.map((e, i) => <i key={e.id} className={resolved(i) ? "done" : i === exIdx ? "cur" : ""} />)}</div>
         <div className="excard">
           <div className="excard-top">
-            <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null ? ` · RIR ${ex.rir}` : ""}</small></div>
+            <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{sub ? sub.name : ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null ? ` · RIR ${ex.rir}` : ""}</small>
+              {ex.change && <small className="xc-tag">{sub ? `En lugar de ${ex.name}` : "Salteado"} · {EXERCISE_CHANGE_REASONS[ex.change.reason].toLowerCase()}</small>}</div>
             <div className="nav2">
-              <button type="button" aria-label="Ejercicio anterior" disabled={exIdx === 0} onClick={() => { setExIdx(exIdx - 1); setSel(null); setRir(null); }}><Ic i={CaretLeft} size={16} /></button>
-              <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); }}><Ic i={CaretRight} size={16} /></button>
+              {!paused && <button type="button" aria-label={`Cambiar ${ex.name} en este entrenamiento`} onClick={() => setChanging(true)}><Ic i={ArrowsClockwise} size={16} /></button>}
+              <button type="button" aria-label="Ejercicio anterior" disabled={exIdx === 0} onClick={() => { setExIdx(exIdx - 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretLeft} size={16} /></button>
+              <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretRight} size={16} /></button>
             </div>
           </div>
           <div className="video" aria-hidden="true">video demostración (pendiente)</div>
@@ -268,9 +320,9 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
           <div className="sets" role="list" aria-label="Series">
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
             {rows.map((r, i) => (
-              <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); }}
-                aria-label={`Serie ${i + 1}: ${kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.conflict ? ", con conflicto" : ""}`}>
-                <span>{i + 1}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
+              <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
+                aria-label={`Serie ${i + 1}: ${kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
+                <span>{i + 1}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
                 <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
               </button>
             ))}
@@ -286,7 +338,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
             <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>Entrenamiento en pausa · {formatClock(elapsed)}</span>
             <button type="button" className="cta" onClick={() => act("resume")}>Reanudar</button>
           </>
-        ) : rest && left > 0 && sel == null ? (
+        ) : rest && left > 0 && sel == null && !exSkipped ? (
           <>
             <div className="rest">
               <div><span className="mb-muted" style={{ fontSize: 14 }}>Descanso</span><strong role="timer" aria-live="off">{formatClock(left)}</strong></div>
@@ -301,6 +353,25 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
               </div>
             </div>
             <div className="rest-foot"><span>Próxima: serie {cur + 1} · {kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
+            {restAlert !== "unsupported" && (
+              <div className="rest-alert">
+                {restAlert === "on" ? <>
+                  <span>Te avisamos al terminar si salís de la app. El teléfono puede demorarlo.</span>
+                  <button type="button" className="linkbtn" onClick={() => { disableRestAlert(); setRestAlert("off"); }}>Desactivar</button>
+                </> : restAlert === "denied" ? <span>Las notificaciones están bloqueadas para REPI en este navegador.</span> : <>
+                  <span>¿Salís de la app durante el descanso?</span>
+                  <button type="button" className="linkbtn" onClick={async () => { const st = await enableRestAlert(); setRestAlert(st); flash(st === "on" ? "Listo: te avisamos al terminar el descanso." : "Sin permiso de notificaciones no podemos avisarte."); }}>Avisarme al terminar</button>
+                </>}
+              </div>
+            )}
+          </>
+        ) : exSkipped && sel == null ? (
+          <>
+            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{ex.name}: {skipTxt(ex.change).toLowerCase()}. Tu coach lo va a ver.</span>
+            <button type="button" className="ghost" onClick={() => applyChange(null)}>Retomar {ex.name}</button>
+            {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
+              : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a lo pendiente</button>
+                : <button type="button" className="cta" onClick={finish} aria-busy={busy || undefined}>Finalizar entrenamiento</button>}
           </>
         ) : curRow && (!exComplete || sel != null) ? (
           <>
@@ -308,7 +379,11 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
               <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>
             </div>
-            {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn plates-open" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
+            <div className="wo-tools">
+              {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
+              <button type="button" className="linkbtn" onClick={() => setNoteOpen(true)}>{noteDraft?.trim() ? "Editar nota" : "Nota de la serie"}</button>
+            </div>
+            {noteDraft?.trim() && <span className="feel-note">Nota: {noteDraft.trim()}</span>}
             <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
             <div className="feel" role="group" aria-label="¿Cómo se sintió la serie? (opcional)">
               {(Object.keys(SET_FEEL) as SetFeel[]).filter((k) => gym || k !== "ayuda").map((k) => {
@@ -322,16 +397,28 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
           </>
         ) : (
           <>
-            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{ex.name} completo · {rows.length} series</span>
+            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {rows.length} series</span>
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
-              : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => rowsOf(i).some((r) => !r.done))); setSel(null); }}>Ir a la serie pendiente</button>
+              : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a la serie pendiente</button>
                 : <button type="button" className="cta" onClick={finish} aria-busy={busy || undefined}>Finalizar entrenamiento</button>}
           </>
         )}
       </div>
       {painSheet}
       {plates && curRow && <PlatesSheet kgWeight={curRow.w} unit={unit} onClose={() => setPlates(false)} />}
+      {changing && <ExerciseChangeSheet sessionId={s.id} ex={ex} unit={unit} onApply={applyChange} onPain={() => setPain(true)} onClose={() => setChanging(false)} />}
+      {noteOpen && curRow && <SetNoteSheet n={cur + 1} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}
     </div>
+  );
+}
+
+/** Nota de una serie (F-HX-21): queda con la serie al completarla o guardarla, y la ve el coach de la relación. */
+function SetNoteSheet({ n, done, value, onSave, onClose }: { n: number; done: boolean; value: string; onSave: (v: string) => void; onClose: () => void }) {
+  const [v, setV] = useState(value);
+  return (
+    <Sheet title={`Nota de la serie ${n}`} sub={`Ej.: «agarre cerrado», «molestó la rodilla en la última». Se guarda al ${done ? "guardar" : "completar"} la serie. Hasta 200 caracteres.`} onClose={onClose}
+      text={{ value: v, onChange: (x) => setV(x.slice(0, 200)), placeholder: "Escribí la nota" }}
+      action={{ label: v.trim() ? "Listo" : value ? "Borrar nota" : "Cerrar", ready: true, onSubmit: () => { onSave(v); onClose(); } }} />
   );
 }
 
@@ -377,7 +464,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData;
       {sum.local && <p className="mb-note" role="status">Guardado en el teléfono. Se sincroniza al volver la conexión; los récords se calculan ahí.</p>}
       <div className="stats3">
         <div><strong>{formatClock(dur)}</strong><span>Duración activa</span></div>
-        <div><strong>{sum.exDone}/{sum.exTotal}</strong><span>Ejercicios</span></div>
+        <div><strong>{sum.exDone}/{sum.exTotal}</strong><span>{sum.exSkipped ? `Ejercicios · ${sum.exSkipped} salteado${sum.exSkipped === 1 ? "" : "s"}` : "Ejercicios"}</span></div>
         <div><strong>{sum.setsDone}/{sum.setsTotal}</strong><span>Series</span></div>
       </div>
       {pr && (

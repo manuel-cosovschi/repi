@@ -1,4 +1,4 @@
-import { fmtWeight, type WeightUnit } from "@repi/domain";
+import { fmtWeight, type ExerciseChangeReason, type WeightUnit } from "@repi/domain";
 export type PrevSet = { weightKg: number | null; reps: number | null } | null;
 export type TrainEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; prev: PrevSet };
 export type Training = {
@@ -11,14 +11,15 @@ export type Training = {
 };
 /** F-CL-14: aviso de programa nuevo o actualizado. `key` cambia con cada versión. */
 export type ProgramUpdate = { key: string; kind: "new" | "updated"; author: string | null; at: string; reason: string | null; hasPrevious: boolean };
-export type SessionLog = { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null };
-export type SessionEx = TrainEx & { note: string | null; defaultWeight: number | null; defaultReps: number | null; logs: SessionLog[] };
+export type SessionLog = { id: string; setIndex: number; exerciseId?: string; weightKg: number | null; reps: number | null; rir: number | null; note?: string | null };
+export type SessionEx = TrainEx & { note: string | null; defaultWeight: number | null; defaultReps: number | null; logs: SessionLog[];
+  change?: { kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: { exerciseId: string; name: string } | null } | null };
 export type Session = {
   id: string; dayName: string; status: "in_progress" | "paused" | "completed" | "abandoned"; note: string; rpe: number | null; sessionNote: string | null;
   startedAt: string; endedAt: string | null; activeMs: number; lastResumedAt: string | null; elapsedSec: number; exercises: SessionEx[];
 };
 export type Summary = Session & {
-  exDone: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
+  exDone: number; exSkipped?: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
   prs: { exercise: string; current: { weightKg: number; reps: number; e1rm: number }; previous: { weightKg: number; reps: number; e1rm: number }; previousAt: string | null }[];
 };
 

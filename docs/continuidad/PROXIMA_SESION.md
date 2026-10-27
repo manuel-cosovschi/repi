@@ -1,8 +1,18 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, discos y entrada en calor (D105). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, cambios en la sesión activa y aviso de descanso (D106–D107). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Discos y entrada en calor en la sesión activa (F-HX-21 parcial, D105)
+## Último bloque cerrado — 27/10/2026 · Nota por serie, saltar/reemplazar y aviso de descanso (F-HX-21 y F-HX-22, D106–D107)
+
+- **Pedido del titular:** cerrar estos V1 y después pasar a Adaptive Coach (pedido «MASTER FEATURE EXPANSION», pegado en el chat; pide Inter Tight, que está superada por G · Atlética: se mantiene Barlow).
+- **Hecho (D106):** dominio `session-changes.ts` (motivos, compatibilidad, orden de alternativas, `cleanSetNote`) y `sync.ts` (la nota es parte de la serie); migración `0022_session_exercise_change` (`set_log.note` + tabla `session_exercise_change`, dev y **Supabase**, RLS); `training/services.ts` (`logSet` con nota y ejercicio real, `getSession` con `change`, `sessionAlternatives`, `setExerciseChange`, resumen con `exSkipped` y récords por ejercicio hecho, `clientDetail` con `changes` y `setNotes`); ruta `GET/POST /api/me/sessions/[id]/exercises`; cola offline con ítem `exchange`; `member/ExerciseChange.tsx`, nota de serie y estado «salteado» en `Workout.tsx`; ficha del coach (`CoachClients.tsx`) muestra cambios y notas.
+- **Hecho (D107):** `src/lib/restAlert.ts` y fila «Avisarme al terminar» en el descanso; `public/sw.js` acepta `focusOnly` en el clic de la notificación.
+- **Pruebas:** web 164/164 (nuevos `tests/session-changes.test.ts` 3 y `tests/rest-alert.test.ts` 2), dominio 96/96, guardas 11/11, build OK. Navegador local (375 px, Valentina): nota «agarre cerrado» llegó al servidor; Sentadilla → Prensa por «máquina ocupada» (series pendientes en 0, la hecha conserva Sentadilla); Peso muerto rumano salteado por tiempo, con «Retomar»; tras recargar se mantiene; el descanso muestra «bloqueadas» (el panel deniega notificaciones) y, simulando permiso por defecto, «Avisarme al terminar». Esa sesión «Piernas» sigue abierta en `repi_dev`.
+- **Para Codex (exportación de datos):** hay datos propios nuevos: `set_log.note` y `session_exercise_change`.
+- **Pendiente:** aviso de descanso en teléfonos reales; alternativas sin conexión (hoy requieren red).
+- **Siguiente:** Adaptive Coach fase 1 (auditoría, modelo de datos, catálogo de sustituciones, validador, políticas de autonomía; sin IA). Reutilizar `session_exercise_change`, `rankAlternatives` y el check-in existente.
+
+## Bloque anterior — 27/10/2026 · Discos y entrada en calor en la sesión activa (F-HX-21 parcial, D105)
 
 - **Hecho:** `packages/domain/src/plates.ts` (+ tests) exportado desde el índice; `apps/web/src/components/member/PlatesSheet.tsx`; botón «Discos y entrada en calor» en `member/Workout.tsx` (sólo peso > 0 y ejercicios por repeticiones); estilos `.plates*` en `member.css`. Sin migración ni cambios de sincronización: no se registra nada.
 - **Pruebas:** dominio 92/92 (nuevo `plates.test.ts`, 5), web 159/159, build OK. Navegador local (375 px, Valentina, Piernas → Sentadilla 100 kg): 20 kg → «1 × 25 + 1 × 15» y escalones 20×10, 40×5, 60×3, 80×2; barra 15 → «1 × 25 + 1 × 15 + 1 × 2,5» y se recuerda. Quedó una sesión «Piernas» en curso sin series en `repi_dev`.

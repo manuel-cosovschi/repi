@@ -1,13 +1,16 @@
 "use client";
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
-import { applySessionAction, type SessionStatus } from "@repi/domain";
+import { applySessionAction, type ExerciseChangeReason, type SessionStatus } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
-export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; done: boolean; revision: number; at: string | null;
+export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null;
   // `other`: la versión que NO es la que se ve en pantalla. `appliedIsMine`: si la versión aplicada en el servidor es la de este dispositivo.
   conflict?: { id: string; other: { weightKg: number | null; reps: number | null; rir: number | null }; appliedIsMine: boolean } };
-export type LocalEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note: string | null; prev: { weightKg: number | null; reps: number | null } | null };
+// F-HX-21 (D106): saltar o reemplazar el ejercicio sólo en esta sesión. `origPrev`: el «anterior» del original, para volver.
+export type ExChange = { kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: { exerciseId: string; name: string } | null };
+export type LocalEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note: string | null; prev: { weightKg: number | null; reps: number | null } | null;
+  change?: ExChange | null; origPrev?: LocalEx["prev"] };
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
   lastResumedAt: string | null; endedAt: string | null; rpe: number | null; sessionNote: string | null; revision: number;
@@ -53,23 +56,25 @@ export function localAction(s: LocalSession, action: "pause" | "resume" | "finis
 export function fromServer(x: {
   id: string; dayName: string; status: SessionStatus; note: string; rpe: number | null; sessionNote: string | null; startedAt: string; endedAt: string | null;
   activeMs: number; lastResumedAt: string | null; revision: number; dayId?: string;
-  exercises: (LocalEx & { defaultWeight: number | null; defaultReps: number | null; logs: { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; revision: number; completedAt: string }[] })[];
+  exercises: (LocalEx & { defaultWeight: number | null; defaultReps: number | null; logs: { id: string; setIndex: number; exerciseId?: string; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; revision: number; completedAt: string }[] })[];
   conflicts?: { id: string; targetKey: string; server: unknown; client: unknown }[];
 }, keepRest?: LocalSession["rest"]): LocalSession {
   const sets: Record<string, LocalSet> = {};
   for (const e of x.exercises) {
     let lastW = e.defaultWeight ?? 0;
+    const doing = e.change?.kind === "substitute" ? e.change.substitute?.exerciseId : e.exerciseId;
     for (let i = 0; i < e.sets; i++) {
       const l = e.logs.find((y) => y.setIndex === i);
       const c = x.conflicts?.find((k) => k.targetKey === setKey(e.id, i));
-      if (l) { lastW = l.weightKg ?? lastW; sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
+      // Sólo una serie del mismo ejercicio sugiere el peso de las siguientes (un reemplazo no hereda la carga del original).
+      if (l) { if (!l.exerciseId || l.exerciseId === doing) lastW = l.weightKg ?? lastW; sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, note: l.note ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
       else sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: lastW, r: e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null };
     }
   }
   return {
     id: x.id, dayId: x.dayId ?? "", dayName: x.dayName, note: x.note, startedAt: x.startedAt, status: x.status, activeMs: x.activeMs, lastResumedAt: x.lastResumedAt,
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev })),
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null })),
     sets,
   };
 }

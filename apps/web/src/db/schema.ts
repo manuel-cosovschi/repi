@@ -400,6 +400,7 @@ export const setLog = pgTable("set_log", {
   reps: integer("reps"),
   rir: integer("rir"),
   feel: text("feel"), // sensación de la serie (pedido 26/10): facil|bien|dificil|limite|molestia|ayuda
+  note: text("note"), // nota de la persona sobre esta serie (F-HX-21, D106); la ve su coach en la relación
   completedAt: ts("completed_at").notNull(),
   revision: integer("revision").notNull().default(1),
   updatedAt: now("updated_at"),
@@ -407,6 +408,19 @@ export const setLog = pgTable("set_log", {
   uniqueIndex("set_log_unique").on(t.sessionId, t.programExerciseId, t.setIndex),
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
 ]);
+
+// Cambios de la persona a un ejercicio de ESTA sesión (F-HX-21, D106): saltarlo o hacer otro en su lugar. Nunca toca el
+// programa ni la prescripción; las series hechas con el reemplazo se registran con el ejercicio realmente hecho.
+export const sessionExerciseChange = pgTable("session_exercise_change", {
+  id: id(),
+  sessionId: text("session_id").notNull().references(() => workoutSession.id, { onDelete: "cascade" }),
+  programExerciseId: text("program_exercise_id").notNull().references(() => programExercise.id),
+  kind: text("kind", { enum: ["skip", "substitute"] }).notNull(),
+  substituteExerciseId: text("substitute_exercise_id").references(() => exercise.id),
+  reason: text("reason", { enum: ["busy", "no_equipment", "discomfort", "no_time", "other"] }).notNull(),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [uniqueIndex("session_exercise_change_uq").on(t.sessionId, t.programExerciseId)]);
 
 // Conflictos de sincronización: se guardan ambas versiones hasta que la persona elige (Etapa 3).
 export const syncConflict = pgTable("sync_conflict", {

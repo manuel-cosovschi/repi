@@ -2,12 +2,13 @@
 // envía la revisión que conocía (`baseRevision`, 0 = registro nuevo). Nunca se sobrescribe en silencio:
 // si el servidor cambió desde la base y los valores difieren, es conflicto y se conservan ambas versiones.
 
-export type SetValues = { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null };
+export type SetValues = { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null };
 export type ServerSet = SetValues & { id: string; revision: number };
 export type IncomingSet = SetValues & { id: string; baseRevision: number };
 
 export const sameSetValues = (a: SetValues, b: SetValues) =>
-  (a.weightKg ?? null) === (b.weightKg ?? null) && (a.reps ?? null) === (b.reps ?? null) && (a.rir ?? null) === (b.rir ?? null) && (a.feel ?? null) === (b.feel ?? null);
+  (a.weightKg ?? null) === (b.weightKg ?? null) && (a.reps ?? null) === (b.reps ?? null) && (a.rir ?? null) === (b.rir ?? null) && (a.feel ?? null) === (b.feel ?? null)
+  && (a.note || null) === (b.note || null);
 
 export type SetDecision =
   | { kind: "insert" }

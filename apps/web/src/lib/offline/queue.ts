@@ -9,7 +9,8 @@ export type Item =
   | { seq?: number; key: string; kind: "start"; sid: string }
   | { seq?: number; key: string; kind: "set"; sid: string; peId: string; idx: number }
   | { seq?: number; key: string; kind: "action"; sid: string; action: "pause" | "resume" | "finish"; at: string }
-  | { seq?: number; key: string; kind: "feedback"; sid: string };
+  | { seq?: number; key: string; kind: "feedback"; sid: string }
+  | { seq?: number; key: string; kind: "exchange"; sid: string; peId: string }; // saltar/reemplazar (F-HX-21): se envía el estado vigente
 export type SyncState = { kind: "idle" | "saving" | "saved" | "pending" | "offline" | "error" | "conflict"; pending: number; error?: string };
 
 const listeners = new Set<(s: SyncState) => void>();
@@ -26,7 +27,7 @@ export const pendingFor = async (sid?: string) => (await idbAll<Item>("queue")).
 
 /** Encola. Para series y feedback, una sola entrada por clave (se envía el valor vigente al sincronizar). */
 export async function enqueue(item: Item) {
-  if (item.kind === "set" || item.kind === "feedback" || item.kind === "start") {
+  if (item.kind === "set" || item.kind === "feedback" || item.kind === "start" || item.kind === "exchange") {
     const existing = (await idbAll<Item>("queue")).find((i) => i.key === item.key);
     if (existing) { void flush(); return; }
   }
@@ -46,8 +47,15 @@ async function build(it: Item, s: LocalSession): Promise<Built> {
   if (it.kind === "set") {
     const x = s.sets[setKey(it.peId, it.idx)];
     if (!x?.done) return null;
-    const body = { id: x.id, programExerciseId: it.peId, setIndex: it.idx, weightKg: x.w, reps: x.r, rir: x.rir, feel: x.feel ?? null, baseRevision: x.revision, at: x.at ?? undefined };
-    return { url: `${base}/${s.id}/sets`, body, sent: { w: x.w, r: x.r, rir: x.rir, feel: x.feel ?? null } };
+    const body = { id: x.id, programExerciseId: it.peId, setIndex: it.idx, weightKg: x.w, reps: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, baseRevision: x.revision, at: x.at ?? undefined };
+    return { url: `${base}/${s.id}/sets`, body, sent: { w: x.w, r: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null } };
+  }
+  if (it.kind === "exchange") {
+    const e = s.exercises.find((y) => y.id === it.peId);
+    if (!e) return null;
+    const c = e.change ?? null;
+    const body = { programExerciseId: e.id, change: c ? { kind: c.kind, reason: c.reason, exerciseId: c.substitute?.exerciseId ?? null } : null };
+    return { url: `${base}/${s.id}/exercises`, body, sent: JSON.stringify(body.change) };
   }
   if (it.kind === "action") return { url: `${base}/${s.id}/action`, body: { action: it.action, at: it.at } };
   if (s.rpe == null) return null;
@@ -115,8 +123,8 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
   if (it.kind === "set") {
     const k = setKey(it.peId, it.idx);
     const x = s.sets[k];
-    const sent = b.sent as { w: number; r: number; rir: number | null; feel: string | null };
-    const changedMeanwhile = x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel);
+    const sent = b.sent as { w: number; r: number; rir: number | null; feel: string | null; note: string | null };
+    const changedMeanwhile = x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel || (x.note ?? null) !== sent.note);
     if (data.status === "conflict") {
       s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null }, appliedIsMine: false } };
     } else {
@@ -128,6 +136,13 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
     }
     await putLocal(s);
     if (!changedMeanwhile || data.status === "conflict") await idbDel("queue", it.seq!);
+    return;
+  }
+  if (it.kind === "exchange") {
+    // Si la persona volvió a cambiar mientras viajaba el pedido, el ítem queda y se envía el estado nuevo.
+    const c = s.exercises.find((y) => y.id === it.peId)?.change ?? null;
+    const now = JSON.stringify(c ? { kind: c.kind, reason: c.reason, exerciseId: c.substitute?.exerciseId ?? null } : null);
+    if (now === b.sent) await idbDel("queue", it.seq!);
     return;
   }
   if (it.kind === "action") { await putLocal({ ...s, revision: (data.revision as number) ?? s.revision }); await idbDel("queue", it.seq!); return; }

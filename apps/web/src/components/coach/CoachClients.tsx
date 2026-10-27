@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { formatClock, formatRest, type ProgramDoc } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, formatClock, formatRest, type ExerciseChangeReason, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { SensitiveTab } from "./CoachHealth";
 import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overview, type Screen } from "./types";
@@ -14,7 +14,8 @@ import { useLoad } from "@/components/gym/shared";
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
   program: { programId: string; startsOn: string; version: number; doc: ProgramDoc } | null;
-  sessions: { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; durationSec: number; sets: number; volumeKg: number }[];
+  sessions: { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; durationSec: number; sets: number; volumeKg: number;
+    changes?: { exercise: string; kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: string | null }[]; setNotes?: { exercise: string; set: number; note: string }[] }[];
 };
 const TABS: [string, string][] = [["res", "Resumen"], ["rend", "Rendimiento"], ["prog", "Rutinas"], ["progreso", "Progreso"], ["salud", "Salud"], ["nutri", "Nutrición"], ["body", "Mi cuerpo"], ["pay", "Pagos"]];
 const FILTERS: [string, string][] = [["all", "Todos"], ["active", "Activos"], ["noprog", "Sin programa"], ["paused", "En pausa"]];
@@ -137,6 +138,8 @@ function Sessions({ det }: { det: Detail }) {
               <span style={{ flex: "0 0 auto" }}>{s.status === "completed" ? `${formatClock(s.durationSec)} · ${s.sets} series · ${nf(s.volumeKg)} kg` : <span className="chip info">En curso</span>}</span>
               {s.rpe != null && <span className="chip mute">RPE {s.rpe}</span>}
               {s.note && <span style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>“{s.note}”</span>}
+              {s.changes?.map((c) => <span key={c.exercise} style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>{c.kind === "skip" ? `Salteó ${c.exercise}` : `Hizo ${c.substitute} en lugar de ${c.exercise}`} · {EXERCISE_CHANGE_REASONS[c.reason].toLowerCase()}</span>)}
+              {s.setNotes?.map((x) => <span key={`${x.exercise}${x.set}`} style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>{x.exercise} · serie {x.set}: “{x.note}”</span>)}
             </div>
           ))}
         </div>

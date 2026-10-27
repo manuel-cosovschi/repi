@@ -82,7 +82,8 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const same = all.find((c) => new URL(c.url).pathname === url.pathname);
-    if (same) { await same.focus(); return same.navigate(url.href); }
+    // Aviso de descanso (F-HX-22): sólo trae la app al frente, sin recargar el entrenamiento en curso.
+    if (same) { await same.focus(); return e.notification.data?.focusOnly ? undefined : same.navigate(url.href); }
     return self.clients.openWindow(url.href);
   })());
 });

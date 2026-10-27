@@ -208,7 +208,17 @@
 .plates-warm li span { color: var(--dark-muted); }
 .plates-warm li strong { font-variant-numeric: tabular-nums; }
 .plates-note { font-size: 12px !important; }
-.plates-open { align-self: center; height: 44px; }
+.rest-alert { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--dark-muted); line-height: 1.4; }
+.rest-alert .linkbtn { flex: none; height: 44px; }
+.wo-tools { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.wo-tools .linkbtn { height: 44px; }
+/* Cambiar ejercicio en la sesión (F-HX-21, D106) */
+.xc-tag { color: var(--light-accent-text) !important; font-weight: 600; }
+.xc-actions { display: flex; flex-direction: column; gap: 8px; }
+.xc-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.xc-list button { width: 100%; min-height: 52px; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 14px;
+  border: 1px solid var(--dark-border); background: var(--dark-surface); color: var(--dark-ink); font: 600 15px var(--font-ui); cursor: pointer; }
+.xc-list small { font-weight: 400; font-size: 13px; color: var(--dark-muted); }
 .sheet-warn { margin: 0; background: rgba(245, 158, 11, .14); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #FCD38A; line-height: 1.45; }
 .sheet textarea { border: 1px solid var(--dark-border); background: var(--dark-bg); color: var(--dark-ink); border-radius: 12px; padding: 12px; font: 14px var(--font-ui); resize: none; }
 .sheet-video { height: 56px; border-radius: 12px; border: 1.5px dashed var(--dark-border); display: flex; gap: 10px; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--core-turquoise); }

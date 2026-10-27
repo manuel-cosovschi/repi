@@ -11,3 +11,4 @@ export * from "./goals";
 export * from "./agenda";
 export * from "./csv";
 export * from "./plates";
+export * from "./session-changes";

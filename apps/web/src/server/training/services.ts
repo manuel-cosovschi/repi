@@ -1,14 +1,14 @@
 // Servicios de programación (coach) y ejecución (alumno). Toda autorización se resuelve aquí.
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  activeSeconds, applySessionAction, bestE1rm, clampClientTime, decideSetWrite, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
+  activeSeconds, applySessionAction, bestE1rm, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, type LoggedSet, type ProgramDoc, type SetFeel,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
-  programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref } = schema;
+  programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange } = schema;
 
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 
@@ -312,6 +312,13 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
   const sessions = await db.select().from(workoutSession).where(and(eq(workoutSession.coachClientId, coachClientId), inArray(workoutSession.status, ["completed", "in_progress", "paused"])))
     .orderBy(desc(workoutSession.startedAt)).limit(20);
   const sets = sessions.length ? await db.select().from(setLog).where(inArray(setLog.sessionId, sessions.map((s) => s.id))) : [];
+  // F-HX-21 (D106): el coach ve qué ejercicios se saltaron o reemplazaron y las notas por serie, con su motivo.
+  const changes = sessions.length ? await db.select({ c: sessionExerciseChange, pe: programExercise.name, sub: exercise.name }).from(sessionExerciseChange)
+    .innerJoin(programExercise, eq(programExercise.id, sessionExerciseChange.programExerciseId)).leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId))
+    .where(inArray(sessionExerciseChange.sessionId, sessions.map((s) => s.id))) : [];
+  const noted = sets.filter((x) => x.note);
+  const peNames = new Map((noted.length ? await db.select({ id: programExercise.id, name: programExercise.name }).from(programExercise)
+    .where(inArray(programExercise.id, [...new Set(noted.map((x) => x.programExerciseId))])) : []).map((r) => [r.id, r.name]));
   const grants = await db.select({ item: consentGrant.item }).from(consentGrant).where(and(eq(consentGrant.relationId, coachClientId), eq(consentGrant.status, "active")));
   return {
     id: coachClientId, name: rel.name, status: rel.rel.status, since: rel.rel.createdAt, grants: grants.map((g) => g.item), program: prog,
@@ -321,6 +328,9 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
         id: s.id, dayName: s.dayName, status: s.status, startedAt: s.startedAt, endedAt: s.endedAt, rpe: s.rpe, note: s.note,
         durationSec: activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, new Date()), sets: ss.length,
         volumeKg: volumeKg(ss.map(toLogged)),
+        changes: changes.filter((x) => x.c.sessionId === s.id).map((x) => ({ exercise: x.pe, kind: x.c.kind, reason: x.c.reason, substitute: x.sub })),
+        setNotes: ss.filter((x) => x.note).sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime())
+          .map((x) => ({ exercise: peNames.get(x.programExerciseId) ?? "", set: x.setIndex + 1, note: x.note! })),
       };
     }),
   };
@@ -515,28 +525,35 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const exs = await db.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
   const [v] = await db.select({ note: programVersion.note }).from(programVersion).where(eq(programVersion.id, s.versionId));
   const logs = await db.select().from(setLog).where(eq(setLog.sessionId, s.id));
-  const prev = await lastSetByExercise(userId, exs.map((e) => e.exerciseId), s.id);
+  // F-HX-21: saltos y reemplazos de esta sesión. El «anterior» y el peso inicial salen del ejercicio que realmente se hace.
+  const changes = await db.select({ c: sessionExerciseChange, name: exercise.name, kind: exercise.kind }).from(sessionExerciseChange)
+    .leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId)).where(eq(sessionExerciseChange.sessionId, s.id));
+  const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
+  const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
+  const prev = await lastSetByExercise(userId, [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])], s.id);
   return {
     id: s.id, dayId: s.dayId, dayName: s.dayName, status: s.status, note: v?.note ?? "", rpe: s.rpe, sessionNote: s.note,
     startedAt: s.startedAt, endedAt: s.endedAt, activeMs: s.activeMs, lastResumedAt: s.lastResumedAt,
     elapsedSec: activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, now), revision: s.revision,
     conflicts: await listConflicts(userId, s.id),
     exercises: exs.map((e) => {
-      const pv = prev.get(e.exerciseId);
+      const pv = prev.get(doing(e));
+      const ch = changeOf.get(e.id);
       return {
         id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note,
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
+        change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
         logs: logs.filter((l) => l.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)
-          .map((l) => ({ id: l.id, setIndex: l.setIndex, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, completedAt: l.completedAt, revision: l.revision })),
+          .map((l) => ({ id: l.id, setIndex: l.setIndex, exerciseId: l.exerciseId, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, completedAt: l.completedAt, revision: l.revision })),
       };
     }),
   };
 }
 
 const WEIGHT_RE = /^\d{1,4}(\.\d{1,2})?$/;
-type SetInput = { id: string; programExerciseId: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; baseRevision?: number; at?: string };
-const setOut = (r: typeof setLog.$inferSelect) => ({ id: r.id, setIndex: r.setIndex, weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, revision: r.revision });
+type SetInput = { id: string; programExerciseId: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; baseRevision?: number; at?: string };
+const setOut = (r: typeof setLog.$inferSelect) => ({ id: r.id, setIndex: r.setIndex, weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, note: r.note, revision: r.revision });
 
 /**
  * Registra o edita una serie. Idempotente por clave (sesión, ejercicio, serie). Con `baseRevision` detecta ediciones
@@ -549,6 +566,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
   if (p.rir != null && (!Number.isInteger(p.rir) || p.rir < 0 || p.rir > 5)) throw new AccessError("invalid", "El RIR va de 0 a 4+.");
   if (p.feel != null && !isSetFeel(p.feel)) throw new AccessError("invalid", "Elegí cómo se sintió la serie.");
   const feel = (p.feel ?? null) as SetFeel | null;
+  const note = cleanSetNote(p.note);
   const at = clampClientTime(p.at, now);
   if (at === "invalid") throw BAD_TIME();
   const res = await db.transaction(async (tx) => {
@@ -559,24 +577,27 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     if (!Number.isInteger(p.setIndex) || p.setIndex < 0 || p.setIndex >= pe.sets) throw new AccessError("invalid", "Esa serie no está prescripta.");
     const [ex] = await tx.select().from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, pe.id), eq(setLog.setIndex, p.setIndex))).for("update");
-    const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel } : null;
+    const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel, note: ex.note } : null;
     // Sin baseRevision (edición en línea inmediata) se asume la revisión vigente del mismo registro.
     const base = p.baseRevision ?? (ex && ex.id === p.id ? ex.revision : 0);
-    const d = decideSetWrite(server, { id: p.id, baseRevision: base, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel });
+    const d = decideSetWrite(server, { id: p.id, baseRevision: base, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, note });
     const w = p.weightKg == null ? null : String(p.weightKg);
     if (d.kind === "noop") return { ...setOut(ex!), status: "ok" as const, raise: null };
     if (d.kind === "conflict") {
       const key = `${pe.id}:${p.setIndex}`;
-      const client = { id: p.id, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, baseRevision: base, at: at.toISOString() };
+      const client = { id: p.id, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, note, baseRevision: base, at: at.toISOString() };
       const [c] = await tx.insert(syncConflict).values({ userId, sessionId, kind: "set", targetKey: key, serverPayload: server!, clientPayload: client })
         .onConflictDoUpdate({ target: [syncConflict.sessionId, syncConflict.targetKey], targetWhere: sql`status = 'open'`, set: { serverPayload: server!, clientPayload: client } })
         .returning();
       await audit(tx, { actorUserId: userId, action: "sync.conflict", resourceType: "set_log", resourceId: ex!.id, meta: { reason: d.reason } });
       return { ...setOut(ex!), status: "conflict" as const, conflictId: c.id, reason: d.reason, raise: null };
     }
+    // Con reemplazo vigente, la serie nueva queda con el ejercicio realmente hecho (historial y récords correctos).
+    const [chg] = d.kind === "insert" ? await tx.select({ sub: sessionExerciseChange.substituteExerciseId }).from(sessionExerciseChange)
+      .where(and(eq(sessionExerciseChange.sessionId, sessionId), eq(sessionExerciseChange.programExerciseId, pe.id))) : [];
     const [row] = d.kind === "insert"
-      ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, completedAt: at }).returning()
-      : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, revision: ex!.revision + 1, updatedAt: now }).where(eq(setLog.id, ex!.id)).returning();
+      ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: chg?.sub ?? pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, note, completedAt: at }).returning()
+      : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, note, revision: ex!.revision + 1, updatedAt: now }).where(eq(setLog.id, ex!.id)).returning();
     await tx.update(workoutSession).set({ updatedAt: now }).where(eq(workoutSession.id, sessionId));
     // Sólo una sensación nueva que pide atención dispara aviso al piso (y sólo en el programa del gym).
     const raise = feel && FEEL_ALERTS.includes(feel) && feel !== (ex?.feel ?? null) && s.gymMemberId
@@ -603,14 +624,72 @@ export async function resolveConflict(userId: string, conflictId: string, keep: 
     if (c.status !== "open") return { status: c.status };
     if (keep === "local" && c.kind === "set") {
       const [peId, idx] = c.targetKey.split(":");
-      const cl = c.clientPayload as { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null };
+      const cl = c.clientPayload as { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null };
       const [ex] = await tx.select().from(setLog).where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, peId), eq(setLog.setIndex, Number(idx)))).for("update");
-      if (ex) await tx.update(setLog).set({ weightKg: cl.weightKg == null ? null : String(cl.weightKg), reps: cl.reps, rir: cl.rir, feel: cl.feel ?? null, revision: ex.revision + 1, updatedAt: new Date() }).where(eq(setLog.id, ex.id));
+      if (ex) await tx.update(setLog).set({ weightKg: cl.weightKg == null ? null : String(cl.weightKg), reps: cl.reps, rir: cl.rir, feel: cl.feel ?? null, note: cl.note ?? null, revision: ex.revision + 1, updatedAt: new Date() }).where(eq(setLog.id, ex.id));
     }
     const status = keep === "local" ? "kept_local" as const : "kept_server" as const;
     await tx.update(syncConflict).set({ status, resolvedAt: new Date() }).where(eq(syncConflict.id, c.id));
     await audit(tx, { actorUserId: userId, action: "sync.resolved", resourceType: "sync_conflict", resourceId: c.id, meta: { keep } });
     return { status };
+  });
+}
+
+// ── Saltar o reemplazar un ejercicio en esta sesión (F-HX-21, D106) ─────────
+/** Alternativas compatibles para un ejercicio de la sesión: biblioteca global + la de la organización del programa. */
+export async function sessionAlternatives(userId: string, sessionId: string, programExerciseId: string) {
+  const s = await mySession(userId, sessionId);
+  const [pe] = await db.select({ pe: programExercise, kind: exercise.kind, group: exercise.muscleGroup }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
+    .where(and(eq(programExercise.id, programExerciseId), eq(programExercise.dayId, s.dayId)));
+  if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
+  const orgId = await sessionOrg(s.versionId);
+  const lib = await db.select({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
+    .where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId)));
+  const list = rankAlternatives({ id: pe.pe.exerciseId, kind: pe.kind, muscleGroup: pe.group }, lib).slice(0, 60);
+  const prev = await lastSetByExercise(userId, list.map((x) => x.id), s.id);
+  return { group: pe.group, alternatives: list.map((x) => ({ ...x, sameGroup: x.muscleGroup === pe.group, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })) };
+}
+async function sessionOrg(versionId: string) {
+  const [r] = await db.select({ org: program.orgId }).from(programVersion).innerJoin(program, eq(program.id, programVersion.programId)).where(eq(programVersion.id, versionId));
+  return r.org;
+}
+
+/**
+ * Saltar (con motivo) o reemplazar por otro ejercicio compatible; `change: null` vuelve al original. Sólo con la sesión
+ * abierta y el acceso vigente. Las series ya hechas no cambian; las que se registren después usan el ejercicio elegido.
+ */
+export async function setExerciseChange(userId: string, sessionId: string, p: {
+  programExerciseId: string; change: { kind: "skip" | "substitute"; reason: ExerciseChangeReason; exerciseId?: string | null } | null;
+}, now = new Date()) {
+  return db.transaction(async (tx) => {
+    const s = await mySession(userId, sessionId, tx, true);
+    if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
+    await assertRelationActive(tx, s);
+    const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
+      .where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
+    if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
+    const where = and(eq(sessionExerciseChange.sessionId, s.id), eq(sessionExerciseChange.programExerciseId, pe.pe.id));
+    if (!p.change) {
+      const del = await tx.delete(sessionExerciseChange).where(where).returning();
+      if (del.length) await audit(tx, { actorUserId: userId, action: "session.exercise_restored", resourceType: "workout_session", resourceId: s.id, meta: { programExerciseId: pe.pe.id } });
+      return { change: null };
+    }
+    if (!isChangeReason(p.change.reason)) throw new AccessError("invalid", "Elegí el motivo.");
+    let sub: { id: string; name: string } | null = null;
+    if (p.change.kind === "substitute") {
+      const orgId = await sessionOrg(s.versionId);
+      const [x] = await tx.select({ id: exercise.id, name: exercise.name, kind: exercise.kind }).from(exercise)
+        .where(and(eq(exercise.id, p.change.exerciseId ?? ""), or(isNull(exercise.orgId), eq(exercise.orgId, orgId))));
+      if (!x) throw new AccessError("invalid", "Ese ejercicio no está en la biblioteca.");
+      if (x.id === pe.pe.exerciseId || x.kind !== pe.kind) throw new AccessError("invalid", "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");
+      sub = x;
+    } else if (p.change.kind !== "skip") throw new AccessError("invalid", "Cambio no válido.");
+    const values = { kind: p.change.kind, reason: p.change.reason, substituteExerciseId: sub?.id ?? null, updatedAt: now };
+    await tx.insert(sessionExerciseChange).values({ sessionId: s.id, programExerciseId: pe.pe.id, ...values })
+      .onConflictDoUpdate({ target: [sessionExerciseChange.sessionId, sessionExerciseChange.programExerciseId], set: values });
+    await audit(tx, { actorUserId: userId, action: `session.exercise_${p.change.kind}`, resourceType: "workout_session", resourceId: s.id,
+      meta: { programExerciseId: pe.pe.id, reason: p.change.reason, ...(sub ? { substitute: sub.id } : {}) } });
+    return { change: { kind: p.change.kind, reason: p.change.reason, substitute: sub ? { exerciseId: sub.id, name: sub.name } : null } };
   });
 }
 
@@ -646,24 +725,28 @@ export async function sessionFeedback(userId: string, sessionId: string, p: { rp
 /** Resumen derivado de series persistidas: nada de valores fijos (C25). */
 export async function sessionSummary(userId: string, sessionId: string) {
   const s = await getSession(userId, sessionId);
+  // Un ejercicio salteado cuenta como resuelto (no completo); las series hechas con un reemplazo cuentan para el reemplazo.
   const exDone = s.exercises.filter((e) => e.logs.length >= e.sets).length;
+  const exSkipped = s.exercises.filter((e) => e.change?.kind === "skip" && e.logs.length < e.sets).length;
   const setsDone = s.exercises.reduce((a, e) => a + e.logs.length, 0);
   const setsTotal = s.exercises.reduce((a, e) => a + e.sets, 0);
   const prs = [];
   for (const e of s.exercises) {
-    if (!e.logs.length) continue;
-    const before = await db.select({ l: setLog }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
-      .where(and(eq(workoutSession.userId, userId), eq(setLog.exerciseId, e.exerciseId), ne(workoutSession.id, s.id), lt(setLog.completedAt, s.startedAt),
-        inArray(workoutSession.status, ["completed"])));
-    const pr = detectPR(before.map((b) => toLogged(b.l)), e.logs.map((l) => ({ exerciseId: e.exerciseId, weightKg: l.weightKg, reps: l.reps, completed: true })));
-    if (pr) {
-      const prevAt = before.map((b) => b.l).find((l) => Number(l.weightKg) === pr.previous.weightKg && l.reps === pr.previous.reps)?.completedAt ?? null;
-      prs.push({ exercise: e.name, ...pr, previousAt: prevAt });
+    for (const exId of new Set(e.logs.map((l) => l.exerciseId))) {
+      const mine = e.logs.filter((l) => l.exerciseId === exId);
+      const before = await db.select({ l: setLog }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+        .where(and(eq(workoutSession.userId, userId), eq(setLog.exerciseId, exId), ne(workoutSession.id, s.id), lt(setLog.completedAt, s.startedAt),
+          inArray(workoutSession.status, ["completed"])));
+      const pr = detectPR(before.map((b) => toLogged(b.l)), mine.map((l) => ({ exerciseId: exId, weightKg: l.weightKg, reps: l.reps, completed: true })));
+      if (pr) {
+        const prevAt = before.map((b) => b.l).find((l) => Number(l.weightKg) === pr.previous.weightKg && l.reps === pr.previous.reps)?.completedAt ?? null;
+        prs.push({ exercise: exId === e.exerciseId ? e.name : e.change?.substitute?.name ?? e.name, ...pr, previousAt: prevAt });
+      }
     }
   }
   return {
-    ...s, exDone, exTotal: s.exercises.length, setsDone, setsTotal, prs,
-    volumeKg: volumeKg(s.exercises.flatMap((e) => e.logs.map((l) => ({ exerciseId: e.exerciseId, weightKg: l.weightKg, reps: l.reps, completed: true })))),
+    ...s, exDone, exSkipped, exTotal: s.exercises.length, setsDone, setsTotal, prs,
+    volumeKg: volumeKg(s.exercises.flatMap((e) => e.logs.map((l) => ({ exerciseId: l.exerciseId, weightKg: l.weightKg, reps: l.reps, completed: true })))),
   };
 }
 
