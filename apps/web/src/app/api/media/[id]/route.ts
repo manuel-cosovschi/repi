@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     const v = await fu.authorizeVideo(await sessionUserId(), (await params).id);
     const o = await readObject(v.storageKey);
-    return new Response(o.stream, { headers: { "content-type": v.mime, "content-length": String(o.size), "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
+    return new Response(o.stream, { headers: { "content-type": v.mime, ...(o.size ? { "content-length": String(o.size) } : {}), "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
   } catch (e) {
     const status = e instanceof AccessError ? e.status : 404;
     return new Response(null, { status });

@@ -2,6 +2,7 @@
 // deduplicación, limpieza de suscripciones inválidas. "sent" = el proveedor aceptó el envío; NO es "entregado" ni "leído".
 // La fuente de verdad es siempre la bandeja/alerta guardada: un push fallido no pierde nada.
 import webpush from "web-push";
+import { after } from "next/server";
 import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
@@ -44,8 +45,13 @@ export async function enqueue(userIds: string[], n: { kind: "join_request" | "jo
   if (!ids.length) return 0;
   const rows = await db.insert(notificationOutbox).values(ids.map((userId) => ({ userId, kind: n.kind, title: n.title, body: n.body, url: n.url, dedupeKey: `${n.dedupe}:${userId}` })))
     .onConflictDoNothing().returning({ id: notificationOutbox.id });
-  if (rows.length) void processOutbox().catch(() => {});
+  if (rows.length) runAfterResponse(() => processOutbox());
   return rows.length;
+}
+
+/** En serverless el trabajo posterior a la respuesta se registra con after(); fuera de una petición (scripts, tests) corre suelto. */
+function runAfterResponse(job: () => Promise<unknown>) {
+  try { after(() => job().catch(() => {})); } catch { void job().catch(() => {}); }
 }
 
 /** Procesa la cola: envía a cada dispositivo vigente; 404/410 revoca la suscripción; otros errores reintentan con espera creciente. */

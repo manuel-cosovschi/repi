@@ -40,7 +40,9 @@ async function ready() {
     { name: "A", exercises: [{ exerciseId: EX["Press de banca"], name: "Press de banca", sets: 3, reps: "8-10", rir: 2, restSec: 120 }] },
     { name: "B", exercises: [{ exerciseId: EX["Sentadilla"], name: "Sentadilla", sets: 3, reps: "5", rir: 2, restSec: 180 }] },
   ] });
-  await tr.assignProgram(coach, org.id, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date(Date.now() - 86_400_000 * 2)) > localDate(new Date()) ? localDate(new Date()) : localDate(new Date()) });
+  await tr.assignProgram(coach, org.id, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
+  // Las horas del dispositivo van hasta 60 min atrás: cerca de medianoche caerían el día anterior al inicio.
+  await db.update(schema.programAssignment).set({ startsOn: localDate(new Date(Date.now() - 2 * 86_400_000)) }).where(eq(schema.programAssignment.programId, pid));
   const t = await tr.myTraining(user);
   if (t.state !== "ready") throw new Error("sin programa");
   return { coach, orgId: org.id, user, relId: rel.relationId, t };

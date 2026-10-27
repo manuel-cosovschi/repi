@@ -1,16 +1,22 @@
 import { desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
+import { requireUser } from "@/server/access/guard";
+import { isDemoDeploy } from "@/server/deploy";
 
 export const dynamic = "force-dynamic";
 
-// Buzón de desarrollo (T05). No existe en producción.
+// Buzón de desarrollo (T05). No existe en producción; en un despliegue DEMO (D68) sólo lo ve REPI Admin.
 export default async function DevMailbox() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV === "production") {
+    if (!isDemoDeploy()) notFound();
+    const { user } = await requireUser("/dev/mailbox");
+    if (user.platformRole !== "admin") notFound();
+  }
   const mails = await db.select().from(schema.devMailbox).orderBy(desc(schema.devMailbox.createdAt)).limit(30);
   return (
     <main style={{ padding: 24, background: "#F3F5F8", color: "#0B0F14", minHeight: "100dvh", fontFamily: "var(--font-ui)" }}>
-      <p style={{ font: "500 11px var(--font-mono)", color: "#8A5300", textTransform: "uppercase" }}>Entorno de desarrollo · correos no enviados</p>
+      <p style={{ font: "500 11px var(--font-mono)", color: "#8A5300", textTransform: "uppercase" }}>{isDemoDeploy() ? "Entorno DEMO" : "Entorno de desarrollo"} · correos no enviados</p>
       <h1 style={{ marginTop: 4 }}>Buzón DEV</h1>
       <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         {mails.map((m) => (
