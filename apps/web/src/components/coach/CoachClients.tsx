@@ -8,6 +8,7 @@ import { Ic } from "@/components/ui/Ic";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { ClientPayTab } from "./CoachPayments";
 import { GoalsTab } from "./CoachGoals";
+import { ImportModal } from "./ImportModal";
 import { useLoad } from "@/components/gym/shared";
 
 type Detail = {
@@ -19,13 +20,14 @@ const TABS: [string, string][] = [["res", "Resumen"], ["rend", "Rendimiento"], [
 const FILTERS: [string, string][] = [["all", "Todos"], ["active", "Activos"], ["noprog", "Sin programa"], ["paused", "En pausa"]];
 const SORTS: [string, string][] = [["name", "Nombre"], ["adh", "Adherencia"], ["last", "Actividad"]];
 
-export function CoachClients({ orgId, ov, sel, setSel, onInvite, go, flash }: {
-  orgId: string; ov: Overview; sel: string | null; setSel: (id: string) => void; onInvite: () => void; flash: (t: string) => void;
+export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go, flash }: {
+  orgId: string; ov: Overview; sel: string | null; setSel: (id: string) => void; onInvite: () => void; onImported: () => void; flash: (t: string) => void;
   go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
 }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("name");
+  const [importing, setImporting] = useState(false);
   const [tab, setTab] = useState("res");
   const [det, setDet] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, go, flash }: {
     <>
       <div className="co-head">
         <div><span className="co-kicker">{ov.clients.length} {ov.clients.length === 1 ? "cliente" : "clientes"}</span><h1 tabIndex={-1}>Clientes</h1></div>
-        <div className="co-actions"><button type="button" className="btn" onClick={onInvite}>Invitar cliente</button></div>
+        <div className="co-actions"><button type="button" className="btn" onClick={() => setImporting(true)}>Importar CSV</button><button type="button" className="btn" onClick={onInvite}>Invitar cliente</button></div>
       </div>
       {!ov.clients.length ? (
         <div className="empty">Todavía no tenés clientes. Invitá al primero: recibe un enlace y acepta desde su app.</div>
@@ -87,6 +89,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, go, flash }: {
           </div>
         </div>
       )}
+      {importing && <ImportModal orgId={orgId} flash={flash} onClose={(changed) => { setImporting(false); if (changed) onImported(); }} />}
     </>
   );
 }

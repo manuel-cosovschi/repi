@@ -170,7 +170,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | F-CO-03 | Objetivos del cliente con progreso | integrado 27/10 (D97; tests/goals.test.ts; navegador local) · documentado | Objetivo acordado con indicador, unidad, plazo y fuente; progreso calculado y visible al alumno; sin prometer resultados. |
 | F-CO-04 | Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in | integrado 27/10 (D81: 1RM y volumen; fortalezas pendientes) · confirmado | Fórmula Epley documentada; heurística revisable |
 | F-CO-10 | Calendario / asistencia | integrado 27/10 (D98; tests/agenda.test.ts; navegador local) · documentado | Sesión presencial con fecha/zona, participantes y estados confirmada/cancelada/realizada; asistencia separada del registro deportivo. |
-| F-CO-11 | Importación CSV | sin_implementar · documentado | Preview CSV con mapeo, validación por fila, deduplicación e informe; confirmar sólo filas válidas sin duplicar al reintentar. |
+| F-CO-11 | Importación CSV | integrado 27/10 (D99; importa invitaciones, no cuentas; tests/import.test.ts; navegador local) · documentado | Preview CSV con mapeo, validación por fila, deduplicación e informe; confirmar sólo filas válidas sin duplicar al reintentar. |
 | F-CO-12 | Configuración / perfil público | sin_implementar · documentado | Perfil/configuración editables y persistidos; distinguir campos públicos de privados y preview antes de exponer datos. |
 | F-BL-01 | Cobros manuales del coach a sus clientes | probado 27/10 (D80) · confirmado | Separado de suscripción REPI |
 | F-AD-04 | Admin · cobros | sin_implementar · documentado | Lista de cargos/pagos con estado/evidencia, conciliación y correcciones auditadas; cierre simulado no se declara cobro. |

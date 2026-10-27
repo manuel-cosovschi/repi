@@ -107,7 +107,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
             <>
               {screen === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}
               {screen === "dash" && <CoachDash orgId={orgId} ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} />}
-              {screen === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} go={go} flash={flash} />}
+              {screen === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} />}
               {screen === "builder" && <ProgramBuilder orgId={orgId} ov={ov} pid={pid} setPid={setPid} flash={flash} onNewProgram={newProgram} onAssigned={reload} />}
               {screen === "inbox" && <CoachInbox orgId={orgId} flash={flash} go={go} onChanged={reload} />}
               {screen === "msgs" && <ChatPane listUrl={`/api/coach/${orgId}/messages`} kicker="Conversaciones privadas entre vos y cada cliente" emptyText="Todavía no tenés clientes. Las conversaciones aparecen cuando aceptan tu invitación."

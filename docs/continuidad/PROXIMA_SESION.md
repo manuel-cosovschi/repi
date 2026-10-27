@@ -1,13 +1,20 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, agenda y asistencia (D98). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, importación CSV (D99). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Agenda y asistencia (F-CO-10 / F-HX-07, D98)
+## Último bloque cerrado — 27/10/2026 · Importación CSV de clientes (F-CO-11, D99)
+
+- **Hecho:** dominio `packages/domain/src/csv.ts` (`parseCsv`, `guessColumns`, `mapRows`, `CSV_MAX_ROWS`) + tests; `src/server/access/import.ts` (`previewImport`, `confirmImport`); ruta `POST /api/coach/[orgId]/import[?step=preview]`; `components/coach/ImportModal.tsx` y botón «Importar CSV» en Clientes. Sin migración.
+- **Pruebas:** web 149/149 (nuevo `tests/import.test.ts`, 2), dominio 87/87, guardas 11/11, typecheck y build OK. Navegador local (archivo simulado con DataTransfer): 4 filas → 1 se invita, 1 repetida, 1 ya cliente, 1 email inválido → informe «1 invitadas · 3 salteadas». La invitación de prueba `lucas.import@example.test` quedó en `repi_dev` (buzón local, sin correo real).
+- **Pendiente detectado:** `inviteCoachClient` descarta los errores del correo (`sendMail(...).catch(() => {})`); conviene registrar la entrega como la bienvenida comercial (D88) para poder decir «enviada» y reenviar.
+- **Siguiente:** registrar la entrega del correo de invitación del coach (lo de arriba) o F-HX-26 centro de notificaciones del staff gym.
+
+## Bloque anterior — 27/10/2026 · Agenda y asistencia (F-CO-10 / F-HX-07, D98)
 
 - **Hecho:** dominio `packages/domain/src/agenda.ts` (estados, `arToUtc`, `arParts`, `overlaps`, `appointmentIcs`) + tests; tabla `coach_appointment` (migración `0017_coach_appointment`, dev local y **Supabase**, RLS); `src/server/training/agenda.ts`; rutas `/api/coach/[orgId]/agenda` (GET/POST), `/api/coach/[orgId]/agenda/[id]` (POST), `/api/me/agenda` (GET), `/api/me/agenda/[id]` (POST), `/api/agenda/[id]/ics`; `components/coach/CoachAgenda.tsx` (pantalla «Agenda» + `TodayAgenda` en el panel); `NextAppointment` en Inicio del alumno; avisos en `notifications/feed.ts`.
 - **Pruebas:** web 147/147 (nuevo `tests/agenda.test.ts`, 3), dominio 84/84, guardas 11/11, typecheck y build OK. Navegador local: coach del seed agenda «jue 29/10 18:00 · Gym Norte · sala 2» → .ics 200 `text/calendar` con DTSTART 21:00Z → alumna confirma desde Inicio (375 px). Esa sesión quedó en `repi_dev`. No se probó abrir el .ics en iPhone/Android.
 - **Entorno:** la herramienta de vista previa del escritorio sigue leyendo `.claude/launch.json` de `~/Desktop/Repi` y arranca ahí. Se agregó `repi-local` (con `--dir` absoluto) al launch.json nuevo, pero la herramienta no lo ve hasta abrir una sesión nueva en `~/Proyectos Locales/Repi`. En esta sesión el dev server se corrió con `pnpm dev` desde `apps/web` de la ruta nueva.
-- **Siguiente:** F-CO-11 importación CSV de clientes o F-HX-26 centro de notificaciones del staff gym.
+- **Deploy:** 7fc9771 verificado en repiclub.com (`/api/me/agenda` 401 sin sesión).
 
 ## Bloque anterior — 27/10/2026 · Migración fuera de iCloud
 
