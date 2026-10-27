@@ -10,7 +10,7 @@ type Inbox = {
   pains: { id: string; relId: string; member: string; zone: string; level: number; context: keyof typeof PAIN_CONTEXT; exerciseName: string | null; note: string | null; createdAt: string; shared: boolean }[];
   checkins: { id: string; relId: string; member: string; date: string; energy: number; sleep: number; mood: number }[];
   access: { id: string; relId: string; member: string; label: string; status: "pending" | "granted" | "denied" | "expired"; createdAt: string }[];
-  invitations: { id: string; code: string; email: string | null; expiresAt: string }[];
+  invitations: { id: string; code: string; email: string | null; expiresAt: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null }[];
 };
 export const ACCESS_ST: Record<string, [string, string]> = {
   pending: ["Solicitud enviada · esperando respuesta", "warn"], granted: ["Acceso concedido", "ok"], denied: ["Rechazada por el alumno", "bad"], expired: ["Venció sin respuesta", "mute"],
@@ -77,8 +77,8 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
             <section className="card">
               <h2>Invitaciones</h2>
               {d.invitations.map((i) => (
-                <div key={i.id} className="trow"><span style={{ flex: "1 1 160px" }}>{i.email ?? "Enlace sin email"}</span><span style={{ font: "600 13px var(--font-mono)", color: "#006B88" }}>{i.code}</span><span className="chip warn">Pendiente · vence {fmtDate(i.expiresAt)}</span>
-                  {i.email && <button type="button" className="btn sm" onClick={async () => { try { await api("/api/access/invitations/resend", { body: { id: i.id } }); flash(`Invitación reenviada a ${i.email}. La anterior ya no sirve.`); await load(); } catch (e) { flash((e as Error).message); } }}>Reenviar</button>}</div>
+                <div key={i.id} className="trow"><span style={{ flex: "1 1 160px" }}>{i.email ?? "Enlace sin email"}</span><span style={{ font: "600 13px var(--font-mono)", color: "#006B88" }}>{i.code}</span><span className="chip warn">Pendiente · vence {fmtDate(i.expiresAt)}</span>{i.delivery === "failed" && <span className="chip bad">El correo no salió</span>}{i.delivery === "local_only" && <span className="chip mute">Sólo buzón local</span>}
+                  {i.email && <button type="button" className="btn sm" onClick={async () => { try { const r = await api<{ delivery?: string }>("/api/access/invitations/resend", { body: { id: i.id } }); flash(r.delivery === "failed" ? `Nueva invitación creada, pero el correo a ${i.email} no salió. Pasale el código.` : `Invitación reenviada a ${i.email}. La anterior ya no sirve.`); await load(); } catch (e) { flash((e as Error).message); } }}>Reenviar</button>}</div>
               ))}
               {!d.invitations.length && <span className="muted" style={{ fontSize: 14 }}>No hay invitaciones pendientes.</span>}
             </section>

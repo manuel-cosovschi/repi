@@ -221,7 +221,7 @@ export async function coachInbox(actorId: string, orgId: string) {
     pains: visiblePains.map((p) => ({ id: p.id, relId: userToRel.get(p.userId)!, member: nameOf(userToRel.get(p.userId)!), zone: p.zone, level: p.level, context: p.context, exerciseName: p.exerciseName, note: p.note, createdAt: p.createdAt, shared: !healthRel.has(userToRel.get(p.userId)!) })),
     checkins: cks.map((c) => ({ id: c.id, relId: userToRel.get(c.userId)!, member: nameOf(userToRel.get(c.userId)!), date: c.date, energy: c.energy, sleep: c.sleep, mood: c.mood })),
     access: access.map((a) => ({ id: a.id, relId: a.coachClientId, member: nameOf(a.coachClientId), item: a.item, label: ACCESS_ITEMS[a.item as AccessItem]?.label ?? a.item, status: a.status, createdAt: a.createdAt })),
-    invitations: invs.map((i) => ({ id: i.id, code: i.code, email: i.email, expiresAt: i.expiresAt })),
+    invitations: invs.map((i) => ({ id: i.id, code: i.code, email: i.email, expiresAt: i.expiresAt, delivery: i.delivery })),
   };
 }
 

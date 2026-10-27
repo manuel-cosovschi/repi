@@ -43,8 +43,8 @@ export async function confirmImport(actorId: string, orgId: string, rows: InRow[
   for (const r of preview) {
     if (r.status !== "ok") { report.push({ line: r.line, email: r.email, result: "skipped", detail: r.label }); continue; }
     try {
-      await inviteCoachClient(actorId, orgId, { email: r.email });
-      report.push({ line: r.line, email: r.email, result: "invited", detail: "Invitación creada" });
+      const inv = await inviteCoachClient(actorId, orgId, { email: r.email });
+      report.push({ line: r.line, email: r.email, result: "invited", detail: inv.delivery === "failed" ? "Invitación creada · el correo no salió, reenviala" : inv.delivery === "local_only" ? "Invitación creada · buzón local" : "Invitación enviada" });
     } catch (e) {
       report.push({ line: r.line, email: r.email, result: "failed", detail: e instanceof AccessError ? e.message : "No se pudo invitar" });
       if (e instanceof AccessError && (e.status === 403 || e.code === "org_not_enabled")) break; // el espacio no admite altas: no seguir

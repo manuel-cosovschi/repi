@@ -103,16 +103,16 @@ function InviteStaff({ shell, onClose }: { shell: Shell; onClose: () => void }) 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<GymRole>("floor_trainer");
   const [loc, setLoc] = useState(shell.loc ?? shell.ctx.locations[0]?.id ?? "");
-  const [code, setCode] = useState<string | null>(null);
+  const [code, setCode] = useState<{ email: string; code: string; failed: boolean } | null>(null);
   const { busy, run } = useAct(shell.flash);
   const send = async () => {
-    const r = await run("inv", () => api<{ id: string }>(`/api/access/gym/${shell.orgId}/invitations`, { body: { email, role, locationId: loc || null } }));
-    if (r) setCode(email);
+    const r = await run("inv", () => api<{ id: string; code: string; delivery?: string }>(`/api/access/gym/${shell.orgId}/invitations`, { body: { email, role, locationId: loc || null } })) as { code: string; delivery?: string } | null;
+    if (r) setCode({ email, code: r.code, failed: r.delivery === "failed" });
   };
   return (
     <Modal label="Invitar al equipo" onClose={onClose}>
       <div className="mhead"><h2>Invitar al equipo</h2><button type="button" className="x" aria-label="Cerrar" onClick={onClose}>×</button></div>
-      {code ? (<><p style={{ margin: 0 }}>Le enviamos la invitación a <b>{code}</b>. Vence en 7 días.</p><div className="mfoot"><button type="button" className="btn pri" onClick={onClose}>Listo</button></div></>) : (
+      {code ? (<><p role="status" style={{ margin: 0 }}>{code.failed ? <>Invitación creada para <b>{code.email}</b>, pero <b>el correo no salió</b>. Pasale el código <b className="mono">{code.code}</b> (sólo funciona con ese email).</> : <>Le enviamos la invitación a <b>{code.email}</b>. Vence en 7 días.</>}</p><div className="mfoot"><button type="button" className="btn pri" onClick={onClose}>Listo</button></div></>) : (
         <>
           <label className="field">Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
           <div className="pills" role="group" aria-label="Rol">{INVITABLE_GYM_ROLES.filter((r) => r !== "manager" || shell.ctx.roles.includes("owner")).map((r) => <button key={r} type="button" className="pill" aria-pressed={role === r} onClick={() => setRole(r)}>{GYM_ROLE_LABEL[r]}</button>)}</div>

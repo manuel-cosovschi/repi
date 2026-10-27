@@ -7,5 +7,5 @@ export const POST = handle(async (req) => {
   const me = await sessionUserId();
   await limit(`resend:${me}`, 10);
   const inv = await svc.resendInvitation(me, (await body(req, z.object({ id: z.string().max(64) }))).id);
-  return { id: inv.id, code: inv.code, expiresAt: inv.expiresAt };
+  return { id: inv.id, code: inv.code, expiresAt: inv.expiresAt, delivery: inv.delivery };
 });

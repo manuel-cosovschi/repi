@@ -6,5 +6,5 @@ const S = z.object({ email: z.string().max(200), role: z.string().max(40), locat
 
 export const POST = handle<{ params: Promise<{ orgId: string }> }>(async (req, { params }) => {
   const inv = await svc.inviteGymStaff(await sessionUserId(), (await params).orgId, await body(req, S));
-  return { id: inv.id, email: inv.email, role: inv.role, status: inv.status };
+  return { id: inv.id, code: inv.code, email: inv.email, role: inv.role, status: inv.status, delivery: inv.delivery };
 });

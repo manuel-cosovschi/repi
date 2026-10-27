@@ -1,13 +1,19 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, importación CSV (D99). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, entrega de invitaciones (D100). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Importación CSV de clientes (F-CO-11, D99)
+## Último bloque cerrado — 27/10/2026 · Entrega de invitaciones de coach y equipo (D100)
+
+- **Hecho:** `access/services.ts#deliverInvitation` (privado) usado por `inviteCoachClient` e `inviteGymStaff`, que ahora devuelven `delivery`; rutas `/api/access/coach/[orgId]/invitations`, `/api/access/gym/[orgId]/invitations` (ahora también devuelve `code`) y `/api/access/invitations/resend` exponen `delivery`; `followup/services.ts` lista `delivery` en Solicitudes; UI en `InviteModal.tsx`, `CoachInbox.tsx`, `gym/Manage.tsx#InviteStaff` e informe de importación. Sin migración (columna `invitation.delivery` ya existía, D88).
+- **Pruebas:** web 150/150 (nuevo `tests/invite-delivery.test.ts` con proveedor simulado que responde 503), guardas 11/11, build OK. Los textos de la UI no se miraron en el navegador (cubiertos por tipos; flujo local devuelve `local_only`).
+- **Siguiente:** F-HX-26 centro de notificaciones del staff gym (bandeja con leído/resuelto, destino navegable, filtro por rol/sede).
+
+## Bloque anterior — 27/10/2026 · Importación CSV de clientes (F-CO-11, D99)
 
 - **Hecho:** dominio `packages/domain/src/csv.ts` (`parseCsv`, `guessColumns`, `mapRows`, `CSV_MAX_ROWS`) + tests; `src/server/access/import.ts` (`previewImport`, `confirmImport`); ruta `POST /api/coach/[orgId]/import[?step=preview]`; `components/coach/ImportModal.tsx` y botón «Importar CSV» en Clientes. Sin migración.
 - **Pruebas:** web 149/149 (nuevo `tests/import.test.ts`, 2), dominio 87/87, guardas 11/11, typecheck y build OK. Navegador local (archivo simulado con DataTransfer): 4 filas → 1 se invita, 1 repetida, 1 ya cliente, 1 email inválido → informe «1 invitadas · 3 salteadas». La invitación de prueba `lucas.import@example.test` quedó en `repi_dev` (buzón local, sin correo real).
 - **Pendiente detectado:** `inviteCoachClient` descarta los errores del correo (`sendMail(...).catch(() => {})`); conviene registrar la entrega como la bienvenida comercial (D88) para poder decir «enviada» y reenviar.
-- **Siguiente:** registrar la entrega del correo de invitación del coach (lo de arriba) o F-HX-26 centro de notificaciones del staff gym.
+- **Resuelto en D100.** Deploy 0086825 verificado.
 
 ## Bloque anterior — 27/10/2026 · Agenda y asistencia (F-CO-10 / F-HX-07, D98)
 

@@ -7,7 +7,8 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
-import { sendMail } from "../mailer";
+import { MailError, deliverMail, sendMail } from "../mailer";
+import { logError } from "../log";
 import { AccessError, addDays, audit, dniHmac, dniLast3, newInviteCode, newToken, sha256, todayIso, type Tx } from "./util";
 
 const { user, organization, gymLocation, staffMembership, coachClient, gymMember, invitation, rosterEntry,
@@ -128,11 +129,29 @@ export async function inviteGymStaff(actorId: string, orgId: string, p: { email:
   const email = normalizeEmail(p.email);
   const inv = await createInvitation({ kind: "gym_staff", orgId, locationId: p.locationId ?? null, role: p.role, email, invitedBy: actorId });
   const [org] = await db.select().from(organization).where(eq(organization.id, orgId));
-  await sendMail({
+  const delivery = await deliverInvitation(inv, actorId, {
     to: email, subject: `${org.name} te invitó a REPI`,
     body: `Te sumaron como ${GYM_ROLE_LABEL[p.role as GymRole]}. Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}\nVence en ${INVITE_TTL_DAYS} días.`,
   });
-  return inv;
+  return { ...inv, delivery };
+}
+
+/**
+ * Entrega honesta de invitaciones de equipo y de clientes (D100, como la bienvenida comercial D88): «submitted» = el
+ * proveedor la aceptó (no prueba que llegó), «local_only» = buzón DEV, «failed» = rechazo. A diferencia de la bienvenida,
+ * un rechazo no anula la invitación: el código y el enlace siguen sirviendo para pasarlos a mano, y se puede reenviar.
+ */
+async function deliverInvitation(inv: { id: string; orgId: string }, actorId: string, mail: { to: string; subject: string; body: string }) {
+  let delivery: "submitted" | "local_only" | "failed";
+  let providerStatus: number | undefined;
+  try { delivery = await deliverMail(mail); } catch (e) {
+    delivery = "failed";
+    if (e instanceof MailError) providerStatus = e.status; else logError("invitation.mail", e);
+  }
+  await db.update(invitation).set({ delivery }).where(eq(invitation.id, inv.id));
+  await audit(db, { actorUserId: actorId, orgId: inv.orgId, action: "invitation.delivery", resourceType: "invitation", resourceId: inv.id,
+    result: delivery === "failed" ? "error" : "ok", meta: { delivery, ...(providerStatus !== undefined ? { providerStatus } : {}) } });
+  return delivery;
 }
 
 /**
@@ -147,8 +166,8 @@ export async function inviteCoachClient(actorId: string, coachOrgId: string, p: 
   const email = normalizeEmail(p.email);
   const inv = await createInvitation({ kind: "coach_client", orgId: coachOrgId, locationId: null, role: null, email, invitedBy: actorId });
   const [org] = await db.select().from(organization).where(eq(organization.id, coachOrgId));
-  await sendMail({ to: email, subject: `${org.name} te invitó a REPI`, body: `Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}\nEs personal: sólo funciona con este email.` }).catch(() => {});
-  return inv;
+  const delivery = await deliverInvitation(inv, actorId, { to: email, subject: `${org.name} te invitó a REPI`, body: `Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}\nEs personal: sólo funciona con este email.` });
+  return { ...inv, delivery };
 }
 
 /** Reenviar: invalida la invitación anterior y emite una nueva para el mismo destinatario. Otro destinatario = revocar y reemitir. */

@@ -6,5 +6,5 @@ const S = z.object({ email: z.string().max(200).nullable().optional() });
 
 export const POST = handle<{ params: Promise<{ orgId: string }> }>(async (req, { params }) => {
   const inv = await svc.inviteCoachClient(await sessionUserId(), (await params).orgId, await body(req, S));
-  return { id: inv.id, code: inv.code, expiresAt: inv.expiresAt };
+  return { id: inv.id, code: inv.code, expiresAt: inv.expiresAt, delivery: inv.delivery };
 });
