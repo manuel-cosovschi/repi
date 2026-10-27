@@ -18,7 +18,7 @@ export async function myReviewInvites(userId: string) {
   const rows = await db.select({ i: reviewInvite, trainer: user.name, org: organization.name, loc: gymLocation.name }).from(reviewInvite)
     .innerJoin(user, eq(user.id, reviewInvite.trainerUserId)).innerJoin(organization, eq(organization.id, reviewInvite.orgId)).innerJoin(gymLocation, eq(gymLocation.id, reviewInvite.locationId))
     .where(and(eq(reviewInvite.memberUserId, userId), eq(reviewInvite.status, "pending"))).orderBy(desc(reviewInvite.createdAt));
-  return rows.map((r) => ({ id: r.i.id, trainer: r.trainer, kind: TASK_CATEGORY[r.i.category as TaskCategory] ?? r.i.category, place: `${r.org} · ${r.loc}`, expiresAt: r.i.expiresAt }));
+  return rows.map((r) => ({ id: r.i.id, trainer: r.trainer, kind: TASK_CATEGORY[r.i.category as TaskCategory] ?? r.i.category, place: `${r.org} · ${r.loc}`, expiresAt: r.i.expiresAt, createdAt: r.i.createdAt }));
 }
 
 export async function myGivenReviews(userId: string) {

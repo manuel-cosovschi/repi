@@ -21,14 +21,14 @@ type Home = {
   locked: { title: string; detail: string }[]; level: { level: number; toNext: number; pct: number }; readyPrizes: number;
   notices: { id: string; kind: string; title: string; body: string; at: string; unseen: boolean }[];
 };
-type GymTab = "news" | "ch" | "shop" | "logros" | "club";
+export type GymTab = "news" | "ch" | "shop" | "logros" | "club";
 const dayEs = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return new Intl.DateTimeFormat("es-AR", { timeZone: "UTC", day: "numeric", month: "short" }).format(new Date(Date.UTC(y, m - 1, d))); };
 const ars = (n: number) => `ARS ${n.toLocaleString("es-AR")}`;
 
-export function GymTabView({ offline, flash, onSeen }: { offline: boolean; flash: (t: string) => void; onSeen: () => void }) {
+export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: boolean; flash: (t: string) => void; onSeen: () => void; initialTab?: GymTab }) {
   const [h, setH] = useState<Home | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [tab, setTab] = useState<GymTab>("news");
+  const [tab, setTab] = useState<GymTab>(initialTab ?? "news");
   const [up, setUp] = useState<Home["challenges"][number] | null>(null);
   const [rank, setRank] = useState<Home["challenges"][number] | null>(null);
   const [card, setCard] = useState(false);

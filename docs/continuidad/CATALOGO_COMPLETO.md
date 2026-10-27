@@ -166,7 +166,7 @@ Los estados originales se copiaron de docs/PRODUCT_INVENTORY.json y no se valida
 | ID | Función | Estado heredado / certeza | Criterio vigente o aclaración |
 | --- | --- | --- | --- |
 | F-BR-02 | Intro de marca 1a + inicio regular + reducido | sin_implementar · confirmado | 1ª vez ~2,6 s saltable; luego ≤0,5 s; reduced-motion = fade; nunca durante entrenamiento activo; termina en pantalla real |
-| F-NT-01 | Centro de notificaciones del alumno | sin_implementar · documentado | Destinos navegables; sin datos de salud en lock screen |
+| F-NT-01 | Centro de notificaciones del alumno | integrado 27/10 (D94; tests/notifications.test.ts; recorrido en navegador local) · documentado | Destinos navegables; sin datos de salud en lock screen |
 | F-CO-03 | Objetivos del cliente con progreso | sin_implementar · documentado | Objetivo acordado con indicador, unidad, plazo y fuente; progreso calculado y visible al alumno; sin prometer resultados. |
 | F-CO-04 | Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in | integrado 27/10 (D81: 1RM y volumen; fortalezas pendientes) · confirmado | Fórmula Epley documentada; heurística revisable |
 | F-CO-10 | Calendario / asistencia | sin_implementar · documentado | Sesión presencial con fecha/zona, participantes y estados confirmada/cancelada/realizada; asistencia separada del registro deportivo. |

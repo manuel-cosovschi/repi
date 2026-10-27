@@ -1,0 +1,1 @@
+ALTER TABLE "user_pref" ADD COLUMN "notifications_seen_at" timestamp with time zone;

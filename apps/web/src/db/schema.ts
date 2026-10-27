@@ -620,6 +620,7 @@ export const dataAccessLog = pgTable("data_access_log", {
 export const userPref = pgTable("user_pref", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
   activeRelationId: text("active_relation_id"),
+  notificationsSeenAt: ts("notifications_seen_at"), // F-NT-01: lo anterior figura como leído en el centro de notificaciones
   updatedAt: now("updated_at"),
 });
 

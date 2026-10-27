@@ -271,6 +271,16 @@
 .mb-chat .chat-compose button:disabled { opacity: .4; }
 
 /* Etapa 6: pestaña Gym (SCR-M-19..25) y Repi Club */
+.bell-dot { position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 4px; background: var(--core-cyan); box-shadow: 0 0 0 2px var(--dark-bg, #0B0F14); }
+.notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: min(60vh, 520px); overflow-y: auto; }
+.notif { display: flex; gap: 12px; align-items: flex-start; width: 100%; min-height: 44px; text-align: left; padding: 12px 0; border: 0; border-bottom: 1px solid #1A2433; background: none; color: var(--dark-ink); cursor: pointer; font: inherit; }
+.notif:focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 2px; border-radius: 8px; }
+.notif-dot { width: 8px; height: 8px; border-radius: 4px; margin-top: 6px; flex: none; }
+.notif-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.notif-txt b { font-size: 14px; font-weight: 600; line-height: 1.35; }
+.notif-txt small { font-size: 13px; color: var(--dark-muted, #94A3B8); line-height: 1.4; overflow-wrap: anywhere; }
+.notif-at { font-size: 11px; color: var(--dark-muted, #94A3B8); white-space: nowrap; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.notif-new { width: 6px; height: 6px; border-radius: 3px; background: var(--core-cyan); }
 .tab-dot { position: absolute; top: 8px; right: calc(50% - 16px); width: 8px; height: 8px; border-radius: 4px; background: var(--core-cyan); }
 .pill-cyan { height: 24px; padding: 0 8px; border-radius: 7px; background: var(--core-cyan); color: var(--core-navy900); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; flex: none; }
 .gtabs { display: flex; gap: 4px; background: var(--dark-surface-2, #131C28); border-radius: 12px; padding: 4px; overflow-x: auto; scrollbar-width: none; }

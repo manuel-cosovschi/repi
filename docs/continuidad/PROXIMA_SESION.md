@@ -1,15 +1,23 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, soporte e incidentes (D93). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, centro de notificaciones del alumno (D94). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Soporte e incidentes (N-O11, D93)
+## Último bloque cerrado — 27/10/2026 · Centro de notificaciones del alumno (F-NT-01, D94)
+
+- **Hecho:** `src/server/notifications/feed.ts` (`myNotifications`, `markNotificationsSeen`) arma la lista desde fuentes existentes (member_notice, pedidos coach y sala, solicitudes de acceso, reseñas, hilos sin leer, novedades del gym, cobros pendientes del coach); rutas `GET /api/me/notifications` y `POST /api/me/notifications/seen`; columna `user_pref.notifications_seen_at` (migración `0014_notifications_seen`, aplicada en dev local y **Supabase**). Cliente: campana con punto en Inicio (`MemberApp.tsx#Head`), hoja `NotifSheet`, aviso de programa sumado en el cliente (`withProgramNotice`), navegación a pestaña, sub-pestaña del Gym (`GymTabView initialTab`) u hoja de reseña. `myInbox` y `myReviewInvites` ahora devuelven `createdAt`. Estilos `.bell-dot`, `.notif*` en `member.css`.
+- **Pruebas:** web 135/135 (nuevo `tests/notifications.test.ts`, 2), guardas 11/11, typecheck y `next build` OK (build con el dev server detenido). Navegador local 375 px con el alumno del seed: «Notificaciones, 5 sin leer» → hoja con novedades, pedido y programa → tocar novedad abre Gym · Novedades → al recargar, sin no leídas.
+- **iCloud otra vez:** apareció `apps/web/src/db/schema 2.ts` (idéntica a 16c3522); se movió a la Papelera. Revisar `git status` por archivos `* 2.*` al arrancar.
+- **Límites:** sin push al alumno (no hay datos en lock screen); preferencias por canal y deep links por push quedan para N-O23/F-HX-23. Staff (F-HX-26) pendiente.
+- **Siguiente:** F-HX-23 configuración (kg/lb sin alterar historia, preferencias de notificación) o F-CO-16 informe mensual; V1 restante es externo (G03/G07 teléfonos reales, G11 textos legales, G09 modalidad del piloto).
+
+## Bloque anterior — 27/10/2026 · Soporte e incidentes (N-O11, D93)
 
 - **Por qué este:** era el primer pendiente V1 con código faltante (gate G10 «soporte»); los demás V1 abiertos dependen de teléfonos reales, textos legales o decisiones del titular.
 - **Hecho:** tabla `support_ticket` (migración `0013_support_ticket`, aplicada en dev local y **Supabase**, RLS activo); `src/server/support/services.ts` (openTicket con/sin sesión, diagnóstico de lista cerrada, deduplicación, límites; myTickets; listTickets/updateTicket para Admin; supportCounts en `adminSummary`); rutas `POST /api/support` (sesión opcional, helper `optionalUserId` en `access/http.ts`), `GET /api/me/support`, Admin `GET/POST /api/admin/support[/id]`; página pública `/ayuda` (`components/access/Support.tsx`); enlaces en login, Perfil del alumno y menú de Coach/Gym/Admin; `/acceso?step=rec1` abre «Olvidé mi contraseña»; pantalla Admin «Soporte» con badge, modal (incidente, tomar, nota interna, respuesta, reabrir) y tarjeta en Resumen. Procedimiento en `docs/SOPORTE_OPERACION.md`.
 - **Pruebas:** web 133/133 (nuevo `tests/support.test.ts`, 5), dominio 74/74, guardas 11/11, typecheck y `next build` OK. En navegador local (dev): `/ayuda` sin sesión en 375 px → consulta enviada con código; Admin → Resumen «Consultas de soporte 1» → Soporte → responder → sale de «Abiertas». Para esa prueba se marcó 2FA del Admin del seed sólo en `repi_dev` y se revirtió.
 - **Ojo:** `next build` en `apps/web` borra artefactos del `next dev` que esté corriendo (comparten `.next`): el dev server de la sesión de Codex en :3000 quedó devolviendo 500 y se reinició con el mismo comando (`pnpm --filter @repi/web dev`). Evitar build con un dev server activo, o reiniciarlo después.
 - **Pendiente del titular:** responsables y horario de soporte, correo público de contacto, verificación de identidad para 2FA perdido sin códigos de respaldo.
-- **Siguiente:** F-NT-01 centro de notificaciones del alumno (base: `member_notice`, `notification_outbox`, `/api/me/inbox`); luego V1.1 (F-HX-23 kg/lb, F-CO-16 informe mensual). V1 restante es externo: G03/G07 en teléfonos reales, G11 textos legales, G09 modalidad del piloto.
+- **Deploy:** c350c55 en repiclub.com verificado (`/ayuda` 200, `/api/me/support` 401 sin sesión).
 
 ## Bloque anterior — 27/10/2026 · Cierre de seguridad de lanzamiento (D87–D90)
 

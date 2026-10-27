@@ -15,12 +15,12 @@ import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Workout } from "./Workout";
 import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./FollowSheets";
 import { MemberMessages } from "./Messages";
-import { GymTabView } from "./Gym";
+import { GymTabView, type GymTab } from "./Gym";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
 import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
-import { Barbell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
+import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -33,6 +33,10 @@ type Inbox = {
   unreadThreads: number;
   gymUnseen: number;
 };
+// Centro de notificaciones (F-NT-01, D94). El servidor arma la lista; el aviso de programa se suma acá desde el programa.
+type NotifDest = { tab: "home" | "msgs" | "perfil" } | { tab: "gym"; gymTab: "news" | "ch" | "logros" } | { tab: "review"; invite: Inbox["reviewInvites"][number] };
+type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean };
+type Feed = { items: Notif[]; unread: number; seenAt: string | null };
 type SheetState = null | { type: "checkin"; dayId: string } | { type: "pain" } | { type: "help"; kind?: RequestKind; to?: "coach" | "gym" } | { type: "injury" } | { type: "review"; invite: Inbox["reviewInvites"][number] };
 type History = { id: string; dayName: string; endedAt: string; durationSec: number; sets: number; volumeKg: number; rpe: number | null }[];
 
@@ -51,6 +55,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [privKey, setPrivKey] = useState(0);
   const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then(setInbox).catch(() => setInbox(null)), []);
+  const [feed, setFeed] = useState<Feed | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [gymTab, setGymTab] = useState<GymTab | undefined>(undefined);
+  const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then(setFeed).catch(() => {}), []);
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
   // Online primero; si no hay red, el programa guardado en el teléfono. Antes de mostrar nada se verifica el dueño.
   const load = useCallback(async () => {
@@ -59,7 +67,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       await ensureOwner(x.userId).catch(() => {});
       await saveTraining(x).catch(() => {});
       setT(x); setErr(null); setOfflineAt(null);
-      void loadInbox();
+      void loadInbox(); void loadFeed();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404)) { await wipeLocal().catch(() => {}); setErr(e.message); return null; }
       const cached = await loadTraining<Training>().catch(() => undefined);
@@ -91,7 +99,21 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const scrolls = useRef<Record<string, number>>({});
   useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [tab, workout]);
 
-  const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); };
+  const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); };
+  const notifs = withProgramNotice(feed, t);
+  const openNotifs = () => {
+    setNotifOpen(true);
+    if (offlineAt) return;
+    // Abrir el centro marca lo listado como leído; la lista se refresca para no mostrar algo viejo.
+    void loadFeed().then(() => api("/api/me/notifications/seen", { body: {} })).catch(() => {});
+  };
+  const pickNotif = (d: NotifDest) => {
+    setNotifOpen(false);
+    setFeed((f) => (f ? { ...f, unread: 0, items: f.items.map((x) => ({ ...x, unread: false })), seenAt: new Date().toISOString() } : f));
+    if (d.tab === "review") { setSheet({ type: "review", invite: d.invite }); return; }
+    go(d.tab);
+    if (d.tab === "gym") setGymTab(d.gymTab);
+  };
   // Con el programa institucional activo, quien indica es el equipo de sala (D11).
   const coachFirst = t?.relation?.kind === "gym" ? "el equipo de sala" : t?.coach?.name.split(" ")[0] ?? "tu coach";
   const days = t?.program?.days ?? [];
@@ -144,11 +166,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         {!t ? <p className="mb-muted">Cargando…</p> : (
           <div key={tab} className="tab-pane">
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} go={go}
+              bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} /><Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
-            {tab === "gym" && <GymTabView offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
+            {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} />}
           </div>
         )}
@@ -172,6 +195,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
       {sheet?.type === "help" && <HelpSheet initialKind={sheet.kind} initialTo={sheet.to ?? (t?.relation?.kind === "gym" ? "gym" : undefined)} coachName={inbox?.coach?.name ?? null} gymPlace={inbox?.gym?.place ?? null} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />}
       {sheet?.type === "review" && <ReviewSheet invite={sheet.invite} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />}
+      {notifOpen && <NotifSheet items={notifs} offline={!!offlineAt} loaded={!!feed} onPick={pickNotif} onClose={() => {
+        setNotifOpen(false); setFeed((f) => (f ? { ...f, unread: 0, items: f.items.map((x) => ({ ...x, unread: false })), seenAt: new Date().toISOString() } : f));
+      }} />}
       {sheet?.type === "injury" && <InjurySheet flash={flash} onClose={() => setSheet(null)} onSaved={() => setPrivKey((k) => k + 1)} />}
     </div></div>
   );
@@ -181,12 +207,65 @@ function Toast({ t }: { t: string | null }) {
   return <><div aria-live="polite" className="sr-only">{t}</div>{t && <div className="mb-toast" aria-hidden="true">{t}</div>}</>;
 }
 
-function Head({ t, go }: { t: Training; go?: (x: Tab) => void }) {
+function Head({ t, go, bell }: { t: Training; go?: (x: Tab) => void; bell?: { unread: number; onOpen: () => void } }) {
   return (
     <div className="mb-top">
       <Wordmark width={58} />
-      <button type="button" className="mb-icon" aria-label="Perfil" onClick={() => go?.("perfil")}><span className="mb-av">{(t.firstName[0] ?? "R").toUpperCase()}</span></button>
+      <span style={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <button type="button" className="mb-icon" aria-label="Perfil" onClick={() => go?.("perfil")}><span className="mb-av">{(t.firstName[0] ?? "R").toUpperCase()}</span></button>
+        {bell && (
+          <button type="button" className="mb-icon" style={{ position: "relative" }} onClick={bell.onOpen}
+            aria-label={bell.unread ? `Notificaciones, ${bell.unread} sin leer` : "Notificaciones"}>
+            <Ic i={Bell} size={22} />{bell.unread > 0 && <span className="bell-dot" aria-hidden="true" />}
+          </button>
+        )}
+      </span>
     </div>
+  );
+}
+
+/** Suma el aviso de programa nuevo/actualizado (F-CL-14) a la lista del servidor, con la misma marca de leído. */
+function withProgramNotice(feed: Feed | null, t: Training | null): Notif[] {
+  const items = feed?.items ?? [];
+  const u = t?.program?.update;
+  if (!u || !t?.program || Date.now() - new Date(u.at).getTime() > 30 * 86_400_000) return items;
+  const who = u.author?.split(" ")[0] ?? "Tu coach";
+  const seen = feed?.seenAt ? new Date(feed.seenAt) : null;
+  const n: Notif = {
+    id: `prog:${u.key}`, at: u.at, tone: "cyan", dest: { tab: "home" }, unread: !seen || new Date(u.at) > seen,
+    title: u.kind === "new" ? `${who} te asignó «${t.program.name}»` : `${who} actualizó tu programa`,
+    body: u.kind === "new" ? "Ya podés entrenarlo desde Inicio." : `Versión ${t.program.version}${u.reason ? ` · ${u.reason}` : ""}`,
+  };
+  return [n, ...items].sort((a, b) => b.at.localeCompare(a.at));
+}
+
+const TONE: Record<Notif["tone"], string> = { cyan: "#00D1FF", turq: "#5DE6D8", ok: "#10B981", bad: "#EF4444", mute: "#2D3B4F" };
+function whenTxt(at: string) {
+  const d = new Date(at), mins = Math.round((Date.now() - d.getTime()) / 60_000);
+  if (mins < 60) return mins <= 1 ? "Ahora" : `${mins} min`;
+  if (mins < 24 * 60) return `${Math.round(mins / 60)} h`;
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(d);
+}
+function NotifSheet({ items, offline, loaded, onPick, onClose }: { items: Notif[]; offline: boolean; loaded: boolean; onPick: (d: NotifDest) => void; onClose: () => void }) {
+  return (
+    <Sheet title="Notificaciones" onClose={onClose}>
+      {offline && <p className="mb-muted" role="status" style={{ margin: 0, fontSize: 14 }}>Sin conexión: se actualizan cuando vuelvas a tener señal.</p>}
+      {!loaded && !offline ? <p className="mb-muted" style={{ margin: 0 }}>Cargando…</p> : !items.length ? (
+        <p className="mb-muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>No tenés notificaciones de los últimos 30 días.</p>
+      ) : (
+        <ul className="notif-list" aria-label="Notificaciones de los últimos 30 días">
+          {items.map((n) => (
+            <li key={n.id}>
+              <button type="button" className="notif" onClick={() => onPick(n.dest)}>
+                <span className="notif-dot" style={{ background: TONE[n.tone] }} aria-hidden="true" />
+                <span className="notif-txt"><b>{n.title}</b><small>{n.body}</small></span>
+                <span className="notif-at">{n.unread && <span className="sr-only">Sin leer · </span>}{whenTxt(n.at)}{n.unread && <i className="notif-new" aria-hidden="true" />}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Sheet>
   );
 }
 
@@ -207,8 +286,8 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, reloadInbox, onRelation }: {
-  t: Training; coachFirst: string; onStart: (dayId: string) => void; go: (x: Tab) => void; inbox: Inbox | null; offline: boolean;
+function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation }: {
+  t: Training; coachFirst: string; onStart: (dayId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void;
 }) {
   const gymRel = t.relation?.kind === "gym";
@@ -230,7 +309,7 @@ function Home({ t, coachFirst, onStart, go, inbox, offline, onSheet, flash, relo
   ];
   return (
     <>
-      <Head t={t} go={go} />
+      <Head t={t} go={go} bell={bell} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <h1 tabIndex={-1}>Hola, {t.firstName}</h1>
         <span className="mb-muted" style={{ fontSize: 15 }}>{t.openSession ? "Tenés un entrenamiento en curso." : "Hoy es un gran día para entrenar."}</span>

@@ -120,7 +120,7 @@ export async function myInbox(userId: string) {
   const reqs = await db.select().from(studentRequest).where(eq(studentRequest.userId, userId)).orderBy(desc(studentRequest.createdAt)).limit(20);
   return {
     coach: rel ? { name: rel.coachName, org: rel.org.name } : null,
-    accessRequests: pending.map((a) => ({ id: a.id, item: a.item, phrase: ACCESS_ITEMS[a.item as AccessItem]?.phrase ?? a.item, reason: a.reason, from: rel!.coachName, expiresAt: a.expiresAt })),
+    accessRequests: pending.map((a) => ({ id: a.id, item: a.item, phrase: ACCESS_ITEMS[a.item as AccessItem]?.phrase ?? a.item, reason: a.reason, from: rel!.coachName, expiresAt: a.expiresAt, createdAt: a.createdAt })),
     requests: reqs.map((r) => ({ id: r.id, kind: r.kind, text: r.text, status: r.status, createdAt: r.createdAt, resolvedAt: r.resolvedAt, unseenResolved: r.status === "done" && !r.seenResolvedAt, hasVideo: !!r.videoId })),
     checkinToday: !!(await todayCheckin(userId)),
   };
