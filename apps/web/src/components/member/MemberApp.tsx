@@ -20,6 +20,7 @@ import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjurySt
 import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
+import { SoloEntry, SoloSheet } from "./Solo";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 
@@ -55,6 +56,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [privKey, setPrivKey] = useState(0);
+  const [solo, setSolo] = useState<"solo" | "coach_absent" | null>(null); // Adaptive Coach fase 1 (D108)
   const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then(setInbox).catch(() => setInbox(null)), []);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -170,7 +172,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} />}
-            {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} /><Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} /></>}
+            {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} /><Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
@@ -195,6 +197,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
+      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={start} onContinue={() => openId && setWorkout(openId)}
+        onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
       {sheet?.type === "help" && <HelpSheet initialKind={sheet.kind} initialTo={sheet.to ?? (t?.relation?.kind === "gym" ? "gym" : undefined)} coachName={inbox?.coach?.name ?? null} gymPlace={inbox?.gym?.place ?? null} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />}
       {sheet?.type === "review" && <ReviewSheet invite={sheet.invite} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />}
       {notifOpen && <NotifSheet items={notifs} offline={!!offlineAt} loaded={!!feed} onPick={pickNotif} onClose={() => {
@@ -406,11 +410,12 @@ function RelationPicker({ t, offline, busyOpen, onChange, flash }: { t: Training
   );
 }
 
-function Train({ t, sel, setSel, coachFirst, onStart }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void }) {
+function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void }) {
   if (t.state !== "ready" || !t.program) return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
       <WeekStrip t={t} />
+      {t.relation && <SoloEntry onOpen={onSolo} />}
       <div className="restday"><span style={{ fontSize: 22, fontWeight: 600 }}>{t.state === "scheduled" ? `Empieza el ${formatDayEs(t.startsOn!)}` : "Sin programa asignado"}</span><span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>Cuando {coachFirst} te asigne un programa, sus días aparecen acá.</span></div>
     </>
   );
@@ -418,6 +423,7 @@ function Train({ t, sel, setSel, coachFirst, onStart }: { t: Training; sel: numb
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
+      <SoloEntry onOpen={onSolo} />
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (

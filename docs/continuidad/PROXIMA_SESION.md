@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, cambios en la sesión activa y aviso de descanso (D106–D107). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, Adaptive Coach fase 1 (D108). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Nota por serie, saltar/reemplazar y aviso de descanso (F-HX-21 y F-HX-22, D106–D107)
+## Último bloque cerrado — 27/10/2026 · Adaptive Coach fase 1 (D108)
+
+- **Hecho:** dominio `adaptive.ts` (+ tests) exportado; `apps/web/src/server/training/adaptive.ts`; `GET /api/me/solo?v=solo|coach_absent`; `member/Solo.tsx` (entrada en Entrenar y hoja con motivos, avisos y opciones); estilos `.solo-*`. Sin migración. `MemberApp.tsx` cambió sólo en el bloque de import final, estado `solo`, `Train` y la hoja (Codex tiene cambios sin commit en otros bloques de ese archivo: revisar al integrar).
+- **Documentos:** `docs/adaptive/ADAPTIVE_COACH_ARCHITECTURE.md` (principios, reutilización, fases 1–6, estado de tests A–Q, límites) y sección nueva en `docs/IMPLEMENTATION_STATUS.md`.
+- **Pruebas:** web 166/166 (nuevo `tests/adaptive.test.ts`, 2), dominio 104/104, guardas 11/11, build OK. Navegador 375 px (Valentina con sesión abierta): «No vino el profe…» → «Seguí con Piernas · Hiciste 2 de 13 series» → «Continuar donde lo dejé» abre la sesión.
+- **Siguiente:** fase 1b: sustituciones aprobadas por coach/organización (tabla + gestión en el constructor + prioridad en alternativas) y política de autonomía por organización. Fase 3 (IA) necesita decisión de gasto del titular.
+
+## Bloque anterior — 27/10/2026 · Nota por serie, saltar/reemplazar y aviso de descanso (F-HX-21 y F-HX-22, D106–D107)
 
 - **Pedido del titular:** cerrar estos V1 y después pasar a Adaptive Coach (pedido «MASTER FEATURE EXPANSION», pegado en el chat; pide Inter Tight, que está superada por G · Atlética: se mantiene Barlow).
 - **Hecho (D106):** dominio `session-changes.ts` (motivos, compatibilidad, orden de alternativas, `cleanSetNote`) y `sync.ts` (la nota es parte de la serie); migración `0022_session_exercise_change` (`set_log.note` + tabla `session_exercise_change`, dev y **Supabase**, RLS); `training/services.ts` (`logSet` con nota y ejercicio real, `getSession` con `change`, `sessionAlternatives`, `setExerciseChange`, resumen con `exSkipped` y récords por ejercicio hecho, `clientDetail` con `changes` y `setNotes`); ruta `GET/POST /api/me/sessions/[id]/exercises`; cola offline con ítem `exchange`; `member/ExerciseChange.tsx`, nota de serie y estado «salteado» en `Workout.tsx`; ficha del coach (`CoachClients.tsx`) muestra cambios y notas.

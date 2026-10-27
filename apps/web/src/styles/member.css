@@ -210,6 +210,10 @@
 .plates-note { font-size: 12px !important; }
 .rest-alert { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--dark-muted); line-height: 1.4; }
 .rest-alert .linkbtn { flex: none; height: 44px; }
+.solo-card { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.solo-card .ghost { min-height: 48px; }
+.solo-card .linkbtn { height: 44px; }
+.solo-foot { font-size: 12px !important; }
 .wo-tools { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
 .wo-tools .linkbtn { height: 44px; }
 /* Cambiar ejercicio en la sesión (F-HX-21, D106) */

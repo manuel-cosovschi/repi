@@ -409,3 +409,7 @@ Pedido del usuario: hosting en Vercel y base en Supabase. Detalle y comandos: do
 - Continuidad: contexto guardado 7 días; «Retomá tu alta» al abrir desde el ícono; recuperación por enlace o código (sólo destinos internos); invitaciones vigentes del mismo email verificado tras ingresar.
 - Inicio estable `/` según sesión; sin red abre la carcasa de /app si existe.
 - Verificado en Chrome headless (iPhone/Android/navegador interno/escritorio) y tests 85/85. Pendiente: teléfonos reales e ícono 192/512 (D35).
+
+## Adaptive Coach · fase 1 (27/10/2026, D108)
+
+Arquitectura, fases y estado de los tests A–Q en `docs/adaptive/ADAPTIVE_COACH_ARCHITECTURE.md`. Hecho: núcleo determinístico en el dominio (autonomía 0–4, `planSolo`, `validateProposal`), `GET /api/me/solo` y la entrada «No vino el profe» / «Quiero entrenar por mi cuenta» en Entrenar. Sin IA: cada consulta queda en `audit_event` como `adaptive.solo_plan` con `usesAI:false`. Evidencia: `packages/domain/src/adaptive.test.ts`, `apps/web/tests/adaptive.test.ts`, navegador 375 px (sesión abierta → «Seguí con Piernas» → continúa). No está listo para producción como «Adaptive Coach» completo: faltan fases 1b a 6.
