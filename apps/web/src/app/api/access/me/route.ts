@@ -15,5 +15,6 @@ export const GET = handle(async () => {
     minor, guardian: minor ? await svc.guardianStatus(uid) : null,
     member: await svc.memberOnboardingState(uid),
     workspaces: await svc.listWorkspaces(uid),
+    invitations: await svc.pendingInvitations(uid),
   };
 });

@@ -137,3 +137,20 @@ button.ac-row:hover { border-color: var(--core-cyan); }
 }
 .ac-toast::before { content: ""; width: 8px; height: 8px; border-radius: 4px; background: var(--core-cyan); flex: none; }
 @media (min-width: 900px) { .ac-toast { left: 71%; } }
+
+/* Guía para agregar a inicio (anexo PWA). Mismos tokens de Acceso; sin animaciones propias. */
+.ig-icon { width: 72px; height: 72px; border-radius: 18px; display: block; margin-bottom: 14px; }
+.ig-plat { display: flex; gap: 6px; padding: 4px; border-radius: 14px; background: var(--t-input); border: 1px solid var(--t-border); }
+.ig-plat button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--t-muted); font: 600 14px var(--font-ui); cursor: pointer; }
+.ig-plat button[aria-pressed="true"] { background: var(--t-surface); color: var(--t-ink); box-shadow: 0 1px 0 var(--t-border); }
+.ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; counter-reset: ig; }
+.ig-steps li { display: flex; gap: 14px; align-items: flex-start; }
+.ig-steps strong { display: block; font-size: 16px; font-weight: 600; }
+.ig-steps small { display: block; font-size: 13px; line-height: 1.45; color: var(--t-muted); margin-top: 3px; }
+.ig-num { width: 44px; height: 44px; border-radius: 12px; background: var(--t-chip); display: grid; place-items: center; flex: none; }
+.ig-code { display: flex; gap: 12px; align-items: center; background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 16px; padding: 14px 16px; }
+.ig-code > span { flex: 1; min-width: 0; }
+.ig-code small { display: block; font-size: 12px; color: var(--t-muted); }
+.ig-code strong { display: block; font: 500 20px var(--font-mono); letter-spacing: .04em; word-break: break-all; }
+.ig-code .ac-sec { width: auto; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.ig .ac-sec { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }

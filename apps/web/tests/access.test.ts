@@ -128,6 +128,35 @@ describe("invitación de alumno por coach", () => {
   });
 });
 
+describe("anexo PWA: retomar invitaciones al abrir desde inicio", () => {
+  it("lista sólo las vigentes del mismo email verificado y no acepta nada", async () => {
+    const { uid, org } = await coachWithOrg();
+    const destino = mail();
+    const vigente = await svc.inviteCoachClient(uid, org.id, { email: destino.toUpperCase() });
+    const vencida = await svc.inviteCoachClient(uid, org.id, { email: destino });
+    await db.update(schema.invitation).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(schema.invitation.code, vencida.code));
+    const revocada = await svc.inviteCoachClient(uid, org.id, { email: destino });
+    await svc.revokeInvitation(uid, revocada.id);
+    await svc.inviteCoachClient(uid, org.id, { email: mail() }); // de otra persona
+
+    const alumno = await verified(destino);
+    const list = await svc.pendingInvitations(alumno);
+    expect(list.map((i) => i.code)).toEqual([vigente.code]);
+    expect(list[0]).toMatchObject({ kind: "coach_client", orgName: "Agus Coach" });
+    const [still] = await db.select().from(schema.invitation).where(eq(schema.invitation.code, vigente.code));
+    expect(still.status).toBe("pending");
+    await svc.acceptInvitation(alumno, vigente.code);
+    expect(await svc.pendingInvitations(alumno)).toEqual([]);
+  });
+  it("sin email verificado no devuelve nada", async () => {
+    const { uid, org } = await coachWithOrg();
+    const destino = mail();
+    await svc.inviteCoachClient(uid, org.id, { email: destino });
+    const r = await svc.signUpPerson({ name: "Sin Verificar", email: destino, password: PW, terms: true });
+    expect(await svc.pendingInvitations(r.userId!)).toEqual([]);
+  });
+});
+
 describe("menores", () => {
   it("sin autorización no comparte salud ni fotos; tras aprobación del adulto sí puede", async () => {
     const { uid: coachId, org } = await coachWithOrg();

@@ -2,7 +2,13 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Hosting DEMO (Vercel + Supabase)
+## Último bloque cerrado — 27/10/2026 · Corte 1: guía PWA y continuidad de alta (D69)
+
+- **Hecho:** `components/access/InstallGuide.tsx` (guía por plataforma), `InstallHelp.tsx` + `app/instalar` (ayuda), `lib/entry.ts` (contexto de entrada y recuperación), `lib/platform.ts` (detección y `beforeinstallprompt`), `AccessFlow.tsx` (guía antes del alta móvil sin sesión, «Retomá tu alta», paso `recover`, paso `pendingInv`), `server/access/services.ts#pendingInvitations` + `/api/access/me` (`invitations`), `app/page.tsx` (inicio según sesión), `manifest.ts` (`id` y `start_url` estables), `public/sw.js` (inicio sin red → carcasa de /app), `layout.tsx` (captura del evento de instalación, meta web app de Apple), enlace en Perfil.
+- **Pruebas:** typecheck y build OK; web 85/85 (nuevos: invitaciones pendientes vigentes del mismo email; `parseEntryInput` sólo destinos internos); Chrome headless emulando iPhone, Android, navegador interno y escritorio: script `documentacion/pwa/verificar-guia.mjs`, captura `documentacion/pwa/guia-iphone-2026-10-27.png`. **No probado en teléfonos reales** (gate G03).
+- **Límite real:** Android no muestra «Instalar» porque falta el ícono 192/512 aprobado (D35); la guía da los pasos manuales.
+
+## Bloque anterior — 27/10/2026 · Hosting DEMO (Vercel + Supabase)
 
 - **Objetivo:** pedido del usuario «Configurá el hosting con Vercel y la base con Supabase». Hecho como entorno **DEMO** (D68). Detalle operativo: docs/DESPLIEGUE.md.
 - **En vivo:** https://repi-app.vercel.app · deploy automático en cada push a `main`. Supabase `repi` (sa-east-1) migrado 0000–0006, seed DEMO cargado, RLS activado, bucket privado `repi-private`, pg_cron de avisos cada minuto respondiendo 200.
@@ -10,7 +16,7 @@ Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MAST
 - **Pruebas:** typecheck OK; web 80/80 y dominio 74/74 contra `repi_test` local; build OK; humo hospedado: /acceso 200, /unirse/demo-palermo muestra Gym Norte · Palermo desde Supabase, /api/cron/notifications 200 con secreto y 404 sin él. No se probó login en el entorno hospedado desde esta sesión.
 - **Secretos:** sólo en `~/.repi-secrets/` del titular y en Vercel. Nunca en el repo.
 - **Pendiente inmediato del titular (un paso):** cargar `SUPABASE_SECRET_KEY` en Vercel (ver docs/DESPLIEGUE.md) para habilitar subidas.
-- **Próxima acción técnica:** subida directa de videos al bucket con URL firmada (Vercel limita el cuerpo a 4,5 MB); después seguir la ruta crítica: corte 1 PWA y continuidad de alta, corte 2 adaptador de correo productivo.
+- **Próxima acción técnica:** corte 2: adaptador de correo productivo (Resend/SMTP detrás de `sendMail`, sin credenciales inventadas) con pruebas de contrato; después subida directa de videos al bucket con URL firmada (Vercel limita el cuerpo a 4,5 MB).
 
 ## Objetivo inmediato
 

@@ -35,15 +35,17 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
-  // Navegación a /app: red primero (recibe la versión nueva), carcasa guardada si no hay red.
-  if (req.mode === "navigate" && url.pathname === "/app") {
+  // Navegación a /app o al inicio desde el ícono ("/"): red primero (recibe la versión nueva), carcasa guardada si no hay red.
+  if (req.mode === "navigate" && (url.pathname === "/app" || url.pathname === "/")) {
     e.respondWith((async () => {
       try {
         const res = await fetch(req);
-        if (res.ok && !res.redirected) (await caches.open(CACHE)).put("/app", res.clone());
+        if (url.pathname === "/app" && res.ok && !res.redirected) (await caches.open(CACHE)).put("/app", res.clone());
         return res;
       } catch {
-        return (await caches.match("/app")) || new Response("Sin conexión", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
+        const shell = await caches.match("/app");
+        if (shell && url.pathname === "/") return Response.redirect(new URL("/app", self.location.origin), 302);
+        return shell || new Response("Sin conexión", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
       }
     })());
     return;

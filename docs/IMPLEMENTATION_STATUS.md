@@ -402,3 +402,10 @@ Pedido del usuario: hosting en Vercel y base en Supabase. Detalle y comandos: do
 - Avisos cada minuto con pg_cron + pg_net (verificado: respuesta 200). Purga de videos diaria con Vercel Cron.
 - Correos en modo DEMO al buzón DEV (sólo REPI Admin). Sigue sin proveedor real (D24).
 - Pendientes reales: `SUPABASE_SECRET_KEY` (subidas), subida directa de videos (> 4,5 MB), login hospedado probado por el titular, backups/PITR, plan Pro antes de clientes.
+
+# Corte 1 — Guía para agregar a inicio y continuidad del alta (27/10/2026, D69)
+
+- Guía por plataforma antes del alta/login en teléfono (QR de sede, invitación, bienvenida), una vez y sin sesión; «Continuar en el navegador» siempre; ayuda en /instalar y desde Perfil.
+- Continuidad: contexto guardado 7 días; «Retomá tu alta» al abrir desde el ícono; recuperación por enlace o código (sólo destinos internos); invitaciones vigentes del mismo email verificado tras ingresar.
+- Inicio estable `/` según sesión; sin red abre la carcasa de /app si existe.
+- Verificado en Chrome headless (iPhone/Android/navegador interno/escritorio) y tests 85/85. Pendiente: teléfonos reales e ícono 192/512 (D35).

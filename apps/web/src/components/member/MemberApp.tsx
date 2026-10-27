@@ -563,6 +563,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury }: { t: Training; inbox
           </div>
         ))}
       </section>
+      <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
       <button type="button" className="ghost" onClick={logout}>Cerrar sesión</button>
     </>

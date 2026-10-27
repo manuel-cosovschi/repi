@@ -11,6 +11,9 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { api, ApiError } from "@/lib/api";
 import { Wordmark } from "./Wordmark";
+import { InstallGuide } from "./InstallGuide";
+import { clearEntry, entryHref, parseEntryInput, readEntry, saveEntry, type Entry } from "@/lib/entry";
+import { detectEnv, guideDone } from "@/lib/platform";
 import { Ic } from "@/components/ui/Ic";
 import { ArrowLeft, Barbell, CaretRight, EnvelopeSimple, QrCode, Storefront, type Icon } from "@phosphor-icons/react";
 
@@ -19,7 +22,7 @@ const IC = { coach: Barbell, gym: Storefront, invite: EnvelopeSimple, member: Qr
 type Step =
   | "login" | "choose" | "coach1" | "gym1" | "leadDone" | "verify"
   | "code" | "invite" | "inv1" | "tutor" | "tutorWait" | "consent" | "member1" | "join" | "joinAcct" | "joinStatus"
-  | "activate" | "actAcct" | "consentGym" | "appDone" | "rec1" | "rec2" | "rec3" | "twofa" | "twofaSetup" | "workspace";
+  | "activate" | "actAcct" | "consentGym" | "appDone" | "rec1" | "rec2" | "rec3" | "twofa" | "twofaSetup" | "workspace" | "recover" | "pendingInv";
 type Flow = "login" | "coach" | "gym" | "invite" | "member" | "join" | "activate";
 type Fields = Record<string, string | boolean | number | undefined>;
 type Invite = { code: string; kind: "coach_client" | "gym_staff"; orgName: string; orgInitials: string; detail: string; inviter: string | null };
@@ -29,7 +32,8 @@ type ActInfo = { state: string; orgName: string; kind: "gym" | "coach"; emailHin
 const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 type Workspace = { key: string; ini: string; title: string; detail: string; href: string; needs2fa: boolean };
 type Me = { user: { name: string; email: string; twoFactorEnabled: boolean }; minor: boolean; guardian: "approved" | "pending" | "none" | null;
-  member: { step: "consentGym" | "memberPending" | null; orgId?: string; orgName?: string; locationName?: string }; workspaces: Workspace[] };
+  member: { step: "consentGym" | "memberPending" | null; orgId?: string; orgName?: string; locationName?: string }; workspaces: Workspace[];
+  invitations: { code: string; kind: string; orgName: string; orgInitials: string; detail: string }[] };
 
 type FieldV = { k: string; label: string; type?: string; ph?: string; mode?: "text" | "email" | "numeric"; ac?: string; max?: number; code?: boolean; hint?: string; hintOk?: boolean; bad?: boolean };
 type Chip = { k: string; label: string; opts: [string, string][] };
@@ -63,6 +67,11 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const [totp, setTotp] = useState<{ uri: string; backup: string[] } | null>(null);
   const [next, setNext] = useState<string | null>(initial.next && initial.next.startsWith("/") ? initial.next : null);
   const [backupMode, setBackupMode] = useState(false);
+  // Anexo PWA: guía antes del alta/login en el teléfono y contexto de entrada recuperable al abrir desde el ícono.
+  const [guide, setGuide] = useState(false);
+  const [resume, setResume] = useState<Entry | null>(null);
+  const entry = initial.join ? { k: "join" as const, v: initial.join } : initial.code ? { k: "code" as const, v: normalizeCode(initial.code) }
+    : initial.activate ? { k: "activate" as const, v: initial.activate } : null;
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const headRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
@@ -138,10 +147,22 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       const p = reqs.find((r) => r.status === "pending");
       if (p) { setJoinReq(p); setFlow("join"); setStep("joinStatus"); return; }
     }
+    // Invitaciones del mismo email verificado que quedaron sin abrir (p. ej. se perdió el enlace al agregar a inicio).
+    if (!code && m.invitations?.length) { setStep("pendingInv"); return; }
     setStep("workspace");
   }
 
   // Parámetros de entrada: ?code= (enlace de invitación), ?sede= (QR de recepción), ?step=workspace|twofaSetup.
+  useEffect(() => {
+    if (entry) saveEntry(entry.k, entry.v);
+    else { const e = readEntry(); if (e) setResume(e); }
+    const env = detectEnv();
+    if (!entry || !env.mobile || env.standalone || guideDone()) return;
+    // La guía va antes de registrarse o ingresar; con sesión abierta no se interrumpe.
+    authClient.getSession().then((r) => { if (!r.data) setGuide(true); }).catch(() => setGuide(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -159,6 +180,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           setFlow("join"); setStep("join");
           const [info, session] = await Promise.all([api<JoinInfo>(`/api/join/${initial.join}`), authClient.getSession()]);
           setJoinInfo(info);
+          saveEntry("join", initial.join, `${info.orgName} · ${info.locationName}`);
           if (session.data) { setSignedIn(true); await loadMe(); }
           return;
         }
@@ -192,7 +214,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const pwHintField = (label = "Contraseña"): FieldV => ({ k: "pw", label, type: "password", ac: "new-password", hint: passwordHint(s("pw")), hintOk: passwordOk(s("pw")) });
   async function requestJoin() {
     const r = await api<{ state: "already" | "pending" | "created"; href?: string; request?: JoinReq }>(`/api/join/${initial.join}`, { body: { name: s("name") || undefined, terms: true } });
-    if (r.state === "already") { window.location.href = r.href ?? "/app"; return; }
+    if (r.state === "already") { clearEntry(); window.location.href = r.href ?? "/app"; return; }
     setJoinReq(r.request ?? null); setHist([]); setStep("joinStatus"); setErr(null);
   }
   async function refreshJoin() {
@@ -203,6 +225,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   }
   async function acceptActivation() {
     const r = await api<{ href: string }>(`/api/activate/${initial.activate}`, { body: {} });
+    clearEntry();
     const m = await loadMe();
     const w = m.workspaces.find((x) => x.href === r.href);
     if (w) return goWorkspace(w);
@@ -274,11 +297,35 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         await signIn(s("email"), s("pw"));
       }) },
       social: true,
+      extra: resume ? (
+        <button type="button" className="ac-opt" onClick={() => { window.location.href = entryHref(resume); }}>
+          <span className="ac-opt-ic" aria-hidden="true"><Ic i={resume.k === "join" ? QrCode : EnvelopeSimple} size={22} color="#00D1FF" /></span>
+          <span><strong>Retomá tu alta</strong><small>{resume.label ?? (resume.k === "join" ? "Tu pedido de acceso al gimnasio" : resume.k === "code" ? "Tu invitación" : "La bienvenida de tu espacio")}</small></span>
+          <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
+        </button>
+      ) : undefined,
       links: [
         { pre: "", label: "Olvidé mi contraseña", go: () => to("rec1") },
         { pre: "¿No tenés cuenta?", label: "Crear cuenta", go: () => to("choose") },
         { pre: "¿Te invitaron?", label: "Tengo un código", go: () => to("code", "invite") },
+        { pre: "", label: "¿Venís de un QR o una invitación?", go: () => to("recover") },
       ],
+    }),
+    recover: () => ({
+      title: "Retomá tu alta", sub: "Pegá el enlace del QR de tu sede o de tu invitación, o escribí el código que te mostramos al agregar REPI a inicio.",
+      fields: [{ k: "rec", label: "Enlace o código", ph: "R7K2QX", ac: "off", max: 300 }],
+      cta: { label: "Continuar", ready: s("rec").trim().length >= 4, go: () => {
+        const e = parseEntryInput(s("rec"));
+        if (!e) return fail("No reconocemos ese enlace o código. Escaneá de nuevo el QR de tu sede o pedí otra vez la invitación.");
+        window.location.href = entryHref(e);
+      } },
+      note: "El código sólo ubica tu sede o tu invitación: el gimnasio o tu entrenador siguen confirmando tu acceso.",
+      secondary: [{ label: "Escanear el QR de nuevo", go: () => flash("Abrí la cámara del teléfono y apuntá al QR de recepción: se abre REPI con tu sede.") }],
+    }),
+    pendingInv: () => ({
+      title: "Tenés invitaciones pendientes", sub: `Son para ${me?.user.email ?? "tu email"}. Elegí una para seguir.`,
+      listLabel: "Invitaciones", list: (me?.invitations ?? []).map((i) => ({ ini: i.orgInitials, title: i.orgName, detail: i.detail, go: run(async () => { await afterAuth(i.code); }) })),
+      links: [{ pre: "", label: "Ahora no", go: () => { setHist([]); setStep("workspace"); } }],
     }),
     choose: () => ({
       title: "¿Cómo vas a usar REPI?", sub: "REPI es cerrado: se entra por invitación, por el QR de tu gimnasio o con un acuerdo con REPI.",
@@ -392,6 +439,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       cta: { label: "Entrar a la app", go: run(async () => {
         if (!invite) return fail("Volvé a abrir el enlace de invitación.");
         await api("invitations/accept", { body: { code: invite.code, grants: picked("coach_client") } });
+        clearEntry();
         toFresh("appDone");
       }) },
     }),
@@ -506,6 +554,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         const m = me ?? (await loadMe());
         if (!m.member.orgId) return fail("No encontramos tu membresía.");
         await api("gym-consent", { body: { orgId: m.member.orgId, grants: picked("gym_member") } });
+        clearEntry();
         toFresh("appDone");
       }) },
     }),
@@ -593,12 +642,19 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         title: "¿A dónde querés entrar?", sub: ws.length > 1 ? "Tu cuenta tiene varios espacios. Los datos de cada uno no se mezclan." : ws.length ? "Elegí tu espacio. Si sumás otro, sus datos no se mezclan." : "Tu cuenta todavía no tiene espacios.",
         listLabel: "Espacios", list: ws.map((w) => ({ ini: w.ini, title: w.title, detail: w.detail, go: () => goWorkspace(w), badge: w.needs2fa ? "Requiere 2 pasos" : undefined, badgeKind: "warn" as const })),
         note: me && !ws.length ? "Si te invitaron, ingresá el código. Si sos socio, escaneá el QR de tu sede. Si sos coach o tenés un gimnasio, escribinos para el alta." : undefined,
-        secondary: me && !ws.length ? [{ label: "Tengo un código", go: () => to("code", "invite") }, { label: "Quiero usar REPI", go: () => to("choose") }] : undefined,
+        secondary: me && !ws.length ? [
+          ...(resume ? [{ label: "Retomar mi alta", go: () => { window.location.href = entryHref(resume); } }] : []),
+          { label: "Tengo un código", go: () => to("code", "invite") }, { label: "Quiero usar REPI", go: () => to("choose") },
+        ] : undefined,
         links: [{ pre: "", label: "Cerrar sesión", go: run(async () => { await authClient.signOut(); setMe(null); start("login", "login"); }) }],
       };
     },
   };
 
+  if (guide) {
+    const ctx = joinInfo ? { title: joinInfo.orgName, detail: joinInfo.locationName } : invite ? { title: invite.orgName, detail: invite.detail } : actInfo ? { title: actInfo.orgName, detail: "Bienvenida a REPI" } : null;
+    return <InstallGuide context={ctx} recovery={entry} onContinue={() => { setGuide(false); window.scrollTo(0, 0); }} />;
+  }
   const v = V[step]();
   const canBack = hist.length > 0;
   const back = () => { setStep(hist[hist.length - 1]); setHist((h) => h.slice(0, -1)); setErr(null); };

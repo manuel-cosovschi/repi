@@ -210,6 +210,21 @@ export async function lookupInvitation(rawCode: string) {
   };
 }
 
+/** Anexo PWA: al abrir desde el ícono puede perderse el enlace. Con el email ya verificado se retoman las invitaciones
+ *  personales vigentes de ese mismo email (nunca las de otro ni las vencidas/revocadas). No acepta nada por sí misma. */
+export async function pendingInvitations(userId: string) {
+  const [u] = await db.select().from(user).where(eq(user.id, userId));
+  if (!u?.emailVerified) return [];
+  const rows = await db.select({ inv: invitation, org: organization, loc: gymLocation })
+    .from(invitation).innerJoin(organization, eq(organization.id, invitation.orgId)).leftJoin(gymLocation, eq(gymLocation.id, invitation.locationId))
+    .where(and(eq(invitation.status, "pending"), inArray(invitation.kind, ["coach_client", "gym_staff"]), sql`lower(${invitation.email}) = ${normalizeEmail(u.email)}`));
+  const now = new Date();
+  return rows.filter((r) => invitationState(r.inv, now) === "pending").map((r) => ({
+    code: r.inv.code, kind: r.inv.kind, orgName: r.org.name, orgInitials: initials(r.org.name),
+    detail: r.inv.kind === "coach_client" ? "Te invitó como alumno/a" : [GYM_ROLE_LABEL[r.inv.role as GymRole] ?? "Equipo", r.loc?.name].filter(Boolean).join(" · "),
+  }));
+}
+
 export async function minorWithoutGuardian(userId: string): Promise<boolean> {
   const [u] = await db.select({ birthDate: user.birthDate }).from(user).where(eq(user.id, userId));
   if (!u?.birthDate || classifyAge(u.birthDate, todayIso()) !== "minor") return false;
