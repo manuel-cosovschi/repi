@@ -22,7 +22,9 @@ Actualizado: 27/10/2026. Decisión: docs/DECISIONS.md D68. **Es un entorno DEMO*
 
 Los valores secretos se generaron localmente y están sólo en la máquina del titular, en `~/.repi-secrets/` (permisos 600, fuera del repo): `supabase_repi_app_pw`, `supabase.env` (URLs de conexión), `vercel.env` (secretos de app). La contraseña de `repi_app` nunca viajó: a Supabase se envió sólo su verificador SCRAM. Si se cambia de computadora: rotar (nuevo verificador con `ALTER ROLE repi_app PASSWORD …` desde el SQL editor y nuevas variables en Vercel) en lugar de copiar esos archivos por canales inseguros.
 
-## Correo real (cuando el titular elija proveedor, D24/D70)
+## Correo real (cuando el titular elija proveedor, D24/D70/D82)
+
+Estado 27/10: el titular eligió Resend. Falta cargar `RESEND_API_KEY` y `MAIL_DRIVER=resend` en Vercel (lo hace el titular) y verificar un dominio en Resend: sin dominio, Resend sólo entrega desde `onboarding@resend.dev` al email dueño de la cuenta. En DEMO cada correo además queda en `/dev/mailbox`.
 
 1. Crear cuenta en Resend (u otro proveedor; Resend ya tiene adaptador) y verificar el dominio remitente (registros SPF/DKIM).
 2. En Vercel: `MAIL_DRIVER=resend`, `RESEND_API_KEY`, `MAIL_FROM` (p. ej. `REPI <hola@dominio>`), opcional `MAIL_REPLY_TO`; redeploy.

@@ -2,7 +2,8 @@
 // Guía para agregar REPI a inicio (anexo 26/10 «Lanzamiento web y guía para agregar a inicio»; confirmado: web primero
 // y guía antes del alta o login en el teléfono). Explica los controles del navegador sin dibujar botones del sistema:
 // el único botón que instala es el evento real del navegador (beforeinstallprompt). «Ya lo agregué» sólo registra lo que
-// dice la persona; no acredita instalación ni concede acceso. Siempre se puede seguir en el navegador.
+// dice la persona; no acredita instalación ni concede acceso. Decisión del usuario 27/10 (D82): en el teléfono no se ofrece
+// seguir en el navegador; sólo agregar a inicio o ver cómo hacerlo.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { renderSVG } from "uqr";
 import { ArrowLeft, Copy, DotsThreeVertical, Export, PlusSquare, CheckCircle, DeviceMobile } from "@phosphor-icons/react";
@@ -55,7 +56,6 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
     setOutcome(r.outcome);
     if (r.outcome === "accepted") markGuide("added");
   };
-  const toBrowser = () => { markGuide("browser"); onContinue(); };
 
   const total = help ? 2 : 3;
   const label = `${step + 1} de ${total}`;
@@ -78,9 +78,10 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         </div>
         {context && <div className="ac-info"><span className="ac-ini" aria-hidden="true">{initials(context.title)}</span><span><strong>{context.title}</strong>{context.detail && <small>{context.detail}</small>}</span></div>}
         {env?.inApp && <p className="ac-note">Estás en el navegador de otra app, que no permite agregar a inicio. Abrí este enlace en Safari o Chrome: tocá el menú (⋯ o ⋮) y elegí «Abrir en el navegador».</p>}
-        <button type="button" className="ac-cta" onClick={() => setStep(1)}>Ver cómo se hace</button>
+        {bip && !help && <button type="button" className="ac-cta" onClick={install}>Agregar Repi a inicio</button>}
+        {outcome === "accepted" && <p className="ac-note" role="status">Tu teléfono está agregando REPI. Cuando aparezca el ícono, abrilo desde ahí.</p>}
+        <button type="button" className={bip && !help ? "ac-sec" : "ac-cta"} onClick={() => setStep(1)}>Ver cómo hacerlo</button>
         {env?.inApp && <button type="button" className="ac-sec" onClick={() => copy(location.href, "link")}><Ic i={Copy} size={18} /> {copied === "link" ? "Enlace copiado" : "Copiar enlace"}</button>}
-        {!help && <button type="button" className="ac-sec" onClick={toBrowser}>Continuar en el navegador</button>}
       </>
     );
   } else if (step === 1) {
@@ -103,7 +104,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         )}
         {platform === "android" && (bip || outcome ? (
           <>
-            {bip && <button type="button" className="ac-cta" onClick={install}>Instalar Repi</button>}
+            {bip && <button type="button" className="ac-cta" onClick={install}>Agregar Repi a inicio</button>}
             {outcome === "accepted" && <p className="ac-note" role="status">Tu teléfono está agregando REPI. Cuando aparezca el ícono, abrilo desde ahí.</p>}
             {outcome === "dismissed" && <p className="ac-note" role="status">No pasa nada: podés agregarla después desde el menú del navegador.</p>}
           </>
@@ -116,7 +117,6 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         ))}
         {platform !== "other" && <button type="button" className="ac-cta" onClick={() => { if (help) { markGuide("added"); setAdded(true); } else setStep(2); }}>{help ? "Ya lo agregué" : "Siguiente"}</button>}
         {help && added && <p className="ac-note" role="status">Listo. Abrí REPI desde tu pantalla de inicio cuando quieras.</p>}
-        {!help && <button type="button" className="ac-sec" onClick={toBrowser}>Continuar en el navegador</button>}
         {help && <button type="button" className="ac-sec" onClick={onContinue}>Volver</button>}
       </>
     );
@@ -140,9 +140,8 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         )}
         <p className="ac-note">Agregar REPI a inicio no confirma tu acceso: {recovery?.k === "join" ? "el equipo del gimnasio lo aprueba." : "seguís con los mismos pasos y permisos."}</p>
         {added
-          ? <p className="ac-note" role="status">Listo. Abrí REPI desde tu pantalla de inicio para seguir. Si preferís, podés seguir acá.</p>
+          ? <p className="ac-note" role="status">Listo. Cerrá esta pestaña y abrí REPI desde el ícono de tu pantalla de inicio para seguir.</p>
           : <button type="button" className="ac-cta" onClick={() => { markGuide("added"); setAdded(true); }}>Ya lo agregué</button>}
-        <button type="button" className={added ? "ac-cta" : "ac-sec"} onClick={toBrowser}>{added ? "Seguir en el navegador" : "Continuar en el navegador"}</button>
       </>
     );
   }

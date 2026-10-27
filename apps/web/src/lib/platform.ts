@@ -20,4 +20,4 @@ export const forgetInstallEvent = () => { (window as { __repiBIP?: InstallEvent 
 
 const GUIDE_KEY = "repi:guide";
 export const guideDone = () => { try { return localStorage.getItem(GUIDE_KEY) !== null; } catch { return false; } };
-export const markGuide = (how: "added" | "browser") => { try { localStorage.setItem(GUIDE_KEY, how); } catch {} };
+export const markGuide = (how: "added") => { try { localStorage.setItem(GUIDE_KEY, how); } catch {} };

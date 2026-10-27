@@ -2,7 +2,12 @@
 
 Actualizado: 27/10/2026, preparación de continuidad. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Rendimiento del cliente (D81, F-CO-04)
+## Último bloque cerrado — 27/10/2026 · Guía sin «Continuar en el navegador» y Resend en DEMO (D82)
+
+- **Hecho:** `InstallGuide.tsx` (sólo «Agregar Repi a inicio» si el navegador lo permite y «Ver cómo hacerlo»; sin salida al navegador), `mailer.ts` (DEMO + Resend: envío real y copia en buzón; rechazo no corta), test en `tests/mailer.test.ts`, `documentacion/pwa/verificar-guia.mjs` actualizado.
+- **Pendiente del titular:** cargar `RESEND_API_KEY` y `MAIL_DRIVER=resend` en Vercel; verificar dominio en Resend. `MAIL_FROM` ya cargado (`REPI <onboarding@resend.dev>`).
+
+## Bloque anterior — 27/10/2026 · Rendimiento del cliente (D81, F-CO-04)
 
 - **Hecho:** `training/services.ts#clientPerformance` (reusa `bestE1rm`/`epley1rm` del dominio), ruta `/api/coach/[orgId]/clients/[relId]/performance`, `PerfTab` en `CoachClients.tsx`.
 - **Pruebas:** web 107/107, dominio 74/74, build OK.

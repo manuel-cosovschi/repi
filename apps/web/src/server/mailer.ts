@@ -1,5 +1,6 @@
 import { db, schema } from "@/db";
 import { isDemoDeploy } from "./deploy";
+import { logError } from "./log";
 
 export type Mail = { to: string; subject: string; body: string };
 
@@ -10,6 +11,13 @@ export type Mail = { to: string; subject: string; body: string };
 // Nunca se registra el cuerpo: lleva códigos y enlaces personales.
 export async function sendMail(mail: Mail): Promise<void> {
   const resend = resendConfig();
+  // DEMO con proveedor (D82): copia en el buzón DEV y envío real; si el proveedor rechaza (p. ej. dominio sin verificar),
+  // se registra y el flujo sigue con el buzón. Fuera de DEMO, un rechazo es un error.
+  if (resend && isDemoDeploy()) {
+    await db.insert(schema.devMailbox).values(mail);
+    await sendResend(resend, mail).catch((e) => logError("mail.demo", e));
+    return;
+  }
   if (resend) return sendResend(resend, mail);
   if (process.env.NODE_ENV === "production" && !isDemoDeploy()) {
     throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
