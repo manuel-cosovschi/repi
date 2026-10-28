@@ -20,6 +20,7 @@ import { seedOf } from "@/lib/confetti";
 import { prefersReducedMotion } from "@/lib/motion";
 import { Ic } from "@/components/ui/Ic";
 import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, NotePencil, Pause, Play, Trophy } from "@phosphor-icons/react";
+import { featureOn } from "@/lib/features";
 
 const RING = 207.35;
 type DoneData = {
@@ -315,7 +316,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
               <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretRight} size={16} /></button>
             </div>
           </div>
-          <div className="video" aria-hidden="true">video demostración (pendiente)</div>
+          {featureOn("exercise_video") && <div className="video" aria-hidden="true">video demostración (pendiente)</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>
           <div className="sets" role="list" aria-label="Series">
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>

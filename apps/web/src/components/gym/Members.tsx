@@ -6,6 +6,7 @@ import { TASK_CATEGORY, formatRest, mentionsHealth, parseRest, type ProgramDoc }
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
+import { featureOn } from "@/lib/features";
 import { NewTaskModal, TaskCard } from "./Floor";
 import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task } from "./shared";
 import { Ic } from "@/components/ui/Ic";
@@ -195,8 +196,8 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         <Fragment key={i}>
         <div className="exrow">
           <span className="c-name">{e.name}
-            <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
-              onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button></span>
+            {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
+              onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}</span>
           <span className="c-s"><input aria-label={`Series de ${e.name}`} inputMode="numeric" value={e.sets} onChange={(ev) => setEx(i, { sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
           <span className="c-r"><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, { reps: ev.target.value })} /></span>
           <span className="c-rir"><input aria-label={`RIR de ${e.name}`} inputMode="numeric" value={e.rir ?? ""} onChange={(ev) => setEx(i, { rir: ev.target.value === "" ? null : Math.max(0, Math.min(5, Number(ev.target.value) || 0)) })} /></span>

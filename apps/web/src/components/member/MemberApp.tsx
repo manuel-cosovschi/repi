@@ -23,6 +23,7 @@ import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet } from "./Solo";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
+import { featureOn } from "@/lib/features";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -415,7 +416,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; s
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
       <WeekStrip t={t} />
-      {t.relation && <SoloEntry onOpen={onSolo} />}
+      {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} />}
       <div className="restday"><span style={{ fontSize: 22, fontWeight: 600 }}>{t.state === "scheduled" ? `Empieza el ${formatDayEs(t.startsOn!)}` : "Sin programa asignado"}</span><span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>Cuando {coachFirst} te asigne un programa, sus días aparecen acá.</span></div>
     </>
   );
@@ -423,7 +424,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; s
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
-      <SoloEntry onOpen={onSolo} />
+      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (

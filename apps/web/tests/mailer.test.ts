@@ -43,15 +43,14 @@ describe("adaptador de correo", () => {
     const e2 = await sendMail({ to: "a@example.test", subject: "s", body: "b" }).catch((e) => e);
     expect(e2).toMatchObject({ status: 0, retryable: true });
   });
-  it("DEMO con Resend: guarda copia en el buzón y un rechazo del proveedor no corta el flujo", async () => {
+  it("DEMO con Resend: no deja copia en el buzón (códigos personales) y un rechazo del proveedor es un error", async () => {
     env({ NODE_ENV: "production", REPI_DEPLOY: "demo", MAIL_DRIVER: "resend", RESEND_API_KEY: "re_test_clave", MAIL_FROM: "REPI <onboarding@resend.dev>" });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const fetchMock = vi.fn(async () => new Response("{}", { status: 403 }));
     vi.stubGlobal("fetch", fetchMock);
     const to = `demo.resend.${Date.now()}@test.repi.local`;
-    await expect(sendMail({ to, subject: "Código", body: "Tu código REPI es 222222." })).resolves.toBeUndefined();
+    await expect(sendMail({ to, subject: "Código", body: "Tu código REPI es 222222." })).rejects.toMatchObject({ status: 403 });
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [m] = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, to));
-    expect(m.subject).toBe("Código");
+    expect(await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, to))).toHaveLength(0);
   });
 });

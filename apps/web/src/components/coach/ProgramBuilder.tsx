@@ -6,6 +6,7 @@ import { formatRest, parseRest } from "@repi/domain";
 import { api } from "@/lib/api";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
+import { featureOn } from "@/lib/features";
 import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./types";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
@@ -158,7 +159,7 @@ function ExRow({ n, e, subs, subsOpen, onSubs, onChange, onMove, onRemove }: {
   return (
     <div className="exrow">
       <span className="c-name"><code>{String(n + 1).padStart(2, "0")}</code>{e.name}
-        <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button></span>
+        {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}</span>
       <span className="c-s"><input type="number" min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(ev) => onChange({ sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
       <span className="c-r"><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
         onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) onChange({ reps: ev.target.value }); }} /></span>

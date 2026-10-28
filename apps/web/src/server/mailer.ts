@@ -1,6 +1,5 @@
 import { db, schema } from "@/db";
 import { isDemoDeploy } from "./deploy";
-import { logError } from "./log";
 
 export type Mail = { to: string; subject: string; body: string };
 
@@ -13,13 +12,8 @@ export async function sendMail(mail: Mail): Promise<void> {
   // Dominio reservado (demo guiada, D85): nunca sale a un proveedor; queda en el buzón DEV.
   if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(mail); return; }
   const resend = resendConfig();
-  // DEMO con proveedor (D82): copia en el buzón DEV y envío real; si el proveedor rechaza (p. ej. dominio sin verificar),
-  // se registra y el flujo sigue con el buzón. Fuera de DEMO, un rechazo es un error.
-  if (resend && isDemoDeploy()) {
-    await db.insert(schema.devMailbox).values(mail);
-    await sendResend(resend, mail).catch((e) => logError("mail.demo", e));
-    return;
-  }
+  // Con proveedor nunca se copia al buzón DEV, tampoco en DEMO (D111): los correos llevan códigos y enlaces personales y
+  // el buzón lo lee REPI Admin. Un rechazo del proveedor es un error visible, no un envío fingido.
   if (resend) return sendResend(resend, mail);
   if (process.env.NODE_ENV === "production" && !isDemoDeploy()) {
     throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
@@ -36,7 +30,6 @@ export async function deliverMail(mail: Mail): Promise<Delivery> {
   if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(mail); return "local_only"; }
   const resend = resendConfig();
   if (resend) {
-    if (isDemoDeploy()) await db.insert(schema.devMailbox).values(mail);
     await sendResend(resend, mail);
     return "submitted";
   }

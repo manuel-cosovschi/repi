@@ -12,6 +12,7 @@ import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Carousel } from "@/components/motion/Carousel";
 import { uploadVideo } from "@/lib/upload";
 import { Check, QrCode, VideoCamera } from "@phosphor-icons/react";
+import { featureOn } from "@/lib/features";
 
 type Home = {
   org: { id: string; name: string }; location: { id: string; name: string; receptionHours: string | null }; safety: string; minorRestricted: boolean; onFloor: string[];
@@ -56,7 +57,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: bo
         {h.readyPrizes > 0 && <span className="pill-cyan">{h.readyPrizes} premio{h.readyPrizes === 1 ? "" : "s"}</span>}
       </button>
       <div className="gtabs" role="tablist" aria-label="Secciones del gym">
-        {([["news", "Novedades"], ["ch", "Desafíos"], ["shop", "Recepción"], ["logros", "Logros"], ["club", "Club"]] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+        {([["news", "Novedades"], ["ch", "Desafíos"], ["shop", "Recepción"], ["logros", "Logros"], ...(featureOn("club") ? [["club", "Club"]] as const : [])] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {tab === "news" && (
         <>

@@ -10,6 +10,7 @@ import { ClientPayTab } from "./CoachPayments";
 import { GoalsTab } from "./CoachGoals";
 import { ImportModal } from "./ImportModal";
 import { useLoad } from "@/components/gym/shared";
+import { featureOn } from "@/lib/features";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -17,7 +18,9 @@ type Detail = {
   sessions: { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; durationSec: number; sets: number; volumeKg: number;
     changes?: { exercise: string; kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: string | null }[]; setNotes?: { exercise: string; set: number; note: string }[] }[];
 };
-const TABS: [string, string][] = [["res", "Resumen"], ["rend", "Rendimiento"], ["prog", "Rutinas"], ["progreso", "Progreso"], ["salud", "Salud"], ["nutri", "Nutrición"], ["body", "Mi cuerpo"], ["pay", "Pagos"]];
+// Nutrición y Mi cuerpo sólo con su módulo encendido (FEATURE_FLAGS.md): sin carga del alumno serían pantallas vacías.
+const TABS: [string, string][] = ([["res", "Resumen"], ["rend", "Rendimiento"], ["prog", "Rutinas"], ["progreso", "Progreso"], ["salud", "Salud"], ["nutri", "Nutrición"], ["body", "Mi cuerpo"], ["pay", "Pagos"]] as [string, string][])
+  .filter(([k]) => (k !== "nutri" || featureOn("nutrition")) && (k !== "body" || featureOn("body")));
 const FILTERS: [string, string][] = [["all", "Todos"], ["active", "Activos"], ["noprog", "Sin programa"], ["paused", "En pausa"]];
 const SORTS: [string, string][] = [["name", "Nombre"], ["adh", "Adherencia"], ["last", "Actividad"]];
 

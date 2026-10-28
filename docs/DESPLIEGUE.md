@@ -70,7 +70,7 @@ Nunca restaurar sobre Supabase con estos scripts: lo bloquean. Una restauración
 ## Límites conocidos
 
 1. Vercel Hobby: cuerpo de petición de funciones ≤ 4,5 MB. Los videos suben directo al bucket con URL firmada (D71); necesita `SUPABASE_SECRET_KEY` cargada. Sin probar todavía contra Supabase real.
-2. Sin proveedor de email: altas y recuperación reales no funcionan fuera del modo DEMO (D24).
+2. Correo: Resend activo con repiclub.com verificado. Desde D111 ningún correo con proveedor se copia a `/dev/mailbox`, tampoco en DEMO.
 3. Push: claves VAPID productivas generadas; entrega en teléfonos reales no probada.
 4. Plan gratuito de Supabase pausa el proyecto tras 7 días sin actividad; el cron de avisos lo mantiene activo. Sin backups PITR: respaldo lógico manual con `pnpm ops:backup` (D91); frecuencia y guarda externa pendientes.
 5. Hobby es para uso no comercial: pasar a Pro antes de clientes reales (decisión de gasto del titular).

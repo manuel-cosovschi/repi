@@ -1,5 +1,15 @@
 # REPI — Estado de implementación
 
+## Estado de lanzamiento (27/10/2026, D111) — leer primero
+
+- **Fase actual:** E — release candidata `rc-2026.10.27` congelada para beta controlada. Sólo entran correcciones de lanzamiento.
+- **Completado en este corte:** auditoría contra la directiva «LAUNCH FIRST»; matriz P0/P1/P2 ([RELEASE_READINESS.md](RELEASE_READINESS.md)); interruptores por módulo (Nutrición, Mi cuerpo y video de ejercicio ocultos); los correos reales ya no se copian al buzón DEV; prueba de punta a punta del circuito Coach con negativas (`tests/launch-flows.test.ts`); ensayo de respaldo y restauración; documentos de lanzamiento (MVP_SCOPE, LAUNCH_BLOCKERS, QA_CHECKLIST, PRODUCTION_CHECKLIST, DEPLOYMENT, ROLLBACK_PLAN, FEATURE_FLAGS, POST_LAUNCH_ROADMAP).
+- **Tests ejecutados:** web 172/172, dominio 107/107, guardas 11/11, build OK.
+- **Bloqueantes (todos externos):** [LAUNCH_BLOCKERS.md](LAUNCH_BLOCKERS.md) LB-01..LB-07: copia vieja de correo en producción, plan de hosting comercial, teléfonos reales, revisión legal, frecuencia de respaldo, alertas, modo productivo.
+- **Errores conocidos:** ninguno abierto en el circuito P0. El ítem F-ID-19 (checklist de puesta en marcha) sigue estático.
+- **Próxima acción:** con las autorizaciones del titular, cerrar LB-01 y LB-07 y arrancar la beta; mientras, Adaptive Coach 1b (resto) sin tocar el núcleo.
+
+
 Actualizado: 26/10/2026 · Etapa 1 (Base + REPI Acceso) y Etapa 2 (Coach → programa → asignación → sesión del alumno) Etapa 3 (sesión sin conexión), Etapa 4 (seguimiento y consentimiento), Etapa 5 (operación y gestión del gym, reseñas y mensajería) y Etapa 6 (comunidad del gym y Repi Club). Estado por ID: `docs/PRODUCT_INVENTORY.md`.
 
 ## Qué funciona hoy (demostrado)
