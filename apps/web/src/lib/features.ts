@@ -22,3 +22,8 @@ export function parseFeatures(raw: string | undefined): Partial<Record<Feature, 
 }
 const OVERRIDES = parseFeatures(process.env.NEXT_PUBLIC_REPI_FEATURES);
 export const featureOn = (f: Feature) => OVERRIDES[f] ?? FEATURES[f].on;
+
+// Consentimientos que dependen de un módulo (D117): con el módulo apagado no se ofrecen. Lo ya compartido se sigue mostrando
+// donde el alumno administra su privacidad, para que pueda revocarlo.
+const CONSENT_FEATURE: Partial<Record<string, Feature>> = { measurements: "body", progress_photos: "body", nutrition: "nutrition" };
+export const consentOffered = (key: string) => { const f = CONSENT_FEATURE[key]; return !f || featureOn(f); };

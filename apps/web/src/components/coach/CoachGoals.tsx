@@ -2,7 +2,7 @@
 // Objetivos del cliente (F-CO-03, D97). Fuente: REPI Desktop Coach SCR-C-02a («Objetivos · acordados con …»): título,
 // actual de meta, % y barra. El % se calcula desde la línea base con lo registrado; el manual lo carga el coach con fecha.
 import { useState } from "react";
-import { parseWeight } from "@repi/domain";
+import { localDate, parseWeight } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { useLoad } from "@/components/gym/shared";
@@ -122,7 +122,7 @@ function GoalModal({ orgId, relId, flash, onClose }: { orgId: string; relId: str
           {f.kind === "manual" && <label className="field" style={{ flex: "0 0 110px" }}>Unidad<input required maxLength={12} value={f.unit} onChange={set("unit")} placeholder="cm, min" /></label>}
         </div>
         {f.kind === "manual" && <label className="field">Valor actual (opcional)<input inputMode="decimal" value={f.baseline} onChange={set("baseline")} placeholder="Línea base para calcular el avance" /></label>}
-        <label className="field">Plazo (opcional)<input type="date" value={f.dueOn} min={new Date().toISOString().slice(0, 10)} onChange={set("dueOn")} /></label>
+        <label className="field">Plazo (opcional)<input type="date" value={f.dueOn} min={localDate(new Date())} onChange={set("dueOn")} /></label>
         <label className="field">Nota (opcional)<input maxLength={300} value={f.note} onChange={set("note")} placeholder="Revisión cada 6 semanas" /></label>
         {err && <p role="alert" className="err-box">{err}</p>}
         <div className="mfoot"><button type="button" className="btn" onClick={() => onClose(false)}>Cancelar</button><button type="submit" className="btn pri" aria-busy={busy || undefined}>{busy ? "Guardando…" : "Acordar objetivo"}</button></div>

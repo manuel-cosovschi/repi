@@ -70,7 +70,7 @@ self.addEventListener("push", (e) => {
   e.waitUntil(self.registration.showNotification(title, {
     body: typeof d.body === "string" ? d.body : "Tenés una novedad en REPI",
     tag: typeof d.tag === "string" ? d.tag : undefined, renotify: true,
-    icon: "/brand/repi_icon.png", badge: "/brand/repi_icon.png",
+    icon: "/icons/icon-192.png", badge: "/icons/badge-96.png",
     data: { url: typeof d.url === "string" && d.url.startsWith("/") ? d.url : "/acceso?step=workspace" },
   }));
 });

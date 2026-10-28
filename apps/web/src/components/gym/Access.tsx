@@ -4,6 +4,7 @@
 // La autorización real (turno efectivo, sede, rol) la resuelve el servidor en cada acción.
 import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
+import { localDate } from "@repi/domain";
 import { api } from "@/lib/api";
 import { disablePush, enablePush, pushState, setPushPaused, type PushState } from "@/lib/push";
 import { Modal } from "@/components/ui/Modal";
@@ -283,7 +284,7 @@ export function FloorAlertsCard({ shell, loc, highlight }: { shell: Shell; loc: 
 // ── Condiciones comerciales (vista del cliente) ─────────────────────────────
 type Conditions = {
   commercialStatus: string; enabledAccesses: number;
-  contract: { status: string; legalName: string; currency: string; scope: string; scopeNote: string | null; quantityDefinition: string | null; termsVersion: string | null; acceptedAt: string | null; trialUntil: string | null } | null;
+  contract: { status: string; legalName: string | null; currency: string; scope: string; scopeNote: string | null; quantityDefinition: string | null; termsVersion: string | null; acceptedAt: string | null; trialUntil: string | null } | null;
   terms: { kind: "quantity" | "unit_price"; version: number; display: string; effectiveFrom: string; current: boolean }[];
   corrections: { text: string; status: string; answer: string | null; at: string }[];
   notices: Notice[]; unacked: number;
@@ -352,12 +353,12 @@ export function ConditionsScreen({ orgId, flash, unit, onSeen }: { orgId: string
         </div>
         <section className="card">
           <dl className="gy-defs">
-            <div><dt>Razón social</dt><dd>{v.contract.legalName}</dd></div>
+            {v.contract.legalName && <div><dt>Razón social</dt><dd>{v.contract.legalName}</dd></div>}
             <div><dt>Qué se factura</dt><dd>{unit === "socios" ? "Todos los socios del acuerdo, usen o no REPI y tengan o no cuenta." : "Todos tus alumnos vigentes, tengan o no la app activada o un programa asignado."} El total lo carga REPI Admin.</dd></div>
             {v.contract.quantityDefinition && <div><dt>Definición de vigente</dt><dd>{v.contract.quantityDefinition}</dd></div>}
             <div><dt>Alcance</dt><dd>{v.contract.scope === "locations" ? "Sedes incluidas en el acuerdo" : "Toda la organización"}{v.contract.scopeNote ? ` · ${v.contract.scopeNote}` : ""}</dd></div>
             <div><dt>Aceptación</dt><dd>{v.contract.acceptedAt ? `${fmt(v.contract.acceptedAt, { day: "numeric", month: "long", year: "numeric" })} · versión ${v.contract.termsVersion ?? "—"}` : "Pendiente"}</dd></div>
-            {v.contract.trialUntil && <div><dt>Prueba acordada</dt><dd>Hasta el {day(v.contract.trialUntil)}{v.contract.trialUntil < new Date().toISOString().slice(0, 10) ? " (terminada)" : ""}</dd></div>}
+            {v.contract.trialUntil && <div><dt>Prueba acordada</dt><dd>Hasta el {day(v.contract.trialUntil)}{v.contract.trialUntil < localDate(new Date()) ? " (terminada)" : ""}</dd></div>}
             <div><dt>Ciclo, prorrateo y mora</dt><dd>A definir en el acuerdo comercial. No se generan cobros automáticos desde REPI en esta versión.</dd></div>
           </dl>
           <h3 style={{ margin: "8px 0 0", fontSize: 15 }}>Historial</h3>

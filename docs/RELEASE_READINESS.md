@@ -24,6 +24,8 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 | LR-26 | El coach pausa, reactiva o termina la relación con un alumno; terminar revoca lo compartido y conserva el historial | P0 | Verificado | `launch-flows.test.ts` LF-05 (D115) | — | Seguimiento | 27/10 |
 | LR-10 | Aislamiento: otro coach no ve clientes, programas, sesiones ni chats; organización equivocada = 404 | P0 | Verificado | LF-01, `training.test.ts`, `access.test.ts`, `denied.test.ts` | — | Seguridad | 27/10 |
 | LR-11 | Salud sólo con consentimiento por tipo de dato y revocación inmediata | P0 | Verificado | `access.test.ts` («menores»), `followup.test.ts`, F-PR-05 | — | Privacidad | 27/10 |
+| LR-27 | Alta comercial con datos mínimos: sólo nombre visible, moneda, responsable y email; el error nombra lo que falta | P0 | Verificado | `annex.test.ts` («alta comercial con datos mínimos»), navegador local 28/10 con el caso que fallaba en producción (D117) | — | Comercial | 28/10 |
+| LR-28 | Ícono de instalación a sangre (sin doble marco en iPhone ni recorte en Android), favicon y máscara de Android | P0 | Corregido hoy | `scripts/brand-icons.ts`, manifest con `any` + `maskable` (D117) | Confirmar en teléfono real (LB-03) | Producto | 28/10 |
 | LR-12 | Condiciones comerciales por cliente (cantidad y tarifa acordadas, versionadas, sin importes fijos en código), avisos de cambios, suspensión corta el acceso sin borrar | P0 | Verificado | `condition-notices.test.ts`, `payments.test.ts`, LF-04 | — | Comercial | 27/10 |
 | LR-13 | Cobro a REPI: manual y fuera de la app, registrado por Admin; nada se presenta como automático | P0 | Verificado | D102, D109 (G09 resuelto), `payments.test.ts` | — | Comercial | 27/10 |
 | LR-14 | Correos reales (verificación, recuperación, invitaciones) por Resend; **ningún código ni enlace personal copiado al buzón que lee Admin** | P0 | Verificado | `mailer.test.ts` («DEMO con Resend: no deja copia»), D111; copia vieja borrada en producción (LB-01 cerrado) | — | Operación | 27/10 |
@@ -55,7 +57,7 @@ Lo avanzado de Gym (Performance Center, reseñas, multi-sede, Club) ya existe y 
 
 ## Resultado de las pruebas de la release candidata (27/10/2026)
 
-- Web (integración, base descartable): **173/173** en 35 archivos (D115).
+- Web (integración, base descartable): **178/178** en 35 archivos (D117).
 - Dominio: **107/107**.
 - Guardas de base y operación: **11/11**.
 - Build de producción: OK.

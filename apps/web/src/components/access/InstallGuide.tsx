@@ -72,7 +72,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
     body = (
       <>
         <div className="ac-head">
-          <img className="ig-icon" src="/brand/repi_icon.png" width={72} height={72} alt="" />
+          <img className="ig-icon" src="/icons/tile-256.png" width={72} height={72} alt="" />
           <h1 ref={head} tabIndex={-1}>{help ? "Cómo agregar Repi a inicio" : "Agregá Repi a tu pantalla de inicio"}</h1>
           <p className="ac-sub">Entrás con un toque desde el ícono, a pantalla completa, como una app.{help ? " Sirve para alumnos, socios, coaches y equipos de gimnasio: no hace falta descargar nada de una tienda." : " Después seguís con tu alta."}</p>
         </div>

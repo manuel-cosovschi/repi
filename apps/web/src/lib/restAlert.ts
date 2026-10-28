@@ -39,6 +39,6 @@ async function fire(body: string) {
   if (document.visibilityState === "visible") { navigator.vibrate?.(200); return; }
   try {
     const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification("Descanso terminado", { body, tag: "repi-rest", icon: "/pwa-icon/192", data: { url: "/app", focusOnly: true } });
+    await reg.showNotification("Descanso terminado", { body, tag: "repi-rest", icon: "/icons/icon-192.png", data: { url: "/app", focusOnly: true } });
   } catch { /* sin permiso vigente o sin service worker: queda el aviso en pantalla al volver */ }
 }

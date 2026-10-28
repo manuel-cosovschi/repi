@@ -15,6 +15,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   orgId: string; ov: Overview; pid: string | null; setPid: (id: string | null) => void; flash: (t: string) => void; onNewProgram: () => void; onAssigned: () => void;
 }) {
   const [list, setList] = useState<TemplateRow[] | null>(null);
+  const listRef = useRef(list);
+  listRef.current = list;
   const [prog, setProg] = useState<ProgramFull | null>(null);
   const [doc, setDoc] = useState<EditableDoc | null>(null);
   const [day, setDay] = useState(0);
@@ -33,7 +35,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   useEffect(() => {
     if (!pid) { setProg(null); setDoc(null); return; }
     dirty.current = false; setSave({ s: "idle" });
-    api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => { setProg(p); setDoc(p.doc); setDay(0); }).catch((e) => { flash(e.message); setPid(null); });
+    // Un programa recién creado tiene que aparecer en la lista sin esperar al primer guardado (F-03).
+    api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => { setProg(p); setDoc(p.doc); setDay(0); if (listRef.current && !listRef.current.some((x) => x.id === p.id)) loadList(); }).catch((e) => { flash(e.message); setPid(null); });
   }, [orgId, pid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autoguardado con debounce; el estado visible refleja el resultado real del servidor.

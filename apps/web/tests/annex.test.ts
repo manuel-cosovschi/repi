@@ -63,6 +63,36 @@ async function world() {
 }
 const slugFor = async (actor: string, org: string, loc: string) => (await join.regenerateJoinLink(actor, org, loc)).slug;
 
+describe("alta comercial con datos mínimos (D117)", () => {
+  it("sólo nombre visible, moneda, responsable y email son obligatorios; razón social y el resto quedan vacíos", async () => {
+    const ad = await admin();
+    const c = await cm.createClient(ad, { kind: "coach", orgName: "Coach Mínimo", responsibleName: "Urko Uruzuna", responsibleEmail: mail(), currency: "ARS" });
+    const [ct] = await db.select().from(schema.clientContract).where(eq(schema.clientContract.id, c.contractId));
+    expect(ct.legalName).toBeNull();
+    expect(ct.scope).toBe("organization");
+    const g = await cm.createClient(ad, { kind: "gym", orgName: "Gym Mínimo", legalName: "", responsibleName: "Dueño", responsibleEmail: mail(), currency: "USD" });
+    expect((await db.select().from(schema.gymLocation).where(eq(schema.gymLocation.orgId, g.orgId))).map((l) => l.name)).toEqual(["Sede principal"]);
+  });
+
+  it("un punto como razón social o alcance por sedes en un coach no rompen el alta", async () => {
+    const ad = await admin();
+    const c = await cm.createClient(ad, { kind: "coach", orgName: "Urko Uruzuna", legalName: ".", responsibleName: "Urko Uruzuna", responsibleEmail: mail(), currency: "ARS", scope: "locations", scopeNote: ".", quantityDefinition: "." });
+    const [ct] = await db.select().from(schema.clientContract).where(eq(schema.clientContract.id, c.contractId));
+    expect(ct.scope).toBe("organization"); // un coach no tiene sedes
+    expect(ct.scopeNote).toBeNull();
+    const g = await cm.createClient(ad, { kind: "gym", orgName: "Gym Sedes", responsibleName: "Dueño", responsibleEmail: mail(), currency: "ARS", scope: "locations", locations: ["Centro"] });
+    expect((await db.select().from(schema.clientContract).where(eq(schema.clientContract.id, g.contractId)))[0].scope).toBe("locations");
+  });
+
+  it("si falta algo obligatorio, el mensaje dice qué", async () => {
+    const ad = await admin();
+    const e = await err(cm.createClient(ad, { kind: "coach", orgName: "C", responsibleName: "", responsibleEmail: "no-es-email", currency: "ARS" }));
+    expect(e?.message).toBe("Falta completar: nombre visible, responsable, email válido del responsable.");
+    const r = await err(cm.createClient(ad, { kind: "coach", orgName: "Coach OK", responsibleName: "Resp", responsibleEmail: mail(), currency: "EUR" }));
+    expect(r?.message).toBe("Falta completar: moneda.");
+  });
+});
+
 describe("alta comercial (criterios 1–4)", () => {
   it("sin autoalta: contacto comercial; Admin crea en borrador y el cliente no opera hasta habilitarse", async () => {
     expect(await cm.createLead({ kind: "gym", orgName: "Gym Nuevo", contactName: "Ana", email: mail() })).toEqual({ ok: true });

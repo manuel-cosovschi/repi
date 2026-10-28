@@ -1,0 +1,1 @@
+ALTER TABLE "client_contract" ALTER COLUMN "legal_name" DROP NOT NULL;

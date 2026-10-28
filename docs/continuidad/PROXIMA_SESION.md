@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D117), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Release candidata para beta controlada (D111)
+## Último bloque cerrado — 28/10/2026 · Alta de cliente mínima, íconos y correcciones de la simulación (D117)
+
+- **Hecho:** alta de cliente en Admin con sólo nombre visible, moneda, responsable y email obligatorios (razón social opcional; **migración 0024 aplicada en dev y Supabase**); mensajes que dicen qué falta. Íconos rehechos con `apps/web/scripts/brand-icons.ts` → `apps/web/public/icons/` (manifest, apple-touch, favicon, insignia de avisos); ruta `/pwa-icon` eliminada. Hallazgos F-01..F-04 de la simulación corregidos (fechas AR, mensaje de contraseña, lista de programas, consentimientos de módulos apagados).
+- **Pruebas:** web 178/178, dominio 107/107, guardas 11/11, build OK. Navegador local: alta del caso exacto de la captura del titular (coach, razón social «.») y «Regularizar» sin razón social; mensaje de faltantes; ícono en /instalar; programa nuevo visible en la lista.
+- **Aviso al titular:** para ver el ícono nuevo en el teléfono hay que quitar REPI del inicio y volver a agregarlo.
+- **Siguiente:** retomar la simulación completa por roles (asignar «Fuerza base» a Ana, sesión del alumno, revisión del coach, pausa/fin; dueño con 2FA, equipo, QR, socio, recepción) y escribir el informe de auditoría (`docs/AUDITORIA_2026-10-28.md`). Datos de simulación en dev: Coach Simulación (sim.coach@example.com), Ana (sim.alumno@example.com), Gym Simulación (sim.dueno@example.com sin activar), Urko Uruzuna (borrador), Gym Prueba Sur regularizado.
+
+## Bloque anterior — 27/10/2026 · Release candidata para beta controlada (D111)
 
 - **Directiva vigente:** «LAUNCH FIRST» (chat 27/10): terminar, probar y lanzar; P2/experimental no antes del MVP. Fase actual E (release candidata congelada: sólo correcciones de lanzamiento).
 - **Hecho:** `apps/web/src/lib/features.ts` + `tests/features.test.ts`; gating en `CoachClients.tsx` (Nutrición, Mi cuerpo), `Workout.tsx` (video), `MemberApp.tsx` (Solo), `Gym.tsx` (Club), `ProgramBuilder.tsx` y `gym/Members.tsx` (Reemplazos). `server/mailer.ts` sin copias al buzón con proveedor (+ `mailer.test.ts`). `tests/launch-flows.test.ts` (LF-01..LF-04). Documentos nuevos en `docs/`: MVP_SCOPE, RELEASE_READINESS, LAUNCH_BLOCKERS, QA_CHECKLIST, PRODUCTION_CHECKLIST, DEPLOYMENT, ROLLBACK_PLAN, FEATURE_FLAGS, POST_LAUNCH_ROADMAP; resumen al inicio de IMPLEMENTATION_STATUS.md. Sin migración.

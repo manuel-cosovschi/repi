@@ -7,6 +7,7 @@ import {
   gymCan, scale10, scale5, videoOk, type AccessItem, type InjuryStatus, type RequestKind, TERMS_VERSION, CONSENT_CATALOG,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import { consentOffered } from "@/lib/features";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { minorWithoutGuardian } from "../access/services";
 import { requireCoach } from "../training/services";
@@ -182,7 +183,7 @@ export async function myPrivacy(userId: string) {
     .where(eq(dataAccessLog.subjectUserId, userId)).orderBy(desc(dataAccessLog.at)).limit(30);
   return {
     coach: rel ? { name: rel.coachName, org: rel.org.name } : null,
-    items: CONSENT_CATALOG.coach_client.map((c) => ({
+    items: CONSENT_CATALOG.coach_client.filter((c) => consentOffered(c.key) || items.includes(c.key)).map((c) => ({
       key: c.key, title: c.title, desc: c.desc, locked: !!c.locked, on: c.locked ? true : items.includes(c.key),
       restricted: restricted && !!c.minorRestricted,
     })),

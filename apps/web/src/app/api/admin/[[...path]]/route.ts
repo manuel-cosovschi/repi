@@ -34,7 +34,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   await limit(`admin:${me}`, 60);
   if (a === "clients" && !b) {
     return cm.createClient(me, await body(req, z.object({
-      kind: z.enum(["gym", "coach"]), orgName: z.string().max(120), legalName: z.string().max(160), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3),
+      kind: z.enum(["gym", "coach"]), orgName: z.string().max(120), legalName: z.string().max(160).nullable().optional(), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3),
       scope: z.enum(["organization", "locations"]).optional(), scopeNote: z.string().max(300).nullable().optional(), quantityDefinition: z.string().max(300).nullable().optional(), locations: z.array(z.string().max(80)).max(30).optional(),
     })));
   }
@@ -47,7 +47,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "payments" && b && c === "void") return bp.voidPayment(me, b, (await body(req, z.object({ reason: z.string().max(200) }))).reason);
   if (a === "privacy" && b && c === "resolve") return pv.resolvePrivacyRequest(me, b, await body(req, z.object({ status: z.enum(["done", "rejected"]), resolution: z.string().max(500) })));
   if (a === "clients" && b && c === "regularize") {
-    return cm.regularize(me, b, await body(req, z.object({ legalName: z.string().max(160), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3) })));
+    return cm.regularize(me, b, await body(req, z.object({ legalName: z.string().max(160).nullable().optional(), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3) })));
   }
   if (a === "contracts" && b) {
     switch (c) {

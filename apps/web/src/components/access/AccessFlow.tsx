@@ -6,8 +6,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { renderSVG } from "uqr";
 import {
-  CONSENT_CATALOG, OTP_RE, classifyAge, isCodeShape, isEmail, normalizeCode, parseBirthDate, passwordHint, passwordOk,
+  CONSENT_CATALOG, OTP_RE, classifyAge, isCodeShape, isEmail, localDate, normalizeCode, parseBirthDate, passwordHint, passwordOk, passwordRules,
 } from "@repi/domain";
+import { consentOffered } from "@/lib/features";
 import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { api, ApiError } from "@/lib/api";
@@ -280,14 +281,22 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
 
   const minorRestricted = !!f.minor && me?.guardian !== "approved";
   const toggles = (scope: "coach_client" | "gym_member"): Toggle[] =>
-    CONSENT_CATALOG[scope].map((it) => ({
+    // Lo que pertenece a un módulo apagado no se ofrece (D117): compartir medidas o nutrición sin pantalla que las use confunde.
+    CONSENT_CATALOG[scope].filter((it) => consentOffered(it.key)).map((it) => ({
       k: `${scope}:${it.key}`, title: it.title, locked: it.locked,
       desc: it.unavailable ? it.unavailable : (minorRestricted && it.minorRestricted ? "No disponible para menores sin autorización explícita." : it.desc),
       disabledReason: it.unavailable ?? (minorRestricted && it.minorRestricted ? "minor" : undefined),
     }));
   const picked = (scope: string) => Object.keys(f).filter((k) => k.startsWith(scope + ":") && f[k]).map((k) => k.slice(scope.length + 1));
 
-  const birthCls = classifyAge(parseBirthDate(s("birth")), new Date().toISOString().slice(0, 10));
+  const birthCls = classifyAge(parseBirthDate(s("birth")), localDate(new Date()));
+  // Qué falta en un alta, en el orden de los campos: un mensaje que dice exactamente qué corregir.
+  const signupGap = (birth: boolean) =>
+    !s("name") ? "Falta tu nombre y apellido."
+    : !isEmail(s("email")) ? "Revisá el email: no parece válido."
+    : birth && birthCls === "invalid" ? "Escribí la fecha de nacimiento como DD/MM/AAAA."
+    : !passwordOk(s("pw")) ? `La contraseña necesita ${passwordRules(s("pw")).filter((r) => !r.ok).map((r) => r.label).join(", ")}.`
+    : !f.terms ? "Aceptá los términos para continuar." : null;
   const chipsOpts = (xs: string[]): [string, string][] => xs.map((x) => [x, x]);
 
   const V: Record<Step, () => View> = {
@@ -413,7 +422,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         ],
         checks: [{ k: "terms", t: "Acepto los Términos y la Política de privacidad." }],
         cta: { label: "Continuar", ready, go: () => {
-          if (!(s("name") && isEmail(s("email")) && passwordOk(s("pw")) && f.terms) || (!staffInv && birthCls === "invalid")) return fail("Completá todos los datos (fecha como DD/MM/AAAA).");
+          const gap = signupGap(!staffInv);
+          if (gap) return fail(gap);
           if (!staffInv && birthCls === "blocked") return fail("Para menores de 13 años la cuenta la crea un adulto responsable.");
           setF((x) => ({ ...x, minor: birthCls === "minor" }));
           return run(async () => {
@@ -497,7 +507,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         ],
         checks: [{ k: "terms", t: "Acepto los Términos y la Política de privacidad." }],
         cta: { label: "Continuar", ready, go: () => {
-          if (!ready) return fail("Completá todos los datos (fecha como DD/MM/AAAA).");
+          const gap = signupGap(true);
+          if (gap) return fail(gap);
           if (birthCls === "blocked") return fail("Para menores de 13 años la cuenta la crea un adulto responsable.");
           return run(async () => {
             await api("sign-up", { body: { flow: "member", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: s("birth") } });
@@ -548,7 +559,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         fields: [{ k: "name", label: "Nombre y apellido", ac: "name" }, { k: "email", label: "Email (el de la invitación)", mode: "email", ac: "email", bad: !!s("email") && !isEmail(s("email")) }, pwHintField()],
         checks: [{ k: "terms", t: actInfo?.kind === "gym" ? "Acepto los Términos, la Política de privacidad y el Acuerdo de tratamiento de datos para organizaciones." : "Acepto los Términos y la Política de privacidad." }],
         cta: { label: "Crear cuenta", ready, go: () => {
-          if (!ready) return fail("Completá los datos y aceptá los términos.");
+          const gap = signupGap(false);
+          if (gap) return fail(gap);
           return run(async () => {
             await api("sign-up", { body: { flow: "owner", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms } });
             to("verify");

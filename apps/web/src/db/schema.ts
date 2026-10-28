@@ -1079,7 +1079,7 @@ export const clientContract = pgTable("client_contract", {
   id: id(),
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }).unique(),
   kind: text("kind", { enum: ["gym", "coach"] }).notNull(),
-  legalName: text("legal_name").notNull(),
+  legalName: text("legal_name"), // opcional (D117): muchos coaches no tienen razón social al dar el alta
   responsibleName: text("responsible_name").notNull(),
   responsibleEmail: text("responsible_email").notNull(),
   currency: text("currency", { enum: ["ARS", "USD"] }).notNull().default("ARS"),

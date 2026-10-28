@@ -77,7 +77,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
         <div className="co-brand">
           <Wordmark width={58} />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="co-rail-icon" src="/brand/repi_icon.png" alt="repi" />
+          <img className="co-rail-icon" src="/icons/tile-256.png" alt="repi" />
           <span className="tag">Coach</span>
         </div>
         <a className="co-ws" href="/acceso?step=workspace" aria-label="Cambiar espacio de trabajo">

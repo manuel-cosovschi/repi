@@ -3,7 +3,7 @@
 // tabla de clientes con próximo vencimiento y «Registrar pago». Es un registro manual: REPI no cobra ni mueve dinero,
 // y no se mezcla con lo que REPI le factura al coach (Condiciones REPI). Los totales nunca suman monedas distintas.
 import { useState } from "react";
-import { CURRENCIES, fmtMoney, parseMoney, type Currency } from "@repi/domain";
+import { CURRENCIES, fmtMoney, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { useLoad } from "@/components/gym/shared";
@@ -70,7 +70,7 @@ export function CoachPayments({ orgId, flash, openClient }: { orgId: string; fla
 }
 
 export function ChargeModal({ orgId, clients, preset, flash, onClose }: { orgId: string; clients: { id: string; name: string }[]; preset: string | null; flash: (t: string) => void; onClose: (ok: boolean) => void }) {
-  const [f, setF] = useState({ rel: preset ?? clients[0]?.id ?? "", concept: "", amount: "", currency: "ARS", dueOn: new Date().toISOString().slice(0, 10) });
+  const [f, setF] = useState({ rel: preset ?? clients[0]?.id ?? "", concept: "", amount: "", currency: "ARS", dueOn: localDate(new Date()) });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async () => {
@@ -99,7 +99,7 @@ export function ChargeModal({ orgId, clients, preset, flash, onClose }: { orgId:
 }
 
 export function PayModal({ orgId, charge, flash, onClose }: { orgId: string; charge: Charge; flash: (t: string) => void; onClose: (ok: boolean) => void }) {
-  const [f, setF] = useState({ paidOn: new Date().toISOString().slice(0, 10), method: "transferencia", note: "" });
+  const [f, setF] = useState({ paidOn: localDate(new Date()), method: "transferencia", note: "" });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async () => {
@@ -112,7 +112,7 @@ export function PayModal({ orgId, charge, flash, onClose }: { orgId: string; cha
       <div className="mhead"><h2>Registrar pago</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
       <span className="muted" style={{ fontSize: 13 }}>{charge.concept} · {money(charge.amountMinor, charge.currency)} · vence {day(charge.dueOn)}. Registralo cuando el pago ya te llegó.</span>
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <label className="field">Fecha de pago<input type="date" required value={f.paidOn} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setF({ ...f, paidOn: e.target.value })} /></label>
+        <label className="field">Fecha de pago<input type="date" required value={f.paidOn} max={localDate(new Date())} onChange={(e) => setF({ ...f, paidOn: e.target.value })} /></label>
         <label className="field">Medio<select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{Object.entries(METHOD).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
         <label className="field">Nota (opcional)<input maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Comprobante, referencia…" /></label>
         {err && <p role="alert" className="err-box">{err}</p>}

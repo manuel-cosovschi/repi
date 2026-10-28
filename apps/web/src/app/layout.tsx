@@ -16,7 +16,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variab
 export const metadata: Metadata = {
   title: "REPI",
   description: "Cada repetición cuenta.",
-  icons: { icon: "/brand/repi_icon.png", apple: "/pwa-icon/180" },
+  icons: { icon: [{ url: "/icons/favicon.svg", type: "image/svg+xml" }, { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" }], apple: "/icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "REPI", statusBarStyle: "black-translucent" },
 };
 

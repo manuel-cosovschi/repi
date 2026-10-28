@@ -6,12 +6,12 @@ import { GuideCard, GuideDefs, GuideSteps as Steps, type GuideStep as Step } fro
 
 const BEFORE: Step[] = [
   { t: "Acordá con el cliente fuera de la app", d: "Cantidad de socios o alumnos, precio por unidad, moneda, si hay prueba sin cargo y cómo te paga. REPI no cobra: el pago lo gestionás vos." },
-  { t: "Pedí los datos del responsable", d: "Nombre visible, razón social, nombre y email de la persona que va a administrar la cuenta. A ese email le llega la invitación y sólo esa persona puede usarla." },
+  { t: "Pedí los datos del responsable", d: "Obligatorio: nombre visible, moneda, nombre y email de la persona que va a administrar la cuenta. A ese email le llega la invitación y sólo esa persona puede usarla. La razón social es opcional." },
   { t: "Guardá una evidencia del acuerdo", d: "Un PDF firmado, un email o un mensaje donde acepta las condiciones. En la ficha anotás cuál es." },
 ];
 
 const GYM: Step[] = [
-  { t: "Clientes → Nuevo cliente", d: "Tipo «Gimnasio». Completá nombre visible, razón social, moneda, responsable, su email y las sedes separadas por coma (por ejemplo «Centro, Palermo»). Si el acuerdo cubre sólo algunas sedes, elegí ese alcance." },
+  { t: "Clientes → Nuevo cliente", d: "Tipo «Gimnasio». Obligatorio (*): nombre visible, moneda, responsable y su email. Opcional: razón social y sedes separadas por coma (por ejemplo «Centro, Palermo»; si no cargás ninguna se crea «Sede principal»). Si el acuerdo cubre sólo algunas sedes, elegí ese alcance." },
   { t: "1 · Acuerdo y habilitación → registrar la aceptación", d: "Escribí la referencia de la evidencia (por ejemplo «PDF firmado 28/10»), la fecha y la versión del acuerdo, y tocá «Registrar aceptación». Después «Habilitar cliente». Si acordaste una prueba sin cargo, poné la fecha de fin antes de habilitar." },
   { t: "3 · Cantidad y precio", d: "«Nueva cantidad» (socios acordados) y «Nuevo precio» (por socio), con fecha desde la que rigen y motivo. Cada cambio queda como versión y el cliente lo ve en «Condiciones REPI»." },
   { t: "2 · Invitación de bienvenida → «Enviar invitación»", d: "Le llega un correo al responsable con un enlace para activar la cuenta. Si dice «Envío rechazado», revisá el email y tocá «Reenviar». Si el email estaba mal o cambió el responsable, usá «Cambiar responsable»: la invitación anterior deja de servir." },
@@ -21,7 +21,7 @@ const GYM: Step[] = [
 ];
 
 const COACH: Step[] = [
-  { t: "Clientes → Nuevo cliente", d: "Tipo «Coach independiente». Nombre comercial, razón social (puede ser su nombre), moneda, responsable (el propio coach) y su email." },
+  { t: "Clientes → Nuevo cliente", d: "Tipo «Coach independiente». Obligatorio (*): nombre visible, moneda, responsable (el propio coach) y su email. La razón social es opcional." },
   { t: "1 · Acuerdo, 3 · Cantidad y precio, 2 · Invitación", d: "Igual que en un gimnasio: registrás la aceptación, habilitás, cargás cantidad de alumnos y precio por alumno, y enviás la invitación." },
   { t: "El coach activa su espacio", d: "Abre el enlace del correo y crea su cuenta o entra con ese email. Queda en su panel de coach." },
   { t: "El coach invita a sus alumnos", d: "«Clientes» → «Invitar cliente» (por email) o «Importar CSV». Cada alumno recibe su invitación, crea la cuenta y elige qué compartir." },

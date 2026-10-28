@@ -3,7 +3,7 @@
 // con versiones, vista previa del período, cierre simulado e invitación de bienvenida al responsable.
 // No hay cobros reales: ciclo, prorrateo, mora y proveedor de pagos siguen pendientes (§12).
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { fmtMoney, parseMoney, type Currency } from "@repi/domain";
+import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
@@ -22,7 +22,7 @@ type Lead = { id: string; kind: "gym" | "coach"; orgName: string; contactName: s
 type Clients = { clients: Client[]; demo: Client[]; leads: Lead[] };
 type Term = { id: string; kind: "quantity" | "unit_price"; version: number; value: number; currency: string | null; effectiveFrom: string; reason: string; evidence: string | null; author: string; display: string; createdAt: string };
 type Detail = {
-  contract: { id: string; orgId: string; kind: "gym" | "coach"; legalName: string; responsibleName: string; responsibleEmail: string; currency: Currency; scope: string; scopeNote: string | null; quantityDefinition: string | null;
+  contract: { id: string; orgId: string; kind: "gym" | "coach"; legalName: string | null; responsibleName: string; responsibleEmail: string; currency: Currency; scope: string; scopeNote: string | null; quantityDefinition: string | null;
     status: "draft" | "accepted" | "enabled" | "suspended" | "ended"; termsVersion: string | null; acceptedRef: string | null; acceptedAt: string | null; enabledAt: string | null; trialUntil: string | null };
   org: { name: string; commercialStatus: string }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
   preview: { ok: boolean; reason?: string; subtotalTxt?: string; note?: string | null; period: { start: string; end: string }; changes: { kind: string; version: number; effectiveFrom: string }[];
@@ -36,7 +36,7 @@ type Detail = {
 // Correo de avisos de condiciones (F-BL-05). Igual que la bienvenida: «aceptado por el proveedor» no se destaca.
 const NOTICE_MAIL = { local_only: ["Sólo buzón local", "mute"], failed: ["Correo rechazado · el aviso sigue en la app", "bad"] } as const;
 const CST: Record<string, [string, string]> = { draft: ["Borrador", "mute"], accepted: ["Aceptado", "info"], enabled: ["Habilitado", "ok"], suspended: ["Suspendido", "warn"], ended: ["Finalizado", "mute"] };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDate(new Date()); // fecha de Argentina: a la noche UTC ya es mañana (F-01)
 const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); return { start: `${d.slice(0, 7)}-01`, end }; };
 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
@@ -301,13 +301,17 @@ function ClientModal({ flash, onClose, regularize }: { flash: (t: string) => voi
   const [busy, setBusy] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
   const save = async () => {
+    // Obligatorios (D117): nombre visible, moneda, responsable y email. El servidor valida lo mismo.
+    const missing = [!regularize && (f.orgName ?? "").trim().length < 2 && "nombre visible", (f.responsibleName ?? "").trim().length < 2 && "responsable",
+      !isEmail(f.responsibleEmail) && "email válido del responsable"].filter(Boolean);
+    if (missing.length) { flash(`Falta completar: ${missing.join(", ")}.`); return; }
     setBusy(true);
     try {
       const r = regularize
-        ? await api<{ contractId: string }>(`/api/admin/clients/${regularize.orgId}/regularize`, { body: { legalName: f.legalName ?? "", responsibleName: f.responsibleName ?? "", responsibleEmail: f.responsibleEmail ?? "", currency: f.currency } })
+        ? await api<{ contractId: string }>(`/api/admin/clients/${regularize.orgId}/regularize`, { body: { legalName: f.legalName?.trim() || null, responsibleName: f.responsibleName ?? "", responsibleEmail: f.responsibleEmail ?? "", currency: f.currency } })
         : await api<{ contractId: string }>("/api/admin/clients", { body: {
-          kind: f.kind, orgName: f.orgName ?? "", legalName: f.legalName ?? "", responsibleName: f.responsibleName ?? "", responsibleEmail: f.responsibleEmail ?? "", currency: f.currency,
-          scope: f.scope, scopeNote: f.scopeNote || null, quantityDefinition: f.quantityDefinition || null,
+          kind: f.kind, orgName: f.orgName ?? "", legalName: f.legalName?.trim() || null, responsibleName: f.responsibleName ?? "", responsibleEmail: f.responsibleEmail ?? "", currency: f.currency,
+          scope: f.kind === "gym" ? f.scope : "organization", scopeNote: f.kind === "gym" && f.scope === "locations" ? f.scopeNote || null : null, quantityDefinition: f.quantityDefinition || null,
           locations: f.kind === "gym" ? (f.locations ?? "").split(",").map((x) => x.trim()).filter(Boolean) : [],
         } });
       flash(regularize ? "Cliente regularizado: contrato en borrador, sigue operando." : "Cliente creado en borrador. Todavía no admite altas ni invitaciones.");
@@ -320,17 +324,17 @@ function ClientModal({ flash, onClose, regularize }: { flash: (t: string) => voi
       {regularize && <p className="gy-warn" style={{ margin: 0 }}>Cliente anterior al anexo: se registra la ficha comercial sin suspenderlo ni cambiar sus accesos.</p>}
       <div className="grid-2">
         {!regularize && <label className="field">Tipo<select value={f.kind} onChange={set("kind")}><option value="gym">Gimnasio</option><option value="coach">Coach independiente</option></select></label>}
-        {!regularize && <label className="field">Nombre visible<input value={f.orgName} onChange={set("orgName")} /></label>}
-        <label className="field">Razón social<input value={f.legalName ?? ""} onChange={set("legalName")} /></label>
-        <label className="field">Moneda<select value={f.currency} onChange={set("currency")}><option>ARS</option><option>USD</option></select></label>
-        <label className="field">Responsable<input value={f.responsibleName ?? ""} onChange={set("responsibleName")} /></label>
-        <label className="field">Email del responsable<input type="email" value={f.responsibleEmail ?? ""} onChange={set("responsibleEmail")} /></label>
-        {!regularize && f.kind === "gym" && <label className="field">Sedes (separadas por coma)<input value={f.locations ?? ""} onChange={set("locations")} placeholder="Centro, Palermo" /></label>}
-        {!regularize && <label className="field">Alcance<select value={f.scope} onChange={set("scope")}><option value="organization">Toda la organización</option><option value="locations">Sedes del acuerdo</option></select></label>}
+        {!regularize && <label className="field">Nombre visible *<input value={f.orgName} onChange={set("orgName")} required /></label>}
+        <label className="field">Razón social (opcional)<input value={f.legalName ?? ""} onChange={set("legalName")} /></label>
+        <label className="field">Moneda *<select value={f.currency} onChange={set("currency")}><option>ARS</option><option>USD</option></select></label>
+        <label className="field">Responsable *<input value={f.responsibleName ?? ""} onChange={set("responsibleName")} required /></label>
+        <label className="field">Email del responsable *<input type="email" value={f.responsibleEmail ?? ""} onChange={set("responsibleEmail")} required /></label>
+        {!regularize && f.kind === "gym" && <label className="field">Sedes, separadas por coma (opcional)<input value={f.locations ?? ""} onChange={set("locations")} placeholder="Centro, Palermo" /></label>}
+        {!regularize && f.kind === "gym" && <label className="field">Alcance<select value={f.scope} onChange={set("scope")}><option value="organization">Toda la organización</option><option value="locations">Sedes del acuerdo</option></select></label>}
       </div>
-      {!regularize && <label className="field">Qué cuenta como vigente (si ya está acordado)<input value={f.quantityDefinition ?? ""} onChange={set("quantityDefinition")} placeholder="Pendiente de acuerdo si se deja vacío" /></label>}
-      {!regularize && f.scope === "locations" && <label className="field">Cobertura y regla sin duplicados<input value={f.scopeNote ?? ""} onChange={set("scopeNote")} /></label>}
-      <span className="muted" style={{ fontSize: 13 }}>Queda en borrador. La cantidad y el precio se cargan después, con versión, fecha de efecto y motivo.</span>
+      {!regularize && <label className="field">Qué cuenta como vigente (opcional)<input value={f.quantityDefinition ?? ""} onChange={set("quantityDefinition")} placeholder="Pendiente de acuerdo si se deja vacío" /></label>}
+      {!regularize && f.kind === "gym" && f.scope === "locations" && <label className="field">Cobertura y regla sin duplicados (opcional)<input value={f.scopeNote ?? ""} onChange={set("scopeNote")} /></label>}
+      <span className="muted" style={{ fontSize: 13 }}>* Obligatorio. Queda en borrador. La cantidad y el precio se cargan después, con versión, fecha de efecto y motivo.</span>
       <div className="mfoot"><button type="button" className="btn" onClick={() => onClose(null)}>Cancelar</button><button type="button" className="btn pri" aria-busy={busy || undefined} onClick={save}>{regularize ? "Registrar ficha" : "Crear borrador"}</button></div>
     </Modal>
   );
@@ -425,7 +429,7 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
   return (
     <>
       <button type="button" className="gy-link" onClick={back}>← Clientes</button>
-      <Head kicker={`${c.kind === "gym" ? "Gimnasio" : "Coach"} · ${c.legalName} · responsable ${c.responsibleName} (${c.responsibleEmail})`} title={v.org.name}>
+      <Head kicker={`${c.kind === "gym" ? "Gimnasio" : "Coach"}${c.legalName ? ` · ${c.legalName}` : ""} · responsable ${c.responsibleName} (${c.responsibleEmail})`} title={v.org.name}>
         <span className={`chip ${CST[c.status][1]}`}>{CST[c.status][0]}</span>
       </Head>
       {v.overAgreed && <p className="gy-warn" role="note" style={{ margin: 0 }}>Hay {v.enabledAccesses} accesos habilitados y el total acordado es menor. Revisá con el cliente: no se cobra extra ni se bloquea automáticamente.</p>}

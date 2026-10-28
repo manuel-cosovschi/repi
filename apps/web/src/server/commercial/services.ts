@@ -103,13 +103,20 @@ export async function adminSummary(actorId: string, now = new Date()) {
 
 /** Alta comercial: crea la ficha y una organización SIN habilitar (no admite altas operativas) y el contrato en borrador. */
 export async function createClient(actorId: string, p: {
-  kind: "gym" | "coach"; orgName: string; legalName: string; responsibleName: string; responsibleEmail: string; currency: string;
+  kind: "gym" | "coach"; orgName: string; legalName?: string | null; responsibleName: string; responsibleEmail: string; currency: string;
   scope?: "organization" | "locations"; scopeNote?: string | null; quantityDefinition?: string | null; locations?: string[];
 }) {
   await requireAdmin(actorId);
-  if (!["gym", "coach"].includes(p.kind) || (p.orgName ?? "").trim().length < 2 || (p.legalName ?? "").trim().length < 2 || (p.responsibleName ?? "").trim().length < 2 || !isEmail(p.responsibleEmail) || !isCurrency(p.currency)) {
-    throw new AccessError("invalid", "Completá tipo, nombres, email del responsable y moneda.");
-  }
+  // Obligatorios (D117): tipo, nombre visible, responsable, email y moneda. El resto se completa después.
+  const missing = [
+    !["gym", "coach"].includes(p.kind) && "tipo",
+    (p.orgName ?? "").trim().length < 2 && "nombre visible",
+    (p.responsibleName ?? "").trim().length < 2 && "responsable",
+    !isEmail(p.responsibleEmail) && "email válido del responsable",
+    !isCurrency(p.currency) && "moneda",
+  ].filter(Boolean);
+  if (missing.length) throw new AccessError("invalid", `Falta completar: ${missing.join(", ")}.`);
+  const scope = p.kind === "gym" ? p.scope ?? "organization" : "organization"; // un coach no tiene sedes
   return db.transaction(async (tx) => {
     const [org] = await tx.insert(organization).values({ kind: p.kind, name: p.orgName.trim().slice(0, 120), status: "active", commercialStatus: "pending", createdBy: actorId }).returning();
     if (p.kind === "gym") {
@@ -117,8 +124,8 @@ export async function createClient(actorId: string, p: {
       for (const name of locs.length ? locs : ["Sede principal"]) await tx.insert(gymLocation).values({ orgId: org.id, name: name.slice(0, 80) });
     }
     const [c] = await tx.insert(clientContract).values({
-      orgId: org.id, kind: p.kind, legalName: p.legalName.trim().slice(0, 160), responsibleName: p.responsibleName.trim().slice(0, 80), responsibleEmail: normalizeEmail(p.responsibleEmail),
-      currency: p.currency as Currency, scope: p.scope ?? "organization", scopeNote: p.scopeNote?.trim() || null, quantityDefinition: p.quantityDefinition?.trim() || null, createdBy: actorId,
+      orgId: org.id, kind: p.kind, legalName: p.legalName?.trim().slice(0, 160) || null, responsibleName: p.responsibleName.trim().slice(0, 80), responsibleEmail: normalizeEmail(p.responsibleEmail),
+      currency: p.currency as Currency, scope, scopeNote: scope === "locations" ? p.scopeNote?.trim() || null : null, quantityDefinition: p.quantityDefinition?.trim() || null, createdBy: actorId,
     }).returning();
     await audit(tx, { actorUserId: actorId, orgId: org.id, action: "commercial.client_created", resourceType: "client_contract", resourceId: c.id });
     return { orgId: org.id, contractId: c.id };
@@ -126,12 +133,13 @@ export async function createClient(actorId: string, p: {
 }
 
 /** Regularizar un cliente previo: crea el contrato en borrador sin inferir precios ni cobrar retroactivamente. */
-export async function regularize(actorId: string, orgId: string, p: { legalName: string; responsibleName: string; responsibleEmail: string; currency: string }) {
+export async function regularize(actorId: string, orgId: string, p: { legalName?: string | null; responsibleName: string; responsibleEmail: string; currency: string }) {
   await requireAdmin(actorId);
   const [o] = await db.select().from(organization).where(eq(organization.id, orgId));
   if (!o) throw NOT_FOUND();
-  if (!isEmail(p.responsibleEmail) || !isCurrency(p.currency) || (p.legalName ?? "").trim().length < 2) throw new AccessError("invalid", "Completá razón social, responsable y moneda.");
-  const [c] = await db.insert(clientContract).values({ orgId, kind: o.kind, legalName: p.legalName.trim(), responsibleName: (p.responsibleName ?? "").trim() || "Responsable", responsibleEmail: normalizeEmail(p.responsibleEmail), currency: p.currency as Currency, createdBy: actorId })
+  const missing = [(p.responsibleName ?? "").trim().length < 2 && "responsable", !isEmail(p.responsibleEmail) && "email válido del responsable", !isCurrency(p.currency) && "moneda"].filter(Boolean);
+  if (missing.length) throw new AccessError("invalid", `Falta completar: ${missing.join(", ")}.`);
+  const [c] = await db.insert(clientContract).values({ orgId, kind: o.kind, legalName: p.legalName?.trim().slice(0, 160) || null, responsibleName: p.responsibleName.trim().slice(0, 80), responsibleEmail: normalizeEmail(p.responsibleEmail), currency: p.currency as Currency, createdBy: actorId })
     .onConflictDoNothing().returning();
   if (!c) throw new AccessError("exists", "Este cliente ya tiene contrato.", 409);
   await audit(db, { actorUserId: actorId, orgId, action: "commercial.regularization_started", resourceType: "client_contract", resourceId: c.id });
