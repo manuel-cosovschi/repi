@@ -9,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
 import { Modal } from "@/components/ui/Modal";
+import { AdminGuide } from "./AdminGuide";
 import { Head, fmt, initials, useLoad } from "@/components/gym/shared";
 import { Ic } from "@/components/ui/Ic";
 import { List } from "@phosphor-icons/react";
@@ -41,7 +42,7 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
-type Screen = "summary" | "clients" | "leads" | "support" | "privacy";
+type Screen = "summary" | "clients" | "leads" | "support" | "privacy" | "guide";
 
 export function AdminApp({ me }: { me: { name: string } }) {
   const [screen, setScreen] = useState<Screen>("summary");
@@ -62,7 +63,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
       <aside className="co-side" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["support", "Soporte"], ["privacy", "Privacidad"]] as const).map(([k, l]) => (
+          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["support", "Soporte"], ["privacy", "Privacidad"], ["guide", "Guía"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); if (k === "summary") void sum.reload(); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
               {k === "support" && openSupport > 0 && <span className="nbadge" aria-label={`${openSupport} consultas abiertas`}>{openSupport}</span>}
@@ -99,6 +100,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
           {screen === "summary" && <Summary d={sum} go={(k) => { setScreen(k); setSel(null); }} />}
           {screen === "support" && <SupportDesk flash={flash} onChange={sum.reload} />}
           {screen === "privacy" && <PrivacyRequests flash={flash} />}
+          {screen === "guide" && <AdminGuide />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
         </div>
       </main>
@@ -171,7 +173,7 @@ function Summary({ d, go }: { d: { data: Sum | null; err: string | null }; go: (
   ] : [];
   return (
     <>
-      <Head kicker="Acuerdos, adopción y operación. Excluye datos DEMO. Sin cobros reales." title="Resumen" />
+      <Head kicker="Acuerdos, adopción y operación. Excluye datos DEMO. Sin cobros reales." title="Resumen"><button type="button" className="btn" onClick={() => go("guide")}>Cómo dar de alta un cliente</button></Head>
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
       {!k ? <p className="muted">Cargando…</p> : (
         <div className="grid-kpi">
