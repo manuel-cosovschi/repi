@@ -741,10 +741,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         {v.social && (
           <>
             <div className="ac-or">o</div>
-            {(["google", "apple"] as const).map((p) => (
-              <button type="button" key={p} className="ac-sec" aria-disabled={!social[p] || undefined} onClick={socialGo(p)}
-                title={social[p] ? undefined : "No disponible en este entorno"}>Continuar con {p === "google" ? "Google" : "Apple"}</button>
-            ))}
+            {/* Google y Apple fuera hasta que el titular decida activarlos (D113); el adaptador del servidor sigue listo. */}
             {step === "login" && <button type="button" className="ac-sec" onClick={socialGo("magic")}>Recibir enlace por email</button>}
           </>
         )}
