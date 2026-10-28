@@ -21,6 +21,7 @@ import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet } from "./Solo";
+import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext } from "./Connect";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
@@ -30,7 +31,7 @@ type Inbox = {
   coach: { name: string; org: string } | null; checkinToday: boolean;
   accessRequests: { id: string; item: string; phrase: string; reason: string; from: string }[];
   requests: { id: string; kind: RequestKind; text: string; status: "open" | "done"; unseenResolved: boolean }[];
-  gym: { id: string; place: string } | null;
+  gym: { id: string; place: string; connect: boolean } | null;
   gymRequests: { id: string; category: keyof typeof TASK_CATEGORY; label: string; status: "open" | "taken" | "done"; doneBy: string | null; unseen: boolean }[];
   reviewInvites: { id: string; trainer: string; kind: string; place: string }[];
   unreadThreads: number;
@@ -40,7 +41,8 @@ type Inbox = {
 type NotifDest = { tab: "home" | "msgs" | "perfil" } | { tab: "gym"; gymTab: "news" | "ch" | "logros" } | { tab: "review"; invite: Inbox["reviewInvites"][number] };
 type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean };
 type Feed = { items: Notif[]; unread: number; seenAt: string | null };
-type SheetState = null | { type: "checkin"; dayId: string } | { type: "pain" } | { type: "help"; kind?: RequestKind; to?: "coach" | "gym" } | { type: "injury" } | { type: "review"; invite: Inbox["reviewInvites"][number] };
+type SheetState = null | { type: "checkin"; dayId: string } | { type: "pain" } | { type: "help"; kind?: RequestKind; to?: "coach" | "gym" } | { type: "injury" } | { type: "review"; invite: Inbox["reviewInvites"][number] }
+  | { type: "connect"; context?: ConnectContext | null } | { type: "connectPanel"; id?: string | null };
 type History = { id: string; dayName: string; endedAt: string; durationSec: number; sets: number; volumeKg: number; rpe: number | null }[];
 
 export function MemberApp({ initialTab }: { initialTab?: string }) {
@@ -58,6 +60,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [privKey, setPrivKey] = useState(0);
   const [solo, setSolo] = useState<"solo" | "coach_absent" | null>(null); // Adaptive Coach fase 1 (D108)
+  const [connectTick, setConnectTick] = useState(0); // REPI Connect (D126): recarga la tarjeta de pedidos
+  // Aviso push de un pedido resuelto → /app?pedido=<id> abre su detalle.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("pedido");
+    if (id) { setSheet({ type: "connectPanel", id: id.slice(0, 64) }); window.history.replaceState(null, "", window.location.pathname); }
+  }, []);
   const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then(setInbox).catch(() => setInbox(null)), []);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -158,7 +166,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const unit: WeightUnit = t?.weightUnit ?? "kg";
   if (workout) return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
-      <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
+      <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
       <Toast t={toast} />
     </div></div></UnitContext.Provider>
   );
@@ -172,7 +180,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
           <div key={tab} className="tab-pane">
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
-              inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} />}
+              inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} /><Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
@@ -200,7 +208,14 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
       {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={start} onContinue={() => openId && setWorkout(openId)}
         onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
-      {sheet?.type === "help" && <HelpSheet initialKind={sheet.kind} initialTo={sheet.to ?? (t?.relation?.kind === "gym" ? "gym" : undefined)} coachName={inbox?.coach?.name ?? null} gymPlace={inbox?.gym?.place ?? null} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />}
+      {sheet?.type === "help" && (inbox?.gym?.connect && (sheet.to ?? (t?.relation?.kind === "gym" || !inbox.coach ? "gym" : "coach")) === "gym"
+        ? <ConnectHelpSheet place={inbox.gym.place} coachName={inbox.coach?.name ?? null} onCoach={() => setSheet({ type: "help", kind: sheet.kind, to: "coach" })} flash={flash}
+            onSent={() => setConnectTick((x) => x + 1)} onClose={() => { setSheet(null); void loadInbox(); }} />
+        : <HelpSheet initialKind={sheet.kind} initialTo={sheet.to ?? (t?.relation?.kind === "gym" ? "gym" : undefined)} coachName={inbox?.coach?.name ?? null} gymPlace={inbox?.gym?.place ?? null}
+            onGym={inbox?.gym?.connect ? () => setSheet({ type: "help", kind: sheet.kind, to: "gym" }) : undefined} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />)}
+      {sheet?.type === "connect" && inbox?.gym && <ConnectHelpSheet place={inbox.gym.place} context={sheet.context} flash={flash} onSent={() => setConnectTick((x) => x + 1)} onClose={() => setSheet(null)} />}
+      {sheet?.type === "connectPanel" && <ConnectPanelSheet initialId={sheet.id} flash={flash} onNew={() => setSheet({ type: "help", to: "gym" })}
+        onClose={() => { setSheet(null); setConnectTick((x) => x + 1); void loadInbox(); }} />}
       {sheet?.type === "review" && <ReviewSheet invite={sheet.invite} flash={flash} onClose={() => { setSheet(null); void loadInbox(); }} />}
       {notifOpen && <NotifSheet items={notifs} offline={!!offlineAt} loaded={!!feed} onPick={pickNotif} onClose={() => {
         setNotifOpen(false); setFeed((f) => (f ? { ...f, unread: 0, items: f.items.map((x) => ({ ...x, unread: false })), seenAt: new Date().toISOString() } : f));
@@ -293,10 +308,11 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation }: {
+function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick }: {
   t: Training; coachFirst: string; onStart: (dayId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
-  onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void;
+  onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number;
 }) {
+  const connect = !!inbox?.gym?.connect;
   const gymRel = t.relation?.kind === "gym";
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
   const next = t.program?.days[t.program.nextDay];
@@ -358,7 +374,8 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
           <span><b>Tu pedido fue resuelto</b><small>{REQUEST_KIND[r.kind]} · {inbox.coach?.name.split(" ")[0] ?? "tu coach"}</small></span><em>Ok</em>
         </button>
       ))}
-      {inbox?.gymRequests.filter((r) => r.unseen).map((r) => (
+      {!offline && connect && <ConnectCard refresh={connectTick} onOpen={(id) => onSheet({ type: "connectPanel", id })} />}
+      {!connect && inbox?.gymRequests.filter((r) => r.unseen).map((r) => (
         <button key={r.id} type="button" className="hbanner" onClick={async () => { await api(`/api/me/gym/requests/${r.id}/seen`, { body: {} }).catch(() => {}); reloadInbox(); }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: "#10B981", flex: "none" }} />
           <span><b>El equipo de sala resolvió tu pedido</b><small>{r.label}{r.doneBy ? ` · ${r.doneBy.split(" ")[0]}` : ""}</small></span><em>Ok</em>
@@ -379,6 +396,7 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
           <button key={l} type="button" onClick={fn}><Ic i={d} size={20} color="#5DE6D8" />{l}</button>
         ))}</div>
       )}
+      {!offline && connect && <button type="button" className="linkbtn cx-mine" onClick={() => onSheet({ type: "connectPanel" })}>Mis pedidos al equipo de sala</button>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}><h2>Semana</h2><WeekStrip t={t} /></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <h2>Tu progreso</h2>

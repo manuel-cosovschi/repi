@@ -17,6 +17,7 @@ import { CommunityScreen, DeskCard, ValidationsScreen } from "./Community";
 import { AccessesScreen, ConditionsScreen, JoinsScreen } from "./Access";
 import { NoticesScreen } from "./Notices";
 import { GymGuide } from "./GymGuide";
+import { ConnectQueueScreen, ConnectReportScreen } from "./Connect";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
 import { ArrowsLeftRight, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
@@ -45,6 +46,12 @@ function navFor(ctx: GymCtxView): NavItem[] {
     [["shift", "Mi turno", IC.home, null], ["queue", "Cola de asistencia", IC.queue, null], ["joins", "Solicitudes de acceso", IC.door, null], ["members", "Socios", IC.users, null], ["handoff", "Traspaso de turno", IC.swap, null], ["msgs", "Mensajes", IC.msg, null], ["perf", "Mi desempeño", IC.chart, null]].forEach((x) => add(x as NavItem));
   }
   if (r.includes("coordinator")) [["staff", "Equipo", IC.users, null], ["pc", "Performance Center", IC.gauge, null], ["tasks", "Tareas", IC.check, null], ["shifts", "Turnos", IC.cal, null]].forEach((x) => add(x as NavItem));
+  // REPI Connect (D126): con el módulo activo la cola se llama «Sala» y la gestión suma «Seguimiento de sala».
+  if (ctx.connect) {
+    const q = out.find((x) => x[0] === "queue");
+    if (q) q[1] = "Sala";
+    if (can(ctx, "team.read")) out.splice(Math.min(2, out.length), 0, ["connect", "Seguimiento de sala", IC.pulse, null]);
+  }
   if (can(ctx, "members.approve") || can(ctx, "reception.desk")) add(["reception", r.includes("reception") ? "Recepción" : "Mostrador", IC.desk, null]);
   if (can(ctx, "members.approve")) { add(["joins", "Solicitudes de acceso", IC.door, null]); add(["accesses", "Accesos", IC.key, null]); }
   if (can(ctx, "catalog.publish")) add(["community", r.includes("reception") && !can(ctx, "community.publish") ? "Catálogo" : "Comunidad", IC.users, null]);
@@ -162,7 +169,8 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         <div className="co-content" ref={mainRef} key={`${screen}-${loc}`} data-section={screen}>
           {screen === "notices" && <NoticesScreen shell={shell} />}
           {screen === "shift" && <ShiftScreen shell={shell} />}
-          {screen === "queue" && <QueueScreen shell={shell} />}
+          {screen === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
+          {screen === "connect" && <ConnectReportScreen shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}
           {screen === "handoff" && <HandoffScreen shell={shell} />}
           {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido." emptyText="Todavía no hay conversaciones. Se abren cuando un socio escribe o desde su ficha con «Escribir»." initial={sel} onSeen={refreshBadges} />}

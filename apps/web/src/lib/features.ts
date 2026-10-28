@@ -4,6 +4,7 @@
 // así que cambiarlo en Vercel requiere un redeploy.
 export const FEATURES = {
   adaptive: { on: true, what: "«No vino el profe» / «Entrenar por mi cuenta» y reemplazos aprobados (reglas, sin IA)" },
+  connect: { on: true, what: "REPI Connect · seguimiento de sala. Interruptor general: además cada gimnasio lo activa REPI Admin (piloto)" },
   club: { on: true, what: "Repi Club del gimnasio: publicaciones voluntarias, ranking y moderación" },
   nutrition: { on: false, what: "Pestaña Nutrición en la ficha del coach: falta la carga desde la app del alumno" },
   body: { on: false, what: "Mi cuerpo (Body Intelligence): faltan registro de medidas y fotos, y el visor" },

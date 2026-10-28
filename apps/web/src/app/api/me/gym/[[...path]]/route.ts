@@ -7,6 +7,7 @@ import * as rv from "@/server/gym/reviews";
 import * as cm from "@/server/community/services";
 import * as club from "@/server/community/club";
 import * as join from "@/server/join/services";
+import * as connect from "@/server/gym/connect";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -18,6 +19,8 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   const u = new URL(req.url);
   if (a === "requests") return gym.myGymTasks(me);
+  if (a === "connect" && !b) return connect.memberBoard(me); // REPI Connect (D126)
+  if (a === "connect" && b) return connect.memberDetail(me, b);
   if (a === "joins") return join.myJoinRequests(me); // solicitudes de acceso por QR (anexo §5)
   if (a === "reviews") return { invites: await rv.myReviewInvites(me), given: await rv.myGivenReviews(me) };
   if (a === "home") return cm.myGymHome(me, u.searchParams.get("org"));
@@ -38,6 +41,16 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   if (a === "requests" && !b) return gym.createMemberTask(me, await body(req, z.object({ kind: z.enum(["rutina", "tecnica", "consulta", "programa"]), text: z.string().max(1000), videoId: z.string().max(64).nullable().optional(), gymMemberId: z.string().max(64).nullable().optional() })));
   if (a === "requests" && b && c === "seen") { await gym.markGymTaskSeen(me, b); return { ok: true }; }
+  if (a === "connect" && !b) {
+    await limit("connect-create", 20);
+    return connect.memberCreate(me, await body(req, z.object({
+      reason: z.string().max(30), comment: z.string().max(300).nullable().optional(), clientKey: z.string().max(64).nullable().optional(), gymMemberId: id.nullable().optional(),
+      context: z.object({ sessionId: id.nullable().optional(), programExerciseId: id.nullable().optional(), exerciseId: id.nullable().optional(), setIndex: z.number().int().nullable().optional() }).nullable().optional(),
+    })));
+  }
+  if (a === "connect" && b && c === "cancel") return connect.memberCancel(me, b);
+  if (a === "connect" && b && c === "comment") return connect.memberComment(me, b, (await body(req, z.object({ text: z.string().max(300) }))).text);
+  if (a === "connect" && b && c === "feedback") return connect.memberFeedback(me, b, (await body(req, z.object({ helpful: z.boolean() }))).helpful);
   if (a === "reviews" && b && c === "dismiss") return rv.dismissInvite(me, b);
   if (a === "reviews" && b) return rv.submitReview(me, b, await body(req, z.object({ stars: z.number().int(), dims: z.array(z.number().int().nullable()).max(3).optional(), text: z.string().max(800).nullable().optional() })));
   if (a === "joins" && b && c === "cancel") return join.cancelRequest(me, b);

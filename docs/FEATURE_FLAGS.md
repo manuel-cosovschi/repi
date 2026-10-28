@@ -7,6 +7,7 @@ Un módulo apagado no se muestra: no hay botones hacia pantallas vacías ni capa
 | Clave | Por defecto | Qué controla | Por qué |
 | --- | --- | --- | --- |
 | `adaptive` | encendido | «No vino el profe» / «Entrenar por mi cuenta» en Entrenar; botón «Reemplazos» en ambos constructores | Reglas sin IA, probado (D108, D110) |
+| `connect` | encendido (general) | REPI Connect: «Pedir ayuda» con motivos y «Mis pedidos» del socio, bandeja «Sala», «Seguimiento de sala». **Además se activa por gimnasio** en REPI Admin (`organization.connect_enabled`, apagado por defecto) | Core probado (D126). Apagado general o por gimnasio: vuelve la cola de asistencia de siempre, sin borrar pedidos |
 | `club` | encendido | Pestaña «Club» del socio en su gimnasio | Publicación voluntaria con moderación, probado |
 | `nutrition` | apagado | Pestaña «Nutrición» en la ficha del coach | Falta la carga desde la app del alumno: sería una pantalla vacía |
 | `body` | apagado | Pestaña «Mi cuerpo» en la ficha del coach | Body Intelligence sin implementar (BI-1) |

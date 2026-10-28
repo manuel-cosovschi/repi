@@ -179,6 +179,21 @@ export async function contractDetail(actorId: string, contractId: string, period
     pending: ["Qué socios/alumnos cuentan como vigentes", "Ciclo, corte y prorrateo", "Mora y suspensión", "Cobertura multisede sin duplicados"].filter((x, i) => i !== 0 || !c.quantityDefinition),
   };
 }
+/**
+ * REPI Connect (D126): activar o desactivar el piloto de seguimiento de sala en un gimnasio. Sólo muestra u oculta el
+ * módulo: no borra pedidos, rutinas, sesiones ni cuentas, y se puede volver a activar con el historial intacto.
+ */
+export async function setClientConnect(actorId: string, contractId: string, on: boolean) {
+  await requireAdmin(actorId);
+  const c = await contractFor(contractId);
+  const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
+  if (!o) throw NOT_FOUND();
+  if (o.kind !== "gym") throw new AccessError("invalid", "REPI Connect es para gimnasios.");
+  if (o.connectEnabled === on) return { connectEnabled: on, changed: false };
+  await db.update(organization).set({ connectEnabled: on }).where(eq(organization.id, o.id));
+  await audit(db, { actorUserId: actorId, orgId: o.id, action: on ? "connect.enabled" : "connect.disabled", resourceType: "organization", resourceId: o.id });
+  return { connectEnabled: on, changed: true };
+}
 function currentPeriod() {
   const d = new Date(); const y = d.getUTCFullYear(), m = d.getUTCMonth();
   const start = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);

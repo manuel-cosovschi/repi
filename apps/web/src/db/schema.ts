@@ -86,6 +86,8 @@ export const organization = pgTable("organization", {
   commercialStatus: text("commercial_status", { enum: ["legacy", "pending", "enabled", "suspended"] }).notNull().default("legacy"),
   // F-RV-05: política de reseñas del gym. La publicación externa no tiene columna: sigue deshabilitada (DEC-08).
   reviewResponses: boolean("review_responses").notNull().default(true),
+  // D126: REPI Connect (seguimiento de sala) se activa por gimnasio desde REPI Admin. Apagado no toca rutinas, sesiones ni cuentas.
+  connectEnabled: boolean("connect_enabled").notNull().default(false),
   createdBy: text("created_by").references(() => user.id),
   createdAt: now("created_at"),
 });
@@ -717,6 +719,8 @@ export const shiftLog = pgTable("shift_log", {
   planId: text("plan_id").references(() => shiftPlan.id, { onDelete: "set null" }),
   startedAt: ts("started_at").notNull(),
   endedAt: ts("ended_at"),
+  // D126: disponibilidad declarada por el profesor durante el turno. No es ubicación ni presencia comprobada.
+  availability: text("availability", { enum: ["available", "busy"] }).notNull().default("available"),
 }, (t) => [
   uniqueIndex("shift_log_one_active").on(t.userId).where(sql`ended_at is null`),
   index("shift_log_loc_idx").on(t.locationId, t.startedAt),
@@ -731,7 +735,8 @@ export const gymTask = pgTable("gym_task", {
   gymMemberId: text("gym_member_id").references(() => gymMember.id, { onDelete: "cascade" }),
   category: text("category", { enum: ["programa_nuevo", "actualizar_programa", "tecnica", "onboarding", "seguimiento", "consulta"] }).notNull(),
   priority: text("priority", { enum: ["alta", "media", "baja"] }).notNull().default("media"),
-  status: text("status", { enum: ["open", "pending_acceptance", "done", "cancelled"] }).notNull().default("open"),
+  // D126: in_progress (en atención) y follow_up (pendiente de seguimiento) son los estados de REPI Connect.
+  status: text("status", { enum: ["open", "pending_acceptance", "in_progress", "follow_up", "done", "cancelled"] }).notNull().default("open"),
   source: text("source", { enum: ["app", "sala", "traspaso", "gerencia", "recepcion", "entrenador"] }).notNull(),
   summary: text("summary").notNull(),
   videoId: text("video_id").references(() => mediaObject.id),
@@ -745,8 +750,19 @@ export const gymTask = pgTable("gym_task", {
   completedBy: text("completed_by").references(() => user.id),
   completedOffShift: boolean("completed_off_shift").notNull().default(false),
   seenByMemberAt: ts("seen_by_member_at"),
+  // REPI Connect (D126): motivo elegido por el socio, referencias estructuradas al ejercicio, clave de reintento,
+  // inicio de la atención, cancelación y opinión opcional del socio («¿Te sirvió?»).
+  reason: text("reason"),
+  context: jsonb("context").$type<{ exerciseId?: string; exerciseName?: string; sessionId?: string; programExerciseId?: string; setIndex?: number; programName?: string; fromSession?: boolean }>(),
+  clientKey: text("client_key"),
+  startedAt: ts("started_at"),
+  cancelledAt: ts("cancelled_at"),
+  cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
+  feedback: text("feedback", { enum: ["yes", "no"] }),
+  feedbackAt: ts("feedback_at"),
 }, (t) => [
   uniqueIndex("gym_task_number_unique").on(t.orgId, t.number),
+  uniqueIndex("gym_task_client_key").on(t.createdBy, t.clientKey).where(sql`client_key is not null`),
   index("gym_task_loc_status_idx").on(t.locationId, t.status),
   index("gym_task_assignee_idx").on(t.assigneeUserId, t.status),
   index("gym_task_member_idx").on(t.gymMemberId),
@@ -770,6 +786,23 @@ export const gymHandoffItem = pgTable("gym_handoff_item", {
   acceptedAt: ts("accepted_at"),
   acceptedBy: text("accepted_by").references(() => user.id),
 }, (t) => [primaryKey({ columns: [t.handoffId, t.taskId] })]);
+
+// Historial de una solicitud de REPI Connect (D126). Sólo se agregan filas: un trigger impide modificarlas.
+// note = registro institucional del equipo (no lo ve el socio); memberNote = lo que el equipo le deja al socio.
+export const gymTaskEvent = pgTable("gym_task_event", {
+  id: id(),
+  taskId: text("task_id").notNull().references(() => gymTask.id, { onDelete: "cascade" }),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+  kind: text("kind", { enum: ["created", "taken", "started", "note", "follow_up", "transferred", "accepted", "declined", "reassigned", "resolved", "cancelled", "member_comment", "feedback"] }).notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  toUserId: text("to_user_id").references(() => user.id, { onDelete: "set null" }),
+  note: text("note"),
+  memberNote: text("member_note"),
+  dueAt: ts("due_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("gym_task_event_task_idx").on(t.taskId, t.createdAt), index("gym_task_event_org_idx").on(t.orgId, t.createdAt)]);
 
 // Notas del socio: institucionales (equipo de la sede) y personales (sólo su autor). Recursos distintos (MASTER_PROMPT §11).
 export const gymNote = pgTable("gym_note", {
@@ -1209,7 +1242,7 @@ export const notifyPref = pgTable("notify_pref", {
 export const notificationOutbox = pgTable("notification_outbox", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved"] }).notNull(),
+  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update"] }).notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
   url: text("url").notNull(),

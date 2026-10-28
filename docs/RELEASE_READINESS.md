@@ -8,6 +8,19 @@ Estados: **Verificado** (prueba automática o navegador con evidencia y fecha), 
 
 Las pruebas de integración corren contra la base descartable `repi_test` (`apps/web/tests/global-setup.ts`); el navegador, en dev local y en https://repiclub.com cuando se indica.
 
+## REPI Connect (piloto por gimnasio, D126)
+
+| ID | Requisito | Prior. | Estado | Evidencia / prueba | Bloqueantes | Área | Validado |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| RC-01 | El socio pide ayuda con motivo (Inicio o desde el ejercicio) y ve el estado real | P0 piloto | Verificado (local) | `tests/connect.test.ts`, navegador 375 px | Teléfonos reales (LB-03) | Connect | 28/10 |
+| RC-02 | Bandeja del profesor: tomar sin duplicados, atender, registrar, resolver | P0 piloto | Verificado (local) | `connect.test.ts` (dos tomas simultáneas), navegador | — | Connect | 28/10 |
+| RC-03 | Continuidad: seguimiento para el próximo turno y traspaso con aceptación | P0 piloto | Verificado (local) | `connect.test.ts`, demo | — | Connect | 28/10 |
+| RC-04 | Permisos: socio, sede, organización, coach privado, gestión sin detalle | P0 piloto | Verificado | `connect.test.ts` | — | Seguridad | 28/10 |
+| RC-05 | Tablero del dueño con indicadores reales, sin textos ni salud | P0 piloto | Verificado (local) | `connect.test.ts`, navegador | — | Gestión | 28/10 |
+| RC-06 | Bandera por gimnasio y general; apagado no toca datos | P0 piloto | Verificado | `connect.test.ts` | — | Producto | 28/10 |
+| RC-07 | Migración 0025 en Supabase y deploy | P0 piloto | Pendiente | — | Autorización del titular | Operación | — |
+| RC-08 | Push de pedidos al profesor en turno en un teléfono real | P1 | Externo | Cola y centro de avisos probados | LB-03 | Connect | — |
+
 ## Coach (mercado P0 del primer lanzamiento)
 
 | ID | Requisito | Prior. | Estado | Evidencia / prueba | Bloqueantes | Área | Validado |

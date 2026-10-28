@@ -12,6 +12,7 @@ import { useUnit } from "./units";
 import { PainSheet } from "./FollowSheets";
 import { PlatesSheet } from "./PlatesSheet";
 import { ExerciseChangeSheet } from "./ExerciseChange";
+import { ConnectHelpSheet } from "./Connect";
 import { Sheet } from "./Sheet";
 import { cancelRestAlert, disableRestAlert, enableRestAlert, restAlertState, scheduleRestAlert, type RestAlertState } from "@/lib/restAlert";
 import { Confetti } from "@/components/motion/Confetti";
@@ -60,7 +61,8 @@ function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   };
 }
 
-export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { sessionId: string; coachFirst: string; gym: boolean; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void }) {
+export function Workout({ sessionId, coachFirst, gym, connectPlace = null, onExit, flash }: { sessionId: string; coachFirst: string; gym: boolean; connectPlace?: string | null; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void }) {
+  const [asking, setAsking] = useState(false); // REPI Connect (D126): pedido al equipo de sala sobre este ejercicio
   const unit = useUnit();
   const [s, setS] = useState<LocalSession | null>(null);
   const [exIdx, setExIdx] = useState(0);
@@ -386,6 +388,7 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
             <div className="wo-tools">
               {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
               <button type="button" className="linkbtn" onClick={() => setNoteOpen(true)}>{noteDraft?.trim() ? "Editar nota" : "Nota de la serie"}</button>
+              {connectPlace && <button type="button" className="linkbtn" onClick={() => setAsking(true)}>Pedir ayuda a sala</button>}
             </div>
             {noteDraft?.trim() && <span className="feel-note">Nota: {noteDraft.trim()}</span>}
             <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
@@ -411,6 +414,8 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
       {painSheet}
       {plates && curRow && <PlatesSheet kgWeight={curRow.w} unit={unit} onClose={() => setPlates(false)} />}
       {changing && <ExerciseChangeSheet sessionId={s.id} ex={ex} unit={unit} onApply={applyChange} onPain={() => setPain(true)} onClose={() => setChanging(false)} />}
+      {asking && connectPlace && <ConnectHelpSheet place={connectPlace} flash={flash} onClose={() => setAsking(false)}
+        context={{ sessionId: s.id, programExerciseId: ex.id, exerciseId: (sub ?? ex).exerciseId, exerciseName: sub ? sub.name : ex.name, setIndex: cur }} />}
       {noteOpen && curRow && <SetNoteSheet n={cur + 1} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}
     </div>
   );

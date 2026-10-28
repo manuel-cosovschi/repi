@@ -76,8 +76,24 @@ export async function scopedLocations(ctx: GymCtx, locationId?: string | null) {
 }
 
 const FLOOR_ROLES = ["floor_trainer", "coordinator"] as const;
+/** Estados activos de una tarea; WORKING = asignables y trabajables (REPI Connect suma «en atención» y «seguimiento», D126). */
+export const ACTIVE = ["open", "pending_acceptance", "in_progress", "follow_up"] as const;
+export const WORKING = ["open", "in_progress", "follow_up"] as const;
+const isWorking = (s: string) => (WORKING as readonly string[]).includes(s);
+
+/** Historial de la tarea (gym_task_event, D126). Sólo agrega filas; un trigger impide editarlas. */
+export async function addEvent(tx: Tx | typeof db, t: { id: string; orgId: string }, e: {
+  actor: string | null; kind: (typeof schema.gymTaskEvent.$inferInsert)["kind"]; from?: string | null; to?: string | null; toUserId?: string | null;
+  note?: string | null; memberNote?: string | null; dueAt?: Date | null; at?: Date;
+}) {
+  await tx.insert(schema.gymTaskEvent).values({
+    ...(e.at ? { createdAt: e.at } : {}),
+    taskId: t.id, orgId: t.orgId, actorUserId: e.actor, kind: e.kind, fromStatus: e.from ?? null, toStatus: e.to ?? null, toUserId: e.toUserId ?? null,
+    note: e.note ? e.note.trim().slice(0, 500) : null, memberNote: e.memberNote ? e.memberNote.trim().slice(0, 500) : null, dueAt: e.dueAt ?? null,
+  });
+}
 /** Personal de sala de una sede (para traspasos, reasignación y grilla). */
-async function floorStaff(orgId: string, locationId: string) {
+export async function floorStaff(orgId: string, locationId: string) {
   const rows = await db.selectDistinctOn([staffMembership.userId], { userId: staffMembership.userId, name: user.name, role: staffMembership.role, afterHoursAccess: staffMembership.afterHoursAccess })
     .from(staffMembership).innerJoin(user, eq(user.id, staffMembership.userId))
     .where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active"), inArray(staffMembership.role, [...FLOOR_ROLES]),
@@ -86,12 +102,12 @@ async function floorStaff(orgId: string, locationId: string) {
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function activeShift(userId: string, tx: Tx | typeof db = db) {
+export async function activeShift(userId: string, tx: Tx | typeof db = db) {
   const [s] = await tx.select().from(shiftLog).where(and(eq(shiftLog.userId, userId), isNull(shiftLog.endedAt)));
   return s ?? null;
 }
 /** D08: turno activo en esa sede, o permiso de trabajo fuera de turno. */
-async function gate(ctx: GymCtx, locationId: string, what: string, tx: Tx | typeof db = db) {
+export async function gate(ctx: GymCtx, locationId: string, what: string, tx: Tx | typeof db = db) {
   const s = await activeShift(ctx.userId, tx);
   const r = floorActionAllowed({ shiftActive: !!s && s.locationId === locationId, afterHoursAccess: afterHoursAt(ctx, locationId) });
   if (!r.ok) throw new AccessError("no_shift", `Iniciá tu turno para ${what}.`, 409);
@@ -120,12 +136,12 @@ export async function myShift(actorId: string, orgId: string, locationId?: strin
 
 async function queueCounts(ctx: GymCtx, locationId: string) {
   const rows = await db.select({ status: gymTask.status, assignee: gymTask.assigneeUserId, n: sql<number>`count(*)::int` }).from(gymTask)
-    .where(and(eq(gymTask.locationId, locationId), inArray(gymTask.status, ["open", "pending_acceptance"]))).groupBy(gymTask.status, gymTask.assigneeUserId);
+    .where(and(eq(gymTask.locationId, locationId), inArray(gymTask.status, [...ACTIVE]))).groupBy(gymTask.status, gymTask.assigneeUserId);
   const [done] = await db.select({ n: sql<number>`count(*)::int` }).from(gymTask)
     .where(and(eq(gymTask.locationId, locationId), eq(gymTask.completedBy, ctx.userId), gte(gymTask.completedAt, addDays(new Date(), -7))));
   return {
-    shared: rows.filter((r) => r.status === "open" && !r.assignee).reduce((a, r) => a + r.n, 0),
-    mine: rows.filter((r) => r.status === "open" && r.assignee === ctx.userId).reduce((a, r) => a + r.n, 0),
+    shared: rows.filter((r) => (r.status === "open" || r.status === "follow_up") && !r.assignee).reduce((a, r) => a + r.n, 0),
+    mine: rows.filter((r) => isWorking(r.status) && r.assignee === ctx.userId).reduce((a, r) => a + r.n, 0),
     incoming: rows.filter((r) => r.status === "pending_acceptance" && r.assignee === ctx.userId).reduce((a, r) => a + r.n, 0),
     doneWeek: done?.n ?? 0,
   };
@@ -167,7 +183,7 @@ async function decorate(rows: TaskRow[], withSummary: boolean) {
       assignee: r.assigneeUserId ? { id: r.assigneeUserId, name: names.get(r.assigneeUserId) ?? "" } : null,
       completedBy: r.completedBy ? names.get(r.completedBy) ?? null : null, completedOffShift: r.completedOffShift,
       createdAt: r.createdAt, dueAt: r.dueAt, takenAt: r.takenAt, completedAt: r.completedAt,
-      overdue: r.status === "open" && !!r.dueAt && r.dueAt < new Date(),
+      overdue: isWorking(r.status) && !!r.dueAt && r.dueAt < new Date(),
       handoffFrom: h ? { name: h.from, at: h.at } : null,
     };
   });
@@ -177,8 +193,8 @@ export async function listQueue(actorId: string, orgId: string, locationId: stri
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "floor.work");
   const { loc } = await scopedLocation(ctx, locationId);
-  const shared = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), eq(gymTask.status, "open"), isNull(gymTask.assigneeUserId))).orderBy(asc(gymTask.createdAt));
-  const mine = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), inArray(gymTask.status, ["open", "pending_acceptance"]), eq(gymTask.assigneeUserId, actorId))).orderBy(asc(gymTask.createdAt));
+  const shared = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), inArray(gymTask.status, ["open", "follow_up"]), isNull(gymTask.assigneeUserId))).orderBy(asc(gymTask.createdAt));
+  const mine = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), inArray(gymTask.status, [...ACTIVE]), eq(gymTask.assigneeUserId, actorId))).orderBy(asc(gymTask.createdAt));
   const done = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), eq(gymTask.completedBy, actorId), gte(gymTask.completedAt, addDays(new Date(), -7)))).orderBy(desc(gymTask.completedAt));
   return { shared: await decorate(shared, true), mine: await decorate(mine, true), done: await decorate(done, true) };
 }
@@ -191,7 +207,7 @@ async function nextNumber(tx: Tx, table: "gym_task" | "moderation_case", orgId: 
 }
 export { nextNumber };
 
-async function memberInLocation(orgId: string, locationId: string, gymMemberId: string, tx: Tx | typeof db = db) {
+export async function memberInLocation(orgId: string, locationId: string, gymMemberId: string, tx: Tx | typeof db = db) {
   const [m] = await tx.select({ m: gymMember, name: user.name }).from(gymMember).innerJoin(user, eq(user.id, gymMember.userId))
     .where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId), eq(gymMember.locationId, locationId)));
   if (!m) throw NOT_FOUND();
@@ -220,12 +236,14 @@ export async function createTask(actorId: string, orgId: string, locationId: str
       number, orgId, locationId: loc.id, gymMemberId: p.gymMemberId ?? null, category: p.category as TaskCategory, priority, source, summary: summary.slice(0, 500),
       createdBy: actorId, assigneeUserId: mine ? actorId : null, takenAt: mine ? new Date() : null, takenBy: mine ? actorId : null, dueAt,
     }).returning();
+    await addEvent(tx, t, { actor: actorId, kind: "created", to: "open", note: summary });
+    if (mine) await addEvent(tx, t, { actor: actorId, kind: "taken", from: "open", to: "open" });
     await audit(tx, { actorUserId: actorId, orgId, action: "task.created", resourceType: "gym_task", resourceId: t.id, meta: { category: t.category, source } });
     return { id: t.id, ref: `T-${t.number}` };
   });
 }
 
-async function lockTask(tx: Tx, ctx: GymCtx, taskId: string) {
+export async function lockTask(tx: Tx, ctx: GymCtx, taskId: string) {
   const [t] = await tx.select().from(gymTask).where(and(eq(gymTask.id, taskId), eq(gymTask.orgId, ctx.org.id))).for("update");
   if (!t || !inScope(ctx, t.locationId)) throw NOT_FOUND();
   return t;
@@ -238,12 +256,13 @@ export async function takeTask(actorId: string, orgId: string, taskId: string) {
   return db.transaction(async (tx) => {
     const t = await lockTask(tx, ctx, taskId);
     await gate(ctx, t.locationId, "tomar solicitudes", tx);
-    if (t.status !== "open" || t.assigneeUserId) {
+    if ((t.status !== "open" && t.status !== "follow_up") || t.assigneeUserId) {
       if (t.assigneeUserId === actorId) return { ref: `T-${t.number}`, already: true };
       const [who] = t.assigneeUserId ? await tx.select({ name: user.name }).from(user).where(eq(user.id, t.assigneeUserId)) : [];
       throw new AccessError("taken", who ? `${who.name} ya tomó T-${t.number}.` : `T-${t.number} ya no está en la cola.`, 409);
     }
-    await tx.update(gymTask).set({ assigneeUserId: actorId, takenAt: new Date(), takenBy: t.takenBy ?? actorId }).where(eq(gymTask.id, t.id));
+    await tx.update(gymTask).set({ assigneeUserId: actorId, takenAt: t.takenAt ?? new Date(), takenBy: t.takenBy ?? actorId }).where(eq(gymTask.id, t.id));
+    await addEvent(tx, t, { actor: actorId, kind: "taken", from: t.status, to: t.status });
     await audit(tx, { actorUserId: actorId, orgId, action: "task.taken", resourceType: "gym_task", resourceId: t.id });
     return { ref: `T-${t.number}`, already: false };
   });
@@ -251,6 +270,7 @@ export async function takeTask(actorId: string, orgId: string, taskId: string) {
 
 async function completeInTx(tx: Tx, ctx: GymCtx, t: typeof gymTask.$inferSelect, offShift: boolean, now = new Date()) {
   await tx.update(gymTask).set({ status: "done", completedAt: now, completedBy: ctx.userId, completedOffShift: offShift }).where(eq(gymTask.id, t.id));
+  await addEvent(tx, t, { actor: ctx.userId, kind: "resolved", from: t.status, to: "done" });
   await audit(tx, { actorUserId: ctx.userId, orgId: ctx.org.id, action: "task.completed", resourceType: "gym_task", resourceId: t.id, meta: { offShift } });
   return maybeInvite(tx, t, ctx.userId, now);
 }
@@ -259,7 +279,7 @@ async function completeInTx(tx: Tx, ctx: GymCtx, t: typeof gymTask.$inferSelect,
  * Interacción elegible → invitación opcional a reseñar (F-RV-01). [S] Una por tarea; si el socio recibió otra en los
  * últimos 14 días queda "suppressed" (registrada, no se muestra).
  */
-async function maybeInvite(tx: Tx, t: typeof gymTask.$inferSelect, trainerId: string, now: Date) {
+export async function maybeInvite(tx: Tx, t: typeof gymTask.$inferSelect, trainerId: string, now: Date) {
   if (!t.gymMemberId || !REVIEW_ELIGIBLE.includes(t.category as TaskCategory)) return { invite: null };
   const [m] = await tx.select({ userId: gymMember.userId, status: gymMember.status }).from(gymMember).where(eq(gymMember.id, t.gymMemberId));
   if (!m || m.status !== "active" || m.userId === trainerId) return { invite: null };
@@ -280,7 +300,7 @@ export async function completeTask(actorId: string, orgId: string, taskId: strin
       if (t.completedBy === actorId) return { ref: `T-${t.number}`, invite: null, already: true };
       throw new AccessError("closed", `T-${t.number} ya fue completada.`, 409);
     }
-    if (t.status !== "open" || t.assigneeUserId !== actorId) throw new AccessError("not_assigned", "Tomá la tarea antes de completarla.", 409);
+    if (!isWorking(t.status) || t.assigneeUserId !== actorId) throw new AccessError("not_assigned", "Tomá la tarea antes de completarla.", 409);
     const offShift = await gate(ctx, t.locationId, "completar tareas", tx);
     const r = await completeInTx(tx, ctx, t, offShift);
     return { ref: `T-${t.number}`, invite: r.invite, already: false };
@@ -295,6 +315,7 @@ export async function acceptHandoff(actorId: string, orgId: string, taskId: stri
     if (t.status !== "pending_acceptance" || t.assigneeUserId !== actorId) throw new AccessError("invalid", "Este traspaso no está pendiente para vos.", 409);
     await tx.update(gymTask).set({ status: "open" }).where(eq(gymTask.id, t.id));
     await tx.update(gymHandoffItem).set({ acceptedAt: new Date(), acceptedBy: actorId }).where(and(eq(gymHandoffItem.taskId, t.id), isNull(gymHandoffItem.acceptedAt)));
+    await addEvent(tx, t, { actor: actorId, kind: "accepted", from: t.status, to: "open" });
     await audit(tx, { actorUserId: actorId, orgId, action: "handoff.accepted", resourceType: "gym_task", resourceId: t.id });
     return { ref: `T-${t.number}` };
   });
@@ -308,7 +329,9 @@ export async function reassignTask(actorId: string, orgId: string, taskId: strin
     const t = await lockTask(tx, ctx, taskId);
     if (t.status === "done" || t.status === "cancelled") throw new AccessError("closed", "Esta tarea ya está cerrada.", 409);
     if (toUserId && !(await floorStaff(orgId, t.locationId)).some((s) => s.userId === toUserId)) throw new AccessError("invalid", "Esa persona no trabaja en la sala de esta sede.");
-    await tx.update(gymTask).set({ assigneeUserId: toUserId, status: "open", takenAt: toUserId ? new Date() : null }).where(eq(gymTask.id, t.id));
+    const status = t.status === "follow_up" ? "follow_up" : "open";
+    await tx.update(gymTask).set({ assigneeUserId: toUserId, status, takenAt: toUserId ? t.takenAt ?? new Date() : t.takenAt }).where(eq(gymTask.id, t.id));
+    await addEvent(tx, t, { actor: actorId, kind: "reassigned", from: t.status, to: status, toUserId });
     await audit(tx, { actorUserId: actorId, orgId, action: "task.reassigned", resourceType: "gym_task", resourceId: t.id, meta: { from: t.assigneeUserId, to: toUserId } });
     return { ref: `T-${t.number}` };
   });
@@ -321,11 +344,11 @@ export async function managerTasks(actorId: string, orgId: string, locationId: s
   const locs = await scopedLocations(ctx, locationId);
   const ids = locs.map((l) => l.id);
   const cond = {
-    shared: and(eq(gymTask.status, "open"), isNull(gymTask.assigneeUserId)),
-    open: and(eq(gymTask.status, "open"), sql`${gymTask.assigneeUserId} is not null`),
+    shared: and(inArray(gymTask.status, ["open", "follow_up"]), isNull(gymTask.assigneeUserId)),
+    open: and(inArray(gymTask.status, [...WORKING]), sql`${gymTask.assigneeUserId} is not null`),
     pending: eq(gymTask.status, "pending_acceptance"),
     done: and(eq(gymTask.status, "done"), gte(gymTask.completedAt, addDays(new Date(), -30))),
-    all: or(inArray(gymTask.status, ["open", "pending_acceptance"]), and(eq(gymTask.status, "done"), gte(gymTask.completedAt, addDays(new Date(), -30)))),
+    all: or(inArray(gymTask.status, [...ACTIVE]), and(eq(gymTask.status, "done"), gte(gymTask.completedAt, addDays(new Date(), -30)))),
   }[filter as "all"] ?? undefined;
   const rows = await db.select(taskCols).from(gymTask).where(and(inArray(gymTask.locationId, ids), cond)).orderBy(desc(gymTask.createdAt)).limit(200);
   const staff = locationId ? await floorStaff(orgId, locationId) : [];
@@ -340,7 +363,7 @@ export async function handoffOptions(actorId: string, orgId: string, locationId:
   const today = localDate(new Date());
   const staff = (await floorStaff(orgId, loc.id)).filter((s) => s.userId !== actorId);
   const plans = staff.length ? await db.select().from(shiftPlan).where(and(eq(shiftPlan.locationId, loc.id), inArray(shiftPlan.userId, staff.map((s) => s.userId)), gte(shiftPlan.date, today))).orderBy(asc(shiftPlan.date)) : [];
-  const mine = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), eq(gymTask.status, "open"), eq(gymTask.assigneeUserId, actorId))).orderBy(asc(gymTask.createdAt));
+  const mine = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.locationId, loc.id), inArray(gymTask.status, [...WORKING]), eq(gymTask.assigneeUserId, actorId))).orderBy(asc(gymTask.createdAt));
   const history = await db.select({ at: gymHandoff.createdAt, from: gymHandoff.fromUserId, to: gymHandoff.toUserId, n: sql<number>`(select count(*)::int from gym_handoff_item i where i.handoff_id = ${gymHandoff.id})` })
     .from(gymHandoff).where(and(eq(gymHandoff.locationId, loc.id), or(eq(gymHandoff.fromUserId, actorId), eq(gymHandoff.toUserId, actorId)))).orderBy(desc(gymHandoff.createdAt)).limit(8);
   const names = new Map([[actorId, ctx.name], ...staff.map((s) => [s.userId, s.name] as [string, string])]);
@@ -372,10 +395,13 @@ export async function closeShift(actorId: string, orgId: string, locationId: str
       handoffId = h.id;
       for (const it of p.items) {
         const t = await lockTask(tx, ctx, it.taskId);
-        if (t.status !== "open" || t.assigneeUserId !== actorId || t.locationId !== loc.id) throw new AccessError("invalid", `T-${t.number} ya no está asignada a vos.`, 409);
+        if (!isWorking(t.status) || t.assigneeUserId !== actorId || t.locationId !== loc.id) throw new AccessError("invalid", `T-${t.number} ya no está asignada a vos.`, 409);
         const summary = (it.summary ?? "").trim().slice(0, 500) || t.summary;
-        await tx.update(gymTask).set({ summary, assigneeUserId: p.toUserId, status: p.toUserId ? "pending_acceptance" : "open", takenAt: null }).where(eq(gymTask.id, t.id));
+        // Un pedido del socio conserva su texto original; lo que deja quien traspasa queda en el historial (D126).
+        const status = p.toUserId ? "pending_acceptance" : t.status === "follow_up" ? "follow_up" : "open";
+        await tx.update(gymTask).set({ ...(t.source === "app" && t.reason ? {} : { summary }), assigneeUserId: p.toUserId, status }).where(eq(gymTask.id, t.id));
         await tx.insert(gymHandoffItem).values({ handoffId: h.id, taskId: t.id, summary });
+        await addEvent(tx, t, { actor: actorId, kind: "transferred", from: t.status, to: status, toUserId: p.toUserId, note: summary });
       }
     }
     await tx.update(shiftLog).set({ endedAt: new Date() }).where(eq(shiftLog.id, s.id));
@@ -454,7 +480,7 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
   });
   const notes = await db.select({ n: gymNote, author: user.name }).from(gymNote).innerJoin(user, eq(user.id, gymNote.authorUserId))
     .where(and(eq(gymNote.gymMemberId, m.m.id), isNull(gymNote.deletedAt), or(eq(gymNote.kind, "institutional"), eq(gymNote.authorUserId, actorId)))).orderBy(desc(gymNote.createdAt));
-  const tasks = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.gymMemberId, m.m.id), inArray(gymTask.status, ["open", "pending_acceptance"]))).orderBy(asc(gymTask.createdAt));
+  const tasks = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.gymMemberId, m.m.id), inArray(gymTask.status, [...ACTIVE]))).orderBy(asc(gymTask.createdAt));
   const lastAt = sessions[0]?.endedAt ?? null;
   return {
     id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g,
@@ -554,7 +580,7 @@ export async function teamList(actorId: string, orgId: string, locationId: strin
   const uids = [...new Set(rows.map((r) => r.m.userId))];
   const active = uids.length ? await db.select().from(shiftLog).where(and(inArray(shiftLog.userId, uids), inArray(shiftLog.locationId, ids), isNull(shiftLog.endedAt))) : [];
   const open = uids.length ? await db.select({ u: gymTask.assigneeUserId, n: sql<number>`count(*)::int` }).from(gymTask)
-    .where(and(inArray(gymTask.assigneeUserId, uids), inArray(gymTask.locationId, ids), inArray(gymTask.status, ["open", "pending_acceptance"]))).groupBy(gymTask.assigneeUserId) : [];
+    .where(and(inArray(gymTask.assigneeUserId, uids), inArray(gymTask.locationId, ids), inArray(gymTask.status, [...ACTIVE]))).groupBy(gymTask.assigneeUserId) : [];
   const today = localDate(new Date());
   const plans = uids.length ? await db.select().from(shiftPlan).where(and(inArray(shiftPlan.userId, uids), inArray(shiftPlan.locationId, ids), eq(shiftPlan.date, today))) : [];
   const locName = new Map(locs.map((l) => [l.id, l.name]));
@@ -646,7 +672,7 @@ export async function createMemberTask(userId: string, p: { gymMemberId?: string
     if (!v || used.length || usedReq.length) throw new AccessError("invalid", "El video no es válido.");
   }
   if (category === "programa_nuevo") {
-    const [open] = await db.select({ id: gymTask.id }).from(gymTask).where(and(eq(gymTask.gymMemberId, r.m.id), eq(gymTask.category, "programa_nuevo"), inArray(gymTask.status, ["open", "pending_acceptance"])));
+    const [open] = await db.select({ id: gymTask.id }).from(gymTask).where(and(eq(gymTask.gymMemberId, r.m.id), eq(gymTask.category, "programa_nuevo"), inArray(gymTask.status, [...ACTIVE])));
     if (open) return { id: open.id, place: `${r.org.name} · ${r.loc.name}`, duplicate: true };
   }
   return db.transaction(async (tx) => {
@@ -655,6 +681,7 @@ export async function createMemberTask(userId: string, p: { gymMemberId?: string
       number, orgId: r.org.id, locationId: r.loc.id, gymMemberId: r.m.id, category, priority: category === "programa_nuevo" ? "alta" : "media", source: "app",
       summary: text.slice(0, 500), videoId: p.videoId ?? null, createdBy: userId,
     }).returning();
+    await addEvent(tx, t, { actor: userId, kind: "created", to: "open", note: text.slice(0, 500) });
     await audit(tx, { actorUserId: userId, orgId: r.org.id, action: "task.created", resourceType: "gym_task", resourceId: t.id, meta: { source: "app", category } });
     return { id: t.id, place: `${r.org.name} · ${r.loc.name}`, duplicate: false };
   });
@@ -665,7 +692,7 @@ export async function myGymTasks(userId: string) {
   const rels = await myGymRelations(userId);
   if (!rels.length) return [];
   const rows = await db.select({ t: gymTask, who: user.name }).from(gymTask).leftJoin(user, eq(user.id, gymTask.completedBy))
-    .where(and(inArray(gymTask.gymMemberId, rels.map((r) => r.m.id)), eq(gymTask.source, "app"))).orderBy(desc(gymTask.createdAt)).limit(20);
+    .where(and(inArray(gymTask.gymMemberId, rels.map((r) => r.m.id)), eq(gymTask.source, "app"), ne(gymTask.status, "cancelled"))).orderBy(desc(gymTask.createdAt)).limit(20);
   return rows.map((r) => ({
     id: r.t.id, category: r.t.category, label: TASK_CATEGORY[r.t.category], text: r.t.summary, createdAt: r.t.createdAt,
     status: r.t.status === "done" ? "done" : r.t.assigneeUserId ? "taken" : "open", doneBy: r.who, completedAt: r.t.completedAt, unseen: r.t.status === "done" && !r.t.seenByMemberAt,

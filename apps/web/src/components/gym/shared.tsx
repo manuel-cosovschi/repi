@@ -7,12 +7,12 @@ import { api } from "@/lib/api";
 export type GymScreen =
   | "shift" | "queue" | "members" | "handoff" | "msgs" | "perf"
   | "mdash" | "pc" | "staff" | "tasks" | "reviews" | "shifts" | "engage" | "community" | "validations"
-  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide";
+  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect";
 
-export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean };
+export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean };
 export type Task = {
   id: string; ref: string; member: string | null; gymMemberId: string | null; category: keyof typeof TASK_CATEGORY; priority: keyof typeof TASK_PRIORITY;
-  status: "open" | "pending_acceptance" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null;
+  status: "open" | "pending_acceptance" | "in_progress" | "follow_up" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null;
   assignee: { id: string; name: string } | null; completedBy: string | null; completedOffShift: boolean;
   createdAt: string; dueAt: string | null; takenAt: string | null; completedAt: string | null; overdue: boolean; handoffFrom: { name: string; at: string } | null;
 };

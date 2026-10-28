@@ -1,8 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D125), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D126), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Kit de difusión para gimnasios (D125)
+## Último bloque cerrado — 28/10/2026 · REPI Connect · seguimiento de sala (D126) — rama `repi-connect`, SIN publicar
+
+- **Hecho:** Core completo sobre la cola existente. Dominio `packages/domain/src/connect.ts` (+ tests). Servidor `apps/web/src/server/gym/connect.ts`; `gym/services.ts` exporta helpers, suma `addEvent`, estados `in_progress`/`follow_up` y eventos en la cola anterior; `metrics.ts`, `notices.ts`, `push/services.ts`, cron y `scripts/notifications.ts` (job `connectSweep`). Rutas `/api/me/gym/connect…`, `/api/gym/[orgId]/connect/…`, `/api/admin/contracts/[id]/connect`. UI: `components/member/Connect.tsx` (+ `MemberApp`, `Workout`, `FollowSheets`), `components/gym/Connect.tsx` (+ `GymApp`, guía), tarjeta en Admin, recorrido de la demo. Demo con Connect activo (`sandbox/services.ts#connectHistory`).
+- **Migración 0025** (`drizzle/0025_connect.sql`, sólo agrega + trigger de historial): aplicada en dev y `repi_test`; **NO aplicada en Supabase**.
+- **Pruebas:** dominio 118/118, web 192/192 (`tests/connect.test.ts` 11), guardas 11/11, build OK. Navegador local: socio 375 px, profesor y dueño en escritorio.
+- **Docs:** `docs/connect/` (8 documentos), FEATURE_FLAGS, IMPLEMENTATION_STATUS, RELEASE_READINESS (RC-01..08), D126.
+- **Siguiente:** con autorización del titular (el pedido prohíbe deploy público sin autorización): aplicar 0025 en Supabase (`docs/DEPLOYMENT.md` paso 2), mergear `repi-connect` a `main`, push, verificar `/api/version` y una demo en producción. Después: activar el piloto en un gimnasio desde Admin y probar en teléfonos reales.
+
+## Bloque anterior — 28/10/2026 · Kit de difusión para gimnasios (D125)
 
 - **Hecho:** `marketing/kit-gimnasios/` con `generar.mjs`, `LEEME.md` y la versión general en `salida/general/` (folleto A5 frente/dorso, 3 stickers, vinilo de vidriera, historia, post y WhatsApp; PDF para imprenta y PNG). Revisadas todas las piezas en imagen. Las versiones por sede (`--gym`, `--url`) se generan aparte y no se suben (`.gitignore`). No toca la app, sin tests nuevos.
 - **Siguiente:** el titular genera la versión de cada gimnasio con el enlace de su sede y prueba el QR impreso antes de la tirada. Pendientes externos LB-02..LB-06 y O-01..O-05.

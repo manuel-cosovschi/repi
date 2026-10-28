@@ -5,9 +5,13 @@
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { gymContext } from "./services";
+import { connectNoticeState } from "./connect";
 
 const { notificationOutbox: outbox, membershipRequest, floorAlert, gymLocation, user } = schema;
-const STAFF_KINDS = ["join_request", "join_escalation", "floor_alert"] as const;
+const ASSIST_KINDS = ["assist_new", "assist_wait", "assist_transfer", "assist_due"] as const;
+const STAFF_KINDS = ["join_request", "join_escalation", "floor_alert", ...ASSIST_KINDS] as const;
+const ASSIST_TITLE: Record<string, string> = { assist_new: "Nuevo pedido en sala", assist_wait: "Pedido esperando", assist_transfer: "Te transfirieron un seguimiento", assist_due: "Seguimiento por vencer" };
+const isAssist = (k: string) => (ASSIST_KINDS as readonly string[]).includes(k);
 const WINDOW_DAYS = 14;
 
 const REQ_STATE: Record<string, string> = { approved: "Aprobada", rejected: "Rechazada", cancelled: "Cancelada por la persona", expired: "Venció" };
@@ -16,9 +20,10 @@ export async function myStaffNotices(actorId: string, orgId: string, now = new D
   const ctx = await gymContext(actorId, orgId);
   const rows = await db.select().from(outbox).where(and(eq(outbox.userId, actorId), inArray(outbox.kind, [...STAFF_KINDS]),
     gte(outbox.createdAt, new Date(now.getTime() - WINDOW_DAYS * 86_400_000)))).orderBy(desc(outbox.createdAt)).limit(80);
-  // dedupeKey = «join:<id>:<user>», «esc:<id>:<user>» o «floor:<id>:<user>».
+  // dedupeKey = «join:<id>:<user>», «esc:<id>:<user>», «floor:<id>:<user>» o, en REPI Connect, «assist…:<tarea>:…».
   const src = (r: typeof rows[number]) => r.dedupeKey.split(":")[1] ?? "";
-  const reqIds = rows.filter((r) => r.kind !== "floor_alert").map(src), alertIds = rows.filter((r) => r.kind === "floor_alert").map(src);
+  const reqIds = rows.filter((r) => r.kind !== "floor_alert" && !isAssist(r.kind)).map(src), alertIds = rows.filter((r) => r.kind === "floor_alert").map(src);
+  const tasks = await connectNoticeState(rows.filter((r) => isAssist(r.kind)).map(src));
   const reqs = reqIds.length ? await db.select({ r: membershipRequest, loc: gymLocation.name, by: user.name }).from(membershipRequest)
     .innerJoin(gymLocation, eq(gymLocation.id, membershipRequest.locationId)).leftJoin(user, eq(user.id, membershipRequest.decidedBy))
     .where(inArray(membershipRequest.id, reqIds)) : [];
@@ -29,6 +34,18 @@ export async function myStaffNotices(actorId: string, orgId: string, now = new D
   const allowed = (orgOf: string, locationId: string) => orgOf === orgId && (ctx.locationIds == null || ctx.locationIds.includes(locationId));
   const items = [];
   for (const r of rows) {
+    if (isAssist(r.kind)) {
+      const x = tasks.get(src(r));
+      if (!x || !allowed(x.orgId, x.locationId)) continue;
+      // Resuelto = ya no espera lo que motivó el aviso: alguien lo tomó, se aceptó el traspaso o se atendió el seguimiento.
+      const waitingFor = r.kind === "assist_transfer" ? "transferida" : r.kind === "assist_due" ? "seguimiento" : "pendiente";
+      const open = x.state === waitingFor;
+      items.push({
+        id: r.id, kind: r.kind, title: `${ASSIST_TITLE[r.kind] ?? "Pedido de sala"} · ${x.loc}`, body: `${x.ref} · ${x.label}`, at: r.createdAt.toISOString(),
+        read: !!r.readAt, resolved: !open, resolution: x.stateLabel, go: { s: "queue", sel: src(r) }, locationId: x.locationId,
+      });
+      continue;
+    }
     if (r.kind === "floor_alert") {
       const x = alertById.get(src(r));
       if (!x || !allowed(x.a.orgId, x.a.locationId)) continue;

@@ -31,6 +31,16 @@ const FLOOR: GuideStep[] = [
   { t: "«Mensajes»", d: "Conversaciones con socios de tu sede. Las responde el equipo de sala; gerencia no lee los chats." },
 ];
 
+// REPI Connect (D126): sólo se muestra si el gimnasio lo tiene activo.
+const CONNECT: GuideStep[] = [
+  { t: "«Sala» → «Pendientes» → «Tomar»", d: "Los socios piden ayuda desde la app (con motivo y, si lo piden desde un ejercicio, con el ejercicio y sus series). Primero ves lo tuyo y los traspasos que te dejaron; después la cola libre, por prioridad y antigüedad." },
+  { t: "«Abrir» → «Atender ahora» → «Registrar»", d: "Contexto del ejercicio, historial del pedido y pedidos anteriores del socio. Registrá qué hiciste: queda para el resto del equipo, no para el socio." },
+  { t: "«Dejar seguimiento» o «Transferir»", d: "Qué se hizo, qué falta y el próximo paso. «Lo sigo yo» con fecha, «Para el próximo turno» (queda libre) o «Transferir» a otro profesor, que lo acepta. Nada se pierde entre turnos." },
+  { t: "«Resolver»", d: "Registro obligatorio de lo que hiciste y, si querés, un mensaje para el socio. El socio lo ve en «Mis pedidos» y puede contestar si le sirvió." },
+  { t: "Disponible u ocupado", d: "En «Sala», con el turno iniciado, indicás si estás disponible u ocupado. Es lo que declarás vos: no es ubicación." },
+  { t: "«Seguimiento de sala» (dueño, gerencia y coordinación)", d: "Pedidos, tiempos de primera atención y resolución, seguimientos, traspasos y opinión de los socios. Sólo números: no muestra el texto de los pedidos, notas, chats ni salud." },
+];
+
 const RECEPTION: GuideStep[] = [
   { t: "«Solicitudes de acceso» → «Mostrar QR de la sede»", d: "Para que el socio lo escanee en el mostrador o te pida el enlace por WhatsApp." },
   { t: "«Solicitudes de acceso»", d: "Socios que escanearon el QR. Verificá su identidad y su membresía y aprobá o rechazá con motivo." },
@@ -56,6 +66,7 @@ export function GymGuide({ shell }: { shell: Shell }) {
       {all && <GuideCard title="Primeros pasos del gimnasio"><GuideSteps items={START} /></GuideCard>}
       <GuideCard title="Quién hace qué"><GuideDefs items={ROLES} /></GuideCard>
       {floor && <GuideCard title="Entrenador de sala y coordinación"><GuideSteps items={FLOOR} /></GuideCard>}
+      {shell.ctx.connect && (floor || r.includes("owner")) && <GuideCard title="REPI Connect · seguimiento de sala"><GuideSteps items={CONNECT} /></GuideCard>}
       {desk && <GuideCard title="Recepción"><GuideSteps items={RECEPTION} /></GuideCard>}
       <GuideCard title="Socios"><GuideDefs items={MEMBERS} /></GuideCard>
       <GuideCard title="Ayuda">

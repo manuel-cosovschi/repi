@@ -25,7 +25,7 @@ export async function personMetrics(orgId: string, locationIds: string[], userId
   for (const s of shifts) out.get(s.userId)!.hours += overlapH(s.startedAt, s.endedAt, w);
   const done = await db.select().from(gymTask).where(and(inArray(gymTask.locationId, locationIds), inArray(gymTask.completedBy, userIds), gte(gymTask.completedAt, w.from), lt(gymTask.completedAt, w.to)));
   const taken = await db.select().from(gymTask).where(and(inArray(gymTask.locationId, locationIds), inArray(gymTask.takenBy, userIds), gte(gymTask.takenAt, w.from), lt(gymTask.takenAt, w.to)));
-  const open = await db.select().from(gymTask).where(and(inArray(gymTask.locationId, locationIds), inArray(gymTask.assigneeUserId, userIds), eq(gymTask.status, "open"), isNotNull(gymTask.dueAt), lt(gymTask.dueAt, now)));
+  const open = await db.select().from(gymTask).where(and(inArray(gymTask.locationId, locationIds), inArray(gymTask.assigneeUserId, userIds), inArray(gymTask.status, ["open", "in_progress", "follow_up"]), isNotNull(gymTask.dueAt), lt(gymTask.dueAt, now)));
   const followDue = await db.select().from(gymTask).where(and(inArray(gymTask.locationId, locationIds), eq(gymTask.category, "seguimiento"), isNotNull(gymTask.dueAt), gte(gymTask.dueAt, w.from), lt(gymTask.dueAt, w.to)));
   const revs = await db.select({ v: programVersion, gm: program.gymMemberId }).from(programVersion).innerJoin(program, eq(program.id, programVersion.programId))
     .innerJoin(gymMember, eq(gymMember.id, program.gymMemberId))
@@ -175,10 +175,10 @@ export async function managerPanel(actorId: string, orgId: string, locationId: s
   const onShift = await db.select({ id: shiftLog.userId, name: user.name, since: shiftLog.startedAt }).from(shiftLog).innerJoin(user, eq(user.id, shiftLog.userId))
     .where(and(inArray(shiftLog.locationId, ids), isNull(shiftLog.endedAt))).orderBy(asc(shiftLog.startedAt));
   const tasks = await db.select({ status: gymTask.status, assignee: gymTask.assigneeUserId, due: gymTask.dueAt, cat: gymTask.category }).from(gymTask)
-    .where(and(inArray(gymTask.locationId, ids), inArray(gymTask.status, ["open", "pending_acceptance"])));
+    .where(and(inArray(gymTask.locationId, ids), inArray(gymTask.status, ["open", "pending_acceptance", "in_progress", "follow_up"])));
   const [done7] = await db.select({ n: sql<number>`count(*)::int` }).from(gymTask).where(and(inArray(gymTask.locationId, ids), eq(gymTask.status, "done"), gte(gymTask.completedAt, addDays(now, -7))));
   const openTasks = onShift.length ? await db.select({ u: gymTask.assigneeUserId, n: sql<number>`count(*)::int` }).from(gymTask)
-    .where(and(inArray(gymTask.assigneeUserId, onShift.map((o) => o.id)), eq(gymTask.status, "open"))).groupBy(gymTask.assigneeUserId) : [];
+    .where(and(inArray(gymTask.assigneeUserId, onShift.map((o) => o.id)), inArray(gymTask.status, ["open", "in_progress", "follow_up"]))).groupBy(gymTask.assigneeUserId) : [];
   const revs = await db.select().from(review).where(and(inArray(review.locationId, ids), gte(review.createdAt, addDays(now, -30))));
   const agg = reviewAggregate(revs.map((r) => ({ stars: r.stars, dims: [r.dim1, r.dim2, r.dim3], status: r.status as ReviewStatus })));
   const members = await db.select({ id: gymMember.id }).from(gymMember).where(and(inArray(gymMember.locationId, ids), eq(gymMember.status, "active")));
@@ -195,14 +195,14 @@ export async function managerPanel(actorId: string, orgId: string, locationId: s
     locations: locs.map((l) => ({ id: l.id, name: l.name })),
     kpis: {
       roster: counts.roster, members: counts.members, adoption: counts.adoption,
-      onShift: onShift.length, shared: tasks.filter((t) => t.status === "open" && !t.assignee).length,
+      onShift: onShift.length, shared: tasks.filter((t) => (t.status === "open" || t.status === "follow_up") && !t.assignee).length,
       followOverdue: followAll.filter((t) => t.due && t.due < now).length, followOpen: followAll.length,
       satisfaction: agg.avg, reviews30: agg.n,
     },
     onShift: onShift.map((o) => ({ ...o, openTasks: openTasks.find((x) => x.u === o.id)?.n ?? 0 })),
     taskBars: [
-      { label: "Sin asignar", n: tasks.filter((t) => t.status === "open" && !t.assignee).length },
-      { label: "Asignadas", n: tasks.filter((t) => t.status === "open" && t.assignee).length },
+      { label: "Sin asignar", n: tasks.filter((t) => (t.status === "open" || t.status === "follow_up") && !t.assignee).length },
+      { label: "Asignadas", n: tasks.filter((t) => t.status !== "pending_acceptance" && t.assignee).length },
       { label: "Traspaso pendiente", n: tasks.filter((t) => t.status === "pending_acceptance").length },
       { label: "Completadas (7 días)", n: done7?.n ?? 0 },
     ],
@@ -249,7 +249,7 @@ export async function createProgramTasks(actorId: string, orgId: string, locatio
   if (!members.length) return { created: 0 };
   const ids = members.map((m) => m.id);
   const withProg = new Set((await db.select({ id: programAssignment.gymMemberId }).from(programAssignment).where(and(inArray(programAssignment.gymMemberId, ids), eq(programAssignment.status, "active")))).map((x) => x.id));
-  const pending = new Set((await db.select({ id: gymTask.gymMemberId }).from(gymTask).where(and(inArray(gymTask.gymMemberId, ids), eq(gymTask.category, "programa_nuevo"), inArray(gymTask.status, ["open", "pending_acceptance"])))).map((x) => x.id));
+  const pending = new Set((await db.select({ id: gymTask.gymMemberId }).from(gymTask).where(and(inArray(gymTask.gymMemberId, ids), eq(gymTask.category, "programa_nuevo"), inArray(gymTask.status, ["open", "pending_acceptance", "in_progress", "follow_up"])))).map((x) => x.id));
   const targets = ids.filter((id) => !withProg.has(id) && !pending.has(id)).slice(0, 100);
   for (const id of targets) await createTask(actorId, orgId, loc.id, { gymMemberId: id, category: "programa_nuevo", summary: "Socio sin programa vigente." });
   return { created: targets.length };

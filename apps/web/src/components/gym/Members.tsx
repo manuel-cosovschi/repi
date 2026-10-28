@@ -167,7 +167,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const [day, setDay] = useState(0);
   const [reason, setReason] = useState("");
   const [libQ, setLibQ] = useState("");
-  const related = member.tasks.find((t) => t.status === "open" && (!t.assignee || t.assignee.id) && ["programa_nuevo", "actualizar_programa", "onboarding", "tecnica"].includes(t.category));
+  const related = member.tasks.find((t) => ["open", "in_progress", "follow_up"].includes(t.status) && (!t.assignee || t.assignee.id) && ["programa_nuevo", "actualizar_programa", "onboarding", "tecnica"].includes(t.category));
   const [complete, setComplete] = useState(!!related);
   const { busy, run } = useAct(shell.flash);
   const setEx = (i: number, patch: Partial<Ex>) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.map((e, k) => k === i ? { ...e, ...patch } : e) } : x) }));

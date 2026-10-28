@@ -1,5 +1,11 @@
 # REPI — Estado de implementación
 
+## REPI Connect · seguimiento de sala (28/10/2026, D126)
+
+- **Implementado y verificado en local:** pedido del socio (Inicio y desde el ejercicio), bandeja «Sala» con tomar atómico, atender, registrar, seguimiento, transferir con aceptación, resolver y cancelar; línea de tiempo y «¿Te sirvió?» del socio; disponibilidad declarada; avisos internos y push con reglas fijas; tablero «Seguimiento de sala»; bandera por gimnasio en Admin; demo con datos sintéticos. Detalle en [connect/REPI_CONNECT_OVERVIEW.md](connect/REPI_CONNECT_OVERVIEW.md).
+- **Pruebas:** dominio 118/118, web 192/192 (11 de Connect), guardas 11/11, build OK. Navegador: socio a 375 px, profesor y dueño en escritorio.
+- **No desplegado:** falta autorización del titular para aplicar la migración 0025 en Supabase y publicar (la demo pública lo mostraría activo). Sin teléfonos reales todavía.
+
 ## Estado de lanzamiento (27/10/2026, D111) — leer primero
 
 - **Fase actual:** E — release candidata `rc-2026.10.27` congelada para beta controlada. Sólo entran correcciones de lanzamiento.

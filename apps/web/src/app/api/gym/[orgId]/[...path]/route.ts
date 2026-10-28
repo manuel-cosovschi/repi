@@ -12,6 +12,7 @@ import * as club from "@/server/community/club";
 import * as join from "@/server/join/services";
 import * as alerts from "@/server/gym/alerts";
 import * as notices from "@/server/gym/notices";
+import * as connect from "@/server/gym/connect";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -34,7 +35,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "context": {
       const ctx = await gym.gymContext(me, orgId);
       const { allowed } = await gym.scopedLocation(ctx, null);
-      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess };
+      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org) };
     }
     case "notices": return notices.myStaffNotices(me, orgId);
     case "shift": return gym.myShift(me, orgId, loc(u));
@@ -71,6 +72,12 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "join-qr": return join.showJoinQr(me, orgId);
     case "accesses": return join.listAccesses(me, orgId, u.searchParams.get("q")?.slice(0, 80) ?? "");
     case "alerts": return alerts.listAlerts(me, orgId, loc(u) ?? "");
+    // REPI Connect (D126): bandeja del profesor, detalle con contexto e indicadores agregados para gestión.
+    case "connect":
+      if (b === "board") return connect.staffBoard(me, orgId, loc(u));
+      if (b === "tasks" && c) return connect.staffTask(me, orgId, c);
+      if (b === "report") return connect.connectReport(me, orgId, loc(u), Number(u.searchParams.get("days")) || 30);
+      break;
   }
   throw NF();
 });
@@ -131,6 +138,16 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "accesses" && b && (c === "suspend" || c === "end" || c === "reactivate")) return join.setAccess(me, orgId, b, c);
   if (a === "accesses" && b && c === "report") return join.reportNotMember(me, orgId, b);
   if (a === "alerts" && b && c === "ack") return alerts.ackAlert(me, orgId, b);
+  if (a === "connect" && b === "availability") return connect.setAvailability(me, orgId, (await body(req, z.object({ availability: z.enum(["available", "busy"]) }))).availability);
+  if (a === "connect" && b === "tasks" && c) {
+    const p = await body(req, z.object({
+      action: z.enum(["take", "start", "note", "follow_up", "transfer", "accept", "decline", "resolve", "cancel"]),
+      note: z.string().max(500).nullable().optional(), memberNote: z.string().max(500).nullable().optional(), toUserId: id.nullable().optional(),
+      dueAt: z.string().max(40).nullable().optional(), done: z.string().max(200).nullable().optional(), pending: z.string().max(200).nullable().optional(),
+      next: z.string().max(200).nullable().optional(), forShift: z.boolean().optional(),
+    }));
+    return connect.staffAct(me, orgId, c, p.action, p);
+  }
   if (a === "cases" && b && c === "resolve") return rv.resolveCase(me, orgId, b, await body(req, z.object({ outcome: z.enum(["keep", "remove", "edit", "fix", "reject"]), note: z.string().max(300).nullable().optional(), fixToUserId: id.nullable().optional() })));
   throw NF();
 });

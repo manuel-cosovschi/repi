@@ -40,7 +40,7 @@ export async function pushStatus(userId: string) {
 }
 
 /** Encola avisos (idempotente por dedupeKey) y dispara el envío sin esperar: la acción del usuario nunca depende del push. */
-export async function enqueue(userIds: string[], n: { kind: "join_request" | "join_escalation" | "floor_alert" | "join_resolved"; dedupe: string; title: string; body: string; url: string }) {
+export async function enqueue(userIds: string[], n: { kind: (typeof notificationOutbox.$inferInsert)["kind"]; dedupe: string; title: string; body: string; url: string }) {
   const ids = [...new Set(userIds)];
   if (!ids.length) return 0;
   const rows = await db.insert(notificationOutbox).values(ids.map((userId) => ({ userId, kind: n.kind, title: n.title, body: n.body, url: n.url, dedupeKey: `${n.dedupe}:${userId}` })))

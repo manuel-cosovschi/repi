@@ -24,7 +24,7 @@ type Term = { id: string; kind: "quantity" | "unit_price"; version: number; valu
 type Detail = {
   contract: { id: string; orgId: string; kind: "gym" | "coach"; legalName: string | null; responsibleName: string; responsibleEmail: string; currency: Currency; scope: string; scopeNote: string | null; quantityDefinition: string | null;
     status: "draft" | "accepted" | "enabled" | "suspended" | "ended"; termsVersion: string | null; acceptedRef: string | null; acceptedAt: string | null; enabledAt: string | null; trialUntil: string | null };
-  org: { name: string; commercialStatus: string }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
+  org: { name: string; commercialStatus: string; connectEnabled?: boolean }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
   preview: { ok: boolean; reason?: string; subtotalTxt?: string; note?: string | null; period: { start: string; end: string }; changes: { kind: string; version: number; effectiveFrom: string }[];
     lines?: { concept: string; quantity: number; unitMinor: number; totalMinor: number }[]; currency?: Currency };
   invitations: { id: string; email: string | null; status: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null; expiresAt: string; createdAt: string }[];
@@ -588,6 +588,19 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           </div>
         ))}
       </section>
+
+      {c.kind === "gym" && (
+        <section className="card" aria-label="REPI Connect">
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>REPI Connect · seguimiento de sala</h2>
+            <span className={`chip ${v.org.connectEnabled ? "ok" : "mute"}`}>{v.org.connectEnabled ? "Piloto activo" : "Desactivado"}</span>
+            <button type="button" className="btn" style={{ marginLeft: "auto" }} aria-busy={busy === "connect" || undefined}
+              onClick={() => act("connect", `${base}/connect`, { on: !v.org.connectEnabled }, v.org.connectEnabled ? "REPI Connect desactivado. Los pedidos quedan guardados." : "REPI Connect activado para este gimnasio.")}>
+              {v.org.connectEnabled ? "Desactivar" : "Activar piloto"}</button>
+          </div>
+          <small className="muted">Activa «Pedir ayuda» con motivos y «Mis pedidos» en la app de los socios, la bandeja «Sala» del equipo y «Seguimiento de sala» para el dueño. Desactivarlo no borra pedidos ni toca rutinas, sesiones o cuentas: vuelve la cola de asistencia de siempre.</small>
+        </section>
+      )}
 
       <PaymentsCard id={id} flash={flash} />
 

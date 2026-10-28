@@ -10,6 +10,7 @@ import { auth } from "../auth";
 import { AccessError } from "../access/util";
 import { assignProgram, createTemplate, logSet, startSession, myTraining, getSession } from "../training/services";
 import { saveMemberProgram, startShift } from "../gym/services";
+import { memberCreate, setAvailability, staffAct } from "../gym/connect";
 import { regenerateJoinLink, requestAccess } from "../join/services";
 import { createRequest } from "../followup/services";
 import { myThreads, sendMessage } from "../messages/services";
@@ -56,6 +57,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
 
     const owner = await person("martin.sosa", "Martín Sosa");
     const floor = await person("sofia.ramirez", "Sofía Ramírez");
+    const lucas = await person("lucas.medina", "Lucas Medina"); // segundo profesor de sala: continuidad entre turnos (REPI Connect)
     const coach = await person("agustin.perez", "Agustín Pérez");
     const vale = await person("valentina.gomez", "Valentina Gómez");
     const julian = await person("julian.ortiz", "Julián Ortiz");
@@ -63,13 +65,14 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     const camila = await person("camila.ruiz", "Camila Ruiz");
 
     // ── Gimnasio ──
-    const [gym] = await db.insert(schema.organization).values({ kind: "gym", name: "Gym Norte", isDemo: true, status: "active", commercialStatus: "enabled", createdBy: owner.id }).returning();
+    const [gym] = await db.insert(schema.organization).values({ kind: "gym", name: "Gym Norte", isDemo: true, status: "active", commercialStatus: "enabled", connectEnabled: true, createdBy: owner.id }).returning();
     orgIds.push(gym.id);
     const [palermo] = await db.insert(schema.gymLocation).values({ orgId: gym.id, name: "Palermo", address: "Av. Santa Fe 3200", receptionHours: "Lun a vie 7 a 23 · sáb 9 a 14" }).returning();
     const [belgrano] = await db.insert(schema.gymLocation).values({ orgId: gym.id, name: "Belgrano", address: "Cabildo 2100" }).returning();
     await db.insert(schema.staffMembership).values([
       { userId: owner.id, orgId: gym.id, role: "owner" },
       { userId: floor.id, orgId: gym.id, locationId: palermo.id, role: "floor_trainer" },
+      { userId: lucas.id, orgId: gym.id, locationId: palermo.id, role: "floor_trainer" },
     ]);
     const members: Record<string, string> = {};
     for (const u of [vale, julian, martina]) {
@@ -91,6 +94,22 @@ export async function startDemo(role: DemoRole, now = new Date()) {
       await logSet(julian.id, sid, { id: randomUUID(), programExerciseId: s.exercises[0].id, setIndex: 0, weightKg: 60, reps: 10, rir: 2, feel: "bien" }, now);
       await logSet(julian.id, sid, { id: randomUUID(), programExerciseId: s.exercises[0].id, setIndex: 1, weightKg: 62.5, reps: 8, rir: 1, feel: "ayuda" }, now);
     }
+    // REPI Connect (D126): historial sintético de las últimas semanas (para el tablero del dueño) y casos vivos.
+    await connectHistory(gym.id, palermo.id, [members[vale.id], members[julian.id], members[martina.id]], [floor.id, lucas.id], 1100, now);
+    if (jt.state === "ready") {
+      const s = (await myTraining(julian.id, now));
+      const open = s.state === "ready" ? s.openSession : null;
+      const sess = open ? await getSession(julian.id, open, now) : null;
+      if (sess) await memberCreate(julian.id, { reason: "ejercicio", comment: "¿Me mirás la bajada? Siento que pierdo la espalda.", context: { sessionId: sess.id, programExerciseId: sess.exercises[0].id, setIndex: 1 } }, now);
+    }
+    // Lucas atendió a Martina en el turno mañana y le deja a Sofía la continuidad (traspaso por aceptar).
+    await startShift(lucas.id, gym.id, palermo.id, new Date(now.getTime() - 4 * 3_600_000));
+    const mt = await memberCreate(martina.id, { reason: "revisar_rutina", comment: "Quiero sumar un día de piernas." }, new Date(now.getTime() - 3 * 3_600_000));
+    await staffAct(lucas.id, gym.id, mt.id, "take", {}, new Date(now.getTime() - 170 * 60_000));
+    await staffAct(lucas.id, gym.id, mt.id, "start", {}, new Date(now.getTime() - 160 * 60_000));
+    await staffAct(lucas.id, gym.id, mt.id, "note", { note: "Probamos sentadilla búlgara y prensa: las tolera bien." }, new Date(now.getTime() - 150 * 60_000));
+    await staffAct(lucas.id, gym.id, mt.id, "transfer", { toUserId: floor.id, done: "Probamos búlgara y prensa", pending: "Armar el día D en su programa", next: "Cargar el día D y mostrárselo cuando venga" }, new Date(now.getTime() - 140 * 60_000));
+    await setAvailability(lucas.id, gym.id, "busy");
     // Camila escaneó el QR de Palermo y espera aprobación.
     const { slug } = await regenerateJoinLink(owner.id, gym.id, palermo.id);
     await regenerateJoinLink(owner.id, gym.id, belgrano.id);
@@ -153,6 +172,45 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.email, `${who}@${sandboxDomain(tag)}`));
   const href = role === "owner" ? `/gym/${orgIds[0]}?s=exec` : role === "floor" ? `/gym/${orgIds[0]}?s=shift` : role === "coach" ? `/coach/${orgIds[1]}?s=dash` : "/app";
   return { href, role, tag, signIn: { email: `${who}@${sandboxDomain(tag)}`, password: pw }, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000).toISOString() };
+}
+
+/**
+ * Pedidos de REPI Connect ya cerrados en las últimas semanas, con su historial, para que el tablero del dueño muestre
+ * números. Son datos sintéticos de la demo (organización is_demo): nunca se presentan como actividad de un gimnasio real.
+ */
+async function connectHistory(orgId: string, locationId: string, memberIds: string[], staff: string[], startNumber: number, now: Date) {
+  const plan: [number, string, number, number, "yes" | "no" | null, boolean][] = [
+    // [días atrás, motivo, minutos hasta tomarlo, minutos hasta resolver, opinión, hubo traspaso]
+    [1, "ejercicio", 4, 18, "yes", false], [2, "actualizar_pesos", 9, 25, null, false], [3, "revisar_rutina", 22, 1500, "yes", true], [4, "ejercicio", 6, 15, "yes", false],
+    [6, "cambiar_ejercicio", 12, 40, null, false], [8, "duda", 3, 10, "no", false], [9, "rutina_nueva", 30, 2900, "yes", true], [11, "ejercicio", 5, 20, null, false],
+    [13, "hablar", 15, 35, "yes", false], [15, "actualizar_pesos", 8, 22, null, false], [17, "revisar_rutina", 25, 1400, "yes", true], [19, "ejercicio", 7, 16, "yes", false],
+  ];
+  const cat: Record<string, "tecnica" | "actualizar_programa" | "consulta" | "programa_nuevo"> = {
+    ejercicio: "tecnica", actualizar_pesos: "actualizar_programa", revisar_rutina: "actualizar_programa", cambiar_ejercicio: "actualizar_programa", duda: "consulta", rutina_nueva: "programa_nuevo", hablar: "consulta",
+  };
+  let n = startNumber;
+  for (const [i, [ago, reason, take, solve, fb, handoff]] of plan.entries()) {
+    const created = new Date(now.getTime() - ago * 86_400_000 - (i % 3) * 3_600_000);
+    const at = (min: number) => new Date(created.getTime() + min * 60_000);
+    const a = staff[i % staff.length], b = staff[(i + 1) % staff.length];
+    const by = handoff ? b : a;
+    const [t] = await db.insert(schema.gymTask).values({
+      number: ++n, orgId, locationId, gymMemberId: memberIds[i % memberIds.length], category: cat[reason], priority: reason === "rutina_nueva" ? "alta" : "media", status: "done", source: "app",
+      summary: "Pedido de ejemplo (demo)", reason, createdBy: staff[0], createdAt: created, takenAt: at(take), takenBy: a, startedAt: at(take + 1), completedAt: at(solve), completedBy: by,
+      feedback: fb, feedbackAt: fb ? at(solve + 60) : null, seenByMemberAt: at(solve + 60),
+    }).returning();
+    const ev = (kind: (typeof schema.gymTaskEvent.$inferInsert)["kind"], actor: string | null, min: number, extra: Partial<typeof schema.gymTaskEvent.$inferInsert> = {}) =>
+      db.insert(schema.gymTaskEvent).values({ taskId: t.id, orgId, actorUserId: actor, kind, createdAt: at(min), ...extra });
+    await ev("created", null, 0, { toStatus: "open" });
+    await ev("taken", a, take, { fromStatus: "open", toStatus: "open" });
+    await ev("started", a, take + 1, { fromStatus: "open", toStatus: "in_progress" });
+    if (handoff) {
+      await ev("transferred", a, take + 20, { toUserId: b, note: "Hecho: primera revisión · Pendiente: ajustar programa (demo)" });
+      await ev("accepted", b, solve - 30, { fromStatus: "pending_acceptance", toStatus: "open" });
+    }
+    await ev("resolved", by, solve, { fromStatus: "in_progress", toStatus: "done", note: "Atención registrada (demo)" });
+    if (fb) await ev("feedback", null, solve + 60, { note: fb });
+  }
 }
 
 /**

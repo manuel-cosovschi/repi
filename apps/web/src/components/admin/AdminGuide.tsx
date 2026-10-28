@@ -35,6 +35,7 @@ const SECTIONS: { t: string; items: [string, string][] }[] = [
   ] },
   { t: "Clientes", items: [
     ["Lista", "Cada gimnasio o coach con su etapa (Borrador, Aceptado, Habilitado, Suspendido), lo acordado, el precio y los accesos. «Supera lo acordado» es un aviso para renegociar: no cobra ni bloquea."],
+    ["REPI Connect (gimnasios)", "Tarjeta «REPI Connect · seguimiento de sala» en la ficha de un gimnasio. «Activar piloto» habilita «Pedir ayuda» con motivos y «Mis pedidos» para los socios, la bandeja «Sala» del equipo y «Seguimiento de sala» para el dueño. «Desactivar» lo oculta sin borrar pedidos ni tocar rutinas o cuentas."],
     ["Editar datos y Eliminar cliente", "Arriba de la ficha. «Editar datos» corrige nombre, razón social, moneda, alcance y las fechas de aceptación y habilitación sin avisar al cliente (la moneda se traba si ya hay precios, cierres o pagos). «Eliminar cliente» pide escribir el nombre y sólo funciona si nadie creó cuenta en ese espacio y no hay pagos registrados; si ya hay personas, suspendelo."],
     ["1 · Acuerdo y habilitación", "«Registrar aceptación», «Habilitar cliente», «Guardar prueba» o «Quitar prueba» (el cliente ve el motivo) y «Suspender». Suspender corta el acceso del cliente sin borrar datos; «Rehabilitar» lo reactiva."],
     ["2 · Invitación de bienvenida", "«Enviar invitación», «Reenviar», «Revocar» y «Cambiar responsable». Muestra si el correo fue rechazado."],

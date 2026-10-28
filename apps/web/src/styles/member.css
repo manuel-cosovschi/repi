@@ -488,3 +488,23 @@
 .crs-count { font-size: 13px; color: var(--dark-muted); font-variant-numeric: tabular-nums; }
 @media (min-width: 720px) { .crs-card { flex-basis: calc(50% - 6px); } }
 
+
+/* REPI Connect del socio (D126): tarjeta de Inicio, lista, línea de tiempo y opinión. */
+.cx-safety { font-size: 12px; }
+.cx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.cx-list button { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; border-radius: 14px; padding: 12px 14px; border: 1px solid var(--dark-border); background: var(--dark-surface); color: var(--dark-ink); font: inherit; cursor: pointer; }
+.cx-list b, .cx-time b { display: block; font-size: 14px; font-weight: 600; }
+.cx-list small, .cx-time small { display: block; font-size: 12px; color: var(--dark-muted); margin-top: 2px; }
+.cx-list span:nth-child(2) { flex: 1; min-width: 0; }
+.cx-dot { width: 10px; height: 10px; border-radius: 5px; flex: none; }
+.cx-new { font-style: normal; font: 700 11px var(--font-ui); color: var(--core-navy900); background: var(--core-turquoise); border-radius: 10px; padding: 3px 8px; }
+.cx-time { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.cx-time li { display: flex; gap: 12px; align-items: flex-start; }
+.cx-time .cx-dot { margin-top: 5px; }
+.cx-time q { display: block; margin-top: 6px; font-size: 13px; color: #CBD5E1; background: var(--dark-surface); border-radius: 10px; padding: 8px 10px; quotes: none; line-height: 1.45; }
+.cx-fb { display: flex; flex-direction: column; gap: 6px; border-radius: 14px; padding: 12px 14px; background: rgba(93, 230, 216, .08); border: 1px solid rgba(93, 230, 216, .3); }
+.cx-fb small { font-size: 12px; color: var(--dark-muted); }
+.cx-fb span { display: flex; gap: 8px; margin-top: 4px; }
+.cx-comment { display: flex; flex-direction: column; gap: 8px; }
+.cx-cancel { align-self: center; color: #FCA5A5; }
+.cx-mine { align-self: center; height: 40px; }

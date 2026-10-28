@@ -69,8 +69,8 @@ export function PainSheet({ exerciseName, sessionId, onClose, flash }: { exercis
 }
 
 /** Pedir ayuda: al coach (Etapa 4) o al equipo de sala del gym (D41). Al gym sólo llega este texto, nunca los mensajes con el coach. */
-export function HelpSheet({ initialKind = "rutina", coachName, gymPlace, initialTo, onClose, flash }: {
-  initialKind?: RequestKind; coachName: string | null; gymPlace: string | null; initialTo?: "coach" | "gym"; onClose: () => void; flash: (t: string) => void;
+export function HelpSheet({ initialKind = "rutina", coachName, gymPlace, initialTo, onGym, onClose, flash }: {
+  initialKind?: RequestKind; coachName: string | null; gymPlace: string | null; initialTo?: "coach" | "gym"; onGym?: () => void; onClose: () => void; flash: (t: string) => void;
 }) {
   const [kind, setKind] = useState<RequestKind>(initialKind);
   const [to, setTo] = useState<"coach" | "gym">(initialTo ?? (coachName ? "coach" : "gym"));
@@ -104,7 +104,7 @@ export function HelpSheet({ initialKind = "rutina", coachName, gymPlace, initial
     <Sheet title="Pedir ayuda" sub={!coachName && !gymPlace ? "Todavía no tenés coach ni gym en REPI." : sub} closeLabel="Cancelar" onClose={onClose}
       groups={[
         { label: "Qué necesitás", opts: [["rutina", "Cambiar mi rutina"], ["tecnica", "Revisar mi técnica"], ["consulta", "Consulta"]], value: kind, onPick: (x) => setKind(x as RequestKind) },
-        ...(both ? [{ label: "Para", opts: [["gym", `Equipo de sala · ${gymName}`], ["coach", `${first(coachName)} · tu coach`]] as [string, string][], value: to, onPick: (x: string | number) => setTo(x as "coach" | "gym") }] : []),
+        ...(both ? [{ label: "Para", opts: [["gym", `Equipo de sala · ${gymName}`], ["coach", `${first(coachName)} · tu coach`]] as [string, string][], value: to, onPick: (x: string | number) => (x === "gym" && onGym ? onGym() : setTo(x as "coach" | "gym")) }] : []),
       ]}
       text={{ value: text, onChange: setText, placeholder: "Contá qué necesitás" }}
       video={kind === "tecnica" ? { file, onPick: setFile } : undefined}
