@@ -1,8 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D120), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D121), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Zona segura del iPhone en Admin, Coach y Gym (D120)
+## Último bloque cerrado — 28/10/2026 · Franja de la hora sin degradé (D121)
+
+- **Hecho:** `apps/web/src/styles/coach.css` pinta el fondo del documento en `--core-navy900` cuando hay un panel `.co` (Admin, Coach, Gym), así la franja de la hora del iPhone instalado coincide con la barra superior. Pruebas: web 179/179, guardas 11/11, dominio 107/107, `tsc` y build OK. Producción respondió 200 en `/`, `/acceso`, `/demo`, `/legal/*`, `/ayuda`, `/instalar`, manifest e íconos.
+- **Siguiente:** confirmación en el iPhone del titular (cerrar y reabrir la app). Pendientes externos sin cambios: LB-02..LB-06 y observaciones O-01..O-05.
+
+## Bloque anterior — 28/10/2026 · Zona segura del iPhone en Admin, Coach y Gym (D120)
 
 - **Hecho:** `apps/web/src/styles/coach.css` reserva `env(safe-area-inset-*)` en la barra superior móvil, el menú lateral, el contenido, modales y avisos. Verificado con emulación de zona segura en Chrome headless. Falta confirmarlo en el iPhone del titular (LB-03).
 - **Presentación comercial de REPI Gym:** https://claude.ai/artifact/PoWrSc3MnxWUXHZbhsZvYP (16 diapositivas, capturas de la demo local).

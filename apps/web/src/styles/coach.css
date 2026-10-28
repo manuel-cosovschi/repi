@@ -1,6 +1,9 @@
 /* REPI Coach desktop — Premium Light, fiel a handoff/.../REPI Desktop Coach.dc.html.
    Navegación: ≥1100 sidebar completa, 768–1099 rail, <768 drawer (DEC-19). */
 .co { min-height: 100dvh; display: flex; background: var(--light-page); color: var(--light-ink); }
+/* iPhone instalado: iOS pinta la franja de la hora con el fondo del documento y la funde con la barra; mismo navy que la
+   barra superior para que no quede un degradé gris arriba de todo (D121). */
+html:has(.co), body:has(.co) { background: var(--core-navy900); }
 .co-side { width: 248px; flex: none; background: var(--core-navy900); color: var(--core-white); position: sticky; top: 0; height: 100dvh;
   display: flex; flex-direction: column; gap: 18px; z-index: 40; overflow-y: auto; scrollbar-width: none;
   /* App instalada en iPhone (viewport-fit=cover, barra de estado translúcida): nada debajo de la hora ni del indicador de inicio. */
