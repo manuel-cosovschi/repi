@@ -1,8 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D119), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D120), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · 2FA optativa y «Mi cuenta» (D119)
+## Último bloque cerrado — 28/10/2026 · Zona segura del iPhone en Admin, Coach y Gym (D120)
+
+- **Hecho:** `apps/web/src/styles/coach.css` reserva `env(safe-area-inset-*)` en la barra superior móvil, el menú lateral, el contenido, modales y avisos. Verificado con emulación de zona segura en Chrome headless. Falta confirmarlo en el iPhone del titular (LB-03).
+- **Presentación comercial de REPI Gym:** https://claude.ai/artifact/PoWrSc3MnxWUXHZbhsZvYP (16 diapositivas, capturas de la demo local).
+
+## Bloque anterior — 28/10/2026 · 2FA optativa y «Mi cuenta» (D119)
 
 - **Hecho:** la verificación en dos pasos ya no se exige a nadie (`TWO_FACTOR_REQUIRED` en el dominio); `/cuenta` permite activarla o quitarla. Tests: `access.test.ts`, `gym.test.ts`, `privacy.test.ts` y el de dominio pasan a «optativa». Sin migración.
 - **Navegador local:** el dueño quitó la 2FA desde «Mi cuenta», volvió a entrar sólo con contraseña y abrió su panel; «Activar» lleva al paso de `/acceso` y «Ahora no» vuelve a «Mi cuenta».
