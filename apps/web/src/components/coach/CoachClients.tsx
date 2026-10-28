@@ -54,7 +54,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
     if (!current || (ask && !window.confirm(ask))) return;
     try {
       await api(`/api/coach/${orgId}/clients/${current.id}/status`, { body: { status } });
-      flash(status === "paused" ? `${current.name} quedó en pausa.` : status === "active" ? `${current.name} está activo de nuevo.` : `Terminaste la relación con ${current.name}.`);
+      flash(status === "paused" ? `La relación con ${current.name} quedó en pausa.` : status === "active" ? `La relación con ${current.name} volvió a estar activa.` : `Terminaste la relación con ${current.name}.`);
       onImported();
     } catch (e) { flash((e as Error).message); }
   };

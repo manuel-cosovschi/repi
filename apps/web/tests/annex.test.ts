@@ -93,6 +93,24 @@ describe("alta comercial con datos mínimos (D117)", () => {
   });
 });
 
+describe("invitaciones de equipo por sede (F-08, F-11)", () => {
+  it("un gerente invita sólo a su sede y nunca a otro gerente; ve, reenvía y revoca sólo lo suyo", async () => {
+    const w = await world();
+    expect(await code(acc.inviteGymStaff(w.manager, w.org, { email: mail(), role: "manager", locationId: w.A }))).toBe("forbidden");
+    expect(await code(acc.inviteGymStaff(w.manager, w.org, { email: mail(), role: "floor_trainer", locationId: w.B }))).toBe("forbidden");
+    expect(await code(acc.inviteGymStaff(w.manager, w.org, { email: mail(), role: "floor_trainer", locationId: null }))).toBe("forbidden");
+    const mine = await acc.inviteGymStaff(w.manager, w.org, { email: mail(), role: "reception", locationId: w.A });
+    const other = await acc.inviteGymStaff(w.owner, w.org, { email: mail(), role: "floor_trainer", locationId: w.B });
+    expect((await acc.pendingStaffInvitations(w.manager, w.org)).map((i) => i.id)).toEqual([mine.id]);
+    expect((await acc.pendingStaffInvitations(w.owner, w.org)).map((i) => i.id).sort()).toEqual([mine.id, other.id].sort());
+    expect(await acc.pendingStaffInvitations(w.tA, w.org)).toEqual([]);
+    expect(await code(acc.revokeInvitation(w.manager, other.id))).toBe("not_found");
+    expect(await code(acc.resendInvitation(w.manager, other.id))).toBe("not_found");
+    await acc.revokeInvitation(w.manager, mine.id);
+    expect(await acc.pendingStaffInvitations(w.owner, w.org)).toHaveLength(1);
+  });
+});
+
 describe("alta comercial (criterios 1–4)", () => {
   it("sin autoalta: contacto comercial; Admin crea en borrador y el cliente no opera hasta habilitarse", async () => {
     expect(await cm.createLead({ kind: "gym", orgName: "Gym Nuevo", contactName: "Ana", email: mail() })).toEqual({ ok: true });

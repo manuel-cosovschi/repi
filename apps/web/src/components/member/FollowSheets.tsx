@@ -55,7 +55,7 @@ export function PainSheet({ exerciseName, sessionId, onClose, flash }: { exercis
       ]}
       warn={(v.level ?? 0) >= PAIN_WARN_LEVEL
         ? "Si el dolor es fuerte o agudo, frená el ejercicio. REPI no hace diagnósticos: si persiste, consultá a un profesional de la salud."
-          + (p?.coach && !health?.on && !health?.restricted && !v.share ? ` Te sugerimos compartir este reporte con ${coach} para que ajuste tu programa (D37).` : "")
+          + (p?.coach && !health?.on && !health?.restricted && !v.share ? ` Te sugerimos compartir este reporte con ${coach} para que ajuste tu programa.` : "")
         : null}
       text={{ value: v.note, onChange: (x) => setV((y) => ({ ...y, note: x })), placeholder: "Contá cómo se siente (opcional)" }}
       action={{ label: "Enviar", ready, busy, onSubmit: submit }}>

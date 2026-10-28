@@ -304,7 +304,8 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
   const askProgram = async () => {
     try {
       const r = await api<{ duplicate: boolean }>(gymRel ? "/api/me/gym/requests" : "/api/me/requests", { body: { kind: "programa", text: "Quiero que me armen un programa." } });
-      flash(r.duplicate ? `Ya le pediste tu programa a ${coachFirst}.` : `Pedido enviado a ${coachFirst}.`);
+      const to = gymRel ? "al equipo de sala" : `a ${coachFirst}`; // «a el» no va (F-15)
+      flash(r.duplicate ? `Ya le pediste tu programa ${to}.` : `Pedido enviado ${to}.`);
       reloadInbox();
     } catch (e) { flash((e as Error).message); }
   };
@@ -339,7 +340,7 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
         <div className="dashed-card"><strong>Tu programa empieza el {formatDayEs(t.startsOn!)}</strong><span>{cap(coachFirst)} ya te lo asignó. Ese día lo vas a ver acá.</span></div>
       ) : (
         <div className="dashed-card"><strong>Todavía no tenés programa</strong>
-          <span>{t.relation ? (pendingProgram ? `Ya se lo pediste a ${coachFirst}. Te avisamos cuando lo asigne.` : `${cap(coachFirst)} todavía no te asignó un programa. Podés pedírselo.`) : "Todavía no tenés coach ni gym en REPI."}</span>
+          <span>{t.relation ? (pendingProgram ? `Ya se lo pediste ${gymRel ? "al equipo de sala" : `a ${coachFirst}`}. Te avisamos cuando lo asigne.` : `${cap(coachFirst)} todavía no te asignó un programa. Podés pedírselo.`) : "Todavía no tenés coach ni gym en REPI."}</span>
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
         </div>
       )}

@@ -427,7 +427,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           if (!staffInv && birthCls === "blocked") return fail("Para menores de 13 años la cuenta la crea un adulto responsable.");
           setF((x) => ({ ...x, minor: birthCls === "minor" }));
           return run(async () => {
-            await api("sign-up", { body: { flow: "invite", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: staffInv ? undefined : s("birth") } });
+            await api("sign-up", { body: { flow: "invite", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: staffInv ? undefined : s("birth"), code: invite?.code } });
             to("verify");
           })();
         } },
@@ -523,7 +523,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       const info = { ini: r.code, t: `${r.orgName} · ${r.locationName}`, d: r.kind === "expansion" ? "Ampliación a otra sede" : r.kind === "reactivation" ? "Reactivación del acceso" : "Código de tu solicitud" };
       if (r.status === "approved") return { info, title: "¡Acceso aprobado!", sub: "Ya podés entrar. Antes, elegí qué ve tu gimnasio.", cta: { label: "Continuar", go: run(async () => { await afterAuth(null); }) } };
       if (r.status === "pending") return {
-        info, title: "Tu solicitud llegó a la sede", stepLabel: "2 de 2", sub: r.message ?? "",
+        info, title: "Tu solicitud llegó a la sede", stepLabel: "", sub: r.message ?? "", // espera, no un paso: el contador no retrocede (F-13)
         list: [["✓", "Solicitud enviada", "Al equipo de sala en turno y a recepción"], ["2", "Confirman que sos socio/a", "Mostrá este código si te lo piden"], ["3", "Entrás a la app", "Con tu programa del gym"]].map(([ini, t, d]) => ({ ini, title: t, detail: d })),
         cta: { label: "Actualizar estado", go: run(async () => { const c = await refreshJoin(); if (c?.status === "pending") flash("Todavía está pendiente."); }) },
         secondary: [{ label: "Cancelar solicitud", go: run(async () => { await api(`/api/me/gym/joins/${r.id}/cancel`, { body: {} }); await refreshJoin(); }) }],

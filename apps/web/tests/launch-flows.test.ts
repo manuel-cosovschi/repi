@@ -8,6 +8,7 @@ import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
 import * as cm from "@/server/commercial/services";
+import * as fu from "@/server/followup/services";
 import * as msg from "@/server/messages/services";
 import * as tr from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
@@ -67,7 +68,10 @@ describe("circuito Coach de punta a punta", () => {
         { exerciseId: EX["Remo lanzamiento"], name: "Remo lanzamiento", sets: 3, reps: "10-12", rir: 2, restSec: 90 },
       ] },
     ] });
+    // El «Pedir mi programa» abierto se responde al asignar (F-17).
+    await fu.createRequest(alumno.id, { kind: "programa", text: "Quiero que me armen un programa." });
     await tr.assignProgram(coach, orgId, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
+    expect((await db.select().from(schema.studentRequest).where(eq(schema.studentRequest.coachClientId, rel.relationId))).map((r) => r.status)).toEqual(["done"]);
     const t = await tr.myTraining(alumno.id);
     expect(t.state).toBe("ready");
     if (t.state !== "ready") return;

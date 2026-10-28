@@ -34,7 +34,7 @@ export async function signUpPerson(input: SignUpInput) {
   if (input.birth !== undefined) {
     birthIso = parseBirthDate(input.birth);
     const cls = classifyAge(birthIso, todayIso());
-    if (cls === "invalid") throw new AccessError("invalid_birth", "Completá todos los datos (fecha como DD/MM/AAAA).");
+    if (cls === "invalid") throw new AccessError("invalid_birth", "Escribí la fecha de nacimiento como DD/MM/AAAA.");
     if (cls === "blocked") throw new AccessError("under_13", "Para menores de 13 años la cuenta la crea un adulto responsable.");
     minor = cls === "minor";
   }
@@ -117,11 +117,28 @@ async function activeRoles(userId: string, orgId: string) {
   return rows.map((r) => r.role);
 }
 
+/**
+ * Quién maneja invitaciones de equipo (F-11): el dueño, todas; un gerente, sólo para su sede y nunca de gerente
+ * (la gerencia la designa el dueño). Un gerente sin sede asignada cubre todas.
+ */
+async function staffInviteScope(actorId: string, orgId: string) {
+  const rows = await db.select({ role: staffMembership.role, locationId: staffMembership.locationId }).from(staffMembership)
+    .where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active")));
+  const owner = rows.some((r) => r.role === "owner");
+  const mgr = rows.filter((r) => r.role === "manager");
+  return {
+    any: owner || mgr.length > 0,
+    allows: (role: string | null, locationId: string | null) =>
+      owner || (role !== "manager" && mgr.some((m) => m.locationId === null || (locationId !== null && m.locationId === locationId))),
+  };
+}
+
 // ── Invitaciones ────────────────────────────────────────────────────────────
 export async function inviteGymStaff(actorId: string, orgId: string, p: { email: string; role: string; locationId?: string | null }) {
-  const roles = await activeRoles(actorId, orgId);
-  if (!roles.some((r) => r === "owner" || r === "manager")) throw new AccessError("forbidden", "No tenés permiso para invitar al equipo.", 403);
+  const scope = await staffInviteScope(actorId, orgId);
+  if (!scope.any) throw new AccessError("forbidden", "No tenés permiso para invitar al equipo.", 403);
   if (!isEmail(p.email) || !INVITABLE_GYM_ROLES.includes(p.role as GymRole)) throw new AccessError("invalid", "Escribí un email válido y elegí un rol.");
+  if (!scope.allows(p.role, p.locationId ?? null)) throw new AccessError("forbidden", p.role === "manager" ? "Sólo el dueño puede sumar gerentes." : "Sólo podés invitar al equipo de tu sede.", 403);
   if (p.locationId) {
     const [loc] = await db.select().from(gymLocation).where(and(eq(gymLocation.id, p.locationId), eq(gymLocation.orgId, orgId)));
     if (!loc) throw new AccessError("invalid", "La sede no pertenece a este gimnasio.");
@@ -174,8 +191,7 @@ export async function inviteCoachClient(actorId: string, coachOrgId: string, p: 
 export async function resendInvitation(actorId: string, invitationId: string) {
   const [inv] = await db.select().from(invitation).where(eq(invitation.id, invitationId));
   if (!inv || inv.kind === "org_owner") throw new AccessError("not_found", "Invitación inexistente.", 404);
-  const roles = await activeRoles(actorId, inv.orgId);
-  const ok = inv.kind === "coach_client" ? roles.includes("coach_owner") : roles.some((r) => r === "owner" || r === "manager");
+  const ok = inv.kind === "coach_client" ? (await activeRoles(actorId, inv.orgId)).includes("coach_owner") : (await staffInviteScope(actorId, inv.orgId)).allows(inv.role, inv.locationId);
   if (!ok) throw new AccessError("not_found", "Invitación inexistente.", 404);
   if (!inv.email) throw new AccessError("invalid", "Esta invitación no tiene destinatario: creá una nueva con el email.");
   await db.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.id, inv.id), eq(invitation.status, "pending")));
@@ -198,10 +214,20 @@ async function createInvitation(v: { kind: "coach_client" | "gym_staff"; orgId: 
 export async function revokeInvitation(actorId: string, invitationId: string) {
   const [inv] = await db.select().from(invitation).where(eq(invitation.id, invitationId));
   if (!inv) throw new AccessError("not_found", "Invitación inexistente.", 404);
-  const roles = await activeRoles(actorId, inv.orgId);
-  if (!roles.some((r) => r === "owner" || r === "manager" || r === "coach_owner")) throw new AccessError("not_found", "Invitación inexistente.", 404);
+  const ok = inv.kind === "coach_client" ? (await activeRoles(actorId, inv.orgId)).includes("coach_owner")
+    : inv.kind === "gym_staff" && (await staffInviteScope(actorId, inv.orgId)).allows(inv.role, inv.locationId);
+  if (!ok) throw new AccessError("not_found", "Invitación inexistente.", 404);
   await db.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.id, inv.id), eq(invitation.status, "pending")));
   await audit(db, { actorUserId: actorId, orgId: inv.orgId, action: "invitation.revoked", resourceType: "invitation", resourceId: inv.id });
+}
+
+/** Invitaciones de equipo pendientes que esta persona puede reenviar o revocar (F-08). */
+export async function pendingStaffInvitations(actorId: string, orgId: string) {
+  const scope = await staffInviteScope(actorId, orgId);
+  if (!scope.any) return [];
+  const rows = await db.select().from(invitation).where(and(eq(invitation.orgId, orgId), eq(invitation.kind, "gym_staff"), eq(invitation.status, "pending"), sql`${invitation.expiresAt} > now()`));
+  return rows.filter((i) => scope.allows(i.role, i.locationId))
+    .map((i) => ({ id: i.id, email: i.email, role: i.role, locationId: i.locationId, code: i.code, expiresAt: i.expiresAt, delivery: i.delivery }));
 }
 
 const INVALID_CODE = "El código no es válido, venció o ya se usó. Pedile uno nuevo a quien te invitó.";

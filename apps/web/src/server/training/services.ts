@@ -8,7 +8,7 @@ import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
-  programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution } = schema;
+  programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest } = schema;
 
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 
@@ -200,6 +200,9 @@ export async function assignProgram(actorId: string, orgId: string, programId: s
       // Hora de la app (no la de la transacción): posterior a la de la copia, así una edición se distingue de la asignación (F-CL-14).
       const [a] = await tx.insert(programAssignment).values({ coachClientId: relId, programId: copy.id, startsOn: p.startsOn, assignedBy: actorId, assignedAt: new Date() }).returning();
       await audit(tx, { actorUserId: actorId, orgId, action: "program.assigned", resourceType: "program_assignment", resourceId: a.id, meta: { source: src.id, version: version.number } });
+      // Asignar responde el «Pedir mi programa» abierto, como completar la tarea en el gym (F-17).
+      await tx.update(studentRequest).set({ status: "done", resolvedBy: actorId, resolvedAt: new Date() })
+        .where(and(eq(studentRequest.coachClientId, relId), eq(studentRequest.kind, "programa"), eq(studentRequest.status, "open")));
       names.push(rel.name);
     }
     return { names };

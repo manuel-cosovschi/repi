@@ -453,7 +453,7 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
             <button type="button" className="btn pri" aria-busy={busy === "en" || undefined} onClick={() => act("en", `${base}/enable`, { trialUntil: trial || null }, "Cliente habilitado comercialmente.")}>{c.status === "suspended" ? "Rehabilitar" : "Habilitar cliente"}</button>
           </>}
           {c.status === "enabled" && <>
-            <span style={{ fontSize: 14 }}>Habilitado {c.enabledAt ? fmt(c.enabledAt) : ""}{c.trialUntil ? ` · prueba hasta ${c.trialUntil}` : ""}</span>
+            <span style={{ fontSize: 14 }}>Habilitado {c.enabledAt ? fmt(c.enabledAt) : ""}{c.trialUntil ? ` · prueba hasta el ${c.trialUntil.split("-").reverse().join("/")}` : ""}</span>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
               <label className="field" style={{ flex: 1, minWidth: 160 }}>{c.trialUntil ? "Mover fin de prueba a" : "Conceder prueba hasta"}<input type="date" min={today()} value={trial} onChange={(e) => setTrial(e.target.value)} /></label>
               <button type="button" className="btn" aria-busy={busy === "tr" || undefined} onClick={() => { if (!trial) return flash("Elegí la fecha."); const r = window.prompt("Motivo del cambio (lo ve el cliente)"); if (r) void act("tr", `${base}/trial`, { trialUntil: trial, reason: r }, "Prueba actualizada. Se avisó al cliente."); }}>Guardar prueba</button>

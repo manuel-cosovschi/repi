@@ -37,7 +37,7 @@ export function ReviewsScreen({ shell }: { shell: Shell }) {
               <section className="card">
                 <h2>Promedio</h2>
                 <strong style={{ fontSize: 36 }}>{g.avg == null ? "—" : dec(g.avg)}</strong>
-                <span className="muted">{g.lowSample ? `Muestra insuficiente: ${g.n} reseña${g.n === 1 ? "" : "s"} (se muestra con 5 o más).` : `${g.n} reseñas verificadas.`} Sin rango de confianza hasta validar el método (D45).</span>
+                <span className="muted">{g.lowSample ? `Muestra insuficiente: ${g.n} reseña${g.n === 1 ? "" : "s"} (se muestra con 5 o más).` : `${g.n} reseñas verificadas.`} Sin rango de confianza todavía.</span>
                 {g.dist.map((d) => <HBar key={d.stars} label={`${d.stars} ★`} n={d.n} max={maxD} />)}
               </section>
               <section className="card">
@@ -149,7 +149,7 @@ export function ExecScreen({ shell }: { shell: Shell }) {
         </div>
       )}
       {e.data && <LocTable rows={e.data.locations} onOpen={() => shell.go("pc")} />}
-      <span className="muted">Ingresos y cuotas de socios no se muestran: REPI no gestiona cobros del gym a sus socios (DEC-10).</span>
+      <span className="muted">Ingresos y cuotas de socios no se muestran: REPI no gestiona cobros del gym a sus socios.</span>
     </>
   );
 }
@@ -193,7 +193,7 @@ const GYM_SEES: [boolean, string, string][] = [
   [true, "Programa institucional y notas del equipo", "Sólo el equipo de entrenamiento de la sede"],
   [true, "Reseñas del servicio", "La gerencia con nombre; el entrenador sin nombre"],
   [false, "App del socio y su coach privado", "Programas, mensajes y progreso privados"],
-  [false, "Salud, nutrición y Mi cuerpo", "Sólo con permiso explícito y para un fin concreto (D06 pendiente)"],
+  [false, "Salud, nutrición y Mi cuerpo", "Sólo con permiso explícito y para un fin concreto"],
   [false, "Cobros y cuotas de socios", "REPI no gestiona pagos del gym"],
 ];
 
@@ -227,7 +227,7 @@ export function ConfigScreen({ shell }: { shell: Shell }) {
               <input type="checkbox" checked={c.data.org.reviewResponses} onChange={(e) => toggle(e.target.checked)} />
               <span><b style={{ fontSize: 14 }}>Los entrenadores pueden responder reseñas</b><small className="muted">Una respuesta por reseña; la ven el socio y la gerencia.</small></span>
             </label>
-            <div className="trow"><span style={{ flex: 1 }}><b>Publicación externa</b><br /><small className="muted">Deshabilitada: requiere política y consentimiento del socio (DEC-08).</small></span><span className="chip mute">No disponible</span></div>
+            <div className="trow"><span style={{ flex: 1 }}><b>Publicación externa</b><br /><small className="muted">Deshabilitada: requiere política y consentimiento del socio.</small></span><span className="chip mute">No disponible</span></div>
           </section>
         </div>
       )}

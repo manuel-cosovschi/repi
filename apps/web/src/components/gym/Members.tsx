@@ -27,7 +27,7 @@ export function MembersScreen({ shell }: { shell: Shell }) {
   const [q, setQ] = useState("");
   const [qq, setQq] = useState("");
   useEffect(() => { const t = setTimeout(() => setQq(q), 250); return () => clearTimeout(t); }, [q]);
-  const list = useLoad<{ location: { name: string }; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`);
+  const list = useLoad<{ location: { name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`);
   const current = shell.sel ?? list.data?.members[0]?.id ?? null;
   return (
     <>
@@ -44,6 +44,7 @@ export function MembersScreen({ shell }: { shell: Shell }) {
             </button>
           ))}
           {list.data && !list.data.members.length && <span className="muted" style={{ padding: 20, textAlign: "center", fontSize: 14 }}>{qq ? "Sin resultados." : "Todavía no hay socios activos en REPI en esta sede."}</span>}
+          {!!list.data?.awaiting.length && <span className="muted" style={{ padding: "8px 12px", fontSize: 13 }}>Aprobados, falta que confirmen en su app qué comparten: {list.data.awaiting.join(", ")}. Aparecen acá al confirmar.</span>}
         </div>
         <div className="detail-pane">{current ? <MemberDetail key={current} shell={shell} id={current} loc={loc!} onChanged={list.reload} /> : list.data && <div className="empty">Elegí un socio.</div>}</div>
       </div>

@@ -63,6 +63,7 @@ export function TeamScreen({ shell }: { shell: Shell }) {
   const t = useLoad<Team>(`/api/gym/${shell.orgId}/team${shell.loc ? `?loc=${shell.loc}` : ""}`);
   const [q, setQ] = useState("");
   const [invite, setInvite] = useState(false);
+  const [invKey, setInvKey] = useState(0);
   const { run } = useAct(shell.flash);
   if (shell.sel) return <TrainerDetail shell={shell} id={shell.sel} onBack={() => shell.setSel(null)} backLabel={owner ? "Equipo y servicio" : "Equipo"} />;
   const list = (t.data?.staff ?? []).filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()));
@@ -93,9 +94,37 @@ export function TeamScreen({ shell }: { shell: Shell }) {
         </table>
         {t.data && !list.length && <div className="empty" style={{ margin: 16 }}>Sin personas.</div>}
       </section>
-      <span className="muted">“Fuera de turno” permite tomar y completar tareas sin turno iniciado (trabajo remoto autorizado). La política final está pendiente (D08).</span>
-      {invite && <InviteStaff shell={shell} onClose={() => { setInvite(false); t.reload(); }} />}
+      <span className="muted">“Fuera de turno” permite tomar y completar tareas sin turno iniciado (trabajo remoto autorizado).</span>
+      {t.data?.canManage && <PendingStaffInvites shell={shell} key={invKey} />}
+      {invite && <InviteStaff shell={shell} onClose={() => { setInvite(false); t.reload(); setInvKey((k) => k + 1); }} />}
     </>
+  );
+}
+
+type StaffInvite = { id: string; email: string | null; role: GymRole | null; locationId: string | null; code: string; expiresAt: string; delivery: string | null };
+
+/** Invitaciones de equipo sin aceptar (F-08): se ven, se reenvían (la anterior deja de servir) o se revocan. */
+function PendingStaffInvites({ shell }: { shell: Shell }) {
+  const l = useLoad<{ invitations: StaffInvite[] }>(`/api/access/gym/${shell.orgId}/invitations`);
+  const { busy, run } = useAct(shell.flash);
+  const list = l.data?.invitations ?? [];
+  if (!list.length) return null;
+  const locName = (id: string | null) => (id ? shell.ctx.locations.find((x) => x.id === id)?.name ?? "Otra sede" : "Todas las sedes");
+  const resend = (i: StaffInvite) => run(i.id, () => api<{ delivery?: string }>("/api/access/invitations/resend", { body: { id: i.id } }),
+    `Invitación reenviada a ${i.email}. La anterior ya no sirve.`).then(() => l.reload());
+  const revoke = (i: StaffInvite) => { if (window.confirm(`¿Revocar la invitación de ${i.email}? El código deja de servir.`)) run(i.id, () => api("/api/access/invitations/revoke", { body: { id: i.id } }), "Invitación revocada.").then(() => l.reload()); };
+  return (
+    <section className="card">
+      <h2>Invitaciones pendientes</h2>
+      {list.map((i) => (
+        <div key={i.id} className="trow" style={{ flexWrap: "wrap" }}>
+          <span style={{ flex: "1 1 200px" }}><b>{i.email}</b><br /><small className="muted">{i.role ? GYM_ROLE_LABEL[i.role] : ""} · {locName(i.locationId)} · código <span className="mono">{i.code}</span> · vence {fmt(i.expiresAt, { day: "numeric", month: "short" })}</small></span>
+          {i.delivery === "failed" && <span className="chip bad">El correo no salió</span>}
+          <button type="button" className="btn sm" aria-busy={busy === i.id || undefined} onClick={() => resend(i)}>Reenviar</button>
+          <button type="button" className="btn sm" onClick={() => revoke(i)}>Revocar</button>
+        </div>
+      ))}
+    </section>
   );
 }
 

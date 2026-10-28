@@ -419,8 +419,12 @@ export async function listMembers(actorId: string, orgId: string, locationId: st
   const progs = ids.length ? await db.select({ id: programAssignment.gymMemberId, name: programVersion.name, n: programVersion.number }).from(programAssignment)
     .innerJoin(program, eq(program.id, programAssignment.programId)).innerJoin(programVersion, eq(programVersion.id, program.currentVersionId))
     .where(and(inArray(programAssignment.gymMemberId, ids), eq(programAssignment.status, "active"))) : [];
+  // Aprobados que todavía no confirmaron en su app qué comparten (F-14): sólo el nombre, para que sala sepa que vienen.
+  const awaiting = q ? [] : await db.select({ name: user.name }).from(gymMember).innerJoin(user, eq(user.id, gymMember.userId))
+    .where(and(eq(gymMember.locationId, loc.id), eq(gymMember.status, "pending_consent"))).orderBy(asc(user.name)).limit(50);
   return {
     location: { id: loc.id, name: loc.name },
+    awaiting: awaiting.map((a) => a.name),
     members: rows.map((r) => {
       const l = last.find((x) => x.id === r.m.id);
       const lastAt = l?.at ? new Date(l.at) : null;

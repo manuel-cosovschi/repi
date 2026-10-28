@@ -8,3 +8,8 @@ export const POST = handle<{ params: Promise<{ orgId: string }> }>(async (req, {
   const inv = await svc.inviteGymStaff(await sessionUserId(), (await params).orgId, await body(req, S));
   return { id: inv.id, code: inv.code, email: inv.email, role: inv.role, status: inv.status, delivery: inv.delivery };
 });
+
+// Pendientes que la persona puede reenviar o revocar (F-08); el alcance por sede lo resuelve el servicio.
+export const GET = handle<{ params: Promise<{ orgId: string }> }>(async (_req, { params }) => ({
+  invitations: await svc.pendingStaffInvitations(await sessionUserId(), (await params).orgId),
+}));

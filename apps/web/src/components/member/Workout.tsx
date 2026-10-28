@@ -179,6 +179,9 @@ export function Workout({ sessionId, coachFirst, gym, onExit, flash }: { session
   };
   const finish = async () => {
     if (!s) return;
+    // «Finalizar» está siempre en la cabecera: terminar con series pendientes se confirma (F-06). Lo registrado queda igual.
+    const left = s.exercises.reduce((n, e, i) => n + (skippedAt(i) ? 0 : rowsOf(i).filter((r) => !r.done).length), 0);
+    if (left && anyDone && !window.confirm(`Te ${left === 1 ? "queda 1 serie" : `quedan ${left} series`} sin hacer. ¿Terminar igual? Lo que registraste queda guardado.`)) return;
     setBusy(true);
     try {
       const n = localAction(s, "finish");
@@ -487,9 +490,9 @@ function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData;
             <StepSlider label="Esfuerzo de la sesión (1 = muy fácil · 10 = máximo)" steps={RPE_STEPS} value={rpe} onChange={setRpe} ends={["1 · muy fácil", "10 · máximo"]}
               show={(v) => `${v} de 10`} collapsed={(v) => (v == null ? "Registrar esfuerzo" : `Esfuerzo ${v} de 10 · cambiar`)} />
             <textarea rows={2} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} placeholder={`Nota para ${coachFirst} (opcional)`} aria-label="Nota de la sesión" />
-            <div style={{ display: "flex", gap: 8 }}><button type="button" className="cta" style={{ height: 44, fontSize: 15, flex: 1 }} onClick={send}>Enviar a {coachFirst}</button><button type="button" className="ghost sm" style={{ height: 44 }} onClick={() => setPain(true)}>Reportar molestia</button></div>
+            <div style={{ display: "flex", gap: 8 }}><button type="button" className="cta" style={{ height: 44, fontSize: 15, flex: 1 }} onClick={send}>Enviar {coachFirst.startsWith("el ") ? `al ${coachFirst.slice(3)}` : `a ${coachFirst}`}</button><button type="button" className="ghost sm" style={{ height: 44 }} onClick={() => setPain(true)}>Reportar molestia</button></div>
           </>
-        ) : sent === "local" ? <span style={{ fontSize: 14, color: "#F59E0B" }}>Guardado en el teléfono · le llega a {coachFirst} al volver la conexión.</span>
+        ) : sent === "local" ? <span style={{ fontSize: 14, color: "#F59E0B" }}>Guardado en el teléfono · le llega {coachFirst.startsWith("el ") ? `al ${coachFirst.slice(3)}` : `a ${coachFirst}`} al volver la conexión.</span>
           : <span style={{ fontSize: 14, color: "#5DE6D8" }}>Enviado ✓ {coachFirst} lo ve en tu ficha.</span>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

@@ -46,7 +46,7 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 | ID | Requisito | Prior. | Estado | Evidencia / prueba | Bloqueantes | Validado |
 | --- | --- | --- | --- | --- | --- | --- |
 | LR-30 | Alta comercial del gym, dueño con 2FA, sedes | P0 | Verificado | `annex.test.ts` (`world()`), `access.test.ts` («gimnasio») | — | 27/10 |
-| LR-31 | Equipo: invitación por email y rol; roles por sede que no se combinan | P0 | Verificado | `access.test.ts`, `gym.test.ts` («roles distintos por sede») | — | 27/10 |
+| LR-31 | Equipo: invitación por email y rol; roles por sede que no se combinan; el gerente invita sólo en su sede | P0 | Verificado | `access.test.ts`, `gym.test.ts`, `annex.test.ts` («invitaciones de equipo por sede»); navegador 28/10: el registro desde la invitación fallaba (F-12) y se corrigió (D118) | — | 28/10 |
 | LR-32 | Socios por QR de sede con aprobación humana; bajas y reactivación | P0 | Verificado | `annex.test.ts`, `security-launch.test.ts` | — | 27/10 |
 | LR-33 | Programa institucional con motivo y revisiones; el socio entrena y registra | P0 | Verificado | `gym.test.ts` («programa institucional») | — | 27/10 |
 | LR-34 | Cola de sala, turnos y traspasos; pedidos del socio | P0 | Verificado | `gym.test.ts` («turno, cola y traspaso») | — | 27/10 |
@@ -57,7 +57,8 @@ Lo avanzado de Gym (Performance Center, reseñas, multi-sede, Club) ya existe y 
 
 ## Resultado de las pruebas de la release candidata (27/10/2026)
 
-- Web (integración, base descartable): **178/178** en 35 archivos (D117).
+- Web (integración, base descartable): **179/179** en 35 archivos (D118).
+- Simulación por roles en navegador y permisos cruzados: [AUDITORIA_2026-10-28.md](AUDITORIA_2026-10-28.md).
 - Dominio: **107/107**.
 - Guardas de base y operación: **11/11**.
 - Build de producción: OK.

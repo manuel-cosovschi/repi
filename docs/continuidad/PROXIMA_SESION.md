@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D117), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D118), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Alta de cliente mínima, íconos y correcciones de la simulación (D117)
+## Último bloque cerrado — 28/10/2026 · Auditoría por simulación de todos los roles (D118)
+
+- **Hecho:** simulación completa en dev local con cuentas nuevas por el circuito real (Admin, coach y alumna, dueño con 2FA TOTP, sala, recepción, socia por QR), pruebas de permisos entre roles y recorrido de todas las secciones a 375 px. Informe: `docs/AUDITORIA_2026-10-28.md`. Corregidos: F-12 (registro de equipo de gym roto, **crítico**), F-11 (alcance del gerente en invitaciones), F-05, F-06, F-08, F-10, F-13, F-14, F-15, F-17, F-18, F-19. Sin migración.
+- **Pruebas:** web 179/179, dominio 107/107, guardas 11/11, build OK.
+- **Observaciones abiertas para el titular:** O-01..O-05 del informe (padrón en el panel ejecutivo, «No vino el profe» para coaches online, orden de fechas de inicio, adherencia con sesiones parciales, nombre precargado del programa del gym).
+- **Siguiente:** cerrar LB-02..LB-06 con el titular; prueba en teléfonos reales (LB-03) con la lista de `docs/QA_CHECKLIST.md`.
+
+## Bloque anterior — 28/10/2026 · Alta de cliente mínima, íconos y correcciones de la simulación (D117)
 
 - **Hecho:** alta de cliente en Admin con sólo nombre visible, moneda, responsable y email obligatorios (razón social opcional; **migración 0024 aplicada en dev y Supabase**); mensajes que dicen qué falta. Íconos rehechos con `apps/web/scripts/brand-icons.ts` → `apps/web/public/icons/` (manifest, apple-touch, favicon, insignia de avisos); ruta `/pwa-icon` eliminada. Hallazgos F-01..F-04 de la simulación corregidos (fechas AR, mensaje de contraseña, lista de programas, consentimientos de módulos apagados).
 - **Pruebas:** web 178/178, dominio 107/107, guardas 11/11, build OK. Navegador local: alta del caso exacto de la captura del titular (coach, razón social «.») y «Regularizar» sin razón social; mensaje de faltantes; ícono en /instalar; programa nuevo visible en la lista.

@@ -34,9 +34,13 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   useEffect(() => { api<{ exercises: LibEx[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
   useEffect(() => {
     if (!pid) { setProg(null); setDoc(null); return; }
-    dirty.current = false; setSave({ s: "idle" });
+    dirty.current = false; setSave({ s: "idle" }); setAssign(false);
+    // Mientras carga el elegido no queda a la vista el anterior: «Asignar» usaría el programa equivocado (F-05).
+    if (prog?.id !== pid) { setProg(null); setDoc(null); }
+    let live = true; // una respuesta tardía de un programa ya dejado no pisa al actual
     // Un programa recién creado tiene que aparecer en la lista sin esperar al primer guardado (F-03).
-    api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => { setProg(p); setDoc(p.doc); setDay(0); if (listRef.current && !listRef.current.some((x) => x.id === p.id)) loadList(); }).catch((e) => { flash(e.message); setPid(null); });
+    api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => { if (!live) return; setProg(p); setDoc(p.doc); setDay(0); if (listRef.current && !listRef.current.some((x) => x.id === p.id)) loadList(); }).catch((e) => { if (!live) return; flash(e.message); setPid(null); });
+    return () => { live = false; };
   }, [orgId, pid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autoguardado con debounce; el estado visible refleja el resultado real del servidor.
@@ -129,7 +133,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             <label className="field">Indicación para el cliente<textarea className="note" rows={2} value={doc.note} maxLength={1000} onChange={(e) => edit((d) => ({ ...d, note: e.target.value }))} /></label>
           </section>
         ) : (
-          <section className="card" style={{ flex: "3 1 480px" }}><div className="empty">{list?.length ? "Elegí un programa." : "Creá tu primer programa en blanco."}</div></section>
+          <section className="card" style={{ flex: "3 1 480px" }}><div className="empty">{pid ? "Cargando programa…" : list?.length ? "Elegí un programa." : "Creá tu primer programa en blanco."}</div></section>
         )}
         <div className="side-pane" style={{ gap: 6 }}>
           <span className="lbl-up" style={{ padding: "6px 8px" }}>Biblioteca</span>
