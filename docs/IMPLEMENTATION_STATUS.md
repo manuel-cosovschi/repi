@@ -413,3 +413,7 @@ Pedido del usuario: hosting en Vercel y base en Supabase. Detalle y comandos: do
 ## Adaptive Coach · fase 1 (27/10/2026, D108)
 
 Arquitectura, fases y estado de los tests A–Q en `docs/adaptive/ADAPTIVE_COACH_ARCHITECTURE.md`. Hecho: núcleo determinístico en el dominio (autonomía 0–4, `planSolo`, `validateProposal`), `GET /api/me/solo` y la entrada «No vino el profe» / «Quiero entrenar por mi cuenta» en Entrenar. Sin IA: cada consulta queda en `audit_event` como `adaptive.solo_plan` con `usesAI:false`. Evidencia: `packages/domain/src/adaptive.test.ts`, `apps/web/tests/adaptive.test.ts`, navegador 375 px (sesión abierta → «Seguí con Piernas» → continúa). No está listo para producción como «Adaptive Coach» completo: faltan fases 1b a 6.
+
+## Adaptive Coach · fase 1b parcial: reemplazos aprobados (27/10/2026, D110)
+
+Quien arma programas en la organización (coach dueño o staff del gimnasio con `program.edit`) aprueba reemplazos por ejercicio desde el constructor («Reemplazos»), con una indicación opcional. Valen para toda la organización: en la sesión, al cambiar un ejercicio, los aprobados aparecen primero con «Aprobado por tu coach» / «Aprobado por el gimnasio». Sólo compatibles (mismo tipo de registro), hasta 8 por ejercicio, sin cargas. Tabla `exercise_substitution` (migración 0023), API `/api/substitutions/[orgId]`, auditoría `substitution.add|remove`. Evidencia: `packages/domain/src/session-changes.test.ts` (`withApproved`), `apps/web/tests/substitutions.test.ts`, navegador (constructor del coach y hoja de la sesión a 375 px).

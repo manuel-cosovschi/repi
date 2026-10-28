@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubstitute, cleanSetNote, isChangeReason, rankAlternatives } from "./session-changes";
+import { canSubstitute, cleanSetNote, isChangeReason, rankAlternatives, SUB_NOTE_MAX, cleanSubNote, withApproved } from "./session-changes";
 import { sameSetValues } from "./sync";
 
 describe("cambios en la sesión activa", () => {
@@ -27,5 +27,25 @@ describe("cambios en la sesión activa", () => {
     expect(sameSetValues({ ...base, note: "ok" }, { ...base, note: "otra" })).toBe(false);
     expect(sameSetValues({ ...base, note: "" }, { ...base, note: null })).toBe(true);
     expect(sameSetValues(base, { ...base, note: null })).toBe(true);
+  });
+});
+
+describe("withApproved", () => {
+  const ranked = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  it("pone primero las aprobadas en orden de aprobación y conserva el resto", () => {
+    const r = withApproved(ranked, [{ id: "c", note: "Si la prensa está ocupada" }, { id: "a", note: null }]);
+    expect(r.map((x) => x.id)).toEqual(["c", "a", "b", "d"]);
+    expect(r[0]).toMatchObject({ approved: true, approvedNote: "Si la prensa está ocupada" });
+    expect(r[2]).toMatchObject({ approved: false, approvedNote: null });
+  });
+  it("ignora aprobaciones que no están entre las compatibles", () => {
+    const r = withApproved(ranked, [{ id: "zz", note: null }]);
+    expect(r.map((x) => x.id)).toEqual(["a", "b", "c", "d"]);
+    expect(r.some((x) => x.approved)).toBe(false);
+  });
+  it("normaliza la nota", () => {
+    expect(cleanSubNote("  si   no hay banco  ")).toBe("si no hay banco");
+    expect(cleanSubNote("   ")).toBeNull();
+    expect(cleanSubNote("x".repeat(200))).toHaveLength(SUB_NOTE_MAX);
   });
 });

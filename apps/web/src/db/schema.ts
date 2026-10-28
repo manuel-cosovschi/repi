@@ -422,6 +422,18 @@ export const sessionExerciseChange = pgTable("session_exercise_change", {
   updatedAt: now("updated_at"),
 }, (t) => [uniqueIndex("session_exercise_change_uq").on(t.sessionId, t.programExerciseId)]);
 
+// Reemplazos aprobados por el coach o el gimnasio (Adaptive Coach 1b, EXT-05): «si X no se puede, hacé Y». Valen para
+// toda la organización y aparecen primero entre las alternativas de la sesión. No cambian programas ni cargas.
+export const exerciseSubstitution = pgTable("exercise_substitution", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  exerciseId: text("exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }),
+  substituteExerciseId: text("substitute_exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }),
+  note: text("note"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+}, (t) => [uniqueIndex("exercise_substitution_uq").on(t.orgId, t.exerciseId, t.substituteExerciseId)]);
+
 // Conflictos de sincronización: se guardan ambas versiones hasta que la persona elige (Etapa 3).
 export const syncConflict = pgTable("sync_conflict", {
   id: id(),

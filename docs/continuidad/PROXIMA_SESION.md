@@ -1,8 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, contacto, soporte, legales y tipografía (D109). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, Adaptive Coach 1b: reemplazos aprobados (D110). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Contacto, soporte, legales v2026.10 y tipografía Barlow (D109)
+## Último bloque cerrado — 27/10/2026 · Adaptive Coach 1b: reemplazos aprobados (D110)
+
+- **Hecho:** dominio `withApproved`, `cleanSubNote`, `APPROVED_SUBS_MAX` en `session-changes.ts`; tabla `exercise_substitution` (**migración 0023, aplicada en dev y Supabase con RLS**); `apps/web/src/server/training/substitutions.ts`; `GET|POST|DELETE /api/substitutions/[orgId]`; `sessionAlternatives` devuelve `approved`, `approvedNote` y `approvedBy`. UI: `components/coach/ApprovedSubs.tsx` en `ProgramBuilder.tsx` y en `EditProgramModal` de `gym/Members.tsx` (la biblioteca del gym ahora incluye `kind`); `member/ExerciseChange.tsx` marca los aprobados. Estilos `.subs-*` (coach.css) y `.xc-ok` (member.css).
+- **Pruebas:** web 168/168 (nuevo `tests/substitutions.test.ts`; `session-changes.test.ts` dejó de depender del orden de la biblioteca base), dominio 107/107, guardas 11/11, build OK. Navegador: Agustín aprueba un reemplazo en el constructor; Valentina lo ve primero en «Cambiar Sentadilla» a 375 px. En dev quedaron dos reemplazos de demo en la organización de Agustín.
+- **Para Codex:** `exercise_substitution` es configuración de la organización (se borra en cascada con ella); `created_by` pasa a NULL si se borra la cuenta del autor.
+- **Siguiente:** resto de 1b: política de autonomía por organización (nivel por defecto 1, quién aprueba) y restricciones con vigencia (EXT-06). Después fase 2.
+
+## Bloque anterior — 27/10/2026 · Contacto, soporte, legales v2026.10 y tipografía Barlow (D109)
 
 - **Hecho:** `apps/web/src/lib/contact.ts` (correo, WhatsApp, condiciones de soporte); sitio público revisado entero (`components/site/PublicSite.tsx`, `styles/site.css`): sección Soporte, contacto directo, FAQ de pago, pie con crédito Sovare e isotipo (`public/brand/sovare-isotipo.webp`); `/ayuda` con «Contacto directo»; textos legales en `app/legal/[doc]/texts.ts`; `TERMS_VERSION = "v2026.10"` (los consentimientos nuevos quedan con esa versión). Regla de tipografía Barlow definitiva en CLAUDE.md, AGENTS.md (raíz, antes sin versionar), apps/web/AGENTS.md y DESIGN_CONTRACT.md; inventario regenerado (F-BR-01). Sin migración.
 - **Decisiones del titular:** G09 resuelto (pago fuera de la app). Soporte: urgencias 24 h; a medida $ 30.000 por pedido (`docs/SOPORTE_OPERACION.md`).

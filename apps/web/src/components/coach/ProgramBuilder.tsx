@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatRest, parseRest } from "@repi/domain";
 import { api } from "@/lib/api";
+import { ApprovedSubs, subsLabel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
 import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./types";
 
@@ -20,6 +21,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const [libQ, setLibQ] = useState("");
   const [save, setSave] = useState<Save>({ s: "idle" });
   const [assign, setAssign] = useState(false);
+  const [subsFor, setSubsFor] = useState<string | null>(null); // ejercicio con el panel de reemplazos abierto
+  const { subs, setSubs } = useSubstitutions(orgId);
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -109,10 +112,14 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             </div>
             <div className="exhead" aria-hidden="true"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Descanso</span><span className="c-act" /></div>
             {cur.exercises.map((e, i) => (
-              <ExRow key={`${prog?.id}-${prog?.version}-${day}-${i}-${e.exerciseId}`} n={i} e={e}
-                onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
-                onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
-                onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
+              <div key={`${prog?.id}-${prog?.version}-${day}-${i}-${e.exerciseId}`}>
+                <ExRow n={i} e={e} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsFor === `${i}:${e.exerciseId}`}
+                  onSubs={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}
+                  onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
+                  onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
+                  onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
+                {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} />}
+              </div>
             ))}
             {!cur.exercises.length && <div className="empty">Agregá ejercicios desde la biblioteca.</div>}
             <label className="field">Indicación para el cliente<textarea className="note" rows={2} value={doc.note} maxLength={1000} onChange={(e) => edit((d) => ({ ...d, note: e.target.value }))} /></label>
@@ -141,8 +148,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
 
-function ExRow({ n, e, onChange, onMove, onRemove }: {
-  n: number; e: EditableDoc["days"][number]["exercises"][number];
+function ExRow({ n, e, subs, subsOpen, onSubs, onChange, onMove, onRemove }: {
+  n: number; e: EditableDoc["days"][number]["exercises"][number]; subs: string; subsOpen: boolean; onSubs: () => void;
   onChange: (p: Partial<EditableDoc["days"][number]["exercises"][number]>) => void; onMove: (d: 1 | -1) => void; onRemove: () => void;
 }) {
   const [rest, setRest] = useState(formatRest(e.restSec));
@@ -150,7 +157,8 @@ function ExRow({ n, e, onChange, onMove, onRemove }: {
   const restBad = parseRest(rest) == null || (parseRest(rest) ?? 0) > 900;
   return (
     <div className="exrow">
-      <span className="c-name"><code>{String(n + 1).padStart(2, "0")}</code>{e.name}</span>
+      <span className="c-name"><code>{String(n + 1).padStart(2, "0")}</code>{e.name}
+        <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button></span>
       <span className="c-s"><input type="number" min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(ev) => onChange({ sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
       <span className="c-r"><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
         onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) onChange({ reps: ev.target.value }); }} /></span>

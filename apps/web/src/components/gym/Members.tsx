@@ -1,10 +1,11 @@
 "use client";
 // Socios de la sede: lista y ficha institucional (REPI Desktop Gym.dc.html · sc.members, modal "edit").
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { TASK_CATEGORY, formatRest, mentionsHealth, parseRest, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
+import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
 import { NewTaskModal, TaskCard } from "./Floor";
 import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task } from "./shared";
 import { Ic } from "@/components/ui/Ic";
@@ -150,11 +151,13 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   );
 }
 
-type Lib = { id: string; name: string; group: string }[];
+type Lib = { id: string; name: string; group: string; kind: string }[];
 type Ex = ProgramDoc["days"][number]["exercises"][number];
 
 function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: Detail; onClose: (ok: boolean) => void }) {
   const lib = useLoad<Lib>(`/api/gym/${shell.orgId}/library`);
+  const { subs, setSubs } = useSubstitutions(shell.orgId);
+  const [subsFor, setSubsFor] = useState<string | null>(null); // ejercicio con el panel de reemplazos abierto
   const base: ProgramDoc = member.program
     ? { name: member.program.doc.name, weeks: member.program.doc.weeks, note: member.program.doc.note, days: member.program.doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, note: e.note ?? null })) })) }
     : { name: "Programa inicial", weeks: 6, note: "", days: [{ name: "Día A", exercises: [] }] };
@@ -189,14 +192,19 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       <label className="field">Nombre del día<input value={cur.name} maxLength={60} onChange={(e) => setDoc({ ...doc, days: doc.days.map((x, j) => j === day ? { ...x, name: e.target.value } : x) })} /></label>
       <div className="exhead"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Desc.</span><span className="c-act" /></div>
       {cur.exercises.map((e, i) => (
-        <div key={i} className="exrow">
-          <span className="c-name">{e.name}</span>
+        <Fragment key={i}>
+        <div className="exrow">
+          <span className="c-name">{e.name}
+            <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
+              onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button></span>
           <span className="c-s"><input aria-label={`Series de ${e.name}`} inputMode="numeric" value={e.sets} onChange={(ev) => setEx(i, { sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
           <span className="c-r"><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, { reps: ev.target.value })} /></span>
           <span className="c-rir"><input aria-label={`RIR de ${e.name}`} inputMode="numeric" value={e.rir ?? ""} onChange={(ev) => setEx(i, { rir: ev.target.value === "" ? null : Math.max(0, Math.min(5, Number(ev.target.value) || 0)) })} /></span>
           <span className="c-rest"><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
           <span className="c-act"><button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button></span>
         </div>
+        {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} />}
+        </Fragment>
       ))}
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca.</span>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

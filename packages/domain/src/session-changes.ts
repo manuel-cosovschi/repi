@@ -22,6 +22,19 @@ export function rankAlternatives<T extends { id: string; name: string; muscleGro
     .sort((a, b) => Number(b.muscleGroup === original.muscleGroup) - Number(a.muscleGroup === original.muscleGroup) || a.name.localeCompare(b.name, "es"));
 }
 
+// Reemplazos aprobados (Adaptive Coach 1b, EXT-05): el coach o el gimnasio dejan dicho «si X no se puede, hacé Y».
+export const APPROVED_SUBS_MAX = 8; // por ejercicio y organización
+export const SUB_NOTE_MAX = 120;
+export const cleanSubNote = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, SUB_NOTE_MAX) || null;
+/** Las alternativas aprobadas van primero, en el orden en que se aprobaron; el resto conserva su orden. Sólo marca las
+ * que siguen siendo compatibles (ya filtradas por `rankAlternatives`): una aprobación no habilita un ejercicio incompatible. */
+export function withApproved<T extends { id: string }>(ranked: T[], approved: { id: string; note: string | null }[]) {
+  const pos = new Map(approved.map((a, i) => [a.id, i]));
+  const note = new Map(approved.map((a) => [a.id, a.note]));
+  const rank = (x: T) => pos.get(x.id) ?? approved.length;
+  return ranked.map((x) => ({ ...x, approved: pos.has(x.id), approvedNote: note.get(x.id) ?? null })).sort((a, b) => rank(a) - rank(b));
+}
+
 export const SET_NOTE_MAX = 200;
 /** Nota de serie normalizada: sin espacios sobrantes; vacía = sin nota. */
 export const cleanSetNote = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, SET_NOTE_MAX) || null;

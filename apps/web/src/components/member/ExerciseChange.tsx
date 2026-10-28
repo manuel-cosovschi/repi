@@ -9,19 +9,20 @@ import type { ExChange, LocalEx } from "@/lib/offline/store";
 import { Sheet } from "./Sheet";
 import { kg } from "./types";
 
-type Alt = { id: string; name: string; muscleGroup: string; sameGroup: boolean; prev: LocalEx["prev"] };
+type Alt = { id: string; name: string; muscleGroup: string; sameGroup: boolean; approved: boolean; approvedNote: string | null; prev: LocalEx["prev"] };
 
 export function ExerciseChangeSheet({ sessionId, ex, unit, onApply, onPain, onClose }: {
   sessionId: string; ex: LocalEx; unit: WeightUnit; onApply: (c: ExChange | null, prev?: LocalEx["prev"]) => void; onPain: () => void; onClose: () => void;
 }) {
   const [reason, setReason] = useState<ExerciseChangeReason | null>(ex.change?.reason ?? null);
   const [alts, setAlts] = useState<Alt[] | null>(null);
+  const [by, setBy] = useState<"coach" | "gym" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const loadAlts = async () => {
     if (!reason) return setErr("Elegí el motivo primero.");
     setBusy(true); setErr(null);
-    try { setAlts((await api<{ alternatives: Alt[] }>(`/api/me/sessions/${sessionId}/exercises?pe=${ex.id}`)).alternatives); }
+    try { const r = await api<{ alternatives: Alt[]; approvedBy: "coach" | "gym" | null }>(`/api/me/sessions/${sessionId}/exercises?pe=${ex.id}`); setAlts(r.alternatives); setBy(r.approvedBy); }
     catch { setErr("Para ver alternativas necesitás conexión. Sin red podés saltarlo y seguir."); }
     finally { setBusy(false); }
   };
@@ -50,6 +51,7 @@ export function ExerciseChangeSheet({ sessionId, ex, unit, onApply, onPain, onCl
             <li key={a.id}>
               <button type="button" onClick={() => pick({ kind: "substitute", reason: reason!, substitute: { exerciseId: a.id, name: a.name } }, a.prev)}>
                 <strong>{a.name}</strong>
+                {a.approved && <small className="xc-ok">{by === "gym" ? "Aprobado por el gimnasio" : "Aprobado por tu coach"}{a.approvedNote ? ` · ${a.approvedNote}` : ""}</small>}
                 <small>{a.muscleGroup}{a.sameGroup ? " · mismo grupo" : ""} · {a.prev ? `última vez ${kg(a.prev.weightKg, unit)} × ${a.prev.reps ?? "—"}` : "sin registro previo"}</small>
               </button>
             </li>

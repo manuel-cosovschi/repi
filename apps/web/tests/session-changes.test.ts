@@ -60,7 +60,10 @@ describe("cambios en la sesión activa", () => {
     const { user, sid, squat, plank, dayId } = await session();
     await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: squat.id, setIndex: 0, weightKg: 60, reps: 8, rir: 2 });
     const alt = await tr.sessionAlternatives(user, sid, squat.id);
-    expect(alt.alternatives[0]).toMatchObject({ id: EX["Prensa"], sameGroup: true });
+    expect(alt.alternatives.find((x) => x.id === EX["Prensa"])).toMatchObject({ sameGroup: true });
+    // Mismo grupo primero (otros archivos de prueba pueden sumar ejercicios a la biblioteca base).
+    const firstOther = alt.alternatives.findIndex((x) => !x.sameGroup);
+    expect(firstOther === -1 || alt.alternatives.slice(firstOther).every((x) => !x.sameGroup)).toBe(true);
     expect(alt.alternatives.some((x) => x.id === EX["Plancha"] || x.id === EX["Sentadilla"])).toBe(false);
     await expect(tr.setExerciseChange(user, sid, { programExerciseId: squat.id, change: { kind: "substitute", reason: "busy", exerciseId: EX["Plancha"] } })).rejects.toMatchObject({ code: "invalid" });
     const c = await tr.setExerciseChange(user, sid, { programExerciseId: squat.id, change: { kind: "substitute", reason: "busy", exerciseId: EX["Prensa"] } });

@@ -534,7 +534,7 @@ export async function addNote(actorId: string, orgId: string, gymMemberId: strin
 export async function gymLibrary(actorId: string, orgId: string) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
-  return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup }).from(schema.exercise)
+  return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup, kind: schema.exercise.kind }).from(schema.exercise)
     .where(or(isNull(schema.exercise.orgId), eq(schema.exercise.orgId, orgId))).orderBy(asc(schema.exercise.name));
 }
 
