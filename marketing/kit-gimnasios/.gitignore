@@ -1,0 +1,4 @@
+# Versiones por gimnasio: se regeneran con generar.mjs cuando hacen falta.
+salida/*
+!salida/general/
+!salida/contacto.jpg

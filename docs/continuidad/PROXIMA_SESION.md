@@ -1,8 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D124), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D125), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Corregir y eliminar clientes en Admin (D124)
+## Último bloque cerrado — 28/10/2026 · Kit de difusión para gimnasios (D125)
+
+- **Hecho:** `marketing/kit-gimnasios/` con `generar.mjs`, `LEEME.md` y la versión general en `salida/general/` (folleto A5 frente/dorso, 3 stickers, vinilo de vidriera, historia, post y WhatsApp; PDF para imprenta y PNG). Revisadas todas las piezas en imagen. Las versiones por sede (`--gym`, `--url`) se generan aparte y no se suben (`.gitignore`). No toca la app, sin tests nuevos.
+- **Siguiente:** el titular genera la versión de cada gimnasio con el enlace de su sede y prueba el QR impreso antes de la tirada. Pendientes externos LB-02..LB-06 y O-01..O-05.
+
+## Bloque anterior — 28/10/2026 · Corregir y eliminar clientes en Admin (D124)
 
 - **Hecho:** «Editar datos» y «Eliminar cliente» en la ficha de Admin (`AdminApp.tsx`, `updateClient`/`deleteClient`, rutas `update`/`delete`). Tests web 181/181, guardas 11/11, `tsc` y build OK. Probado en local: alta de «Gym Cargado Mal», corrección de nombre y moneda, eliminación con el nombre exacto. Sin migración.
 - **Siguiente:** pendientes externos LB-02..LB-06 y observaciones O-01..O-05.
