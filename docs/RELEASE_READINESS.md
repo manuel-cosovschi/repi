@@ -25,7 +25,7 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 | LR-11 | Salud sólo con consentimiento por tipo de dato y revocación inmediata | P0 | Verificado | `access.test.ts` («menores»), `followup.test.ts`, F-PR-05 | — | Privacidad | 27/10 |
 | LR-12 | Condiciones comerciales por cliente (cantidad y tarifa acordadas, versionadas, sin importes fijos en código), avisos de cambios, suspensión corta el acceso sin borrar | P0 | Verificado | `condition-notices.test.ts`, `payments.test.ts`, LF-04 | — | Comercial | 27/10 |
 | LR-13 | Cobro a REPI: manual y fuera de la app, registrado por Admin; nada se presenta como automático | P0 | Verificado | D102, D109 (G09 resuelto), `payments.test.ts` | — | Comercial | 27/10 |
-| LR-14 | Correos reales (verificación, recuperación, invitaciones) por Resend; **ningún código ni enlace personal copiado al buzón que lee Admin** | P0 | Corregido hoy | `mailer.test.ts` («DEMO con Resend: no deja copia»), D111 | LB-01 (1 copia vieja en producción) | Operación | 27/10 |
+| LR-14 | Correos reales (verificación, recuperación, invitaciones) por Resend; **ningún código ni enlace personal copiado al buzón que lee Admin** | P0 | Verificado | `mailer.test.ts` («DEMO con Resend: no deja copia»), D111; copia vieja borrada en producción (LB-01 cerrado) | — | Operación | 27/10 |
 | LR-15 | Módulos incompletos ocultos (Nutrición, Mi cuerpo, video de ejercicio) con interruptores | P0 | Corregido hoy | `tests/features.test.ts`, [FEATURE_FLAGS.md](FEATURE_FLAGS.md) | — | Producto | 27/10 |
 | LR-16 | Rate limiting en ingreso, códigos, invitaciones, contacto y escritura | P0 | Verificado | `ratelimit.test.ts` | — | Seguridad | 27/10 |
 | LR-17 | Exportar mis datos y pedir eliminación con procedimiento | P0 | Verificado | `privacy.test.ts`, `docs/PRIVACIDAD_OPERACION.md` | Eliminación la ejecuta Admin (manual) | Privacidad | 27/10 |
@@ -36,7 +36,7 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 | LR-22 | Contacto y soporte publicados (24 h urgencias, $ 30.000 a medida) | P1 | Verificado | D109, https://repiclub.com/#soporte | — | Soporte | 27/10 |
 | LR-23 | Registro de errores: logs estructurados en Vercel y auditoría de denegados | P1 | Parcial | `src/server/log.ts`, `denied.test.ts` | LB-06 sin alertas | Operación | 27/10 |
 | LR-24 | Primer REPI Admin con 2FA en producción | P0 | Verificado | Consulta a Supabase 27/10: 1 Admin real con 2FA (sin datos personales) | — | Operación | 27/10 |
-| LR-25 | Modo de despliegue: quitar `REPI_DEPLOY=demo` antes de clientes reales | P1 | Externo | Tras D111 sólo controla la visibilidad de `/dev/mailbox` | LB-07 | Operación | — |
+| LR-25 | Modo de despliegue productivo (sin `REPI_DEPLOY=demo`) | P1 | Verificado | Variable eliminada de Vercel 27/10; `/dev/mailbox` → 404 | — | Operación | — |
 
 ## Gym (puede salir en la misma beta; no bloquea Coach)
 

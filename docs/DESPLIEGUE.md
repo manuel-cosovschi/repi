@@ -1,6 +1,6 @@
-# REPI — Despliegue hospedado (DEMO)
+# REPI — Despliegue hospedado
 
-Actualizado: 27/10/2026. Decisión: docs/DECISIONS.md D68. **Es un entorno DEMO**: sólo datos `is_demo`, sin proveedor de email (D24), sin clientes reales ni cobros. No es el lanzamiento productivo (gates G01–G12 en docs/continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md).
+Actualizado: 27/10/2026. **Modo productivo desde el 27/10 (D112): `REPI_DEPLOY` eliminada; `/dev/mailbox` responde 404.** Historia: D68 lo creó como entorno DEMO: sólo datos `is_demo`, sin proveedor de email (D24), sin clientes reales ni cobros. No es el lanzamiento productivo (gates G01–G12 en docs/continuidad/PLAN_LANZAMIENTO_Y_ROADMAP.md).
 
 ## Dónde está
 
@@ -16,7 +16,7 @@ Actualizado: 27/10/2026. Decisión: docs/DECISIONS.md D68. **Es un entorno DEMO*
 
 ## Variables de entorno en Vercel (production; sólo nombres)
 
-`DATABASE_URL` (pooler 6543), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `ROSTER_HMAC_SECRET`, `CRON_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` (= URL de la app), `REPI_DEPLOY=demo`, `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`.
+`DATABASE_URL` (pooler 6543), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `ROSTER_HMAC_SECRET`, `CRON_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` (= URL de la app), `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`.
 
 **Ya no hace falta** (D83: proxy `repi-storage`). Antes faltaba `SUPABASE_SECRET_KEY` (clave secreta `sb_secret_…` del proyecto): sin ella las subidas de video/imagen fallan con error explícito. Cargarla: Supabase → Project Settings → API Keys → Secret key, y `vercel env add SUPABASE_SECRET_KEY production` + redeploy. No se pudo obtener por las herramientas disponibles sin el login del titular.
 
@@ -32,7 +32,7 @@ Estado 27/10: **activo**. `RESEND_API_KEY` cargada por el titular; repiclub.com 
 
 1. Crear cuenta en Resend (u otro proveedor; Resend ya tiene adaptador) y verificar el dominio remitente (registros SPF/DKIM).
 2. En Vercel: `MAIL_DRIVER=resend`, `RESEND_API_KEY`, `MAIL_FROM` (p. ej. `REPI <hola@dominio>`), opcional `MAIL_REPLY_TO`; redeploy.
-3. Probar alta, verificación, recuperación e invitación con un email propio antes de quitar `REPI_DEPLOY=demo`.
+3. Hecho: `REPI_DEPLOY=demo` eliminada el 27/10 (D112).
 
 ## Seguridad de la base
 
@@ -52,7 +52,7 @@ DATABASE_URL="…sesión…" NEXT_PUBLIC_APP_URL=https://repiclub.com npx tsx sc
 DATABASE_URL="…sesión…" APP_URL=https://repi-app.vercel.app CRON_SECRET=… npx tsx scripts/schedule-cron.ts
 ```
 
-Correos: en `REPI_DEPLOY=demo` además quedan en `/dev/mailbox`, visible sólo para REPI Admin.
+Correos: van sólo por Resend. `/dev/mailbox` existe sólo en local y con `REPI_DEPLOY=demo` (hoy 404 en producción).
 
 Cuentas del seed (`@demo.repi.app`): **fuera de uso en el entorno hospedado (D87)**. El 27/10 se les quitó contraseña, rol Admin y sesiones en Supabase, y Better Auth rechaza sus sesiones en cualquier despliegue. Para mostrar REPI usar la demo guiada (`/demo`, D85). REPI Admin: la cuenta personal del titular activada con `scripts/first-admin.ts` (D87).
 

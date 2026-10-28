@@ -22,5 +22,5 @@ Actualizado: 27/10/2026 (D111). ✓ hecho y verificado · ◐ parcial · ✗ pen
 | Contacto de soporte | ✓ | Sitio, /ayuda, legales (D109); procedimiento en `SOPORTE_OPERACION.md` |
 | Exportar / eliminar datos | ✓ | Autoservicio de exportación y pedido de eliminación; ejecución manual por Admin (`PRIVACIDAD_OPERACION.md`) |
 | Módulos incompletos ocultos | ✓ | [FEATURE_FLAGS.md](FEATURE_FLAGS.md) |
-| Modo productivo explícito | ✗ | Quitar `REPI_DEPLOY=demo` (LB-07) |
+| Modo productivo explícito | ✓ | `REPI_DEPLOY` eliminada de Vercel (27/10) |
 | Datos ficticios | ✓ | La demo guiada (`/demo`) usa datos `is_demo` aislados y rotulados; no se mezcla con clientes |

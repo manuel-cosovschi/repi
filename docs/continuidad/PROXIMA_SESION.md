@@ -7,7 +7,8 @@ Actualizado: 27/10/2026, release candidata rc-2026.10.27 (D111). Leer primero do
 - **Directiva vigente:** «LAUNCH FIRST» (chat 27/10): terminar, probar y lanzar; P2/experimental no antes del MVP. Fase actual E (release candidata congelada: sólo correcciones de lanzamiento).
 - **Hecho:** `apps/web/src/lib/features.ts` + `tests/features.test.ts`; gating en `CoachClients.tsx` (Nutrición, Mi cuerpo), `Workout.tsx` (video), `MemberApp.tsx` (Solo), `Gym.tsx` (Club), `ProgramBuilder.tsx` y `gym/Members.tsx` (Reemplazos). `server/mailer.ts` sin copias al buzón con proveedor (+ `mailer.test.ts`). `tests/launch-flows.test.ts` (LF-01..LF-04). Documentos nuevos en `docs/`: MVP_SCOPE, RELEASE_READINESS, LAUNCH_BLOCKERS, QA_CHECKLIST, PRODUCTION_CHECKLIST, DEPLOYMENT, ROLLBACK_PLAN, FEATURE_FLAGS, POST_LAUNCH_ROADMAP; resumen al inicio de IMPLEMENTATION_STATUS.md. Sin migración.
 - **Pruebas:** web 172/172, dominio 107/107, guardas 11/11, build OK. Respaldo de producción + restauración en `repi_restore_check` OK (87 tablas, 148 filas). Producción: 1 Admin con 2FA; 1 copia de correo real en `dev_mailbox` (LB-01, no se leyó).
-- **Pendiente del titular:** LB-01 (autorizar borrar esa copia), LB-02 (Vercel Pro y Supabase Pro), LB-03 (teléfonos reales), LB-04 (abogado y datos de empresa), LB-05 (frecuencia de respaldo), LB-06 (alertas), LB-07 (quitar `REPI_DEPLOY=demo`).
+- **D112 (autorizado):** copia borrada (0 en `dev_mailbox`) y `REPI_DEPLOY` eliminada de Vercel; producción en modo productivo.
+- **Pendiente del titular:** LB-02 (Vercel Pro y Supabase Pro), LB-03 (teléfonos reales), LB-04 (abogado y datos de empresa), LB-05 (frecuencia de respaldo), LB-06 (alertas).
 - **Siguiente:** cerrar los LB autorizados; después Adaptive Coach 1b restante detrás de su interruptor.
 
 ## Bloque anterior — 27/10/2026 · Adaptive Coach 1b: reemplazos aprobados (D110)
