@@ -96,11 +96,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         {plat}
         {platform === "other" && <PhoneQr />}
         {platform === "ios" && (
-          <ol className="ig-steps">
-            <Li i={Export} t="Tocá Compartir" d="El cuadrado con la flecha hacia arriba: abajo en Safari o junto a la dirección en otros navegadores." />
-            <Li i={PlusSquare} t="Elegí «Agregar a inicio»" d="Si no la ves, deslizá la lista hacia arriba o tocá «Ver más»." />
-            <Li i={CheckCircle} t="Tocá «Agregar»" d="Si aparece «Abrir como app web», dejala activada." />
-          </ol>
+          <IosSteps />
         )}
         {platform === "android" && (bip || outcome ? (
           <>
@@ -109,11 +105,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
             {outcome === "dismissed" && <p className="ac-note" role="status">No pasa nada: podés agregarla después desde el menú del navegador.</p>}
           </>
         ) : (
-          <ol className="ig-steps">
-            <Li i={DotsThreeVertical} t="Abrí el menú del navegador" d="Los tres puntos, arriba a la derecha en Chrome." />
-            <Li i={PlusSquare} t="Tocá «Agregar a la pantalla principal» o «Instalar app»" d="El nombre cambia según el navegador y la versión." />
-            <Li i={CheckCircle} t="Confirmá con «Agregar» o «Instalar»" d="El ícono de REPI aparece en tu pantalla de inicio." />
-          </ol>
+          <AndroidSteps />
         ))}
         {platform !== "other" && <button type="button" className="ac-cta" onClick={() => { if (help) markGuide("added"); setStep(2); }}>{help ? "Ya lo agregué" : "Siguiente"}</button>}
         {help && <button type="button" className="ac-sec" onClick={() => setStep(2)}>¿Cómo entro después?</button>}
@@ -176,6 +168,74 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
       {body}
       {copied && <div aria-live="polite" className="sr-only">{copied === "code" ? "Código copiado" : "Enlace copiado"}</div>}
     </div>
+  );
+}
+
+function IosSteps() {
+  return (
+    <ol className="ig-steps">
+      <Li i={Export} t="Tocá Compartir" d="El cuadrado con la flecha hacia arriba: abajo en Safari o junto a la dirección en otros navegadores." />
+      <Li i={PlusSquare} t="Elegí «Agregar a inicio»" d="Si no la ves, deslizá la lista hacia arriba o tocá «Ver más»." />
+      <Li i={CheckCircle} t="Tocá «Agregar»" d="Si aparece «Abrir como app web», dejala activada." />
+    </ol>
+  );
+}
+
+function AndroidSteps() {
+  return (
+    <ol className="ig-steps">
+      <Li i={DotsThreeVertical} t="Abrí el menú del navegador" d="Los tres puntos, arriba a la derecha en Chrome." />
+      <Li i={PlusSquare} t="Tocá «Agregar a la pantalla principal» o «Instalar app»" d="El nombre cambia según el navegador y la versión." />
+      <Li i={CheckCircle} t="Confirmá con «Agregar» o «Instalar»" d="El ícono de REPI aparece en tu pantalla de inicio." />
+    </ol>
+  );
+}
+
+/** Pasos para agregar a inicio dentro de otra pantalla (D123): después del registro desde una invitación, el QR de una
+ *  sede o la bienvenida de un espacio. No se muestra con REPI ya abierto desde el ícono. En la computadora ofrece el QR
+ *  para seguir en el teléfono. Igual que la guía: el único botón que instala es el evento real del navegador. */
+export function InstallSteps() {
+  const [env, setEnv] = useState<Env | null>(null);
+  const [platform, setPlatform] = useState<Platform>("ios");
+  const [bip, setBip] = useState<InstallEvent | null>(null);
+  const [outcome, setOutcome] = useState<"accepted" | "dismissed" | null>(null);
+  useEffect(() => {
+    const e = detectEnv();
+    setEnv(e);
+    setPlatform(e.platform);
+    setBip(installEvent());
+    const on = () => setBip(installEvent());
+    window.addEventListener("repi:bip", on);
+    return () => window.removeEventListener("repi:bip", on);
+  }, []);
+  if (!env || env.standalone) return null;
+  const install = async () => {
+    if (!bip) return;
+    await bip.prompt();
+    const r = await bip.userChoice;
+    forgetInstallEvent();
+    setBip(null);
+    setOutcome(r.outcome);
+    if (r.outcome === "accepted") markGuide("added");
+  };
+  return (
+    <section className="ig-box" aria-labelledby="ig-box-t">
+      <div className="ig-box-head">
+        <img className="ig-box-icon" src="/icons/tile-256.png" width={44} height={44} alt="" />
+        <span><strong id="ig-box-t">Agregá REPI a tu pantalla de inicio</strong><small>Entrás con un toque desde el ícono, a pantalla completa. No se descarga nada de una tienda.</small></span>
+      </div>
+      {env.inApp && <p className="ac-note">Estás en el navegador de otra app, que no permite agregar a inicio. Tocá el menú (⋯ o ⋮) y elegí «Abrir en el navegador».</p>}
+      <div className="ig-plat" role="group" aria-label="Tu teléfono">
+        {([["ios", "iPhone o iPad"], ["android", "Android"], ...(env.platform === "other" ? [["other", "Computadora"]] as const : [])] as const).map(([p, t]) => (
+          <button key={p} type="button" aria-pressed={platform === p} onClick={() => setPlatform(p)}>{t}</button>
+        ))}
+      </div>
+      {platform === "other" && <PhoneQr />}
+      {platform === "ios" && <IosSteps />}
+      {platform === "android" && (bip ? <button type="button" className="ac-cta" onClick={install}>Agregar Repi a inicio</button> : <AndroidSteps />)}
+      {outcome === "accepted" && <p className="ac-note" role="status">Tu teléfono está agregando REPI. Cuando aparezca el ícono, abrilo desde ahí.</p>}
+      {outcome === "dismissed" && <p className="ac-note" role="status">No pasa nada: podés agregarla después desde el menú del navegador.</p>}
+    </section>
   );
 }
 

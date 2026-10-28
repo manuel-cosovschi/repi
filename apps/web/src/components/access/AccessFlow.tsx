@@ -13,7 +13,7 @@ import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { api, ApiError } from "@/lib/api";
 import { Wordmark } from "./Wordmark";
-import { InstallGuide } from "./InstallGuide";
+import { InstallGuide, InstallSteps } from "./InstallGuide";
 import { clearEntry, entryHref, parseEntryInput, readEntry, saveEntry, type Entry } from "@/lib/entry";
 import { detectEnv, guideDone } from "@/lib/platform";
 import { Ic } from "@/components/ui/Ic";
@@ -24,7 +24,7 @@ const IC = { coach: Barbell, gym: Storefront, invite: EnvelopeSimple, member: Qr
 type Step =
   | "login" | "choose" | "coach1" | "gym1" | "leadDone" | "verify"
   | "code" | "invite" | "inv1" | "tutor" | "tutorWait" | "consent" | "member1" | "join" | "joinAcct" | "joinStatus"
-  | "activate" | "actAcct" | "consentGym" | "appDone" | "rec1" | "rec2" | "rec3" | "twofa" | "twofaSetup" | "workspace" | "recover" | "pendingInv";
+  | "activate" | "actAcct" | "consentGym" | "appDone" | "rec1" | "rec2" | "rec3" | "twofa" | "twofaSetup" | "workspace" | "recover" | "pendingInv" | "ready";
 type Flow = "login" | "coach" | "gym" | "invite" | "member" | "join" | "activate";
 type Fields = Record<string, string | boolean | number | undefined>;
 type Invite = { code: string; kind: "coach_client" | "gym_staff"; orgName: string; orgInitials: string; detail: string; inviter: string | null };
@@ -71,6 +71,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const [backupMode, setBackupMode] = useState(false);
   // Anexo PWA: guía antes del alta/login en el teléfono y contexto de entrada recuperable al abrir desde el ícono.
   const [guide, setGuide] = useState(false);
+  const [readyHref, setReadyHref] = useState<string | null>(null);
   const [resume, setResume] = useState<Entry | null>(null);
   const entry = initial.join ? { k: "join" as const, v: initial.join } : initial.code ? { k: "code" as const, v: normalizeCode(initial.code) }
     : initial.activate ? { k: "activate" as const, v: initial.activate } : null;
@@ -217,7 +218,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const pwHintField = (label = "Contraseña"): FieldV => ({ k: "pw", label, type: "password", ac: "new-password", hint: passwordHint(s("pw")), hintOk: passwordOk(s("pw")) });
   async function requestJoin() {
     const r = await api<{ state: "already" | "pending" | "created"; href?: string; request?: JoinReq }>(`/api/join/${initial.join}`, { body: { name: s("name") || undefined, terms: true } });
-    if (r.state === "already") { clearEntry(); window.location.href = r.href ?? "/app"; return; }
+    if (r.state === "already") { clearEntry(); enter(r.href ?? "/app"); return; }
     setJoinReq(r.request ?? null); setHist([]); setStep("joinStatus"); setErr(null);
   }
   async function refreshJoin() {
@@ -232,7 +233,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     const m = await loadMe();
     const w = m.workspaces.find((x) => x.href === r.href);
     if (w) return goWorkspace(w);
-    window.location.href = r.href;
+    enter(r.href);
   }
   const leadView = (kind: "coach" | "gym"): View => {
     const ready = s("gname").trim().length >= 2 && s("name").trim().length >= 2 && isEmail(s("email"));
@@ -263,9 +264,15 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     if ((r.data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) { to("twofa"); return; }
     await afterAuth();
   };
+  // Al terminar un alta que vino de un enlace (invitación, QR de sede, bienvenida), antes de entrar se muestran los pasos
+  // para agregar REPI a inicio (D123). Con la app abierta desde el ícono, o sin enlace de entrada, se entra directo.
+  const enter = (href: string) => {
+    if (entry && !detectEnv().standalone) { setReadyHref(href); setHist([]); setStep("ready"); return; }
+    window.location.href = href;
+  };
   const goWorkspace = (w: Workspace) => {
     if (w.needs2fa) { setNext(w.href); to("twofaSetup"); flash("Este espacio exige verificación en dos pasos."); return; }
-    window.location.href = w.href;
+    enter(w.href);
   };
   const socialGo = (provider: "google" | "apple" | "magic") => run(async () => {
     if (provider === "magic") {
@@ -528,6 +535,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         cta: { label: "Actualizar estado", go: run(async () => { const c = await refreshJoin(); if (c?.status === "pending") flash("Todavía está pendiente."); }) },
         secondary: [{ label: "Cancelar solicitud", go: run(async () => { await api(`/api/me/gym/joins/${r.id}/cancel`, { body: {} }); await refreshJoin(); }) }],
         note: "La solicitud vence a las 24 horas. Este código no prueba que seas socio/a: lo confirma una persona del equipo.",
+        extra: <InstallSteps />,
       };
       return {
         info, title: r.status === "rejected" ? "No pudimos aprobar tu acceso" : r.status === "expired" ? "La solicitud venció" : "Solicitud cancelada",
@@ -580,7 +588,12 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         toFresh("appDone");
       }) },
     }),
-    appDone: () => ({ title: "¡Listo!", sub: "Tu cuenta está creada. Abrí la app para ver tu programa.", cta: { label: "Abrir la app", go: () => { window.location.href = "/app"; } } }),
+    appDone: () => ({ title: "¡Listo!", sub: "Tu cuenta está creada. Abrí la app para ver tu programa.", extra: <InstallSteps />, cta: { label: "Abrir la app", go: () => { window.location.href = "/app"; } } }),
+    ready: () => ({
+      title: "¡Tu cuenta está lista!", sub: "Antes de entrar, agregá REPI a tu pantalla de inicio: la próxima vez entrás con un toque desde el ícono.",
+      extra: <InstallSteps />,
+      cta: { label: "Entrar a REPI", go: () => { window.location.href = readyHref ?? "/acceso?step=workspace"; } },
+    }),
     rec1: () => ({
       title: "Recuperá tu contraseña", sub: "Te mandamos un código al email de tu cuenta.",
       fields: [{ k: "email", label: "Email", mode: "email", ac: "email" }],

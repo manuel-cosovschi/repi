@@ -154,6 +154,11 @@ button.ac-row:hover { border-color: var(--core-cyan); }
 .ig-steps strong { display: block; font-size: 16px; font-weight: 600; }
 .ig-steps small { display: block; font-size: 13px; line-height: 1.45; color: var(--t-muted); margin-top: 3px; }
 .ig-num { width: 44px; height: 44px; border-radius: 12px; background: var(--t-chip); display: grid; place-items: center; flex: none; }
+.ig-box { display: flex; flex-direction: column; gap: 16px; background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 18px; padding: 18px 16px; }
+.ig-box-head { display: flex; gap: 12px; align-items: flex-start; }
+.ig-box-head strong { display: block; font-size: 16px; font-weight: 600; }
+.ig-box-head small { display: block; font-size: 13px; line-height: 1.45; color: var(--t-muted); margin-top: 3px; }
+.ig-box-icon { width: 44px; height: 44px; border-radius: 11px; flex: none; }
 .ig-code { display: flex; gap: 12px; align-items: center; background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 16px; padding: 14px 16px; }
 .ig-code > span { flex: 1; min-width: 0; }
 .ig-code small { display: block; font-size: 12px; color: var(--t-muted); }
