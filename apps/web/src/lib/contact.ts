@@ -1,5 +1,8 @@
 // Contacto público de REPI y condiciones de soporte, confirmados por el titular el 27/10/2026 (D109). Una sola fuente
 // para el sitio, Ayuda y las páginas legales: cambiar acá cambia en todos lados.
+/** Dirección pública canónica: la usan los carteles impresos, que no pueden depender del entorno donde se generan. */
+export const SITE = { url: "https://repiclub.com", install: "https://repiclub.com/instalar" } as const;
+
 export const CONTACT = {
   email: "sovare.studio@gmail.com",
   phoneLabel: "223 538-3082",

@@ -215,3 +215,7 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 .ag dt { font-weight: 600; color: var(--light-ink); }
 .ag dd { margin: 0; color: var(--light-ink-2); }
 @media (max-width: 640px) { .ag dl > div { grid-template-columns: 1fr; } }
+.ag-dl { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.ag-dl li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; }
+.ag-dl .btn { min-width: 220px; justify-content: center; }
+.ag p { margin: 0; font-size: 14px; line-height: 1.5; }

@@ -26,8 +26,8 @@ export async function requireCoach(actorId: string, orgId: string) {
 export async function requireClientOf(orgId: string, coachClientId: string, tx: Tx | typeof db = db) {
   const [rel] = await tx.select({ rel: coachClient, name: user.name, userId: user.id }).from(coachClient)
     .innerJoin(user, eq(user.id, coachClient.userId))
-    .where(and(eq(coachClient.id, coachClientId), eq(coachClient.coachOrgId, orgId)));
-  if (!rel) throw NOT_FOUND();
+    .where(and(eq(coachClient.id, coachClientId), eq(coachClient.coachOrgId, orgId), ne(coachClient.status, "ended")));
+  if (!rel) throw NOT_FOUND(); // una relación terminada no deja leer nada nuevo del alumno
   const [g] = await tx.select({ id: consentGrant.id }).from(consentGrant)
     .where(and(eq(consentGrant.relationId, coachClientId), eq(consentGrant.item, "training"), eq(consentGrant.status, "active")));
   if (!g) throw new AccessError("no_grant", "Este cliente todavía no aceptó compartir sus entrenamientos.", 403);
@@ -334,6 +334,28 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
       };
     }),
   };
+}
+
+/**
+ * Pausar, reactivar o terminar la relación con un alumno (MVP Coach, D115). Pausar le saca el programa al alumno hasta
+ * reactivar (el chat sigue); terminar cierra el programa asignado, revoca lo que había compartido y deja el chat de sólo
+ * lectura. Nada borra el historial del alumno. Para volver después de terminar, el coach lo invita de nuevo.
+ */
+export async function setClientStatus(actorId: string, orgId: string, coachClientId: string, status: "active" | "paused" | "ended") {
+  await requireCoach(actorId, orgId);
+  return db.transaction(async (tx) => {
+    const [rel] = await tx.select().from(coachClient).where(and(eq(coachClient.id, coachClientId), eq(coachClient.coachOrgId, orgId))).for("update");
+    if (!rel) throw NOT_FOUND();
+    if (rel.status === "ended") throw new AccessError("ended", "Esta relación ya terminó. Para volver a entrenarlo, invitalo de nuevo.", 409);
+    if (rel.status === status) return { status };
+    await tx.update(coachClient).set({ status }).where(eq(coachClient.id, rel.id));
+    if (status === "ended") {
+      await tx.update(programAssignment).set({ status: "ended", endedAt: new Date() }).where(and(eq(programAssignment.coachClientId, rel.id), eq(programAssignment.status, "active")));
+      await tx.update(consentGrant).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(consentGrant.relationId, rel.id), eq(consentGrant.status, "active")));
+    }
+    await audit(tx, { actorUserId: actorId, orgId, action: `coach_client.${status}`, resourceType: "coach_client", resourceId: rel.id });
+    return { status };
+  });
 }
 
 // ── Alumno ──────────────────────────────────────────────────────────────────

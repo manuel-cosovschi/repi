@@ -21,6 +21,7 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 | LR-07 | Historial del alumno y progreso básico | P0 | Verificado | LF-01 (`myHistory`), `goals.test.ts`, `report.test.ts` | — | Progreso | 27/10 |
 | LR-08 | El coach ve sesiones, series, volumen, cambios y notas; ajusta el programa hacia adelante sin tocar lo registrado | P0 | Verificado | LF-01, `training.test.ts` («editar el programa… no reescribe») | — | Seguimiento | 27/10 |
 | LR-09 | Mensajes privados coach ↔ alumno con no leídos; sólo participantes | P0 | Verificado | `gym.test.ts` («mensajería»), LF-01 | Push en teléfono real: LB-03 | Comunicación | 27/10 |
+| LR-26 | El coach pausa, reactiva o termina la relación con un alumno; terminar revoca lo compartido y conserva el historial | P0 | Verificado | `launch-flows.test.ts` LF-05 (D115) | — | Seguimiento | 27/10 |
 | LR-10 | Aislamiento: otro coach no ve clientes, programas, sesiones ni chats; organización equivocada = 404 | P0 | Verificado | LF-01, `training.test.ts`, `access.test.ts`, `denied.test.ts` | — | Seguridad | 27/10 |
 | LR-11 | Salud sólo con consentimiento por tipo de dato y revocación inmediata | P0 | Verificado | `access.test.ts` («menores»), `followup.test.ts`, F-PR-05 | — | Privacidad | 27/10 |
 | LR-12 | Condiciones comerciales por cliente (cantidad y tarifa acordadas, versionadas, sin importes fijos en código), avisos de cambios, suspensión corta el acceso sin borrar | P0 | Verificado | `condition-notices.test.ts`, `payments.test.ts`, LF-04 | — | Comercial | 27/10 |
@@ -54,7 +55,7 @@ Lo avanzado de Gym (Performance Center, reseñas, multi-sede, Club) ya existe y 
 
 ## Resultado de las pruebas de la release candidata (27/10/2026)
 
-- Web (integración, base descartable): **172/172** en 35 archivos.
+- Web (integración, base descartable): **173/173** en 35 archivos (D115).
 - Dominio: **107/107**.
 - Guardas de base y operación: **11/11**.
 - Build de producción: OK.

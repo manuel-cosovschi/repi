@@ -2,11 +2,7 @@
 // Guía de uso de REPI Admin (D114): cómo dar de alta un gimnasio o un coach y qué hace cada sección. Texto estático; los
 // nombres de botones y secciones tienen que coincidir con AdminApp, GymApp y CoachApp. Si cambia un rótulo, cambiar acá.
 import { Head } from "@/components/gym/shared";
-
-type Step = { t: string; d: string };
-const Steps = ({ items }: { items: Step[] }) => (
-  <ol className="ag-steps">{items.map((s) => <li key={s.t}><b>{s.t}</b><span>{s.d}</span></li>)}</ol>
-);
+import { GuideCard, GuideDefs, GuideSteps as Steps, type GuideStep as Step } from "@/components/ui/Guide";
 
 const BEFORE: Step[] = [
   { t: "Acordá con el cliente fuera de la app", d: "Cantidad de socios o alumnos, precio por unidad, moneda, si hay prueba sin cargo y cómo te paga. REPI no cobra: el pago lo gestionás vos." },
@@ -72,39 +68,47 @@ const FAQ: [string, string][] = [
   ["Mostrar REPI sin crear nada", "La demo guiada en repiclub.com/demo usa datos de ejemplo aislados."],
 ];
 
+// Quién invita a quién (D115). Nadie recibe una contraseña: cada persona crea la suya con el email invitado.
+const ACCESS: [string, string][] = [
+  ["Coach", "Lo invitás vos desde Admin (ficha → «Enviar invitación»). Le llega un email de bienvenida y activa su espacio con ese email."],
+  ["Dueño del gimnasio", "Igual que el coach: lo invitás vos desde Admin. Además configura la verificación en dos pasos, obligatoria para dueños."],
+  ["Gerente", "Lo invita el dueño desde su panel: «Equipo» → «Invitar al equipo», rol Gerente."],
+  ["Coordinador, entrenador de sala, recepción", "Los invita el dueño o un gerente desde «Equipo» → «Invitar al equipo», con rol y sede. Les llega un email con enlace y código."],
+  ["Alumno de un coach", "Lo invita el coach desde «Clientes» → «Invitar cliente» (o «Importar CSV»). Le llega un email con enlace y código; crea su cuenta con ese email y elige qué compartir."],
+  ["Socio de un gimnasio", "No se invita por email: escanea el QR de su sede (el dueño o gerente lo genera en «Accesos y QR» y lo pone en recepción), crea su cuenta y pide acceso. Lo aprueba recepción, gerencia, el dueño o un entrenador de sala con turno activo en «Solicitudes de acceso»."],
+  ["Si ya tiene cuenta", "Entra con su cuenta de siempre y acepta la invitación nueva: una misma persona puede ser alumno de un coach y socio de un gimnasio, o trabajar en un gimnasio y entrenar con un coach."],
+];
+
+const DOWNLOADS: [string, string, string][] = [
+  ["Cartel A4 para imprimir (PDF)", "/marketing/repi-cartel-instalar.pdf", "Para recepción o el vestuario. Lleva el QR y los pasos de iPhone y Android."],
+  ["Cartel en imagen (PNG)", "/marketing/repi-cartel-instalar.png", "Para mandar por WhatsApp o publicar."],
+  ["QR solo (PNG)", "/marketing/repi-qr-instalar.png", "Para sumar a un diseño propio del gimnasio o del coach."],
+  ["QR solo (SVG)", "/marketing/repi-qr-instalar.svg", "Vectorial, para imprenta."],
+];
+
 export function AdminGuide() {
   return (
     <>
       <Head kicker="Cómo vender, dar de alta y operar REPI desde Admin" title="Guía" />
-      <section className="card ag">
-        <h2>Antes de dar de alta</h2>
-        <Steps items={BEFORE} />
-      </section>
-      <section className="card ag">
-        <h2>Dar de alta un gimnasio</h2>
-        <Steps items={GYM} />
-      </section>
-      <section className="card ag">
-        <h2>Dar de alta un coach</h2>
-        <Steps items={COACH} />
-      </section>
-      <section className="card ag">
-        <h2>Qué hace cada sección de Admin</h2>
-        {SECTIONS.map((s) => (
-          <div key={s.t} className="ag-sec">
-            <h3>{s.t}</h3>
-            <dl>{s.items.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-          </div>
-        ))}
-      </section>
-      <section className="card ag">
-        <h2>Situaciones comunes</h2>
-        <dl>{FAQ.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-      </section>
-      <section className="card ag">
-        <h2>Lo que REPI no hace (todavía)</h2>
+      <GuideCard title="Antes de dar de alta"><Steps items={BEFORE} /></GuideCard>
+      <GuideCard title="Dar de alta un gimnasio"><Steps items={GYM} /></GuideCard>
+      <GuideCard title="Dar de alta un coach"><Steps items={COACH} /></GuideCard>
+      <GuideCard title="Cómo entra cada persona">
+        <p className="muted">Nadie recibe usuario y contraseña por email: cada persona crea la suya con el email al que la invitaron. Al gimnasio y al coach los invitás vos; ellos invitan a su gente.</p>
+        <GuideDefs items={ACCESS} />
+      </GuideCard>
+      <GuideCard title="Cómo se descarga la app">
+        <p className="muted">REPI no está en App Store ni Google Play: se agrega a la pantalla de inicio desde el navegador y queda como una app. Hay un solo QR para todos (alumnos, socios, coaches y equipo) que abre repiclub.com/instalar con los pasos de cada teléfono. El QR de cada sede del gimnasio es otro: sirve para que el socio pida acceso, y también le muestra estos pasos.</p>
+        <ul className="ag-dl">{DOWNLOADS.map(([t, href, d]) => <li key={href}><a className="btn sm" href={href} download>{t}</a><span className="muted">{d}</span></li>)}</ul>
+        <p className="muted">El cartel también se puede abrir e imprimir desde <a href="/instalar/cartel" target="_blank" rel="noreferrer">repiclub.com/instalar/cartel</a>.</p>
+      </GuideCard>
+      <GuideCard title="Qué hace cada sección de Admin">
+        {SECTIONS.map((x) => <div key={x.t} className="ag-sec"><h3>{x.t}</h3><GuideDefs items={x.items} /></div>)}
+      </GuideCard>
+      <GuideCard title="Situaciones comunes"><GuideDefs items={FAQ} /></GuideCard>
+      <GuideCard title="Lo que REPI no hace (todavía)">
         <p className="muted">No cobra ni emite facturas: el cobro lo gestionás vos y lo registrás en «Pagos externos». No crea gimnasios ni coaches por su cuenta: siempre pasan por esta pantalla. No da acceso a chats privados ni a datos de salud por ser Admin o dueño.</p>
-      </section>
+      </GuideCard>
     </>
   );
 }

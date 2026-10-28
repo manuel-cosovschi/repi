@@ -57,7 +57,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
     if (r.outcome === "accepted") markGuide("added");
   };
 
-  const total = help ? 2 : 3;
+  const total = 3;
   const label = `${step + 1} de ${total}`;
   const plat = (
     <div className="ig-plat" role="group" aria-label="Tu teléfono">
@@ -74,7 +74,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         <div className="ac-head">
           <img className="ig-icon" src="/brand/repi_icon.png" width={72} height={72} alt="" />
           <h1 ref={head} tabIndex={-1}>{help ? "Cómo agregar Repi a inicio" : "Agregá Repi a tu pantalla de inicio"}</h1>
-          <p className="ac-sub">Entrás con un toque desde el ícono, a pantalla completa, como una app.{help ? "" : " Después seguís con tu alta."}</p>
+          <p className="ac-sub">Entrás con un toque desde el ícono, a pantalla completa, como una app.{help ? " Sirve para alumnos, socios, coaches y equipos de gimnasio: no hace falta descargar nada de una tienda." : " Después seguís con tu alta."}</p>
         </div>
         {context && <div className="ac-info"><span className="ac-ini" aria-hidden="true">{initials(context.title)}</span><span><strong>{context.title}</strong>{context.detail && <small>{context.detail}</small>}</span></div>}
         {env?.inApp && <p className="ac-note">Estás en el navegador de otra app, que no permite agregar a inicio. Abrí este enlace en Safari o Chrome: tocá el menú (⋯ o ⋮) y elegí «Abrir en el navegador».</p>}
@@ -115,9 +115,28 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
             <Li i={CheckCircle} t="Confirmá con «Agregar» o «Instalar»" d="El ícono de REPI aparece en tu pantalla de inicio." />
           </ol>
         ))}
-        {platform !== "other" && <button type="button" className="ac-cta" onClick={() => { if (help) { markGuide("added"); setAdded(true); } else setStep(2); }}>{help ? "Ya lo agregué" : "Siguiente"}</button>}
-        {help && added && <p className="ac-note" role="status">Listo. Abrí REPI desde tu pantalla de inicio cuando quieras.</p>}
-        {help && <button type="button" className="ac-sec" onClick={onContinue}>Volver</button>}
+        {platform !== "other" && <button type="button" className="ac-cta" onClick={() => { if (help) markGuide("added"); setStep(2); }}>{help ? "Ya lo agregué" : "Siguiente"}</button>}
+        {help && <button type="button" className="ac-sec" onClick={() => setStep(2)}>¿Cómo entro después?</button>}
+      </>
+    );
+  } else if (help) {
+    // Ayuda posterior: cómo entra cada persona al abrir el ícono. Nadie recibe una contraseña por email: cada una crea la
+    // suya con el email al que la invitaron (o, en un gimnasio, pidiendo acceso con el QR de su sede).
+    body = (
+      <>
+        <div className="ac-head">
+          <h1 ref={head} tabIndex={-1}>Al abrir REPI desde el ícono</h1>
+          <p className="ac-sub">Si ya tenés cuenta, tocá «Ingresar». Si es tu primera vez, depende de quién sos:</p>
+        </div>
+        <ol className="ig-steps ig-who">
+          <Who t="Alumno de un coach" d="Tu coach te invita con tu email. Abrí el correo de REPI o tocá «Tengo un código», creá tu cuenta con ese mismo email y listo." />
+          <Who t="Socio de un gimnasio" d="Escaneá el QR de tu sede (está en recepción), creá tu cuenta y pedí acceso. El equipo del gimnasio lo aprueba." />
+          <Who t="Coach o dueño de gimnasio" d="REPI te manda un email de bienvenida con un enlace para activar tu espacio. Usá el mismo email." />
+          <Who t="Equipo del gimnasio" d="Gerencia, sala o recepción: el gimnasio te invita por email. Abrí el enlace o tocá «Tengo un código» y creá tu cuenta con ese email." />
+        </ol>
+        <p className="ac-note">Nadie te va a pedir ni mandar tu contraseña: la elegís vos. ¿Problemas? Tocá «Ayuda y soporte» en la pantalla de ingreso.</p>
+        <button type="button" className="ac-cta" onClick={() => { window.location.href = "/acceso"; }}>Ir a ingresar</button>
+        <button type="button" className="ac-sec" onClick={onContinue}>Volver</button>
       </>
     );
   } else {
@@ -167,6 +186,10 @@ function Li({ i, t, d }: { i: typeof Export; t: string; d: string }) {
       <span><strong>{t}</strong><small>{d}</small></span>
     </li>
   );
+}
+
+function Who({ t, d }: { t: string; d: string }) {
+  return <li><span className="ig-num" aria-hidden="true"><Ic i={CheckCircle} size={20} color="#00D1FF" /></span><span><strong>{t}</strong><small>{d}</small></span></li>;
 }
 
 function PhoneQr() {

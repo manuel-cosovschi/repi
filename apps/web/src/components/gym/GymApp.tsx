@@ -16,13 +16,14 @@ import { ConfigScreen, ExecScreen, LocsScreen, ReviewsScreen } from "./Owner";
 import { CommunityScreen, DeskCard, ValidationsScreen } from "./Community";
 import { AccessesScreen, ConditionsScreen, JoinsScreen } from "./Access";
 import { NoticesScreen } from "./Notices";
+import { GymGuide } from "./GymGuide";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowsLeftRight, Bell, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
+import { ArrowsLeftRight, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
 
 const IC = {
   home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
-  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell,
+  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen,
 };
 type NavItem = [GymScreen, string, Icon, string | null];
 
@@ -49,6 +50,7 @@ function navFor(ctx: GymCtxView): NavItem[] {
   if (can(ctx, "catalog.publish")) add(["community", r.includes("reception") && !can(ctx, "community.publish") ? "Catálogo" : "Comunidad", IC.users, null]);
   // F-HX-26: quien recibe avisos de altas o de sala tiene su bandeja, segunda en la lista.
   if (can(ctx, "floor.work") || can(ctx, "members.approve") || r.some((x) => x === "owner" || x === "manager" || x === "reception")) out.splice(1, 0, ["notices", "Avisos", IC.bell, null]);
+  out.push(["guide", "Guía", IC.book, null]); // D115: cada rol ve su parte
   return out;
 }
 
@@ -175,6 +177,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "exec" && <ExecScreen shell={shell} />}
           {screen === "locs" && <LocsScreen shell={shell} />}
           {screen === "config" && <ConfigScreen shell={shell} />}
+          {screen === "guide" && <GymGuide shell={shell} />}
           {screen === "reception" && <ReceptionScreen shell={shell} />}
           {screen === "community" && <CommunityScreen shell={shell} />}
           {screen === "validations" && <ValidationsScreen shell={shell} />}

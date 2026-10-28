@@ -49,6 +49,16 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
     api<Detail>(`/api/coach/${orgId}/clients/${current.id}`).then(setDet).catch((e) => setErr(e.message));
   }, [orgId, current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Pausar, reactivar o terminar la relación (D115); terminar saca al alumno de esta lista.
+  const relStatus = async (status: "active" | "paused" | "ended", ask?: string) => {
+    if (!current || (ask && !window.confirm(ask))) return;
+    try {
+      await api(`/api/coach/${orgId}/clients/${current.id}/status`, { body: { status } });
+      flash(status === "paused" ? `${current.name} quedó en pausa.` : status === "active" ? `${current.name} está activo de nuevo.` : `Terminaste la relación con ${current.name}.`);
+      onImported();
+    } catch (e) { flash((e as Error).message); }
+  };
+
   return (
     <>
       <div className="co-head">
@@ -85,6 +95,9 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
                 <div className="co-actions">
                   {det?.program ? <button type="button" className="btn pri" onClick={() => go("builder", { pid: det.program!.programId })}>Editar programa</button>
                     : <button type="button" className="btn pri" onClick={() => go("builder", { pid: null })}>Asignar programa</button>}
+                  {current.status === "active" && <button type="button" className="btn" onClick={() => relStatus("paused", `¿Pausar a ${current.name.split(" ")[0]}? Deja de ver su programa hasta que lo reactives; el chat y su historial quedan.`)}>Pausar</button>}
+                  {current.status === "paused" && <button type="button" className="btn" onClick={() => relStatus("active")}>Reactivar</button>}
+                  <button type="button" className="btn danger" onClick={() => relStatus("ended", `¿Terminar la relación con ${current.name}? Se cierra su programa, deja de compartir sus datos con vos y el chat queda de sólo lectura. Su historial no se borra. Para volver, lo invitás de nuevo.`)}>Terminar</button>
                 </div>
               </section>
             )}

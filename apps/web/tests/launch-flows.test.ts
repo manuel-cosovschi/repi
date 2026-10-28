@@ -119,4 +119,42 @@ describe("circuito Coach de punta a punta", () => {
     const [o] = await db.select().from(schema.organization).where(eq(schema.organization.id, orgId));
     expect(o).toBeDefined();
   });
+
+  it("LF-05: el coach pausa, reactiva y termina la relación; el historial queda y puede volver a invitarlo", async () => {
+    const { coach, orgId } = await coachSpace();
+    const alumno = await verified("Alumno Relación");
+    const rel = await acc.acceptInvitation(alumno.id, (await acc.inviteCoachClient(coach, orgId, { email: alumno.email })).code, []);
+    const pid = await tr.createTemplate(coach, orgId, { name: "Base", weeks: 4, note: "", days: [{ name: "A", exercises: [
+      { exerciseId: EX["Press lanzamiento"], name: "Press lanzamiento", sets: 3, reps: "8", rir: 2, restSec: 90 },
+    ] }] });
+    await tr.assignProgram(coach, orgId, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
+    const t = await tr.myTraining(alumno.id);
+    if (t.state !== "ready") throw new Error("sin programa");
+    const sid = randomUUID();
+    await tr.startSession(alumno.id, { id: sid, dayId: t.program.days[0].id });
+    await tr.logSet(alumno.id, sid, { id: randomUUID(), programExerciseId: (await tr.getSession(alumno.id, sid)).exercises[0].id, setIndex: 0, weightKg: 40, reps: 8, rir: 2 });
+    await tr.sessionAction(alumno.id, sid, "finish");
+    // Pausa: el alumno deja de ver el programa; el coach lo sigue viendo en su lista.
+    await tr.setClientStatus(coach, orgId, rel.relationId, "paused");
+    expect((await tr.myTraining(alumno.id)).state).not.toBe("ready");
+    expect((await tr.clientDetail(coach, orgId, rel.relationId)).status).toBe("paused");
+    await tr.setClientStatus(coach, orgId, rel.relationId, "active");
+    expect((await tr.myTraining(alumno.id)).state).toBe("ready");
+    // Otro coach no puede cambiarla.
+    const other = await coachSpace();
+    expect(await code(tr.setClientStatus(other.coach, orgId, rel.relationId, "ended"))).toBe("not_found");
+    // Terminar: sin programa, sin acceso del coach, chat de sólo lectura, historial intacto.
+    const [th] = await msg.myThreads(alumno.id);
+    await tr.setClientStatus(coach, orgId, rel.relationId, "ended");
+    expect((await tr.myTraining(alumno.id)).state).not.toBe("ready");
+    expect(await code(tr.clientDetail(coach, orgId, rel.relationId))).toBe("not_found");
+    expect(await code(tr.setClientStatus(coach, orgId, rel.relationId, "active"))).toBe("ended");
+    expect((await msg.getThread(alumno.id, th.id)).readOnly).toBe(true);
+    expect((await tr.myHistory(alumno.id)).map((h) => h.id)).toContain(sid);
+    const grants = await db.select().from(schema.consentGrant).where(eq(schema.consentGrant.relationId, rel.relationId));
+    expect(grants.every((g) => g.status === "revoked")).toBe(true);
+    // Volver: invitación nueva, misma relación reactivada.
+    await acc.acceptInvitation(alumno.id, (await acc.inviteCoachClient(coach, orgId, { email: alumno.email })).code, []);
+    expect((await tr.clientDetail(coach, orgId, rel.relationId)).status).toBe("active");
+  });
 });

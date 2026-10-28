@@ -15,16 +15,17 @@ import { CoachInbox } from "./CoachInbox";
 import { CoachAgenda } from "./CoachAgenda";
 import { ChatPane } from "@/components/messages/ChatPane";
 import { initials, type Overview, type Screen } from "./types";
+import { CoachGuide } from "./CoachGuide";
 import { Ic } from "@/components/ui/Ic";
-import { CalendarBlank, CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, type Icon } from "@phosphor-icons/react";
+import { BookOpen, CalendarBlank, CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, type Icon } from "@phosphor-icons/react";
 
-const IC = { home: House, users: Users, cal: CalendarBlank, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt };
+const IC = { home: House, users: Users, cal: CalendarBlank, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt, book: BookOpen };
 
 // Cobros del coach a sus alumnos (F-BL-01, D80): registro manual, separado del cobro de REPI al coach (anexo §10).
 const NAV: [Screen, string, Icon, string | null][] = [
   ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["agenda", "Agenda", IC.cal, null], ["builder", "Programas", IC.build, null],
   ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, null],
-  ["terms", "Condiciones REPI", IC.receipt, null],
+  ["terms", "Condiciones REPI", IC.receipt, null], ["guide", "Guía", IC.book, null],
 ];
 
 export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: string }; initial: { s?: string; c?: string; p?: string } }) {
@@ -119,6 +120,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
                 initial={sel} onSeen={reload} profile={(t) => <button type="button" className="btn sm" onClick={() => go("clients", { sel: t.relId })}>Ver perfil →</button>} />}
               {screen === "pay" && <CoachPayments orgId={orgId} flash={flash} openClient={(id) => go("clients", { sel: id })} />}
               {screen === "terms" && <ConditionsScreen orgId={orgId} flash={flash} unit="alumnos" onSeen={termsSeen} />}
+              {screen === "guide" && <CoachGuide />}
             </>
           )}
         </div>
