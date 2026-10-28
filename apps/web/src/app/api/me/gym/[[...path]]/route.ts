@@ -8,6 +8,8 @@ import * as cm from "@/server/community/services";
 import * as club from "@/server/community/club";
 import * as join from "@/server/join/services";
 import * as connect from "@/server/gym/connect";
+import * as ac from "@/server/gym/access-control";
+import { demoQr } from "@/server/sandbox/services";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -19,6 +21,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   const u = new URL(req.url);
   if (a === "requests") return gym.myGymTasks(me);
+  if (a === "presence") return ac.myPresence(me); // control de acceso (D127)
   if (a === "connect" && !b) return connect.memberBoard(me); // REPI Connect (D126)
   if (a === "connect" && b) return connect.memberDetail(me, b);
   if (a === "joins") return join.myJoinRequests(me); // solicitudes de acceso por QR (anexo §5)
@@ -48,6 +51,13 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       context: z.object({ sessionId: id.nullable().optional(), programExerciseId: id.nullable().optional(), exerciseId: id.nullable().optional(), setIndex: z.number().int().nullable().optional() }).nullable().optional(),
     })));
   }
+  if (a === "checkin") {
+    await limit("gym-checkin", 20);
+    return ac.memberCheckin(me, await body(req, z.object({
+      token: z.string().max(600), geo: z.object({ lat: z.number(), lng: z.number(), accuracyM: z.number(), ageSec: z.number() }).nullable().optional(),
+    })));
+  }
+  if (a === "demo-qr") return demoQr(me, (await body(req, z.object({ gym: z.enum(["own", "other"]) }))).gym); // sólo cuentas de la demo
   if (a === "connect" && b && c === "cancel") return connect.memberCancel(me, b);
   if (a === "connect" && b && c === "comment") return connect.memberComment(me, b, (await body(req, z.object({ text: z.string().max(300) }))).text);
   if (a === "connect" && b && c === "feedback") return connect.memberFeedback(me, b, (await body(req, z.object({ helpful: z.boolean() }))).helpful);

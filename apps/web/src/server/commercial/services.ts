@@ -169,7 +169,9 @@ export async function contractDetail(actorId: string, contractId: string, period
   const pr = period ?? currentPeriod();
   const prev = previewPeriod(terms.map(asTerm), pr);
   const latestQ = terms.filter((t) => t.kind === "quantity").at(-1);
+  const [ap] = await db.select({ enabled: schema.gymAccessPolicy.enabled, mode: schema.gymAccessPolicy.mode }).from(schema.gymAccessPolicy).where(eq(schema.gymAccessPolicy.orgId, c.orgId));
   return {
+    accessControl: { enabled: ap?.enabled ?? false, mode: ap?.mode ?? null },
     contract: c, org: o, enabledAccesses: enabled, overAgreed: overAgreed(prev.quantity?.value ?? null, enabled),
     quantityAgeDays: latestQ ? Math.floor((Date.now() - latestQ.createdAt.getTime()) / 86_400_000) : null,
     terms: terms.map((t) => ({ ...t, author: authors.get(t.createdBy) ?? "", display: t.kind === "unit_price" ? fmtMoney(t.value, (t.currency ?? c.currency) as Currency) : String(t.value) })),
@@ -193,6 +195,16 @@ export async function setClientConnect(actorId: string, contractId: string, on: 
   await db.update(organization).set({ connectEnabled: on }).where(eq(organization.id, o.id));
   await audit(db, { actorUserId: actorId, orgId: o.id, action: on ? "connect.enabled" : "connect.disabled", resourceType: "organization", resourceId: o.id });
   return { connectEnabled: on, changed: true };
+}
+/** Control de acceso del gimnasio (D127): REPI Admin enciende el piloto; el modo lo elige el dueño. Apagar revoca ingresos vigentes. */
+export async function setClientAccessControl(actorId: string, contractId: string, on: boolean) {
+  await requireAdmin(actorId);
+  const c = await contractFor(contractId);
+  const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
+  if (!o) throw NOT_FOUND();
+  if (o.kind !== "gym") throw new AccessError("invalid", "El control de acceso es para gimnasios.");
+  const { setAccessEnabled } = await import("../gym/access-control");
+  return setAccessEnabled(o.id, on, actorId);
 }
 function currentPeriod() {
   const d = new Date(); const y = d.getUTCFullYear(), m = d.getUTCMonth();

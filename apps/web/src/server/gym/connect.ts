@@ -15,6 +15,7 @@ import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { enqueue } from "../push/services";
 import { floorOnShift } from "../join/services";
 import { alertLocation } from "./alerts";
+import { requireGymAction } from "./access-control";
 import { NOT_FOUND, activeShift, addEvent, floorStaff, gate, gymContext, inScope, lockTask, maybeInvite, myGymRelations, need, nextNumber, scopedLocation, scopedLocations, type GymCtx } from "./services";
 
 const { user, organization, gymLocation, gymMember, gymTask, gymTaskEvent, gymHandoff, gymHandoffItem, shiftLog, workoutSession, setLog, programExercise,
@@ -64,6 +65,7 @@ export async function memberCreate(userId: string, p: CreateInput, now = new Dat
   if (!r) throw new AccessError("no_gym", "No sos socio activo de un gym en REPI.", 409);
   if (!connectOn(r.org)) throw OFF();
   if (!isConnectReason(p.reason)) throw new AccessError("invalid", "Elegí el motivo.");
+  await requireGymAction({ userId, orgId: r.org.id, action: "gym.assistance.request" }, now); // D127: sólo si el modo estricto lo exige
   const reason: ConnectReason = p.reason;
   const comment = clip(p.comment, CONNECT_COMMENT_MAX);
   if (reason === "otro" && comment.length < 3) throw new AccessError("invalid", "Contá brevemente qué necesitás.");

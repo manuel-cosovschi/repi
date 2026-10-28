@@ -14,3 +14,4 @@ export * from "./plates";
 export * from "./session-changes";
 export * from "./adaptive";
 export * from "./connect";
+export * from "./gym-access";

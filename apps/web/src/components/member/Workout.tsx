@@ -13,6 +13,7 @@ import { PainSheet } from "./FollowSheets";
 import { PlatesSheet } from "./PlatesSheet";
 import { ExerciseChangeSheet } from "./ExerciseChange";
 import { ConnectHelpSheet } from "./Connect";
+import { PresenceSheet } from "./Presence";
 import { Sheet } from "./Sheet";
 import { cancelRestAlert, disableRestAlert, enableRestAlert, restAlertState, scheduleRestAlert, type RestAlertState } from "@/lib/restAlert";
 import { Confetti } from "@/components/motion/Confetti";
@@ -61,8 +62,11 @@ function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   };
 }
 
-export function Workout({ sessionId, coachFirst, gym, connectPlace = null, onExit, flash }: { sessionId: string; coachFirst: string; gym: boolean; connectPlace?: string | null; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void }) {
+export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = false, connectPlace = null, onExit, flash }: {
+  sessionId: string; coachFirst: string; gym: boolean; gymOrgId?: string | null; demo?: boolean; connectPlace?: string | null; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void;
+}) {
   const [asking, setAsking] = useState(false); // REPI Connect (D126): pedido al equipo de sala sobre este ejercicio
+  const [revalidate, setRevalidate] = useState(false); // D127: el ingreso venció durante el entrenamiento
   const unit = useUnit();
   const [s, setS] = useState<LocalSession | null>(null);
   const [exIdx, setExIdx] = useState(0);
@@ -284,9 +288,10 @@ export function Workout({ sessionId, coachFirst, gym, connectPlace = null, onExi
         </div>
         {s.rejected ? (
           <div className="conflict" role="alert">
-            <strong>No se pudo guardar en tu cuenta</strong>
-            <span>{s.rejected.message} Tus series siguen en este teléfono y no se borran. Si tu acceso vuelve a estar vigente, se guardan solas.</span>
-            <div><button type="button" className="cta sm" onClick={() => void flush()}>Reintentar</button><button type="button" className="ghost sm" onClick={async () => {
+            <strong>{s.rejected.code === "presence_required" ? "Validá tu ingreso para seguir guardando" : "No se pudo guardar en tu cuenta"}</strong>
+            <span>{s.rejected.message} Tus series siguen en este teléfono y no se borran. {s.rejected.code === "presence_required" ? "Cuando valides el ingreso se guardan solas." : "Si tu acceso vuelve a estar vigente, se guardan solas."}</span>
+            <div>{s.rejected.code === "presence_required" && <button type="button" className="cta sm" onClick={() => setRevalidate(true)}>Validar ingreso</button>}
+              <button type="button" className={s.rejected.code === "presence_required" ? "ghost sm" : "cta sm"} onClick={() => void flush()}>Reintentar</button><button type="button" className="ghost sm" onClick={async () => {
               if (!window.confirm("¿Descartar este entrenamiento de este teléfono? No se puede deshacer.")) return;
               await dropSession(s.id); await delLocal(s.id); flash("Descartaste el entrenamiento de este teléfono."); onExit("home");
             }}>Descartar de este teléfono</button></div>
@@ -414,6 +419,7 @@ export function Workout({ sessionId, coachFirst, gym, connectPlace = null, onExi
       {painSheet}
       {plates && curRow && <PlatesSheet kgWeight={curRow.w} unit={unit} onClose={() => setPlates(false)} />}
       {changing && <ExerciseChangeSheet sessionId={s.id} ex={ex} unit={unit} onApply={applyChange} onPain={() => setPain(true)} onClose={() => setChanging(false)} />}
+      {revalidate && <PresenceSheet orgId={gymOrgId} demo={demo} flash={flash} onClose={() => setRevalidate(false)} onValidated={() => { setRevalidate(false); void flush(); }} />}
       {asking && connectPlace && <ConnectHelpSheet place={connectPlace} flash={flash} onClose={() => setAsking(false)}
         context={{ sessionId: s.id, programExerciseId: ex.id, exerciseId: (sub ?? ex).exerciseId, exerciseName: sub ? sub.name : ex.name, setIndex: cur }} />}
       {noteOpen && curRow && <SetNoteSheet n={cur + 1} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}

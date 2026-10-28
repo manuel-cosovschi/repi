@@ -22,6 +22,7 @@ import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet } from "./Solo";
 import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext } from "./Connect";
+import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
@@ -42,7 +43,7 @@ type NotifDest = { tab: "home" | "msgs" | "perfil" } | { tab: "gym"; gymTab: "ne
 type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean };
 type Feed = { items: Notif[]; unread: number; seenAt: string | null };
 type SheetState = null | { type: "checkin"; dayId: string } | { type: "pain" } | { type: "help"; kind?: RequestKind; to?: "coach" | "gym" } | { type: "injury" } | { type: "review"; invite: Inbox["reviewInvites"][number] }
-  | { type: "connect"; context?: ConnectContext | null } | { type: "connectPanel"; id?: string | null };
+  | { type: "connect"; context?: ConnectContext | null } | { type: "connectPanel"; id?: string | null } | { type: "presence"; dayId?: string };
 type History = { id: string; dayName: string; endedAt: string; durationSec: number; sets: number; volumeKg: number; rpe: number | null }[];
 
 export function MemberApp({ initialTab }: { initialTab?: string }) {
@@ -61,6 +62,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [privKey, setPrivKey] = useState(0);
   const [solo, setSolo] = useState<"solo" | "coach_absent" | null>(null); // Adaptive Coach fase 1 (D108)
   const [connectTick, setConnectTick] = useState(0); // REPI Connect (D126): recarga la tarjeta de pedidos
+  // Control de acceso del gimnasio (D127): estado de la validación de ingreso por gimnasio, siempre desde el servidor.
+  const [presence, setPresence] = useState<{ gyms: GymPresence[]; demo: boolean } | null>(null);
+  const loadPresence = useCallback(() => api<{ gyms: GymPresence[]; demo: boolean }>("/api/me/gym/presence").then((x) => { setPresence(x); return x; }).catch(() => null), []);
   // Aviso push de un pedido resuelto → /app?pedido=<id> abre su detalle.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("pedido");
@@ -79,7 +83,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       await ensureOwner(x.userId).catch(() => {});
       await saveTraining(x).catch(() => {});
       setT(x); setErr(null); setOfflineAt(null);
-      void loadInbox(); void loadFeed();
+      void loadInbox(); void loadFeed(); void loadPresence();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404)) { await wipeLocal().catch(() => {}); setErr(e.message); return null; }
       const cached = await loadTraining<Training>().catch(() => undefined);
@@ -92,7 +96,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       if ((ls.status === "completed" || ls.status === "abandoned") && Date.now() - new Date(ls.updatedAt).getTime() > 86_400_000 && !(await pendingFor(ls.id))) await delLocal(ls.id);
     }
     return null;
-  }, [loadInbox]);
+  }, [loadInbox, loadPresence]);
   useEffect(() => { load(); }, [load]);
   const [histErr, setHistErr] = useState(false);
   const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist(r.sessions)).catch(() => { setHist(null); setHistErr(true); }); }, []);
@@ -133,8 +137,19 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const openId = localOpen?.id ?? t?.openSession ?? null;
   // Iniciar crea la sesión en el teléfono (con su ID) y la encola: funciona igual con o sin conexión.
   // Antes de entrenar, check-in de 3 toques (saltable). Sin conexión se entra directo.
-  const start = async (dayId: string) => {
+  const start = async (dayId: string, validated = false) => {
     if (openId) { setWorkout(openId); return; }
+    // D127: entrenamiento del programa del gimnasio con validación de ingreso. Se consulta al servidor en el momento.
+    if (t?.relation?.kind === "gym" && !validated) {
+      if (offlineAt) {
+        const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId);
+        if (p?.startNeedsCheckin && (!p.pass || new Date(p.pass.expiresAt) <= new Date())) { flash("Para iniciar el entrenamiento presencial necesitás conexión para validar tu ingreso. Tu rutina la ves igual."); return; }
+      } else {
+        const fresh = await loadPresence();
+        const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
+        if (p?.startNeedsCheckin && !p.pass) { setSheet({ type: "presence", dayId }); return; }
+      }
+    }
     if (!offlineAt && inbox && !inbox.checkinToday) { setSheet({ type: "checkin", dayId }); return; }
     await begin(dayId);
   };
@@ -166,7 +181,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const unit: WeightUnit = t?.weightUnit ?? "kg";
   if (workout) return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
-      <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
+      <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
       <Toast t={toast} />
     </div></div></UnitContext.Provider>
   );
@@ -180,8 +195,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
           <div key={tab} className="tab-pane">
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
-              inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick} />}
-            {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} /><Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
+              inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
+              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} />}
+            {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
+              {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
@@ -220,6 +237,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       {notifOpen && <NotifSheet items={notifs} offline={!!offlineAt} loaded={!!feed} onPick={pickNotif} onClose={() => {
         setNotifOpen(false); setFeed((f) => (f ? { ...f, unread: 0, items: f.items.map((x) => ({ ...x, unread: false })), seenAt: new Date().toISOString() } : f));
       }} />}
+      {sheet?.type === "presence" && <PresenceSheet orgId={t?.relation?.orgId} demo={!!presence?.demo} flash={flash} onClose={() => setSheet(null)}
+        onValidated={() => { const d = sheet.dayId; setSheet(null); void loadPresence(); if (d) void start(d, true); }} />}
       {sheet?.type === "injury" && <InjurySheet flash={flash} onClose={() => setSheet(null)} onSaved={() => setPrivKey((k) => k + 1)} />}
     </div></div></UnitContext.Provider>
   );
@@ -308,9 +327,9 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick }: {
+function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence }: {
   t: Training; coachFirst: string; onStart: (dayId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
-  onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number;
+  onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null;
 }) {
   const connect = !!inbox?.gym?.connect;
   const gymRel = t.relation?.kind === "gym";
@@ -339,6 +358,7 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
         <span className="mb-muted" style={{ fontSize: 15 }}>{t.openSession ? "Tenés un entrenamiento en curso." : "Hoy es un gran día para entrenar."}</span>
       </div>
       <RelationPicker t={t} offline={offline} busyOpen={!!t.openSession} onChange={onRelation} flash={flash} />
+      {presence && !offline && <PresenceChip p={presence} onValidate={() => onSheet({ type: "presence" })} />}
       {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
           ahí se ve qué pasó con su sincronización y se decide qué hacer con lo guardado en el teléfono. */}
       {t.openSession && !(t.state === "ready" && next) && (

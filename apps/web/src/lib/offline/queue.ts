@@ -96,11 +96,12 @@ export async function flush(): Promise<void> {
       }
       if (res.status >= 500 || res.status === 429) { offline = true; break; }
       // Acceso no vigente: no se descarta nada ni se reintenta en bucle; la persona decide (ver LocalSession.rejected).
-      if (res.status === 403 && data.code === "relation_inactive") {
+      // D127: también «presence_required» (venció o falta validar el ingreso al gimnasio): se conserva todo y se revalida.
+      if (res.status === 403 && (data.code === "relation_inactive" || data.code === "presence_required")) {
         const message: string = data.error ?? "Tu acceso no está vigente.";
         hadError = message;
         const cur = await getLocal(it.sid); // el estado vigente: pudo cambiar mientras viajaba el pedido
-        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString() } });
+        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code } });
         blocked.add(it.sid); continue;
       }
       if (res.status === 401) { hadError = "Tu sesión venció. Ingresá de nuevo para sincronizar (no se borra nada)."; break; }

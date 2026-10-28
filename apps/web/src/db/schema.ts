@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  bigint, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
+  bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -99,6 +99,10 @@ export const gymLocation = pgTable("gym_location", {
   address: text("address"),
   publicJoin: boolean("public_join").notNull().default(true),
   receptionHours: text("reception_hours"), // F-HX-14: horario de recepción visible en el catálogo
+  // D127: punto y radio de la sede para la validación de ingreso con ubicación (opcional). No se guardan ubicaciones de personas.
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  geoRadiusM: integer("geo_radius_m"),
   createdAt: now("created_at"),
 }, (t) => [index("gym_location_org_idx").on(t.orgId)]);
 
@@ -134,6 +138,8 @@ export const gymMember = pgTable("gym_member", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   rosterEntryId: text("roster_entry_id"),
   status: text("status", { enum: ["pending_consent", "active", "suspended", "ended"] }).notNull().default("pending_consent"),
+  // D127: vigencia opcional de la membresía (AAAA-MM-DD, hora AR) cargada por el gimnasio. Pasada la fecha cuenta como vencida.
+  accessUntil: text("access_until"),
   createdAt: now("created_at"),
 }, (t) => [uniqueIndex("gym_member_unique").on(t.orgId, t.userId), index("gym_member_user_idx").on(t.userId)]);
 
@@ -385,6 +391,7 @@ export const workoutSession = pgTable("workout_session", {
   note: text("note"),
   revision: integer("revision").notNull().default(1), // control de versión para sincronización offline
   updatedAt: now("updated_at"),
+  presenceCheckinId: text("presence_checkin_id"), // D127: ingreso validado con el que se inició (sesiones del gym con control de acceso)
 }, (t) => [
   index("workout_session_user_idx").on(t.userId, t.startedAt),
   index("session_relation_idx").on(t.coachClientId, t.startedAt),
@@ -1020,7 +1027,7 @@ export const attendance = pgTable("attendance", {
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
   locationId: text("location_id").notNull().references(() => gymLocation.id),
   gymMemberId: text("gym_member_id").notNull().references(() => gymMember.id, { onDelete: "cascade" }),
-  source: text("source", { enum: ["recepcion_qr"] }).notNull(),
+  source: text("source", { enum: ["recepcion_qr", "checkin"] }).notNull(), // checkin = ingreso validado por QR o por el equipo (D127)
   recordedBy: text("recorded_by").references(() => user.id),
   at: now("at"),
 }, (t) => [index("attendance_member_idx").on(t.gymMemberId, t.at), index("attendance_loc_idx").on(t.locationId, t.at)]);
@@ -1280,3 +1287,56 @@ export const clubProfile = pgTable("club_profile", {
   showcase: jsonb("showcase").notNull().default([]), // exerciseIds elegidos
   updatedAt: now("updated_at"),
 }, (t) => [primaryKey({ columns: [t.orgId, t.userId] })]);
+
+// ── Gym Access Control (D127) ───────────────────────────────────────────────
+// Política por gimnasio. Sin fila = módulo apagado (comportamiento anterior). La activa REPI Admin; el modo lo elige el dueño.
+export const gymAccessPolicy = pgTable("gym_access_policy", {
+  orgId: text("org_id").primaryKey().references(() => organization.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(false),
+  mode: text("mode", { enum: ["open", "hybrid", "strict"] }).notNull().default("hybrid"),
+  strictActions: jsonb("strict_actions").$type<string[]>().notNull().default([]),
+  qrTtlSec: integer("qr_ttl_sec").notNull().default(30),
+  passHours: integer("pass_hours").notNull().default(3),
+  geoMode: text("geo_mode", { enum: ["off", "optional", "required"] }).notNull().default("off"),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: now("updated_at"),
+});
+
+// Pantalla autorizada que muestra el QR de ingreso de una sede (tablet de recepción). Sólo se guarda el hash del secreto.
+export const gymAccessDisplay = pgTable("gym_access_display", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  secretHash: text("secret_hash").notNull().unique(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  lastSeenAt: ts("last_seen_at"),
+  revokedAt: ts("revoked_at"),
+}, (t) => [index("gym_access_display_org_idx").on(t.orgId)]);
+
+// Intento de ingreso y, si fue aceptado, el pase presencial con vencimiento. Sin coordenadas: sólo el resultado de ubicación.
+export const gymCheckin = pgTable("gym_checkin", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  gymMemberId: text("gym_member_id").references(() => gymMember.id, { onDelete: "cascade" }),
+  method: text("method", { enum: ["qr", "qr_geo", "staff", "desk"] }).notNull(),
+  result: text("result", { enum: ["ok", "denied"] }).notNull(),
+  reason: text("reason"),
+  nonce: text("nonce"),
+  displayId: text("display_id"),
+  geoResult: text("geo_result", { enum: ["inside", "outside", "inaccurate", "stale", "unavailable"] }),
+  verifiedBy: text("verified_by").references(() => user.id, { onDelete: "set null" }),
+  note: text("note"),
+  issuedAt: ts("issued_at"),
+  expiresAt: ts("expires_at"),
+  revokedAt: ts("revoked_at"),
+  revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+}, (t) => [
+  uniqueIndex("gym_checkin_user_nonce").on(t.userId, t.nonce).where(sql`result = 'ok' and nonce is not null`),
+  index("gym_checkin_org_idx").on(t.orgId, t.createdAt),
+  index("gym_checkin_user_idx").on(t.userId, t.expiresAt),
+]);

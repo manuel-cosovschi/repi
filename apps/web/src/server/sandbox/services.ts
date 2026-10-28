@@ -3,7 +3,7 @@
 // series, avisos al piso, cobros). Nada se comparte entre visitantes ni toca clientes reales; todo es is_demo y se borra
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
@@ -11,6 +11,7 @@ import { AccessError } from "../access/util";
 import { assignProgram, createTemplate, logSet, startSession, myTraining, getSession } from "../training/services";
 import { saveMemberProgram, startShift } from "../gym/services";
 import { memberCreate, setAvailability, staffAct } from "../gym/connect";
+import { issueQrToken, policyOf, staffCheckin } from "../gym/access-control";
 import { regenerateJoinLink, requestAccess } from "../join/services";
 import { createRequest } from "../followup/services";
 import { myThreads, sendMessage } from "../messages/services";
@@ -40,7 +41,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   const tag = randomBytes(5).toString("hex");
   const who = { owner: "martin.sosa", floor: "sofia.ramirez", member: "valentina.gomez", coach: "agustin.perez" }[role];
   const pw = randomBytes(24).toString("base64url"); // sólo para abrir la sesión ahora; nunca se muestra
-  const userIds: string[] = [], orgIds: string[] = [];
+  const userIds: string[] = [], orgIds: string[] = [], extraOrgs: string[] = [];
   const [box] = await db.insert(schema.demoSandbox).values({ tag, role, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000), userIds, orgIds }).returning();
   const person = async (slug: string, name: string) => {
     const email = `${slug}@${sandboxDomain(tag)}`;
@@ -81,11 +82,24 @@ export async function startDemo(role: DemoRole, now = new Date()) {
       members[u.id] = m.id;
     }
     await startShift(floor.id, gym.id, palermo.id, now);
+    // Control de acceso (D127): Gym Norte en modo HÍBRIDO, sede Palermo con punto y radio; Gym Sur es otra organización independiente.
+    await db.insert(schema.gymAccessPolicy).values({ orgId: gym.id, enabled: true, mode: "hybrid", updatedBy: owner.id });
+    await db.update(schema.gymLocation).set({ lat: -34.5889, lng: -58.4108, geoRadiusM: 150 }).where(eq(schema.gymLocation.id, palermo.id));
+    const [sur] = await db.insert(schema.organization).values({ kind: "gym", name: "Gym Sur (otra organización)", isDemo: true, status: "active", commercialStatus: "enabled", createdBy: owner.id }).returning();
+    await db.insert(schema.gymLocation).values({ orgId: sur.id, name: "Centro", address: "Av. Rivadavia 5000" });
+    await db.insert(schema.gymAccessPolicy).values({ orgId: sur.id, enabled: true, mode: "hybrid" });
+    extraOrgs.push(sur.id);
     await saveMemberProgram(floor.id, gym.id, members[julian.id], { reason: "Programa inicial", doc: { name: "Base sala · 3 días", weeks: 6, note: "Técnica primero.", days: [
       { name: "Día A", exercises: [ex("Sentadilla", 3, "8-10", 2, 120), ex("Press de banca", 3, "8-10", 2, 120)] },
       { name: "Día B", exercises: [ex("Peso muerto rumano", 3, "8", 2, 120), ex("Jalón al pecho", 3, "10", 2, 90)] },
     ] } });
-    // Julián entrena ahora y pide atención al piso desde la app (aviso en vivo real).
+    // Julián validó su ingreso en recepción (pase presencial) y entrena ahora; pide atención al piso desde la app (aviso en vivo real).
+    await staffCheckin(floor.id, gym.id, { gymMemberId: members[julian.id], locationId: palermo.id, note: "Validado en sala (demo)" }, new Date(now.getTime() - 20 * 60_000));
+    // Valentina también tiene programa del gym: desde casa ve su rutina; para entrenarla en el gimnasio valida el ingreso.
+    await saveMemberProgram(floor.id, gym.id, members[vale.id], { reason: "Programa de sala", doc: { name: "Sala · full body", weeks: 4, note: "Entrada en calor de 10 minutos.", days: [
+      { name: "Full body", exercises: [ex("Sentadilla", 3, "10", 2, 90), ex("Jalón al pecho", 3, "10", 2, 90), ex("Press inclinado mancuernas", 3, "10", 2, 90)] },
+    ] } });
+    await accessHistory(gym.id, palermo.id, [members[vale.id], members[julian.id], members[martina.id]], [vale.id, julian.id, martina.id], floor.id, camila.id, now);
     const jt = await myTraining(julian.id, now);
     if (jt.state === "ready") {
       const sid = randomUUID();
@@ -153,6 +167,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     ] });
     await assignProgram(coach.id, coachOrg.id, hip, { coachClientIds: [rels[vale.id], rels[martina.id]], startsOn: localDate(now) });
     // Historial: dos semanas de entrenamientos de Valentina y algunos de Martina, con progresión de cargas.
+    await db.insert(schema.userPref).values({ userId: vale.id, activeRelationId: rels[vale.id] }).onConflictDoNothing(); // la demo de socio arranca con su coach
     await history(vale.id, rels[vale.id], 6, now, 1);
     await history(martina.id, rels[martina.id], 2, now, 0.8);
     await createRequest(martina.id, { kind: "tecnica", text: "¿Me revisás la sentadilla? Siento la espalda baja al bajar." });
@@ -167,11 +182,45 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     await createCharge(coach.id, coachOrg.id, { coachClientId: rels[vale.id], concept: "Plan mensual · este mes", amountMinor: 3_500_000, currency: "ARS", dueOn: day(5, now) });
     await createCharge(coach.id, coachOrg.id, { coachClientId: rels[julian.id], concept: "Plan mensual · este mes", amountMinor: 3_000_000, currency: "ARS", dueOn: day(-3, now) });
   } finally {
-    await db.update(schema.demoSandbox).set({ userIds, orgIds }).where(eq(schema.demoSandbox.id, box.id));
+    await db.update(schema.demoSandbox).set({ userIds, orgIds: [...orgIds, ...extraOrgs] }).where(eq(schema.demoSandbox.id, box.id));
   }
   await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.email, `${who}@${sandboxDomain(tag)}`));
   const href = role === "owner" ? `/gym/${orgIds[0]}?s=exec` : role === "floor" ? `/gym/${orgIds[0]}?s=shift` : role === "coach" ? `/coach/${orgIds[1]}?s=dash` : "/app";
   return { href, role, tag, signIn: { email: `${who}@${sandboxDomain(tag)}`, password: pw }, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000).toISOString() };
+}
+
+/** Ingresos de la última semana (datos sintéticos de la demo) para el panel «Acceso y presencia». */
+async function accessHistory(orgId: string, locationId: string, memberIds: string[], userIds: string[], staffId: string, outsider: string, now: Date) {
+  const rows: (typeof schema.gymCheckin.$inferInsert)[] = [];
+  for (let d = 1; d <= 6; d++) {
+    for (let i = 0; i < memberIds.length; i++) {
+      if ((d + i) % 3 === 0) continue;
+      const at = new Date(now.getTime() - d * 86_400_000 - (8 + i * 3) * 3_600_000);
+      const method = (d + i) % 5 === 0 ? "staff" : (d + i) % 4 === 0 ? "qr_geo" : "qr";
+      rows.push({ orgId, locationId, userId: userIds[i], gymMemberId: memberIds[i], method, result: "ok", issuedAt: at, expiresAt: new Date(at.getTime() + 3 * 3_600_000), createdAt: at,
+        verifiedBy: method === "staff" ? staffId : null, note: method === "staff" ? "Sin batería en el teléfono (demo)" : null, geoResult: method === "qr_geo" ? "inside" : null });
+    }
+  }
+  const denied = (d: number, reason: string, userId: string, gymMemberId: string | null) => ({ orgId, locationId, userId, gymMemberId, method: "qr" as const, result: "denied" as const, reason, createdAt: new Date(now.getTime() - d * 86_400_000) });
+  rows.push(denied(1, "expired_token", userIds[0], memberIds[0]), denied(3, "expired_token", userIds[1], memberIds[1]), denied(2, "no_membership", outsider, null));
+  await db.insert(schema.gymCheckin).values(rows);
+}
+
+/**
+ * Demo (D127): QR real firmado por el servidor para que una sola persona pueda recorrer el check-in sin otra pantalla.
+ * Sólo para cuentas de la demo y gimnasios de su propia demo; «other» es el gimnasio independiente (para ver el rechazo).
+ */
+export async function demoQr(userId: string, which: "own" | "other", now = new Date()) {
+  const boxes = await db.select().from(schema.demoSandbox).where(sql`${schema.demoSandbox.userIds} @> ${JSON.stringify([userId])}::jsonb`).limit(1);
+  const b = boxes[0];
+  if (!b) throw new AccessError("not_found", "No encontramos lo que buscás.", 404);
+  const orgs = b.orgIds as string[];
+  const orgId = which === "own" ? orgs[0] : orgs[2];
+  const [org] = orgId ? await db.select().from(schema.organization).where(and(eq(schema.organization.id, orgId), eq(schema.organization.isDemo, true))) : [];
+  if (!org) throw new AccessError("not_found", "No encontramos lo que buscás.", 404);
+  const [loc] = await db.select().from(schema.gymLocation).where(eq(schema.gymLocation.orgId, org.id)).orderBy(asc(schema.gymLocation.createdAt)).limit(1);
+  const t = issueQrToken(org.id, loc.id, (await policyOf(org.id)).qrTtlSec, "demo", now);
+  return { ...t, gym: org.name, location: loc.name };
 }
 
 /**

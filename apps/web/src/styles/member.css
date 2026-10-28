@@ -508,3 +508,17 @@
 .cx-comment { display: flex; flex-direction: column; gap: 8px; }
 .cx-cancel { align-self: center; color: #FCA5A5; }
 .cx-mine { align-self: center; height: 40px; }
+
+/* Validación de ingreso (D127): escáner, estado y atajos de la demo. */
+.pr-scan { position: relative; width: 100%; aspect-ratio: 1; border-radius: 18px; overflow: hidden; background: var(--core-navy900); }
+.pr-scan video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pr-frame { position: absolute; inset: 16%; border: 3px solid var(--core-cyan); border-radius: 18px; box-shadow: 0 0 0 999px rgba(11, 15, 20, .35); }
+.pr-chip { display: flex; flex-direction: column; gap: 3px; text-align: left; width: 100%; border-radius: 14px; padding: 12px 14px; border: 1px solid rgba(0, 209, 255, .35); background: rgba(0, 209, 255, .08); color: var(--dark-ink); font: inherit; cursor: pointer; position: relative; }
+.pr-chip b { font-size: 14px; font-weight: 600; padding-right: 64px; }
+.pr-chip small { font-size: 12px; color: var(--dark-muted); line-height: 1.4; }
+.pr-chip em { position: absolute; right: 14px; top: 12px; font-style: normal; font: 600 13px var(--font-ui); color: var(--core-cyan); }
+.pr-chip.ok { border-color: rgba(93, 230, 216, .4); background: rgba(93, 230, 216, .08); cursor: default; }
+.pr-chip.bad { border-color: rgba(245, 158, 11, .4); background: rgba(245, 158, 11, .1); cursor: default; }
+.pr-demo { display: flex; flex-direction: column; gap: 8px; border: 1px dashed var(--dark-border); border-radius: 14px; padding: 12px; }
+.pr-demo small { font-size: 12px; color: var(--dark-muted); line-height: 1.4; }
+.pr-demo span { display: flex; gap: 8px; flex-wrap: wrap; }

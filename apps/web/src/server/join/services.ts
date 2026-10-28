@@ -291,7 +291,7 @@ export async function listAccesses(actorId: string, orgId: string, q = "") {
     .orderBy(asc(user.name)).limit(200);
   const extra = rows.length ? await db.select({ gm: gymMemberLocation.gymMemberId, loc: gymLocation.name }).from(gymMemberLocation).innerJoin(gymLocation, eq(gymLocation.id, gymMemberLocation.locationId))
     .where(and(inArray(gymMemberLocation.gymMemberId, rows.map((r) => r.m.id)), isNull(gymMemberLocation.revokedAt))) : [];
-  return rows.map((r) => ({ id: r.m.id, name: r.name, email: r.email, location: r.loc, extraLocations: extra.filter((x) => x.gm === r.m.id).map((x) => x.loc), status: r.m.status, since: r.m.createdAt }));
+  return rows.map((r) => ({ id: r.m.id, name: r.name, email: r.email, location: r.loc, extraLocations: extra.filter((x) => x.gm === r.m.id).map((x) => x.loc), status: r.m.status, since: r.m.createdAt, accessUntil: r.m.accessUntil }));
 }
 /** Pausar o dar de baja corta operaciones posteriores de esa relación. Reactivar es un acto explícito (no por reescanear el QR). */
 export async function setAccess(actorId: string, orgId: string, gymMemberId: string, action: "suspend" | "end" | "reactivate") {
@@ -303,6 +303,7 @@ export async function setAccess(actorId: string, orgId: string, gymMemberId: str
   const status = action === "suspend" ? "suspended" : action === "end" ? "ended" : "active";
   if (action === "reactivate" && m.status === "active") return { status };
   await db.update(gymMember).set({ status }).where(eq(gymMember.id, m.id));
+  if (action !== "reactivate") { const { revokeMemberPasses } = await import("../gym/access-control"); await revokeMemberPasses(db, m.id, actorId); } // D127
   if (action !== "reactivate") await db.update(membershipRequest).set({ status: "cancelled", cancelledAt: new Date() }).where(and(eq(membershipRequest.userId, m.userId), eq(membershipRequest.orgId, orgId), eq(membershipRequest.status, "pending")));
   await audit(db, { actorUserId: actorId, orgId, action: `member.${action}`, resourceType: "gym_member", resourceId: m.id });
   return { status };

@@ -6,6 +6,7 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
+import { requireGymAction } from "../gym/access-control";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
   programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest } = schema;
@@ -429,7 +430,7 @@ export async function myTraining(userId: string, now = new Date()) {
   const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId));
   const [pref] = await db.select({ weightUnit: userPref.weightUnit }).from(userPref).where(eq(userPref.userId, userId));
   const week = weekOf(now);
-  const relation = act ? { id: act.id, kind: act.kind, name: act.name, org: act.place } : null;
+  const relation = act ? { id: act.id, kind: act.kind, name: act.name, org: act.place, orgId: act.orgId } : null;
   const relations = act ? act.all.map((r) => ({ id: r.id, kind: r.kind, name: r.name, org: r.place, hasProgram: !!r.assignment })) : [];
   const base = {
     userId, firstName: (u?.name ?? "").split(" ")[0], coach: act?.kind === "coach" ? { name: act.name, org: act.place } : null,
@@ -500,9 +501,21 @@ async function assertRelationActive(tx: Tx, s: typeof workoutSession.$inferSelec
     if (cc && cc.st !== "active") throw new AccessError("relation_inactive", "Tu acceso con este coach no está vigente.", 403);
   }
   if (s.gymMemberId) {
-    const [gm] = await tx.select({ st: gymMember.status }).from(gymMember).where(eq(gymMember.id, s.gymMemberId));
+    const [gm] = await tx.select({ st: gymMember.status, until: gymMember.accessUntil }).from(gymMember).where(eq(gymMember.id, s.gymMemberId));
     if (gm && gm.st !== "active") throw new AccessError("relation_inactive", "Tu acceso a este gym no está vigente. Consultá en recepción.", 403);
+    // D127: vigencia cargada por el gimnasio. Vencida corta series nuevas; lo registrado queda.
+    if (gm?.until && gm.until < localDate(new Date())) throw new AccessError("relation_inactive", "Tu membresía en este gym venció. Consultá en recepción.", 403);
   }
+}
+
+/**
+ * D127: con el control de acceso activo, iniciar y registrar un entrenamiento del programa del gimnasio exige un ingreso
+ * validado de esa misma organización. Lo hecho sin conexión dentro de la vigencia se acepta al sincronizar (ver passCovers).
+ */
+async function gymPresence(tx: Tx, userId: string, gymMemberId: string, action: "gym.workout.start" | "gym.workout.log_set", now: Date, clientAt: Date, preferPassId?: string | null) {
+  const [gm] = await tx.select({ orgId: gymMember.orgId }).from(gymMember).where(eq(gymMember.id, gymMemberId));
+  if (!gm) return null;
+  return requireGymAction({ userId, orgId: gm.orgId, action, clientAt, preferPassId }, now, tx);
 }
 
 const BAD_TIME = () => new AccessError("invalid_time", "La hora del dispositivo no es válida. Revisá la fecha y hora del teléfono.");
@@ -536,10 +549,11 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
       await tx.update(workoutSession).set({ ...closed, revision: openS.revision + 1, updatedAt: now }).where(eq(workoutSession.id, openS.id));
       await audit(tx, { actorUserId: userId, action: "session.closed_for_other", resourceType: "workout_session", resourceId: openS.id, meta: { by: p.id, sets: n } });
     }
+    const presenceCheckinId = act.kind === "gym" ? await gymPresence(tx, userId, act.id, "gym.workout.start", now, startedAt) : null;
     await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, day.d.versionId));
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: act.assignment!.id, versionId: day.d.versionId, dayId: day.d.id, dayName: day.d.name,
-      startedAt, lastResumedAt: startedAt,
+      startedAt, lastResumedAt: startedAt, presenceCheckinId,
     }).returning();
     return s;
   });
@@ -598,6 +612,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     const s = await mySession(userId, sessionId, tx, true);
     if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
     await assertRelationActive(tx, s);
+    if (s.gymMemberId) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
     const [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     if (!Number.isInteger(p.setIndex) || p.setIndex < 0 || p.setIndex >= pe.sets) throw new AccessError("invalid", "Esa serie no está prescripta.");
@@ -694,6 +709,7 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     const s = await mySession(userId, sessionId, tx, true);
     if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
     await assertRelationActive(tx, s);
+    if (s.gymMemberId) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, now, s.presenceCheckinId);
     const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
       .where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");

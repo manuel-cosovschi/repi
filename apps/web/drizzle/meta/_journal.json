@@ -183,6 +183,13 @@
       "when": 1793224704573,
       "tag": "0025_connect",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793229627127,
+      "tag": "0026_gym_access",
+      "breakpoints": true
     }
   ]
 }

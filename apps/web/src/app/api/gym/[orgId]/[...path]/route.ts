@@ -13,6 +13,7 @@ import * as join from "@/server/join/services";
 import * as alerts from "@/server/gym/alerts";
 import * as notices from "@/server/gym/notices";
 import * as connect from "@/server/gym/connect";
+import * as ac from "@/server/gym/access-control";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -72,6 +73,13 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "join-qr": return join.showJoinQr(me, orgId);
     case "accesses": return join.listAccesses(me, orgId, u.searchParams.get("q")?.slice(0, 80) ?? "");
     case "alerts": return alerts.listAlerts(me, orgId, loc(u) ?? "");
+    // Control de acceso (D127): política, QR dinámico de sede, panel y búsqueda para validar a mano.
+    case "access":
+      if (b === "settings") return ac.accessSettings(me, orgId);
+      if (b === "report") return ac.accessReport(me, orgId, loc(u), Number(u.searchParams.get("days")) || 7);
+      if (b === "qr") return ac.staffQr(me, orgId, loc(u) ?? "");
+      if (b === "members") return ac.memberLookup(me, orgId, u.searchParams.get("q") ?? "");
+      break;
     // REPI Connect (D126): bandeja del profesor, detalle con contexto e indicadores agregados para gestión.
     case "connect":
       if (b === "board") return connect.staffBoard(me, orgId, loc(u));
@@ -138,6 +146,16 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "accesses" && b && (c === "suspend" || c === "end" || c === "reactivate")) return join.setAccess(me, orgId, b, c);
   if (a === "accesses" && b && c === "report") return join.reportNotMember(me, orgId, b);
   if (a === "alerts" && b && c === "ack") return alerts.ackAlert(me, orgId, b);
+  if (a === "access" && b === "policy") return ac.updatePolicy(me, orgId, await body(req, z.object({
+    mode: z.enum(["open", "hybrid", "strict"]).optional(), strictActions: z.array(z.enum(["gym.assistance.request", "gym.challenge.attempt"])).max(4).optional(),
+    qrTtlSec: z.number().int().optional(), passHours: z.number().int().optional(), geoMode: z.enum(["off", "optional", "required"]).optional(),
+  })));
+  if (a === "access" && b === "locations" && c) return ac.setLocationGeo(me, orgId, c, (await body(req, z.object({ geo: z.object({ lat: z.number(), lng: z.number(), radiusM: z.number().int() }).nullable() }))).geo);
+  if (a === "access" && b === "displays" && !c) { const p = await body(req, z.object({ loc: id, name: z.string().max(60) })); return ac.createDisplay(me, orgId, p.loc, p.name); }
+  if (a === "access" && b === "displays" && c) return ac.revokeDisplay(me, orgId, c);
+  if (a === "access" && b === "checkins" && !c) { const p = await body(req, z.object({ gymMemberId: id, loc: id, note: z.string().max(200).nullable().optional() })); return ac.staffCheckin(me, orgId, { gymMemberId: p.gymMemberId, locationId: p.loc, note: p.note }); }
+  if (a === "access" && b === "checkins" && c) return ac.revokePass(me, orgId, c);
+  if (a === "accesses" && b && c === "until") return ac.setAccessUntil(me, orgId, b, (await body(req, z.object({ until: z.string().max(10).nullable() }))).until);
   if (a === "connect" && b === "availability") return connect.setAvailability(me, orgId, (await body(req, z.object({ availability: z.enum(["available", "busy"]) }))).availability);
   if (a === "connect" && b === "tasks" && c) {
     const p = await body(req, z.object({

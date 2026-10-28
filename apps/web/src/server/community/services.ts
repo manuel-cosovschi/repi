@@ -385,6 +385,12 @@ export async function checkIn(actorId: string, orgId: string, token: string, loc
   // Un ingreso por persona y sede cada 2 horas (evita duplicados por doble lectura).
   const [dup] = await db.select().from(attendance).where(and(eq(attendance.gymMemberId, m.id), eq(attendance.locationId, locationId), gte(attendance.at, new Date(Date.now() - 2 * 3_600_000))));
   if (dup) return { duplicate: true, at: dup.at };
+  // D127: con el control de acceso activo, el ingreso en recepción también habilita el entrenamiento presencial (y registra la asistencia).
+  const { policyOf, staffCheckin } = await import("../gym/access-control");
+  if ((await policyOf(orgId)).enabled) {
+    const r = await staffCheckin(actorId, orgId, { gymMemberId: m.id, locationId, method: "desk" });
+    return { duplicate: r.duplicate, at: r.pass.issuedAt ?? new Date(), presence: { expiresAt: r.pass.expiresAt } };
+  }
   const [row] = await db.insert(attendance).values({ orgId, locationId, gymMemberId: m.id, source: "recepcion_qr", recordedBy: actorId }).returning();
   return { duplicate: false, at: row.at };
 }
@@ -457,6 +463,7 @@ export async function submitAttempt(userId: string, p: { challengeId: string; va
   const r = await myGym(userId, c.orgId).catch(() => { throw NOT_FOUND(); });
   if (c.locationId && c.locationId !== r.loc.id) throw NOT_FOUND();
   if (c.status !== "active" || c.endsOn < todayAr()) throw new AccessError("closed", "Este desafío ya terminó.", 409);
+  { const { requireGymAction } = await import("../gym/access-control"); await requireGymAction({ userId, orgId: c.orgId, action: "gym.challenge.attempt" }); } // D127 (sólo modo estricto configurado)
   if (await minorWithoutGuardian(userId)) throw new AccessError("minor", "Los videos de récord se habilitan cuando tu adulto responsable lo autorice.", 403);
   if (!p.confirm) throw new AccessError("invalid", "Confirmá que el video es tuyo y muestra el intento completo.");
   if (!attemptValueOk(c.unit, p.value)) throw new AccessError("invalid", "Ingresá una marca válida.");

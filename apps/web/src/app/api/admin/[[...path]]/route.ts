@@ -69,6 +69,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
         scope: z.enum(["organization", "locations"]).optional(), scopeNote: z.string().max(300).nullable().optional(),
         acceptedRef: z.string().max(200).optional(), acceptedAt: day.optional(), termsVersion: z.string().max(40).optional(), enabledAt: day.optional(),
       })));
+      case "access": return cm.setClientAccessControl(me, b, (await body(req, z.object({ on: z.boolean() }))).on);
       case "connect": return cm.setClientConnect(me, b, (await body(req, z.object({ on: z.boolean() }))).on);
       case "delete": return cm.deleteClient(me, b, (await body(req, z.object({ confirmName: z.string().max(160) }))).confirmName);
       case "responsible": return cm.changeResponsible(me, b, await body(req, z.object({ name: z.string().max(80), email: z.string().max(200) })));

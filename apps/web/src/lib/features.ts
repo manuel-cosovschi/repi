@@ -5,6 +5,7 @@
 export const FEATURES = {
   adaptive: { on: true, what: "«No vino el profe» / «Entrenar por mi cuenta» y reemplazos aprobados (reglas, sin IA)" },
   connect: { on: true, what: "REPI Connect · seguimiento de sala. Interruptor general: además cada gimnasio lo activa REPI Admin (piloto)" },
+  gym_access: { on: true, what: "Control de acceso del gimnasio (membresía, QR dinámico de ingreso, pase presencial). Interruptor general: además cada gimnasio lo activa REPI Admin" },
   club: { on: true, what: "Repi Club del gimnasio: publicaciones voluntarias, ranking y moderación" },
   nutrition: { on: false, what: "Pestaña Nutrición en la ficha del coach: falta la carga desde la app del alumno" },
   body: { on: false, what: "Mi cuerpo (Body Intelligence): faltan registro de medidas y fotos, y el visor" },
