@@ -340,6 +340,51 @@ function ClientModal({ flash, onClose, regularize }: { flash: (t: string) => voi
   );
 }
 
+// Corregir datos cargados por error (D124). Cantidad, precio, prueba y responsable siguen con sus propios botones.
+function EditClientModal({ v, flash, onClose }: { v: Detail; flash: (t: string) => void; onClose: (saved: boolean) => void }) {
+  const c = v.contract;
+  const day = (x: string | null) => (x ? localDate(new Date(x)) : "");
+  const [f, setF] = useState<Record<string, string>>({
+    orgName: v.org.name, legalName: c.legalName ?? "", currency: c.currency, scope: c.scope, scopeNote: c.scopeNote ?? "",
+    acceptedRef: c.acceptedRef ?? "", acceptedAt: day(c.acceptedAt), termsVersion: c.termsVersion ?? "", enabledAt: day(c.enabledAt),
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api<{ changed: string[] }>(`/api/admin/contracts/${c.id}/update`, { body: {
+        orgName: f.orgName, legalName: f.legalName.trim() || null, currency: f.currency,
+        ...(c.kind === "gym" ? { scope: f.scope, scopeNote: f.scope === "locations" ? f.scopeNote || null : null } : {}),
+        ...(c.acceptedAt ? { acceptedRef: f.acceptedRef, acceptedAt: f.acceptedAt, termsVersion: f.termsVersion } : {}),
+        ...(c.enabledAt ? { enabledAt: f.enabledAt } : {}),
+      } });
+      flash(`Datos corregidos: ${r.changed.join(", ")}.`);
+      onClose(true);
+    } catch (e) { flash((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <Modal label="Editar datos del cliente" onClose={() => onClose(false)} wide>
+      <div className="mhead"><h2>Editar datos · {v.org.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
+      <div className="grid-2">
+        <label className="field">Nombre visible<input value={f.orgName} onChange={set("orgName")} /></label>
+        <label className="field">Razón social (opcional)<input value={f.legalName} onChange={set("legalName")} /></label>
+        <label className="field">Moneda<select value={f.currency} onChange={set("currency")}><option>ARS</option><option>USD</option></select></label>
+        {c.kind === "gym" && <label className="field">Alcance<select value={f.scope} onChange={set("scope")}><option value="organization">Toda la organización</option><option value="locations">Sedes del acuerdo</option></select></label>}
+        {c.kind === "gym" && f.scope === "locations" && <label className="field">Cobertura y regla sin duplicados<input value={f.scopeNote} onChange={set("scopeNote")} /></label>}
+        {c.acceptedAt && <>
+          <label className="field">Referencia de la aceptación<input value={f.acceptedRef} onChange={set("acceptedRef")} /></label>
+          <label className="field">Fecha de aceptación<input type="date" max={today()} value={f.acceptedAt} onChange={set("acceptedAt")} /></label>
+          <label className="field">Versión del acuerdo<input value={f.termsVersion} onChange={set("termsVersion")} /></label>
+        </>}
+        {c.enabledAt && <label className="field">Fecha de habilitación<input type="date" max={today()} value={f.enabledAt} onChange={set("enabledAt")} /></label>}
+      </div>
+      <span className="muted" style={{ fontSize: 13 }}>Corrige errores de carga: no avisa al cliente ni cambia su estado. Cantidad, precio, prueba y responsable se cambian con sus botones, que sí le avisan.</span>
+      <div className="mfoot"><button type="button" className="btn" onClick={() => onClose(false)}>Cancelar</button><button type="button" className="btn pri" aria-busy={busy || undefined} onClick={save}>Guardar cambios</button></div>
+    </Modal>
+  );
+}
+
 // Pagos externos registrados (F-AD-04, N-O22, D102): constancia manual con evidencia y conciliación contra cierres.
 // No es una pasarela, no es un cobro de REPI ni un comprobante fiscal.
 type Pays = {
@@ -414,6 +459,7 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
   const [acc, setAcc] = useState({ ref: "", date: today(), version: "" });
   const [trial, setTrial] = useState("");
   const [answer, setAnswer] = useState<Record<string, string>>({});
+  const [edit, setEdit] = useState(false);
   const act = async (key: string, url: string, body: unknown, ok: string | ((r: unknown) => string)) => {
     setBusy(key);
     // Recargar también ante error: un envío rechazado queda registrado y debe verse (D88).
@@ -431,7 +477,15 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
       <button type="button" className="gy-link" onClick={back}>← Clientes</button>
       <Head kicker={`${c.kind === "gym" ? "Gimnasio" : "Coach"}${c.legalName ? ` · ${c.legalName}` : ""} · responsable ${c.responsibleName} (${c.responsibleEmail})`} title={v.org.name}>
         <span className={`chip ${CST[c.status][1]}`}>{CST[c.status][0]}</span>
+        <button type="button" className="btn sm" onClick={() => setEdit(true)}>Editar datos</button>
+        <button type="button" className="btn sm danger" aria-busy={busy === "del" || undefined} onClick={async () => {
+          const name = window.prompt(`Para eliminar el cliente escribí su nombre: ${v.org.name}\nSólo se puede si nadie creó cuenta en su espacio. No se puede deshacer.`);
+          if (!name) return;
+          setBusy("del");
+          try { await api(`${base}/delete`, { body: { confirmName: name } }); flash(`${v.org.name} se eliminó.`); back(); } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+        }}>Eliminar cliente</button>
       </Head>
+      {edit && <EditClientModal v={v} flash={flash} onClose={(saved) => { setEdit(false); if (saved) d.reload(); }} />}
       {v.overAgreed && <p className="gy-warn" role="note" style={{ margin: 0 }}>Hay {v.enabledAccesses} accesos habilitados y el total acordado es menor. Revisá con el cliente: no se cobra extra ni se bloquea automáticamente.</p>}
       {v.quantityAgeDays != null && v.quantityAgeDays > 31 && <p className="gy-warn" role="note" style={{ margin: 0 }}>La cantidad acordada no se revisa hace {v.quantityAgeDays} días (revisión mensual propuesta).</p>}
 

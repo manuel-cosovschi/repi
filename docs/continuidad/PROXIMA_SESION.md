@@ -1,11 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D123), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D124), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Pasos para agregar a inicio después del registro (D123)
+## Último bloque cerrado — 28/10/2026 · Corregir y eliminar clientes en Admin (D124)
+
+- **Hecho:** «Editar datos» y «Eliminar cliente» en la ficha de Admin (`AdminApp.tsx`, `updateClient`/`deleteClient`, rutas `update`/`delete`). Tests web 181/181, guardas 11/11, `tsc` y build OK. Probado en local: alta de «Gym Cargado Mal», corrección de nombre y moneda, eliminación con el nombre exacto. Sin migración.
+- **Siguiente:** pendientes externos LB-02..LB-06 y observaciones O-01..O-05.
+
+## Bloque anterior — 28/10/2026 · Pasos para agregar a inicio después del registro (D123)
 
 - **Hecho:** `InstallSteps` (`apps/web/src/components/access/InstallGuide.tsx`, estilos `.ig-box` en `access.css`) en «¡Listo!», espera de aprobación del QR y nueva pantalla `ready` de `AccessFlow.tsx` (función `enter`). Tests web 179/179, `tsc` y build OK. Probado en local: invitación de Coach Simulación → registro de `sim.alumno2@example.com` → «¡Listo!» con pasos.
-- **Siguiente:** borrar y corregir clientes en Admin (pedido del titular).
 
 ## Bloque anterior — 28/10/2026 · Contenido fuera del difuminado de iOS 26 (D122)
 

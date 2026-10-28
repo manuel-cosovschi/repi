@@ -64,6 +64,12 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       case "close": return cm.closePeriodSimulated(me, b, await body(req, z.object({ start: day, end: day })));
       case "invite": return cm.sendOwnerInvitation(me, b);
       case "revoke-invite": return cm.revokeOwnerInvitation(me, b);
+      case "update": return cm.updateClient(me, b, await body(req, z.object({
+        orgName: z.string().max(120).optional(), legalName: z.string().max(160).nullable().optional(), currency: z.string().max(3).optional(),
+        scope: z.enum(["organization", "locations"]).optional(), scopeNote: z.string().max(300).nullable().optional(),
+        acceptedRef: z.string().max(200).optional(), acceptedAt: day.optional(), termsVersion: z.string().max(40).optional(), enabledAt: day.optional(),
+      })));
+      case "delete": return cm.deleteClient(me, b, (await body(req, z.object({ confirmName: z.string().max(160) }))).confirmName);
       case "responsible": return cm.changeResponsible(me, b, await body(req, z.object({ name: z.string().max(80), email: z.string().max(200) })));
     }
   }

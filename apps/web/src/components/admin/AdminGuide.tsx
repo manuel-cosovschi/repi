@@ -35,6 +35,7 @@ const SECTIONS: { t: string; items: [string, string][] }[] = [
   ] },
   { t: "Clientes", items: [
     ["Lista", "Cada gimnasio o coach con su etapa (Borrador, Aceptado, Habilitado, Suspendido), lo acordado, el precio y los accesos. «Supera lo acordado» es un aviso para renegociar: no cobra ni bloquea."],
+    ["Editar datos y Eliminar cliente", "Arriba de la ficha. «Editar datos» corrige nombre, razón social, moneda, alcance y las fechas de aceptación y habilitación sin avisar al cliente (la moneda se traba si ya hay precios, cierres o pagos). «Eliminar cliente» pide escribir el nombre y sólo funciona si nadie creó cuenta en ese espacio y no hay pagos registrados; si ya hay personas, suspendelo."],
     ["1 · Acuerdo y habilitación", "«Registrar aceptación», «Habilitar cliente», «Guardar prueba» o «Quitar prueba» (el cliente ve el motivo) y «Suspender». Suspender corta el acceso del cliente sin borrar datos; «Rehabilitar» lo reactiva."],
     ["2 · Invitación de bienvenida", "«Enviar invitación», «Reenviar», «Revocar» y «Cambiar responsable». Muestra si el correo fue rechazado."],
     ["3 · Cantidad y precio", "Versiones con fecha de vigencia, motivo y evidencia. «Qué cuenta como vigente» define qué socio o alumno entra en la cantidad."],
@@ -60,6 +61,7 @@ const SECTIONS: { t: string; items: [string, string][] }[] = [
 ];
 
 const FAQ: [string, string][] = [
+  ["Cargué un cliente por error", "Abrí su ficha → «Eliminar cliente» y escribí su nombre. Si sólo hay un dato mal (nombre, moneda, fechas), usá «Editar datos»."],
   ["No le llegó el correo de invitación", "Abrí su ficha: si dice «Envío rechazado», corregí el email con «Cambiar responsable» (manda una invitación nueva). Si dice enviado, que revise spam o promociones."],
   ["Cambió el dueño o el responsable", "Ficha → 2 · Invitación → «Cambiar responsable». La invitación vieja deja de servir y se manda una nueva."],
   ["No pagó", "Ficha → 1 · Acuerdo → «Suspender», con motivo. Cuando pague, «Rehabilitar». No se borra nada."],

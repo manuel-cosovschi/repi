@@ -483,3 +483,40 @@ describe("QR de la sede para mostrar (D116)", () => {
     expect(await code(join.showJoinQr(outsider, w.org))).not.toBe("ok");
   });
 });
+
+describe("corregir y eliminar clientes desde Admin (D124)", () => {
+  it("corrige nombre, razón social, moneda y fechas; la moneda se traba con precios cargados", async () => {
+    const ad = await admin();
+    const c = await cm.createClient(ad, { kind: "coach", orgName: "Coach Erróneo", responsibleName: "Resp", responsibleEmail: mail(), currency: "ARS" });
+    await cm.recordAcceptance(ad, c.contractId, { method: "external", ref: "Email", acceptedAt: "2026-10-20", termsVersion: "v1" });
+    await cm.enableClient(ad, c.contractId, {});
+    const now = new Date("2026-10-28T15:00:00Z");
+    const r = await cm.updateClient(ad, c.contractId, { orgName: "Coach Correcto", legalName: "Correcto SRL", currency: "USD", acceptedAt: "2026-10-21", enabledAt: "2026-10-22" }, now);
+    expect(r.changed).toEqual(["nombre", "razón social", "moneda", "aceptación", "habilitación"]);
+    const [o] = await db.select().from(schema.organization).where(eq(schema.organization.id, c.orgId));
+    const [ct] = await db.select().from(schema.clientContract).where(eq(schema.clientContract.id, c.contractId));
+    expect(o.name).toBe("Coach Correcto");
+    expect([ct.legalName, ct.currency, ct.acceptedAt?.toISOString().slice(0, 10), ct.enabledAt?.toISOString().slice(0, 10)]).toEqual(["Correcto SRL", "USD", "2026-10-21", "2026-10-22"]);
+    expect(await code(cm.updateClient(ad, c.contractId, { enabledAt: "2026-10-20" }, now))).toBe("invalid"); // antes de la aceptación
+    expect(await code(cm.updateClient(ad, c.contractId, { acceptedAt: "2026-11-02" }, now))).toBe("invalid"); // futura
+    expect(await code(cm.updateClient(ad, c.contractId, { orgName: "Coach Correcto" }, now))).toBe("invalid"); // sin cambios
+    await cm.addTerm(ad, c.contractId, { kind: "unit_price", value: 1000, effectiveFrom: "2026-10-22", reason: "Acuerdo" });
+    expect(await code(cm.updateClient(ad, c.contractId, { currency: "ARS" }, now))).toBe("invalid_state");
+    const other = await verified("No admin");
+    expect(await code(cm.updateClient(other, c.contractId, { orgName: "Intruso" }, now))).not.toBe("ok");
+  });
+
+  it("elimina un cliente sin personas adentro sólo con el nombre exacto; con equipo o socios no se borra", async () => {
+    const ad = await admin();
+    const c = await cm.createClient(ad, { kind: "gym", orgName: "Gym Por Error", responsibleName: "Resp", responsibleEmail: mail(), currency: "ARS", locations: ["Centro"] });
+    expect(await code(cm.deleteClient(ad, c.contractId, "Otro nombre"))).toBe("invalid");
+    expect(await cm.deleteClient(ad, c.contractId, "gym por error")).toEqual({ deleted: true });
+    expect(await db.select().from(schema.organization).where(eq(schema.organization.id, c.orgId))).toEqual([]);
+    expect(await db.select().from(schema.gymLocation).where(eq(schema.gymLocation.orgId, c.orgId))).toEqual([]);
+    const [ev] = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.resourceId, c.contractId), eq(schema.auditEvent.action, "commercial.client_deleted")));
+    expect(ev.meta).toMatchObject({ name: "Gym Por Error" });
+    const w = await world();
+    const [o] = await db.select().from(schema.organization).where(eq(schema.organization.id, w.org));
+    expect(await code(cm.deleteClient(w.ad, w.contractId, o.name))).toBe("invalid_state");
+  });
+});

@@ -15,7 +15,7 @@ import { supportCounts } from "../support/services";
 import { paymentsThisMonth } from "./payments";
 import { dayTxt, noticesOf, publishNotice, requireOwner, unitWord } from "./notices";
 
-const { user, organization, gymLocation, staffMembership, invitation, clientContract, contractTerm, billingSnapshot, correctionRequest, commercialLead, legalAcceptance } = schema;
+const { user, organization, gymLocation, staffMembership, invitation, clientContract, contractTerm, billingSnapshot, correctionRequest, commercialLead, legalAcceptance, gymMember, coachClient, membershipRequest, billingPayment } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const OWNER_INVITE_DAYS = 7;
@@ -241,6 +241,87 @@ export async function setTrial(actorId: string, contractId: string, p: { trialUn
     : { kind: "trial", title: "Tu espacio ya no está en prueba gratuita", dedupeKey: `trial:none:${now.getTime()}`, createdBy: actorId,
       body: `Rigen desde hoy la cantidad y el precio acordados que ves en esta sección.${why}` });
   return { trialUntil: p.trialUntil };
+}
+
+/** Corregir datos cargados por error (D124): nombre, razón social, moneda, alcance y las fechas de aceptación y habilitación.
+ *  No avisa al cliente ni cambia su estado; queda en la auditoría qué campos cambiaron. La moneda sólo cambia mientras no
+ *  haya precios, cierres ni pagos cargados en la anterior; cantidad, precio y prueba siguen con su propio circuito. */
+export async function updateClient(actorId: string, contractId: string, p: {
+  orgName?: string; legalName?: string | null; currency?: string; scope?: "organization" | "locations"; scopeNote?: string | null;
+  acceptedRef?: string; acceptedAt?: string; termsVersion?: string; enabledAt?: string;
+}, now = new Date()) {
+  await requireAdmin(actorId);
+  const c = await contractFor(contractId);
+  const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
+  if (!o) throw NOT_FOUND();
+  const today = localDate(now);
+  const set: Partial<typeof clientContract.$inferInsert> = {};
+  const changed: string[] = [];
+  if (p.orgName !== undefined && p.orgName.trim() !== o.name) {
+    if (p.orgName.trim().length < 2) throw new AccessError("invalid", "El nombre visible necesita al menos 2 caracteres.");
+    changed.push("nombre");
+  }
+  if (p.legalName !== undefined && (p.legalName?.trim() || null) !== c.legalName) { set.legalName = p.legalName?.trim().slice(0, 160) || null; changed.push("razón social"); }
+  if (p.currency !== undefined && p.currency !== c.currency) {
+    if (!isCurrency(p.currency)) throw new AccessError("invalid", "Moneda inválida.");
+    const [price] = await db.select({ id: contractTerm.id }).from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, "unit_price"))).limit(1);
+    const [snap] = await db.select({ id: billingSnapshot.id }).from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id)).limit(1);
+    const [pay] = await db.select({ id: billingPayment.id }).from(billingPayment).where(eq(billingPayment.contractId, c.id)).limit(1);
+    if (price || snap || pay) throw new AccessError("invalid_state", `La moneda no se puede cambiar: ya hay precios, cierres o pagos en ${c.currency}.`, 409);
+    set.currency = p.currency as Currency; changed.push("moneda");
+  }
+  if (c.kind === "gym" && p.scope !== undefined && (p.scope !== c.scope || (p.scopeNote ?? null) !== c.scopeNote)) {
+    set.scope = p.scope; set.scopeNote = p.scope === "locations" ? p.scopeNote?.trim().slice(0, 300) || null : null; changed.push("alcance");
+  }
+  const accepted = p.acceptedRef !== undefined || p.acceptedAt !== undefined || p.termsVersion !== undefined;
+  if (accepted) {
+    if (!c.acceptedAt) throw new AccessError("invalid_state", "Este cliente todavía no tiene una aceptación registrada.", 409);
+    const ref = (p.acceptedRef ?? c.acceptedRef ?? "").trim(), ver = (p.termsVersion ?? c.termsVersion ?? "").trim();
+    if (ref.length < 2 || !ver) throw new AccessError("invalid", "La aceptación necesita referencia y versión.");
+    if (p.acceptedAt !== undefined && (!isDay(p.acceptedAt) || p.acceptedAt > today)) throw new AccessError("invalid", "La fecha de aceptación no puede ser futura.");
+    const at = p.acceptedAt !== undefined ? new Date(`${p.acceptedAt}T12:00:00Z`) : c.acceptedAt;
+    if (ref !== c.acceptedRef || ver !== c.termsVersion || at.getTime() !== c.acceptedAt.getTime()) {
+      set.acceptedRef = ref.slice(0, 200); set.termsVersion = ver.slice(0, 40); set.acceptedAt = at; changed.push("aceptación");
+    }
+  }
+  if (p.enabledAt !== undefined) {
+    if (!c.enabledAt) throw new AccessError("invalid_state", "Este cliente todavía no fue habilitado.", 409);
+    if (!isDay(p.enabledAt) || p.enabledAt > today) throw new AccessError("invalid", "La fecha de habilitación no puede ser futura.");
+    const acc = set.acceptedAt ?? c.acceptedAt;
+    if (acc && p.enabledAt < localDate(acc)) throw new AccessError("invalid", "La habilitación no puede ser anterior a la aceptación.");
+    if (p.enabledAt !== localDate(c.enabledAt)) { set.enabledAt = new Date(`${p.enabledAt}T12:00:00Z`); changed.push("habilitación"); }
+  }
+  if (!changed.length) throw new AccessError("invalid", "No hay cambios para guardar.");
+  await db.transaction(async (tx) => {
+    if (changed.includes("nombre")) await tx.update(organization).set({ name: p.orgName!.trim().slice(0, 120) }).where(eq(organization.id, c.orgId));
+    if (Object.keys(set).length) await tx.update(clientContract).set({ ...set, updatedAt: now }).where(eq(clientContract.id, c.id));
+    await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.client_corrected", resourceType: "client_contract", resourceId: c.id, meta: { fields: changed } });
+  });
+  return { changed };
+}
+
+/** Eliminar un cliente cargado por error (D124). Sólo si nadie creó cuenta en ese espacio (equipo, socios, alumnos, pedidos
+ *  de acceso o aceptaciones legales) y no hay pagos registrados sin anular: borra la organización y todo lo que cuelga de
+ *  ella (sedes, contrato, condiciones, cierres simulados, invitaciones). Con personas adentro se suspende, no se borra.
+ *  Pide escribir el nombre exacto. La auditoría conserva el nombre y quién lo eliminó. */
+export async function deleteClient(actorId: string, contractId: string, confirmName: string) {
+  await requireAdmin(actorId);
+  const c = await contractFor(contractId);
+  const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
+  if (!o) throw NOT_FOUND();
+  if ((confirmName ?? "").trim().toLowerCase() !== o.name.trim().toLowerCase()) throw new AccessError("invalid", `Escribí el nombre exacto del cliente («${o.name}») para eliminarlo.`);
+  const count = async (t: typeof staffMembership | typeof gymMember | typeof membershipRequest | typeof legalAcceptance) =>
+    (await db.select({ n: sql<number>`count(*)::int` }).from(t).where(eq(t.orgId, c.orgId)))[0]?.n ?? 0;
+  const people = (await count(staffMembership)) + (await count(gymMember)) + (await count(membershipRequest)) + (await count(legalAcceptance))
+    + ((await db.select({ n: sql<number>`count(*)::int` }).from(coachClient).where(eq(coachClient.coachOrgId, c.orgId)))[0]?.n ?? 0);
+  if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
+  const [pay] = await db.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
+  if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
+  await db.transaction(async (tx) => {
+    await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.client_deleted", resourceType: "client_contract", resourceId: c.id, meta: { name: o.name, kind: o.kind, status: c.status } });
+    await tx.delete(organization).where(eq(organization.id, c.orgId));
+  });
+  return { deleted: true };
 }
 
 /** Suspensión explícita (política del contrato): bloquea nuevas altas operativas; no marca a los socios como morosos del gym. */
