@@ -103,12 +103,29 @@
 .st-foot nav a { text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
 .st-foot nav a:hover { color: var(--core-white); }
 
+.st-direct { margin: 18px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.st-direct li { display: flex; align-items: center; gap: 10px; font-size: 16px; }
+.st-direct svg { color: var(--core-cyan); flex: none; }
+.st-direct a { color: var(--core-white); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; overflow-wrap: anywhere; }
+.st-direct a:hover { color: var(--core-cyan); }
+.st-foot-brand { display: flex; flex-direction: column; gap: 10px; }
+.st-foot-brand a { text-decoration: none; }
+.st-foot-brand a:hover { color: var(--core-white); }
+.st-sovare { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--core-navy800); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.st-sovare a { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.st-sovare img { height: 36px; width: auto; opacity: .9; filter: invert(1); }
+.st-sovare span { display: flex; flex-direction: column; line-height: 1.25; }
+.st-sovare small { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; color: var(--dark-muted); }
+.st-sovare strong { font-size: 14px; font-weight: 600; letter-spacing: .28em; color: var(--core-white); }
+.st-sovare em { font-size: 11px; color: var(--dark-muted); }
+
 /* Páginas legales */
 .lg { max-width: 760px; }
 .lg h1 { margin: 40px 0 6px; font: 700 40px/1.02 var(--font-display); text-transform: uppercase; letter-spacing: -.01em; }
 .lg h2 { margin: 30px 0 8px; font: 600 20px var(--font-ui); }
 .lg p, .lg li { color: var(--dark-ink-2); line-height: 1.6; font-size: 16px; }
 .lg ul { padding-left: 20px; }
+.lg-ver { margin: 0 0 18px; font: 500 12px var(--font-mono); color: var(--dark-muted); letter-spacing: .04em; }
 .lg-state { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, .45); background: rgba(245, 158, 11, .08); color: var(--dark-ink-2); line-height: 1.5; font-size: 15px; }
 .lg-back { display: inline-flex; margin-top: 24px; min-height: 44px; align-items: center; color: var(--core-cyan); text-decoration: none; }
 

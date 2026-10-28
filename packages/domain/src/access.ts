@@ -140,7 +140,7 @@ export const CONSENT_CATALOG: Record<ConsentScope, ConsentItem[]> = {
     },
   ],
 };
-export const TERMS_VERSION = "v2026.05-borrador"; // D21: textos legales pendientes
+export const TERMS_VERSION = "v2026.10"; // D109: texto en /legal/*; pendiente de revisión legal y datos societarios del titular
 
 /** Ítems efectivamente concedidos: los fijos + los pedidos que el contexto permite. */
 export function resolveGrants(

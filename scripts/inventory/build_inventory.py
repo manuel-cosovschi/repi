@@ -253,6 +253,11 @@ def base(**kw):
     return row
 
 
+# Nombres del handoff superados por decisiones posteriores (el handoff no se modifica). Tipografía oficial y definitiva:
+# Barlow / Barlow Condensed (G · Atlética, REPI_SELECCION_VISUAL.md); Inter Tight quedó descartada (confirmado 27/10/2026).
+NAME_FIX = {"F-BR-01": "Identidad Concepto 2 (wordmark, isotipo, paleta) con tipografía Barlow (G · Atlética)"}
+
+
 def main():
     feats = json.loads((SPEC / "features.json").read_text(encoding="utf-8"))["features"]
     rows = []
@@ -260,7 +265,7 @@ def main():
         fid = f["id"]
         acc = f.get("acceptance") or ""
         rows.append(base(
-            id=fid, nombre=f["name"], fuente="features.json · " + fid, modulo=f["module"], rol=f["roles"],
+            id=fid, nombre=NAME_FIX.get(fid, f["name"]), fuente="features.json · " + fid, modulo=f["module"], rol=f["roles"],
             pantallas=f.get("screens", []), diseno=DESIGN.get(f["status"], f["status"]),
             certeza="en_conflicto" if fid in CONFLICT else ("confirmado" if fid in CONFIRMED else "documentado"),
             conflicto=CONFLICT.get(fid), dependencias=f.get("dependencies", ""),

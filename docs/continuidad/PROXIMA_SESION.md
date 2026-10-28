@@ -1,8 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 27/10/2026, Adaptive Coach fase 1 (D108). Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 27/10/2026, contacto, soporte, legales y tipografía (D109). Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 27/10/2026 · Adaptive Coach fase 1 (D108)
+## Último bloque cerrado — 27/10/2026 · Contacto, soporte, legales v2026.10 y tipografía Barlow (D109)
+
+- **Hecho:** `apps/web/src/lib/contact.ts` (correo, WhatsApp, condiciones de soporte); sitio público revisado entero (`components/site/PublicSite.tsx`, `styles/site.css`): sección Soporte, contacto directo, FAQ de pago, pie con crédito Sovare e isotipo (`public/brand/sovare-isotipo.webp`); `/ayuda` con «Contacto directo»; textos legales en `app/legal/[doc]/texts.ts`; `TERMS_VERSION = "v2026.10"` (los consentimientos nuevos quedan con esa versión). Regla de tipografía Barlow definitiva en CLAUDE.md, AGENTS.md (raíz, antes sin versionar), apps/web/AGENTS.md y DESIGN_CONTRACT.md; inventario regenerado (F-BR-01). Sin migración.
+- **Decisiones del titular:** G09 resuelto (pago fuera de la app). Soporte: urgencias 24 h; a medida $ 30.000 por pedido (`docs/SOPORTE_OPERACION.md`).
+- **Pruebas:** web 166/166, dominio 104/104, guardas 11/11, build OK. Navegador 1009 px y 375 px: sitio sin desborde, pie Sovare, `/legal/terms|privacy|dpa` y `/ayuda`.
+- **Pendiente externo:** revisión de abogado y razón social, CUIT y domicilio para los legales (G11); el titular revisa el texto del sitio.
+- **Siguiente:** Adaptive Coach fase 1b (sustituciones aprobadas por coach/organización y política de autonomía por organización).
+
+## Bloque anterior — 27/10/2026 · Adaptive Coach fase 1 (D108)
 
 - **Hecho:** dominio `adaptive.ts` (+ tests) exportado; `apps/web/src/server/training/adaptive.ts`; `GET /api/me/solo?v=solo|coach_absent`; `member/Solo.tsx` (entrada en Entrenar y hoja con motivos, avisos y opciones); estilos `.solo-*`. Sin migración. `MemberApp.tsx` cambió sólo en el bloque de import final, estado `solo`, `Train` y la hoja (Codex tiene cambios sin commit en otros bloques de ese archivo: revisar al integrar).
 - **Documentos:** `docs/adaptive/ADAPTIVE_COACH_ARCHITECTURE.md` (principios, reutilización, fases 1–6, estado de tests A–Q, límites) y sección nueva en `docs/IMPLEMENTATION_STATUS.md`.
@@ -49,7 +57,7 @@ Actualizado: 27/10/2026, Adaptive Coach fase 1 (D108). Máster activo: ../../MAS
 - **Hecho:** tabla `billing_payment` (migración `0019_billing_payment`, dev local y **Supabase**, RLS); `src/server/commercial/payments.ts` (`contractPayments`, `recordPayment`, `voidPayment`, `paymentsThisMonth`); rutas Admin `GET /api/admin/contracts/[id]/payments`, `POST /api/admin/contracts/[id]/payments`, `POST /api/admin/payments/[id]/void`; `PaymentsCard` en `AdminApp.tsx` (ficha del contrato) y tarjeta «Pagos externos (mes)» en el Resumen (`adminSummary.externalPaymentsMonth`).
 - **Bug corregido:** `parseMoney` rechazaba montos con punto de miles («25.000», «150.000»): afectaba Cobros del coach (D80) y el nuevo registro. Tests agregados en `packages/domain/src/commercial.test.ts`.
 - **Pruebas:** web 153/153 (nuevo `tests/payments.test.ts`, 2), dominio 87/87, guardas 11/11, build OK. Navegador local (Admin del seed con 2FA marcado temporalmente en `repi_dev` y revertido): registrar ARS 150.000 con evidencia → aparece en la tabla «Sin asignar» → se anuló por API con motivo. El Resumen no lo suma porque Gym Norte es DEMO (correcto).
-- **Pendiente del titular (G09):** confirmar si el piloto opera con pago externo registrado; ciclo, corte, mora y fiscalidad siguen sin definir (D04–D05).
+- **G09 resuelto (D109):** el piloto opera con pago externo registrado por Admin; el titular gestiona el cobro fuera de la app.
 - **Siguiente:** F-BL-05 aviso al cliente de cambios de condiciones (historial visible en «Condiciones REPI») o F-PU-01 sitio público con contacto comercial.
 
 ## Bloque anterior — 27/10/2026 · Centro de avisos del staff gym (F-HX-26, D101)

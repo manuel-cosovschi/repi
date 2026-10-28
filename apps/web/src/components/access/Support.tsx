@@ -9,6 +9,7 @@ import { pendingFor } from "@/lib/offline/queue";
 import { detectEnv } from "@/lib/platform";
 import { Ic } from "@/components/ui/Ic";
 import { Wordmark } from "./Wordmark";
+import { CONTACT, SUPPORT } from "@/lib/contact";
 
 type Cat = "access" | "training" | "sync" | "billing" | "privacy" | "other";
 const CATS: [Cat, string][] = [["access", "No puedo entrar"], ["training", "Entrenamiento"], ["sync", "Datos sin guardar"], ["billing", "Pagos o contrato"], ["privacy", "Privacidad"], ["other", "Otro"]];
@@ -112,6 +113,15 @@ export function Support({ from }: { from?: string }) {
         </form>
       )}
       {sent && <button type="button" className="ac-sec" onClick={() => setSent(null)}>Escribir otra consulta</button>}
+
+      <section aria-labelledby="sp-direct" className="ac-info" style={{ alignItems: "flex-start" }}>
+        <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+          <strong id="sp-direct">Contacto directo</strong>
+          <small><a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a> · <a href={CONTACT.whatsapp} target="_blank" rel="noreferrer">WhatsApp {CONTACT.phoneLabel}</a></small>
+          <small><b>Urgencias:</b> {SUPPORT.urgent}</small>
+          <small><b>Gimnasios y coaches:</b> errores y dudas de uso incluidos en el acuerdo. {SUPPORT.custom}</small>
+        </span>
+      </section>
 
       {Array.isArray(mine) && mine.length > 0 && (
         <section aria-labelledby="sp-mine" style={{ display: "flex", flexDirection: "column", gap: 12 }}>

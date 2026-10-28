@@ -53,6 +53,8 @@ Extensiones propuestas (sin pantalla previa): enrolamiento de 2FA (QR + códigos
 
 ## Selección visual aprobada · G · Atlética (26/10/2026)
 
+> **Tipografía oficial y definitiva: Barlow (cuerpo e interfaz) y Barlow Condensed (títulos destacados), dirección G · Atlética.** Inter Tight está descartada y esta regla tiene prioridad sobre cualquier máster o pedido que la mencione (Adaptive Coach, Repi Proactivo, Coach, Gym, Body Intelligence). Logo e isotipo originales intactos; no cambiar componentes que ya usan Barlow (confirmado por el titular, 27/10/2026).
+
 Fuente: `REPI_SELECCION_VISUAL.md` (confirmación del usuario) y el preset G del comparador `documentacion/propuestas-visuales/2026-10-26/`. Se aplicó sobre la app existente: no se copió la demo.
 
 | Elemento | Implementado | Dónde |

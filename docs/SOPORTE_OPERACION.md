@@ -35,8 +35,14 @@ Un incidente afecta a varias personas, a una organización completa, a datos (p�
 4. Comunicar a los responsables de las organizaciones afectadas por correo, sin datos de otras personas.
 5. Cerrar con respuesta (qué pasó, qué se hizo, qué queda) y quitar la marca de incidente si fue una falsa alarma. Si hubo exposición de datos personales, el titular decide las notificaciones que correspondan (pendiente de política, G11).
 
+## Contacto y condiciones (confirmado por el titular, 27/10/2026, D109)
+
+- **Contacto público:** sovare.studio@gmail.com y WhatsApp 223 538-3082. Una sola fuente en `apps/web/src/lib/contact.ts` (sitio, Ayuda y textos legales).
+- **Urgencias** (la app no funciona o un error impide trabajar): primera respuesta dentro de las 24 horas.
+- **Errores y consultas de uso:** incluidos en el acuerdo de cada gimnasio o coach.
+- **Mantenimiento o modificaciones a medida** para un gimnasio o coach: se cobran aparte, **$ 30.000 por pedido**, acordado antes de hacerlo. El cobro se gestiona fuera de la app, igual que el abono (D102, D109).
+
 ## Pendiente del titular
 
-- Responsable(s) de soporte y horario; plazo de primera respuesta para el piloto.
-- Correo de contacto público (hoy el canal es el formulario; las respuestas salen del correo del equipo).
+- Responsable(s) de soporte y horario.
 - Procedimiento de verificación de identidad para recuperar 2FA sin códigos de respaldo.
