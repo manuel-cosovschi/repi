@@ -1,8 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D121), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D122), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Franja de la hora sin degradé (D121)
+## Último bloque cerrado — 28/10/2026 · Contenido fuera del difuminado de iOS 26 (D122)
+
+- **Hecho:** variable `--safe-top` en `apps/web/src/styles/globals.css` (zona segura + 28 px sólo con la app instalada y zona segura arriba); reemplaza `env(safe-area-inset-top)` en `coach.css`, `member.css`, `access.css`, `site.css`, `globals.css` y `Workout.tsx`. Tests web 179/179, `tsc` y build OK.
+- **Siguiente:** el titular cierra y reabre la app instalada en el iPhone para confirmar. Si la franja sigue tapando, subir el valor de 28 px en `--safe-top`.
+- **Presentación:** logo de portada y cierre cambiado por el wordmark con punto `#00D1FF` (como `Wordmark.tsx`).
+
+## Bloque anterior — 28/10/2026 · Franja de la hora sin degradé (D121)
 
 - **Hecho:** `apps/web/src/styles/coach.css` pinta el fondo del documento en `--core-navy900` cuando hay un panel `.co` (Admin, Coach, Gym), así la franja de la hora del iPhone instalado coincide con la barra superior. Pruebas: web 179/179, guardas 11/11, dominio 107/107, `tsc` y build OK. Producción respondió 200 en `/`, `/acceso`, `/demo`, `/legal/*`, `/ayuda`, `/instalar`, manifest e íconos.
 - **Siguiente:** confirmación en el iPhone del titular (cerrar y reabrir la app). Pendientes externos sin cambios: LB-02..LB-06 y observaciones O-01..O-05.

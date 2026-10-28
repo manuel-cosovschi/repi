@@ -1,6 +1,13 @@
 @import "./tokens.css";
 
 *, *::before, *::after { box-sizing: border-box; }
+/* Borde superior seguro. Con REPI instalado en iPhone, iOS 26 difumina una franja de ~35 pt por debajo de la hora
+   (más allá de safe-area-inset-top): lo que cae ahí se ve borroso. En modo instalado y sólo si hay zona segura arriba
+   (en Android vale 0) se suman 28 px; en el navegador queda la zona segura tal cual (D122). */
+:root { --safe-top: env(safe-area-inset-top, 0px); }
+@media (display-mode: standalone) {
+  :root { --safe-top: calc(env(safe-area-inset-top, 0px) + min(28px, env(safe-area-inset-top, 0px) * 100)); }
+}
 html, body { margin: 0; }
 body {
   background: var(--access-page);
@@ -45,7 +52,7 @@ a:hover { color: var(--core-turquoise); }
 .dt-pill > span { color: var(--core-cyan); text-transform: uppercase; font-family: var(--font-mono); margin-right: 4px; }
 .dt-pill button, .dt-pill a { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(248, 250, 252, .08); color: var(--core-white); font: 600 13px var(--font-ui); cursor: pointer; display: grid; place-items: center; text-decoration: none; }
 /* Aviso de versión nueva (D92): arriba, sin tapar la navegación inferior ni la píldora de la demo. */
-.up-bar { position: fixed; z-index: 92; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
+.up-bar { position: fixed; z-index: 92; top: calc(12px + var(--safe-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
   max-width: calc(100vw - 32px); padding: 4px 4px 4px 14px; border-radius: 999px; background: var(--core-navy900); color: var(--core-white);
   border: 1px solid rgba(0, 209, 255, .35); font: 600 13px var(--font-ui); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
 .up-bar button { min-height: 36px; min-width: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(248, 250, 252, .08); color: var(--core-white); font: 600 13px var(--font-ui); cursor: pointer; }

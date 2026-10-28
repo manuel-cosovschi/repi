@@ -457,7 +457,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData;
   const pr = sum.prs[0];
   const complete = sum.setsDone >= sum.setsTotal;
   return (
-    <div className="mb-scroll nobar done" data-cel={cel ?? undefined} style={{ paddingTop: "max(60px, env(safe-area-inset-top))" }}>
+    <div className="mb-scroll nobar done" data-cel={cel ?? undefined} style={{ paddingTop: "max(60px, calc(var(--safe-top) + 16px))" }}>
       {burst && <Confetti seed={seedOf(sum.id)} origin={() => { const r = ring.current?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; }} onDone={() => setBurst(false)} />}
       <div className="done-hero">
         <div className="done-ring" ref={ring}><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" stroke="#1A2433" strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>

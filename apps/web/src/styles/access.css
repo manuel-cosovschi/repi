@@ -41,7 +41,7 @@
 /* Columna del formulario */
 .ac-main {
   flex: 1; min-width: 0; display: flex; justify-content: center;
-  padding: max(58px, calc(env(safe-area-inset-top) + 24px)) max(24px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  padding: max(58px, calc(var(--safe-top) + 24px)) max(24px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
 }
 @media (min-width: 900px) { .ac-main { padding: 48px 56px; align-items: center; } }
 .ac-form { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 18px; }

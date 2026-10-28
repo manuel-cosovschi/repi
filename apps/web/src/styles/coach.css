@@ -7,7 +7,7 @@ html:has(.co), body:has(.co) { background: var(--core-navy900); }
 .co-side { width: 248px; flex: none; background: var(--core-navy900); color: var(--core-white); position: sticky; top: 0; height: 100dvh;
   display: flex; flex-direction: column; gap: 18px; z-index: 40; overflow-y: auto; scrollbar-width: none;
   /* App instalada en iPhone (viewport-fit=cover, barra de estado translúcida): nada debajo de la hora ni del indicador de inicio. */
-  padding: max(20px, calc(env(safe-area-inset-top) + 12px)) 12px max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  padding: max(20px, calc(var(--safe-top) + 12px)) 12px max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
 .co-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; min-height: 36px; }
 .co-brand .tag { margin-left: auto; font: 500 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--core-turquoise); }
 .co-rail-icon { display: none; width: 36px; height: 36px; border-radius: 9px; }
@@ -38,7 +38,7 @@ html:has(.co), body:has(.co) { background: var(--core-navy900); }
   .co-side { position: fixed; left: 0; top: 0; transform: translateX(-100%); transition: transform var(--dur-sheet) var(--ease-out); }
   .co[data-drawer="1"] .co-side { transform: none; }
   .co-topbar { display: flex; align-items: center; gap: 12px; background: var(--core-navy900); position: sticky; top: 0; z-index: 30;
-    padding: max(10px, calc(env(safe-area-inset-top) + 4px)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); }
+    padding: max(10px, calc(var(--safe-top) + 4px)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); }
   .co-topbar button { width: 44px; height: 44px; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
 }
 .co-scrim { position: fixed; inset: 0; background: rgba(11, 15, 20, .5); z-index: 39; }
@@ -151,7 +151,7 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 
 /* Modal */
 .modal-bg { position: fixed; inset: 0; z-index: 60; background: rgba(11, 15, 20, .5); display: flex; align-items: center; justify-content: center;
-  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+  padding: max(20px, var(--safe-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
 .modal { color: var(--light-ink); font-family: var(--font-ui); width: 100%; max-width: 520px; max-height: calc(100dvh - 40px); overflow: auto; background: var(--light-surface); border-radius: 18px; box-shadow: var(--modal-shadow, 0 30px 80px rgba(11,15,20,.35)); padding: 24px; display: flex; flex-direction: column; gap: 14px; animation: co-pop 200ms var(--ease-out); }
 @keyframes co-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 .modal h2 { font-size: 19px; }

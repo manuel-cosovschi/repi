@@ -14,7 +14,7 @@
 
 .st-head { position: sticky; top: 0; z-index: 10; background: rgba(11, 15, 20, .92); border-bottom: 1px solid var(--core-navy800); }
 @supports (backdrop-filter: blur(8px)) { .st-head { background: rgba(11, 15, 20, .78); backdrop-filter: blur(10px); } }
-.st-head .st-wrap { display: flex; align-items: center; gap: 16px; min-height: 64px; padding-top: env(safe-area-inset-top); }
+.st-head .st-wrap { display: flex; align-items: center; gap: 16px; min-height: 64px; padding-top: var(--safe-top); }
 .st-nav { display: none; gap: 22px; font-size: 14px; color: var(--dark-muted); }
 .st-nav a { text-decoration: none; }
 .st-nav a:hover { color: var(--core-white); }
