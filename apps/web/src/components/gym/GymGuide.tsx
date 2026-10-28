@@ -26,18 +26,20 @@ const FLOOR: GuideStep[] = [
   { t: "«Mi turno» → «Iniciar turno»", d: "Sin turno iniciado no podés tomar pedidos, editar programas ni aprobar socios. Al irte, «Cerrar turno» o dejá el traspaso." },
   { t: "«Cola de asistencia» → «Tomar»", d: "Pedidos de ayuda, cambios de rutina o técnica de los socios de tu sede. Al tomarlo queda a tu nombre." },
   { t: "«Socios» → ficha → «Crear programa» o «Editar programa»", d: "Días, ejercicios, series, reps y descanso, con el motivo del cambio. El socio lo ve en su app. «Reemplazos» deja aprobadas alternativas si una máquina está ocupada." },
+  { t: "«Solicitudes de acceso» → «Mostrar QR de la sede»", d: "Si un socio está con vos y no quiere ir a recepción, mostrale el QR en tu pantalla o mandale el enlace con «Copiar enlace». Después aprobás su pedido ahí mismo (con el turno iniciado)." },
   { t: "«Traspaso de turno»", d: "Pasale lo pendiente a otro entrenador: queda pendiente hasta que lo acepta." },
   { t: "«Mensajes»", d: "Conversaciones con socios de tu sede. Las responde el equipo de sala; gerencia no lee los chats." },
 ];
 
 const RECEPTION: GuideStep[] = [
+  { t: "«Solicitudes de acceso» → «Mostrar QR de la sede»", d: "Para que el socio lo escanee en el mostrador o te pida el enlace por WhatsApp." },
   { t: "«Solicitudes de acceso»", d: "Socios que escanearon el QR. Verificá su identidad y su membresía y aprobá o rechazá con motivo." },
   { t: "«Recepción»", d: "Registrá ingresos y la entrega de premios de desafíos." },
 ];
 
 const MEMBERS: [string, string][] = [
   ["Cómo se suma un socio", "Escanea el QR de su sede, agrega REPI a su teléfono, crea su cuenta y pide acceso. Cuando lo aprueban, entra a su app y ve el programa que le arme el equipo de sala."],
-  ["No encuentra el QR", "Mandale el enlace de la sede («Accesos y QR» → «Copiar enlace»)."],
+  ["No encuentra el QR", "Cualquiera del equipo se lo muestra desde «Solicitudes de acceso» → «Mostrar QR de la sede», o le manda el enlace con «Copiar enlace»."],
   ["Ya entrena con un coach", "Puede tener las dos relaciones; en su app elige con cuál entrena. El coach no ve lo del gimnasio ni al revés."],
   ["Se da de baja", "Desde su ficha. Su historial queda; deja de ver lo del gimnasio."],
   ["No puede entrar", "Que toque «¿No podés entrar?» o «Ayuda y soporte» en la pantalla de ingreso."],

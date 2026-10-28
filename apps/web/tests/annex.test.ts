@@ -415,3 +415,23 @@ describe("centro de avisos del staff (F-HX-26, D101)", () => {
     expect(await code(notices.myStaffNotices(outsider, w.org))).toBe("not_found");
   });
 });
+
+describe("QR de la sede para mostrar (D116)", () => {
+  it("sala y recepción ven el QR de sus sedes sin regenerarlo; si no había, se crea uno; otra persona no", async () => {
+    const w = await world();
+    // Sin QR previo: el entrenador de sala lo pide y se crea uno solo para su sede.
+    const first = await join.showJoinQr(w.tA, w.org);
+    expect(first.qrs.map((q) => q.location.id)).toEqual([w.A]);
+    // Recepción ve el mismo: no se regenera.
+    expect((await join.showJoinQr(w.recep, w.org)).qrs[0].slug).toBe(first.qrs[0].slug);
+    // El de la otra sede es de su propio entrenador.
+    expect((await join.showJoinQr(w.tB, w.org)).qrs.map((q) => q.location.id)).toEqual([w.B]);
+    // Si gerencia regenera, se muestra el nuevo; el viejo deja de servir.
+    const fresh = await slugFor(w.manager, w.org, w.A);
+    expect((await join.showJoinQr(w.tA, w.org)).qrs[0].slug).toBe(fresh);
+    // El entrenador no puede regenerar ni revocar, y alguien ajeno no ve nada.
+    expect(await code(join.regenerateJoinLink(w.tA, w.org, w.A))).not.toBe("ok");
+    const outsider = await verified();
+    expect(await code(join.showJoinQr(outsider, w.org))).not.toBe("ok");
+  });
+});

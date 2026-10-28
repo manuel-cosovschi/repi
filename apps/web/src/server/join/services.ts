@@ -25,6 +25,32 @@ export async function joinLinks(actorId: string, orgId: string) {
   return locs.map((l) => ({ location: { id: l.id, name: l.name }, active: links.find((x) => x.locationId === l.id && x.active) ?? null, history: links.filter((x) => x.locationId === l.id && !x.active).slice(0, 5).map((x) => ({ createdAt: x.createdAt, revokedAt: x.revokedAt })) }));
 }
 
+/**
+ * QR para mostrar (D116): cualquier persona del equipo (sala, coordinación, recepción, gerencia, dueño) ve el QR activo de
+ * sus sedes para que el socio lo escanee ahí mismo, sin ir a recepción. Si la sede todavía no tiene uno, lo crea; nunca
+ * regenera ni revoca (eso invalidaría los impresos y queda para dueño y gerencia). Mostrarlo no aprueba nada.
+ */
+export async function showJoinQr(actorId: string, orgId: string) {
+  const ctx = await gymContext(actorId, orgId);
+  const locs = await scopedLocations(ctx, null);
+  return db.transaction(async (tx) => {
+    const links = locs.length ? await tx.select().from(locationJoinLink)
+      .where(and(eq(locationJoinLink.orgId, orgId), inArray(locationJoinLink.locationId, locs.map((l) => l.id)), eq(locationJoinLink.active, true))) : [];
+    const out: { location: { id: string; name: string }; slug: string }[] = [];
+    for (const l of locs) {
+      let link = links.find((x) => x.locationId === l.id);
+      if (!link) {
+        // Dos personas pueden abrirlo a la vez: el índice «uno activo por sede» decide y se usa el que quedó.
+        const [created] = await tx.insert(locationJoinLink).values({ orgId, locationId: l.id, slug: slug(), createdBy: actorId }).onConflictDoNothing().returning();
+        if (created) await audit(tx, { actorUserId: actorId, orgId, action: "join_link.created_on_show", resourceType: "location_join_link", resourceId: created.id });
+        link = created ?? (await tx.select().from(locationJoinLink).where(and(eq(locationJoinLink.locationId, l.id), eq(locationJoinLink.active, true))))[0];
+      }
+      out.push({ location: { id: l.id, name: l.name }, slug: link.slug });
+    }
+    return { qrs: out };
+  });
+}
+
 /** Genera o regenera el QR de una sede: el anterior queda revocado (no crea nuevas solicitudes). */
 export async function regenerateJoinLink(actorId: string, orgId: string, locationId: string) {
   const ctx = await gymContext(actorId, orgId);

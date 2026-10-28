@@ -68,6 +68,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     // Anexo 26/10: bandeja de solicitudes por QR, enlaces por sede, accesos habilitados y alertas de sala.
     case "joins": return join.joinInbox(me, orgId);
     case "join-links": return join.joinLinks(me, orgId);
+    case "join-qr": return join.showJoinQr(me, orgId);
     case "accesses": return join.listAccesses(me, orgId, u.searchParams.get("q")?.slice(0, 80) ?? "");
     case "alerts": return alerts.listAlerts(me, orgId, loc(u) ?? "");
   }

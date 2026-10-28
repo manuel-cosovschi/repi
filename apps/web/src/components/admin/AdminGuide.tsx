@@ -75,7 +75,7 @@ const ACCESS: [string, string][] = [
   ["Gerente", "Lo invita el dueño desde su panel: «Equipo» → «Invitar al equipo», rol Gerente."],
   ["Coordinador, entrenador de sala, recepción", "Los invita el dueño o un gerente desde «Equipo» → «Invitar al equipo», con rol y sede. Les llega un email con enlace y código."],
   ["Alumno de un coach", "Lo invita el coach desde «Clientes» → «Invitar cliente» (o «Importar CSV»). Le llega un email con enlace y código; crea su cuenta con ese email y elige qué compartir."],
-  ["Socio de un gimnasio", "No se invita por email: escanea el QR de su sede (el dueño o gerente lo genera en «Accesos y QR» y lo pone en recepción), crea su cuenta y pide acceso. Lo aprueba recepción, gerencia, el dueño o un entrenador de sala con turno activo en «Solicitudes de acceso»."],
+  ["Socio de un gimnasio", "No se invita por email: escanea el QR de su sede (el dueño o gerente lo genera en «Accesos y QR» y lo pone en recepción; además cualquiera del equipo se lo muestra desde «Solicitudes de acceso» → «Mostrar QR de la sede»), crea su cuenta y pide acceso. Lo aprueba recepción, gerencia, el dueño o un entrenador de sala con turno activo en «Solicitudes de acceso»."],
   ["Si ya tiene cuenta", "Entra con su cuenta de siempre y acepta la invitación nueva: una misma persona puede ser alumno de un coach y socio de un gimnasio, o trabajar en un gimnasio y entrenar con un coach."],
 ];
 

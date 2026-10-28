@@ -130,7 +130,7 @@ export function InstallGuide({ context, recovery, onContinue, help = false }: Pr
         </div>
         <ol className="ig-steps ig-who">
           <Who t="Alumno de un coach" d="Tu coach te invita con tu email. Abrí el correo de REPI o tocá «Tengo un código», creá tu cuenta con ese mismo email y listo." />
-          <Who t="Socio de un gimnasio" d="Escaneá el QR de tu sede (está en recepción), creá tu cuenta y pedí acceso. El equipo del gimnasio lo aprueba." />
+          <Who t="Socio de un gimnasio" d="Escaneá el QR de tu sede (en recepción o pedíselo a cualquier entrenador de sala), creá tu cuenta y pedí acceso. El equipo del gimnasio lo aprueba." />
           <Who t="Coach o dueño de gimnasio" d="REPI te manda un email de bienvenida con un enlace para activar tu espacio. Usá el mismo email." />
           <Who t="Equipo del gimnasio" d="Gerencia, sala o recepción: el gimnasio te invita por email. Abrí el enlace o tocá «Tengo un código» y creá tu cuenta con ese email." />
         </ol>

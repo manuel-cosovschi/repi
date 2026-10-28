@@ -55,9 +55,13 @@ export function JoinsScreen({ shell }: { shell: Shell }) {
   const pending = v?.requests.filter((r) => r.status === "pending") ?? [];
   const done = v?.requests.filter((r) => r.status !== "pending").sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt)) ?? [];
   const actHere = (r: JoinRow) => !!v?.canActAt.some((l) => l.id === r.locationId);
+  const [qr, setQr] = useState(false);
   return (
     <>
-      <Head kicker="Socios que escanearon el QR de la sede. Las resuelve el piso en turno o recepción; gerencia y dueño, como respaldo." title="Solicitudes de acceso" />
+      <Head kicker="Socios que escanearon el QR de la sede. Las resuelve el piso en turno o recepción; gerencia y dueño, como respaldo." title="Solicitudes de acceso">
+        <button type="button" className="btn pri" onClick={() => setQr(true)}>Mostrar QR de la sede</button>
+      </Head>
+      {qr && <ShowQrModal shell={shell} onClose={() => { setQr(false); d.reload(); }} />}
       <PushCard flash={shell.flash} who="floor" />
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
       {v?.floorWithoutShift && <p className="gy-warn" role="note" style={{ margin: 0 }}>Para resolver solicitudes tenés que tener el turno iniciado en esta sede. <button type="button" className="gy-link" onClick={() => shell.go("shift")}>Ir a Mi turno</button></p>}
@@ -370,5 +374,32 @@ export function ConditionsScreen({ orgId, flash, unit, onSeen }: { orgId: string
         </section>
       </>}
     </>
+  );
+}
+
+/**
+ * QR para que el socio escanee en el momento, desde el teléfono o la computadora de cualquier persona del equipo (D116).
+ * Es el mismo QR activo de la sede (el impreso sigue sirviendo). Escanearlo sólo crea una solicitud: la aprobación es aparte.
+ */
+function ShowQrModal({ shell, onClose }: { shell: Shell; onClose: () => void }) {
+  const d = useLoad<{ qrs: { location: { id: string; name: string }; slug: string }[] }>(`/api/gym/${shell.orgId}/join-qr`);
+  const [i, setI] = useState(0);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const q = d.data?.qrs[i];
+  const link = q && origin ? `${origin}/unirse/${q.slug}` : "";
+  return (
+    <Modal label="QR de la sede" onClose={onClose}>
+      <div className="mhead"><h2>QR para sumarse{q ? ` · ${q.location.name}` : ""}</h2><button type="button" className="x" aria-label="Cerrar" onClick={onClose}>×</button></div>
+      {d.err && <p role="alert" className="err-box">{d.err}</p>}
+      {!d.data ? <p className="muted">Cargando…</p> : !d.data.qrs.length ? <p className="muted">No tenés sedes asignadas.</p> : <>
+        {d.data.qrs.length > 1 && (
+          <div className="pills" role="group" aria-label="Sede">{d.data.qrs.map((x, k) => <button key={x.location.id} type="button" className="pill" aria-pressed={k === i} onClick={() => setI(k)}>{x.location.name}</button>)}</div>
+        )}
+        {link && <div className="gy-qr-big" role="img" aria-label={`QR de ${q!.location.name}`} dangerouslySetInnerHTML={{ __html: renderSVG(link, { border: 1 }) }} />}
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>El socio lo escanea con la cámara, agrega REPI a su teléfono, crea su cuenta y pide acceso. La solicitud aparece en esta pantalla para aprobarla.</p>
+        {link && <button type="button" className="btn" onClick={() => navigator.clipboard?.writeText(link).then(() => shell.flash("Enlace copiado: podés mandarlo por WhatsApp."))}>Copiar enlace</button>}
+      </>}
+    </Modal>
   );
 }
