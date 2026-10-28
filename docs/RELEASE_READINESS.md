@@ -12,7 +12,7 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 
 | ID | Requisito | Prior. | Estado | Evidencia / prueba | Bloqueantes | Área | Validado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| LR-01 | Registro, verificación por código, ingreso, recuperación, 2FA de Admin/dueño, sesiones revocadas al cambiar contraseña, cierre de sesión | P0 | Verificado | `tests/access.test.ts`, `security-launch.test.ts`, `logout.test.ts` | — | Identidad | 27/10 |
+| LR-01 | Registro, verificación por código, ingreso, recuperación, 2FA optativa desde «Mi cuenta» (D119), sesiones revocadas al cambiar contraseña, cierre de sesión | P0 | Verificado | `tests/access.test.ts`, `security-launch.test.ts`, `logout.test.ts` | — | Identidad | 27/10 |
 | LR-02 | Alta comercial: interés en el sitio → Admin registra acuerdo y habilita → el coach activa su espacio con la invitación (sólo su email) | P0 | Verificado | `tests/launch-flows.test.ts` LF-01, `annex.test.ts`, `commercial-delivery.test.ts` | — | Comercial | 27/10 |
 | LR-03 | Invitar alumno: ligada al email, de un uso, revocable; cuenta existente suma relación | P0 | Verificado | `access.test.ts` («invitación de alumno»), LF-01 | — | Identidad | 27/10 |
 | LR-04 | Rutinas: ejercicios, series, reps/rangos, RIR, descanso, indicaciones, días, duplicar, autoguardado versionado; asignar como copia propia | P0 | Verificado | `training.test.ts` («programas versionados»), LF-01; navegador D110 | — | Programación | 27/10 |

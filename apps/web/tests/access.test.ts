@@ -189,13 +189,13 @@ async function gymWithLocation() {
 }
 
 describe("gimnasio", () => {
-  it("dueño: DPA vinculado al gym, CUIT validado, 2FA requerida en el selector", async () => {
+  it("dueño: DPA vinculado al gym, CUIT validado, entra sin exigirle 2FA (D119)", async () => {
     const { owner, org } = await gymWithLocation();
     const dpa = await db.select().from(schema.legalAcceptance).where(and(eq(schema.legalAcceptance.userId, owner), eq(schema.legalAcceptance.document, "dpa")));
     expect(dpa[0].orgId).toBe(org.id);
     await expectErr(svc.createGymOrganization(owner, { name: "Otro", cuit: "30-12345678-9" }), "invalid_cuit");
     const ws = await svc.listWorkspaces(owner);
-    expect(ws[0]).toMatchObject({ detail: "Dueño", needs2fa: true });
+    expect(ws[0]).toMatchObject({ detail: "Dueño", needs2fa: false });
   });
   it("invitación de staff ligada al email: otra cuenta es rechazada y auditada", async () => {
     const { owner, org, loc } = await gymWithLocation();

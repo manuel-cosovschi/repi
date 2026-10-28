@@ -1,8 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D118), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D119), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Auditoría por simulación de todos los roles (D118)
+## Último bloque cerrado — 28/10/2026 · 2FA optativa y «Mi cuenta» (D119)
+
+- **Hecho:** la verificación en dos pasos ya no se exige a nadie (`TWO_FACTOR_REQUIRED` en el dominio); `/cuenta` permite activarla o quitarla. Tests: `access.test.ts`, `gym.test.ts`, `privacy.test.ts` y el de dominio pasan a «optativa». Sin migración.
+- **Navegador local:** el dueño quitó la 2FA desde «Mi cuenta», volvió a entrar sólo con contraseña y abrió su panel; «Activar» lleva al paso de `/acceso` y «Ahora no» vuelve a «Mi cuenta».
+- **Siguiente:** presentación comercial de REPI Gym; cuentas de prueba en producción las crea el titular desde Admin (Claude no crea cuentas en producción).
+
+## Bloque anterior — 28/10/2026 · Auditoría por simulación de todos los roles (D118)
 
 - **Hecho:** simulación completa en dev local con cuentas nuevas por el circuito real (Admin, coach y alumna, dueño con 2FA TOTP, sala, recepción, socia por QR), pruebas de permisos entre roles y recorrido de todas las secciones a 375 px. Informe: `docs/AUDITORIA_2026-10-28.md`. Corregidos: F-12 (registro de equipo de gym roto, **crítico**), F-11 (alcance del gerente en invitaciones), F-05, F-06, F-08, F-10, F-13, F-14, F-15, F-17, F-18, F-19. Sin migración.
 - **Pruebas:** web 179/179, dominio 107/107, guardas 11/11, build OK.

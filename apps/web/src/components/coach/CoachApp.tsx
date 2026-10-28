@@ -98,7 +98,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
         </nav>
         <div className="co-me">
           <span className="av">{initials(me.name)}</span>
-          <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button> · <a href="/ayuda" onClick={(e) => { e.preventDefault(); window.location.href = `/ayuda?desde=${encodeURIComponent(window.location.pathname)}`; }} style={{ color: "inherit" }}>Ayuda</a></small></span>
+          <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button> · <a href="/cuenta" onClick={(e) => { e.preventDefault(); window.location.href = `/cuenta?desde=${encodeURIComponent(window.location.pathname)}`; }} style={{ color: "inherit" }}>Mi cuenta</a> · <a href="/ayuda" onClick={(e) => { e.preventDefault(); window.location.href = `/ayuda?desde=${encodeURIComponent(window.location.pathname)}`; }} style={{ color: "inherit" }}>Ayuda</a></small></span>
         </div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}

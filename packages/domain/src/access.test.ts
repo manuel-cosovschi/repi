@@ -93,10 +93,10 @@ describe("consentimientos", () => {
   });
 });
 
-describe("2FA obligatoria", () => {
-  it("admin y dueño sí; gerente no (D25)", () => {
-    expect(requiresTwoFactor({ platformAdmin: true })).toBe(true);
-    expect(requiresTwoFactor({ gymRoles: ["owner"] })).toBe(true);
+describe("2FA optativa", () => {
+  it("no se exige a ningún rol (D119; reemplaza D25)", () => {
+    expect(requiresTwoFactor({ platformAdmin: true })).toBe(false);
+    expect(requiresTwoFactor({ gymRoles: ["owner"] })).toBe(false);
     expect(requiresTwoFactor({ gymRoles: ["manager"] })).toBe(false);
   });
 });

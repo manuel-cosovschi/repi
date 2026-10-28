@@ -6,7 +6,7 @@ import { GuideCard, GuideDefs, GuideSteps, type GuideStep } from "@/components/u
 import { Head, type Shell } from "./shared";
 
 const START: GuideStep[] = [
-  { t: "Verificación en dos pasos", d: "Ya la configuraste al entrar. Guardá los códigos de respaldo: sin ellos y sin la app del código no podés entrar." },
+  { t: "Seguridad de tu cuenta → «Mi cuenta»", d: "Optativo: activá la verificación en dos pasos para que, además de la contraseña, te pida un código de una app del teléfono. Si la activás, guardá los códigos de respaldo." },
   { t: "QR de cada sede → «Accesos y QR»", d: "Generá el QR, tocá «Descargar» e imprimilo para recepción. Con ese QR los socios piden acceso. Si una sede no aparece, pedíla a REPI." },
   { t: "Cartel para instalar la app", d: "En /instalar/cartel hay un cartel A4 con el QR para agregar REPI al teléfono. Sirve para socios y para tu equipo." },
   { t: "Tu equipo → «Equipo» → «Invitar al equipo»", d: "Email, rol y sede de cada persona. Les llega un correo con enlace y código; crean su cuenta con ese email." },

@@ -105,9 +105,14 @@ export const GYM_ROLE_LABEL: Record<GymRole, string> = {
 };
 export const INVITABLE_GYM_ROLES: GymRole[] = ["manager", "coordinator", "floor_trainer", "reception"];
 
-/** 2FA obligatoria (Acceso twofa: "Obligatoria para administración de REPI y dueños"; D25). */
+/**
+ * Verificación en dos pasos: optativa para todos (D119, pedido del titular: exigirla juega en contra al vender). Cada persona
+ * la activa o la quita desde su configuración. Reemplaza la obligación para Admin y dueños de D25. Si algún día vuelve a
+ * exigirse, se cambia acá: las páginas y las API consultan esta política.
+ */
+export const TWO_FACTOR_REQUIRED = { platformAdmin: false, gymOwner: false } as const;
 export const requiresTwoFactor = (ctx: { platformAdmin?: boolean; gymRoles?: GymRole[] }) =>
-  !!ctx.platformAdmin || !!ctx.gymRoles?.includes("owner");
+  (!!ctx.platformAdmin && TWO_FACTOR_REQUIRED.platformAdmin) || (!!ctx.gymRoles?.includes("owner") && TWO_FACTOR_REQUIRED.gymOwner);
 
 // Consentimientos iniciales. Default apagado para todo lo opcional (D12).
 export type ConsentScope = "coach_client" | "gym_member";

@@ -3,7 +3,7 @@
 // Nada de esto emite cobros reales: la vista previa y el cierre simulado no son facturas (D01–D05 siguen pendientes).
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
-  ACTIVATION_LABEL, TERMS_VERSION, activationStage, fmtMoney, isCurrency, isEmail, localDate, normalizeEmail, overAgreed, previewPeriod,
+  ACTIVATION_LABEL, TERMS_VERSION, activationStage, fmtMoney, isCurrency, isEmail, localDate, normalizeEmail, overAgreed, previewPeriod, requiresTwoFactor,
   type ContractStatus, type Currency, type Term,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -23,7 +23,7 @@ const OWNER_INVITE_DAYS = 7;
 export async function requireAdmin(actorId: string) {
   const [u] = await db.select().from(user).where(eq(user.id, actorId));
   if (!u || u.platformRole !== "admin") throw NOT_FOUND();
-  if (!u.twoFactorEnabled) throw new AccessError("twofa_required", "REPI Admin exige verificación en dos pasos.", 403);
+  if (requiresTwoFactor({ platformAdmin: true }) && !u.twoFactorEnabled) throw new AccessError("twofa_required", "REPI Admin exige verificación en dos pasos.", 403);
   return u;
 }
 

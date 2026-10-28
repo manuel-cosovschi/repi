@@ -456,7 +456,7 @@ export async function listWorkspaces(userId: string): Promise<Workspace[]> {
   const rel = await db.select({ id: coachClient.id }).from(coachClient).where(and(eq(coachClient.userId, userId), eq(coachClient.status, "active")));
   const mem = await db.select({ id: gymMember.id }).from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.status, "active")));
   if (rel.length || mem.length) out.push({ key: "personal", ini: initials(u.name), title: "Mi entrenamiento", detail: "App personal", href: "/app", needs2fa: false });
-  if (u.platformRole === "admin") out.push({ key: "admin", ini: "RA", title: "REPI Admin", detail: "Administración de la plataforma", href: "/admin", needs2fa: !u.twoFactorEnabled });
+  if (u.platformRole === "admin") out.push({ key: "admin", ini: "RA", title: "REPI Admin", detail: "Administración de la plataforma", href: "/admin", needs2fa: requiresTwoFactor({ platformAdmin: true }) && !u.twoFactorEnabled });
   return out;
 }
 

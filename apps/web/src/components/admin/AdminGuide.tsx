@@ -15,7 +15,7 @@ const GYM: Step[] = [
   { t: "1 · Acuerdo y habilitación → registrar la aceptación", d: "Escribí la referencia de la evidencia (por ejemplo «PDF firmado 28/10»), la fecha y la versión del acuerdo, y tocá «Registrar aceptación». Después «Habilitar cliente». Si acordaste una prueba sin cargo, poné la fecha de fin antes de habilitar." },
   { t: "3 · Cantidad y precio", d: "«Nueva cantidad» (socios acordados) y «Nuevo precio» (por socio), con fecha desde la que rigen y motivo. Cada cambio queda como versión y el cliente lo ve en «Condiciones REPI»." },
   { t: "2 · Invitación de bienvenida → «Enviar invitación»", d: "Le llega un correo al responsable con un enlace para activar la cuenta. Si dice «Envío rechazado», revisá el email y tocá «Reenviar». Si el email estaba mal o cambió el responsable, usá «Cambiar responsable»: la invitación anterior deja de servir." },
-  { t: "El dueño activa su cuenta", d: "Abre el enlace, crea su cuenta con ese mismo email (o entra si ya tenía una) y configura la verificación en dos pasos con una app como Google Authenticator: es obligatoria para dueños." },
+  { t: "El dueño activa su cuenta", d: "Abre el enlace, crea su cuenta con ese mismo email (o entra si ya tenía una) Puede activar la verificación en dos pasos desde «Mi cuenta» si quiere más seguridad: es optativa." },
   { t: "El dueño arma su gimnasio", d: "En su panel: «Equipo» → «Invitar al equipo» (gerentes, coordinadores, entrenadores de sala y recepción, por email y sede). «Accesos y QR» → genera el QR de cada sede para imprimir o compartir." },
   { t: "Los socios se suman con el QR", d: "El socio escanea, crea su cuenta y pide acceso. El equipo lo aprueba en «Solicitudes de acceso». No hace falta cargar un padrón." },
 ];
@@ -71,7 +71,7 @@ const FAQ: [string, string][] = [
 // Quién invita a quién (D115). Nadie recibe una contraseña: cada persona crea la suya con el email invitado.
 const ACCESS: [string, string][] = [
   ["Coach", "Lo invitás vos desde Admin (ficha → «Enviar invitación»). Le llega un email de bienvenida y activa su espacio con ese email."],
-  ["Dueño del gimnasio", "Igual que el coach: lo invitás vos desde Admin. Además configura la verificación en dos pasos, obligatoria para dueños."],
+  ["Dueño del gimnasio", "Igual que el coach: lo invitás vos desde Admin. La verificación en dos pasos es optativa para todos («Mi cuenta»)."],
   ["Gerente", "Lo invita el dueño desde su panel: «Equipo» → «Invitar al equipo», rol Gerente."],
   ["Coordinador, entrenador de sala, recepción", "Los invita el dueño o un gerente desde «Equipo» → «Invitar al equipo», con rol y sede. Les llega un email con enlace y código."],
   ["Alumno de un coach", "Lo invita el coach desde «Clientes» → «Invitar cliente» (o «Importar CSV»). Le llega un email con enlace y código; crea su cuenta con ese email y elige qué compartir."],

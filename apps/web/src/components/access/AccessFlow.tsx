@@ -542,7 +542,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       if (a.state !== "pending") return { info, title: a.state === "accepted" ? "Esta invitación ya se usó" : "La invitación no está vigente", sub: a.state === "accepted" ? "Ingresá con tu cuenta para entrar a tu espacio." : "Pedí una nueva al equipo de REPI.", secondary: [{ label: "Ir a ingresar", go: () => start("login", "login") }] };
       if (signedIn) return {
         info, title: "Activá tu espacio", sub: `La invitación es para ${a.emailHint}. Tenés que estar con la cuenta de ese email.`,
-        note: a.kind === "gym" ? "Como responsable vas a configurar sedes, equipo y el QR de recepción. La cuenta del dueño exige verificación en dos pasos." : undefined,
+        note: a.kind === "gym" ? "Como responsable vas a configurar sedes, equipo y el QR de recepción." : undefined,
         cta: { label: "Aceptar y entrar", go: run(acceptActivation) },
         links: [{ pre: "¿Otra cuenta?", label: "Cerrar sesión", go: run(async () => { if (!await signOutSafely()) return; setSignedIn(false); setMe(null); }) }],
       };
@@ -646,7 +646,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         }) },
       }
       : {
-        title: "Activá la verificación en dos pasos", sub: "Obligatoria para administración de REPI y dueños. Confirmá tu contraseña para generar tu código.",
+        title: "Activá la verificación en dos pasos", sub: "Opcional: además de tu contraseña, te pide un código de una app del teléfono. Confirmá tu contraseña para generar tu código.",
         fields: [{ k: "pw2", label: "Tu contraseña", type: "password", ac: "current-password" }],
         cta: { label: "Generar código", ready: !!s("pw2"), go: run(async () => {
           if (!s("pw2")) return fail("Escribí tu contraseña.");
@@ -656,7 +656,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           setTotp({ uri: r.data.totpURI, backup: r.data.backupCodes });
           setF((x) => ({ ...x, pw2: "", otp2: "" }));
         }) },
-        links: [{ pre: "", label: "Elegir otro espacio", go: () => start("workspace", "login") }],
+        links: [{ pre: "", label: next ? "Ahora no" : "Elegir otro espacio", go: () => (next ? (window.location.href = next) : start("workspace", "login")) }],
       },
     workspace: () => {
       const ws = me?.workspaces ?? [];

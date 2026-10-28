@@ -45,13 +45,11 @@ describe("pedido de eliminación", () => {
     expect((await pv.myPrivacyRequests(yo))[0].status).toBe("cancelled");
     await expect(pv.cancelDeletion(yo, a.id)).rejects.toMatchObject({ status: 404 });
   });
-  it("sólo REPI Admin con 2FA lo ve y registra el resultado; otra persona no", async () => {
+  it("sólo REPI Admin lo ve y registra el resultado; otra persona no (2FA optativa, D119)", async () => {
     const yo = await person(), cualquiera = await person(), admin = await person("Admin Privacidad");
     const r = await pv.requestDeletion(yo);
     await expect(pv.listPrivacyRequests(cualquiera)).rejects.toMatchObject({ status: 404 });
     await db.update(schema.user).set({ platformRole: "admin" }).where(eq(schema.user.id, admin));
-    await expect(pv.listPrivacyRequests(admin)).rejects.toMatchObject({ code: "twofa_required" });
-    await db.update(schema.user).set({ twoFactorEnabled: true }).where(eq(schema.user.id, admin));
     expect((await pv.listPrivacyRequests(admin)).some((x) => x.id === r.id)).toBe(true);
     await expect(pv.resolvePrivacyRequest(admin, r.id, { status: "done", resolution: " " })).rejects.toMatchObject({ code: "invalid" });
     const done = await pv.resolvePrivacyRequest(admin, r.id, { status: "done", resolution: "Cuenta y entrenamientos borrados; auditoría conservada." });

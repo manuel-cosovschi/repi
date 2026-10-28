@@ -73,10 +73,9 @@ describe("permisos y sedes", () => {
     expect((await gym.listQueue(w.t1, w.org, w.A)).shared.map((x) => x.id)).toContain(t.id);
   });
 
-  it("dueño sin 2FA: la API también lo frena (no sólo la página)", async () => {
+  it("dueño sin 2FA entra igual: la verificación en dos pasos es optativa (D119)", async () => {
     const w = await world();
-    expect((await err(gym.gymContext(w.owner, w.org)))?.code).toBe("twofa_required");
-    await db.update(schema.user).set({ twoFactorEnabled: true }).where(eq(schema.user.id, w.owner));
+    await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.id, w.owner));
     expect((await gym.gymContext(w.owner, w.org)).locationIds).toBeNull(); // todas las sedes
   });
 

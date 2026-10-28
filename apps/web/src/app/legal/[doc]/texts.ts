@@ -90,7 +90,7 @@ export const LEGAL: Record<"terms" | "privacy" | "dpa", LegalDoc> = {
         "Menores de 13 años no pueden registrarse. Entre 13 y 17 años, las fotos, los videos y los datos de salud quedan bloqueados hasta que una persona adulta responsable lo apruebe.",
       ] },
       { h: "8. Seguridad", p: [
-        "Conexión cifrada, contraseñas cifradas, verificación en dos pasos para quienes administran gimnasios y REPI, archivos privados y registro de acciones sensibles. Ningún sistema es infalible: si detectamos un incidente que te afecte, te avisamos.",
+        "Conexión cifrada, contraseñas cifradas, verificación en dos pasos disponible para todas las cuentas, archivos privados y registro de acciones sensibles. Ningún sistema es infalible: si detectamos un incidente que te afecte, te avisamos.",
       ] },
       { h: "9. Cambios", p: [
         "Si cambiamos esta política de forma importante, te lo avisamos antes de que rija.",
@@ -108,7 +108,7 @@ export const LEGAL: Record<"terms" | "privacy" | "dpa", LegalDoc> = {
         "Tener una base legítima para tratar los datos de sus socios e informarles el uso de REPI; mantener al día altas, pausas y bajas; otorgar a su equipo sólo los permisos necesarios por rol y sede; no cargar datos sensibles que la persona no haya consentido.",
       ] },
       { h: "3. Obligaciones de Sovare", p: [
-        "Usar los datos sólo para el servicio y no para fines propios; mantener confidencialidad, también de su personal y proveedores; aplicar medidas de seguridad (cifrado en tránsito, control de acceso por rol, verificación en dos pasos para administradores, registro de acciones); no ceder los datos salvo obligación legal.",
+        "Usar los datos sólo para el servicio y no para fines propios; mantener confidencialidad, también de su personal y proveedores; aplicar medidas de seguridad (cifrado en tránsito, control de acceso por rol, verificación en dos pasos disponible para quienes administran, registro de acciones); no ceder los datos salvo obligación legal.",
         "Los datos de salud y los mensajes privados entre alumno y coach no se muestran al gimnasio por ser gimnasio: sólo lo que cada persona autoriza.",
       ] },
       { h: "4. Subencargados", p: [

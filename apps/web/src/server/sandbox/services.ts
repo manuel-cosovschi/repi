@@ -156,8 +156,8 @@ export async function startDemo(role: DemoRole, now = new Date()) {
 }
 
 /**
- * Después de abrir la sesión de la demo: el personal de gym tiene 2FA exigido; en la demo se marca como configurado
- * recién ahora (no hay contraseña ni código que nadie pueda usar para volver a entrar).
+ * Después de abrir la sesión de la demo se marca la 2FA como configurada sin ningún factor real: nadie puede volver a
+ * entrar a esas cuentas con la contraseña, aunque para las cuentas reales la 2FA ya es optativa (D119).
  */
 export async function sealDemo(tag: string) {
   const [b] = await db.select().from(schema.demoSandbox).where(eq(schema.demoSandbox.tag, tag));
