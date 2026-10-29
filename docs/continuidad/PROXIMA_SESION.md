@@ -14,6 +14,10 @@ Actualizado: 29/10/2026 (hasta D142), sobre la release candidata rc-2026.10.27 (
 
 **Resuelto en esta tanda (D127–D141):** Gym Access (D127); invitaciones, calendario y ver contraseña (D128, D130, D136); ejercicios propios y catálogo (D129); «En sala ahora» (D131); historial anterior con IA (D132) y desde Excel/ODS (D140); «No vino el profe» con IA (D133), con respuesta del alumno y reemplazos válidos (D138) y «Lo que buscás entrenando» (D139); prescripción avanzada (D134) y superseries que alternan solas (D137); guía del dueño (D135); textos «REPI» y privacidad al día (D141).
 
+**Pedidos nuevos del titular (29/10/2026, en curso — si este agente no llegó, seguir acá):**
+- **A. Cambios de rutina en tiempo real:** «si un entrenador en tiempo real decide cambiar algo de la rutina, ¿el alumno lo ve en tiempo real?». Revisar cómo llega hoy una versión nueva del programa al alumno (aviso F-CL-14, recarga) y qué pasa con un entrenamiento ya empezado (la sesión local copia el día al iniciar). Objetivo: que el alumno lo vea en segundos, también con la sesión abierta, sin perder lo registrado.
+- **B. Ranking por gimnasio y por ejercicio, visual y en vivo:** «el ranking debería verse visual para todo el mundo y ver cómo se actualiza en tiempo real; cómo baja alguien de una posición, cómo sube alguien». Revisar si ya existe algo (desafíos/logros de Comunidad) y respetar privacidad (opt-in para aparecer con nombre; menores; datos de salud no). Animación de subida/bajada.
+
 **Decisiones del titular pendientes:**
 1. El titular decidió **no** pedir nueva aceptación por ahora (no subir `TERMS_VERSION`); lo revisa más adelante con el abogado.
 2. La precarga de «No vino el profe» manda datos de entrenamiento a OpenAI al abrir Entrenar (sin tocar el botón). Si el abogado lo pide, pasar a pedirla sólo al tocar (pierde la respuesta instantánea).
