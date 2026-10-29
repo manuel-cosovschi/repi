@@ -42,7 +42,7 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
-type Screen = "summary" | "clients" | "leads" | "support" | "privacy" | "guide";
+type Screen = "summary" | "clients" | "leads" | "support" | "ideas" | "privacy" | "guide";
 
 export function AdminApp({ me }: { me: { name: string } }) {
   const [screen, setScreen] = useState<Screen>("summary");
@@ -57,16 +57,18 @@ export function AdminApp({ me }: { me: { name: string } }) {
   const newLeads = list.data?.leads.filter((l) => l.status === "new").length ?? 0;
   const sum = useLoad<Sum>("/api/admin/summary");
   const openSupport = sum.data?.supportOpen ?? 0;
+  const newIdeas = sum.data?.ideasNew ?? 0;
 
   return (
     <div className="co" data-drawer={drawer ? "1" : "0"}>
       <aside className="co-side" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["support", "Soporte"], ["privacy", "Privacidad"], ["guide", "Guía"]] as const).map(([k, l]) => (
+          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["guide", "Guía"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); if (k === "summary") void sum.reload(); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
               {k === "support" && openSupport > 0 && <span className="nbadge" aria-label={`${openSupport} consultas abiertas`}>{openSupport}</span>}
+              {k === "ideas" && newIdeas > 0 && <span className="nbadge" aria-label={`${newIdeas} sugerencias nuevas`}>{newIdeas}</span>}
             </button>
           ))}
         </nav>
@@ -99,6 +101,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
           {screen === "clients" && sel && <ContractView id={sel} flash={flash} back={() => { setSel(null); list.reload(); }} />}
           {screen === "summary" && <Summary d={sum} go={(k) => { setScreen(k); setSel(null); }} />}
           {screen === "support" && <SupportDesk flash={flash} onChange={sum.reload} />}
+          {screen === "ideas" && <SupportDesk ideas flash={flash} onChange={sum.reload} />}
           {screen === "privacy" && <PrivacyRequests flash={flash} />}
           {screen === "guide" && <AdminGuide />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
@@ -157,7 +160,7 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
 
 // F-AD-01: resumen desde acuerdos y eventos reales, sin DEMO. «Acordado» y «adopción» van separados; no hay «cobrado».
 type Sum = { clients: { total: number; enabled: number; draft: number; legacy: number; gyms: number; coaches: number }; agreed: number; adoption: number; overAgreed: number;
-  collected: null; externalPaymentsMonth: string[]; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number; supportOpen: number; incidentsOpen: number };
+  collected: null; externalPaymentsMonth: string[]; leadsNew: number; privacyPending: number; deniedLast7d: number; pushFailedLast24h: number; supportOpen: number; incidentsOpen: number; ideasNew?: number };
 function Summary({ d, go }: { d: { data: Sum | null; err: string | null }; go: (k: Exclude<Screen, "summary">) => void }) {
   const k = d.data;
   const tiles: [string, string, string, () => void][] = k ? [
@@ -192,22 +195,25 @@ type Ticket = {
   severity: "normal" | "incident"; internalNote: string | null; resolution: string | null; createdAt: string; resolvedAt: string | null;
   diagnostics: Record<string, string | number | boolean> | null; account: { name: string | null; email: string | null; emailVerified: boolean | null } | null;
 };
-const TCAT: Record<string, string> = { access: "No puede entrar", training: "Entrenamiento", sync: "Datos sin guardar", billing: "Pagos o contrato", privacy: "Privacidad", other: "Otro" };
+const TCAT: Record<string, string> = { idea: "Sugerencia", access: "No puede entrar", training: "Entrenamiento", sync: "Datos sin guardar", billing: "Pagos o contrato", privacy: "Privacidad", other: "Otro" };
 const TST: Record<Ticket["status"], [string, string]> = { open: ["Nueva", "warn"], in_progress: ["En revisión", "info"], resolved: ["Respondida", "ok"] };
 const DIAG: Record<string, string> = { appVersion: "Versión", platform: "Navegador", standalone: "Instalada", online: "Con conexión", pendingSync: "Sin sincronizar", path: "Pantalla" };
-function SupportDesk({ flash, onChange }: { flash: (t: string) => void; onChange: () => void }) {
+function SupportDesk({ flash, onChange, ideas = false }: { flash: (t: string) => void; onChange: () => void; ideas?: boolean }) {
   const [filter, setFilter] = useState<"active" | "resolved" | "all">("active");
-  const list = useLoad<Ticket[]>(`/api/admin/support?filter=${filter}`);
+  // D156: las sugerencias de mejora de los alumnos, en su propia bandeja (mismo flujo: tomar, responder, nota interna).
+  const list = useLoad<Ticket[]>(`/api/admin/support?filter=${ideas ? "ideas" : filter}`);
   const [open, setOpen] = useState<Ticket | null>(null);
   return (
     <>
+      {ideas ? <Head kicker="Lo que los alumnos sugieren para mejorar REPI (desde Perfil → «Sugerí una mejora»). Tomala, anotá qué vas a hacer y, si respondés, la respuesta la ve la persona en su Perfil." title="Sugerencias" /> : (
       <Head kicker="Consultas de alumnos, staff y clientes. Respondé por el correo de contacto y registrá acá qué se hizo. Sin sesión, el correo no está verificado: no hagas cambios de cuenta sin verificar identidad." title="Soporte">
         <select aria-label="Filtrar consultas" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="btn">
           <option value="active">Abiertas</option><option value="resolved">Respondidas</option><option value="all">Todas</option>
         </select>
       </Head>
+      )}
       {list.err && <p role="alert" className="err-box">{list.err}</p>}
-      {!list.data ? <p className="muted">Cargando…</p> : !list.data.length ? <div className="empty">{filter === "active" ? "No hay consultas abiertas." : "No hay consultas."}</div> : list.data.map((t) => (
+      {!list.data ? <p className="muted">Cargando…</p> : !list.data.length ? <div className="empty">{ideas ? "Todavía no llegaron sugerencias." : filter === "active" ? "No hay consultas abiertas." : "No hay consultas."}</div> : list.data.map((t) => (
         <div key={t.id} className="gy-task">
           <span style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
             <b>{t.code} · {TCAT[t.category] ?? t.category}{t.severity === "incident" && <> <span className="chip bad">Incidente</span></>}</b>

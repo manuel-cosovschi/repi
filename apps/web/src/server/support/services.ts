@@ -3,15 +3,18 @@
 // Reglas: identidad no equivale a coincidencia de email (una consulta sin sesión nunca se liga a una cuenta ni expone si el
 // correo existe); Admin resuelve con metadatos y los flujos propios de la persona, sin impersonar ni cambiar credenciales.
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { isEmail, normalizeEmail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, rateLimit, sha256 } from "../access/util";
 import { requireAdmin } from "../commercial/services";
+import { providerConfigured, sendViaProvider } from "../mailer";
 
 const { supportTicket, user } = schema;
 
-export const SUPPORT_CATEGORIES = ["access", "training", "sync", "billing", "privacy", "other"] as const;
+export const SUPPORT_CATEGORIES = ["access", "training", "sync", "billing", "privacy", "other", "idea"] as const;
+/** D156: dónde de la app es la sugerencia de mejora. */
+export const IDEA_AREAS = { train: "Entrenar", progress: "Progreso", messages: "Mensajes", gym: "Gym y club", profile: "Perfil", other: "Otra cosa" } as const;
 export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];
 
 // Sin 0/O ni 1/I/L: se dicta por teléfono.
@@ -30,6 +33,7 @@ export function cleanDiagnostics(d: unknown): Record<string, string | number | b
   if (typeof x.pendingSync === "number" && Number.isInteger(x.pendingSync) && x.pendingSync >= 0) out.pendingSync = Math.min(x.pendingSync, 100_000);
   // Sólo la ruta, sin query ni fragmento (pueden llevar códigos de invitación).
   if (typeof x.path === "string" && x.path.startsWith("/")) out.path = x.path.split(/[?#]/)[0].slice(0, 100);
+  if (typeof x.area === "string" && x.area in IDEA_AREAS) out.area = IDEA_AREAS[x.area as keyof typeof IDEA_AREAS];
   return Object.keys(out).length ? out : null;
 }
 
@@ -39,6 +43,13 @@ export async function openTicket(p: {
   const message = (p.message ?? "").trim();
   if (!SUPPORT_CATEGORIES.includes(p.category)) throw new AccessError("invalid", "Elegí un tema.");
   if (message.length < 10) throw new AccessError("invalid", "Contanos un poco más (al menos 10 caracteres).");
+  // D156: las sugerencias de mejora se mandan desde la app, con sesión, y con un tope diario por persona.
+  if (p.category === "idea") {
+    if (!p.userId) throw new AccessError("unauthorized", "Ingresá para mandar tu sugerencia.", 401);
+    await rateLimit(`idea:${p.userId}`, 10, 86_400_000).catch((e) => {
+      throw e instanceof AccessError && e.code === "rate_limited" ? new AccessError("rate_limited", "Ya mandaste varias sugerencias hoy. ¡Gracias! Seguí mañana.", 429) : e;
+    });
+  }
   let email: string;
   if (p.userId) {
     const [u] = await db.select({ email: user.email }).from(user).where(eq(user.id, p.userId));
@@ -65,6 +76,7 @@ export async function openTicket(p: {
       }).returning();
       // Auditoría sin el texto de la consulta.
       await audit(db, { actorUserId: p.userId, action: "support.opened", resourceType: "support_ticket", resourceId: t.id, meta: { category: t.category, identity: t.identity } });
+      if (t.category === "idea") await notifyIdea(t.code, t.message, (t.diagnostics as { area?: string } | null)?.area ?? null);
       return { code: t.code, createdAt: t.createdAt, already: false };
     } catch (e) {
       if (i < 3 && (e as { code?: string }).code === "23505") continue; // código repetido: otro intento
@@ -73,15 +85,31 @@ export async function openTicket(p: {
   }
 }
 
+/** D156: aviso al titular (ALERT_EMAIL) de cada sugerencia nueva. Sin datos de la persona: el texto y dónde. Nunca rompe. */
+async function notifyIdea(code: string, message: string, area: string | null) {
+  const to = process.env.ALERT_EMAIL;
+  if (!to || !providerConfigured()) return;
+  try {
+    await rateLimit("idea-mail", 30, 3_600_000);
+    await sendViaProvider({ to, subject: `Sugerencia para REPI${area ? ` · ${area}` : ""}`.slice(0, 120), body: [
+      `Un alumno sugirió una mejora (${code}).`, area ? `Dónde: ${area}` : "", "", message, "",
+      `La ves y la respondés en REPI Admin → Sugerencias: ${process.env.NEXT_PUBLIC_APP_URL ?? "https://repiclub.com"}/admin`,
+    ].filter((l, i) => l || i > 1).join("\n") });
+  } catch { /* el aviso es un extra: la sugerencia ya quedó guardada */ }
+}
+
 /** Sólo las consultas abiertas con esta cuenta; las enviadas sin sesión no se suman aunque coincida el email. */
 export const myTickets = (userId: string) =>
   db.select({ code: supportTicket.code, category: supportTicket.category, message: supportTicket.message, status: supportTicket.status, resolution: supportTicket.resolution, createdAt: supportTicket.createdAt, resolvedAt: supportTicket.resolvedAt })
     .from(supportTicket).where(eq(supportTicket.userId, userId)).orderBy(desc(supportTicket.createdAt)).limit(50);
 
 // ── REPI Admin ──────────────────────────────────────────────────────────────
-export async function listTickets(adminId: string, filter: "active" | "resolved" | "all" = "active") {
+export async function listTickets(adminId: string, filter: "active" | "resolved" | "all" | "ideas" = "active") {
   await requireAdmin(adminId);
-  const where = filter === "active" ? inArray(supportTicket.status, ["open", "in_progress"]) : filter === "resolved" ? eq(supportTicket.status, "resolved") : undefined;
+  // D156: las sugerencias de mejora van en su propia bandeja, no mezcladas con el soporte.
+  const notIdea = ne(supportTicket.category, "idea");
+  const where = filter === "ideas" ? eq(supportTicket.category, "idea")
+    : filter === "active" ? and(notIdea, inArray(supportTicket.status, ["open", "in_progress"])) : filter === "resolved" ? and(notIdea, eq(supportTicket.status, "resolved")) : notIdea;
   const rows = await db.select({ t: supportTicket, name: user.name, emailVerified: user.emailVerified, accountEmail: user.email })
     .from(supportTicket).leftJoin(user, eq(user.id, supportTicket.userId)).where(where)
     .orderBy(sql`case when ${supportTicket.severity} = 'incident' and ${supportTicket.status} <> 'resolved' then 0 else 1 end`, desc(supportTicket.createdAt)).limit(200);
@@ -117,9 +145,11 @@ export async function updateTicket(adminId: string, id: string, p: {
 export async function supportCounts() {
   const n = sql<number>`count(*)::int`;
   const active = inArray(supportTicket.status, ["open", "in_progress"]);
-  const [[a], [i]] = await Promise.all([
-    db.select({ n }).from(supportTicket).where(active),
-    db.select({ n }).from(supportTicket).where(and(active, eq(supportTicket.severity, "incident"))),
+  const notIdea = ne(supportTicket.category, "idea");
+  const [[a], [i], [d]] = await Promise.all([
+    db.select({ n }).from(supportTicket).where(and(active, notIdea)),
+    db.select({ n }).from(supportTicket).where(and(active, notIdea, eq(supportTicket.severity, "incident"))),
+    db.select({ n }).from(supportTicket).where(and(eq(supportTicket.category, "idea"), eq(supportTicket.status, "open"))),
   ]);
-  return { supportOpen: a?.n ?? 0, incidentsOpen: i?.n ?? 0 };
+  return { supportOpen: a?.n ?? 0, incidentsOpen: i?.n ?? 0, ideasNew: d?.n ?? 0 };
 }

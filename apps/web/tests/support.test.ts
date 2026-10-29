@@ -97,3 +97,21 @@ describe("bandeja de REPI Admin", () => {
     await expect(sp.updateTicket(a, "no-existe", { status: "in_progress" })).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe("D156 · sugerencias de mejora", () => {
+  it("el alumno sugiere una mejora: llega a la bandeja de sugerencias del admin (no al soporte) y ve la respuesta", async () => {
+    const yo = await person();
+    const ad = await admin();
+    await expect(sp.openTicket({ userId: null, email: "x@test.repi.local", category: "idea", message: "Que el descanso suene más fuerte" })).rejects.toMatchObject({ code: "unauthorized" });
+    const before = (await sp.supportCounts()).ideasNew;
+    const r = await sp.openTicket({ userId: yo.id, category: "idea", message: "Que el descanso suene más fuerte", diagnostics: { area: "train", otra: "nada" } });
+    const ideas = await sp.listTickets(ad, "ideas");
+    const t = ideas.find((x) => x.code === r.code)!;
+    expect(t).toMatchObject({ category: "idea", diagnostics: { area: "Entrenar" } }); // sólo el área de una lista cerrada
+    expect((await sp.listTickets(ad, "active")).some((x) => x.code === r.code)).toBe(false);
+    const c = await sp.supportCounts();
+    expect(c.ideasNew).toBe(before + 1);
+    await sp.updateTicket(ad, t.id, { status: "resolved", resolution: "¡Gracias! Lo sumamos en la próxima versión." });
+    expect((await sp.myTickets(yo.id))[0]).toMatchObject({ category: "idea", status: "resolved", resolution: "¡Gracias! Lo sumamos en la próxima versión." });
+  });
+});

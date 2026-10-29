@@ -19,7 +19,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "summary") return cm.adminSummary(me);
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
-  if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" ? f : "active"); }
+  if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" || f === "ideas" ? f : "active"); }
   if (a === "contracts" && b && c === "payments") return bp.contractPayments(me, b);
   if (a === "contracts" && b) {
     const start = u.searchParams.get("start"), end = u.searchParams.get("end");

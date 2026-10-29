@@ -29,6 +29,7 @@ import { Wishes } from "./Wishes";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
+import { Ideas } from "./Ideas";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -780,6 +781,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       </section>
       <MyCharges />
       <Wishes offline={offline} flash={flash} />
+      <Ideas offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>

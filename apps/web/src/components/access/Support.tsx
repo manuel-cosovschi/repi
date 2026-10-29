@@ -14,7 +14,7 @@ import { CONTACT, SUPPORT } from "@/lib/contact";
 type Cat = "access" | "training" | "sync" | "billing" | "privacy" | "other";
 const CATS: [Cat, string][] = [["access", "No puedo entrar"], ["training", "Entrenamiento"], ["sync", "Datos sin guardar"], ["billing", "Pagos o contrato"], ["privacy", "Privacidad"], ["other", "Otro"]];
 const STATUS = { open: "Recibida", in_progress: "En revisión", resolved: "Respondida" } as const;
-type Mine = { code: string; category: Cat; message: string; status: keyof typeof STATUS; resolution: string | null; createdAt: string; resolvedAt: string | null };
+type Mine = { code: string; category: Cat | "idea"; message: string; status: keyof typeof STATUS; resolution: string | null; createdAt: string; resolvedAt: string | null };
 type Diag = { appVersion?: string; platform?: string; standalone?: boolean; online?: boolean; pendingSync?: number; path?: string };
 
 const day = (d: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(d));
@@ -129,7 +129,7 @@ export function Support({ from }: { from?: string }) {
           {mine.map((t) => (
             <div key={t.code} className="ac-info" style={{ alignItems: "flex-start" }}>
               <span style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-                <strong>{CATS.find(([k]) => k === t.category)?.[1]} · <span className={`ac-badge${t.status === "resolved" ? " ok" : ""}`}>{STATUS[t.status]}</span></strong>
+                <strong>{CATS.find(([k]) => k === t.category)?.[1] ?? "Sugerencia"} · <span className={`ac-badge${t.status === "resolved" ? " ok" : ""}`}>{STATUS[t.status]}</span></strong>
                 <small>{t.code} · {day(t.createdAt)}</small>
                 <small style={{ overflowWrap: "anywhere" }}>{t.message}</small>
                 {t.resolution && <small style={{ color: "var(--t-ink)" }}><b>REPI:</b> {t.resolution}</small>}

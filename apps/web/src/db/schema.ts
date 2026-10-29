@@ -644,7 +644,7 @@ export const supportTicket = pgTable("support_ticket", {
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   contactEmail: text("contact_email").notNull(),
   identity: text("identity", { enum: ["session", "unverified"] }).notNull(),
-  category: text("category", { enum: ["access", "training", "sync", "billing", "privacy", "other"] }).notNull(),
+  category: text("category", { enum: ["access", "training", "sync", "billing", "privacy", "other", "idea"] }).notNull(), // idea: sugerencia de mejora (D156)
   message: text("message").notNull(),
   diagnostics: jsonb("diagnostics"),
   status: text("status", { enum: ["open", "in_progress", "resolved"] }).notNull().default("open"),
