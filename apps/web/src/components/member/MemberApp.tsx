@@ -20,7 +20,7 @@ import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjurySt
 import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
-import { SoloEntry, SoloSheet, type Advice } from "./Solo";
+import { SoloEntry, SoloSheet, type Advice, type Routine } from "./Solo";
 import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext } from "./Connect";
 import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { FloorNow } from "./FloorNow";
@@ -191,6 +191,22 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (!offlineAt && inbox && !inbox.checkinToday) { setSheet({ type: "checkin", dayId }); return; }
     await begin(dayId);
   };
+  // D153: rutina de hoy sin programa asignado. Se crea en el servidor (necesita conexión, igual que armarla) y se abre como
+  // cualquier entrenamiento. En el gimnasio pide la misma validación de ingreso que un entrenamiento del programa.
+  const startRoutine = async (r: Routine) => {
+    if (openId) { setWorkout(openId); return; }
+    if (offlineAt || !navigator.onLine) { flash("Para empezar la rutina de hoy necesitás conexión."); return; }
+    if (t?.relation?.kind === "gym") {
+      const fresh = await loadPresence();
+      const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
+      if (p?.startNeedsCheckin && !p.pass) { flash("Validá tu ingreso al gimnasio y volvé a tocar «Empezar rutina de hoy»."); setSheet({ type: "presence" }); return; }
+    }
+    try {
+      const s = await api<{ id: string }>("/api/me/solo/routine/start", { body: { id: crypto.randomUUID(), dayName: r.dayName,
+        exercises: r.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, reps: e.reps, restSec: e.restSec, weightKg: e.weightKg, note: e.note || null })) } });
+      setWorkout(s.id);
+    } catch (e) { flash((e as Error).message); }
+  };
   const begin = async (dayId: string) => {
     setSheet(null);
     const d = t?.program?.days.find((x) => x.id === dayId);
@@ -275,7 +291,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
-      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onContinue={() => openId && setWorkout(openId)}
+      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onStartRoutine={(r) => void startRoutine(r)} onContinue={() => openId && setWorkout(openId)}
         onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
       {sheet?.type === "help" && (inbox?.gym?.connect && (sheet.to ?? (t?.relation?.kind === "gym" || !inbox.coach ? "gym" : "coach")) === "gym"
         ? <ConnectHelpSheet place={inbox.gym.place} coachName={inbox.coach?.name ?? null} onCoach={() => setSheet({ type: "help", kind: sheet.kind, to: "coach" })} flash={flash}
@@ -509,7 +525,10 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; s
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
       <WeekStrip t={t} />
-      {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} />}
+      {t.openSession && (
+        <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="#0B0F14" />Continuar entrenamiento en curso</button>
+      )}
+      {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
       <div className="restday"><span style={{ fontSize: 22, fontWeight: 600 }}>{t.state === "scheduled" ? `Empieza el ${formatDayEs(t.startsOn!)}` : "Sin programa asignado"}</span><span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>Cuando {coachFirst} te asigne un programa, sus días aparecen acá.</span></div>
     </>
   );

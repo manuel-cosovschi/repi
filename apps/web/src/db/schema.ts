@@ -307,7 +307,7 @@ export const exercise = pgTable("exercise", {
 export const program = pgTable("program", {
   id: id(),
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["template", "client_copy", "member_copy"] }).notNull(),
+  kind: text("kind", { enum: ["template", "client_copy", "member_copy", "solo"] }).notNull(), // solo: rutina de un día sin programa asignado (D153)
   coachClientId: text("coach_client_id").references(() => coachClient.id, { onDelete: "cascade" }),
   gymMemberId: text("gym_member_id").references(() => gymMember.id, { onDelete: "cascade" }), // programa institucional del socio
   sourceProgramId: text("source_program_id"),

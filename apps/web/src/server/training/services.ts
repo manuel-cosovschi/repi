@@ -442,7 +442,7 @@ export async function myRelations(userId: string): Promise<TrainingRelation[]> {
  * Relación activa (D11/GAP-24, propuesta): la que la persona eligió; si no eligió, la primera con programa vigente
  * (coach privado antes que gym), y si ninguna tiene programa, la primera relación.
  */
-async function myActive(userId: string) {
+export async function myActive(userId: string) {
   const rels = await myRelations(userId);
   if (!rels.length) return null;
   const [pref] = await db.select().from(userPref).where(eq(userPref.userId, userId));
@@ -471,7 +471,7 @@ export async function trainingStamp(userId: string) {
 }
 
 /** Última serie registrada por ejercicio (excluye la sesión indicada). */
-async function lastSetByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string) {
+export async function lastSetByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string) {
   if (!exerciseIds.length) return new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
   const rows = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, weightKg: setLog.weightKg, reps: setLog.reps, completedAt: setLog.completedAt })
     .from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
@@ -621,6 +621,52 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: act.assignment!.id, versionId: day.d.versionId, dayId: day.d.id, dayName: day.d.name,
       startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
     }).returning();
+    return s;
+  });
+}
+
+/**
+ * D153: entrenar sin rutina asignada («No vino el profe» / «Quiero entrenar por mi cuenta» antes de que el coach o el gym
+ * armen el programa). La rutina de hoy (ejercicios de la biblioteca) queda guardada como un programa propio de un día,
+ * cerrado de entrada: no cuenta como programa asignado ni cambia lo que el coach o el gym ven como rutina, pero la sesión
+ * es una sesión normal (series, sincronización, historial, progreso; el coach o el gym la ven en el historial).
+ */
+export async function startSoloRoutine(userId: string, p: { id: string; dayName: string; exercises: { exerciseId: string; sets: number; reps: string; restSec?: number | null; weightKg?: number | null; note?: string | null }[] }, now = new Date()) {
+  if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de sesión inválido.");
+  const act = await myActive(userId);
+  if (!act) throw new AccessError("no_relation", "Para entrenar con REPI necesitás estar con un coach o un gimnasio.", 409);
+  if (!p.exercises.length || p.exercises.length > 12) throw new AccessError("invalid", "La rutina tiene que tener entre 1 y 12 ejercicios.");
+  for (const e of p.exercises) {
+    if (!Number.isInteger(e.sets) || e.sets < 1 || e.sets > 10) throw new AccessError("invalid", "Cada ejercicio va con 1 a 10 series.");
+    if (!e.reps?.trim() || e.reps.length > 20) throw new AccessError("invalid", "Revisá las repeticiones.");
+  }
+  const ids = [...new Set(p.exercises.map((e) => e.exerciseId))];
+  const lib = await db.select().from(exercise).where(and(inArray(exercise.id, ids), or(isNull(exercise.orgId), eq(exercise.orgId, act.orgId))));
+  if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en la biblioteca.");
+  const byId = new Map(lib.map((e) => [e.id, e]));
+  const dayName = (p.dayName.trim() || "Rutina de hoy").slice(0, 60);
+  return db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(workoutSession).where(eq(workoutSession.id, p.id));
+    if (existing) { if (existing.userId !== userId) throw NOT_FOUND(); return existing; } // reintento idempotente
+    const [openS] = await tx.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"]))).for("update");
+    if (openS) throw new AccessError("open_session", `Ya tenés un entrenamiento abierto (${openS.dayName}). Terminalo o seguilo desde Entrenar.`, 409);
+    const presenceCheckinId = act.kind === "gym" ? await gymPresence(tx, userId, act.id, "gym.workout.start", now, now) : null;
+    const rel = act.kind === "coach" ? { coachClientId: act.id } : { gymMemberId: act.id };
+    const [pr] = await tx.insert(program).values({ orgId: act.orgId, kind: "solo", ...rel, createdBy: userId }).returning();
+    const [v] = await tx.insert(programVersion).values({ programId: pr.id, number: 1, name: dayName, weeks: 1, note: "", createdBy: userId, reason: "Rutina de hoy armada por REPI", locked: true }).returning();
+    await tx.update(program).set({ currentVersionId: v.id }).where(eq(program.id, pr.id));
+    const [day] = await tx.insert(programDay).values({ versionId: v.id, position: 0, name: dayName }).returning();
+    await tx.insert(programExercise).values(p.exercises.map((e, j) => ({ dayId: day.id, position: j, exerciseId: e.exerciseId, name: byId.get(e.exerciseId)!.name,
+      sets: e.sets, reps: e.reps.trim(), rir: null, restSec: e.restSec != null && e.restSec >= 0 && e.restSec <= 600 ? e.restSec : 90, detail: null,
+      // La carga sugerida va en la nota del ejercicio (el peso inicial de cada serie sale de su última marca, como siempre).
+      note: [e.weightKg != null && e.weightKg > 0 && e.weightKg <= 500 ? `Sugerido: ${String(Math.round(e.weightKg * 4) / 4).replace(".", ",")} kg` : null, e.note?.trim().slice(0, 120) || null].filter(Boolean).join(". ") || null })));
+    // Asignación ya cerrada: la sesión necesita una, pero no es «el programa» de la persona.
+    const [a] = await tx.insert(programAssignment).values({ ...rel, programId: pr.id, startsOn: localDate(now), status: "ended", assignedBy: userId, assignedAt: now, endedAt: now }).returning();
+    const [s] = await tx.insert(workoutSession).values({
+      id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: a.id, versionId: v.id, dayId: day.id, dayName,
+      startedAt: now, lastResumedAt: now, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
+    }).returning();
+    await audit(tx, { actorUserId: userId, action: "adaptive.solo_routine_started", resourceType: "workout_session", resourceId: s.id, meta: { exercises: p.exercises.length } });
     return s;
   });
 }

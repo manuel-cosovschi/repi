@@ -67,12 +67,13 @@ export function planSolo(ctx: SoloContext, variant: SoloVariant): SoloPlan {
     };
   }
   if (ctx.state === "no_program") {
-    return { mode: "no_program", adp: null, title: "Todavía no tenés una rutina asignada", warnings,
-      reasons: [`Las rutinas las arma ${who}. Por ahora REPI no genera una por su cuenta.`], options: [msg, ...help], usesAI: false };
+    // D153: sin rutina asignada, REPI arma la de hoy con la biblioteca (la app la muestra debajo); el programa lo arma igual ${who}.
+    return { mode: "no_program", adp: null, title: "Tu rutina para hoy", warnings,
+      reasons: [`Todavía no tenés una rutina asignada: la arma ${who}. Mientras tanto, REPI te arma una para hoy.`], options: [msg, ...help], usesAI: false };
   }
   if (ctx.state === "scheduled") {
     return { mode: "scheduled", adp: null, title: `Tu programa empieza el ${ctx.startsOn}`, warnings,
-      reasons: ["Hasta esa fecha no hay sesión asignada."], options: [msg, ...help], usesAI: false };
+      reasons: ["Hasta esa fecha no hay sesión asignada. Mientras tanto, REPI te arma una rutina para hoy."], options: [msg, ...help], usesAI: false };
   }
   // Caso B: ya entrenó hoy (día extra). No suma otra sesión intensa por defecto.
   if (ctx.doneToday.length) {

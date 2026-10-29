@@ -14,6 +14,9 @@ export type AdviceEx = { id: string; name: string; sets: number; reps: string; w
   swap: { exerciseId: string; name: string; approved: boolean; prev: Prev } | null; skip: boolean; reason: ExerciseChangeReason | null };
 export type Advice = { dayId: string; dayName: string; headline: string; summary: string; caution: string | null; exercises: AdviceEx[] };
 type Turn = { role: "user" | "assistant"; text: string };
+/** D153: rutina de hoy sin programa asignado (ejercicios de la biblioteca). */
+export type Routine = { kind: "routine"; dayName: string; headline: string; summary: string; caution: string | null; byRules: boolean;
+  exercises: { id: string; exerciseId: string; name: string; group: string; sets: number; reps: string; weightKg: number | null; restSec: number; note: string; prev: Prev }[] };
 // Problemas que la persona marca con un toque; el resto lo cuenta en el mensaje.
 const ISSUES: [ExerciseChangeReason, string][] = [["busy", "Ocupada"], ["no_equipment", "No hay"], ["discomfort", "Me molesta"]];
 
@@ -29,8 +32,8 @@ function advice(force = false) {
   return cached.p;
 }
 
-export function SoloEntry({ onOpen }: { onOpen: (v: SoloVariant) => void }) {
-  useEffect(() => { if (navigator.onLine) advice().catch(() => {}); }, []);
+export function SoloEntry({ onOpen, prefetch = true }: { onOpen: (v: SoloVariant) => void; prefetch?: boolean }) {
+  useEffect(() => { if (prefetch && navigator.onLine) advice().catch(() => {}); }, [prefetch]); // sin programa no hay día que sugerir (D153)
   return (
     <div className="solo-card">
       <button type="button" className="ghost" onClick={() => onOpen("coach_absent")}>No vino el profe, dame mi rutina para hoy</button>
@@ -39,8 +42,8 @@ export function SoloEntry({ onOpen }: { onOpen: (v: SoloVariant) => void }) {
   );
 }
 
-export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMessage }: {
-  variant: SoloVariant; onClose: () => void; onStart: (dayId: string, ai?: Advice) => void; onContinue: () => void; onHelp: () => void; onMessage: () => void;
+export function SoloSheet({ variant, onClose, onStart, onStartRoutine, onContinue, onHelp, onMessage }: {
+  variant: SoloVariant; onClose: () => void; onStart: (dayId: string, ai?: Advice) => void; onStartRoutine: (r: Routine) => void; onContinue: () => void; onHelp: () => void; onMessage: () => void;
 }) {
   const [plan, setPlan] = useState<SoloPlan | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -70,6 +73,7 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
       .catch((e) => { setAiErr((e as Error).message); setAiState("error"); });
   };
   const canAi = !!plan && plan.options.some((o) => o.action === "start");
+  const noProgram = plan?.mode === "no_program" || plan?.mode === "scheduled";
   useEffect(() => { if (variant === "coach_absent" && canAi && aiState === "idle" && !ai) askAi(); }, [variant, canAi]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     api<SoloPlan>(`/api/me/solo?v=${variant}`).then(setPlan)
@@ -95,6 +99,7 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
             </button>
           ))}
         </div>
+        {noProgram && <RoutineCard onStart={(r) => { onClose(); onStartRoutine(r); }} />}
         {canAi && (
           <div className="ai-card" aria-live="polite">
             {aiState === "busy" && <p className="sheet-sub" role="status">{ai ? "REPI está rearmando tu rutina con lo que contaste…" : "REPI está armando tu rutina para hoy…"}</p>}
@@ -127,8 +132,46 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
             </>}
           </div>
         )}
-        <p className="sheet-sub solo-foot">{ai ? "REPI tuvo en cuenta tu programa, tus registros, tus objetivos, lo que buscás entrenando, tu check-in y lo que le contestes, sin datos de salud (lo procesa OpenAI). Los cambios valen sólo por hoy; tu programa no cambia. Revisala: tu profe decide." : "Opciones resueltas con tu programa y tus registros."}</p>
+        <p className="sheet-sub solo-foot">{noProgram ? "REPI usa la biblioteca de ejercicios, tus registros, lo que buscás entrenando y tu check-in, sin datos de salud (lo procesa OpenAI). Es sólo para hoy: tu programa lo arma tu profe." : ai ? "REPI tuvo en cuenta tu programa, tus registros, tus objetivos, lo que buscás entrenando, tu check-in y lo que le contestes, sin datos de salud (lo procesa OpenAI). Los cambios valen sólo por hoy; tu programa no cambia. Revisala: tu profe decide." : "Opciones resueltas con tu programa y tus registros."}</p>
       </>}
     </Sheet>
+  );
+}
+
+/** D153: sin rutina asignada, REPI arma la de hoy con ejercicios de la biblioteca. Se puede pedir otra cosa y rearmarla. */
+function RoutineCard({ onStart }: { onStart: (r: Routine) => void }) {
+  const [r, setR] = useState<Routine | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+  const ask = (message?: string) => {
+    setBusy(true); setErr(null);
+    api<Routine>("/api/me/solo/routine", { body: message ? { message } : {} })
+      .then((x) => { setR(x); setMsg(""); }).catch((e) => setErr((e as Error).message)).finally(() => setBusy(false));
+  };
+  useEffect(() => { ask(); }, []);
+  return (
+    <div className="ai-card" aria-live="polite">
+      {busy && <p className="sheet-sub" role="status">{r ? "REPI está rearmando tu rutina…" : "REPI está armando tu rutina para hoy…"}</p>}
+      {err && <p className="sheet-warn">{err} <button type="button" className="linkbtn" onClick={() => ask(msg.trim() || undefined)}>Reintentar</button></p>}
+      {r && <>
+        <b>{r.headline}</b>
+        <p className="sheet-sub">{r.summary}</p>
+        {r.caution && <p className="sheet-warn" role="note">{r.caution}</p>}
+        <ul>{r.exercises.map((e) => (
+          <li key={e.id}>
+            <span>{e.name} <small className="ai-swap">{e.group}</small></span>
+            <span>{`${e.sets}×${e.reps}${e.weightKg != null ? ` · ${e.weightKg.toLocaleString("es-AR")} kg` : ""}`}</span>
+            {e.note && <small>{e.note}</small>}
+          </li>
+        ))}</ul>
+        <form className="ai-reply" onSubmit={(ev) => { ev.preventDefault(); if (msg.trim() && !busy) ask(msg.trim()); }}>
+          <label className="sheet-sub" htmlFor="routine-reply">¿Querés otra cosa? Contale a REPI</label>
+          <textarea id="routine-reply" rows={2} maxLength={400} value={msg} onChange={(ev) => setMsg(ev.target.value)} placeholder="Ej.: tengo 30 minutos y quiero sólo tren superior" />
+          <button type="submit" className="ghost" disabled={busy || !msg.trim()}>Rearmar mi rutina</button>
+        </form>
+        <button type="button" className="cta" disabled={busy} onClick={() => onStart(r)}>Empezar rutina de hoy</button>
+      </>}
+    </div>
   );
 }

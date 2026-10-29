@@ -1,6 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D152), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D153), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Entrenar sin rutina asignada (D153) — 29/10/2026
+
+- **Qué cambió:** «No vino el profe» y «Quiero entrenar por mi cuenta» funcionan aunque la persona no tenga rutina.
+  - REPI arma la rutina de hoy con la biblioteca (`server/training/solo-routine.ts`, con IA y respaldo por reglas).
+  - Se empieza con `startSoloRoutine` en `server/training/services.ts`. Rutas: `/api/me/solo/routine` y `/api/me/solo/routine/start`.
+  - UI: `RoutineCard` en `components/member/Solo.tsx` y `startRoutine` en `MemberApp.tsx`.
+- **Diseño:** la sesión usa un programa `solo` de un día con la asignación ya cerrada. No es «el programa» de la persona. Sin migración.
+- **Pruebas:** web 240 ✓ (3 nuevas en `tests/adaptive.test.ts`), dominio 146 ✓, E2E 36/36 ✓. Navegador (iPhone emulado, local): armó 4 ejercicios y abrió el entrenamiento.
+- **Siguiente:** que el titular lo pruebe con un alumno real sin rutina.
 
 ## AUDITORÍA QA (D151) y QR de la sede (D152) — 29/10/2026 (leer primero)
 
@@ -25,7 +35,7 @@ Actualizado: 29/10/2026 (hasta D152), sobre la release candidata rc-2026.10.27 (
 
 **Estado:** todo lo pedido hasta **D150** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones hasta 0031 aplicadas en Supabase (0031 = `gym_access_display.purpose`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D153**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D154**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
 **Comandos:** web `cd apps/web && pnpm vitest run` (221 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (141). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 

@@ -7,6 +7,7 @@ import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
 import * as tr from "@/server/training/services";
 import { soloPlan } from "@/server/training/adaptive";
+import { soloRoutine } from "@/server/training/solo-routine";
 import { resetRateLimits } from "@/server/access/util";
 
 // Adaptive Coach fase 1 (D108): «entrenar por mi cuenta» con datos existentes y reglas; nunca IA ni rutina inventada.
@@ -57,10 +58,45 @@ describe("Adaptive Coach · entrenar por mi cuenta", () => {
     expect(ev).toHaveLength(3);
     expect(ev.every((e) => (e.meta as { usesAI: boolean }).usesAI === false)).toBe(true);
   });
-  it("sin programa no genera nada", async () => {
+  it("sin programa el plan con reglas no inventa un día del programa", async () => {
     const user = await member(false);
     const p = await soloPlan(user, "solo");
     expect(p.mode).toBe("no_program");
     expect(p.options.some((o) => o.action === "start")).toBe(false);
+  });
+
+  it("D153: sin rutina asignada, REPI arma la rutina de hoy con la biblioteca y se puede entrenar; no pasa a ser el programa", async () => {
+    const user = await member(false);
+    const r = await soloRoutine(user); // sin clave de OpenAI en las pruebas: se arma con reglas
+    expect(r.kind).toBe("routine");
+    expect(r.exercises.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(r.exercises.map((e) => e.group)).size).toBe(r.exercises.length); // un ejercicio por grupo
+    const sid = randomUUID();
+    await tr.startSoloRoutine(user, { id: sid, dayName: r.dayName, exercises: r.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, reps: e.reps, weightKg: 40, note: e.note })) });
+    expect((await tr.startSoloRoutine(user, { id: sid, dayName: r.dayName, exercises: [{ exerciseId: r.exercises[0].exerciseId, sets: 1, reps: "8" }] })).id).toBe(sid); // reintento idempotente
+    const s = await tr.getSession(user, sid);
+    expect(s.exercises.map((e) => e.exerciseId)).toEqual(r.exercises.map((e) => e.exerciseId));
+    expect(s.exercises[0].note).toMatch(/^Sugerido: 40 kg/);
+    expect(s.outdated).toBe(false);
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: s.exercises[0].id, setIndex: 0, weightKg: 40, reps: 10, rir: 2 });
+    // Sigue sin programa asignado (no reemplaza lo que arme el coach) y el entrenamiento abierto se ofrece para continuar.
+    const t = await tr.myTraining(user);
+    expect(t.state).toBe("no_program");
+    expect(t.openSession).toBe(sid);
+    expect((await soloPlan(user, "solo")).mode).toBe("continue");
+    await expect(tr.startSoloRoutine(user, { id: randomUUID(), dayName: "Otra", exercises: [{ exerciseId: r.exercises[0].exerciseId, sets: 1, reps: "8" }] })).rejects.toMatchObject({ code: "open_session" });
+    expect((await tr.sessionAction(user, sid, "finish")).status).toBe("completed");
+    expect((await tr.myHistory(user))[0]).toMatchObject({ id: sid, dayName: "Rutina de hoy", volumeKg: 400 });
+    // Validaciones: ejercicio fuera de la biblioteca o series fuera de rango.
+    await expect(tr.startSoloRoutine(user, { id: randomUUID(), dayName: "X", exercises: [{ exerciseId: randomUUID(), sets: 3, reps: "8" }] })).rejects.toMatchObject({ code: "invalid" });
+    await expect(tr.startSoloRoutine(user, { id: randomUUID(), dayName: "X", exercises: [{ exerciseId: r.exercises[0].exerciseId, sets: 50, reps: "8" }] })).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("D153: con rutina asignada se usa la del programa, y sin coach ni gym no hay rutina", async () => {
+    const withProgram = await member();
+    await expect(soloRoutine(withProgram)).rejects.toMatchObject({ code: "has_program" });
+    const alone = await verified();
+    await expect(soloRoutine(alone.id)).rejects.toMatchObject({ code: "no_relation" });
+    await expect(tr.startSoloRoutine(alone.id, { id: randomUUID(), dayName: "X", exercises: [{ exerciseId: SQ, sets: 3, reps: "8" }] })).rejects.toMatchObject({ code: "no_relation" });
   });
 });
