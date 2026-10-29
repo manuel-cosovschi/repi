@@ -22,7 +22,8 @@ Actualizado: 29/10/2026 (hasta D142), sobre la release candidata rc-2026.10.27 (
 1. Excel verificado con 25 archivos reales (D142). Falta: un .ods real y los archivos del alumno de Urko.
 2. Mostrar «Lo que buscás entrenando» al coach en la ficha del alumno, con el consentimiento que corresponda (D139).
 3. Que entrenadores reales prueben «Series y técnica» en el celular; control propio para AMRAP y series por tiempo en el entrenamiento.
-4. «No vino el profe» quedó en 2,0–3,5 s en dev (D142); volver a medir en producción si alguien reporta demora.
+4. «No vino el profe» medido en producción (D142): primera sugerencia 2,3–3,8 s (se precarga al abrir Entrenar), rearmar 2,7–3,8 s, reemplazo correcto 3 de 3.
+6. Bloqueantes del titular (docs/LAUNCH_BLOCKERS.md): LB-02 planes pagos de Vercel/Supabase, LB-03 teléfonos reales, LB-04 abogado y datos de la empresa, LB-05 respaldos fuera de la computadora, LB-06 alertas de errores; además dominio de correo y rotar la clave de OpenAI.
 5. Pendientes externos: cámara del QR de ingreso en iPhone/Android reales (LB-03), revisión legal de la ubicación (Gym Access), dominio de correo.
 
 ## Último bloque cerrado — 29/10/2026 · Superseries (D137), respuesta a la IA (D138), deseos (D139), Excel (D140) y textos «REPI» (D141)
