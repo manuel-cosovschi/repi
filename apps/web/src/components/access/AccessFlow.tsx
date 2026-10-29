@@ -176,7 +176,11 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           setF({ code });
           setFlow("invite");
           setStep("code");
-          if (isCodeShape(code)) { const inv = await api<Invite>(`invitations/${code}`); setInvite(inv); setHist(["code"]); setStep("invite"); }
+          if (isCodeShape(code)) {
+            const [inv, session] = await Promise.all([api<Invite>(`invitations/${code}`), authClient.getSession()]);
+            setInvite(inv); setHist(["code"]); setStep("invite");
+            if (session.data) setSignedIn(true); // D136: con la sesión abierta se acepta con esa cuenta, sin crear otra
+          }
           return;
         }
         // QR anterior al anexo (?sede=): ya no hay alta por DNI; se explica cómo pedir el QR vigente.
@@ -410,14 +414,16 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       ? {
         title: `${invite.orgName} te invitó`, info: { ini: invite.orgInitials, t: invite.detail, d: invite.inviter ?? "" },
         sub: "Vas a ver la cola de asistencia, los socios de tu sede y tus métricas. No vas a ver mensajes privados ni datos de salud de socios sin permiso.",
-        cta: { label: "Crear mi cuenta", go: () => to("inv1") },
-        secondary: [{ label: "Ya tengo cuenta REPI", go: () => { setPendingCode(invite.code); to("login"); flash(`Al ingresar, ${invite.orgName} se suma como un espacio nuevo.`); } }],
+        cta: signedIn ? { label: "Aceptar con mi cuenta", go: run(async () => { await api("invitations/accept", { body: { code: invite.code } }); flash(`${invite.orgName} se sumó como un espacio nuevo.`); await afterAuth(null); }) } : { label: "Crear mi cuenta", go: () => to("inv1") },
+        secondary: signedIn ? [{ label: "Usar otra cuenta", go: run(async () => { await signOutSafely(); setSignedIn(false); setPendingCode(invite.code); to("login"); }) }]
+          : [{ label: "Ya tengo cuenta REPI", go: () => { setPendingCode(invite.code); to("login"); flash(`Al ingresar, ${invite.orgName} se suma como un espacio nuevo.`); } }],
       }
       : {
         title: `${invite?.orgName ?? "Tu coach"} te invitó`, info: invite ? { ini: invite.orgInitials, t: invite.orgName, d: invite.detail } : undefined,
         sub: "Vas a recibir tus programas, registrar tus entrenamientos y hablar con tu coach. Vos elegís qué otros datos compartir.",
-        cta: { label: "Crear mi cuenta", go: () => to("inv1") },
-        secondary: [{ label: "Ya tengo cuenta REPI", go: () => { if (invite) setPendingCode(invite.code); to("login"); flash("Al ingresar, tu coach se suma a tu cuenta. Tu historial se mantiene."); } }],
+        cta: signedIn && invite ? { label: "Aceptar con mi cuenta", go: run(async () => { const m = await loadMe(); setF((x) => ({ ...x, minor: m.minor })); setFlow("invite"); to(m.minor && m.guardian === "none" ? "tutor" : "consent"); }) } : { label: "Crear mi cuenta", go: () => to("inv1") },
+        secondary: signedIn ? [{ label: "Usar otra cuenta", go: run(async () => { await signOutSafely(); setSignedIn(false); if (invite) setPendingCode(invite.code); to("login"); }) }]
+          : [{ label: "Ya tengo cuenta REPI", go: () => { if (invite) setPendingCode(invite.code); to("login"); flash("Al ingresar, tu coach se suma a tu cuenta. Tu historial se mantiene."); } }],
       },
     inv1: () => {
       const staffInv = invite?.kind === "gym_staff";

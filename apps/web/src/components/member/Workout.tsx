@@ -3,7 +3,7 @@
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -139,6 +139,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     scheduleRestAlert(restEnd, ex ? `Seguí con ${ex.change?.substitute?.name ?? ex.name}.` : "Seguí con la próxima serie.");
   }, [restEnd, restAlert]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => (s && ex ? Array.from({ length: ex.sets }, (_, i) => s.sets[setKey(ex.id, i)]) : []), [s, ex]);
+  const labels = useMemo(() => (s ? groupLabels(s.exercises) : []), [s]); // D134: A1, A2…
   const cur = sel ?? rows.findIndex((r) => !r.done);
   const curRow = cur >= 0 ? rows[cur] : null;
   const repsKind = ex ? parseReps(ex.reps).kind : "reps";
@@ -168,7 +169,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const sets = { ...s.sets, [k]: { ...curRow, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done) sets[kk] = { ...sets[kk], w: curRow.w }; }
     const more = !wasDone && Array.from({ length: ex.sets }, (_, i) => sets[setKey(ex.id, i)]).some((x) => !x.done);
-    const next = { ...s, sets, rest: more && ex.restSec > 0 ? { end: Date.now() + ex.restSec * 1000, total: ex.restSec, left: ex.restSec, paused: false } : s.rest };
+    const restS = setTarget(ex, cur).restSec ?? ex.restSec; // D134: descanso de esta serie (un drop va sin descanso)
+    const next = { ...s, sets, rest: more && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : s.rest };
     setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
     await commit(next);
     await enqueue({ key: `set:${s.id}:${k}`, kind: "set", sid: s.id, peId: ex.id, idx: cur });
@@ -318,7 +320,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         <div className="prog" aria-hidden="true">{s.exercises.map((e, i) => <i key={e.id} className={resolved(i) ? "done" : i === exIdx ? "cur" : ""} />)}</div>
         <div className="excard">
           <div className="excard-top">
-            <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{sub ? sub.name : ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null ? ` · RIR ${ex.rir}` : ""}</small>
+            <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{labels[exIdx] ? `${labels[exIdx]} · ` : ""}{sub ? sub.name : ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null && !ex.detail?.setPlan ? ` · RIR ${ex.rir}` : ""}</small>
+              {ex.detail && <small className="xc-tag">{detailLine(ex.detail, labels[exIdx], s.exercises, exIdx)}</small>}
               {ex.change && <small className="xc-tag">{sub ? `En lugar de ${ex.name}` : "Salteado"} · {EXERCISE_CHANGE_REASONS[ex.change.reason].toLowerCase()}</small>}</div>
             <div className="nav2">
               {!paused && <button type="button" aria-label={`Cambiar ${ex.name} en este entrenamiento`} onClick={() => setChanging(true)}><Ic i={ArrowsClockwise} size={16} /></button>}
@@ -333,7 +336,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             {rows.map((r, i) => (
               <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
                 aria-label={`Serie ${i + 1}: ${kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
-                <span>{i + 1}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
+                <span>{i + 1}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}{ex.detail?.setPlan?.[i] && <small className="set-tg">{setTargetText(setTarget(ex, i))}</small>}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
                 <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
               </button>
             ))}
@@ -570,4 +573,14 @@ function RirControl({ value, onChange, onPain }: { value: number | null; onChang
       <button type="button" className="painbtn" aria-label="Reportar molestia" onClick={onPain}>Molestia</button>
     </div>
   );
+}
+
+/** D134: técnica, combinación (con qué se alterna), tempo y variante del ejercicio, en una línea. */
+function detailLine(d: ExerciseDetail, label: string | null | undefined, all: { name: string; detail?: ExerciseDetail | null }[], idx: number) {
+  const mates = d.group ? all.filter((x, i) => i !== idx && x.detail?.group === d.group).map((x) => x.name) : [];
+  return [
+    d.technique !== "straight" ? TECHNIQUES[d.technique].label : null,
+    label && mates.length ? `${d.groupKind === "circuit" ? `Circuito${d.rounds ? ` × ${d.rounds} vueltas` : ""}` : "Combinado"} con ${mates.join(", ")}` : null,
+    d.tempo ? `Tempo ${d.tempo}` : null, d.variant, d.unilateral ? "Por lado" : null, d.progression,
+  ].filter(Boolean).join(" · ");
 }

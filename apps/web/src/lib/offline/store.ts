@@ -1,7 +1,7 @@
 "use client";
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
-import { applySessionAction, type ExerciseChangeReason, type SessionStatus } from "@repi/domain";
+import { applySessionAction, defaultRepsFor, type ExerciseChangeReason, type ExerciseDetail, type SessionStatus } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null;
@@ -10,6 +10,7 @@ export type LocalSet = { id: string; w: number; r: number; rir: number | null; f
 // F-HX-21 (D106): saltar o reemplazar el ejercicio sólo en esta sesión. `origPrev`: el «anterior» del original, para volver.
 export type ExChange = { kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: { exerciseId: string; name: string } | null };
 export type LocalEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note: string | null; prev: { weightKg: number | null; reps: number | null } | null;
+  detail?: ExerciseDetail | null; // D134: plan serie por serie, técnica, combinación
   change?: ExChange | null; origPrev?: LocalEx["prev"] };
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
@@ -68,13 +69,17 @@ export function fromServer(x: {
       const c = x.conflicts?.find((k) => k.targetKey === setKey(e.id, i));
       // Sólo una serie del mismo ejercicio sugiere el peso de las siguientes (un reemplazo no hereda la carga del original).
       if (l) { if (!l.exerciseId || l.exerciseId === doing) lastW = l.weightKg ?? lastW; sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, note: l.note ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
-      else sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: lastW, r: e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null };
+      else {
+        // D134: si el plan fija el peso o las repeticiones de esta serie, se precargan esas (drop, top set, back-off).
+        const plan = e.detail?.setPlan?.[i];
+        sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: plan?.weightKg ?? lastW, r: (plan ? defaultRepsFor(plan.reps) : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null };
+      }
     }
   }
   return {
     id: x.id, dayId: x.dayId ?? "", dayName: x.dayName, note: x.note, startedAt: x.startedAt, status: x.status, activeMs: x.activeMs, lastResumedAt: x.lastResumedAt,
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null })),
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null })),
     sets,
   };
 }

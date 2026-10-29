@@ -2,7 +2,13 @@
 
 Actualizado: 28/10/2026 (D127 + D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Historial anterior con IA (D132) e IA en «No vino el profe» (D133)
+## Último bloque cerrado — 29/10/2026 · Prescripción avanzada (D134), guía con IA del dueño (D135) y aceptar invitación con la cuenta abierta (D136)
+
+- **Hecho:** `packages/domain/src/prescription.ts` (+ tests); `program_exercise.detail` (**migración 0029**); `components/coach/ExerciseDetailEditor.tsx` en ambos constructores, fila con rótulos en el celular; entrenamiento del socio con objetivo por serie (`store.ts`, `Workout.tsx`). `server/gym/owner-assistant.ts`, `server/ai/gym-kb.ts`, `components/gym/OwnerGuide.tsx` en Ejecutivo y Panel. `AccessFlow`: «Aceptar con mi cuenta».
+- **Producción:** invitación de Smart Center Gym aceptada para la cuenta del titular (D136).
+- **Siguiente:** que los entrenadores prueben el editor en el celular; registrar AMRAP/tiempo con su propio control; IA en otras pantallas con revisión de privacidad.
+
+## Bloque anterior — 28/10/2026 · Historial anterior con IA (D132) e IA en «No vino el profe» (D133)
 
 - **Hecho:** `packages/domain/src/history-import.ts` (+ tests); `apps/web/src/server/ai/openai.ts` (cliente con esquema JSON estricto), `server/training/history-import.ts`, `server/training/ai-coach.ts`; rutas `/api/me/history-import/*` y `/api/me/solo/ai`; `components/member/HistoryImport.tsx` («Antes de REPI» en Progreso) y tarjeta de IA en `Solo.tsx`. Migración **0028** (`history_import`, `history_entry`).
 - **IA:** OpenAI `gpt-4.1-mini` (`OPENAI_MODEL`, `OPENAI_MODEL_FAST`; ≈2 s; «No vino el profe» se precarga). Clave en Vercel y `.env.local`, copia en `~/.repi-secrets/openai.env`. Recomendado rotarla porque se pegó en el chat.

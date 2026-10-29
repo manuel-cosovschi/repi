@@ -1,6 +1,7 @@
 "use client";
 // Reseñas (gerencia), Ejecutivo, Sedes y Configuración del dueño (REPI Desktop Gym.dc.html · sc.reviews/exec/locs/config).
 import { useState } from "react";
+import { OwnerGuide } from "./OwnerGuide";
 import { REVIEW_DIMS } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
@@ -140,6 +141,7 @@ export function ExecScreen({ shell }: { shell: Shell }) {
   return (
     <>
       <Head kicker={`${shell.ctx.org.name} · ${k ? `${k.locations} sedes` : ""}`} title="Ejecutivo" />
+      <OwnerGuide shell={shell} />
       {e.err && <p role="alert" className="err-box">{e.err}</p>}
       {k && (
         <div className="grid-kpi">

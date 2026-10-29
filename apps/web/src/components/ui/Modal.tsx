@@ -13,6 +13,8 @@ export function Modal({ label, onClose, children, wide }: { label: string; onClo
     const focusables = () => [...root.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute("disabled"));
     (focusables()[0] ?? root).focus();
     const onKey = (e: KeyboardEvent) => {
+      // Con un modal encima de otro (D134), sólo responde el que tiene el foco.
+      if (!root.contains(document.activeElement)) return;
       if (e.key === "Escape") { e.preventDefault(); close.current(); return; }
       if (e.key !== "Tab") return;
       const f = focusables();

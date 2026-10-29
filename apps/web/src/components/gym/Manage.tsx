@@ -1,6 +1,7 @@
 "use client";
 // Gerencia y coordinación: Panel, Equipo, Tareas, Turnos, Participación (REPI Desktop Gym.dc.html · sc.mdash/staff/tasks/shifts/engage).
 import { useState } from "react";
+import { OwnerGuide } from "./OwnerGuide";
 import { GYM_ROLE_LABEL, INVITABLE_GYM_ROLES, TASK_CATEGORY, TASK_PRIORITY, type GymRole } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
@@ -20,6 +21,7 @@ export function PanelScreen({ shell }: { shell: Shell }) {
   return (
     <>
       <Head kicker={`${shell.ctx.org.name} · ${locName}`} title="Panel de la sede" />
+      <OwnerGuide shell={shell} />
       {p.err && <p role="alert" className="err-box">{p.err}</p>}
       {k && (
         <div className="grid-kpi">

@@ -23,8 +23,9 @@ const err = async (p: Promise<unknown>) => p.then(() => null, (e) => e as Access
 
 let EX: Record<string, string> = {};
 beforeAll(async () => {
-  for (const name of ["Press de banca", "Sentadilla"]) {
-    await db.insert(schema.exercise).values({ name, muscleGroup: "X" }).onConflictDoNothing();
+  // Grupo real: estos nombres están en el catálogo base (D129) y otros archivos de prueba esperan su grupo verdadero.
+  for (const [name, muscleGroup] of [["Press de banca", "Pecho"], ["Sentadilla", "Piernas"]] as const) {
+    await db.insert(schema.exercise).values({ name, muscleGroup }).onConflictDoNothing();
     EX[name] = (await db.select().from(schema.exercise).where(eq(schema.exercise.name, name)))[0].id;
   }
 });
@@ -42,7 +43,7 @@ async function ready() {
   ] });
   await tr.assignProgram(coach, org.id, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
   // Las horas del dispositivo van hasta 60 min atrás: cerca de medianoche caerían el día anterior al inicio.
-  await db.update(schema.programAssignment).set({ startsOn: localDate(new Date(Date.now() - 2 * 86_400_000)) }).where(eq(schema.programAssignment.programId, pid));
+  await db.update(schema.programAssignment).set({ startsOn: localDate(new Date(Date.now() - 2 * 86_400_000)) }).where(eq(schema.programAssignment.coachClientId, rel.relationId)); // la asignación es de la copia del alumno, no de la plantilla
   const t = await tr.myTraining(user);
   if (t.state !== "ready") throw new Error("sin programa");
   return { coach, orgId: org.id, user, relId: rel.relationId, t };

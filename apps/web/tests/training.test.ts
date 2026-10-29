@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { localDate } from "@repi/domain";
+import { localDate, presetPlan, type ProgramDoc } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
@@ -296,5 +296,30 @@ describe("rendimiento del cliente (F-CO-04)", () => {
     expect(p.formula).toMatch(/Epley/);
     const otro = await coachWithClients(1);
     await expectErr(tr.clientPerformance(otro.coach, otro.orgId, ctx.clients[0].relId), "not_found");
+  });
+});
+
+describe("prescripción avanzada (D134)", () => {
+  it("el detalle (top set, drop, combinación, tempo) se guarda, se asigna y llega a la sesión con las series del plan", async () => {
+    const { coach, orgId, clients: [a] } = await coachWithClients(1);
+    const d: ProgramDoc = DOC();
+    const plan = presetPlan("top_backoff", { sets: 3, reps: "8", weightKg: 100 });
+    d.days[0].exercises[0] = { ...d.days[0].exercises[0], sets: 99, detail: { technique: "top_backoff", setPlan: plan, group: "A", groupKind: "superset", rounds: null, tempo: "3-1-1-0", variant: "con pausa", unilateral: false, progression: null } };
+    d.days[0].exercises[1] = { ...d.days[0].exercises[1], detail: { technique: "straight", setPlan: null, group: "A", groupKind: "superset", rounds: null, tempo: null, variant: null, unilateral: false, progression: null } };
+    const pid = await tr.createTemplate(coach, orgId, d);
+    await tr.assignProgram(coach, orgId, pid, { coachClientIds: [a.relId], startsOn: today() });
+    const t = await tr.myTraining(a.userId);
+    if (t.state !== "ready") throw new Error("sin programa");
+    const ex0 = t.program.days[0].exercises[0];
+    expect(ex0).toMatchObject({ sets: 3, detail: { technique: "top_backoff", group: "A", tempo: "3-1-1-0", setPlan: [{ kind: "top", weightKg: 100 }, { kind: "backoff" }, { kind: "backoff" }] } });
+    const id = randomUUID();
+    await tr.startSession(a.userId, { id, dayId: t.program.days[0].id });
+    const s = await tr.getSession(a.userId, id);
+    expect(s.exercises[0].detail?.setPlan?.[0]).toMatchObject({ kind: "top", reps: "3-5", rpe: 8 });
+    expect(s.exercises[1].detail).toMatchObject({ group: "A" });
+    // Plan inválido: rechazado con el motivo.
+    const bad: ProgramDoc = DOC();
+    bad.days[0].exercises[0] = { ...bad.days[0].exercises[0], detail: { technique: "custom", setPlan: [{ kind: "work", reps: "8", weightKg: 4000, pct1rm: null, rir: null, rpe: null, restSec: null, note: null }], group: null, groupKind: null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null } };
+    await expect(tr.createTemplate(coach, orgId, bad)).rejects.toThrow(/peso/);
   });
 });

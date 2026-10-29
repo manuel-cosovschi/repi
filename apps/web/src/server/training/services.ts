@@ -1,7 +1,7 @@
 // Servicios de programación (coach) y ejecución (alumno). Toda autorización se resuelve aquí.
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  activeSeconds, applySessionAction, bestE1rm, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
+  activeSeconds, applySessionAction, bestE1rm, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, type LoggedSet, type ProgramDoc, type SetFeel,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -67,18 +67,18 @@ export async function readVersion(versionId: string, tx: Tx | typeof db = db): P
       name: v.name, weeks: v.weeks, note: v.note,
       days: days.map((d) => ({
         id: d.id, name: d.name,
-        exercises: exs.filter((e) => e.dayId === d.id).map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note })),
+        exercises: exs.filter((e) => e.dayId === d.id).map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, ...(e.detail ? { detail: e.detail as ExerciseDetail } : {}) })),
       })),
     },
   };
 }
-export const plain = (d: Doc): ProgramDoc => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, note: e.note ?? null })) })) });
+export const plain = (d: Doc): ProgramDoc => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 
 export async function writeDays(tx: Tx, versionId: string, doc: ProgramDoc) {
   for (const [i, d] of doc.days.entries()) {
     const [day] = await tx.insert(programDay).values({ versionId, position: i, name: d.name }).returning();
     if (d.exercises.length) {
-      await tx.insert(programExercise).values(d.exercises.map((e, j) => ({ dayId: day.id, position: j, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null })));
+      await tx.insert(programExercise).values(d.exercises.map((e, j) => ({ dayId: day.id, position: j, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, detail: e.detail ?? null })));
     }
   }
 }
@@ -493,7 +493,7 @@ export async function myTraining(userId: string, now = new Date()) {
         id: d.id!, name: d.name,
         exercises: d.exercises.map((e) => {
           const pv = prev.get(e.exerciseId);
-          return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null };
+          return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null };
         }),
       })),
     },
@@ -592,7 +592,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
       const pv = prev.get(doing(e));
       const ch = changeOf.get(e.id);
       return {
-        id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note,
+        id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: (e.detail as ExerciseDetail | null) ?? null,
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,

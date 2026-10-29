@@ -1,3 +1,4 @@
+import { validateDetail, type ExerciseDetail } from "./prescription";
 // Reglas de programación y ejecución de entrenamientos (Etapa 2).
 // Fuentes: REPI Desktop Coach.dc.html (constructor: series, reps, RIR, descanso) y
 // REPI App Alumno v4.dc.html (sesión activa, descanso, resumen). Fórmulas documentadas en docs/DECISIONS.md.
@@ -135,7 +136,7 @@ export function weeklyAdherence(completed: number, daysPerWeek: number | null): 
 }
 
 // ── Documento de programa (lo que edita el constructor) ─────────────────────
-export type ProgramExerciseDoc = { exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note?: string | null };
+export type ProgramExerciseDoc = { exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note?: string | null; detail?: ExerciseDetail | null };
 export type ProgramDayDoc = { name: string; exercises: ProgramExerciseDoc[] };
 export type ProgramDoc = { name: string; weeks: number; note: string; days: ProgramDayDoc[] };
 
@@ -155,11 +156,13 @@ export function validateProgramDoc(doc: ProgramDoc): { ok: true; doc: ProgramDoc
     const exercises: ProgramExerciseDoc[] = [];
     for (const e of d.exercises) {
       if (!e.exerciseId) return { ok: false, error: `${dn}: ejercicio sin referencia a la biblioteca.` };
-      if (!Number.isInteger(e.sets) || e.sets < 1 || e.sets > PROGRAM_LIMITS.sets) return { ok: false, error: `${dn} · ${e.name}: las series van de 1 a 20.` };
+      const det = validateDetail(e.detail, e.sets); // con plan serie por serie, las series salen del plan
+      if (!det.ok) return { ok: false, error: `${dn} · ${e.name}: ${det.error}` };
+      if (!Number.isInteger(det.sets) || det.sets < 1 || det.sets > PROGRAM_LIMITS.sets) return { ok: false, error: `${dn} · ${e.name}: las series van de 1 a 20.` };
       if (!e.reps?.trim()) return { ok: false, error: `${dn} · ${e.name}: indicá las repeticiones.` };
       if (e.rir != null && (!Number.isInteger(e.rir) || e.rir < 0 || e.rir > PROGRAM_LIMITS.rir)) return { ok: false, error: `${dn} · ${e.name}: el RIR va de 0 a 5.` };
       if (!Number.isInteger(e.restSec) || e.restSec < 0 || e.restSec > PROGRAM_LIMITS.restSec) return { ok: false, error: `${dn} · ${e.name}: el descanso va de 0:00 a 15:00.` };
-      exercises.push({ exerciseId: e.exerciseId, name: e.name.trim(), sets: e.sets, reps: e.reps.trim(), rir: e.rir ?? null, restSec: e.restSec, note: e.note?.trim() || null });
+      exercises.push({ exerciseId: e.exerciseId, name: e.name.trim(), sets: det.sets, reps: e.reps.trim(), rir: e.rir ?? null, restSec: e.restSec, note: e.note?.trim() || null, ...(det.detail ? { detail: det.detail } : {}) });
     }
     days.push({ name: dn, exercises });
   }

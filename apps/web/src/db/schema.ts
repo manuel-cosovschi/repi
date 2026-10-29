@@ -351,6 +351,7 @@ export const programExercise = pgTable("program_exercise", {
   rir: integer("rir"),
   restSec: integer("rest_sec").notNull(),
   note: text("note"),
+  detail: jsonb("detail"), // D134: técnica, plan serie por serie, combinación, tempo, variante (ExerciseDetail); null = series rectas
 }, (t) => [uniqueIndex("program_exercise_pos_unique").on(t.dayId, t.position)]);
 
 // Asignación: una activa por relación; reemplazar conserva el historial.

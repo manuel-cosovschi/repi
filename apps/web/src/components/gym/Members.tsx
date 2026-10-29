@@ -2,9 +2,10 @@
 // Socios de la sede: lista y ficha institucional (REPI Desktop Gym.dc.html · sc.members, modal "edit").
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { TASK_CATEGORY, formatRest, mentionsHealth, parseRest, type ProgramDoc } from "@repi/domain";
+import { TASK_CATEGORY, formatRest, groupLabels, mentionsHealth, parseRest, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
+import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { Modal } from "@/components/ui/Modal";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
 import { featureOn } from "@/lib/features";
@@ -161,8 +162,9 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const lib = useLoad<Lib>(`/api/gym/${shell.orgId}/library`);
   const { subs, setSubs } = useSubstitutions(shell.orgId);
   const [subsFor, setSubsFor] = useState<string | null>(null); // ejercicio con el panel de reemplazos abierto
+  const [detailFor, setDetailFor] = useState<number | null>(null); // D134: ejercicio con el editor de series abierto
   const base: ProgramDoc = member.program
-    ? { name: member.program.doc.name, weeks: member.program.doc.weeks, note: member.program.doc.note, days: member.program.doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, note: e.note ?? null })) })) }
+    ? { name: member.program.doc.name, weeks: member.program.doc.weeks, note: member.program.doc.note, days: member.program.doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) }
     : { name: "Programa inicial", weeks: 6, note: "", days: [{ name: "Día A", exercises: [] }] };
   const [doc, setDoc] = useState<ProgramDoc>(base);
   const [day, setDay] = useState(0);
@@ -181,6 +183,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
     if (r) onClose(true);
   };
   const cur = doc.days[day];
+  const labels = groupLabels(cur.exercises);
   return (
     <Modal label={`Editar programa · ${member.name}`} onClose={() => onClose(false)} wide>
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
@@ -197,19 +200,23 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       {cur.exercises.map((e, i) => (
         <Fragment key={i}>
         <div className="exrow">
-          <span className="c-name">{e.name}
+          <span className="c-name">{labels[i] && <code>{labels[i]}</code>}{e.name}
+            <button type="button" className="ex-edit" onClick={() => setDetailFor(i)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
             {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
               onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}</span>
-          <span className="c-s"><input aria-label={`Series de ${e.name}`} inputMode="numeric" value={e.sets} onChange={(ev) => setEx(i, { sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
-          <span className="c-r"><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, { reps: ev.target.value })} /></span>
-          <span className="c-rir"><input aria-label={`RIR de ${e.name}`} inputMode="numeric" value={e.rir ?? ""} onChange={(ev) => setEx(i, { rir: ev.target.value === "" ? null : Math.max(0, Math.min(5, Number(ev.target.value) || 0)) })} /></span>
-          <span className="c-rest"><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
+          {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
+          <span className="c-s"><small className="c-lbl">Series</small><input disabled={!!e.detail?.setPlan} aria-label={`Series de ${e.name}`} inputMode="numeric" value={e.sets} onChange={(ev) => setEx(i, { sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
+          <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, { reps: ev.target.value })} /></span>
+          <span className="c-rir"><small className="c-lbl">RIR</small><input aria-label={`RIR de ${e.name}`} inputMode="numeric" value={e.rir ?? ""} onChange={(ev) => setEx(i, { rir: ev.target.value === "" ? null : Math.max(0, Math.min(5, Number(ev.target.value) || 0)) })} /></span>
+          <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
           <span className="c-act"><button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button></span>
         </div>
         {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} />}
         </Fragment>
       ))}
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca.</span>}
+      {detailFor != null && cur.exercises[detailFor] && <ExerciseDetailEditor e={cur.exercises[detailFor]} onClose={() => setDetailFor(null)}
+        onSave={(p) => { setEx(detailFor, { detail: p.detail, sets: p.sets }); setDetailFor(null); }} />}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <label className="search"><input value={libQ} onChange={(e) => setLibQ(e.target.value)} placeholder="Buscar en la biblioteca" aria-label="Buscar ejercicio" /></label>
         <div className="pills">{filtered.map((e) => <button key={e.id} type="button" className="pill" onClick={() => addEx(e)}>+ {e.name}{e.own ? " · propio" : ""}</button>)}</div>

@@ -50,6 +50,8 @@ async function gymWorld(name = "Gym A", mode: "open" | "hybrid" | "strict" = "hy
     const [m] = await db.insert(schema.gymMember).values({ orgId: org.id, locationId: A.id, userId, status: "active" }).returning();
     await db.insert(schema.consentGrant).values({ userId, scope: "gym_member", relationId: m.id, granteeOrgId: org.id, item: "attendance_training", termsVersion: "t" });
     await gym.saveMemberProgram(floor, org.id, m.id, { doc: DOC(), reason: "Inicial" });
+    // Las pruebas usan horas pasadas: cerca de la medianoche AR caerían antes del inicio del programa.
+    await db.update(schema.programAssignment).set({ startsOn: localDate(new Date(Date.now() - 2 * 86_400_000)) }).where(eq(schema.programAssignment.gymMemberId, m.id));
     return { userId, memberId: m.id };
   };
   return { org: org.id, A: A.id, B: B.id, owner, floor, recep, member };

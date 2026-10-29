@@ -179,7 +179,6 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
           {screen === "connect" && <ConnectReportScreen shell={shell} />}
           {screen === "presence" && <AccessControlScreen shell={shell} />}
-          {(screen === "shift" || screen === "exec" || screen === "mdash" || screen === "reception" || screen === "queue") && <FloorNowCard shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}
           {screen === "handoff" && <HandoffScreen shell={shell} />}
           {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido." emptyText="Todavía no hay conversaciones. Se abren cuando un socio escribe o desde su ficha con «Escribir»." initial={sel} onSeen={refreshBadges} />}
@@ -201,6 +200,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "billing" && <ConditionsScreen orgId={orgId} flash={flash} unit="socios" onSeen={refreshBadges} />}
           {screen === "joins" && <JoinsScreen shell={shell} />}
           {screen === "accesses" && <AccessesScreen shell={shell} />}
+          {(screen === "shift" || screen === "exec" || screen === "mdash" || screen === "reception" || screen === "queue") && <FloorNowCard shell={shell} />}
         </div>
       </main>
       <div aria-live="polite" className="sr-only">{toast}</div>
