@@ -6,6 +6,7 @@ import { ACCESS_MODES, CHECKIN_METHOD_LABEL, GEO_MODES, GYM_ACTIONS, PASS_HOURS_
 import { api } from "@/lib/api";
 import { LiveQrView, useLiveQr, type LiveQrData } from "@/components/gym-access/LiveQr";
 import { HBar, Head, LocSelect, Seg, can, nf, useAct, useLoad, when, type Shell } from "./shared";
+import { IntInput } from "@/components/ui/IntInput";
 
 type Policy = { enabled: boolean; mode: AccessMode; strictActions: GymAction[]; qrTtlSec: number; passHours: number; geoMode: GeoMode };
 type Settings = {
@@ -196,7 +197,7 @@ function PolicyForm({ shell, s, onSaved }: { shell: Shell; s: Settings; onSaved:
       <section className="card"><h2>QR e ingreso</h2>
         <div className="crow" style={{ gap: 12, flexWrap: "wrap" }}>
           <label className="field" style={{ flex: "1 1 200px" }}>El QR se renueva cada (segundos)
-            <input type="number" min={QR_TTL_RANGE[0]} max={QR_TTL_RANGE[1]} step={5} disabled={ro} value={p.qrTtlSec} onChange={(e) => setP({ ...p, qrTtlSec: Number(e.target.value) })} /></label>
+            <IntInput min={QR_TTL_RANGE[0]} max={QR_TTL_RANGE[1]} disabled={ro} value={p.qrTtlSec} onChange={(n) => n != null && setP({ ...p, qrTtlSec: n })} /></label>
           <label className="field" style={{ flex: "1 1 200px" }}>El ingreso vale (horas)
             <select disabled={ro} value={p.passHours} onChange={(e) => setP({ ...p, passHours: Number(e.target.value) })} style={{ height: 42, borderRadius: 10, border: "1px solid #C9D2DD", padding: "0 10px" }}>
               {Array.from({ length: PASS_HOURS_RANGE[1] - PASS_HOURS_RANGE[0] + 1 }, (_, i) => PASS_HOURS_RANGE[0] + i).map((h) => <option key={h} value={h}>{h} {h === 1 ? "hora" : "horas"}</option>)}

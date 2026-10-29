@@ -11,6 +11,7 @@ import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./t
 import { NewExercise } from "./NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
 import { groupLabels } from "@repi/domain";
+import { IntInput } from "@/components/ui/IntInput";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -120,8 +121,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                 <button type="button" aria-label="Agregar día" onClick={() => { edit((d) => ({ ...d, days: [...d.days, { name: `Día ${d.days.length + 1}`, exercises: [] }] })); setDay(doc.days.length); }}>+</button>
               </div>
               <span className="muted" style={{ fontSize: 13 }}>
-                <input className="weeks" type="number" min={1} max={52} value={doc.weeks} aria-label="Semanas"
-                  onChange={(e) => { const w = Math.max(1, Math.min(52, Number(e.target.value) || 1)); edit((d) => ({ ...d, weeks: w })); }} /> semanas · {doc.days.length} días por semana
+                <IntInput className="weeks" min={1} max={52} value={doc.weeks} aria-label="Semanas" onChange={(w) => w != null && edit((d) => ({ ...d, weeks: w }))} /> semanas · {doc.days.length} días por semana
               </span>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -183,11 +183,10 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
         <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
         {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}</span>
       {sum && <span className="ex-sum">{sum}</span>}
-      <span className="c-s"><small className="c-lbl">Series</small><input disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} type="number" min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(ev) => onChange({ sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
+      <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && onChange({ sets: n })} /></span>
       <span className="c-r"><small className="c-lbl">Reps</small><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
         onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) onChange({ reps: ev.target.value }); }} /></span>
-      <span className="c-rir"><small className="c-lbl">RIR</small><input type="number" min={0} max={5} value={e.rir ?? ""} aria-label={`RIR de ${e.name}`} placeholder="—"
-        onChange={(ev) => onChange({ rir: ev.target.value === "" ? null : Math.max(0, Math.min(5, Number(ev.target.value))) })} /></span>
+      <span className="c-rir"><small className="c-lbl">RIR</small><IntInput min={0} max={5} nullable value={e.rir} aria-label={`RIR de ${e.name}`} placeholder="—" onChange={(n) => onChange({ rir: n })} /></span>
       <span className="c-rest"><small className="c-lbl">Descanso</small><input value={rest} aria-label={`Descanso de ${e.name}`} aria-invalid={restBad || undefined} placeholder="m:ss"
         onChange={(ev) => { setRest(ev.target.value); const s = parseRest(ev.target.value); if (s != null && s <= 900) onChange({ restSec: s }); }}
         onBlur={() => setRest(formatRest(e.restSec))} /></span>

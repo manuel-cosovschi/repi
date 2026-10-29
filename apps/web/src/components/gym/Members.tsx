@@ -14,6 +14,7 @@ import { NewTaskModal, TaskCard } from "./Floor";
 import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task } from "./shared";
 import { Ic } from "@/components/ui/Ic";
 import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
+import { IntInput } from "@/components/ui/IntInput";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -193,7 +194,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <label className="field" style={{ flex: "2 1 240px" }}>Nombre<input value={doc.name} maxLength={120} onChange={(e) => setDoc({ ...doc, name: e.target.value })} /></label>
-        <label className="field" style={{ flex: "0 0 110px" }}>Semanas<input type="number" min={1} max={52} value={doc.weeks} onChange={(e) => setDoc({ ...doc, weeks: Number(e.target.value) || 1 })} /></label>
+        <label className="field" style={{ flex: "0 0 110px" }}>Semanas<IntInput min={1} max={52} value={doc.weeks} onChange={(n) => n != null && setDoc({ ...doc, weeks: n })} /></label>
       </div>
       <div className="seg" role="tablist" aria-label="Días">
         {doc.days.map((d, i) => <button key={i} type="button" role="tab" aria-selected={day === i} onClick={() => setDay(i)}>{d.name || `Día ${i + 1}`}</button>)}
@@ -209,9 +210,9 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
             {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
               onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}</span>
           {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
-          <span className="c-s"><small className="c-lbl">Series</small><input disabled={!!e.detail?.setPlan} aria-label={`Series de ${e.name}`} inputMode="numeric" value={e.sets} onChange={(ev) => setEx(i, { sets: Math.max(1, Math.min(20, Number(ev.target.value) || 1)) })} /></span>
+          <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan} aria-label={`Series de ${e.name}`} min={1} max={20} value={e.sets} onChange={(n) => n != null && setEx(i, { sets: n })} /></span>
           <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, { reps: ev.target.value })} /></span>
-          <span className="c-rir"><small className="c-lbl">RIR</small><input aria-label={`RIR de ${e.name}`} inputMode="numeric" value={e.rir ?? ""} onChange={(ev) => setEx(i, { rir: ev.target.value === "" ? null : Math.max(0, Math.min(5, Number(ev.target.value) || 0)) })} /></span>
+          <span className="c-rir"><small className="c-lbl">RIR</small><IntInput aria-label={`RIR de ${e.name}`} min={0} max={5} nullable value={e.rir} onChange={(n) => setEx(i, { rir: n })} /></span>
           <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
           <span className="c-act"><button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button></span>
         </div>
