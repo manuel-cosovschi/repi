@@ -1,6 +1,24 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D127 + D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D136), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
+
+**Estado:** todo lo pedido hasta D136 está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`; último commit `185ea81`). Migraciones 0025–0029 aplicadas en Supabase. Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar). Rama `gym-access` ya mergeada (puede borrarse).
+
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D137**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo.
+
+**Comandos:** web `cd apps/web && pnpm vitest run` (212 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck`. Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, guardado en `app_rate_limit`).
+
+**Secretos (nunca en el repo ni en logs):** `~/.repi-secrets/supabase.env`, `~/.repi-secrets/openai.env`. OpenAI: `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-4.1-mini` en Vercel (producción) y en `apps/web/.env.local`. Recomendar al titular **rotar la clave de OpenAI** (se pegó en el chat). El titular pidió respuestas de IA de ≤3 s: usar gpt-4.1-mini con salida corta (gpt-5-mini tardaba 4–17 s; gpt-4.1-nano está dado de baja).
+
+**Pedidos del titular ya resueltos en esta tanda:** invitaciones (D128, D130, D136; la invitación de Smart Center Gym quedó aceptada para su cuenta), fecha con calendario y ver contraseña (D128), Gym Access (D127), ejercicios propios y catálogo (D129), «En sala ahora» y elegir profesor (D131), historial anterior con IA (D132), IA en «No vino el profe» (D133), prescripción avanzada y constructor legible en el celular (D134), guía con IA del dueño (D135).
+
+**Pendientes y próximos pasos sugeridos:**
+1. Que entrenadores reales prueben «Series y técnica» en el celular; registrar AMRAP y series por tiempo con un control propio en el entrenamiento; alternar automáticamente A1/A2 en superseries.
+2. Probar la importación de historial con archivos reales (alumno de Urko) y medir tiempos/costo.
+3. IA en otros lugares que sumen valor (p. ej., resumen de progreso del alumno para el coach) — revisar privacidad: nunca enviar salud, nombres ni emails sin consentimiento.
+4. Pendientes externos: cámara del QR de ingreso en iPhone/Android reales (LB-03), revisión legal de la ubicación (Gym Access), dominio de correo.
 
 ## Último bloque cerrado — 29/10/2026 · Prescripción avanzada (D134), guía con IA del dueño (D135) y aceptar invitación con la cuenta abierta (D136)
 
