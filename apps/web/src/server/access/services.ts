@@ -2,7 +2,7 @@
 import { and, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   CONSENT_CATALOG, classifyAge, orgOperational, GYM_ROLE_LABEL, INVITABLE_GYM_ROLES, INVITE_TTL_DAYS, MINORS_POLICY, TERMS_VERSION,
-  invitationState, isCuit, isDni, isEmail, normalizeCode, normalizeEmail, parseBirthDate, passwordOk, requiresTwoFactor,
+  invitationState, isCuit, isDni, isEmail, maskEmail, normalizeCode, normalizeEmail, parseBirthDate, passwordOk, requiresTwoFactor,
   resolveGrants, formatCuit, type ConsentScope, type GymRole,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -34,7 +34,7 @@ export async function signUpPerson(input: SignUpInput) {
   if (input.birth !== undefined) {
     birthIso = parseBirthDate(input.birth);
     const cls = classifyAge(birthIso, todayIso());
-    if (cls === "invalid") throw new AccessError("invalid_birth", "Escribí la fecha de nacimiento como DD/MM/AAAA.");
+    if (cls === "invalid") throw new AccessError("invalid_birth", "Revisá la fecha de nacimiento: elegila en el calendario (día, mes y año).");
     if (cls === "blocked") throw new AccessError("under_13", "Para menores de 13 años la cuenta la crea un adulto responsable.");
     minor = cls === "minor";
   }
@@ -251,9 +251,24 @@ export async function lookupInvitation(rawCode: string) {
       ? [row.org.specialty, row.org.modality].filter(Boolean).join(" · ") || "Coach independiente"
       : [GYM_ROLE_LABEL[row.inv.role as GymRole] ?? "Equipo", row.loc?.name].filter(Boolean).join(" · "),
     inviter: row.inv.kind === "gym_staff" ? `Invitado por ${row.inviter.name}${inviterRole ? `, ${inviterRole}` : ""}.` : null,
-    emailBound: !!row.inv.email && row.inv.kind === "gym_staff",
+    // La invitación es para un email: se muestra una pista (no el email entero) para crear la cuenta con ese mismo.
+    emailBound: !!row.inv.email,
+    emailHint: row.inv.email ? maskEmail(row.inv.email) : null,
   };
 }
+
+/**
+ * Antes de crear una cuenta desde una invitación: si es para un email, tiene que ser ese. Evita que alguien verifique
+ * una cuenta con otro email y recién al final se entere de que la invitación no le sirve.
+ */
+export async function assertInvitationEmail(rawCode: string, email: string) {
+  const [inv] = await db.select({ email: invitation.email }).from(invitation).where(eq(invitation.code, normalizeCode(rawCode)));
+  if (!inv?.email) return;
+  if (normalizeEmail(inv.email) !== normalizeEmail(email)) throw new AccessError("email_mismatch", mismatchMessage(inv.email), 400);
+}
+
+const mismatchMessage = (invEmail: string) =>
+  `Esta invitación se envió a ${maskEmail(invEmail)}. Usá ese mismo email (el de la invitación). Si querés usar otro, pedile a quien te invitó que te mande una nueva a ese email.`;
 
 /** Anexo PWA: al abrir desde el ícono puede perderse el enlace. Con el email ya verificado se retoman las invitaciones
  *  personales vigentes de ese mismo email (nunca las de otro ni las vencidas/revocadas). No acepta nada por sí misma. */
@@ -292,7 +307,7 @@ export async function acceptInvitation(userId: string, rawCode: string, requeste
   if (pre?.kind === "coach_client" && invitationState(pre, new Date()) === "pending") await assertOperational(pre.orgId);
   if (pre?.email && normalizeEmail(pre.email) !== normalizeEmail(u.email)) {
     await audit(db, { actorUserId: userId, orgId: pre.orgId, action: "invitation.accept", resourceType: "invitation", resourceId: pre.id, result: "denied", meta: { reason: "email_mismatch" } });
-    throw new AccessError("email_mismatch", "Esta invitación es para otro email. Ingresá con la cuenta a la que llegó la invitación.", 403);
+    throw new AccessError("email_mismatch", mismatchMessage(pre.email), 403);
   }
   return db.transaction(async (tx) => {
     const [inv] = await tx.select().from(invitation).where(eq(invitation.code, code)).for("update");

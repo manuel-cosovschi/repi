@@ -15,6 +15,7 @@ export const POST = handle(async (req) => {
   const b = await body(req, S);
   // La fecha de nacimiento se pide a alumnos y socios (política de menores). El equipo de un gimnasio entra con una
   // invitación de equipo vigente y no la carga (F-12): se valida con el código, no con lo que diga el cliente.
+  if (b.flow === "invite" && b.code) await svc.assertInvitationEmail(b.code, b.email);
   const staff = b.flow === "invite" && !!b.code && (await svc.lookupInvitation(b.code).then((i) => i.kind === "gym_staff", () => false));
   const r = await svc.signUpPerson({
     name: b.name, email: b.email, password: b.password, terms: b.terms,

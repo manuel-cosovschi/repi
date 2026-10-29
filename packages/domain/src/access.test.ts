@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ageOn, classifyAge, CODE_ALPHABET, invitationState, isCodeShape, isCuit, isDni, isEmail, makeInviteCode,
-  normalizeCode, parseBirthDate, passwordHint, passwordOk, requiresTwoFactor, resolveGrants, CONSENT_CATALOG,
+  maskEmail, normalizeCode, parseBirthDate, passwordHint, passwordOk, requiresTwoFactor, resolveGrants, CONSENT_CATALOG,
 } from "./access";
 
 describe("contraseña (Acceso pwRules)", () => {
@@ -24,11 +24,26 @@ describe("email", () => {
   });
 });
 
+describe("pista de email de invitación", () => {
+  it("muestra principio y final, nunca el email entero", () => {
+    expect(maskEmail("ManuCosovschi@Gmail.com ")).toBe("ma•••hi@gmail.com");
+    expect(maskEmail("manucosovs@gmail.com")).toBe("ma•••vs@gmail.com");
+    expect(maskEmail("ana@x.com")).toBe("an•••@x.com");
+  });
+});
+
 describe("fecha de nacimiento y edad", () => {
   it("rechaza fechas imposibles", () => {
     expect(parseBirthDate("31/02/2010")).toBeNull();
-    expect(parseBirthDate("2010-02-01")).toBeNull();
+    expect(parseBirthDate("2010-02-31")).toBeNull();
+    expect(parseBirthDate("1702197")).toBeNull();
     expect(parseBirthDate("01/02/2010")).toBe("2010-02-01");
+  });
+  it("acepta el selector nativo y la fecha escrita sin barras (teclado numérico)", () => {
+    expect(parseBirthDate("1974-02-17")).toBe("1974-02-17");
+    expect(parseBirthDate("17021974")).toBe("1974-02-17");
+    expect(parseBirthDate("17-02-1974")).toBe("1974-02-17");
+    expect(parseBirthDate("17.02.1974")).toBe("1974-02-17");
   });
   it("edad calendario exacta en el cumpleaños", () => {
     expect(ageOn("2008-10-25", "2026-10-25")).toBe(18);

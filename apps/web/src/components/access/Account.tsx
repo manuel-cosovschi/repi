@@ -6,6 +6,7 @@ import { ArrowLeft, ShieldCheck } from "@phosphor-icons/react";
 import { authClient } from "@/lib/auth-client";
 import { Ic } from "@/components/ui/Ic";
 import { Wordmark } from "./Wordmark";
+import { PasswordInput } from "./PasswordInput";
 
 export function Account({ name, email, twoFactor, from }: { name: string; email: string; twoFactor: boolean; from?: string }) {
   const [on, setOn] = useState(twoFactor);
@@ -59,7 +60,7 @@ export function Account({ name, email, twoFactor, from }: { name: string; email:
       {on && asking && (
         <form noValidate onSubmit={(e) => { e.preventDefault(); void disable(); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="ac-field"><label htmlFor="acc-pw">Confirmá tu contraseña</label>
-            <input id="acc-pw" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <PasswordInput id="acc-pw" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
           </div>
           <div aria-live="assertive">{err && <p role="alert" className="ac-error">{err}</p>}</div>
           <button type="submit" className="ac-cta" aria-busy={busy || undefined}>{busy ? "Quitando…" : "Quitar"}</button>

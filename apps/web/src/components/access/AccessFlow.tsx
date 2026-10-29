@@ -13,6 +13,7 @@ import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { api, ApiError } from "@/lib/api";
 import { Wordmark } from "./Wordmark";
+import { PasswordInput } from "./PasswordInput";
 import { InstallGuide, InstallSteps } from "./InstallGuide";
 import { clearEntry, entryHref, parseEntryInput, readEntry, saveEntry, type Entry } from "@/lib/entry";
 import { detectEnv, guideDone } from "@/lib/platform";
@@ -27,7 +28,7 @@ type Step =
   | "activate" | "actAcct" | "consentGym" | "appDone" | "rec1" | "rec2" | "rec3" | "twofa" | "twofaSetup" | "workspace" | "recover" | "pendingInv" | "ready";
 type Flow = "login" | "coach" | "gym" | "invite" | "member" | "join" | "activate";
 type Fields = Record<string, string | boolean | number | undefined>;
-type Invite = { code: string; kind: "coach_client" | "gym_staff"; orgName: string; orgInitials: string; detail: string; inviter: string | null };
+type Invite = { code: string; kind: "coach_client" | "gym_staff"; orgName: string; orgInitials: string; detail: string; inviter: string | null; emailHint?: string | null };
 type JoinInfo = { orgName: string; locationName: string; operational: boolean };
 type JoinReq = { id: string; code: string; kind: string; status: "pending" | "approved" | "rejected" | "cancelled" | "expired"; orgName: string; locationName: string; reason: string | null; message: string | null };
 type ActInfo = { state: string; orgName: string; kind: "gym" | "coach"; emailHint: string };
@@ -215,6 +216,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
 
   useEffect(() => { if (step === "workspace" || step === "tutorWait") loadMe().catch(() => {}); }, [step, loadMe]);
 
+  // Fecha de nacimiento con el selector del teléfono (calendario o ruedas): sin tipear barras con el teclado numérico.
+  const birthField: FieldV = { k: "birth", label: "Fecha de nacimiento", type: "date", ac: "bday", hint: "Tocá para elegirla en el calendario. Si sos menor de 18, le pedimos permiso a un adulto responsable." };
   const pwHintField = (label = "Contraseña"): FieldV => ({ k: "pw", label, type: "password", ac: "new-password", hint: passwordHint(s("pw")), hintOk: passwordOk(s("pw")) });
   async function requestJoin() {
     const r = await api<{ state: "already" | "pending" | "created"; href?: string; request?: JoinReq }>(`/api/join/${initial.join}`, { body: { name: s("name") || undefined, terms: true } });
@@ -301,7 +304,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const signupGap = (birth: boolean) =>
     !s("name") ? "Falta tu nombre y apellido."
     : !isEmail(s("email")) ? "Revisá el email: no parece válido."
-    : birth && birthCls === "invalid" ? "Escribí la fecha de nacimiento como DD/MM/AAAA."
+    : birth && birthCls === "invalid" ? (s("birth") ? "Revisá la fecha de nacimiento: elegila en el calendario (día, mes y año)." : "Elegí tu fecha de nacimiento.")
     : !passwordOk(s("pw")) ? `La contraseña necesita ${passwordRules(s("pw")).filter((r) => !r.ok).map((r) => r.label).join(", ")}.`
     : !f.terms ? "Aceptá los términos para continuar." : null;
   const chipsOpts = (xs: string[]): [string, string][] => xs.map((x) => [x, x]);
@@ -423,8 +426,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         title: "Tus datos", stepLabel: staffInv ? "1 de 2" : "1 de 3",
         fields: [
           { k: "name", label: "Nombre y apellido", ac: "name" },
-          { k: "email", label: "Email", mode: "email", ac: "email", bad: !!s("email") && !isEmail(s("email")) },
-          ...(staffInv ? [] : [{ k: "birth", label: "Fecha de nacimiento", mode: "numeric" as const, ph: "DD/MM/AAAA", max: 10, hint: "Si sos menor de 18, le pedimos permiso a un adulto responsable." }]),
+          { k: "email", label: invite?.emailHint ? "Email (el de la invitación)" : "Email", mode: "email", ac: "email", bad: !!s("email") && !isEmail(s("email")),
+            hint: invite?.emailHint ? `La invitación se envió a ${invite.emailHint}. Usá ese mismo email.` : undefined },
+          ...(staffInv ? [] : [birthField]),
           pwHintField(),
         ],
         checks: [{ k: "terms", t: "Acepto los Términos y la Política de privacidad." }],
@@ -509,7 +513,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         fields: [
           { k: "name", label: "Nombre y apellido", ac: "name" },
           { k: "email", label: "Email", mode: "email", ac: "email", bad: !!s("email") && !isEmail(s("email")) },
-          { k: "birth", label: "Fecha de nacimiento", mode: "numeric", ph: "DD/MM/AAAA", max: 10, hint: "Si sos menor de 18, le pedimos permiso a un adulto responsable." },
+          birthField,
           pwHintField(),
         ],
         checks: [{ k: "terms", t: "Acepto los Términos y la Política de privacidad." }],
@@ -722,9 +726,15 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           const hintId = `h-${fd.k}`;
           return (
             <div key={fd.k} className="ac-field"><label htmlFor={`f-${fd.k}`}>{fd.label}</label>
-              <input id={`f-${fd.k}`} className={fd.code ? "code" : undefined} type={fd.type ?? "text"} value={s(fd.k)} placeholder={fd.ph} inputMode={fd.mode ?? "text"}
-                autoComplete={fd.ac ?? "off"} maxLength={fd.max ?? 120} aria-invalid={fd.bad || undefined} aria-describedby={fd.hint ? hintId : undefined}
-                onChange={(e) => set(fd.k, fd.k === "code" ? normalizeCode(e.target.value) : fd.code ? e.target.value.replace(/\D/g, "") : e.target.value)} />
+              {fd.type === "password"
+                ? <PasswordInput id={`f-${fd.k}`} value={s(fd.k)} placeholder={fd.ph} autoComplete={fd.ac ?? "off"} maxLength={fd.max ?? 120}
+                  aria-invalid={fd.bad || undefined} aria-describedby={fd.hint ? hintId : undefined} onChange={(e) => set(fd.k, e.target.value)} />
+                : fd.type === "date"
+                ? <input id={`f-${fd.k}`} type="date" value={s(fd.k)} min="1900-01-01" max={localDate(new Date())} autoComplete={fd.ac ?? "off"}
+                  aria-invalid={fd.bad || undefined} aria-describedby={fd.hint ? hintId : undefined} onChange={(e) => set(fd.k, e.target.value)} />
+                : <input id={`f-${fd.k}`} className={fd.code ? "code" : undefined} type={fd.type ?? "text"} value={s(fd.k)} placeholder={fd.ph} inputMode={fd.mode ?? "text"}
+                  autoComplete={fd.ac ?? "off"} maxLength={fd.max ?? 120} aria-invalid={fd.bad || undefined} aria-describedby={fd.hint ? hintId : undefined}
+                  onChange={(e) => set(fd.k, fd.k === "code" ? normalizeCode(e.target.value) : fd.code ? e.target.value.replace(/\D/g, "") : e.target.value)} />}
               {fd.hint && <span id={hintId} className={`ac-hint${fd.hintOk ? " ok" : ""}`}>{fd.hint}</span>}
             </div>
           );

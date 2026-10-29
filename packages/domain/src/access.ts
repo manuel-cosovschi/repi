@@ -4,6 +4,12 @@
 export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const isEmail = (e: unknown): e is string => typeof e === "string" && EMAIL_RE.test(e.trim());
 export const normalizeEmail = (e: string) => e.trim().toLowerCase();
+/** Pista del email de una invitación sin exponerlo entero: «ma•••hi@gmail.com». Distingue variantes parecidas por el final. */
+export function maskEmail(e: string) {
+  const [local, domain] = normalizeEmail(e).split("@");
+  if (!domain) return "";
+  return `${local.slice(0, 2)}•••${local.length > 5 ? local.slice(-2) : ""}@${domain}`;
+}
 
 export type PasswordRule = { ok: boolean; label: string };
 export function passwordRules(p: string | undefined | null): PasswordRule[] {
@@ -20,7 +26,10 @@ export const passwordHint = (p: string | undefined | null) =>
 
 /** Fecha DD/MM/AAAA → ISO AAAA-MM-DD, o null si no es una fecha real. */
 export function parseBirthDate(input: string | undefined | null): string | null {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((input ?? "").trim());
+  const t = (input ?? "").trim();
+  // Selector nativo (AAAA-MM-DD) o escrito a mano: DD/MM/AAAA, con guiones o puntos, o sólo dígitos (DDMMAAAA).
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  const m = iso ? [t, iso[3], iso[2], iso[1]] : /^(\d{2})[/.-]?(\d{2})[/.-]?(\d{4})$/.exec(t);
   if (!m) return null;
   const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const dt = new Date(Date.UTC(y, mo - 1, d));

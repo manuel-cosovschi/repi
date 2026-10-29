@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { api, ApiError } from "@/lib/api";
 import { Wordmark } from "./Wordmark";
+import { PasswordInput } from "./PasswordInput";
 
 const KEY = "repi:first-admin-ticket";
 type Me = { user: { name: string; email: string; twoFactorEnabled: boolean } };
@@ -59,7 +60,7 @@ export function FirstAdmin() {
     </> : <>
       <div className="ac-field"><label htmlFor="admin-name">Nombre y apellido</label><input id="admin-name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} required maxLength={80} /></div>
       <div className="ac-field"><label htmlFor="admin-email">Tu email</label><input id="admin-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-      <div className="ac-field"><label htmlFor="admin-password">Creá tu contraseña</label><input id="admin-password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} /><span className="ac-hint">Al menos 8 caracteres, con letras y números.</span></div>
+      <div className="ac-field"><label htmlFor="admin-password">Creá tu contraseña</label><PasswordInput id="admin-password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} /><span className="ac-hint">Al menos 8 caracteres, con letras y números.</span></div>
       <label><input type="checkbox" checked={terms} onChange={e => setTerms(e.target.checked)} required /> Acepto los <a href="/legal/terms" target="_blank" rel="noreferrer">términos</a> y la <a href="/legal/privacy" target="_blank" rel="noreferrer">política de privacidad</a>.</label>
       <button className="ac-cta" disabled={busy || !terms}>{busy ? "Preparando…" : "Crear mi cuenta"}</button>
       <a href="/acceso?next=%2Factivar-admin">Ya tengo cuenta</a>

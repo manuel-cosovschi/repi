@@ -1,8 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D126), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · REPI Connect · seguimiento de sala (D126) — rama `repi-connect`, SIN publicar
+## Último bloque cerrado — 28/10/2026 · Altas por invitación: email, fecha con calendario y ver contraseña (D128) — publicado en `main`
+
+- **Hecho:** pista del email invitado y freno antes de crear la cuenta (`assertInvitationEmail` en `/api/access/sign-up`, `maskEmail` en el dominio), fecha de nacimiento con selector nativo (`parseBirthDate` acepta también AAAA-MM-DD y DDMMAAAA), `components/access/PasswordInput.tsx` con Mostrar/Ocultar en todos los campos de contraseña.
+- **Pruebas:** dominio 120/120, web 192/192, guardas 11/11; navegador 375 px con una invitación de alumno completa.
+- **Sin migración.** Siguiente: retomar Gym Access (D127) en la rama `gym-access` (mergear `main` primero) y el historial anterior (D129).
+
+## Bloque anterior — 28/10/2026 · REPI Connect · seguimiento de sala (D126) — publicado (a65195e)
 
 - **Hecho:** Core completo sobre la cola existente. Dominio `packages/domain/src/connect.ts` (+ tests). Servidor `apps/web/src/server/gym/connect.ts`; `gym/services.ts` exporta helpers, suma `addEvent`, estados `in_progress`/`follow_up` y eventos en la cola anterior; `metrics.ts`, `notices.ts`, `push/services.ts`, cron y `scripts/notifications.ts` (job `connectSweep`). Rutas `/api/me/gym/connect…`, `/api/gym/[orgId]/connect/…`, `/api/admin/contracts/[id]/connect`. UI: `components/member/Connect.tsx` (+ `MemberApp`, `Workout`, `FollowSheets`), `components/gym/Connect.tsx` (+ `GymApp`, guía), tarjeta en Admin, recorrido de la demo. Demo con Connect activo (`sandbox/services.ts#connectHistory`).
 - **Migración 0025** (`drizzle/0025_connect.sql`, sólo agrega + trigger de historial): aplicada en dev y `repi_test`; **NO aplicada en Supabase**.
