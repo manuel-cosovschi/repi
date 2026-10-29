@@ -77,6 +77,7 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
     try {
       // D140: Excel (.xlsx) y OpenDocument (.ods) se leen acá y viajan como CSV. Numbers y .xls viejos, a exportar.
       if (/\.(xlsx|ods)$/.test(name)) {
+        if (typeof DecompressionStream === "undefined") return setErr("Este navegador no puede abrir planillas. Actualizá el teléfono o guardala como CSV.");
         if (f.size > 5_000_000) return setErr("La planilla pesa más de 5 MB. Dejá sólo las hojas del historial.");
         const csv = await spreadsheetToCsv(f);
         if (csv.length > 400_000) return setErr("La planilla es muy grande. Dejá sólo las hojas o filas del historial.");

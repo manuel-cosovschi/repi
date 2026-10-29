@@ -35,6 +35,11 @@ describe("planillas Excel y OpenDocument", () => {
     expect(rows[2]).toEqual(["45232", "Sentadilla & pausa", "", "5"]);
   });
 
+  it("filas vacías de Excel (<row …/>) y fórmulas con su valor", () => {
+    const xml = `<sheetData><row r="1" spans="2:3" ht="15.75"/><row r="2"><c r="B2" t="s"><v>4</v></c><c r="C2"><f>A1*1.21</f><v>121</v></c></row></sheetData>`;
+    expect(xlsxSheetRows(xml, SHARED)).toEqual([[], ["", "Press de banca", "121"]]);
+  });
+
   it("un .xlsx entero queda como CSV que el importador lee sin IA", async () => {
     const f = asFile(zip({ "xl/workbook.xml": `<workbook><sheets><sheet name="Historial" sheetId="1"/></sheets></workbook>`, "xl/sharedStrings.xml": SHARED, "xl/worksheets/sheet1.xml": SHEET }), "mi-historial.xlsx");
     const csv = await spreadsheetToCsv(f);

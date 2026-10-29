@@ -711,6 +711,8 @@ export async function sessionAlternatives(userId: string, sessionId: string, pro
  * se puede). Mismo criterio que en la sesión: compatibles por tipo de registro, aprobados por el profe primero. Sin los que
  * ya están en el día.
  */
+// Palabras que no dicen qué movimiento es (equipamiento y conectores): no cuentan para el parecido.
+const STOP_WORDS = new Set(["con", "del", "las", "los", "una", "barra", "mancuerna", "mancuernas", "maquina", "polea", "banda", "elastica", "disco", "multipower", "smith", "kettlebell", "cable", "apoyo", "banco"]);
 export async function dayAlternatives(userId: string, dayId: string, perExercise = 5) {
   const rows = await db.select({ peId: programExercise.id, exerciseId: programExercise.exerciseId, kind: exercise.kind, group: exercise.muscleGroup, versionId: programDay.versionId })
     .from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId)).innerJoin(programDay, eq(programDay.id, programExercise.dayId))
@@ -723,8 +725,17 @@ export async function dayAlternatives(userId: string, dayId: string, perExercise
   const subs = await db.select({ ex: exerciseSubstitution.exerciseId, id: exerciseSubstitution.substituteExerciseId, note: exerciseSubstitution.note }).from(exerciseSubstitution)
     .where(and(eq(exerciseSubstitution.orgId, orgId), inArray(exerciseSubstitution.exerciseId, rows.map((r) => r.exerciseId)))).orderBy(asc(exerciseSubstitution.createdAt));
   const inDay = new Set(rows.map((r) => r.exerciseId));
-  const lists = rows.map((r) => ({ peId: r.peId, list: withApproved(rankAlternatives({ id: r.exerciseId, kind: r.kind, muscleGroup: r.group }, lib.filter((x) => !inDay.has(x.id))),
-    subs.filter((x) => x.ex === r.exerciseId)).slice(0, perExercise) }));
+  // Entre los compatibles, primero los de nombre parecido al original (press → press con mancuernas), así la lista corta
+  // que ve la IA trae los reemplazos naturales y no sólo el orden alfabético.
+  const words = (x: string) => new Set(x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w)));
+  const nameOf = new Map(lib.map((x) => [x.id, x.name]));
+  const lists = rows.map((r) => {
+    const own = words(nameOf.get(r.exerciseId) ?? "");
+    const near = (x: { name: string }) => [...words(x.name)].filter((w) => own.has(w)).length;
+    const ranked = rankAlternatives({ id: r.exerciseId, kind: r.kind, muscleGroup: r.group }, lib.filter((x) => !inDay.has(x.id)))
+      .map((x, i) => ({ x, i, k: (x.muscleGroup === r.group ? 10 : 0) + near(x) })).sort((a, b) => b.k - a.k || a.i - b.i).map((y) => y.x);
+    return { peId: r.peId, list: withApproved(ranked, subs.filter((x) => x.ex === r.exerciseId)).slice(0, perExercise) };
+  });
   const prev = await lastSetByExercise(userId, [...new Set(lists.flatMap((l) => l.list.map((x) => x.id)))]);
   for (const l of lists) out.set(l.peId, l.list.map((x) => ({ exerciseId: x.id, name: x.name, approved: x.approved, note: x.approvedNote, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })));
   return out;

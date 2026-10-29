@@ -47,9 +47,10 @@ const colIndex = (ref: string) => { let n = 0; for (const ch of /^[A-Z]+/.exec(r
 export function xlsxSheetRows(sheetXml: string, sharedXml: string | null): string[][] {
   const shared = sharedXml ? [...sharedXml.matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => texts(m[1])) : [];
   const rows: string[][] = [];
-  for (const r of sheetXml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  // Excel escribe las filas vacías como <row …/>: sin contenido, no se mezclan con la siguiente.
+  for (const r of sheetXml.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
     const row: string[] = [];
-    for (const c of r[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const c of (r[1] ?? "").matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = c[1], body = c[2] ?? "";
       const ref = /\br="([A-Z]+)\d+"/.exec(attrs)?.[1];
       const type = /\bt="(\w+)"/.exec(attrs)?.[1];
