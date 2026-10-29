@@ -423,7 +423,7 @@ function ShowQrModal({ shell, onClose }: { shell: Shell; onClose: () => void }) 
           <div className="pills" role="group" aria-label="Sede">{d.data.qrs.map((x, k) => <button key={x.location.id} type="button" className="pill" aria-pressed={k === i} onClick={() => setI(k)}>{x.location.name}</button>)}</div>
         )}
         {link && <div className="gy-qr-big" role="img" aria-label={`QR de ${q!.location.name}`} dangerouslySetInnerHTML={{ __html: renderSVG(link, { border: 1 }) }} />}
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>El socio lo escanea con la cámara, agrega REPI a su teléfono, crea su cuenta y pide acceso. La solicitud aparece en esta pantalla para aprobarla.</p>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>El socio lo escanea con la cámara del teléfono, crea su cuenta y pide acceso a esta sede. La solicitud aparece en esta pantalla para que la apruebes; después le mostramos cómo agregar REPI a su inicio.</p>
         {link && <button type="button" className="btn" onClick={() => navigator.clipboard?.writeText(link).then(() => shell.flash("Enlace copiado: podés mandarlo por WhatsApp."))}>Copiar enlace</button>}
       </>}
     </Modal>

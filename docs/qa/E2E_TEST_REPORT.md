@@ -29,7 +29,7 @@ cd apps/web && pnpm e2e
 
 ## 2. Resultado final (29/10/2026, 17:53 ART)
 
-**34 de 34 pasaron.** 0 fallidas, 0 inestables, 0 omitidas. Duración: 117 s. Evidencia en `apps/web/e2e-results/results.json` (no se versiona).
+**36 de 36 pasaron** (corrida final, 18:25 ART). 0 fallidas, 0 inestables, 0 omitidas. Duración: 72 s. Evidencia en `apps/web/e2e-results/results.json` (no se versiona).
 
 | Proyecto | Archivo | Prueba | Estado |
 |---|---|---|---|
@@ -43,6 +43,7 @@ cd apps/web && pnpm e2e
 | mobile y desktop | roles | Demo dueño: todas las secciones del menú | ✓ ✓ |
 | mobile y desktop | roles | Demo profe de sala: todas las secciones del menú | ✓ ✓ |
 | mobile y desktop | roles | Aislamiento: un alumno no lee la API ni la pantalla de otro coach o gym | ✓ ✓ |
+| mobile y desktop | roles | QR de la sede (D152): sin sesión lleva a «Pedí tu acceso» → «Tus datos», sin la guía antes | ✓ ✓ |
 
 ## 3. Historial de corridas
 
@@ -52,17 +53,19 @@ cd apps/web && pnpm e2e
 | 2 | Parcial ✓ | Arreglos del arnés (saltar check-in, cerrar el tour con sessionStorage, esperar animaciones, movimiento reducido, abrir el menú sólo si está cerrado). |
 | 3 | 33 ✓ / 1 ✗ | Dueño en móvil: `scrollable-region-focusable` en «Seguimiento de sala» (AXE-6). |
 | 4 | **34 ✓** | Después de AXE-6 y del resto de los arreglos. |
+| 5 | **34 ✓** | Después de cerrar DATA-5, DATA-6, DATA-10, DATA-11 y A11Y-5. |
+| 6 | **36 ✓** | Con la prueba nueva del QR de la sede (QR-1, D152). |
 
 ## 4. Regresión completa (después de todos los arreglos)
 
 | Suite | Comando | Resultado | Tipo |
 |---|---|---|---|
-| Web (integración, Postgres `repi_test`) | `cd apps/web && pnpm vitest run` | **43 archivos, 236 pruebas ✓** (antes de la auditoría: 221) | INT |
+| Web (integración, Postgres `repi_test`) | `cd apps/web && pnpm vitest run` | **43 archivos, 238 pruebas ✓** (antes de la auditoría: 221) | INT |
 | Guardas de seguridad de tests | `pnpm test:guards` | **0 fallas** | UNIT |
 | Dominio | `cd packages/domain && pnpm test` | **20 archivos, 146 pruebas ✓** | UNIT |
 | Tipos | `pnpm exec tsc --noEmit` | sin errores | Estática |
 | Build de producción | `pnpm build` | compila | Estática |
-| E2E | `pnpm e2e` | **34/34 ✓** | E2E |
+| E2E | `pnpm e2e` | **36/36 ✓** | E2E |
 | Deriva de esquema | `drizzle-kit generate` | «No schema changes» | Estática |
 
 **Pruebas nuevas de la auditoría:**
@@ -70,12 +73,7 @@ cd apps/web && pnpm e2e
 - `lift-ranking` (SEC-6, DATA-6), `log` (SEC-7/11), `training` (DATA-1, DATA-2), `history-import` (DATA-3), `annex` (DATA-4).
 - Dominio: `sync` (DATA-8).
 
-**Después de la última corrida completa** se agregaron:
-- confirmaciones en borrar post y comentario del club (UX-11);
-- `UX-12/13/14`;
-- el filtro DATA-6.
-
-Sus suites afectadas (`lift-ranking`, `followup`) y `tsc` volvieron a pasar. El E2E final (corrida 4) ya incluía UX-12/13/14 y DATA-6; las confirmaciones del club se agregaron después y sólo pasaron `tsc`.
+**Prueba que encontró un error propio:** la suite completa se corrió de nuevo después de cerrar los pendientes. Detectó un bloqueo en `decideJoin` que introdujo el primer arreglo de DATA-11 (4 pruebas por timeout). Se corrigió y la suite volvió a verde.
 
 ## 5. No cubierto por E2E (honesto)
 

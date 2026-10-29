@@ -64,18 +64,9 @@ Hay 10 hallazgos de seguridad corregidos (SEC-1 a 8, 10 y 11). Los más importan
 
 ### Corregido
 
-- DATA-1 a 4, 7, 8 y 9.
-- DATA-6 sólo en el ranking de 1RM y en la TV.
+Los 11 hallazgos de datos (DATA-1 a 11) están corregidos y en el registro, con su prueba.
 
-### Abierto
-
-- **DATA-5 («Aplicar ahora» empareja días por posición):** usar el ID de origen o el nombre del día. Mostrar las series sin pareja.
-- **DATA-6 (resto):** llevar `timed` en `LoggedSet`. Excluir esas series de volumen, `bestE1rm`, PR e informe. Toca unos 12 sitios.
-- **DATA-10 (lista de socios cortada en 200):** paginar o mostrar el total.
-- **DATA-11 (tres carreras menores):**
-  - Bloquear el dedupe de `memberCreate`.
-  - Marcar como vencido en una transacción aparte en `decideJoin`.
-  - Contar dentro de la transacción en `deleteClient`.
+**Pendiente de infraestructura, no un defecto:** si algún contrato real supera ≈ ARS 21,4 M por período, migrar los importes a `bigint` (hoy hay topes con un mensaje claro).
 
 ## 4. Contrato de API
 

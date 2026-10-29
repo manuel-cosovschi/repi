@@ -6,41 +6,40 @@
 
 ## 1. Tablero
 
+Actualizado el 29/10, 18:30. Cada fila sale de [BUG_REGISTER.md](BUG_REGISTER.md).
+
 | | P0 | P1 | P2 | P3 | Total |
 |---|---|---|---|---|---|
-| Encontrados (válidos) | 0 | 10 | 28 | 9 | **47** |
-| Corregidos y verificados | 0 | 10 | 25 | 5 | **40** |
-| Corregidos en parte | — | — | 1 (DATA-6) | — | 1 |
-| Abiertos | — | — | 1 (DATA-5) | 3 (DATA-10, DATA-11, A11Y-5) | 4 |
+| Encontrados (válidos) | 0 | 11 | 28 | 9 | **48** |
+| Corregidos y verificados | 0 | 11 | 27 | 8 | **46** |
+| Abiertos | — | 0 | 0 | 0 | **0** |
 | Riesgo aceptado | — | — | 1 (SEC-9) | 1 (SEC-12) | 2 |
 | Falsos positivos descartados | | | | | 1 (UX-3) |
-
-Cada fila del tablero sale de [BUG_REGISTER.md](BUG_REGISTER.md).
 
 **Por área:**
 
 | Área | Encontrados | Corregidos | Pendientes |
 |---|---|---|---|
 | Seguridad | 12 | 10 | 2 aceptados |
-| Datos | 11 | 7 | 1 parcial + 3 abiertos |
-| UX | 13 | 13 | 0 |
-| Accesibilidad | 11 | 10 | 1 abierto |
+| Datos | 11 | 11 | 0 |
+| UX (incluye QR-1) | 14 | 14 | 0 |
+| Accesibilidad | 11 | 11 | 0 |
 
-**Verificación de los 40 corregidos, por tipo de evidencia:**
+**Verificación de los 46 corregidos, por tipo de evidencia:**
 
 | Evidencia | Cantidad |
 |---|---|
-| INT (Postgres real) | 12 |
+| INT (Postgres real) | 15 |
 | UNIT | 1 |
-| E2E | 7 |
-| Sólo revisión de código | 20 |
+| E2E | 8 |
+| Sólo revisión de código | 22 |
 
-Los 20 de revisión de código son, sobre todo, confirmaciones de UI y CSS. Pasan `tsc` y build, pero ninguna prueba los ejerce directamente.
+Los 22 de revisión de código son, sobre todo, confirmaciones de UI y CSS. Pasan `tsc`, build y E2E de las pantallas, pero ninguna prueba ejerce ese clic en particular.
 
 **Pruebas:**
-- 236 de integración: 15 nuevas o ampliadas.
+- 238 de integración: 17 nuevas o ampliadas.
 - 146 del dominio.
-- 34 E2E nuevas: 34/34.
+- 36 E2E nuevas: 36/36.
 - Guardas, tipos y build en verde.
 
 ## 2. Documentos
@@ -87,7 +86,7 @@ Los 20 de revisión de código son, sobre todo, confirmaciones de UI y CSS. Pasa
 
 ## 5. Preparación para lanzar (RELEASE_READINESS)
 
-**Veredicto: candidata a release.** Sin P0 ni P1 abiertos. Todas las suites están en verde y no hay migraciones.
+**Veredicto: lista para publicar.** No quedan defectos abiertos, sólo los 2 riesgos aceptados. Todas las suites están en verde y no hay migraciones.
 
 **Para publicarla:**
 1. Revisar y mergear `qa/auditoria-2026-10-29` en `main`. Esto despliega a producción en Vercel. **Requiere autorización del titular.**
@@ -100,14 +99,12 @@ Los 20 de revisión de código son, sobre todo, confirmaciones de UI y CSS. Pasa
 - Un coach con la relación terminada deja de ver dolores, check-ins, salud y videos de ese ex cliente.
 - Las menores sin consentimiento del adulto desaparecen del ranking del club y de la TV.
 - Más de 200 repeticiones en una serie común se rechaza.
+- Las series por tiempo ya no suman volumen ni 1RM: los totales de volumen pueden bajar respecto de lo que se veía.
+- El QR de la sede lleva directo a «Pedí tu acceso» (D152); la guía de agregar a inicio aparece después.
+- Sólo `main` despliega en Vercel: las ramas ya no generan previews, que fallaban por falta de variables.
 
-**Pendientes recomendados**, en orden. Ninguno bloquea:
-1. DATA-6 completo: series por tiempo fuera de volumen, PR e informe.
-2. DATA-5: «Aplicar ahora» por ID de día, no por posición.
-3. DATA-10: paginar socios.
-4. DATA-11: tres carreras menores.
-5. A11Y-5: bloquear el scroll del fondo con hojas abiertas.
-6. Activar 2FA de admin (SEC-9, D119).
-7. Pruebas en teléfonos reales (LB-03).
+**Pendientes:** ninguno de la auditoría. Fuera de ella siguen dos:
+- activar el 2FA de admin (SEC-9, D119);
+- probar en teléfonos reales (LB-03).
 
 **Siguen los bloqueantes externos del titular:** `docs/LAUNCH_BLOCKERS.md` (LB-02 a LB-06).

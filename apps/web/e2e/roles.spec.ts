@@ -50,3 +50,21 @@ test("aislamiento: un alumno no puede leer el espacio de otro coach ni su API", 
   await expect(member.getByText(/Clientes|Alumnos/).first()).toHaveCount(0);
   await coachCtx.close(); await memberCtx.close();
 });
+
+test("QR de la sede (D152): en el teléfono lleva directo a pedir el acceso, sin la guía de agregar a inicio antes", async ({ page, browser }, info) => {
+  const href = await openDemo(page, "floor");
+  const orgId = href.match(/\/gym\/([0-9a-f-]{36})/)?.[1];
+  const qr = await (await page.request.get(`/api/gym/${orgId}/join-qr`)).json() as { qrs: { slug: string }[] };
+  expect(qr.qrs.length).toBeGreaterThan(0);
+  // Otra persona, sin sesión, escanea el QR con su teléfono.
+  const socio = await browser.newContext({ ...info.project.use, storageState: undefined });
+  const p = await socio.newPage();
+  await p.goto(`/unirse/${qr.qrs[0].slug}`);
+  await expect(p.getByRole("heading", { level: 1 })).toHaveText(/Pedí tu acceso|todavía no habilitó/);
+  await expect(p.getByText("Agregá Repi a tu pantalla de inicio")).toHaveCount(0);
+  if (await p.getByRole("button", { name: "Crear mi cuenta" }).isVisible()) {
+    await p.getByRole("button", { name: "Crear mi cuenta" }).click();
+    await expect(p.getByRole("heading", { level: 1 })).toHaveText("Tus datos");
+  }
+  await socio.close();
+});

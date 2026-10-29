@@ -8,6 +8,7 @@ Este archivo consolida UX_AUDIT, ACCESSIBILITY_AUDIT, RESPONSIVE_AUDIT, PWA_AUDI
   - Cinco P1: UX-1, 2, 4, 5 y 6.
   - Cinco P2: UX-7 a 11.
   - Tres P3: UX-12 a 14.
+  - QR-1 (P1, reportado por el titular): el QR de la sede ahora lleva directo a pedir el acceso (D152).
 - **Falso positivo:** UX-3.
 - **Patrón dominante:** acciones destructivas sin confirmación y dobles toques. Ahora:
   - Toda baja o revocación pide confirmación.
@@ -28,7 +29,7 @@ Este archivo consolida UX_AUDIT, ACCESSIBILITY_AUDIT, RESPONSIVE_AUDIT, PWA_AUDI
 - **Resultado final:** 0 violaciones serias o críticas en las pantallas recorridas. Las moderadas y menores se guardan como adjunto JSON de cada prueba en `apps/web/e2e-results/` (no se versiona).
 - **Corregidos por axe:** AXE-1 a 6.
 - **Corregidos por revisión:** A11Y-1 a 4.
-- **Abierto:** A11Y-5, el fondo se desplaza en iOS con una hoja abierta (P3).
+- **A11Y-5** (el fondo se desplazaba en iOS con una hoja abierta) quedó corregido con `useScrollLock`.
 - **No cubierto:**
   - Lector de pantalla real (VoiceOver/TalkBack).
   - Contenido detrás de interacciones que el recorrido no abre: hojas, modales, formularios llenos y estados de error.
@@ -72,4 +73,4 @@ Este archivo consolida UX_AUDIT, ACCESSIBILITY_AUDIT, RESPONSIVE_AUDIT, PWA_AUDI
   - Bien para una PWA en teléfono de gama media.
   - El TTFB local no refleja Vercel ni Supabase (São Paulo/US).
   - En producción, D142 midió 2,3–3,8 s para la primera sugerencia de IA.
-- **No medido:** LCP/INP de campo y la app autenticada con datos grandes (por ejemplo, un gym con más de 200 socios: ver DATA-10).
+- **No medido:** LCP/INP de campo y la app autenticada con datos grandes (un gym con más de 200 socios ahora muestra un aviso: DATA-10).

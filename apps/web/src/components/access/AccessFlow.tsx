@@ -162,7 +162,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     if (entry) saveEntry(entry.k, entry.v);
     else { const e = readEntry(); if (e) setResume(e); }
     const env = detectEnv();
-    if (!entry || !env.mobile || env.standalone || guideDone()) return;
+    // D152: el QR de la sede lleva directo a pedir el acceso (la guía antes confundía: la tarjeta del gimnasio parecía un
+    // botón y no avanzaba). Los pasos para agregar a inicio se muestran después, con la solicitud enviada.
+    if (!entry || entry.k === "join" || !env.mobile || env.standalone || guideDone()) return;
     // La guía va antes de registrarse o ingresar; con sesión abierta no se interrumpe.
     authClient.getSession().then((r) => { if (!r.data) setGuide(true); }).catch(() => setGuide(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps

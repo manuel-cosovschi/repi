@@ -46,6 +46,7 @@ Este archivo consolida FUNCTIONAL_INVENTORY, USER_FLOW_MATRIX y la matriz de tra
 | F10 | Cierre simulado con montos grandes | Admin | Términos → cerrar período | `too_large` claro (antes 500) | INT (DATA-4) |
 | F11 | Validar ingreso en recepción sin validación | Socio | Recepción → «Ya me validaron» | Mensaje visible | CODE (UX-1) |
 | F12 | PWA: manifiesto, íconos y SW sin `/api` | Público | — | OK | E2E |
+| F13 | Socio escanea el QR de la sede en su teléfono | Socio (sin cuenta) | QR → «Pedí tu acceso a REPI» → «Crear mi cuenta» → «Tus datos» | Va directo al pedido; la guía de inicio aparece después (D152) | E2E |
 
 ## 3. Trazabilidad requisito → defecto → prueba
 
@@ -62,3 +63,5 @@ Este archivo consolida FUNCTIONAL_INVENTORY, USER_FLOW_MATRIX y la matriz de tra
 | Acciones destructivas reversibles o confirmadas | UX-2, UX-4, UX-11, UX-14 | CODE |
 | WCAG 2.2 AA en las pantallas principales | AXE-1..6, A11Y-1..4 | `e2e/*.spec.ts` (`expectAccessible`) |
 | Sin scroll lateral en el teléfono | UX-10 | `e2e/*.spec.ts` (`expectNoHorizontalOverflow`) |
+| Alta de socio por QR clara y sin bloqueos | QR-1 | `e2e/roles.spec.ts` «QR de la sede (D152)» |
+| Ningún dato de entrenamiento oculto ni inflado | DATA-5, DATA-6 | `tests/substitutions.test.ts`, `tests/training.test.ts` |
