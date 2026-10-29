@@ -6,6 +6,9 @@ const S = z.object({ name: z.string().max(120), email: z.string().max(200), rela
 
 export const POST = handle(async (req) => {
   await limit("guardian", 5);
-  return svc.requestGuardianConsent(await sessionUserId(), await body(req, S));
+  // SEC-10 (QA 29/10): manda un correo a la dirección que se escriba: tope diario por persona.
+  const me = await sessionUserId();
+  await limit(`guardian:${me}`, 5, 86_400_000);
+  return svc.requestGuardianConsent(me, await body(req, S));
 });
 export const GET = handle(async () => ({ status: await svc.guardianStatus(await sessionUserId()) }));

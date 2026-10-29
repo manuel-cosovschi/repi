@@ -42,7 +42,7 @@ describe("ranking por ejercicio", () => {
       await tr.startSession(u, { id: sid, dayId: t.program.days[0].id });
       const pe = (await tr.getSession(u, sid)).exercises[0].id;
       const log = (i: number, w: number, r: number, daysAgo = 0) => db.insert(schema.setLog).values({ id: randomUUID(), sessionId: sid, programExerciseId: pe, exerciseId: ex.id, setIndex: i, weightKg: String(w), reps: r, completedAt: new Date(Date.now() - daysAgo * 86_400_000) });
-      return { u, log };
+      return { u, log, pe };
     };
     const ana = await socio("Ana Fuerte"), beto = await socio("Beto Firme"), oculto = await socio("Oculto Total");
     await ana.log(0, 80, 5, 10); // hace 10 días: Ana iba segunda
@@ -60,6 +60,24 @@ describe("ranking por ejercicio", () => {
     expect(JSON.stringify(r)).not.toContain(ana.u);
     const mine = await club.clubLiftRanking(ana.u, org.id, ex.id);
     expect(mine.rows[0]).toMatchObject({ name: "Vos", me: true });
+
+    // SEC-6 (QA 29/10): una menor sin consentimiento del adulto no puede sumarse al ranking ni aparece si ya estaba.
+    const teen = await socio("Teen Rápida");
+    await teen.log(0, 150, 5);
+    const d = new Date(); const birth = `${d.getFullYear() - 15}-01-01`;
+    await db.update(schema.user).set({ birthDate: birth }).where(eq(schema.user.id, teen.u));
+    await expect(club.joinClub(teen.u, org.id, { showName: true, inRanking: true })).rejects.toMatchObject({ code: "guardian_required" });
+    // Ya marcada de antes (o consentimiento revocado después): tampoco aparece.
+    await db.insert(schema.clubMember).values({ orgId: org.id, userId: teen.u, showName: true, inRanking: true });
+    expect((await club.clubLiftRanking(oculto.u, org.id, ex.id)).rows.map((x) => x.name)).not.toContain("Teen R.");
+    expect((await club.clubLiftRanking(oculto.u, org.id, ex.id)).rows).toHaveLength(2);
+
+    // DATA-6 (QA 29/10): en una serie por tiempo `reps` son segundos; no da un 1RM ni entra al ranking.
+    const hold = await socio("Hold Largo");
+    await db.update(schema.programExercise).set({ reps: "40 s" }).where(eq(schema.programExercise.id, hold.pe));
+    await hold.log(0, 300, 10);
+    await club.joinClub(hold.u, org.id, { showName: true, inRanking: true });
+    expect((await club.clubLiftRanking(oculto.u, org.id, ex.id)).rows.map((x) => x.name)).not.toContain("Hold L.");
   });
 
   it("D146: la pantalla de la sala muestra el tablero con su secreto, sin «Vos» y deja de andar al revocarla", async () => {

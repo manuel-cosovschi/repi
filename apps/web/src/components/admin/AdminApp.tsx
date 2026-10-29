@@ -78,7 +78,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
         <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
+          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
           <Wordmark width={50} /><span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>REPI Admin</span></div>
         <div className="co-content" key={`${screen}-${sel ?? ""}`} data-section={screen}>
           {list.err && <p role="alert" className="err-box">{list.err}</p>}
@@ -115,7 +115,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
 function ClientTable({ rows, onOpen, empty }: { rows: Client[]; onOpen: (c: Client) => void; empty: string }) {
   if (!rows.length) return empty ? <div className="empty">{empty}</div> : null;
   return (
-    <section className="card"><div style={{ overflowX: "auto" }}>
+    <section className="card"><div style={{ overflowX: "auto" }} tabIndex={0}>
       <table className="gy-table">
         <thead><tr><th>Cliente</th><th>Etapa</th><th>Acordado</th><th>Precio por unidad</th><th>Accesos habilitados</th><th><span className="sr-only">Abrir</span></th></tr></thead>
         <tbody>{rows.map((c) => (
@@ -528,7 +528,7 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="btn pri" aria-disabled={c.status !== "enabled"} aria-busy={busy === "inv" || undefined}
               onClick={() => c.status === "enabled" ? act("inv", `${base}/invite`, {}, (r) => (r as { delivery?: string }).delivery === "local_only" ? "Invitación creada. Quedó en el buzón local: este entorno no envía correos reales." : pendingInv ? "El proveedor aceptó el reenvío. La anterior quedó revocada." : "El proveedor de correo aceptó la invitación.") : flash("Habilitá al cliente antes de invitar al responsable.")}>{pendingInv ? "Reenviar" : "Enviar invitación"}</button>
-            {pendingInv && <button type="button" className="btn" aria-busy={busy === "rev" || undefined} onClick={() => act("rev", `${base}/revoke-invite`, {}, "Invitación revocada.")}>Revocar</button>}
+            {pendingInv && <button type="button" className="btn" aria-busy={busy === "rev" || undefined} onClick={() => { if (window.confirm("¿Revocar la invitación pendiente? El enlace enviado deja de servir.")) void act("rev", `${base}/revoke-invite`, {}, "Invitación revocada."); }}>Revocar</button>}
             <button type="button" className="btn" onClick={() => { const name = window.prompt("Nombre del nuevo responsable", c.responsibleName); const email = name ? window.prompt("Email del nuevo responsable", c.responsibleEmail) : null; if (name && email) void act("resp", `${base}/responsible`, { name, email }, "Responsable actualizado. Las invitaciones vigentes se revocaron."); }}>Cambiar responsable</button>
           </div>
         </section>
@@ -547,7 +547,7 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
         </div>
         <span className="muted" style={{ fontSize: 13 }}>Cada cambio de cantidad, precio, prueba, suspensión o criterio le llega al cliente como aviso en «Condiciones REPI» y por correo al responsable.</span>
         {!v.terms.length ? <div className="empty">Sin condiciones cargadas.</div> : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto" }} tabIndex={0}>
             <table className="gy-table">
               <thead><tr><th>Concepto</th><th>Valor</th><th>Desde</th><th>Versión</th><th>Motivo</th><th>Autor</th></tr></thead>
               <tbody>{v.terms.map((t) => (

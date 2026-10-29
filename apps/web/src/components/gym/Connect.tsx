@@ -286,7 +286,7 @@ export function ConnectReportScreen({ shell }: { shell: Shell }) {
           )}
           {v.byLocation.length > 0 && (
             <section className="card"><h2>Por sede</h2>
-              <div style={{ overflowX: "auto" }}><table className="gy-table"><thead><tr><th>Sede</th><th>Recibidos</th><th>Resueltos</th><th>Abiertos</th><th>Primera atención</th><th>Resolución</th></tr></thead>
+              <div style={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label="Tabla (deslizá para ver más columnas)"><table className="gy-table"><thead><tr><th>Sede</th><th>Recibidos</th><th>Resueltos</th><th>Abiertos</th><th>Primera atención</th><th>Resolución</th></tr></thead>
                 <tbody>{v.byLocation.map((l) => <tr key={l.id}><th>{l.name}</th><td>{l.received}</td><td>{l.resolved}</td><td>{l.openNow}</td><td>{fmtMinutes(l.firstResponseMedianMin)}</td><td>{fmtMinutes(l.resolutionMedianMin)}</td></tr>)}</tbody></table></div>
             </section>
           )}
@@ -294,7 +294,7 @@ export function ConnectReportScreen({ shell }: { shell: Shell }) {
             <section className="card"><h2>Uso por el equipo</h2>
               <small className="muted">Acciones registradas en REPI en el período, en orden alfabético. No es un ranking: la cantidad depende de turnos, sede y socios; más pedidos no significa peor rendimiento.</small>
               {!v.team.length ? <div className="empty">Todavía no hay acciones registradas.</div> : (
-                <div style={{ overflowX: "auto" }}><table className="gy-table"><thead><tr><th>Profesor</th><th>Tomados</th><th>Registros</th><th>Seguimientos</th><th>Traspasos</th><th>Resueltos</th></tr></thead>
+                <div style={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label="Tabla (deslizá para ver más columnas)"><table className="gy-table"><thead><tr><th>Profesor</th><th>Tomados</th><th>Registros</th><th>Seguimientos</th><th>Traspasos</th><th>Resueltos</th></tr></thead>
                   <tbody>{v.team.map((p) => <tr key={p.name}><th>{p.name}</th><td>{p.taken}</td><td>{p.notes}</td><td>{p.followUps}</td><td>{p.transfers}</td><td>{p.resolved}</td></tr>)}</tbody></table></div>
               )}
             </section>

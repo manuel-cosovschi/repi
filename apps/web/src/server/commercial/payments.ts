@@ -48,6 +48,8 @@ export async function recordPayment(actorId: string, contractId: string, p: {
   await requireAdmin(actorId);
   const c = await contractOf(contractId);
   if (!Number.isInteger(p.amountMinor) || p.amountMinor <= 0) throw new AccessError("invalid", "El importe tiene que ser mayor que cero.");
+  // QA 29/10 (DATA-4): la columna es int4; arriba de 2.147.483.647 centavos la base fallaba con un 500.
+  if (p.amountMinor > 2_147_483_647) throw new AccessError("invalid", "El importe es demasiado alto.");
   if (!isDay(p.receivedOn) || p.receivedOn > localDate(now)) throw new AccessError("invalid", "La fecha de pago no puede ser futura.");
   if (!(p.method in PAYMENT_METHODS)) throw new AccessError("invalid", "Elegí el medio de pago.");
   if ((p.reference ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí la evidencia: número de operación o comprobante del cliente.");

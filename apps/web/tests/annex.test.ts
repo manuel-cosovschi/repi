@@ -183,6 +183,13 @@ describe("cantidad, precio y facturación (criterios 5–9)", () => {
     const [snap] = await db.select().from(schema.billingSnapshot).where(eq(schema.billingSnapshot.contractId, w.contractId));
     expect([snap.quantity, snap.unitPriceMinor, snap.subtotalMinor]).toEqual([450, 125_050, 450 * 125_050]);
   });
+  it("QA DATA-4: importes fuera de int4 se frenan con un mensaje claro, no con un 500", async () => {
+    const w = await world();
+    expect(await code(cm.addTerm(w.ad, w.contractId, { kind: "unit_price", value: 3_000_000_000, effectiveFrom: "2026-10-01", reason: "Muy alto" }))).toBe("invalid");
+    await cm.addTerm(w.ad, w.contractId, { kind: "quantity", value: 10_000, effectiveFrom: "2026-10-01", reason: "Acuerdo" });
+    await cm.addTerm(w.ad, w.contractId, { kind: "unit_price", value: 1_000_000, effectiveFrom: "2026-10-01", reason: "Acuerdo" });
+    expect(await code(cm.closePeriodSimulated(w.ad, w.contractId, { start: "2026-10-01", end: "2026-10-31" }))).toBe("too_large");
+  });
   it("accesos por encima de lo acordado: alerta de revisión, sin cobro extra; condiciones visibles sólo al responsable", async () => {
     const w = await world();
     await cm.addTerm(w.ad, w.contractId, { kind: "quantity", value: 1, effectiveFrom: "2026-01-01", reason: "Prueba" });
@@ -341,7 +348,7 @@ describe("push y resiliencia (criterios 20–21)", () => {
     const [row] = await settled(u, "join_request");
     expect(row.status).toBe("skipped");
     expect(row.body).not.toMatch(/@|Socia|Piso/); // texto mínimo en pantalla bloqueada
-    await push.subscribe(u, { endpoint: "https://push.example.test/abc", keys: { p256dh: "k", auth: "a" } }, "test");
+    await push.subscribe(u, { endpoint: "https://fcm.googleapis.com/fcm/send/abc", keys: { p256dh: "k", auth: "a" } }, "test");
     await push.setPaused(u, true);
     await push.enqueue([u], { kind: "floor_alert", dedupe: "t2", title: "REPI", body: "b", url: "/" });
     const rows = await settled(u, "floor_alert");

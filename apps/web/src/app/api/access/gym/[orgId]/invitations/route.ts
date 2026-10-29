@@ -5,7 +5,10 @@ import * as svc from "@/server/access/services";
 const S = z.object({ email: z.string().max(200), role: z.string().max(40), locationId: z.string().max(64).nullable().optional() });
 
 export const POST = handle<{ params: Promise<{ orgId: string }> }>(async (req, { params }) => {
-  const inv = await svc.inviteGymStaff(await sessionUserId(), (await params).orgId, await body(req, S));
+  // SEC-3 (QA 29/10): cada invitación manda un correo real; tope por persona para que no sirva para mandar spam.
+  const me = await sessionUserId();
+  await limit(`invite:${me}`, 30, 3_600_000);
+  const inv = await svc.inviteGymStaff(me, (await params).orgId, await body(req, S));
   return { id: inv.id, code: inv.code, email: inv.email, role: inv.role, status: inv.status, delivery: inv.delivery };
 });
 

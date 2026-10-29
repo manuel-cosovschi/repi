@@ -140,10 +140,14 @@ export async function confirmHistoryImport(userId: string, id: string) {
   if (r.status !== "draft") throw new AccessError("closed", "Esa importación se descartó. Subí el archivo de nuevo.", 409);
   const p = r.parsed as Parsed;
   await db.transaction(async (tx) => {
+    // DATA-3 (QA 29/10): pasar a «confirmada» primero y sólo si seguía en borrador. Un doble toque o un reintento espera a
+    // la otra transacción y no encuentra el borrador: no duplica el historial ni pisa un descarte simultáneo.
+    const [claimed] = await tx.update(historyImport).set({ status: "confirmed", confirmedAt: new Date() })
+      .where(and(eq(historyImport.id, r.id), eq(historyImport.status, "draft"))).returning({ id: historyImport.id });
+    if (!claimed) return;
     const rows = p.sets.map((s) => ({ importId: r.id, userId, day: s.day, exerciseId: p.matches[s.exercise]?.id ?? null, exerciseName: p.matches[s.exercise]?.name ?? s.exercise, setIndex: s.setIndex,
       weightKg: s.weightKg == null ? null : String(s.weightKg), reps: s.reps, seconds: s.seconds }));
     for (let i = 0; i < rows.length; i += 500) await tx.insert(historyEntry).values(rows.slice(i, i + 500));
-    await tx.update(historyImport).set({ status: "confirmed", confirmedAt: new Date() }).where(eq(historyImport.id, r.id));
     await audit(tx, { actorUserId: userId, action: "history_import.confirmed", resourceType: "history_import", resourceId: r.id, meta: { sets: rows.length } });
   });
   return { ok: true, sets: p.sets.length };
@@ -153,6 +157,7 @@ export async function confirmHistoryImport(userId: string, id: string) {
 export async function removeHistoryImport(userId: string, id: string) {
   const r = await mine(userId, id);
   await db.transaction(async (tx) => {
+    await tx.select({ id: historyImport.id }).from(historyImport).where(eq(historyImport.id, r.id)).for("update"); // espera a un confirmar en curso
     await tx.delete(historyEntry).where(eq(historyEntry.importId, r.id));
     await tx.update(historyImport).set({ status: "discarded", parsed: { sets: [], matches: {}, notes: [], dropped: 0, capped: false } }).where(eq(historyImport.id, r.id));
     await audit(tx, { actorUserId: userId, action: "history_import.removed", resourceType: "history_import", resourceId: r.id });

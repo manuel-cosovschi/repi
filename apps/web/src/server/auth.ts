@@ -84,6 +84,7 @@ export const auth = betterAuth({
       allowedAttempts: 5,
       storeOTP: "hashed",
       overrideDefaultEmailVerification: true,
+      disableSignUp: true, // SEC-4: ingresar con código nunca crea una cuenta (sin términos ni edad)
       sendVerificationOnSignUp: false, // lo dispara /api/access/sign-up tras registrar la aceptación legal
       async sendVerificationOTP({ email, otp, type }) {
         await sendMail({ to: email, subject: OTP_SUBJECT[type], body: `Tu código REPI es ${otp}. Vence en 15 minutos.` });

@@ -13,7 +13,7 @@ export default async function AccesoPage({ searchParams }: { searchParams: SP })
   const sp = await searchParams;
   return (
     <AccessShell>
-      <AccessFlow initial={{ code: one(sp.code), sede: one(sp.sede), step: one(sp.step), next: one(sp.next) }} social={socialAvailable} />
+      <AccessFlow initial={{ code: one(sp.code), proof: one(sp.p)?.slice(0, 64), sede: one(sp.sede), step: one(sp.step), next: one(sp.next) }} social={socialAvailable} />
     </AccessShell>
   );
 }

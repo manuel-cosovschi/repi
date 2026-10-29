@@ -117,7 +117,8 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
     setScreen(s); setDrawer(false); setSel(extra?.sel ?? null);
     requestAnimationFrame(() => { mainRef.current?.querySelector("h1")?.focus(); window.scrollTo(0, 0); });
   };
-  if (err) return <main className="co-content"><p role="alert" className="err-box">{err}</p></main>;
+  // QA 29/10 (UX-9): si la primera carga falla (red), se ofrece reintentar en vez de dejar la pantalla trabada.
+  if (err) return <main className="co-content"><p role="alert" className="err-box">{err} <button type="button" className="btn sm" onClick={() => window.location.reload()}>Reintentar</button></p></main>;
   if (!ctx || !screen) return <main className="co-content"><p className="muted">Cargando…</p></main>;
   const nav = navFor(ctx);
   const shell: Shell = { orgId, loc, ctx, flash, go, sel, setSel, refreshBadges };
@@ -169,7 +170,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
         <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
+          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
           <Wordmark width={50} />
           <span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>{ctx.org.name}</span>
         </div>

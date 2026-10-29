@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "../auth";
 import { db } from "@/db";
 import { AccessError, audit, rateLimit } from "./util";
-import { logError } from "../log";
+import { maskPath, logError } from "../log";
 
 export async function sessionUserId(): Promise<string> {
   const s = await auth.api.getSession({ headers: await headers() });
@@ -33,7 +33,7 @@ export async function recordDenied(req: Request, e: AccessError) {
   try {
     const s = await auth.api.getSession({ headers: req.headers });
     await audit(db, {
-      actorUserId: s?.user.id ?? null, action: "access.denied", resourceType: "api", resourceId: new URL(req.url).pathname.slice(0, 200), result: "denied",
+      actorUserId: s?.user.id ?? null, action: "access.denied", resourceType: "api", resourceId: maskPath(new URL(req.url).pathname).slice(0, 200), result: "denied",
       meta: { code: e.code, status: e.status, method: req.method },
     });
   } catch (err) { logError("audit.denied", err, req); }

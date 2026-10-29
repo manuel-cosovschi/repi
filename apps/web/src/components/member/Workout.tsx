@@ -226,7 +226,10 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   };
   const resolveOpen = async (choice: "close_other" | "discard") => {
     if (!s) return;
-    if (choice === "discard") { await dropSession(s.id); await delLocal(s.id); flash("Descartaste el entrenamiento de este dispositivo."); onExit("home"); return; }
+    if (choice === "discard") {
+      if (!window.confirm("¿Descartar el entrenamiento de este dispositivo? Las series que hiciste acá se pierden.")) return;
+      await dropSession(s.id); await delLocal(s.id); flash("Descartaste el entrenamiento de este dispositivo."); onExit("home"); return;
+    }
     await commit({ ...s, conflict: undefined, closeOther: true });
     await flush();
   };
@@ -316,14 +319,14 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => onExit("train")}><Ic i={ArrowLeft} size={22} color="#F8FAFC" /></button>
           <div>
             <strong>{s.dayName}</strong>
-            <small><span aria-label={`Duración ${formatClock(elapsed)}`}>{formatClock(elapsed)}</span> · <span role="status" style={{ color: savedInk }}>{savedTxt}</span> · <button type="button" className="linkbtn" onClick={() => act(paused ? "resume" : "pause")}>{paused ? "Reanudar" : "Pausar"}</button></small>
+            <small><span aria-label={`Duración ${formatClock(elapsed)}`}>{formatClock(elapsed)}</span> · <span role="status" style={{ color: savedInk }}>{savedTxt}</span> · <button type="button" className="linkbtn tgt" onClick={() => act(paused ? "resume" : "pause")}>{paused ? "Reanudar" : "Pausar"}</button></small>
           </div>
           <button type="button" className="fin" onClick={finish} aria-busy={busy || undefined}>Finalizar</button>
         </div>
         {s.rejected ? (
           <div className="conflict" role="alert">
             <strong>{s.rejected.code === "presence_required" ? "Validá tu ingreso para seguir guardando" : "No se pudo guardar en tu cuenta"}</strong>
-            <span>{s.rejected.message} Tus series siguen en este teléfono y no se borran. {s.rejected.code === "presence_required" ? "Cuando valides el ingreso se guardan solas." : "Si tu acceso vuelve a estar vigente, se guardan solas."}</span>
+            <span>{s.rejected.message} Tus series siguen en este teléfono y no se borran. {s.rejected.code === "presence_required" ? "Cuando valides el ingreso se guardan solas." : s.rejected.code === "relation_inactive" ? "Si tu acceso vuelve a estar vigente, se guardan solas." : "Podés reintentar o descartarlo de este teléfono."}</span>
             <div>{s.rejected.code === "presence_required" && <button type="button" className="cta sm" onClick={() => setRevalidate(true)}>Validar ingreso</button>}
               <button type="button" className={s.rejected.code === "presence_required" ? "ghost sm" : "cta sm"} onClick={() => void flush()}>Reintentar</button><button type="button" className="ghost sm" onClick={async () => {
               if (!window.confirm("¿Descartar este entrenamiento de este teléfono? No se puede deshacer.")) return;

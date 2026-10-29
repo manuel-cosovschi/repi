@@ -1,6 +1,6 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { makeInviteCode, normalizeDni } from "@repi/domain";
+import { localDate, makeInviteCode, normalizeDni } from "@repi/domain";
 import { db, schema } from "@/db";
 import { requireEnv } from "../env";
 
@@ -10,13 +10,21 @@ export class AccessError extends Error {
   }
 }
 
+/**
+ * QA 29/10 (SEC-1): prueba de que el enlace llegó al correo invitado. Va sólo en el email (`&p=`), nunca en respuestas de
+ * la API ni en la pantalla de quien invita, que sí conoce el código. Sin esta prueba, la cuenta se verifica con el OTP.
+ */
+export const invitationProof = (invitationId: string, email: string) =>
+  createHmac("sha256", requireEnv("BETTER_AUTH_SECRET")).update(`invitation:${invitationId}:${email.trim().toLowerCase()}`).digest("base64url").slice(0, 32);
+export const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export const dniHmac = (dni: string) =>
   createHmac("sha256", requireEnv("ROSTER_HMAC_SECRET")).update(normalizeDni(dni)).digest("hex");
 export const dniLast3 = (dni: string) => normalizeDni(dni).slice(-3);
 export const newInviteCode = () => makeInviteCode((n) => randomBytes(n));
 export const newToken = () => randomBytes(32).toString("base64url");
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
-export const todayIso = () => new Date().toISOString().slice(0, 10);
+// QA 29/10 (DATA-9): «hoy» en hora argentina; en UTC, entre las 21 y las 24 ya era mañana (edad, vencimientos).
+export const todayIso = () => localDate(new Date());
 export const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 86_400_000);
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

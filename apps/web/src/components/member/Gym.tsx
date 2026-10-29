@@ -170,6 +170,14 @@ function Logros({ h }: { h: Home }) {
 
 function Award({ n, onClose }: { n: Home["notices"][number]; onClose: () => void }) {
   const record = n.title.startsWith("¡Nuevo récord");
+  // QA 29/10 (A11Y-4): Escape cierra y el foco no sale del aviso (tiene un solo botón).
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); close.current(); } else if (e.key === "Tab") e.preventDefault(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <div className="award-bg" role="dialog" aria-modal="true" aria-label={n.title} onClick={onClose}>
       <div className="award" onClick={(e) => e.stopPropagation()}>
@@ -262,12 +270,14 @@ type Rank = { title: string; rows: { pos: number; me: boolean; value: string; na
 function RankSheet({ c, onClose }: { c: Home["challenges"][number]; onClose: () => void }) {
   const [f, setF] = useState<keyof typeof RANK_FILTERS>("all");
   const [r, setR] = useState<Rank | null>(null);
-  useEffect(() => { setR(null); api<Rank>(`/api/me/gym/ranking/${c.id}?f=${f}`).then(setR).catch(() => setR({ title: c.title, rows: [], note: "" })); }, [c.id, f]);
+  const [failed, setFailed] = useState(false); // UX-13: un error no se muestra como ranking vacío
+  useEffect(() => { setR(null); setFailed(false); api<Rank>(`/api/me/gym/ranking/${c.id}?f=${f}`).then(setR).catch(() => setFailed(true)); }, [c.id, f]);
   return (
     <Sheet title={`Ranking · ${c.title}`} closeLabel="Cerrar" onClose={onClose}
       groups={[{ label: "Categoría", opts: Object.entries(RANK_FILTERS) as [string, string][], value: f, onPick: (x) => setF(x as keyof typeof RANK_FILTERS) }]}>
       <div className="rank">
         {r?.rows.map((x) => <div key={x.pos + x.name} data-me={x.me ? "1" : undefined}><span className={x.pos <= 3 ? "top" : ""}>{x.pos}</span><b>{x.name}</b><small>{x.division ? DIVISIONS[x.division as "F" | "M"] : ""}</small><strong>{x.value}</strong></div>)}
+        {failed && <span className="mb-muted" role="alert" style={{ padding: "12px 0" }}>No pudimos cargar el ranking. Revisá la conexión y volvé a abrirlo.</span>}
         {r && !r.rows.length && <span className="mb-muted" style={{ padding: "12px 0" }}>Todavía no hay marcas validadas en esta categoría.</span>}
       </div>
       <span className="mb-muted" style={{ fontSize: 12 }}>{r?.note || "Sólo marcas validadas con video."} «+40» usa tu fecha de nacimiento si la cargaste.</span>
@@ -344,7 +354,7 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
         <label className="sheet-check"><input type="checkbox" checked={prefs.inRanking} onChange={(e) => setPrefs({ ...prefs, inRanking: e.target.checked })} />Aparecer en el ranking (también en la pantalla de la sala, si el gym tiene una)</label>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="button" className="ghost sm" onClick={join}>Guardar</button>
-          <button type="button" className="ghost sm" onClick={() => api(`/api/me/gym/club/leave?org=${orgId}`, { body: {} }).then(() => { flash("Saliste de Repi Club."); return loadSt(); }).catch((e) => flash(e.message))}>Salir del Club</button>
+          <button type="button" className="ghost sm" onClick={() => window.confirm("¿Salir de Repi Club? Dejás de aparecer en el ranking y la comunidad; podés volver cuando quieras.") && api(`/api/me/gym/club/leave?org=${orgId}`, { body: {} }).then(() => { flash("Saliste de Repi Club."); return loadSt(); }).catch((e) => flash(e.message))}>Salir del Club</button>
         </div>
       </details>
     </>

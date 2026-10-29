@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as svc from "@/server/access/services";
-import { AccessError, dniHmac, dniLast3, resetRateLimits } from "@/server/access/util";
+import { AccessError, dniHmac, dniLast3, invitationProof, resetRateLimits } from "@/server/access/util";
 
 const PW = "prueba1234";
 let n = 0;
@@ -202,11 +202,15 @@ describe("gimnasio", () => {
     const staffEmail = mail();
     const inv = await svc.inviteGymStaff(owner, org.id, { email: staffEmail, role: "floor_trainer", locationId: loc.id });
     const r = await svc.signUpPerson({ name: "Profe Directo", email: staffEmail, password: "prueba1234", terms: true, sendOtp: false });
-    expect(await svc.verifyByInvitation(r.userId!, inv.code)).toBe(true);
+    // SEC-1 (QA 29/10): el código solo no alcanza (quien invita lo conoce); hace falta la prueba que viaja sólo en el correo.
+    expect(await svc.verifyByInvitation(r.userId!, inv.code, undefined)).toBe(false);
+    expect(await svc.verifyByInvitation(r.userId!, inv.code, "x".repeat(32))).toBe(false);
+    expect(Object.values(inv)).not.toContain(invitationProof(inv.id, staffEmail));
+    expect(await svc.verifyByInvitation(r.userId!, inv.code, invitationProof(inv.id, staffEmail))).toBe(true);
     const [u] = await db.select().from(schema.user).where(eq(schema.user.id, r.userId!));
     expect(u.emailVerified).toBe(true);
     await svc.acceptInvitation(r.userId!, inv.code);
-    expect(await svc.verifyByInvitation(r.userId!, inv.code)).toBe(false); // ya usada
+    expect(await svc.verifyByInvitation(r.userId!, inv.code, invitationProof(inv.id, staffEmail))).toBe(false); // ya usada
   });
   it("invitación de staff ligada al email: otra cuenta es rechazada y auditada", async () => {
     const { owner, org, loc } = await gymWithLocation();
@@ -223,7 +227,7 @@ describe("gimnasio", () => {
     expect(await svc.assertInvitationEmail(inv.code, ` ${staffEmail.toUpperCase()} `)).toBe(true);
     // D130: quien abre la invitación con su mismo email queda verificado sin código; con otro email, no.
     const un = await svc.signUpPerson({ name: "Sin verificar", email: mail(), password: "prueba1234", terms: true, sendOtp: false });
-    expect(await svc.verifyByInvitation(un.userId!, inv.code)).toBe(false);
+    expect(await svc.verifyByInvitation(un.userId!, inv.code, invitationProof(inv.id, staffEmail))).toBe(false);
     const otro = await verified(mail());
     await expectErr(svc.acceptInvitation(otro, inv.code), "email_mismatch");
     const denied = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, otro), eq(schema.auditEvent.result, "denied")));

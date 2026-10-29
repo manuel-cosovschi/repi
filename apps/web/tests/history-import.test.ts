@@ -34,8 +34,9 @@ describe("historial anterior", () => {
 
     const otro = await verified("Otro");
     expect((await err(hi.confirmHistoryImport(otro, p.id)))?.code).toBe("not_found");
+    // DATA-3 (QA 29/10): doble toque simultáneo (dos pedidos a la vez) y un reintento después: no duplica.
+    await Promise.all([hi.confirmHistoryImport(u, p.id), hi.confirmHistoryImport(u, p.id)]);
     await hi.confirmHistoryImport(u, p.id);
-    await hi.confirmHistoryImport(u, p.id); // reintento: no duplica
     expect(await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.importId, p.id))).toHaveLength(8);
     const mine = await hi.myHistoryImports(u);
     expect(mine.evolution.find((e) => e.exercise === "Sentadilla")).toMatchObject({ sessions: 2, first: { weightKg: 60 }, best: { weightKg: 70 } });

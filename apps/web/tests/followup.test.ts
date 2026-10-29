@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
 import * as fu from "@/server/followup/services";
+import { setClientStatus } from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
 
 const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
@@ -42,6 +43,16 @@ describe("check-in", () => {
 });
 
 describe("molestias y salud", () => {
+  it("SEC-2 (QA 29/10): terminada la relación, el coach no ve check-ins ni salud nuevos ni de antes", async () => {
+    const { coach, orgId, user, relId } = await pair();
+    await fu.saveCheckin(user, { energy: 3, sleep: 4, mood: 2 });
+    expect((await fu.coachInbox(coach, orgId)).checkins).toHaveLength(1);
+    expect((await fu.clientHealth(coach, orgId, relId)).checkins).toHaveLength(1);
+    await setClientStatus(coach, orgId, relId, "ended");
+    expect((await fu.coachInbox(coach, orgId)).checkins).toHaveLength(0);
+    expect((await err(fu.clientHealth(coach, orgId, relId)))?.status).toBe(404);
+  });
+
   it("sin Salud compartida el coach no ve la molestia; compartida una a una sí, sin ver lesiones", async () => {
     const { coach, orgId, user, relId } = await pair();
     const a = await fu.reportPain(user, { zone: "Hombro der.", level: 4, context: "now", exerciseName: "Press de banca" });

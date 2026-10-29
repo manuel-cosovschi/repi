@@ -90,7 +90,7 @@ export function JoinsScreen({ shell }: { shell: Shell }) {
       {done.length > 0 && (
         <section className="card" aria-label="Resueltas en los últimos 7 días">
           <h2 style={{ margin: 0, fontSize: 18 }}>Resueltas · 7 días</h2>
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto" }} tabIndex={0}>
             <table className="gy-table">
               <thead><tr><th>Persona</th><th>Sede</th><th>Estado</th><th>Quién</th><th>Cómo</th></tr></thead>
               <tbody>{done.map((r) => (
@@ -176,7 +176,7 @@ export function AccessesScreen({ shell }: { shell: Shell }) {
         <label className="search"><span className="sr-only">Buscar</span><input placeholder="Buscar por nombre o email" value={q} onChange={(e) => setQ(e.target.value)} /></label>
         {d.err && <p role="alert" className="err-box">{d.err}</p>}
         {!d.data ? <p className="muted">Cargando…</p> : !d.data.length ? <div className="empty">{term ? "Sin resultados." : "Todavía no hay accesos habilitados."}</div> : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto" }} tabIndex={0}>
             <table className="gy-table">
               <thead><tr><th>Socio/a</th><th>Sede</th><th>Estado</th><th>Desde</th><th>Vigente hasta</th><th><span className="sr-only">Acciones</span></th></tr></thead>
               <tbody>{d.data.map((a) => (
@@ -263,8 +263,8 @@ export function JoinQrCard({ shell }: { shell: Shell }) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button type="button" className="btn sm" onClick={() => download(l)}>Descargar</button>
                 <button type="button" className="btn sm" onClick={() => navigator.clipboard?.writeText(url(l.active!.slug)).then(() => shell.flash("Enlace copiado."))}>Copiar enlace</button>
-                <button type="button" className="btn sm" aria-busy={busy === `r${l.location.id}` || undefined} onClick={() => run(`r${l.location.id}`, () => api(`/api/gym/${shell.orgId}/join-links/${l.location.id}/regenerate`, { body: {} }), "QR regenerado. El anterior ya no sirve.").then(() => d.reload())}>Regenerar</button>
-                <button type="button" className="btn sm danger" aria-busy={busy === `x${l.location.id}` || undefined} onClick={() => run(`x${l.location.id}`, () => api(`/api/gym/${shell.orgId}/join-links/${l.location.id}/revoke`, { body: {} }), "QR desactivado.").then(() => d.reload())}>Desactivar</button>
+                <button type="button" className="btn sm" aria-busy={busy === `r${l.location.id}` || undefined} onClick={() => { if (window.confirm(`¿Regenerar el QR de ${l.location.name}? El impreso deja de servir.`)) void run(`r${l.location.id}`, () => api(`/api/gym/${shell.orgId}/join-links/${l.location.id}/regenerate`, { body: {} }), "QR regenerado. El anterior ya no sirve.").then(() => d.reload()); }}>Regenerar</button>
+                <button type="button" className="btn sm danger" aria-busy={busy === `x${l.location.id}` || undefined} onClick={() => { if (window.confirm(`¿Desactivar el QR de ${l.location.name}? Nadie va a poder sumarse con él hasta que generes otro.`)) void run(`x${l.location.id}`, () => api(`/api/gym/${shell.orgId}/join-links/${l.location.id}/revoke`, { body: {} }), "QR desactivado.").then(() => d.reload()); }}>Desactivar</button>
               </div>
             </> : <>
               <span className="muted" style={{ fontSize: 13 }}>{l.active ? "…" : "Sin QR activo."}</span>
@@ -386,7 +386,7 @@ export function ConditionsScreen({ orgId, flash, unit, onSeen }: { orgId: string
             <div><dt>Ciclo, prorrateo y mora</dt><dd>A definir en el acuerdo comercial. No se generan cobros automáticos desde REPI en esta versión.</dd></div>
           </dl>
           <h3 style={{ margin: "8px 0 0", fontSize: 15 }}>Historial</h3>
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto" }} tabIndex={0}>
             <table className="gy-table"><thead><tr><th>Concepto</th><th>Valor</th><th>Desde</th><th>Versión</th></tr></thead>
               <tbody>{v.terms.map((t) => <tr key={`${t.kind}${t.version}`}><td>{t.kind === "quantity" ? "Cantidad acordada" : "Precio por unidad"}</td><td>{t.display}</td><td>{day(t.effectiveFrom)}</td><td>{t.version}{!t.current ? " · futura" : ""}</td></tr>)}</tbody></table>
           </div>

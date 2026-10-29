@@ -52,7 +52,7 @@ export async function listClients(actorId: string) {
   const terms = await termsOf(contracts.map((c) => c.id));
   const owners = await db.select({ org: staffMembership.orgId }).from(staffMembership).where(and(inArray(staffMembership.role, ["owner", "coach_owner"]), eq(staffMembership.status, "active")));
   const invites = await db.select({ org: invitation.orgId, status: invitation.status, delivery: invitation.delivery }).from(invitation).where(eq(invitation.kind, "org_owner"));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate(new Date());
   const out = [];
   for (const o of orgs) {
     const c = contracts.find((x) => x.orgId === o.id);
@@ -207,7 +207,8 @@ export async function setClientAccessControl(actorId: string, contractId: string
   return setAccessEnabled(o.id, on, actorId);
 }
 function currentPeriod() {
-  const d = new Date(); const y = d.getUTCFullYear(), m = d.getUTCMonth();
+  // Mes en curso en hora argentina (DATA-9): el último día a la noche todavía es este mes.
+  const [y, mo] = localDate(new Date()).split("-").map(Number); const m = mo - 1;
   const start = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
   const end = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10);
   return { start, end };
@@ -372,7 +373,7 @@ const lockContract = (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], i
 export async function addTerm(actorId: string, contractId: string, p: { kind: "quantity" | "unit_price"; value: number; effectiveFrom: string; reason: string; evidence?: string | null }) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
-  if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000)) throw new AccessError("invalid", "Valor inválido.");
+  if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000) || p.value > 2_147_483_647) throw new AccessError("invalid", "Valor inválido.");
   if (!isDay(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
   if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
   const t = await db.transaction(async (tx) => {
@@ -419,6 +420,8 @@ export async function closePeriodSimulated(actorId: string, contractId: string, 
     const terms = (await tx.select().from(contractTerm).where(eq(contractTerm.contractId, c.id)).orderBy(asc(contractTerm.version))).map(asTerm);
     const prev = previewPeriod(terms, period);
     if (!prev.ok) throw new AccessError("incomplete", `No se puede cerrar: ${prev.reason}`, 409);
+    // QA 29/10 (DATA-4): importes en int4. Un total mayor (≈ ARS 21,4 M) se frena con un mensaje claro, sin migrar la base.
+    if (prev.subtotal > 2_147_483_647 || prev.price.value > 2_147_483_647) throw new AccessError("too_large", "El total del período supera el máximo que REPI puede registrar hoy. Revisá cantidad y precio.", 409);
     const [row] = await tx.insert(billingSnapshot).values({
       contractId: c.id, periodStart: period.start, periodEnd: period.end, mode: "simulated_close", quantity: prev.quantity.value, quantityTermId: prev.quantity.id,
       unitPriceMinor: prev.price.value, priceTermId: prev.price.id, currency: prev.currency, subtotalMinor: prev.subtotal, lines: prev.lines,
@@ -527,7 +530,7 @@ export async function myConditions(actorId: string, orgId: string) {
   const terms = await termsOf([c.id]);
   const corrections = await db.select().from(correctionRequest).where(eq(correctionRequest.contractId, c.id)).orderBy(desc(correctionRequest.createdAt));
   const notices = await noticesOf(c.id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate(new Date());
   return {
     commercialStatus: o.commercialStatus, enabledAccesses: enabled,
     contract: { status: c.status, legalName: c.legalName, currency: c.currency, scope: c.scope, scopeNote: c.scopeNote, quantityDefinition: c.quantityDefinition, termsVersion: c.termsVersion, acceptedAt: c.acceptedAt, trialUntil: c.trialUntil },

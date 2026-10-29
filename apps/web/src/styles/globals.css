@@ -61,3 +61,12 @@ a:hover { color: var(--core-turquoise); }
   .dt-card { left: 16px; right: 16px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); }
   .dt-pill { bottom: calc(92px + env(safe-area-inset-bottom)); }
 }
+/* QA 29/10 (UX-7): un botón ocupado no acepta otro toque (doble envío) mientras espera la respuesta. */
+button[aria-busy="true"] { pointer-events: none; cursor: progress; }
+/* QA 29/10 (A11Y-2): en pantallas táctiles los campos llevan 16 px; con menos, iOS hace zoom al enfocarlos y la página
+   queda corrida. Prefijo html para ganarle a los estilos de cada módulo sin !important. */
+@media (pointer: coarse) {
+  html .search input, html .dayname input, html .exrow input, html textarea.note, html .field input, html .field select, html .field textarea,
+  html .chat-compose textarea, html .gy-locpick select, html .cx-form select, html .og-form input, html .fb textarea, html .sheet textarea,
+  html .club-compose textarea, html .club-compose select, html .club-cbox input, html .club-field textarea { font-size: 16px; }
+}

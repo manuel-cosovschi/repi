@@ -105,6 +105,15 @@ export async function flush(): Promise<void> {
         blocked.add(it.sid); continue;
       }
       if (res.status === 401) { hadError = "Tu sesión venció. Ingresá de nuevo para sincronizar (no se borra nada)."; break; }
+      // QA 29/10 (DATA-7): un inicio o una serie rechazados no se borran (eran todo el entrenamiento offline): quedan en el
+      // teléfono, la sesión se frena y la persona elige reintentar o descartar. El resto (pausa, sensación) se informa y sale.
+      if (it.kind === "start" || it.kind === "set") {
+        const message: string = data.error ?? "El servidor no aceptó este entrenamiento.";
+        hadError = message;
+        const cur = await getLocal(it.sid);
+        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code ?? "rejected" } });
+        blocked.add(it.sid); continue;
+      }
       // 4xx: el servidor rechazó el dato. Se informa; no se reintenta en silencio.
       await idbDel("queue", it.seq!);
       hadError = data.error ?? "No se pudo guardar.";

@@ -19,5 +19,6 @@ export const POST = handle(async (req) => {
   const me = await sessionUserId();
   const { follow } = await body(req, B);
   await limit(`solo-ai:${me}`, 20, 3_600_000);
+  await limit(`solo-ai-day:${me}`, 60, 86_400_000); // SEC-8: tope diario de costo de OpenAI por persona
   return aiSoloAdvice(me, new Date(), follow);
 });

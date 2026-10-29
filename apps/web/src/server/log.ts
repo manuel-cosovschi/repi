@@ -3,12 +3,14 @@
 export function logError(scope: string, e: unknown, req?: Request) {
   logErrorAt(scope, e, req ? `${req.method} ${new URL(req.url).pathname}` : "");
 }
+/** SEC-11 (QA 29/10): rutas que llevan un secreto en el camino (activación, tutor, ingreso por QR) se registran sin él. */
+export const maskPath = (path: string) => path.replace(/^(\/api\/(?:activate|access\/tutor|join|access\/invitations)\/)[^/]+/, "$1…");
 /** Igual que logError cuando no hay un Request a mano (errores que captura Next en instrumentation.ts). */
 export function logErrorAt(scope: string, e: unknown, where: string) {
   const err = e instanceof Error ? e : new Error(String(e));
   const cause = (err as { cause?: { code?: string; message?: string } }).cause;
   const msg = err.message.split(/\nparams:/)[0].replace(/^Failed query: (\w+)[\s\S]*$/, "Failed query: $1").slice(0, 200);
-  const summary = { scope, where, name: err.name, msg, pg: cause?.code ?? null };
+  const summary = { scope, where: where.replace(/\/api\/\S*/, (p) => maskPath(p)), name: err.name, msg, pg: cause?.code ?? null };
   console.error(JSON.stringify({ level: "error", ...summary }));
   notify(summary);
 }

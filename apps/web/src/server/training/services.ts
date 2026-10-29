@@ -2,7 +2,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
-  weeklyAdherence, FEEL_ALERTS, isSetFeel, type LoggedSet, type ProgramDoc, type SetFeel,
+  weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -79,6 +79,30 @@ export async function writeDays(tx: Tx, versionId: string, doc: ProgramDoc) {
     const [day] = await tx.insert(programDay).values({ versionId, position: i, name: d.name }).returning();
     if (d.exercises.length) {
       await tx.insert(programExercise).values(d.exercises.map((e, j) => ({ dayId: day.id, position: j, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, detail: e.detail ?? null })));
+    }
+  }
+}
+
+/**
+ * Edición en el lugar (versión todavía sin entrenamientos) conservando los IDs por posición. QA 29/10 (DATA-2): el
+ * teléfono pudo bajar los días y ejercicios y empezar sin red; si se borraban y recreaban, ese entrenamiento offline se
+ * rechazaba entero al sincronizar. Sólo lo que sobra se borra y sólo lo que falta se crea.
+ */
+async function rewriteDays(tx: Tx, versionId: string, doc: ProgramDoc) {
+  const days = await tx.select().from(programDay).where(eq(programDay.versionId, versionId)).orderBy(asc(programDay.position));
+  const extraDays = days.slice(doc.days.length).map((d) => d.id);
+  if (extraDays.length) await tx.delete(programDay).where(inArray(programDay.id, extraDays));
+  for (const [i, d] of doc.days.entries()) {
+    const old = days[i];
+    const dayId = old ? old.id : (await tx.insert(programDay).values({ versionId, position: i, name: d.name }).returning())[0].id;
+    if (old) await tx.update(programDay).set({ name: d.name, position: i }).where(eq(programDay.id, old.id));
+    const exs = old ? await tx.select({ id: programExercise.id }).from(programExercise).where(eq(programExercise.dayId, dayId)).orderBy(asc(programExercise.position)) : [];
+    const extraExs = exs.slice(d.exercises.length).map((e) => e.id);
+    if (extraExs.length) await tx.delete(programExercise).where(inArray(programExercise.id, extraExs));
+    for (const [j, e] of d.exercises.entries()) {
+      const row = { dayId, position: j, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, detail: e.detail ?? null };
+      if (exs[j]) await tx.update(programExercise).set(row).where(eq(programExercise.id, exs[j].id));
+      else await tx.insert(programExercise).values(row);
     }
   }
 }
@@ -166,9 +190,8 @@ export async function saveProgram(actorId: string, orgId: string, programId: str
       await audit(tx, { actorUserId: actorId, orgId, action: "program.versioned", resourceType: "program", resourceId: p.id, meta: { version: nv.number } });
       return { version: nv.number, created: true };
     }
-    await tx.delete(programDay).where(eq(programDay.versionId, cur.version.id));
     await tx.update(programVersion).set({ name: v.doc.name, weeks: v.doc.weeks, note: v.doc.note }).where(eq(programVersion.id, cur.version.id));
-    await writeDays(tx, cur.version.id, v.doc);
+    await rewriteDays(tx, cur.version.id, v.doc);
     await tx.update(program).set({ updatedAt: new Date() }).where(eq(program.id, p.id));
     return { version: cur.version.number, created: false };
   });
@@ -624,6 +647,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
 }
 
 const WEIGHT_RE = /^\d{1,4}(\.\d{1,2})?$/;
+const MAX_REPS = 200, MAX_TIMED_SEC = 3600;
 type SetInput = { id: string; programExerciseId: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; baseRevision?: number; at?: string };
 const setOut = (r: typeof setLog.$inferSelect) => ({ id: r.id, setIndex: r.setIndex, weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, note: r.note, revision: r.revision });
 
@@ -634,7 +658,8 @@ const setOut = (r: typeof setLog.$inferSelect) => ({ id: r.id, setIndex: r.setIn
 export async function logSet(userId: string, sessionId: string, p: SetInput, now = new Date()) {
   if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de serie inválido.");
   if (p.weightKg != null && (!WEIGHT_RE.test(String(p.weightKg)) || p.weightKg > 1000)) throw new AccessError("invalid", "El peso no es válido.");
-  if (p.reps != null && (!Number.isInteger(p.reps) || p.reps < 0 || p.reps > 200)) throw new AccessError("invalid", "Las repeticiones no son válidas.");
+  // DATA-1 (QA 29/10): en series por tiempo `reps` son segundos (D148); el tope de 200 va para repeticiones (ver abajo).
+  if (p.reps != null && (!Number.isInteger(p.reps) || p.reps < 0 || p.reps > MAX_TIMED_SEC)) throw new AccessError("invalid", "Las repeticiones no son válidas.");
   if (p.rir != null && (!Number.isInteger(p.rir) || p.rir < 0 || p.rir > 5)) throw new AccessError("invalid", "El RIR va de 0 a 4+.");
   if (p.feel != null && !isSetFeel(p.feel)) throw new AccessError("invalid", "Elegí cómo se sintió la serie.");
   const feel = (p.feel ?? null) as SetFeel | null;
@@ -649,6 +674,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     const [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     if (!Number.isInteger(p.setIndex) || p.setIndex < 0 || p.setIndex >= pe.sets) throw new AccessError("invalid", "Esa serie no está prescripta.");
+    if (p.reps != null && p.reps > MAX_REPS && parseReps(pe.reps).kind !== "time") throw new AccessError("invalid", "Las repeticiones no son válidas.");
     const [ex] = await tx.select().from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, pe.id), eq(setLog.setIndex, p.setIndex))).for("update");
     const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel, note: ex.note } : null;
     // Sin baseRevision (edición en línea inmediata) se asume la revisión vigente del mismo registro.

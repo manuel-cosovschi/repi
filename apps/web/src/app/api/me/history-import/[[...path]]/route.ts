@@ -17,7 +17,8 @@ const File = z.object({
 export const POST = handle<Ctx>(async (req, { params }) => {
   const [a, b] = (await params).path ?? [];
   const me = await sessionUserId();
-  if (!a) { await limit("history-import", 12, 3_600_000); return hi.previewHistoryImport(me, await body(req, File)); }
+  // SEC-8 (QA 29/10): cada lectura usa OpenAI; además del tope por hora, uno diario por persona.
+  if (!a) { await limit("history-import", 12, 3_600_000); await limit(`history-import:${me}`, 30, 86_400_000); return hi.previewHistoryImport(me, await body(req, File)); }
   if (b === "confirm") return hi.confirmHistoryImport(me, a.slice(0, 64));
   if (b === "remove") return hi.removeHistoryImport(me, a.slice(0, 64));
   throw NF();

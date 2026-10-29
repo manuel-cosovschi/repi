@@ -10,6 +10,11 @@ describe("decideSetWrite", () => {
     expect(decideSetWrite(srv, { id: "b", baseRevision: 0, weightKg: 85, reps: 8, rir: null })).toEqual({ kind: "conflict", reason: "other_device" }));
   it("conflicto si la base quedó vieja y los valores difieren", () =>
     expect(decideSetWrite(srv, { id: "a", baseRevision: 1, weightKg: 85, reps: 8, rir: 2 })).toEqual({ kind: "conflict", reason: "stale_base" }));
+  it("DATA-8: respuesta perdida y corrección del mismo dispositivo = actualización; si alguien más la editó, conflicto", () => {
+    const first = { ...srv, revision: 1 };
+    expect(decideSetWrite(first, { id: "a", baseRevision: 0, weightKg: 85, reps: 8, rir: 2 })).toEqual({ kind: "update" });
+    expect(decideSetWrite({ ...srv, revision: 2 }, { id: "a", baseRevision: 0, weightKg: 85, reps: 8, rir: 2 })).toEqual({ kind: "conflict", reason: "stale_base" });
+  });
 });
 
 describe("applySessionAction con hora del cliente", () => {
