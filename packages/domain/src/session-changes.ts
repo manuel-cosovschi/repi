@@ -38,3 +38,19 @@ export function withApproved<T extends { id: string }>(ranked: T[], approved: { 
 export const SET_NOTE_MAX = 200;
 /** Nota de serie normalizada: sin espacios sobrantes; vacía = sin nota. */
 export const cleanSetNote = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, SET_NOTE_MAX) || null;
+
+/**
+ * D145: el coach cambió la rutina con un entrenamiento abierto. Empareja cada ejercicio del día anterior con el mismo
+ * ejercicio del día nuevo (la k-ésima aparición con la k-ésima, en orden), para mover ahí las series ya hechas.
+ * Los que no tienen pareja quedan como estaban: sus series siguen en el historial con la versión anterior.
+ */
+export function matchProgramExercises(prev: { id: string; exerciseId: string }[], next: { id: string; exerciseId: string }[]) {
+  const pool = new Map<string, string[]>();
+  for (const e of next) pool.set(e.exerciseId, [...(pool.get(e.exerciseId) ?? []), e.id]);
+  const map: Record<string, string> = {};
+  for (const e of prev) {
+    const id = pool.get(e.exerciseId)?.shift();
+    if (id) map[e.id] = id;
+  }
+  return map;
+}

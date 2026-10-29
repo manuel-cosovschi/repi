@@ -1,7 +1,7 @@
 // Servicios de programación (coach) y ejecución (alumno). Toda autorización se resuelve aquí.
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  activeSeconds, applySessionAction, bestE1rm, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
+  activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, type LoggedSet, type ProgramDoc, type SetFeel,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -796,6 +796,44 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
       meta: { programExerciseId: pe.pe.id, reason: p.change.reason, ...(sub ? { substitute: sub.id } : {}) } });
     return { change: { kind: p.change.kind, reason: p.change.reason, substitute: sub ? { exerciseId: sub.id, name: sub.name } : null } };
   });
+}
+
+/**
+ * D145: aplicar a un entrenamiento abierto la versión nueva que guardó el coach. Mismo día (por posición) en la versión
+ * vigente; las series ya hechas se mueven al mismo ejercicio de la versión nueva (matchProgramExercises) y los cambios de
+ * la sesión (saltar/reemplazar) también. Lo que no tiene pareja queda registrado con la versión anterior. Pide que no haya
+ * conflictos abiertos: el teléfono sincroniza antes de pedirlo.
+ */
+export async function upgradeSession(userId: string, sessionId: string, now = new Date()) {
+  const res = await db.transaction(async (tx) => {
+    const s = await mySession(userId, sessionId, tx, true);
+    if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
+    await assertRelationActive(tx, s);
+    const [cur] = await tx.select({ v: program.currentVersionId, status: programAssignment.status }).from(programAssignment)
+      .innerJoin(program, eq(program.id, programAssignment.programId)).where(eq(programAssignment.id, s.assignmentId));
+    if (!cur || cur.status !== "active" || !cur.v) throw new AccessError("no_program", "Tu programa ya no está asignado.", 409);
+    if (cur.v === s.versionId) return { changed: false, moved: 0, kept: [] as string[] };
+    const [{ n: open }] = await tx.select({ n: sql<number>`count(*)::int` }).from(syncConflict).where(and(eq(syncConflict.sessionId, s.id), eq(syncConflict.status, "open")));
+    if (open) throw new AccessError("conflicts", "Resolvé primero las series con dos versiones.", 409);
+    const [oldDay] = await tx.select().from(programDay).where(eq(programDay.id, s.dayId));
+    const [newDay] = await tx.select().from(programDay).where(and(eq(programDay.versionId, cur.v), eq(programDay.position, oldDay.position)));
+    if (!newDay) throw new AccessError("day_removed", "Ese día ya no está en tu rutina nueva: terminá este entrenamiento y seguí con la nueva.", 409);
+    const oldEx = await tx.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
+    const newEx = await tx.select().from(programExercise).where(eq(programExercise.dayId, newDay.id)).orderBy(asc(programExercise.position));
+    const map = matchProgramExercises(oldEx, newEx);
+    let moved = 0;
+    for (const [from, to] of Object.entries(map)) {
+      moved += (await tx.update(setLog).set({ programExerciseId: to, updatedAt: now }).where(and(eq(setLog.sessionId, s.id), eq(setLog.programExerciseId, from))).returning({ id: setLog.id })).length;
+      await tx.update(sessionExerciseChange).set({ programExerciseId: to, updatedAt: now }).where(and(eq(sessionExerciseChange.sessionId, s.id), eq(sessionExerciseChange.programExerciseId, from)));
+    }
+    const logged = new Set((await tx.select({ pe: setLog.programExerciseId }).from(setLog).where(eq(setLog.sessionId, s.id))).map((r) => r.pe));
+    const kept = oldEx.filter((e) => !map[e.id] && logged.has(e.id)).map((e) => e.name);
+    await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, cur.v));
+    await tx.update(workoutSession).set({ versionId: cur.v, dayId: newDay.id, dayName: newDay.name, revision: s.revision + 1, updatedAt: now }).where(eq(workoutSession.id, s.id));
+    await audit(tx, { actorUserId: userId, action: "session.upgraded", resourceType: "workout_session", resourceId: s.id, meta: { from: s.versionId, to: cur.v, moved, kept: kept.length } });
+    return { changed: true, moved, kept };
+  });
+  return { ...res, session: await getSession(userId, sessionId, now) };
 }
 
 export async function sessionAction(userId: string, sessionId: string, action: "pause" | "resume" | "finish", now = new Date(), clientAt?: string) {

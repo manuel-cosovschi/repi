@@ -89,6 +89,42 @@ describe("reemplazos aprobados", () => {
     expect((await tr.trainingStamp(coach.id)).stamp).toBe("");
   });
 
+  it("D145: la rutina nueva se aplica al entrenamiento abierto sin perder lo hecho", async () => {
+    const { coach, org, user, sid, squat } = await setup();
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: squat.id, setIndex: 0, weightKg: 80, reps: 8, rir: 2 });
+    // Sin cambios no pasa nada.
+    expect(await tr.upgradeSession(user, sid)).toMatchObject({ changed: false });
+    const [asg] = await db.select().from(schema.programAssignment).where(eq(schema.programAssignment.status, "active")).orderBy(desc(schema.programAssignment.assignedAt)).limit(1);
+    await tr.saveProgram(coach.id, org.id, asg.programId, { name: "Piernas", weeks: 4, note: "", days: [{ name: "Piernas B", exercises: [
+      { exerciseId: EX["Prensa"], name: "Prensa", sets: 3, reps: "10", rir: 2, restSec: 90 },
+      { exerciseId: EX["Sentadilla"], name: "Sentadilla", sets: 5, reps: "5", rir: 1, restSec: 150 },
+    ] }] });
+    const r = await tr.upgradeSession(user, sid);
+    expect(r).toMatchObject({ changed: true, moved: 1, kept: [] });
+    expect(r.session.dayName).toBe("Piernas B");
+    expect(r.session.exercises.map((e) => [e.name, e.sets])).toEqual([["Prensa", 3], ["Sentadilla", 5]]);
+    const sq = r.session.exercises[1];
+    expect(sq.logs.map((l) => [l.setIndex, l.weightKg, l.reps])).toEqual([[0, 80, 8]]);
+    // Se siguen registrando series en la versión nueva, incluida la 5.ª que antes no existía.
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: sq.id, setIndex: 4, weightKg: 85, reps: 5, rir: 1 });
+    await expect(tr.logSet(user, sid, { id: randomUUID(), programExerciseId: squat.id, setIndex: 1, weightKg: 80, reps: 8, rir: 2 })).rejects.toMatchObject({ code: "invalid" });
+    // Otra persona no puede tocar esta sesión.
+    const other = await verified();
+    await expect(tr.upgradeSession(other.id, sid)).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("D145: un ejercicio quitado con series hechas queda registrado y se informa", async () => {
+    const { coach, org, user, sid, squat } = await setup();
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: squat.id, setIndex: 0, weightKg: 70, reps: 6, rir: 2 });
+    const [asg] = await db.select().from(schema.programAssignment).where(eq(schema.programAssignment.status, "active")).orderBy(desc(schema.programAssignment.assignedAt)).limit(1);
+    await tr.saveProgram(coach.id, org.id, asg.programId, { name: "Piernas", weeks: 4, note: "", days: [{ name: "Piernas", exercises: [
+      { exerciseId: EX["Prensa"], name: "Prensa", sets: 3, reps: "10", rir: 2, restSec: 90 },
+    ] }] });
+    const r = await tr.upgradeSession(user, sid);
+    expect(r).toMatchObject({ changed: true, moved: 0, kept: ["Sentadilla"] });
+    expect(await db.select().from(schema.setLog).where(eq(schema.setLog.sessionId, sid))).toHaveLength(1);
+  });
+
   it("sólo compatibles, sin duplicados y sólo quien arma programas en esa organización", async () => {
     const { coach, org, user, sid, squat } = await setup();
     await expect(subs.addSubstitution(coach.id, org.id, { exerciseId: EX["Sentadilla"], substituteExerciseId: EX["Plancha"] })).rejects.toMatchObject({ code: "invalid" });

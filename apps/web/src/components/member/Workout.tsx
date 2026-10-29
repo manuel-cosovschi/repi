@@ -240,6 +240,28 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     } catch (e) { flash((e as Error).message); }
   };
 
+  /**
+   * D145: aplicar ya la rutina que el coach acaba de guardar. Primero se guarda todo lo pendiente (las series viajan con
+   * la versión anterior); después el servidor mueve lo hecho a la versión nueva y devuelve la sesión actualizada.
+   */
+  const [upgrading, setUpgrading] = useState(false);
+  const applyNewRoutine = async () => {
+    if (!s || upgrading) return;
+    if (!navigator.onLine) { flash("Necesitás conexión para aplicar la rutina nueva."); return; }
+    setUpgrading(true);
+    try {
+      await flush();
+      if (await pendingFor(s.id)) { flash("Todavía se están guardando tus series. Probá de nuevo en unos segundos."); return; }
+      const r = await api<{ changed: boolean; kept: string[]; session: Parameters<typeof fromServer>[0] }>(`/api/me/sessions/${s.id}/upgrade`, { body: {} });
+      const fresh = fromServer(r.session, s.rest);
+      const at = fresh.exercises.findIndex((e) => e.exerciseId === ex?.exerciseId);
+      setExIdx(at >= 0 ? at : 0); setSel(null); setRir(null); setNoteDraft(null);
+      await commit(fresh);
+      onDismissChange?.();
+      flash(!r.changed ? "Ya tenías la rutina al día." : r.kept.length ? `Rutina nueva aplicada. Lo que hiciste de ${r.kept.join(", ")} quedó guardado.` : "Rutina nueva aplicada a este entrenamiento.");
+    } catch (e) { flash((e as Error).message); } finally { setUpgrading(false); }
+  };
+
   /** Saltar, reemplazar o volver al original sólo en esta sesión (F-HX-21). Viaja por la cola como el resto. */
   const applyChange = async (c: ExChange | null, prev?: LocalEx["prev"]) => {
     if (!s || !ex) return;
@@ -314,8 +336,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         {programChanged && (
           <div className="conflict" role="status">
             <strong>{coachFirst[0].toUpperCase()}{coachFirst.slice(1)} actualizó tu rutina</strong>
-            <span>Lo que ya registraste queda guardado. Los cambios se ven en Entrenar y se aplican desde tu próximo entrenamiento.</span>
-            <div><button type="button" className="ghost sm" onClick={onDismissChange}>Entendido</button></div>
+            <span>Lo que ya registraste queda guardado. Podés aplicar los cambios a este entrenamiento o seguir así y aplicarlos desde el próximo.</span>
+            <div><button type="button" className="cta sm" aria-busy={upgrading || undefined} disabled={upgrading} onClick={() => void applyNewRoutine()}>{upgrading ? "Aplicando…" : "Aplicar ahora"}</button>
+              <button type="button" className="ghost sm" onClick={onDismissChange}>Seguir así</button></div>
           </div>
         )}
         {conflicts.map(([k, x]) => {

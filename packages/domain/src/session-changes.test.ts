@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSubstitute, cleanSetNote, isChangeReason, rankAlternatives, SUB_NOTE_MAX, cleanSubNote, withApproved } from "./session-changes";
+import { canSubstitute, cleanSetNote, isChangeReason, matchProgramExercises, rankAlternatives, SUB_NOTE_MAX, cleanSubNote, withApproved } from "./session-changes";
 import { sameSetValues } from "./sync";
 
 describe("cambios en la sesión activa", () => {
@@ -47,5 +47,16 @@ describe("withApproved", () => {
     expect(cleanSubNote("  si   no hay banco  ")).toBe("si no hay banco");
     expect(cleanSubNote("   ")).toBeNull();
     expect(cleanSubNote("x".repeat(200))).toHaveLength(SUB_NOTE_MAX);
+  });
+});
+
+describe("matchProgramExercises (D145)", () => {
+  it("empareja por ejercicio en orden y deja sin pareja a los quitados", () => {
+    const prev = [{ id: "a1", exerciseId: "sq" }, { id: "a2", exerciseId: "bp" }, { id: "a3", exerciseId: "sq" }, { id: "a4", exerciseId: "row" }];
+    const next = [{ id: "b1", exerciseId: "bp" }, { id: "b2", exerciseId: "sq" }, { id: "b3", exerciseId: "dl" }, { id: "b4", exerciseId: "sq" }];
+    expect(matchProgramExercises(prev, next)).toEqual({ a1: "b2", a2: "b1", a3: "b4" });
+  });
+  it("sin cambios de ejercicios empareja todo", () => {
+    expect(matchProgramExercises([{ id: "x", exerciseId: "e" }], [{ id: "y", exerciseId: "e" }])).toEqual({ x: "y" });
   });
 });
