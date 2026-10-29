@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
+import { spreadsheetToCsv } from "@/lib/spreadsheet";
 
 type Preview = {
   id: string; source: "csv" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
@@ -74,7 +75,14 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
     if (!f) return;
     const name = f.name.toLowerCase();
     try {
-      if (/\.(xlsx?|numbers|ods)$/.test(name)) return setErr("Las planillas de Excel o Numbers guardalas como CSV (Archivo › Exportar › CSV) o subí una captura de pantalla.");
+      // D140: Excel (.xlsx) y OpenDocument (.ods) se leen acá y viajan como CSV. Numbers y .xls viejos, a exportar.
+      if (/\.(xlsx|ods)$/.test(name)) {
+        if (f.size > 5_000_000) return setErr("La planilla pesa más de 5 MB. Dejá sólo las hojas del historial.");
+        const csv = await spreadsheetToCsv(f);
+        if (csv.length > 400_000) return setErr("La planilla es muy grande. Dejá sólo las hojas o filas del historial.");
+        return void send({ fileName: f.name, kind: "text", text: csv });
+      }
+      if (/\.(xls|numbers)$/.test(name)) return setErr(name.endsWith(".numbers") ? "Las planillas de Numbers exportalas a Excel o CSV (Archivo › Exportar a) o subí una captura." : "Ese Excel es de un formato viejo: guardalo como .xlsx o CSV, o subí una captura.");
       if (f.type.startsWith("image/") || /\.(jpe?g|png|heic|webp)$/.test(name)) return void send({ fileName: f.name, kind: "image", dataUrl: await shrinkImage(f) });
       if (f.type === "application/pdf" || name.endsWith(".pdf")) {
         if (f.size > 3_000_000) return setErr("El PDF pesa más de 3 MB. Subí sólo las páginas del historial o una foto.");
@@ -108,8 +116,8 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
     </Sheet>
   );
   return (
-    <Sheet title="Cargar historial anterior" sub="Una planilla (CSV), una foto de tu cuaderno, una captura o un PDF con fechas, ejercicios, pesos y repeticiones. Antes de guardar te mostramos lo que leímos." closeLabel="Cerrar" onClose={onClose}>
-      <input ref={input} type="file" hidden accept=".csv,.txt,.tsv,.pdf,image/*,.xlsx,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+    <Sheet title="Cargar historial anterior" sub="Una planilla (Excel, CSV u OpenDocument), una foto de tu cuaderno, una captura o un PDF con fechas, ejercicios, pesos y repeticiones. Antes de guardar te mostramos lo que leímos." closeLabel="Cerrar" onClose={onClose}>
+      <input ref={input} type="file" hidden accept=".csv,.txt,.tsv,.pdf,image/*,.xlsx,.ods,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
       <button type="button" className="cta" aria-busy={busy === "read" || undefined} disabled={!!busy} onClick={() => input.current?.click()}>{busy === "read" ? "Leyendo el archivo…" : "Elegir archivo o foto"}</button>
       <label className="sheet-sub" htmlFor="hi-text">O pegá el texto (por ejemplo, tus notas del celular):</label>
       <textarea id="hi-text" className="note" rows={5} maxLength={60_000} value={text} onChange={(e) => setText(e.target.value)} placeholder={"12/03/2024\nSentadilla 3x10 60 kg\nPress banca 4x8 50 kg"} />
