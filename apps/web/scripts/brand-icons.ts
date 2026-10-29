@@ -51,4 +51,16 @@ writeFileSync("public/icons/favicon.svg", iconSvg(64, { radius: 0.22 }));
 // Insignia de avisos en Android: el sistema usa sólo la opacidad, así que va la marca sola en blanco sobre transparente.
 const badge = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="${TILE.x + 14} ${TILE.y + 14} ${TILE.size - 28} ${TILE.size - 28}"><path d="${R_PATH}" fill="#fff"/><circle cx="${DOT.cx}" cy="${DOT.cy}" r="${DOT.r}" fill="#fff"/></svg>`;
 await png(badge, 96, false).toFile("public/icons/badge-96.png");
+// Cabecera de los correos: ícono (igual al de la pantalla de inicio) y marca sobre un fondo oscuro propio, en una sola imagen.
+// Gmail en modo claro invierte los colores del correo pero no las imágenes: así la marca blanca no desaparece. A 3x.
+{
+  const k = 3, H = 56, PAD = 8, ICON = 40, GAP = 10, WM = { w: 74, h: 36 }, W = PAD + ICON + GAP + WM.w + 14;
+  const plate = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * k}" height="${H * k}"><rect width="${W * k}" height="${H * k}" rx="${14 * k}" fill="#0A0F1A"/></svg>`;
+  const icon = await png(iconSvg(ICON * k, { radius: 0.22 }), ICON * k, false).toBuffer();
+  const wm = await sharp("public/brand/wm_full.png").resize(WM.w * k, WM.h * k).toBuffer();
+  await sharp(Buffer.from(plate)).composite([
+    { input: icon, left: PAD * k, top: ((H - ICON) / 2) * k },
+    { input: wm, left: (PAD + ICON + GAP) * k, top: Math.round(((H - WM.h) / 2) * k) },
+  ]).png({ compressionLevel: 9 }).toFile("public/icons/mail-header.png");
+}
 console.log("Íconos → public/icons");

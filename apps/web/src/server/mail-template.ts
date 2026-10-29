@@ -1,4 +1,4 @@
-// Correos con la estética de REPI (D149): G · Atlética sobre fondo oscuro, isotipo y marca arriba, Barlow con respaldo
+// Correos con la estética de REPI (D149): G · Atlética sobre fondo oscuro, ícono y marca arriba (una sola imagen, public/icons/mail-header.png), Barlow con respaldo
 // Arial (los clientes de correo no cargan fuentes web), botón cian para el enlace y el código destacado. Se arma a partir del
 // texto de siempre, que también viaja como versión de texto: ningún correo cambia lo que dice.
 const C = { bg: "#0A0F1A", card: "#121A28", line: "#1C2636", ink: "#F4F7FB", muted: "#8A9AAF", cyan: "#00D1FF", navy: "#0B0F14" };
@@ -63,7 +63,7 @@ export function renderMailHtml(m: { subject: string; body: string }, site = proc
   return `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light"><title>${esc(m.subject)}</title></head>`
     + `<body style="margin:0;padding:0;background:${C.bg}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg}"><tr><td align="center" style="padding:24px 12px">`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">`
-    + `<tr><td style="padding:0 4px 16px"><a href="${esc(base)}" style="text-decoration:none"><img src="${esc(base)}/brand/repi_icon.png" width="40" height="40" alt="" style="vertical-align:middle;border:0;border-radius:10px"> <img src="${esc(base)}/brand/wm_full.png" width="74" height="36" alt="REPI" style="vertical-align:middle;border:0;color:${C.ink};font:800 22px ${DISPLAY}"></a></td></tr>`
+    + `<tr><td style="padding:0 4px 16px"><a href="${esc(base)}" style="text-decoration:none"><img src="${esc(base)}/icons/mail-header.png" width="146" height="56" alt="REPI" style="display:block;border:0;color:${C.ink};font:800 22px ${DISPLAY}"></a></td></tr>`
     + `<tr><td style="background:${C.card};border:1px solid ${C.line};border-radius:18px;padding:28px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">`
     + `<tr><td style="padding:0 0 16px;font:800 28px/1.1 ${DISPLAY};color:${C.ink};text-transform:uppercase;letter-spacing:-.01em">${esc(m.subject)}</td></tr>${blocks}</table></td></tr>`
     + `<tr><td style="padding:18px 4px 0;font:400 12px/1.5 ${FONT};color:${C.muted}">REPI · Cada repetición cuenta. Es un correo automático: no hace falta responder.<br><a href="${esc(base)}" style="color:${C.muted}">${esc(base.replace(/^https?:\/\//, ""))}</a></td></tr>`

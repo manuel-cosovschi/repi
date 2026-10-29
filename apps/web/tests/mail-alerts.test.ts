@@ -25,7 +25,7 @@ describe("plantilla de correo", () => {
       { kind: "code", label: "Tu código", code: "ABC123" }, { kind: "cta", lead: "", url: "https://repiclub.com/acceso?code=ABC123" }]);
     expect(ctaLabel("https://repiclub.com/activar/tok")).toBe("Activar mi espacio");
     const html = renderMailHtml({ subject: "Hola <b>", body: "Texto <script>x</script>\nEntrá: https://repiclub.com/api/auth/magic-link/verify?token=t" }, "https://repiclub.com");
-    expect(html).toContain("https://repiclub.com/brand/repi_icon.png");
+    expect(html).toContain("https://repiclub.com/icons/mail-header.png");
     expect(html).toContain("Hola &lt;b&gt;");
     expect(html).toContain("Texto &lt;script&gt;x&lt;/script&gt;");
     expect(html).not.toContain("<script>");
