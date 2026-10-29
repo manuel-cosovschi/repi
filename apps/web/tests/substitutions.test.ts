@@ -76,6 +76,19 @@ describe("reemplazos aprobados", () => {
     expect(list.length).toBeLessThanOrEqual(5);
   });
 
+  it("D143: la marca del programa cambia cuando el coach lo edita y no cambia si no hay cambios", async () => {
+    const { coach, org, user } = await setup();
+    const a = (await tr.trainingStamp(user)).stamp;
+    expect(a).not.toBe("");
+    expect((await tr.trainingStamp(user)).stamp).toBe(a);
+    const [asg] = await db.select().from(schema.programAssignment).where(eq(schema.programAssignment.status, "active")).orderBy(desc(schema.programAssignment.assignedAt)).limit(1);
+    await tr.saveProgram(coach.id, org.id, asg.programId, { name: "Piernas", weeks: 4, note: "más carga", days: [{ name: "Piernas", exercises: [
+      { exerciseId: EX["Sentadilla"], name: "Sentadilla", sets: 4, reps: "6-8", rir: 2, restSec: 120 },
+    ] }] });
+    expect((await tr.trainingStamp(user)).stamp).not.toBe(a);
+    expect((await tr.trainingStamp(coach.id)).stamp).toBe("");
+  });
+
   it("sólo compatibles, sin duplicados y sólo quien arma programas en esa organización", async () => {
     const { coach, org, user, sid, squat } = await setup();
     await expect(subs.addSubstitution(coach.id, org.id, { exerciseId: EX["Sentadilla"], substituteExerciseId: EX["Plancha"] })).rejects.toMatchObject({ code: "invalid" });

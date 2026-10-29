@@ -422,6 +422,19 @@ export async function setActiveRelation(userId: string, relationId: string) {
   return { activeRelationId: relationId };
 }
 
+/**
+ * Marca liviana del programa vigente (D143): cambia cuando el coach o el equipo de sala editan, versionan o reasignan. La app
+ * del alumno la consulta cada pocos segundos y sólo recarga el programa completo si cambió.
+ */
+export async function trainingStamp(userId: string) {
+  const [r] = await db.execute<{ k: string | null }>(sql`
+    select string_agg(pa.id || ':' || coalesce(p.current_version_id, '') || ':' || (extract(epoch from p.updated_at) * 1000)::bigint, ',' order by pa.id) as k
+    from program_assignment pa join program p on p.id = pa.program_id
+    left join coach_client cc on cc.id = pa.coach_client_id left join gym_member gm on gm.id = pa.gym_member_id
+    where pa.status = 'active' and (cc.user_id = ${userId} or gm.user_id = ${userId})`);
+  return { stamp: r?.k ?? "" };
+}
+
 /** Última serie registrada por ejercicio (excluye la sesión indicada). */
 async function lastSetByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string) {
   if (!exerciseIds.length) return new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();

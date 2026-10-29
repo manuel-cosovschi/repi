@@ -101,6 +101,32 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     return null;
   }, [loadInbox, loadPresence]);
   useEffect(() => { load(); }, [load]);
+  // D143: cambios del coach en vivo. Mientras la app está a la vista se consulta una marca liviana cada 15 s (y al volver a
+  // la app); si cambió, se recarga el programa. Un entrenamiento ya empezado no se toca: muestra un aviso.
+  const stamp = useRef<string | null>(null);
+  const coachFirstRef = useRef("Tu profe");
+  const [changedMidWorkout, setChangedMidWorkout] = useState(false);
+  const workoutRef = useRef<string | null>(null);
+  useEffect(() => {
+    let stop = false;
+    const check = async () => {
+      if (stop || document.visibilityState !== "visible" || !navigator.onLine) return;
+      try {
+        const { stamp: k } = await api<{ stamp: string }>("/api/me/training/stamp");
+        if (stamp.current == null) { stamp.current = k; return; }
+        if (k === stamp.current) return;
+        stamp.current = k;
+        await load();
+        if (workoutRef.current) setChangedMidWorkout(true);
+        else flash(`${coachFirstRef.current[0].toUpperCase()}${coachFirstRef.current.slice(1)} actualizó tu rutina.`);
+      } catch { /* sin conexión o sesión vencida: se reintenta en la próxima vuelta */ }
+    };
+    void check();
+    const id = setInterval(check, 15_000);
+    const vis = () => { if (document.visibilityState === "visible") void check(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { stop = true; clearInterval(id); document.removeEventListener("visibilitychange", vis); };
+  }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
   const [histErr, setHistErr] = useState(false);
   const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist(r.sessions)).catch(() => { setHist(null); setHistErr(true); }); }, []);
   useEffect(() => { if (tab === "prog") loadHist(); }, [tab, loadHist]);
@@ -198,10 +224,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const tabs = ([["home", "Inicio", House], ["train", "Entrenar", Barbell], ["prog", "Progreso", ChartLineUp], ["msgs", "Mensajes", ChatCircle],
     ...(inbox?.gym ? [["gym", "Gym", Storefront] as const] : [])] as const);
 
+  workoutRef.current = workout;
+  coachFirstRef.current = coachFirst;
   const unit: WeightUnit = t?.weightUnit ?? "kg";
   if (workout) return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
-      <Workout sessionId={workout} coachFirst={coachFirst} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
+      <Workout sessionId={workout} coachFirst={coachFirst} programChanged={changedMidWorkout} onDismissChange={() => setChangedMidWorkout(false)} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setChangedMidWorkout(false); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
       <Toast t={toast} />
     </div></div></UnitContext.Provider>
   );

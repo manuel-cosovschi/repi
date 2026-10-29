@@ -62,8 +62,9 @@ function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   };
 }
 
-export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = false, connectPlace = null, onExit, flash }: {
+export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = false, connectPlace = null, onExit, flash, programChanged = false, onDismissChange }: {
   sessionId: string; coachFirst: string; gym: boolean; gymOrgId?: string | null; demo?: boolean; connectPlace?: string | null; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void;
+  programChanged?: boolean; onDismissChange?: () => void; // D143: el coach cambió la rutina con este entrenamiento abierto
 }) {
   const [asking, setAsking] = useState(false); // REPI Connect (D126): pedido al equipo de sala sobre este ejercicio
   const [revalidate, setRevalidate] = useState(false); // D127: el ingreso venció durante el entrenamiento
@@ -308,6 +309,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             <strong>Hay otro entrenamiento abierto en otro dispositivo</strong>
             <span>{s.conflict.other.dayName} · empezó {new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" }).format(new Date(s.conflict.other.startedAt))} · {s.conflict.other.sets} {s.conflict.other.sets === 1 ? "serie" : "series"}. Lo de este dispositivo sigue guardado en el teléfono.</span>
             <div><button type="button" className="cta sm" onClick={() => resolveOpen("close_other")}>Cerrar el otro y seguir con este</button><button type="button" className="ghost sm" onClick={() => resolveOpen("discard")}>Descartar este</button></div>
+          </div>
+        )}
+        {programChanged && (
+          <div className="conflict" role="status">
+            <strong>{coachFirst[0].toUpperCase()}{coachFirst.slice(1)} actualizó tu rutina</strong>
+            <span>Lo que ya registraste queda guardado. Los cambios se ven en Entrenar y se aplican desde tu próximo entrenamiento.</span>
+            <div><button type="button" className="ghost sm" onClick={onDismissChange}>Entendido</button></div>
           </div>
         )}
         {conflicts.map(([k, x]) => {
