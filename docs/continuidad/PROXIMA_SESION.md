@@ -1,12 +1,41 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D150), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D151, auditoría QA en rama aparte), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## AUDITORÍA QA — 29/10/2026 (D151) · rama `qa/auditoria-2026-10-29` (leer primero)
+
+- **Estado:**
+  - Commiteada y subida a GitHub en la rama `qa/auditoria-2026-10-29`. **No está en `main` ni en producción.**
+  - Mergear despliega en Vercel: **pedir autorización al titular antes.**
+  - **Sin migraciones.**
+- **Qué es:**
+  - Auditoría integral: seguridad, datos, UX, accesibilidad, E2E y rendimiento.
+  - 47 defectos válidos: 40 corregidos, 1 parcial (DATA-6), 4 abiertos (DATA-5, DATA-10, DATA-11, A11Y-5) y 2 riesgos aceptados (SEC-9 = D119, esbuild de desarrollo).
+  - Informe: `docs/qa/QA_MASTER_REPORT.md`. Registro: `docs/qa/BUG_REGISTER.md`.
+- **Pruebas:**
+  - Web 236 ✓ (antes 221), guardas ✓, dominio 146 ✓, `tsc` ✓, build ✓.
+  - **E2E nuevo:** `cd apps/web && pnpm build && pnpm start`, y en otra terminal `pnpm e2e`. Corre con Playwright, el Chrome del sistema y axe, contra un servidor local con demos aisladas. Resultado: 34/34.
+  - El guardia `assertLocalTarget` impide correrlo contra producción.
+- **Archivos clave:**
+  - `src/server/access/{util,services}.ts` (SEC-1, DATA-9).
+  - `src/app/api/auth/[...all]/route.ts` (SEC-4).
+  - `src/server/followup/services.ts` (SEC-2).
+  - `src/server/community/club.ts` (SEC-6, DATA-6).
+  - `src/server/training/services.ts` (`rewriteDays` DATA-2, DATA-1).
+  - `src/lib/offline/queue.ts` (DATA-7).
+  - `src/server/commercial/*` (DATA-4).
+  - `src/styles/globals.css` (UX-7, A11Y-2).
+  - `apps/web/e2e/*`.
+- **Siguiente:**
+  1. El titular revisa y autoriza el merge a `main`. Después verificar `/api/version`, `/acceso` y una demo.
+  2. Pendientes de QA: DATA-6 completo (series por tiempo fuera de volumen, PR e informe), DATA-5, DATA-10, DATA-11, A11Y-5.
+  3. Teléfonos reales (LB-03).
 
 ## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
 
 **Estado:** todo lo pedido hasta **D150** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones hasta 0031 aplicadas en Supabase (0031 = `gym_access_display.purpose`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D151**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D152**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
 **Comandos:** web `cd apps/web && pnpm vitest run` (221 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (141). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 

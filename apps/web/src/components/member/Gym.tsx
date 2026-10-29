@@ -427,7 +427,7 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
             <button type="button" aria-pressed={p.applauded} onClick={() => act(api(`/api/me/gym/club/posts/${p.id}/applause${q}`, { body: {} }))}>👏 {p.applause > 0 ? p.applause : "Aplaudir"}</button>
           </div>
           {p.comments.map((c) => <div key={c.id} className="club-comment"><b>{c.author}</b> {c.text}{c.hidden && <small> · oculto</small>}
-            {c.mine ? <button type="button" className="linkbtn" onClick={() => act(api(`/api/me/gym/club/delete/comment/${c.id}${q}`, { body: {} }))}>Borrar</button>
+            {c.mine ? <button type="button" className="linkbtn" onClick={() => { if (window.confirm("¿Borrar tu comentario?")) act(api(`/api/me/gym/club/delete/comment/${c.id}${q}`, { body: {} })); }}>Borrar</button>
               : <button type="button" className="linkbtn" onClick={() => act(api(`/api/me/gym/club/report${q}`, { body: { type: "comment", id: c.id, reason: "Contenido inapropiado" } }), "Gracias. El gym lo revisa.")}>Reportar</button>}</div>)}
           {!p.hidden && <CommentBox onSend={(t) => act(api(`/api/me/gym/club/posts/${p.id}/comments${q}`, { body: { text: t } }))} />}
         </article>
@@ -435,7 +435,7 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
       {profile && <ProfileSheet orgId={orgId} userId={profile} onClose={() => setProfile(null)} />}
       {more && (
         <Sheet title="Opciones" closeLabel="Cerrar" onClose={() => setMore(null)}>
-          {more.mine ? <button type="button" className="ghost" onClick={() => { void act(api(`/api/me/gym/club/delete/post/${more.id}${q}`, { body: {} }), "Publicación borrada."); setMore(null); }}>Borrar mi publicación</button> : (
+          {more.mine ? <button type="button" className="ghost" onClick={() => { if (!window.confirm("¿Borrar tu publicación? No se puede deshacer.")) return; void act(api(`/api/me/gym/club/delete/post/${more.id}${q}`, { body: {} }), "Publicación borrada."); setMore(null); }}>Borrar mi publicación</button> : (
             <>
               {["Spam", "Contenido ofensivo", "Datos personales expuestos"].map((r) => <button key={r} type="button" className="ghost" onClick={() => { void act(api(`/api/me/gym/club/report${q}`, { body: { type: "post", id: more.id, reason: r } }), "Gracias. El gym lo revisa."); setMore(null); }}>Reportar: {r}</button>)}
               <button type="button" className="ghost" onClick={() => { void act(api(`/api/me/gym/club/block/${more.authorId}${q}`, { body: {} }), "Bloqueado. No vas a ver su contenido."); setMore(null); }}>Bloquear a {more.author}</button>
