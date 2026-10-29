@@ -2,19 +2,26 @@
 
 Actualizado: 28/10/2026 (D127 + D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Gym Access Control · ingreso validado (D127)
+## Último bloque cerrado — 28/10/2026 · Ejercicios propios (D129), alta por invitación sin código (D130) y «En sala ahora» (D131)
+
+- **Hecho:** `packages/domain/src/exercise-catalog.ts` (~200 ejercicios), `apps/web/src/server/training/library.ts` (`ensureExerciseCatalog`, `createOwnExercise`), rutas POST de biblioteca coach y gym, `components/coach/NewExercise.tsx` en ambos constructores. Invitación: `assertInvitationEmail` devuelve si está ligada, `verifyByInvitation`, `sendSignupOtp`; `AccessFlow` entra directo tras el alta por invitación.
+- D129/D130 sin migración. OpenAI: `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-5-mini` cargadas en Vercel (producción) y en `.env.local`; copia en `~/.repi-secrets/openai.env`. Nunca en el repo.
+- **D131:** `apps/web/src/server/gym/floor-now.ts`, `components/member/FloorNow.tsx`, `components/gym/FloorNow.tsx`, migración **0027** (`gym_floor_pick`, `workout_session.floor_trainer_id`), `tests/floor-now.test.ts`.
+- **Siguiente (pedidos del titular 28/10):** D132 importar historial desde un archivo con IA al progreso; IA en «No vino el profe» y donde sume.
+
+## Bloque anterior — 28/10/2026 · Gym Access Control · ingreso validado (D127)
 
 - **Hecho:** dominio `packages/domain/src/gym-access.ts`; migración `0026_gym_access` (política, pantallas, `gym_checkin`, `gym_member.access_until`, geo de sede, `workout_session.presence_checkin_id`); servidor `apps/web/src/server/gym/access-control.ts` con ganchos en entrenamiento, accesos, carnet, Connect y Admin; socio `components/member/Presence.tsx` (cámara con BarcodeDetector o jsQR, hoja, chip) y `/ingreso`; kiosco `/ingreso/pantalla` (`components/gym-access/{LiveQr,KioskDisplay}.tsx`, `styles/gym-access.css`); «Acceso y presencia» `components/gym/AccessControl.tsx` (panel, política, pantallas y sedes, validar a mano, QR a pantalla completa), validación a mano en Recepción y en «Mi turno», «Vigente hasta» en Accesos, tarjeta en Admin, guías y demo.
 - **Pruebas:** dominio 126/126, web 203/203 (`tests/gym-access.test.ts` 11; `sandbox.test.ts` ya no falla al azar: fijaba una sede cualquiera), guardas 11/11, build OK. Navegador: socio 375 px, dueño, kiosco.
 - **Migración 0026:** aditiva. Ver estado de publicación en la línea siguiente.
 - **Docs:** `docs/gym-access/` (8), FEATURE_FLAGS, IMPLEMENTATION_STATUS, RELEASE_READINESS (GA-01..08), D127.
-- **Siguiente:** activar el módulo en un gimnasio piloto desde Admin; probar la cámara en iPhone y Android reales (LB-03); revisión legal antes de usar ubicación. Pendiente aparte: historial anterior (D129).
+- **Siguiente:** activar el módulo en un gimnasio piloto desde Admin; probar la cámara en iPhone y Android reales (LB-03); revisión legal antes de usar ubicación. Pendiente aparte: historial anterior (D132).
 
 ## Bloque anterior — 28/10/2026 · Altas por invitación: email, fecha con calendario y ver contraseña (D128) — publicado en `main`
 
 - **Hecho:** pista del email invitado y freno antes de crear la cuenta (`assertInvitationEmail` en `/api/access/sign-up`, `maskEmail` en el dominio), fecha de nacimiento con selector nativo (`parseBirthDate` acepta también AAAA-MM-DD y DDMMAAAA), `components/access/PasswordInput.tsx` con Mostrar/Ocultar en todos los campos de contraseña.
 - **Pruebas:** dominio 120/120, web 192/192, guardas 11/11; navegador 375 px con una invitación de alumno completa.
-- **Sin migración.** Siguiente: retomar Gym Access (D127) en la rama `gym-access` (mergear `main` primero) y el historial anterior (D129).
+- **Sin migración.** Siguiente: retomar Gym Access (D127) en la rama `gym-access` (mergear `main` primero) y el historial anterior (D132).
 
 ## Bloque anterior — 28/10/2026 · REPI Connect · seguimiento de sala (D126) — publicado (a65195e)
 

@@ -56,6 +56,10 @@ export async function signUpPerson(input: SignUpInput) {
   return { userId, email, minor, existing: false as const };
 }
 
+export async function sendSignupOtp(email: string) {
+  await auth.api.sendVerificationOTP({ body: { email: normalizeEmail(email), type: "email-verification" } });
+}
+
 // ── Organizaciones ──────────────────────────────────────────────────────────
 // Anexo 26/10: no hay autoalta comercial ni prueba automática. Estas funciones son de uso interno (alta desde Admin,
 // regularización y pruebas): ninguna ruta pública las expone. Sin prueba: trialEndsAt sólo si Admin la concede.
@@ -261,10 +265,24 @@ export async function lookupInvitation(rawCode: string) {
  * Antes de crear una cuenta desde una invitación: si es para un email, tiene que ser ese. Evita que alguien verifique
  * una cuenta con otro email y recién al final se entere de que la invitación no le sirve.
  */
-export async function assertInvitationEmail(rawCode: string, email: string) {
-  const [inv] = await db.select({ email: invitation.email }).from(invitation).where(eq(invitation.code, normalizeCode(rawCode)));
-  if (!inv?.email) return;
+export async function assertInvitationEmail(rawCode: string, email: string): Promise<boolean> {
+  const [inv] = await db.select().from(invitation).where(eq(invitation.code, normalizeCode(rawCode)));
+  if (!inv?.email) return false;
   if (normalizeEmail(inv.email) !== normalizeEmail(email)) throw new AccessError("email_mismatch", mismatchMessage(inv.email), 400);
+  return invitationState(inv, new Date()) === "pending";
+}
+
+/**
+ * D130: la invitación personal llegó a ese email y trae un código de un solo uso; quien la abre con ese mismo email ya
+ * demostró que lo recibe. Se marca verificado sin pedir otro código (era el paso donde se trababan las altas).
+ */
+export async function verifyByInvitation(userId: string, rawCode: string) {
+  const [u] = await db.select().from(user).where(eq(user.id, userId));
+  const [inv] = await db.select().from(invitation).where(eq(invitation.code, normalizeCode(rawCode)));
+  if (!u || !inv?.email || normalizeEmail(inv.email) !== normalizeEmail(u.email) || invitationState(inv, new Date()) !== "pending") return false;
+  if (!u.emailVerified) await db.update(user).set({ emailVerified: true }).where(eq(user.id, u.id));
+  await audit(db, { actorUserId: u.id, orgId: inv.orgId, action: "account.verified_by_invitation", resourceType: "invitation", resourceId: inv.id });
+  return true;
 }
 
 const mismatchMessage = (invEmail: string) =>

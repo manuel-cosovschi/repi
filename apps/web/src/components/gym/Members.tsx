@@ -4,6 +4,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { TASK_CATEGORY, formatRest, mentionsHealth, parseRest, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
+import { NewExercise } from "@/components/coach/NewExercise";
 import { Modal } from "@/components/ui/Modal";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
 import { featureOn } from "@/lib/features";
@@ -153,7 +154,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   );
 }
 
-type Lib = { id: string; name: string; group: string; kind: string }[];
+type Lib = { id: string; name: string; group: string; kind: string; own?: boolean }[];
 type Ex = ProgramDoc["days"][number]["exercises"][number];
 
 function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: Detail; onClose: (ok: boolean) => void }) {
@@ -173,7 +174,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const setEx = (i: number, patch: Partial<Ex>) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.map((e, k) => k === i ? { ...e, ...patch } : e) } : x) }));
   const removeEx = (i: number) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.filter((_, k) => k !== i) } : x) }));
   const addEx = (e: Lib[number]) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: [...x.exercises, { exerciseId: e.id, name: e.name, sets: 3, reps: "10-12", rir: 2, restSec: 90, note: null }] } : x) }));
-  const filtered = useMemo(() => (lib.data ?? []).filter((e) => !libQ || e.name.toLowerCase().includes(libQ.toLowerCase())).slice(0, 12), [lib.data, libQ]);
+  const filtered = useMemo(() => (lib.data ?? []).filter((e) => !libQ || (e.name + " " + e.group).toLowerCase().includes(libQ.toLowerCase())).slice(0, 24), [lib.data, libQ]);
   const save = async () => {
     const r = await run("save", () => api<{ revision: number; completed: { ref: string; invite: string | null } | null }>(`/api/gym/${shell.orgId}/members/${member.id}/program`, { body: { doc, reason, completeTaskId: complete && related ? related.id : null } }),
       (x) => { const y = x as { revision: number; completed: { ref: string; invite: string | null } | null }; return y.completed ? `Programa guardado (revisión ${y.revision}) y ${y.completed.ref} completada.${y.completed.invite === "pending" ? ` ${member.name.split(" ")[0]} recibirá una invitación opcional para opinar.` : ""}` : `Programa guardado. Revisión ${y.revision} registrada para el equipo.`; });
@@ -211,7 +212,9 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca.</span>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <label className="search"><input value={libQ} onChange={(e) => setLibQ(e.target.value)} placeholder="Buscar en la biblioteca" aria-label="Buscar ejercicio" /></label>
-        <div className="pills">{filtered.map((e) => <button key={e.id} type="button" className="pill" onClick={() => addEx(e)}>+ {e.name}</button>)}</div>
+        <div className="pills">{filtered.map((e) => <button key={e.id} type="button" className="pill" onClick={() => addEx(e)}>+ {e.name}{e.own ? " · propio" : ""}</button>)}</div>
+        <NewExercise url={`/api/gym/${shell.orgId}/library`} query={libQ} known={lib.data ?? []} flash={shell.flash}
+          onCreated={(e) => { lib.setData((xs) => (xs ?? []).some((x) => x.id === e.id) ? xs : [...(xs ?? []), e]); addEx(e); setLibQ(""); }} />
       </div>
       <label className="field">Motivo del cambio (lo ve el equipo)
         <textarea className="note" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Ej.: pasa de 3 a 4 días por pedido del socio" />

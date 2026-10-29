@@ -197,6 +197,17 @@ describe("gimnasio", () => {
     const ws = await svc.listWorkspaces(owner);
     expect(ws[0]).toMatchObject({ detail: "Dueño", needs2fa: false });
   });
+  it("alta desde la invitación con el mismo email: verificada sin código y acepta (D130)", async () => {
+    const { owner, org, loc } = await gymWithLocation();
+    const staffEmail = mail();
+    const inv = await svc.inviteGymStaff(owner, org.id, { email: staffEmail, role: "floor_trainer", locationId: loc.id });
+    const r = await svc.signUpPerson({ name: "Profe Directo", email: staffEmail, password: "prueba1234", terms: true, sendOtp: false });
+    expect(await svc.verifyByInvitation(r.userId!, inv.code)).toBe(true);
+    const [u] = await db.select().from(schema.user).where(eq(schema.user.id, r.userId!));
+    expect(u.emailVerified).toBe(true);
+    await svc.acceptInvitation(r.userId!, inv.code);
+    expect(await svc.verifyByInvitation(r.userId!, inv.code)).toBe(false); // ya usada
+  });
   it("invitación de staff ligada al email: otra cuenta es rechazada y auditada", async () => {
     const { owner, org, loc } = await gymWithLocation();
     const staffEmail = mail();
@@ -209,7 +220,10 @@ describe("gimnasio", () => {
     expect(look.emailHint).not.toBe(staffEmail);
     // Antes de crear la cuenta: con otro email se frena acá (no al final, después de verificar); mayúsculas y espacios no importan.
     await expectErr(svc.assertInvitationEmail(inv.code, mail()), "email_mismatch");
-    await svc.assertInvitationEmail(inv.code, ` ${staffEmail.toUpperCase()} `);
+    expect(await svc.assertInvitationEmail(inv.code, ` ${staffEmail.toUpperCase()} `)).toBe(true);
+    // D130: quien abre la invitación con su mismo email queda verificado sin código; con otro email, no.
+    const un = await svc.signUpPerson({ name: "Sin verificar", email: mail(), password: "prueba1234", terms: true, sendOtp: false });
+    expect(await svc.verifyByInvitation(un.userId!, inv.code)).toBe(false);
     const otro = await verified(mail());
     await expectErr(svc.acceptInvitation(otro, inv.code), "email_mismatch");
     const denied = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, otro), eq(schema.auditEvent.result, "denied")));

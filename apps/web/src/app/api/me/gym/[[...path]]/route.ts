@@ -10,6 +10,7 @@ import * as join from "@/server/join/services";
 import * as connect from "@/server/gym/connect";
 import * as ac from "@/server/gym/access-control";
 import { demoQr } from "@/server/sandbox/services";
+import * as floor from "@/server/gym/floor-now";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -22,6 +23,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const u = new URL(req.url);
   if (a === "requests") return gym.myGymTasks(me);
   if (a === "presence") return ac.myPresence(me); // control de acceso (D127)
+  if (a === "floor") return floor.myFloor(me); // profesores en sala y con quién entreno hoy (D131)
   if (a === "connect" && !b) return connect.memberBoard(me); // REPI Connect (D126)
   if (a === "connect" && b) return connect.memberDetail(me, b);
   if (a === "joins") return join.myJoinRequests(me); // solicitudes de acceso por QR (anexo §5)
@@ -57,6 +59,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       token: z.string().max(600), geo: z.object({ lat: z.number(), lng: z.number(), accuracyM: z.number(), ageSec: z.number() }).nullable().optional(),
     })));
   }
+  if (a === "floor") { const p = await body(req, z.object({ gymMemberId: id, trainerId: id.nullable() })); return floor.pickFloorTrainer(me, p.gymMemberId, p.trainerId); }
   if (a === "demo-qr") return demoQr(me, (await body(req, z.object({ gym: z.enum(["own", "other"]) }))).gym); // sólo cuentas de la demo
   if (a === "connect" && b && c === "cancel") return connect.memberCancel(me, b);
   if (a === "connect" && b && c === "comment") return connect.memberComment(me, b, (await body(req, z.object({ text: z.string().max(300) }))).text);

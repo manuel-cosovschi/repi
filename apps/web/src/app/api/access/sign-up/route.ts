@@ -15,11 +15,14 @@ export const POST = handle(async (req) => {
   const b = await body(req, S);
   // La fecha de nacimiento se pide a alumnos y socios (política de menores). El equipo de un gimnasio entra con una
   // invitación de equipo vigente y no la carga (F-12): se valida con el código, no con lo que diga el cliente.
-  if (b.flow === "invite" && b.code) await svc.assertInvitationEmail(b.code, b.email);
+  const bound = b.flow === "invite" && !!b.code && (await svc.assertInvitationEmail(b.code, b.email));
   const staff = b.flow === "invite" && !!b.code && (await svc.lookupInvitation(b.code).then((i) => i.kind === "gym_staff", () => false));
   const r = await svc.signUpPerson({
     name: b.name, email: b.email, password: b.password, terms: b.terms,
-    birth: b.flow === "owner" || staff ? undefined : (b.birth ?? ""), organizationTerms: b.flow === "owner",
+    birth: b.flow === "owner" || staff ? undefined : (b.birth ?? ""), organizationTerms: b.flow === "owner", sendOtp: !bound,
   });
-  return { email: r.email, minor: r.minor };
+  // D130: invitación personal abierta con su mismo email: cuenta verificada, se entra con la contraseña sin código.
+  if (bound && r.userId && (await svc.verifyByInvitation(r.userId, b.code!))) return { email: r.email, minor: r.minor, verified: true };
+  if (bound && !r.existing) await svc.sendSignupOtp(r.email);
+  return { email: r.email, minor: r.minor, verified: false, existing: r.existing };
 });

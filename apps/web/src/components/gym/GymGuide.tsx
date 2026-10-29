@@ -28,6 +28,7 @@ const FLOOR: GuideStep[] = [
   { t: "«Socios» → ficha → «Crear programa» o «Editar programa»", d: "Días, ejercicios, series, reps y descanso, con el motivo del cambio. El socio lo ve en su app. «Reemplazos» deja aprobadas alternativas si una máquina está ocupada." },
   { t: "«Solicitudes de acceso» → «Mostrar QR de la sede»", d: "Si un socio está con vos y no quiere ir a recepción, mostrale el QR en tu pantalla o mandale el enlace con «Copiar enlace». Después aprobás su pedido ahí mismo (con el turno iniciado)." },
   { t: "«Traspaso de turno»", d: "Pasale lo pendiente a otro entrenador: queda pendiente hasta que lo acepta." },
+  { t: "«En sala ahora»", d: "Con el turno iniciado aparecés en la app de los socios de tu sede, con «Disponible» u «Ocupado». Cada socio elige con quién entrena hoy: en «Mi turno» ves quiénes te eligieron. Dueño y gerencia ven quién está en sala en el Ejecutivo o el Panel." },
   { t: "«Mensajes»", d: "Conversaciones con socios de tu sede. Las responde el equipo de sala; gerencia no lee los chats." },
 ];
 

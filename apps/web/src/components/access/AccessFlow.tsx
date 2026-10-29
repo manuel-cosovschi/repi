@@ -438,8 +438,15 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           if (!staffInv && birthCls === "blocked") return fail("Para menores de 13 años la cuenta la crea un adulto responsable.");
           setF((x) => ({ ...x, minor: birthCls === "minor" }));
           return run(async () => {
-            await api("sign-up", { body: { flow: "invite", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: staffInv ? undefined : s("birth"), code: invite?.code } });
-            to("verify");
+            const r = await api<{ verified: boolean; existing?: boolean }>("sign-up", { body: { flow: "invite", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: staffInv ? undefined : s("birth"), code: invite?.code } });
+            if (r.existing && invite) { setPendingCode(invite.code); to("login"); flash("Ya tenés una cuenta con ese email: ingresá con tu contraseña y la invitación se suma."); return; }
+            if (!r.verified || !invite) { to("verify"); return; }
+            // D130: la invitación llegó a ese email: cuenta verificada, entra directo sin código.
+            const si = await authClient.signIn.email({ email: s("email"), password: s("pw") });
+            authErr(si.error, "No pudimos abrir tu sesión. Ingresá con tu email y contraseña.");
+            if (invite.kind === "gym_staff") { await api("invitations/accept", { body: { code: invite.code } }); return afterAuth(null); }
+            const m = await loadMe(); setF((x) => ({ ...x, minor: m.minor }));
+            return toFresh(m.minor ? "tutor" : "consent");
           })();
         } },
       };

@@ -14,6 +14,7 @@ import * as alerts from "@/server/gym/alerts";
 import * as notices from "@/server/gym/notices";
 import * as connect from "@/server/gym/connect";
 import * as ac from "@/server/gym/access-control";
+import * as floor from "@/server/gym/floor-now";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -81,6 +82,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       if (b === "members") return ac.memberLookup(me, orgId, u.searchParams.get("q") ?? "");
       break;
     // REPI Connect (D126): bandeja del profesor, detalle con contexto e indicadores agregados para gestión.
+    case "floor-now": return floor.staffFloorNow(me, orgId, loc(u)); // D131: en sala ahora
     case "connect":
       if (b === "board") return connect.staffBoard(me, orgId, loc(u));
       if (b === "tasks" && c) return connect.staffTask(me, orgId, c);
@@ -145,6 +147,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "join-links" && b && c === "revoke") return join.revokeJoinLink(me, orgId, b);
   if (a === "accesses" && b && (c === "suspend" || c === "end" || c === "reactivate")) return join.setAccess(me, orgId, b, c);
   if (a === "accesses" && b && c === "report") return join.reportNotMember(me, orgId, b);
+  if (a === "library" && !b) return gym.gymCreateExercise(me, orgId, await body(req, z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20) })));
   if (a === "alerts" && b && c === "ack") return alerts.ackAlert(me, orgId, b);
   if (a === "access" && b === "policy") return ac.updatePolicy(me, orgId, await body(req, z.object({
     mode: z.enum(["open", "hybrid", "strict"]).optional(), strictActions: z.array(z.enum(["gym.assistance.request", "gym.challenge.attempt"])).max(4).optional(),

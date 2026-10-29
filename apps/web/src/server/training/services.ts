@@ -7,6 +7,8 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 import { requireGymAction } from "../gym/access-control";
+import { createOwnExercise, ensureExerciseCatalog } from "./library";
+import { todaysPick } from "../gym/floor-now";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
   programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest } = schema;
@@ -38,8 +40,15 @@ export async function requireClientOf(orgId: string, coachClientId: string, tx: 
 // ── Biblioteca ──────────────────────────────────────────────────────────────
 export async function listLibrary(actorId: string, orgId: string) {
   await requireCoach(actorId, orgId);
+  await ensureExerciseCatalog();
   return db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, own: sql<boolean>`${exercise.orgId} is not null` })
     .from(exercise).where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId))).orderBy(asc(exercise.name));
+}
+
+/** Ejercicio propio del coach (D129): para lo que no está en el catálogo base. */
+export async function coachCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind: string }) {
+  await requireCoach(actorId, orgId);
+  return createOwnExercise(actorId, orgId, p);
 }
 
 // ── Programas ───────────────────────────────────────────────────────────────
@@ -553,7 +562,7 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
     await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, day.d.versionId));
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: act.assignment!.id, versionId: day.d.versionId, dayId: day.d.id, dayName: day.d.name,
-      startedAt, lastResumedAt: startedAt, presenceCheckinId,
+      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
     }).returning();
     return s;
   });

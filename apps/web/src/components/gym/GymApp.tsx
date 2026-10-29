@@ -19,6 +19,7 @@ import { NoticesScreen } from "./Notices";
 import { GymGuide } from "./GymGuide";
 import { ConnectQueueScreen, ConnectReportScreen } from "./Connect";
 import { AccessControlScreen, AccessDesk, ManualCheckin } from "./AccessControl";
+import { FloorNowCard } from "./FloorNow";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
 import { ArrowsLeftRight, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
@@ -178,6 +179,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
           {screen === "connect" && <ConnectReportScreen shell={shell} />}
           {screen === "presence" && <AccessControlScreen shell={shell} />}
+          {(screen === "shift" || screen === "exec" || screen === "mdash" || screen === "reception" || screen === "queue") && <FloorNowCard shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}
           {screen === "handoff" && <HandoffScreen shell={shell} />}
           {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido." emptyText="Todavía no hay conversaciones. Se abren cuando un socio escribe o desde su ficha con «Escribir»." initial={sel} onSeen={refreshBadges} />}

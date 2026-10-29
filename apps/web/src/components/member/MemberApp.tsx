@@ -23,6 +23,7 @@ import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet } from "./Solo";
 import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext } from "./Connect";
 import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
+import { FloorNow } from "./FloorNow";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
@@ -198,7 +199,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
+              {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}

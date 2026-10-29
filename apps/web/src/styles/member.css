@@ -522,3 +522,18 @@
 .pr-demo { display: flex; flex-direction: column; gap: 8px; border: 1px dashed var(--dark-border); border-radius: 14px; padding: 12px; }
 .pr-demo small { font-size: 12px; color: var(--dark-muted); line-height: 1.4; }
 .pr-demo span { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* «En sala ahora» (D131): profesores en turno y con quién entreno hoy. */
+.fl-now { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--dark-border); border-radius: 14px; padding: 12px 14px; }
+.fl-head { display: flex; flex-direction: column; gap: 2px; }
+.fl-head b { font-size: 14px; font-weight: 600; }
+.fl-head small, .fl-empty, .fl-note { font-size: 12px; color: var(--dark-muted); line-height: 1.4; }
+.fl-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.fl-t { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 12px 6px 6px; border-radius: 12px; border: 1px solid var(--dark-border); background: transparent; color: var(--dark-ink); font: inherit; cursor: pointer; flex: none; text-align: left; }
+.fl-t[aria-pressed="true"] { border-color: var(--core-cyan); background: rgba(0, 209, 255, .1); }
+.fl-t span:last-child { display: flex; flex-direction: column; }
+.fl-t b { font-size: 14px; font-weight: 600; }
+.fl-t small { font-size: 11px; }
+.fl-t small.ok { color: #5DE6D8; }
+.fl-t small.busy { color: #F5B544; }
+.fl-ini { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: rgba(0, 209, 255, .14); color: var(--core-cyan); font: 700 13px var(--font-ui); }

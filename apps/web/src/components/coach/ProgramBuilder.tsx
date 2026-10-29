@@ -8,6 +8,7 @@ import { ApprovedSubs, subsLabel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
 import { featureOn } from "@/lib/features";
 import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./types";
+import { NewExercise } from "./NewExercise";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -67,6 +68,11 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const setDayDoc = (fn: (x: EditableDoc["days"][number]) => EditableDoc["days"][number]) => edit((d) => ({ ...d, days: d.days.map((x, i) => (i === day ? fn(x) : x)) }));
   const cur = doc?.days[day] ?? doc?.days[0];
   const libq = libQ.trim().toLowerCase();
+  const addLib = (l: { id: string; name: string; kind: string }) => {
+    if (!cur) return;
+    setDayDoc((x) => ({ ...x, exercises: [...x.exercises, { exerciseId: l.id, name: l.name, sets: 3, reps: l.kind === "time" ? "40 s" : "8-12", rir: l.kind === "time" ? null : 2, restSec: 90 }] }));
+    flash(`${l.name} agregado a ${cur.name}.`);
+  };
 
   const duplicate = async () => {
     if (!prog) return;
@@ -138,13 +144,14 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
         <div className="side-pane" style={{ gap: 6 }}>
           <span className="lbl-up" style={{ padding: "6px 8px" }}>Biblioteca</span>
           <label className="search" style={{ height: 38 }}><input value={libQ} onChange={(e) => setLibQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
+          <NewExercise url={`/api/coach/${orgId}/library`} query={libQ} known={lib} disabled={!cur} flash={flash}
+            onCreated={(e) => { setLib((xs) => xs.some((x) => x.id === e.id) ? xs : [...xs, { id: e.id, name: e.name, group: e.group, kind: e.kind, own: e.own }].sort((a, b) => a.name.localeCompare(b.name, "es"))); addLib(e); setLibQ(""); }} />
           {lib.filter((l) => !libq || (l.name + l.group).toLowerCase().includes(libq)).map((l) => (
-            <button type="button" key={l.id} className="librow" disabled={!cur} aria-label={`Agregar ${l.name}`}
-              onClick={() => { if (!cur) return; setDayDoc((x) => ({ ...x, exercises: [...x.exercises, { exerciseId: l.id, name: l.name, sets: 3, reps: l.kind === "time" ? "40 s" : "8-12", rir: l.kind === "time" ? null : 2, restSec: 90 }] })); flash(`${l.name} agregado a ${cur.name}.`); }}>
-              <span>{l.name}<small>{l.group}</small></span><i aria-hidden="true">+</i>
+            <button type="button" key={l.id} className="librow" disabled={!cur} aria-label={`Agregar ${l.name}`} onClick={() => addLib(l)}>
+              <span>{l.name}<small>{l.group}{l.own ? " · propio" : ""}</small></span><i aria-hidden="true">+</i>
             </button>
           ))}
-          <span className="muted" style={{ padding: "6px 8px", fontSize: 11 }}>Catálogo base sin videos todavía (medios licenciados pendientes).</span>
+          <span className="muted" style={{ padding: "6px 8px", fontSize: 11 }}>Catálogo base sin videos todavía (medios licenciados pendientes). Si falta un ejercicio, crealo: queda sólo en tu biblioteca.</span>
         </div>
       </div>
       {assign && prog && doc && <AssignModal orgId={orgId} ov={ov} programId={prog.id} name={doc.name} flash={flash}

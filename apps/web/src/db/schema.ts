@@ -392,6 +392,7 @@ export const workoutSession = pgTable("workout_session", {
   revision: integer("revision").notNull().default(1), // control de versión para sincronización offline
   updatedAt: now("updated_at"),
   presenceCheckinId: text("presence_checkin_id"), // D127: ingreso validado con el que se inició (sesiones del gym con control de acceso)
+  floorTrainerId: text("floor_trainer_id"), // D131: profesor de sala elegido por el socio para ese día (sin FK: el historial sobrevive a bajas)
 }, (t) => [
   index("workout_session_user_idx").on(t.userId, t.startedAt),
   index("session_relation_idx").on(t.coachClientId, t.startedAt),
@@ -718,6 +719,17 @@ export const shiftPlan = pgTable("shift_plan", {
 }, (t) => [uniqueIndex("shift_plan_unique").on(t.userId, t.locationId, t.date), index("shift_plan_loc_idx").on(t.locationId, t.date)]);
 
 // Turno trabajado (F-GT-01): inicio y cierre reales. Base de "horas de turno".
+// D131: con quién entrena hoy el socio (elige entre los profesores en turno de su sede). Uno por socio y día; se puede cambiar.
+export const gymFloorPick = pgTable("gym_floor_pick", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  gymMemberId: text("gym_member_id").notNull().references(() => gymMember.id, { onDelete: "cascade" }),
+  trainerUserId: text("trainer_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  day: text("day").notNull(), // AAAA-MM-DD, hora AR
+  createdAt: now("created_at"),
+}, (t) => [uniqueIndex("gym_floor_pick_day").on(t.gymMemberId, t.day), index("gym_floor_pick_trainer_idx").on(t.trainerUserId, t.day)]);
+
 export const shiftLog = pgTable("shift_log", {
   id: id(),
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),

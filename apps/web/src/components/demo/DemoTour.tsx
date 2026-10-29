@@ -32,7 +32,7 @@ const TOURS: Record<DemoRole, { who: string; steps: Step[] }> = {
   member: { who: "Alumno o socio", steps: [
     { t: "Hola, Valentina", d: "Así se ve REPI en tu teléfono. Entrenás con tu coach y con tu gimnasio desde la misma app." },
     { t: "Tu día", d: "Tu próximo entrenamiento, los avisos de tu coach y tu semana. Con «Pedir ayuda» le escribís al equipo de sala del gym y seguís el estado en «Mis pedidos».", target: "Inicio", go: true },
-    { t: "Entrenar es fácil", d: "Tu programa día por día. Tocá «Comenzar entrenamiento»: cargás peso y repeticiones con un toque, el descanso corre solo y marcás cómo te sentiste. Funciona sin conexión.", target: "Entrenar", go: true },
+    { t: "Entrenar es fácil", d: "Tu programa día por día. Arriba ves los profesores en sala y elegís con quién entrenás hoy. Tocá «Comenzar entrenamiento»: cargás peso y repeticiones con un toque, el descanso corre solo y marcás cómo te sentiste. Funciona sin conexión.", target: "Entrenar", go: true },
     { t: "Validá tu ingreso", d: "Gym Norte pide validar el ingreso para entrenar en la sede: tocá «Check-in requerido» y usá «Usar el QR de Gym Norte» (en la sede, escaneás la pantalla de recepción). Probá también el QR de otro gimnasio: se rechaza. Tu coach no lo pide.", target: "Entrenar" },
     { t: "Tu progreso", d: "Tus récords y cómo suben tus cargas semana a semana.", target: "Progreso", go: true },
     { t: "Hablá con tu coach", d: "Chat privado con tu coach y con el equipo del gimnasio.", target: "Mensajes", go: true },

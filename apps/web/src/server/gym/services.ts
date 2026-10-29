@@ -9,6 +9,7 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { addIso, assertLibrary, newVersion, plain, readVersion } from "../training/services";
+import { createOwnExercise, ensureExerciseCatalog } from "../training/library";
 
 const { user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
   workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject } = schema;
@@ -564,8 +565,16 @@ export async function addNote(actorId: string, orgId: string, gymMemberId: strin
 export async function gymLibrary(actorId: string, orgId: string) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
-  return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup, kind: schema.exercise.kind }).from(schema.exercise)
+  await ensureExerciseCatalog();
+  return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup, kind: schema.exercise.kind, own: sql<boolean>`${schema.exercise.orgId} is not null` }).from(schema.exercise)
     .where(or(isNull(schema.exercise.orgId), eq(schema.exercise.orgId, orgId))).orderBy(asc(schema.exercise.name));
+}
+
+/** Ejercicio propio del gimnasio (D129): entrenadores de sala y gestión con permiso de armar programas. */
+export async function gymCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind: string }) {
+  const ctx = await gymContext(actorId, orgId);
+  need(ctx, "program.edit");
+  return createOwnExercise(actorId, orgId, p);
 }
 
 // ── Equipo y turnos (F-GM-02, F-GM-04) ──────────────────────────────────────
