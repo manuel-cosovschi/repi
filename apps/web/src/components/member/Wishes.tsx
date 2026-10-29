@@ -15,14 +15,14 @@ export function Wishes({ offline, flash }: { offline: boolean; flash: (m: string
   const save = async () => {
     if (offline) { flash("Necesitás conexión para guardar."); return; }
     setBusy(true);
-    try { const r = await api<{ wishes: TrainingWishes | null }>("/api/me/settings", { body: { wishes: w } }); setW(r.wishes ?? emptyWishes()); setDirty(false); flash("Listo: la IA lo tiene en cuenta en tus sugerencias."); }
+    try { const r = await api<{ wishes: TrainingWishes | null }>("/api/me/settings", { body: { wishes: w } }); setW(r.wishes ?? emptyWishes()); setDirty(false); flash("Listo: REPI lo tiene en cuenta en tus sugerencias."); }
     catch (e) { flash((e as Error).message); } finally { setBusy(false); }
   };
   const num = (v: string) => (v === "" ? null : Number(v));
   return (
     <section className="wishes" aria-labelledby="wishes-h">
       <h2 id="wishes-h" style={{ fontSize: 16 }}>Lo que buscás entrenando</h2>
-      <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>La IA de «No vino el profe» lo usa para ajustar tu rutina del día. Tu programa no cambia. No pongas datos de salud: para eso está «Molestia».</span>
+      <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>REPI lo usa en «No vino el profe» para ajustar tu rutina del día. Tu programa no cambia. No pongas datos de salud: para eso está «Molestia».</span>
       <div className="wish-goals" role="radiogroup" aria-label="Objetivo principal">
         {(Object.entries(TRAINING_WISH_GOALS) as [TrainingWishGoal, string][]).map(([k, label]) => (
           <button key={k} type="button" role="radio" className="ai-chip" aria-checked={w.goal === k} aria-pressed={w.goal === k} onClick={() => set({ goal: w.goal === k ? null : k })}>{label}</button>

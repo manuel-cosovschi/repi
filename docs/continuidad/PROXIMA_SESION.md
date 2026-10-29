@@ -1,26 +1,37 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D140), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D141), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 ## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
 
-**Estado:** todo lo pedido hasta D136 está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`; último commit `185ea81`). Migraciones 0025–0030 aplicadas en Supabase. Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar). Rama `gym-access` ya mergeada (puede borrarse).
+**Estado:** todo lo pedido hasta **D141** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones 0025–0030 aplicadas en Supabase (0030 = `user_pref.wishes`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D141**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D142**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
-**Comandos:** web `cd apps/web && pnpm vitest run` (212 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck`. Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, guardado en `app_rate_limit`).
+**Comandos:** web `cd apps/web && pnpm vitest run` (218 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (140). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 
-**Secretos (nunca en el repo ni en logs):** `~/.repi-secrets/supabase.env`, `~/.repi-secrets/openai.env`. OpenAI: `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-4.1-mini` en Vercel (producción) y en `apps/web/.env.local`. Recomendar al titular **rotar la clave de OpenAI** (se pegó en el chat). El titular pidió respuestas de IA de ≤3 s: usar gpt-4.1-mini con salida corta (gpt-5-mini tardaba 4–17 s; gpt-4.1-nano está dado de baja).
+**Secretos (nunca en el repo ni en logs):** `~/.repi-secrets/supabase.env`, `~/.repi-secrets/openai.env`. OpenAI: `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-4.1-mini` en Vercel y en `apps/web/.env.local`. El titular rota la clave cuando avise (no insistir). Respuestas de IA ≤3 s: gpt-4.1-mini con salida corta (gpt-5-mini tarda 4–17 s; gpt-4.1-nano dado de baja).
 
-**Pedidos del titular ya resueltos en esta tanda:** invitaciones (D128, D130, D136; la invitación de Smart Center Gym quedó aceptada para su cuenta), fecha con calendario y ver contraseña (D128), Gym Access (D127), ejercicios propios y catálogo (D129), «En sala ahora» y elegir profesor (D131), historial anterior con IA (D132), IA en «No vino el profe» (D133), prescripción avanzada y constructor legible en el celular (D134), guía con IA del dueño (D135).
+**Resuelto en esta tanda (D127–D141):** Gym Access (D127); invitaciones, calendario y ver contraseña (D128, D130, D136); ejercicios propios y catálogo (D129); «En sala ahora» (D131); historial anterior con IA (D132) y desde Excel/ODS (D140); «No vino el profe» con IA (D133), con respuesta del alumno y reemplazos válidos (D138) y «Lo que buscás entrenando» (D139); prescripción avanzada (D134) y superseries que alternan solas (D137); guía del dueño (D135); textos «REPI» y privacidad al día (D141).
 
-**Pendientes y próximos pasos sugeridos:**
-1. Que entrenadores reales prueben «Series y técnica» en el celular; registrar AMRAP y series por tiempo con un control propio en el entrenamiento; (alternar A1/A2 ya está: D137).
-2. Probar la importación de historial con archivos reales (alumno de Urko) y medir tiempos/costo.
-3. IA en otros lugares que sumen valor (p. ej., resumen de progreso del alumno para el coach) — revisar privacidad: nunca enviar salud, nombres ni emails sin consentimiento.
-4. Pendientes externos: cámara del QR de ingreso en iPhone/Android reales (LB-03), revisión legal de la ubicación (Gym Access), dominio de correo.
+**Decisiones del titular pendientes:**
+1. ¿Subir `TERMS_VERSION` (packages/domain/src/access.ts) para que todos acepten la Política de privacidad actualizada con OpenAI (D141)? Además falta revisión de abogado de los textos legales.
+2. La precarga de «No vino el profe» manda datos de entrenamiento a OpenAI al abrir Entrenar (sin tocar el botón). Si el abogado lo pide, pasar a pedirla sólo al tocar (pierde la respuesta instantánea).
 
-## Último bloque cerrado — 29/10/2026 · Prescripción avanzada (D134), guía con IA del dueño (D135) y aceptar invitación con la cuenta abierta (D136)
+**Próximos pasos sugeridos:**
+1. Probar la importación con un .xlsx real de Excel/Google Sheets (D140 sólo tiene pruebas con archivos armados) y con archivos reales del alumno de Urko.
+2. Mostrar «Lo que buscás entrenando» al coach en la ficha del alumno, con el consentimiento que corresponda (D139).
+3. Que entrenadores reales prueben «Series y técnica» en el celular; control propio para AMRAP y series por tiempo en el entrenamiento.
+4. Medir en producción el tiempo de «Rearmar mi rutina» (5–7 s en dev; objetivo ≤3 s: achicar contexto/salida si hace falta).
+5. Pendientes externos: cámara del QR de ingreso en iPhone/Android reales (LB-03), revisión legal de la ubicación (Gym Access), dominio de correo.
+
+## Último bloque cerrado — 29/10/2026 · Superseries (D137), respuesta a la IA (D138), deseos (D139), Excel (D140) y textos «REPI» (D141)
+
+- **Hecho:** `comboNext` + vista previa A1/A2 (`MemberApp.tsx`, `Workout.tsx`); `dayAlternatives` (`server/training/services.ts`), `aiSoloAdvice(…, follow)` (`server/training/ai-coach.ts`), `/api/me/solo/ai` con `follow`, tarjeta con «Ocupada / No hay / Me molesta» y «Rearmar mi rutina» (`components/member/Solo.tsx`), plan aceptado aplicado al iniciar (`aiPlan` en `MemberApp.tsx`); `packages/domain/src/wishes.ts`, `components/member/Wishes.tsx`, `server/settings/services.ts` (**migración 0030**); `src/lib/spreadsheet.ts` + `HistoryImport.tsx`; textos y `app/legal/[doc]/texts.ts`.
+- **Pruebas:** dominio 140, web 218 (nuevas: `spreadsheet.test.ts`, casos en `substitutions.test.ts` y `settings.test.ts`). Navegador (dev): A1→A2 sin descanso, rearmado con reemplazos aplicados en la sesión, guardado de deseos.
+- **Siguiente:** ver «Decisiones del titular pendientes» y «Próximos pasos» arriba.
+
+## Bloque anterior — 29/10/2026 · Prescripción avanzada (D134), guía con IA del dueño (D135) y aceptar invitación con la cuenta abierta (D136)
 
 - **Hecho:** `packages/domain/src/prescription.ts` (+ tests); `program_exercise.detail` (**migración 0029**); `components/coach/ExerciseDetailEditor.tsx` en ambos constructores, fila con rótulos en el celular; entrenamiento del socio con objetivo por serie (`store.ts`, `Workout.tsx`). `server/gym/owner-assistant.ts`, `server/ai/gym-kb.ts`, `components/gym/OwnerGuide.tsx` en Ejecutivo y Panel. `AccessFlow`: «Aceptar con mi cuenta».
 - **Producción:** invitación de Smart Center Gym aceptada para la cuenta del titular (D136).

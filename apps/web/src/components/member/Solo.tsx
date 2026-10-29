@@ -97,9 +97,9 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
         </div>
         {canAi && (
           <div className="ai-card" aria-live="polite">
-            {aiState === "busy" && <p className="sheet-sub" role="status">{ai ? "Rearmando tu rutina con lo que contaste…" : "Armando tu sugerencia para hoy con IA…"}</p>}
+            {aiState === "busy" && <p className="sheet-sub" role="status">{ai ? "REPI está rearmando tu rutina con lo que contaste…" : "REPI está armando tu rutina para hoy…"}</p>}
             {aiState === "error" && <p className="sheet-warn">{aiErr} <button type="button" className="linkbtn" onClick={() => (ai ? reply() : askAi(true))}>Reintentar</button></p>}
-            {aiState === "idle" && !ai && <button type="button" className="ghost" onClick={() => askAi()}>Sugerencia personalizada con IA</button>}
+            {aiState === "idle" && !ai && <button type="button" className="ghost" onClick={() => askAi()}>Sugerencia personalizada de REPI</button>}
             {ai && <>
               <b>{ai.headline}</b>
               <p className="sheet-sub">{ai.summary}</p>
@@ -119,7 +119,7 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
                 </li>
               ))}</ul>
               <form className="ai-reply" onSubmit={(ev) => { ev.preventDefault(); reply(); }}>
-                <label className="sheet-sub" htmlFor="ai-reply">¿Algo no se puede? Marcalo arriba o contale a la IA</label>
+                <label className="sheet-sub" htmlFor="ai-reply">¿Algo no se puede? Marcalo arriba o contale a REPI</label>
                 <textarea id="ai-reply" rows={2} maxLength={400} value={msg} onChange={(ev) => setMsg(ev.target.value)} placeholder="Ej.: el rack está ocupado y no hay mancuernas de más de 20 kg" />
                 <button type="submit" className="ghost" disabled={aiState === "busy" || (!msg.trim() && !Object.keys(issues).length)}>Rearmar mi rutina</button>
               </form>
@@ -127,7 +127,7 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
             </>}
           </div>
         )}
-        <p className="sheet-sub solo-foot">{ai ? "Sugerencia de IA (OpenAI) con tu programa, tus registros, tus objetivos, lo que buscás entrenando, tu check-in y lo que le contestes, sin datos de salud. Los cambios valen sólo por hoy; tu programa no cambia. Revisala: tu profe decide." : "Opciones resueltas con tu programa y tus registros."}</p>
+        <p className="sheet-sub solo-foot">{ai ? "REPI tuvo en cuenta tu programa, tus registros, tus objetivos, lo que buscás entrenando, tu check-in y lo que le contestes, sin datos de salud (lo procesa OpenAI). Los cambios valen sólo por hoy; tu programa no cambia. Revisala: tu profe decide." : "Opciones resueltas con tu programa y tus registros."}</p>
       </>}
     </Sheet>
   );

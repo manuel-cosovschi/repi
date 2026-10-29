@@ -50,7 +50,7 @@ export function OwnerGuide({ shell }: { shell: Shell }) {
           </li>
         ))}</ol>
         <div className="og-chat" aria-live="polite">
-          {!msgs.length && <small className="muted">Preguntale a la guía cómo usar REPI o cómo manejar a tus socios y tu equipo. Responde con IA usando la guía de REPI y números de tu gimnasio, sin datos de personas.</small>}
+          {!msgs.length && <small className="muted">Preguntale a la guía cómo usar REPI o cómo manejar a tus socios y tu equipo. REPI responde con su guía y los números de tu gimnasio, sin datos de personas (lo procesa OpenAI).</small>}
           {msgs.map((m, i) => (
             <div key={i} className={`og-msg ${m.role}`}>
               <p>{m.text}</p>

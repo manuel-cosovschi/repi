@@ -103,7 +103,7 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
   if (p) return (
     <Sheet title="Revisá lo que leímos" sub={`${p.summary.sessions} días de entrenamiento, ${p.summary.exercises} ejercicios y ${p.summary.sets} series, del ${d(p.summary.from)} al ${d(p.summary.to)}.`} closeLabel="Cancelar" onClose={() => { void discard(); onClose(); }}
       action={{ label: "Cargar a mi progreso", ready: true, busy: busy === "save", onSubmit: () => void confirmIt() }}>
-      {p.source === "ai" && <p className="sheet-sub">Lo leyó un servicio de IA: revisá que los pesos y las fechas estén bien antes de cargarlo.</p>}
+      {p.source === "ai" && <p className="sheet-sub">Lo leyó REPI automáticamente: revisá que los pesos y las fechas estén bien antes de cargarlo.</p>}
       {(p.dropped > 0 || p.capped) && <p className="sheet-warn">{p.dropped > 0 ? `${p.dropped} filas no tenían fecha, ejercicio o números válidos y no se cargan. ` : ""}{p.capped ? "Se cargan las primeras 5000 series." : ""}</p>}
       {p.notes.map((n, i) => <p key={i} className="sheet-warn">{n}</p>)}
       <div className="hist">{p.exercises.slice(0, 30).map((e) => (
@@ -124,7 +124,7 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
       <button type="button" className="ghost" disabled={!!busy || text.trim().length < 10} onClick={() => void send({ fileName: "Texto pegado", kind: "text", text })}>Leer el texto</button>
       {busy === "read" && <p className="sheet-sub" role="status">Puede tardar hasta un minuto con fotos o PDF.</p>}
       {err && <p className="sheet-warn" role="alert">{err}</p>}
-      <p className="sheet-sub" style={{ fontSize: 12 }}>Si no es una planilla con columnas Fecha, Ejercicio, Series, Reps y Peso, el archivo lo lee un servicio de IA (OpenAI) sólo para transcribirlo. No guardamos el archivo: sólo las series que confirmes. Podés quitarlas cuando quieras.</p>
+      <p className="sheet-sub" style={{ fontSize: 12 }}>Si no es una planilla con columnas Fecha, Ejercicio, Series, Reps y Peso, REPI lo lee automáticamente (con OpenAI) sólo para transcribirlo. No guardamos el archivo: sólo las series que confirmes. Podés quitarlas cuando quieras.</p>
     </Sheet>
   );
 }

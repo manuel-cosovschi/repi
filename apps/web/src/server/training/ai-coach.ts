@@ -32,7 +32,7 @@ type Out = { dayId: string | null; headline: string; summary: string; exercises:
 /** Respuesta de la persona a la sugerencia (D138): qué no se puede y por qué, más lo que quiera contar. */
 export type AiFollowUp = { dayId: string | null; message: string; issues: { programExerciseId: string; reason: ExerciseChangeReason }[]; turns: { role: "user" | "assistant"; text: string }[] };
 
-const SYSTEM = `Sos un entrenador de fuerza que ayuda a una persona cuando su profesor no está. Respondé en español rioplatense, breve y concreto.
+const SYSTEM = `Sos un entrenador de fuerza que ayuda a una persona cuando su profesor no está. Respondé en español rioplatense, breve y concreto. Hablás como REPI, la app: nunca digas «IA», «modelo» ni «inteligencia artificial».
 Reglas:
 - Elegí UN día del programa asignado (dayId exacto de la lista) para hoy: normalmente el «próximo», salvo que ya lo haya hecho hoy o la semana muestre otra cosa.
 - Para cada ejercicio de ese día proponé series, repeticiones y peso usando su última marca: progresá poco (+2,5 kg o +1 repetición) si completó bien; mantené o bajá un 5–10 % si el check-in muestra poca energía o mal sueño. Sin dato previo, weightKg null y una nota para empezar liviano.
@@ -47,7 +47,7 @@ Reglas:
   En summary hablale de vos y contestá en una oración a lo que dijo y qué cambiaste. Si cambiás un ejercicio sin ultimaMarca, weightKg null y nota para empezar liviano.`;
 
 export async function aiSoloAdvice(userId: string, now = new Date(), follow?: AiFollowUp) {
-  if (!aiOn()) throw new AccessError("ai_unavailable", "La sugerencia con IA no está disponible en este momento.", 503);
+  if (!aiOn()) throw new AccessError("ai_unavailable", "La sugerencia de REPI no está disponible en este momento.", 503);
   const t = await myTraining(userId, now);
   if (t.state !== "ready" || !t.program) throw new AccessError("no_program", "Todavía no tenés un programa asignado: pedíselo a tu coach o al equipo de sala.", 409);
   const today = localDate(now);

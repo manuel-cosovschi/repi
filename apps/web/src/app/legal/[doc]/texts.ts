@@ -70,12 +70,13 @@ export const LEGAL: Record<"terms" | "privacy" | "dpa", LegalDoc> = {
       ] },
       { h: "3. Para qué", p: [
         "Para prestar el servicio: mostrar tu rutina, guardar tu entrenamiento, que tu coach o gimnasio te acompañe, enviarte avisos que elegiste y darte soporte. También para mantener la seguridad y prevenir abusos.",
-        "No vendemos tus datos ni los usamos para publicidad de terceros. Hoy REPI no usa inteligencia artificial sobre tus datos; si eso cambia, lo vamos a informar antes y pedir tu permiso cuando corresponda.",
+        "No vendemos tus datos ni los usamos para publicidad de terceros.",
+        "Algunas funciones usan inteligencia artificial de OpenAI: la sugerencia de «No vino el profe» (con tu programa, tus registros, tus objetivos, lo que buscás entrenando, tu check-in y lo que le contestes), la lectura del historial que subas y la guía para dueños de gimnasios (sólo números agregados). No enviamos tu nombre, tu email ni tus molestias, lesiones u otros datos de salud. OpenAI no usa esos datos para entrenar sus modelos y el resultado es una sugerencia: tu coach decide.",
       ] },
       { h: "4. Quién los ve", p: [
         "Tu coach ve tus entrenamientos con él y lo que le compartas en Privacidad; tus datos sensibles, sólo si lo activás. Tu gimnasio ve lo necesario para atenderte según el rol de cada persona del equipo; no ve tus mensajes privados con tu coach.",
         "Lo que no compartís con una organización no se pasa a otra, aunque uses el mismo email.",
-        "Proveedores que nos ayudan a operar, con acceso limitado a esa tarea: alojamiento de la aplicación (Vercel), base de datos y archivos (Supabase) y envío de correos (Resend). Pueden estar fuera de Argentina: la base de datos está en San Pablo, Brasil. Sólo los usamos con compromisos de confidencialidad y seguridad.",
+        "Proveedores que nos ayudan a operar, con acceso limitado a esa tarea: alojamiento de la aplicación (Vercel), base de datos y archivos (Supabase), envío de correos (Resend) e inteligencia artificial (OpenAI, Estados Unidos). Pueden estar fuera de Argentina: la base de datos está en San Pablo, Brasil. Sólo los usamos con compromisos de confidencialidad y seguridad.",
         "Podemos dar datos a una autoridad sólo cuando la ley lo exige.",
       ] },
       { h: "5. Cuánto tiempo", p: [
@@ -112,7 +113,7 @@ export const LEGAL: Record<"terms" | "privacy" | "dpa", LegalDoc> = {
         "Los datos de salud y los mensajes privados entre alumno y coach no se muestran al gimnasio por ser gimnasio: sólo lo que cada persona autoriza.",
       ] },
       { h: "4. Subencargados", p: [
-        "Sovare usa proveedores de alojamiento (Vercel), base de datos y archivos (Supabase, región San Pablo, Brasil) y correo (Resend). Avisará al gimnasio antes de sumar otros que traten estos datos.",
+        "Sovare usa proveedores de alojamiento (Vercel), base de datos y archivos (Supabase, región San Pablo, Brasil), correo (Resend) e inteligencia artificial (OpenAI, Estados Unidos: sugerencias de entrenamiento y lectura del historial que suba cada socio, sin nombre, email ni datos de salud). Avisará al gimnasio antes de sumar otros que traten estos datos.",
       ] },
       { h: "5. Derechos de las personas", p: [
         "Sovare ayuda al gimnasio a responder pedidos de acceso, rectificación y supresión. Cada persona también puede descargar sus datos y pedir la eliminación desde su perfil.",
