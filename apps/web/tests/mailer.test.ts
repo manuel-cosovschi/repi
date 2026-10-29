@@ -30,7 +30,7 @@ describe("adaptador de correo", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer re_test_clave");
-    expect(JSON.parse(init.body as string)).toEqual({ from: "REPI <hola@example.test>", to: ["alumna@example.test"], subject: "Tu código", text: "Tu código REPI es 654321.", reply_to: "soporte@example.test" });
+    expect(JSON.parse(init.body as string)).toEqual({ from: "REPI <hola@example.test>", to: ["alumna@example.test"], subject: "Tu código", text: "Tu código REPI es 654321.", html: expect.stringContaining("654321"), reply_to: "soporte@example.test" });
   });
   it("resend: rechazo y caída se informan sin exponer el contenido, marcando si conviene reintentar", async () => {
     env({ MAIL_DRIVER: "resend", RESEND_API_KEY: "re_test_clave", MAIL_FROM: "hola@example.test" });

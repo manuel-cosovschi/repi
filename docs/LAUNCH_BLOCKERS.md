@@ -8,7 +8,7 @@ Actualizado: 27/10/2026 (D111). Fuente: [RELEASE_READINESS.md](RELEASE_READINESS
 | LB-03 | Lanzamiento (G03, G07) | Probar en un iPhone y un Android reales: instalar la PWA, abrir desde inicio, entrenar sin conexión y reconectar, recibir push | La emulación no cubre Safari iOS instalado, permisos de notificación ni el teclado real | Titular con sus teléfonos (Claude guía) | Lista en [QA_CHECKLIST.md](QA_CHECKLIST.md) §Dispositivos; anotar resultado y fecha |
 | LB-04 | Lanzamiento público (G11) | Revisión de abogado de `/legal/terms`, `/legal/privacy`, `/legal/dpa` y datos de la empresa (razón social, CUIT, domicilio) | Los textos son un borrador operativo (D109); no se afirma cumplimiento legal | Titular + abogado | Pasar los datos; Claude los carga y sube `TERMS_VERSION` |
 | LB-05 | Lanzamiento comercial (G10) | Frecuencia de respaldo y dónde se guarda una copia fuera de esta computadora | Hoy el respaldo es manual y queda sólo en `~/.repi-secrets/backups/` | Titular decide; Claude programa | Con Supabase Pro hay respaldo diario; sumar `ops:backup` semanal a un almacenamiento externo |
-| LB-06 | Lanzamiento comercial | Alertas de errores (hoy sólo logs en Vercel, sin aviso) | Un fallo en producción no avisa a nadie | Titular elige (gratis: alerta por correo de Vercel o un monitor externo) | Configurar en el panel; documentar en `DEPLOYMENT.md` |
+| LB-06 | Lanzamiento comercial | ~~Alertas de errores~~ **Resuelto 29/10 (D149)**: email por Resend a la casilla del titular (`ALERT_EMAIL` en Vercel), una vez por hora por error igual, máximo 20 por hora | — | Titular eligió email gratis por Resend | Prueba: `GET /api/cron/alert-test` con `CRON_SECRET` |
 
 ## Ya cerrados en este corte
 

@@ -1,5 +1,6 @@
 import { db, schema } from "@/db";
 import { isDemoDeploy } from "./deploy";
+import { renderMailHtml } from "./mail-template";
 
 export type Mail = { to: string; subject: string; body: string };
 
@@ -39,6 +40,9 @@ export async function deliverMail(mail: Mail): Promise<Delivery> {
   await db.insert(schema.devMailbox).values(mail);
   return "local_only";
 }
+
+/** Para avisos internos (D149): sólo con proveedor real; sin él (desarrollo, tests) no se manda nada. */
+export const providerConfigured = () => { try { return !!resendConfig(); } catch { return false; } };
 
 type ResendConfig = { key: string; from: string; replyTo?: string };
 function resendConfig(): ResendConfig | null {
@@ -85,7 +89,8 @@ async function sendResend(c: ResendConfig, m: Mail) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${c.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: c.from, to: [m.to], subject: m.subject, text: m.body, ...(c.replyTo ? { reply_to: c.replyTo } : {}) }),
+    // D149: versión HTML con la estética de REPI y la de texto de siempre (clientes sin HTML, lectores de pantalla).
+    body: JSON.stringify({ from: c.from, to: [m.to], subject: m.subject, text: m.body, html: renderMailHtml(m), ...(c.replyTo ? { reply_to: c.replyTo } : {}) }),
     signal: AbortSignal.timeout(10_000),
   }).catch((e: unknown) => { throw new MailError(`email: sin respuesta del proveedor (${e instanceof Error ? e.name : "error"})`, 0, true); });
   if (!res.ok) throw new MailError(`email: el proveedor rechazó el envío (${res.status})`, res.status, res.status === 429 || res.status >= 500);
