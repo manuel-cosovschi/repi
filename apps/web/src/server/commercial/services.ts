@@ -52,7 +52,7 @@ export async function listClients(actorId: string) {
   const terms = await termsOf(contracts.map((c) => c.id));
   const owners = await db.select({ org: staffMembership.orgId }).from(staffMembership).where(and(inArray(staffMembership.role, ["owner", "coach_owner"]), eq(staffMembership.status, "active")));
   const invites = await db.select({ org: invitation.orgId, status: invitation.status, delivery: invitation.delivery }).from(invitation).where(eq(invitation.kind, "org_owner"));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate(new Date());
   const out = [];
   for (const o of orgs) {
     const c = contracts.find((x) => x.orgId === o.id);
@@ -207,7 +207,8 @@ export async function setClientAccessControl(actorId: string, contractId: string
   return setAccessEnabled(o.id, on, actorId);
 }
 function currentPeriod() {
-  const d = new Date(); const y = d.getUTCFullYear(), m = d.getUTCMonth();
+  // Mes en curso en hora argentina (DATA-9): el último día a la noche todavía es este mes.
+  const [y, mo] = localDate(new Date()).split("-").map(Number); const m = mo - 1;
   const start = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
   const end = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10);
   return { start, end };
@@ -337,14 +338,17 @@ export async function deleteClient(actorId: string, contractId: string, confirmN
   const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
   if (!o) throw NOT_FOUND();
   if ((confirmName ?? "").trim().toLowerCase() !== o.name.trim().toLowerCase()) throw new AccessError("invalid", `Escribí el nombre exacto del cliente («${o.name}») para eliminarlo.`);
-  const count = async (t: typeof staffMembership | typeof gymMember | typeof membershipRequest | typeof legalAcceptance) =>
-    (await db.select({ n: sql<number>`count(*)::int` }).from(t).where(eq(t.orgId, c.orgId)))[0]?.n ?? 0;
-  const people = (await count(staffMembership)) + (await count(gymMember)) + (await count(membershipRequest)) + (await count(legalAcceptance))
-    + ((await db.select({ n: sql<number>`count(*)::int` }).from(coachClient).where(eq(coachClient.coachOrgId, c.orgId)))[0]?.n ?? 0);
-  if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
-  const [pay] = await db.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
-  if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
+  // QA 29/10 (DATA-11): los conteos van dentro de la transacción, con la organización bloqueada: un alta que entra
+  // mientras se elimina no queda huérfana ni se borra en cascada.
   await db.transaction(async (tx) => {
+    await tx.select({ id: organization.id }).from(organization).where(eq(organization.id, c.orgId)).for("update");
+    const count = async (t: typeof staffMembership | typeof gymMember | typeof membershipRequest | typeof legalAcceptance) =>
+      (await tx.select({ n: sql<number>`count(*)::int` }).from(t).where(eq(t.orgId, c.orgId)))[0]?.n ?? 0;
+    const people = (await count(staffMembership)) + (await count(gymMember)) + (await count(membershipRequest)) + (await count(legalAcceptance))
+      + ((await tx.select({ n: sql<number>`count(*)::int` }).from(coachClient).where(eq(coachClient.coachOrgId, c.orgId)))[0]?.n ?? 0);
+    if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
+    const [pay] = await tx.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
+    if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
     await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.client_deleted", resourceType: "client_contract", resourceId: c.id, meta: { name: o.name, kind: o.kind, status: c.status } });
     await tx.delete(organization).where(eq(organization.id, c.orgId));
   });
@@ -372,7 +376,7 @@ const lockContract = (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], i
 export async function addTerm(actorId: string, contractId: string, p: { kind: "quantity" | "unit_price"; value: number; effectiveFrom: string; reason: string; evidence?: string | null }) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
-  if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000)) throw new AccessError("invalid", "Valor inválido.");
+  if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000) || p.value > 2_147_483_647) throw new AccessError("invalid", "Valor inválido.");
   if (!isDay(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
   if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
   const t = await db.transaction(async (tx) => {
@@ -419,6 +423,8 @@ export async function closePeriodSimulated(actorId: string, contractId: string, 
     const terms = (await tx.select().from(contractTerm).where(eq(contractTerm.contractId, c.id)).orderBy(asc(contractTerm.version))).map(asTerm);
     const prev = previewPeriod(terms, period);
     if (!prev.ok) throw new AccessError("incomplete", `No se puede cerrar: ${prev.reason}`, 409);
+    // QA 29/10 (DATA-4): importes en int4. Un total mayor (≈ ARS 21,4 M) se frena con un mensaje claro, sin migrar la base.
+    if (prev.subtotal > 2_147_483_647 || prev.price.value > 2_147_483_647) throw new AccessError("too_large", "El total del período supera el máximo que REPI puede registrar hoy. Revisá cantidad y precio.", 409);
     const [row] = await tx.insert(billingSnapshot).values({
       contractId: c.id, periodStart: period.start, periodEnd: period.end, mode: "simulated_close", quantity: prev.quantity.value, quantityTermId: prev.quantity.id,
       unitPriceMinor: prev.price.value, priceTermId: prev.price.id, currency: prev.currency, subtotalMinor: prev.subtotal, lines: prev.lines,
@@ -527,7 +533,7 @@ export async function myConditions(actorId: string, orgId: string) {
   const terms = await termsOf([c.id]);
   const corrections = await db.select().from(correctionRequest).where(eq(correctionRequest.contractId, c.id)).orderBy(desc(correctionRequest.createdAt));
   const notices = await noticesOf(c.id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate(new Date());
   return {
     commercialStatus: o.commercialStatus, enabledAccesses: enabled,
     contract: { status: c.status, legalName: c.legalName, currency: c.currency, scope: c.scope, scopeNote: c.scopeNote, quantityDefinition: c.quantityDefinition, termsVersion: c.termsVersion, acceptedAt: c.acceptedAt, trialUntil: c.trialUntil },

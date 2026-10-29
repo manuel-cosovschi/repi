@@ -6,7 +6,7 @@ import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
 import { bestE1rm, localDate, volumeKg } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
-import { requireClientOf, requireCoach, toLogged } from "./services";
+import { requireClientOf, requireCoach, timedPeIds, toLogged } from "./services";
 
 const { workoutSession, setLog, exercise, checkin, user } = schema;
 
@@ -39,6 +39,7 @@ async function build(scope: Scope, month: string, now: Date) {
   const curIds = new Set(cur.map((s) => s.id));
   const curSets = sets.filter((x) => curIds.has(x.l.sessionId)), prevSets = sets.filter((x) => !curIds.has(x.l.sessionId));
   const rpes = cur.map((s) => s.rpe).filter((r): r is number => r != null);
+  const timed = await timedPeIds(sets.map((x) => x.l.programExerciseId)); // QA DATA-6: series por tiempo fuera de volumen y 1RM
 
   // Semanas que empiezan el lunes (fecha local); la primera puede empezar en el mes anterior.
   const weeks = new Map<string, { sessions: number; volumeKg: number }>();
@@ -46,7 +47,7 @@ async function build(scope: Scope, month: string, now: Date) {
     const d = new Date(`${localDate(s.endedAt!)}T12:00:00Z`);
     const monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
     const w = weeks.get(monday) ?? { sessions: 0, volumeKg: 0 };
-    w.sessions++; w.volumeKg += volumeKg(curSets.filter((x) => x.l.sessionId === s.id).map((x) => toLogged(x.l)));
+    w.sessions++; w.volumeKg += volumeKg(curSets.filter((x) => x.l.sessionId === s.id).map((x) => toLogged(x.l, timed)));
     weeks.set(monday, w);
   }
   const byEx = new Map<string, { name: string; group: string; cur: typeof sets; prev: typeof sets }>();
@@ -56,20 +57,20 @@ async function build(scope: Scope, month: string, now: Date) {
     byEx.set(x.l.exerciseId, e);
   }
   const exercises = [...byEx.values()].filter((e) => e.cur.length).map((e) => {
-    const best = bestE1rm(e.cur.map((x) => toLogged(x.l))), before = bestE1rm(e.prev.map((x) => toLogged(x.l)));
+    const best = bestE1rm(e.cur.map((x) => toLogged(x.l, timed))), before = bestE1rm(e.prev.map((x) => toLogged(x.l, timed)));
     const loads = e.cur.map((x) => (x.l.weightKg == null ? null : Number(x.l.weightKg))).filter((w): w is number => w != null);
     return { name: e.name, group: e.group, sets: e.cur.length, topKg: loads.length ? Math.max(...loads) : null, best, previous: before };
   }).sort((a, b) => b.sets - a.sets || a.name.localeCompare(b.name)).slice(0, 15);
   const groups = new Map<string, number>();
-  for (const x of curSets) groups.set(x.group, (groups.get(x.group) ?? 0) + volumeKg([toLogged(x.l)]));
+  for (const x of curSets) groups.set(x.group, (groups.get(x.group) ?? 0) + volumeKg([toLogged(x.l, timed)]));
 
   return {
     month, label: b.label, generatedAt: now.toISOString(),
     totals: {
       sessions: cur.length, activeMinutes: Math.round(cur.reduce((a, s) => a + s.activeMs, 0) / 60_000), sets: curSets.length,
-      volumeKg: volumeKg(curSets.map((x) => toLogged(x.l))), avgRpe: rpes.length ? Math.round((rpes.reduce((a, r) => a + r, 0) / rpes.length) * 10) / 10 : null, rpeCount: rpes.length,
+      volumeKg: volumeKg(curSets.map((x) => toLogged(x.l, timed))), avgRpe: rpes.length ? Math.round((rpes.reduce((a, r) => a + r, 0) / rpes.length) * 10) / 10 : null, rpeCount: rpes.length,
     },
-    previous: { sessions: prev.length, volumeKg: volumeKg(prevSets.map((x) => toLogged(x.l))) },
+    previous: { sessions: prev.length, volumeKg: volumeKg(prevSets.map((x) => toLogged(x.l, timed))) },
     weeks: [...weeks.entries()].map(([from, w]) => ({ from, sessions: w.sessions, volumeKg: Math.round(w.volumeKg * 10) / 10 })),
     exercises,
     groups: [...groups.entries()].map(([group, v]) => ({ group, volumeKg: Math.round(v * 10) / 10 })).sort((a, b) => b.volumeKg - a.volumeKg),

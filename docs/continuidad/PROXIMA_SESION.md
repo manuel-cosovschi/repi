@@ -1,12 +1,31 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D150), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D152), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## AUDITORÍA QA (D151) y QR de la sede (D152) — 29/10/2026 (leer primero)
+
+- **Estado:**
+  - En `main` y publicado. El titular autorizó publicar.
+  - **Sin migraciones.**
+  - `apps/web/vercel.json` despliega sólo `main`: las ramas no generan previews, que fallaban por falta de variables de Preview.
+- **Auditoría:**
+  - 48 defectos válidos: 46 corregidos y 2 riesgos aceptados (SEC-9 = D119 admin sin 2FA; esbuild de una herramienta de desarrollo).
+  - Informe: `docs/qa/QA_MASTER_REPORT.md`. Registro: `docs/qa/BUG_REGISTER.md`.
+- **D152:** el QR de la sede (`/unirse/<slug>`) va directo a «Pedí tu acceso». La guía para agregar a inicio aparece con la solicitud enviada.
+- **Pruebas:**
+  - Web 238 ✓, guardas ✓, dominio 146 ✓, `tsc` ✓, build ✓.
+  - E2E: con `cd apps/web && pnpm build && pnpm start` corriendo, en otra terminal `pnpm e2e`. Resultado: 36/36 (Playwright + Chrome + axe, sólo contra un servidor local).
+- **Siguiente:**
+  1. Que el titular pruebe el QR con un teléfono real.
+  2. 2FA de admin cuando lo decida (SEC-9).
+  3. Teléfonos reales (LB-03).
+  4. Si un contrato supera ≈ ARS 21,4 M por período, migrar los importes a bigint.
 
 ## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
 
 **Estado:** todo lo pedido hasta **D150** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones hasta 0031 aplicadas en Supabase (0031 = `gym_access_display.purpose`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D151**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D153**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
 **Comandos:** web `cd apps/web && pnpm vitest run` (221 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (141). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 

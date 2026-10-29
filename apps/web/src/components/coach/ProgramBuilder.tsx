@@ -113,8 +113,10 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
         {doc && cur ? (
           <section className="card" style={{ flex: "3 1 480px", minWidth: 0, gap: 14 }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
-              <div className="seg" role="tablist" aria-label="Días del programa">
-                {doc.days.map((d, i) => <button key={i} type="button" role="tab" aria-selected={i === day} onClick={() => setDay(i)}>{d.name || `Día ${i + 1}`}</button>)}
+              <div className="seg">
+                <div role="tablist" aria-label="Días del programa" style={{ display: "contents" }}>
+                  {doc.days.map((d, i) => <button key={i} type="button" role="tab" aria-selected={i === day} onClick={() => setDay(i)}>{d.name || `Día ${i + 1}`}</button>)}
+                </div>
                 <button type="button" aria-label="Agregar día" onClick={() => { edit((d) => ({ ...d, days: [...d.days, { name: `Día ${d.days.length + 1}`, exercises: [] }] })); setDay(doc.days.length); }}>+</button>
               </div>
               <span className="muted" style={{ fontSize: 13 }}>

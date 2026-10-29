@@ -5,6 +5,7 @@ import { db, schema } from '@/db';
 import { auth } from '@/server/auth';
 import { completeGymConsent } from '@/server/access/services';
 import { issueFirstAdminTicket, claimFirstAdmin } from '@/server/admin/bootstrap';
+import { POST as authPost } from '@/app/api/auth/[...all]/route';
 
 const person = async (extra: Partial<typeof schema.user.$inferInsert> = {}) => {
   const id = randomUUID();
@@ -14,6 +15,17 @@ const person = async (extra: Partial<typeof schema.user.$inferInsert> = {}) => {
 afterEach(() => { delete process.env.REPI_DEPLOY; });
 
 describe('cierre de lanzamiento: identidad y acceso', () => {
+  it('SEC-4 (QA 29/10): no se crean cuentas por fuera del alta con términos y edad', async () => {
+    const email = `${randomUUID()}@example.test`;
+    const res = await authPost(new Request('http://localhost:3000/api/auth/sign-up/email', {
+      method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({ email, name: 'Atajo', password: 'Password123!' }),
+    }));
+    expect(res.status).toBe(404);
+    await auth.api.signInEmailOTP({ body: { email, otp: '123456' } }).catch(() => {});
+    await auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } }).catch(() => {});
+    expect(await db.select().from(schema.user).where(eq(schema.user.email, email))).toHaveLength(0);
+  });
   it('no deja a un socio suspendido reactivar su membresía mediante consentimiento', async () => {
     const uid = await person();
     const [org] = await db.insert(schema.organization).values({ name: 'Gym prueba', kind: 'gym', status: 'active', commercialStatus: 'enabled' }).returning();

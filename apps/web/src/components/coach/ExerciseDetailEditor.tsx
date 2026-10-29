@@ -2,7 +2,7 @@
 // Editor de prescripción avanzada (D134), para coaches y entrenadores de sala: técnica (top set, drop set, pirámide…),
 // cada serie con su tipo, repeticiones, peso, % del 1RM, RIR o RPE, descanso y nota; combinaciones (A1-A2, circuitos),
 // tempo, variante, unilateral y progresión. Lo que no se toca queda como «N series × reps».
-import { useState } from "react";
+import { useState, type InputHTMLAttributes } from "react";
 import { Modal } from "@/components/ui/Modal";
 import {
   GROUP_KIND_LABEL, GROUP_LETTERS, SET_KIND_LABEL, TECHNIQUES, emptyDetail, presetPlan, setTarget, setTargetText, validateDetail,
@@ -21,6 +21,16 @@ export function detailSummary(e: Ex, label?: string | null) {
 
 const blank = (reps: string): SetSpec => ({ kind: "work", reps, weightKg: null, pct1rm: null, rir: null, rpe: null, restSec: null, note: null });
 const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
+
+/**
+ * QA 29/10 (UX-5): campo numérico que conserva lo tipeado («42,» o «7.») mientras se escribe; antes se reconvertía a número
+ * en cada tecla y no dejaba cargar decimales. Lo inválido no se guarda como NaN: queda el último valor bueno.
+ */
+function NumInput({ value, onChange, ...rest }: { value: number | null; onChange: (n: number | null) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const [draft, setDraft] = useState(value == null ? "" : String(value).replace(".", ","));
+  const shown = numOrNull(draft) === value || (draft.trim() !== "" && Number.isNaN(numOrNull(draft))) ? draft : value == null ? "" : String(value).replace(".", ",");
+  return <input {...rest} value={shown} onChange={(ev) => { setDraft(ev.target.value); const n = numOrNull(ev.target.value); if (n === null || Number.isFinite(n)) onChange(n); }} />;
+}
 
 export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p: { detail: ExerciseDetail | null; sets: number }) => void; onClose: () => void }) {
   const [d, setD] = useState<ExerciseDetail>(e.detail ?? emptyDetail());
@@ -72,11 +82,11 @@ export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p
                     <label className="field">Tipo<select style={sel} value={s.kind} onChange={(ev) => setAt(i, { kind: ev.target.value as SetKind, ...(ev.target.value === "drop" ? { restSec: 0 } : {}) })}>
                       {(Object.keys(SET_KIND_LABEL) as SetKind[]).map((k) => <option key={k} value={k}>{SET_KIND_LABEL[k]}</option>)}</select></label>
                     <label className="field">Reps<input value={s.reps} maxLength={20} onChange={(ev) => setAt(i, { reps: ev.target.value })} placeholder="8-10, AMRAP, 40 s" /></label>
-                    <label className="field">Peso (kg)<input inputMode="decimal" value={s.weightKg ?? ""} onChange={(ev) => setAt(i, { weightKg: numOrNull(ev.target.value) })} placeholder="—" /></label>
-                    <label className="field">% 1RM<input inputMode="decimal" value={s.pct1rm ?? ""} onChange={(ev) => setAt(i, { pct1rm: numOrNull(ev.target.value) })} placeholder="—" /></label>
-                    <label className="field">RIR<input inputMode="numeric" value={s.rir ?? ""} onChange={(ev) => setAt(i, { rir: numOrNull(ev.target.value) })} placeholder="—" /></label>
-                    <label className="field">RPE<input inputMode="decimal" value={s.rpe ?? ""} onChange={(ev) => setAt(i, { rpe: numOrNull(ev.target.value) })} placeholder="—" /></label>
-                    <label className="field">Descanso (s)<input inputMode="numeric" value={s.restSec ?? ""} onChange={(ev) => setAt(i, { restSec: numOrNull(ev.target.value) })} placeholder={String(e.restSec)} /></label>
+                    <label className="field">Peso (kg)<NumInput inputMode="decimal" value={s.weightKg} onChange={(n) => setAt(i, { weightKg: n })} placeholder="—" /></label>
+                    <label className="field">% 1RM<NumInput inputMode="decimal" value={s.pct1rm} onChange={(n) => setAt(i, { pct1rm: n })} placeholder="—" /></label>
+                    <label className="field">RIR<NumInput inputMode="numeric" value={s.rir} onChange={(n) => setAt(i, { rir: n })} placeholder="—" /></label>
+                    <label className="field">RPE<NumInput inputMode="decimal" value={s.rpe} onChange={(n) => setAt(i, { rpe: n })} placeholder="—" /></label>
+                    <label className="field">Descanso (s)<NumInput inputMode="numeric" value={s.restSec} onChange={(n) => setAt(i, { restSec: n })} placeholder={String(e.restSec)} /></label>
                     <label className="field dx-note">Nota<input value={s.note ?? ""} maxLength={80} onChange={(ev) => setAt(i, { note: ev.target.value || null })} placeholder="Ej.: subí 2,5 kg, pausa abajo" /></label>
                   </div>
                 </div>

@@ -16,10 +16,15 @@ function configured() {
   webpush.setVapidDetails(subj, pub, priv);
   return true;
 }
+// SEC-7 (QA 29/10): el servidor manda los avisos a ese endpoint; sólo se aceptan los servicios de push de los navegadores.
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+export function pushHostAllowed(endpoint: string) {
+  try { const u = new URL(endpoint); return u.protocol === "https:" && !u.port && PUSH_HOSTS.some((h) => h.test(u.hostname)); } catch { return false; }
+}
 export const pushPublicKey = () => process.env.VAPID_PUBLIC_KEY ?? null;
 
 export async function subscribe(userId: string, p: { endpoint: string; keys: { p256dh: string; auth: string } }, userAgent: string | null) {
-  if (!/^https:\/\//.test(p.endpoint) || p.endpoint.length > 1000 || !p.keys?.p256dh || !p.keys?.auth) throw new AccessError("invalid", "Suscripción inválida.");
+  if (!pushHostAllowed(p.endpoint) || p.endpoint.length > 1000 || !p.keys?.p256dh || !p.keys?.auth) throw new AccessError("invalid", "Suscripción inválida.");
   await db.insert(pushSubscription).values({ userId, endpoint: p.endpoint, p256dh: p.keys.p256dh, auth: p.keys.auth, userAgent: userAgent?.slice(0, 200) ?? null })
     .onConflictDoUpdate({ target: pushSubscription.endpoint, set: { userId, p256dh: p.keys.p256dh, auth: p.keys.auth, revokedAt: null, failCount: 0 } });
   return { ok: true };

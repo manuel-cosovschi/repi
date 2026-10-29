@@ -75,7 +75,7 @@ export function TeamScreen({ shell }: { shell: Shell }) {
       <Head kicker={shell.ctx.org.name} title="Equipo">{t.data?.canManage && <button type="button" className="btn pri" onClick={() => setInvite(true)}>Invitar al equipo</button>}</Head>
       {t.err && <p role="alert" className="err-box">{t.err}</p>}
       <label className="search" style={{ maxWidth: 420 }}><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar persona" aria-label="Buscar persona" /></label>
-      <section className="card" style={{ padding: 0, overflowX: "auto" }}>
+      <section className="card" style={{ padding: 0, overflowX: "auto" }} tabIndex={0}>
         <table className="gy-table">
           <thead><tr><th scope="col">Persona</th><th scope="col">Rol</th><th scope="col">Hoy</th><th scope="col">Tareas abiertas</th><th scope="col">Fuera de turno</th></tr></thead>
           <tbody>
@@ -169,7 +169,7 @@ export function TasksScreen({ shell }: { shell: Shell }) {
       <Head kicker="Sólo metadatos: el contenido de cada pedido lo ve el equipo de sala" title="Tareas" />
       <div className="pills" role="group" aria-label="Filtro">{[["all", "Todas"], ["shared", "Sin asignar"], ["open", "Asignadas"], ["pending", "Traspasos"], ["done", "Completadas · 30 días"]].map(([k, l]) => <button key={k} type="button" className="pill" aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}</div>
       {t.err && <p role="alert" className="err-box">{t.err}</p>}
-      <section className="card" style={{ padding: 0, overflowX: "auto" }}>
+      <section className="card" style={{ padding: 0, overflowX: "auto" }} tabIndex={0}>
         <table className="gy-table">
           <thead><tr><th scope="col">Tarea</th><th scope="col">Socio</th><th scope="col">Tipo</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Responsable</th><th scope="col">Creada</th><th scope="col"><span className="sr-only">Acciones</span></th></tr></thead>
           <tbody>
@@ -230,7 +230,7 @@ export function ShiftsScreen({ shell }: { shell: Shell }) {
       {w.data && (
         <>
           <div className={w.data.gaps.length ? "gy-warn" : "banner"}><span>{w.data.gaps.length ? `${w.data.gaps.length} franjas sin cobertura: ${w.data.gaps.slice(0, 5).join(", ")}${w.data.gaps.length > 5 ? "…" : ""}` : "Toda la semana tiene cobertura."} Criterio propuesto: al menos una persona por franja (la noche del domingo no se exige).</span></div>
-          <section className="card" style={{ padding: 0, overflowX: "auto" }}>
+          <section className="card" style={{ padding: 0, overflowX: "auto" }} tabIndex={0}>
             <table className="gy-table gy-grid">
               <thead><tr><th scope="col">Persona</th>{w.data.labels.map((l) => <th key={l} scope="col">{l}</th>)}<th scope="col">Horas</th></tr></thead>
               <tbody>

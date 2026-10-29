@@ -9,7 +9,7 @@ import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { MailError, deliverMail, sendMail } from "../mailer";
 import { logError } from "../log";
-import { AccessError, addDays, audit, dniHmac, dniLast3, newInviteCode, newToken, sha256, todayIso, type Tx } from "./util";
+import { AccessError, addDays, audit, dniHmac, dniLast3, invitationProof, newInviteCode, newToken, sameSecret, sha256, todayIso, type Tx } from "./util";
 
 const { user, organization, gymLocation, staffMembership, coachClient, gymMember, invitation, rosterEntry,
   membershipRequest, guardianConsent, legalAcceptance, consentGrant } = schema;
@@ -152,7 +152,7 @@ export async function inviteGymStaff(actorId: string, orgId: string, p: { email:
   const [org] = await db.select().from(organization).where(eq(organization.id, orgId));
   const delivery = await deliverInvitation(inv, actorId, {
     to: email, subject: `${org.name} te invitó a REPI`,
-    body: `Te sumaron como ${GYM_ROLE_LABEL[p.role as GymRole]}. Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}\nVence en ${INVITE_TTL_DAYS} días.`,
+    body: `Te sumaron como ${GYM_ROLE_LABEL[p.role as GymRole]}. Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}&p=${invitationProof(inv.id, email)}\nVence en ${INVITE_TTL_DAYS} días.`,
   });
   return { ...inv, delivery };
 }
@@ -165,7 +165,10 @@ export async function inviteGymStaff(actorId: string, orgId: string, p: { email:
 async function deliverInvitation(inv: { id: string; orgId: string }, actorId: string, mail: { to: string; subject: string; body: string }) {
   let delivery: "submitted" | "local_only" | "failed";
   let providerStatus: number | undefined;
-  try { delivery = await deliverMail(mail); } catch (e) {
+  // SEC-3 (QA 29/10): una demo no manda correos reales (cualquiera abre una sin cuenta). El código se ve en pantalla igual.
+  const [o] = await db.select({ isDemo: organization.isDemo }).from(organization).where(eq(organization.id, inv.orgId));
+  if (o?.isDemo) delivery = "local_only";
+  else try { delivery = await deliverMail(mail); } catch (e) {
     delivery = "failed";
     if (e instanceof MailError) providerStatus = e.status; else logError("invitation.mail", e);
   }
@@ -187,7 +190,7 @@ export async function inviteCoachClient(actorId: string, coachOrgId: string, p: 
   const email = normalizeEmail(p.email);
   const inv = await createInvitation({ kind: "coach_client", orgId: coachOrgId, locationId: null, role: null, email, invitedBy: actorId });
   const [org] = await db.select().from(organization).where(eq(organization.id, coachOrgId));
-  const delivery = await deliverInvitation(inv, actorId, { to: email, subject: `${org.name} te invitó a REPI`, body: `Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}\nEs personal: sólo funciona con este email.` });
+  const delivery = await deliverInvitation(inv, actorId, { to: email, subject: `${org.name} te invitó a REPI`, body: `Código: ${inv.code}\nAbrí ${appUrl()}/acceso?code=${inv.code}&p=${invitationProof(inv.id, email)}\nEs personal: sólo funciona con este email.` });
   return { ...inv, delivery };
 }
 
@@ -273,13 +276,16 @@ export async function assertInvitationEmail(rawCode: string, email: string): Pro
 }
 
 /**
- * D130: la invitación personal llegó a ese email y trae un código de un solo uso; quien la abre con ese mismo email ya
- * demostró que lo recibe. Se marca verificado sin pedir otro código (era el paso donde se trababan las altas).
+ * D130: quien abre el enlace del correo de invitación con ese mismo email ya demostró que lo recibe: se marca verificado
+ * sin pedir otro código. QA 29/10 (SEC-1): la prueba es `proof` (sólo viaja en el correo), no el código, que también
+ * conoce quien invita; sin ella (código tipeado o pasado a mano) se verifica con el OTP de siempre.
  */
-export async function verifyByInvitation(userId: string, rawCode: string) {
+export async function verifyByInvitation(userId: string, rawCode: string, proof: string | null | undefined) {
+  if (!proof) return false;
   const [u] = await db.select().from(user).where(eq(user.id, userId));
   const [inv] = await db.select().from(invitation).where(eq(invitation.code, normalizeCode(rawCode)));
   if (!u || !inv?.email || normalizeEmail(inv.email) !== normalizeEmail(u.email) || invitationState(inv, new Date()) !== "pending") return false;
+  if (!sameSecret(proof, invitationProof(inv.id, inv.email))) return false;
   if (!u.emailVerified) await db.update(user).set({ emailVerified: true }).where(eq(user.id, u.id));
   await audit(db, { actorUserId: u.id, orgId: inv.orgId, action: "account.verified_by_invitation", resourceType: "invitation", resourceId: inv.id });
   return true;

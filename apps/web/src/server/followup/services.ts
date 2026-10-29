@@ -1,7 +1,7 @@
 // Seguimiento y consentimiento (Etapa 4). Salud = dato sensible: el coach lo ve sólo con grant 'health'
 // activo para esa relación (o un reporte compartido explícitamente). Toda lectura sensible queda en el historial del alumno.
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import {
   ACCESS_ITEMS, ACCESS_REQUEST_TTL_DAYS, ORPHAN_VIDEO_HOURS, VIDEO_RETENTION_DAYS, accessRetryAt, INJURY_ZONES, PAIN_ZONES, coachSeesPain, isAccessItem, localDate, resolveGrants,
   gymCan, scale10, scale5, videoOk, type AccessItem, type InjuryStatus, type RequestKind, TERMS_VERSION, CONSENT_CATALOG,
@@ -34,7 +34,8 @@ const log = (tx: Tx | typeof db, v: typeof dataAccessLog.$inferInsert) => tx.ins
 async function coachRelation(actorId: string, orgId: string, relId: string) {
   await requireCoach(actorId, orgId);
   const [r] = await db.select({ rel: coachClient, name: user.name }).from(coachClient).innerJoin(user, eq(user.id, coachClient.userId))
-    .where(and(eq(coachClient.id, relId), eq(coachClient.coachOrgId, orgId)));
+    .where(and(eq(coachClient.id, relId), eq(coachClient.coachOrgId, orgId), ne(coachClient.status, "ended")));
+  // QA 29/10 (SEC-2): terminada la relación, el coach ya no ve salud, check-ins ni pide accesos de esa persona.
   if (!r) throw NOT_FOUND();
   return r;
 }
@@ -205,11 +206,13 @@ export async function coachInbox(actorId: string, orgId: string) {
   const grants = relIds.length ? await db.select({ rel: consentGrant.relationId, item: consentGrant.item }).from(consentGrant)
     .where(and(inArray(consentGrant.relationId, relIds), eq(consentGrant.status, "active"))) : [];
   const healthRel = new Set(grants.filter((g) => g.item === "health").map((g) => g.rel));
-  const userToRel = new Map(rels.map((r) => [r.rel.userId, r.rel.id]));
+  // SEC-2: molestias y check-ins sólo de relaciones vigentes (no de alumnos con la relación terminada).
+  const live = rels.filter((r) => r.rel.status !== "ended");
+  const userToRel = new Map(live.map((r) => [r.rel.userId, r.rel.id]));
   const since = addDays(new Date(), -21);
-  const pains = rels.length ? await db.select().from(painReport).where(and(inArray(painReport.userId, rels.map((r) => r.rel.userId)), gte(painReport.createdAt, since))).orderBy(desc(painReport.createdAt)) : [];
+  const pains = live.length ? await db.select().from(painReport).where(and(inArray(painReport.userId, live.map((r) => r.rel.userId)), gte(painReport.createdAt, since))).orderBy(desc(painReport.createdAt)) : [];
   const visiblePains = pains.filter((p) => { const rid = userToRel.get(p.userId)!; return coachSeesPain(p, rid, healthRel.has(rid)); });
-  const cks = rels.length ? await db.select().from(checkin).where(and(inArray(checkin.userId, rels.map((r) => r.rel.userId)), gte(checkin.createdAt, since))).orderBy(desc(checkin.createdAt)).limit(30) : [];
+  const cks = live.length ? await db.select().from(checkin).where(and(inArray(checkin.userId, live.map((r) => r.rel.userId)), gte(checkin.createdAt, since))).orderBy(desc(checkin.createdAt)).limit(30) : [];
   const access = relIds.length ? await db.select().from(accessRequest).where(inArray(accessRequest.coachClientId, relIds)).orderBy(desc(accessRequest.createdAt)).limit(30) : [];
   const invs = await db.select().from(invitation).where(and(eq(invitation.orgId, orgId), eq(invitation.status, "pending"), gte(invitation.expiresAt, new Date()))).orderBy(desc(invitation.createdAt));
   // Ver la bandeja marca como vistas las molestias visibles.
@@ -315,7 +318,7 @@ export async function authorizeVideo(actorId: string, videoId: string) {
   if (v.ownerUserId === actorId) return v;
   const [ok] = await db.select({ id: studentRequest.id }).from(studentRequest).innerJoin(coachClient, eq(coachClient.id, studentRequest.coachClientId))
     .innerJoin(staffMembership, and(eq(staffMembership.orgId, coachClient.coachOrgId), eq(staffMembership.userId, actorId), eq(staffMembership.role, "coach_owner"), eq(staffMembership.status, "active")))
-    .where(eq(studentRequest.videoId, videoId));
+    .where(and(eq(studentRequest.videoId, videoId), ne(coachClient.status, "ended")));
   if (ok) return v;
   // Video de un pedido al equipo de sala: lo ve el personal de sala de esa sede (no gerencia ni dueño).
   const [t] = await db.select({ orgId: schema.gymTask.orgId, loc: schema.gymTask.locationId }).from(schema.gymTask).where(eq(schema.gymTask.videoId, videoId));

@@ -15,6 +15,7 @@
     "tokens": "tsx scripts/gen-tokens.ts",
     "jobs:purge-media": "tsx --env-file=.env.local scripts/purge-media.ts",
     "jobs:notifications": "tsx --env-file=.env.local scripts/notifications.ts",
+    "e2e": "playwright test",
     "test:guards": "tsx --test tests/safety/database-target.check.ts tests/operations/guards.check.ts",
     "ops:backup": "tsx scripts/operations/backup.ts",
     "ops:restore": "tsx scripts/operations/restore.ts",
@@ -35,6 +36,8 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.64.0",
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

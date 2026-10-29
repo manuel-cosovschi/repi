@@ -5,6 +5,7 @@
 .st a { color: inherit; }
 .st [id] { scroll-margin-top: 80px; }
 .st-hero-note a, .st-link { color: var(--core-cyan); }
+.st-hero-note a { text-decoration: underline; text-underline-offset: 2px; }
 .st :focus-visible { outline: 2px solid var(--core-cyan); outline-offset: 3px; border-radius: 6px; }
 .st-wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 @media (min-width: 720px) { .st-wrap { padding: 0 32px; } }

@@ -126,6 +126,24 @@ describe("reemplazos aprobados", () => {
     const r = await tr.upgradeSession(user, sid);
     expect(r).toMatchObject({ changed: true, moved: 0, kept: ["Sentadilla"] });
     expect(await db.select().from(schema.setLog).where(eq(schema.setLog.sessionId, sid))).toHaveLength(1);
+    // QA DATA-5: lo hecho sigue a la vista en el entrenamiento (al final) y se puede seguir cargando.
+    const kept = r.session.exercises.at(-1)!;
+    expect([kept.name, kept.kept, kept.logs.length]).toEqual(["Sentadilla", true, 1]);
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: kept.id, setIndex: 1, weightKg: 70, reps: 6, rir: 2 });
+  });
+
+  it("QA DATA-5: si el coach reordena los días, el entrenamiento sigue en el mismo día (por nombre, no por posición)", async () => {
+    const { coach, org, user, sid, squat } = await setup();
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: squat.id, setIndex: 0, weightKg: 70, reps: 6, rir: 2 });
+    const before = (await tr.getSession(user, sid)).dayName;
+    const [asg] = await db.select().from(schema.programAssignment).where(eq(schema.programAssignment.status, "active")).orderBy(desc(schema.programAssignment.assignedAt)).limit(1);
+    await tr.saveProgram(coach.id, org.id, asg.programId, { name: "Piernas", weeks: 4, note: "", days: [
+      { name: "Torso nuevo", exercises: [{ exerciseId: EX["Prensa"], name: "Prensa", sets: 3, reps: "10", rir: 2, restSec: 90 }] },
+      { name: before, exercises: [{ exerciseId: EX["Sentadilla"], name: "Sentadilla", sets: 4, reps: "6", rir: 2, restSec: 120 }] },
+    ] });
+    const r = await tr.upgradeSession(user, sid);
+    expect(r.session.dayName).toBe(before);
+    expect(r).toMatchObject({ changed: true, moved: 1, kept: [] });
   });
 
   it("D147: el coach ve lo que busca entrenando el alumno sólo si él lo compartió", async () => {

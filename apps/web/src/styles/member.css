@@ -116,7 +116,8 @@
 .stepper.wstep { position: relative; }
 .wstep .wval { width: auto; height: auto; background: none; padding: 0 6px; border-radius: 6px; font-size: inherit; color: inherit; }
 .wstep .wval:focus-visible, .wstep .wsteps:focus-visible { outline: 2px solid var(--core-cyan); }
-.wstep .wsteps { width: auto; height: auto; background: none; padding: 2px 6px; font: 400 11px var(--font-ui); color: var(--dark-muted); text-decoration: underline dotted; }
+.wstep .wsteps { width: auto; height: auto; min-height: 24px; background: none; padding: 4px 8px; font: 400 11px var(--font-ui); color: var(--dark-muted); text-decoration: underline dotted; } /* A11Y-3: área táctil ≥ 24 px (WCAG 2.5.8) */
+.linkbtn.tgt { min-height: 24px; padding: 0 4px; }
 .wstep input { width: 84px; height: 34px; border-radius: 8px; border: 1px solid var(--core-cyan); background: var(--dark-bg); color: var(--dark-ink); font: 600 20px var(--font-ui); text-align: center; }
 .wstep-pop { position: absolute; left: 0; min-width: 260px; bottom: calc(100% + 6px); display: flex; gap: 4px; padding: 6px; border-radius: 12px; background: var(--dark-surface); border: 1px solid var(--dark-border); z-index: 3; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .wstep-pop button { flex: 1 1 0; min-width: 0; width: auto; height: 40px; font: 600 13px var(--font-ui); }
@@ -292,7 +293,7 @@
 .mb-chat .chat-meta, .mb-chat .chat-who { font-size: 11px; color: var(--dark-muted); }
 .mb-chat .chat-who { font-weight: 600; }
 .mb-chat .chat-retry { border: 0; background: none; padding: 0; color: #F87171; font: 600 11px var(--font-ui); cursor: pointer; text-decoration: underline; }
-.mb-chat .chat-compose { display: flex; gap: 8px; align-items: flex-end; border-top: 1px solid var(--dark-border); padding-top: 10px; position: sticky; bottom: 84px; background: var(--dark-bg, #0B0F14); }
+.mb-chat .chat-compose { display: flex; gap: 8px; align-items: flex-end; border-top: 1px solid var(--dark-border); padding-top: 10px; position: sticky; bottom: calc(84px + env(safe-area-inset-bottom)); background: var(--dark-bg, #0B0F14); } /* UX-10: queda arriba de la barra también con el área segura del iPhone */
 .mb-chat .chat-compose textarea { flex: 1; min-height: 44px; max-height: 120px; border-radius: 22px; border: 1px solid #2D3B4F; background: var(--core-navy800); color: var(--dark-ink); padding: 11px 16px; font: 15px var(--font-ui); resize: none; outline: none; }
 .mb-chat .chat-compose textarea:focus { border-color: var(--core-cyan); }
 .mb-chat .chat-compose button { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--core-cyan); display: grid; place-items: center; cursor: pointer; flex: none; }

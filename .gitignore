@@ -52,3 +52,6 @@ coverage/
 # HyperFrames (artefactos locales de check, snapshots y renders)
 design/motion/.hyperframes/
 design/motion/renders/
+
+# Resultados de E2E (Playwright)
+apps/web/e2e-results/

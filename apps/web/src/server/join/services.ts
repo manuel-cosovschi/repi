@@ -253,7 +253,7 @@ export async function decideJoin(actorId: string, orgId: string, requestId: stri
       throw new AccessError("already_decided", r.status === "approved" || r.status === "rejected" ? `Ya la resolvió ${who?.name ?? "otra persona"}.` : "Esta solicitud ya no está pendiente.", 409, { status: r.status, by: who?.name ?? null, at: r.decidedAt });
     }
     if (r.expiresAt && r.expiresAt < new Date()) {
-      await tx.update(membershipRequest).set({ status: "expired" }).where(eq(membershipRequest.id, r.id));
+      // QA 29/10 (DATA-11): marcarla vencida acá se deshacía con el throw; se marca después de cerrar la transacción.
       throw new AccessError("expired", "La solicitud venció. La persona puede volver a pedirla.", 409);
     }
     if (r.userId === actorId) throw new AccessError("self", "No podés aprobar tu propia solicitud.", 403);
@@ -276,6 +276,10 @@ export async function decideJoin(actorId: string, orgId: string, requestId: stri
     await tx.update(membershipRequest).set({ ...base, status: "approved", validationMethod: p.method }).where(eq(membershipRequest.id, r.id));
     await audit(tx, { actorUserId: actorId, orgId, action: "join.approved", resourceType: "membership_request", resourceId: r.id, meta: { as: auth.as, method: p.method, kind: r.kind } });
     return { status: "approved" as const, userId: r.userId };
+  }).catch(async (e) => {
+    if (e instanceof AccessError && e.code === "expired")
+      await db.update(membershipRequest).set({ status: "expired" }).where(and(eq(membershipRequest.id, requestId), eq(membershipRequest.status, "pending")));
+    throw e;
   });
   await enqueue([res.userId], { kind: "join_resolved", dedupe: `res:${requestId}`, title: "REPI", body: "Tu solicitud de acceso tiene novedades", url: "/acceso?step=workspace" }).catch(() => {});
   return res;

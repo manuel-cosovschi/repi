@@ -50,7 +50,7 @@ type View = {
   social?: boolean; secondary?: Btn[]; links?: { pre: string; label: string; go: () => void }[]; extra?: React.ReactNode;
 };
 
-export type AccessInitial = { code?: string; sede?: string; step?: string; next?: string; join?: string; activate?: string };
+export type AccessInitial = { code?: string; proof?: string; sede?: string; step?: string; next?: string; join?: string; activate?: string };
 
 export function AccessFlow({ initial, social }: { initial: AccessInitial; social: { google: boolean; apple: boolean } }) {
   const [step, setStep] = useState<Step>("login");
@@ -162,7 +162,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     if (entry) saveEntry(entry.k, entry.v);
     else { const e = readEntry(); if (e) setResume(e); }
     const env = detectEnv();
-    if (!entry || !env.mobile || env.standalone || guideDone()) return;
+    // D152: el QR de la sede lleva directo a pedir el acceso (la guía antes confundía: la tarjeta del gimnasio parecía un
+    // botón y no avanzaba). Los pasos para agregar a inicio se muestran después, con la solicitud enviada.
+    if (!entry || entry.k === "join" || !env.mobile || env.standalone || guideDone()) return;
     // La guía va antes de registrarse o ingresar; con sesión abierta no se interrumpe.
     authClient.getSession().then((r) => { if (!r.data) setGuide(true); }).catch(() => setGuide(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -444,7 +446,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           if (!staffInv && birthCls === "blocked") return fail("Para menores de 13 años la cuenta la crea un adulto responsable.");
           setF((x) => ({ ...x, minor: birthCls === "minor" }));
           return run(async () => {
-            const r = await api<{ verified: boolean; existing?: boolean }>("sign-up", { body: { flow: "invite", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: staffInv ? undefined : s("birth"), code: invite?.code } });
+            const r = await api<{ verified: boolean; existing?: boolean }>("sign-up", { body: { flow: "invite", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms, birth: staffInv ? undefined : s("birth"), code: invite?.code, proof: invite && initial.code && normalizeCode(initial.code) === invite.code ? initial.proof : undefined } });
             if (r.existing && invite) { setPendingCode(invite.code); to("login"); flash("Ya tenés una cuenta con ese email: ingresá con tu contraseña y la invitación se suma."); return; }
             if (!r.verified || !invite) { to("verify"); return; }
             // D130: la invitación llegó a ese email: cuenta verificada, entra directo sin código.

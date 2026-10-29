@@ -3,12 +3,12 @@
 // El ranking usa sólo sesiones del programa institucional del gym y asistencia: nunca la relación con un coach privado.
 import { and, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, clubName, clubRanking, epley1rm, hasLink, liftRanking, localDate, volumeKg } from "@repi/domain";
+import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, hasLink, liftRanking, localDate, parseReps, volumeKg } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
 
-const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise } = schema;
+const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise, programExercise } = schema;
 
 async function activeMember(userId: string, orgId: string) {
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")));
@@ -29,8 +29,26 @@ export async function clubState(userId: string, orgId: string) {
   return { joined: !!c && !c.leftAt, showName: c?.showName ?? true, inRanking: c?.inRanking ?? false, members: n };
 }
 
+/**
+ * SEC-6 (QA 29/10): un menor sin consentimiento aprobado de su adulto responsable no aparece en rankings (tampoco en la
+ * pantalla de la sala), igual que en los desafíos. Se filtra al leer: cubre también un consentimiento que se revoca después.
+ */
+async function withoutRestrictedMinors<T extends { userId: string }>(rows: T[], now = new Date()) {
+  if (!rows.length) return rows;
+  const ids = [...new Set(rows.map((r) => r.userId))];
+  const born = await db.select({ id: user.id, birth: user.birthDate }).from(user).where(inArray(user.id, ids));
+  const minors = born.filter((u) => u.birth && classifyAge(u.birth, localDate(now)) === "minor").map((u) => u.id);
+  if (!minors.length) return rows;
+  const ok = new Set((await db.select({ id: schema.guardianConsent.minorUserId }).from(schema.guardianConsent)
+    .where(and(inArray(schema.guardianConsent.minorUserId, minors), eq(schema.guardianConsent.status, "approved")))).map((g) => g.id));
+  const blocked = new Set(minors.filter((id) => !ok.has(id)));
+  return rows.filter((r) => !blocked.has(r.userId));
+}
+
 export async function joinClub(userId: string, orgId: string, p: { showName: boolean; inRanking: boolean }) {
   await activeMember(userId, orgId);
+  if (p.inRanking && !(await withoutRestrictedMinors([{ userId }])).length)
+    throw new AccessError("guardian_required", "Para aparecer en el ranking hace falta el consentimiento de tu adulto responsable.");
   await db.insert(clubMember).values({ orgId, userId, showName: !!p.showName, inRanking: !!p.inRanking })
     .onConflictDoUpdate({ target: [clubMember.orgId, clubMember.userId], set: { showName: !!p.showName, inRanking: !!p.inRanking, leftAt: null } });
   await audit(db, { actorUserId: userId, orgId, action: "club.joined", resourceType: "club_member", meta: { showName: !!p.showName, inRanking: !!p.inRanking } });
@@ -98,15 +116,16 @@ const cleanText = (t: string, max: number) => {
 // la serie más pesada. Se publica una instantánea elegida; el historial completo nunca se expone.
 type Point = { d: string; kg: number; reps: number; e1rm: number | null };
 async function evolution(gymMemberId: string, exerciseId: string, limit = 8): Promise<Point[]> {
-  const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps }).from(setLog)
-    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+  const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps }).from(setLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(eq(workoutSession.gymMemberId, gymMemberId), eq(setLog.exerciseId, exerciseId), ne(workoutSession.status, "abandoned")))
     .orderBy(desc(workoutSession.startedAt)).limit(400);
   const best = new Map<string, Point>();
   for (const r of rows) {
     const kg = r.w == null ? 0 : Number(r.w), reps = r.r ?? 0;
+    const timed = r.target != null && parseReps(r.target).kind === "time"; // DATA-6: segundos, sin 1RM estimado
     const cur = best.get(r.sid);
-    if (!cur || kg > cur.kg || (kg === cur.kg && reps > cur.reps)) best.set(r.sid, { d: localDate(r.at), kg, reps, e1rm: epley1rm(kg, reps) });
+    if (!cur || kg > cur.kg || (kg === cur.kg && reps > cur.reps)) best.set(r.sid, { d: localDate(r.at), kg, reps, e1rm: timed ? null : epley1rm(kg, reps) });
   }
   return [...best.values()].slice(0, limit).reverse();
 }
@@ -131,10 +150,11 @@ export async function shareableSessions(userId: string, orgId: string) {
 async function sessionSnapshot(memberId: string, sessionId: string) {
   const [s] = await db.select().from(workoutSession).where(and(eq(workoutSession.id, sessionId), eq(workoutSession.gymMemberId, memberId), eq(workoutSession.status, "completed")));
   if (!s) throw new AccessError("invalid", "Elegí un entrenamiento terminado del programa del gym.");
-  const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId)).where(eq(setLog.sessionId, s.id));
+  const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name, target: programExercise.reps }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+    .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId)).where(eq(setLog.sessionId, s.id));
   return {
     type: "session", dayName: s.dayName, date: localDate(s.startedAt), minutes: Math.round(s.activeMs / 60_000), sets: logs.length,
-    volumeKg: volumeKg(logs.map((l) => ({ exerciseId: "", weightKg: l.w == null ? null : Number(l.w), reps: l.r, completed: true }))),
+    volumeKg: volumeKg(logs.map((l) => ({ exerciseId: "", weightKg: l.w == null ? null : Number(l.w), reps: l.r, completed: true, timed: l.target != null && parseReps(l.target).kind === "time" }))),
     exercises: [...new Set(logs.map((l) => l.name))].slice(0, 8),
   };
 }
@@ -287,7 +307,8 @@ export async function clubRankingFor(userId: string, orgId: string, now = new Da
   const from = new Date(`${month}-01T03:00:00Z`);
   const members = await db.select({ userId: clubMember.userId, show: clubMember.showName, name: user.name, gm: gymMember.id }).from(clubMember)
     .innerJoin(user, eq(user.id, clubMember.userId)).innerJoin(gymMember, and(eq(gymMember.userId, clubMember.userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")))
-    .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)));
+    .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)))
+    .then((rows) => withoutRestrictedMinors(rows, now));
   const gms = members.map((m) => m.gm);
   const days = gms.length ? await db.execute(sql`
     select gm, count(distinct d)::int as n from (
@@ -318,18 +339,20 @@ export async function clubLiftRanking(userId: string, orgId: string, exerciseId:
 export async function liftBoard(orgId: string, exerciseId: string | null, meUserId: string | null, now = new Date()) {
   const members = await db.select({ userId: clubMember.userId, show: clubMember.showName, name: user.name, gm: gymMember.id }).from(clubMember)
     .innerJoin(user, eq(user.id, clubMember.userId)).innerJoin(gymMember, and(eq(gymMember.userId, clubMember.userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")))
-    .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)));
+    .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)))
+    .then((rows) => withoutRestrictedMinors(rows, now));
   const [mine] = meUserId ? await db.select({ inRanking: clubMember.inRanking }).from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, meUserId), isNull(clubMember.leftAt))) : [];
   const base = { inRanking: !!mine?.inRanking, metric: "Mejor 1RM estimado de los últimos 90 días", updatedAt: now.toISOString() };
   if (!members.length) return { ...base, exercises: [], exercise: null, rows: [] };
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
-  const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt }).from(setLog)
-    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+  const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(inArray(workoutSession.gymMemberId, members.map((m) => m.gm)), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
   // Mejor marca por ejercicio y persona, y la mejor hasta hace una semana.
   const best = new Map<string, Map<string, { best: number; before: number | null }>>();
   for (const x of sets) {
-    const e = x.w == null || x.r == null ? null : epley1rm(Number(x.w), x.r);
+    // QA 29/10 (DATA-6): en una serie por tiempo `reps` son segundos; 140 kg × 10 s no es un 1RM de 187 kg en la TV.
+    const e = x.w == null || x.r == null || (x.target != null && parseReps(x.target).kind === "time") ? null : epley1rm(Number(x.w), x.r);
     if (e == null || !x.gm) continue;
     const per = best.get(x.ex) ?? new Map(); best.set(x.ex, per);
     const cur = per.get(x.gm) ?? { best: 0, before: null };

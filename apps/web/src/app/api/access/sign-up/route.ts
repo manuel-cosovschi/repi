@@ -6,7 +6,7 @@ const S = z.object({
   // Anexo 26/10: sin autoalta de coach/gym. "owner" = responsable invitado por Admin; "member" = socio que llega por QR.
   flow: z.enum(["invite", "member", "owner"]),
   name: z.string().max(120), email: z.string().max(200), password: z.string().max(200),
-  terms: z.boolean(), birth: z.string().max(10).optional(), code: z.string().max(20).optional(),
+  terms: z.boolean(), birth: z.string().max(10).optional(), code: z.string().max(20).optional(), proof: z.string().max(64).optional(),
 });
 
 // Registro con aceptación legal registrada en servidor (F-ID-15). Envía el código de verificación.
@@ -21,8 +21,10 @@ export const POST = handle(async (req) => {
     name: b.name, email: b.email, password: b.password, terms: b.terms,
     birth: b.flow === "owner" || staff ? undefined : (b.birth ?? ""), organizationTerms: b.flow === "owner", sendOtp: !bound,
   });
-  // D130: invitación personal abierta con su mismo email: cuenta verificada, se entra con la contraseña sin código.
-  if (bound && r.userId && (await svc.verifyByInvitation(r.userId, b.code!))) return { email: r.email, minor: r.minor, verified: true };
+  // D130: enlace del correo de invitación abierto con su mismo email: cuenta verificada, se entra sin código (SEC-1: con la
+  // prueba del correo, no con el código que también conoce quien invita).
+  if (bound && r.userId && (await svc.verifyByInvitation(r.userId, b.code!, b.proof))) return { email: r.email, minor: r.minor, verified: true };
   if (bound && !r.existing) await svc.sendSignupOtp(r.email);
-  return { email: r.email, minor: r.minor, verified: false, existing: r.existing };
+  // SEC-5: «ya existe» sólo para quien trae una invitación vigente a ese mismo email; si no, no se revela.
+  return { email: r.email, minor: r.minor, verified: false, existing: bound ? r.existing : false };
 });

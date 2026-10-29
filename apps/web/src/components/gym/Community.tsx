@@ -122,7 +122,7 @@ function News({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
               </div>
               <b style={{ fontSize: 16 }}>{p.title}</b>
               {p.text && <span className="muted" style={{ fontSize: 14, lineHeight: 1.45 }}>{p.text}</span>}
-              <div><button type="button" className="btn sm" onClick={() => api(`/api/gym/${shell.orgId}/community/posts/${p.id}`, { body: {} }).then(() => { shell.flash("Publicación quitada."); reload(); }).catch((e) => shell.flash(e.message))}>Quitar</button></div>
+              <div><button type="button" className="btn sm" onClick={() => window.confirm(`¿Quitar «${p.title}»? Deja de verse en la comunidad.`) && api(`/api/gym/${shell.orgId}/community/posts/${p.id}`, { body: {} }).then(() => { shell.flash("Publicación quitada."); reload(); }).catch((e) => shell.flash(e.message))}>Quitar</button></div>
             </div>
           </section>
         ))}
@@ -238,7 +238,7 @@ function Shop({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
                 <span className="muted">{i.sede}</span>
                 <label style={{ fontSize: 12, display: "flex", gap: 6 }}><input type="checkbox" checked={i.available} onChange={(e) => patch(i, { available: e.target.checked })} />Disponible</label>
                 <label style={{ fontSize: 12, display: "flex", gap: 6 }}><input type="checkbox" checked={i.highlighted} onChange={(e) => patch(i, { highlighted: e.target.checked })} />Destacado</label>
-                <button type="button" className="btn sm" onClick={() => api(`/api/gym/${shell.orgId}/community/catalog/${i.id}`, { body: {} }).then(reload).catch((e) => shell.flash(e.message))}>Quitar</button>
+                <button type="button" className="btn sm" onClick={() => window.confirm("¿Quitar este producto del catálogo?") && api(`/api/gym/${shell.orgId}/community/catalog/${i.id}`, { body: {} }).then(reload).catch((e) => shell.flash(e.message))}>Quitar</button>
               </div>
             </section>
           ))}

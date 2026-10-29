@@ -147,7 +147,7 @@ function AccessPanel({ shell, r, loc, setLoc, days, setDays, reload, owner }: {
           <section className="card"><h2>Ingresos vigentes ({r.active.length})</h2>
             <small className="muted">Vencen solos. Revocá sólo si alguien no está en la sede o hubo un error; queda registrado.</small>
             {!r.active.length ? <div className="empty">Nadie tiene un ingreso vigente ahora.</div> : (
-              <div style={{ overflowX: "auto" }}><table className="gy-table"><thead><tr><th>Socio</th><th>Sede</th><th>Cómo</th><th>Desde</th><th>Hasta</th><th /></tr></thead>
+              <div style={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label="Tabla (deslizá para ver más columnas)"><table className="gy-table"><thead><tr><th>Socio</th><th>Sede</th><th>Cómo</th><th>Desde</th><th>Hasta</th><th /></tr></thead>
                 <tbody>{r.active.map((a) => (
                   <tr key={a.id}><th>{a.name}</th><td>{a.location}</td><td>{CHECKIN_METHOD_LABEL[a.method]}</td><td>{hm(a.issuedAt)}</td><td>{hm(a.expiresAt)}</td>
                     <td><button type="button" className="btn sm danger" aria-busy={busy === `r-${a.id}` || undefined} onClick={() => revoke(a.id, a.name)}>Revocar</button></td></tr>
@@ -156,7 +156,7 @@ function AccessPanel({ shell, r, loc, setLoc, days, setDays, reload, owner }: {
           </section>
           <section className="card"><h2>Últimos intentos</h2>
             {!r.recent.length ? <div className="empty">Todavía no hay intentos en el período.</div> : (
-              <div style={{ overflowX: "auto" }}><table className="gy-table"><thead><tr><th>Cuándo</th><th>Socio</th><th>Sede</th><th>Resultado</th></tr></thead>
+              <div style={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label="Tabla (deslizá para ver más columnas)"><table className="gy-table"><thead><tr><th>Cuándo</th><th>Socio</th><th>Sede</th><th>Resultado</th></tr></thead>
                 <tbody>{r.recent.map((x) => (
                   <tr key={x.id}><td>{when(x.at)}</td><th>{x.name}</th><td>{x.location}</td>
                     <td>{x.result === "ok" ? <span className={`chip ${x.revoked ? "mute" : "ok"}`}>{x.revoked ? "Revocado" : x.method ? CHECKIN_METHOD_LABEL[x.method] : "Validado"}</span> : <span className="chip warn">{x.reason ?? "Rechazado"}</span>}{x.note && <small className="muted"> · {x.note}</small>}</td></tr>
@@ -234,7 +234,7 @@ function DisplaysAndSites({ shell, s, reload }: { shell: Shell; s: Settings; rel
       <section className="card"><h2>Pantallas de recepción</h2>
         <small className="muted">Una tablet o TV que muestra el QR de una sede, sin iniciar sesión con una cuenta. El enlace se muestra una sola vez; si se pierde o roban el equipo, revocala.</small>
         {!s.displays.length ? <div className="empty">Todavía no hay pantallas.</div> : (
-          <div style={{ overflowX: "auto" }}><table className="gy-table"><thead><tr><th>Pantalla</th><th>Sede</th><th>Última conexión</th><th /></tr></thead>
+          <div style={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label="Tabla (deslizá para ver más columnas)"><table className="gy-table"><thead><tr><th>Pantalla</th><th>Sede</th><th>Última conexión</th><th /></tr></thead>
             <tbody>{s.displays.map((d) => (
               <tr key={d.id}><th>{d.name}</th><td>{locName(d.locationId)}</td><td>{d.lastSeenAt ? when(d.lastSeenAt) : "Nunca"}</td>
                 <td><button type="button" className="btn sm danger" aria-busy={busy === `d-${d.id}` || undefined} onClick={() => revoke(d.id, d.name)}>Revocar</button></td></tr>

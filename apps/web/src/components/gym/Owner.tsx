@@ -158,7 +158,7 @@ export function ExecScreen({ shell }: { shell: Shell }) {
 
 function LocTable({ rows, onOpen }: { rows: Exec["locations"]; onOpen: () => void }) {
   return (
-    <section className="card" style={{ padding: 0, overflowX: "auto" }}>
+    <section className="card" style={{ padding: 0, overflowX: "auto" }} tabIndex={0}>
       <table className="gy-table">
         <thead><tr><th scope="col">Sede</th><th scope="col">Padrón</th><th scope="col">En REPI</th><th scope="col">Sesiones · 30 días</th><th scope="col">Por socio</th><th scope="col">Seguimientos a tiempo</th><th scope="col">Satisfacción</th><th scope="col">Entrenadores</th></tr></thead>
         <tbody>{rows.map((r) => (

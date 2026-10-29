@@ -104,11 +104,11 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
         <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
+          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
           <Wordmark width={50} />
         </div>
         <div className="co-content" ref={mainRef} key={screen} data-section={screen}>
-          {err && <p role="alert" className="err-box">{err}</p>}
+          {err && <p role="alert" className="err-box">{err} <button type="button" className="btn sm" onClick={() => { setErr(null); void reload(); }}>Reintentar</button></p>}
           {!ov ? <p className="muted">Cargando…</p> : (
             <>
               {screen === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}

@@ -101,6 +101,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     return null;
   }, [loadInbox, loadPresence]);
   useEffect(() => { load(); }, [load]);
+  // QA 29/10 (UX-8): al volver la conexión se recarga; antes «Sin conexión» quedaba fijo hasta que el coach cambiara algo.
+  useEffect(() => {
+    const on = () => void load();
+    window.addEventListener("online", on);
+    return () => window.removeEventListener("online", on);
+  }, [load]);
   // D143: cambios del coach en vivo. Mientras la app está a la vista se consulta una marca liviana cada 15 s (y al volver a
   // la app); si cambió, se recarga el programa. Un entrenamiento ya empezado no se toca: muestra un aviso.
   const stamp = useRef<string | null>(null);
@@ -230,14 +236,13 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   if (workout) return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
       <Workout sessionId={workout} coachFirst={coachFirst} programChanged={changedMidWorkout} onDismissChange={() => setChangedMidWorkout(false)} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setChangedMidWorkout(false); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
-      <Toast t={toast} />
-    </div></div></UnitContext.Provider>
+    </div><Toast t={toast} /></div></UnitContext.Provider>
   );
 
   return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
       <main className="mb-scroll">
-        {err && <p role="alert" className="mb-err">{err}</p>}
+        {err && <p role="alert" className="mb-err">{err} <button type="button" className="linkbtn" onClick={() => void load()}>Reintentar</button></p>}
         {offlineAt && <p className="offline-bar" role="status">Sin conexión · programa guardado el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(offlineAt))}</p>}
         {!t ? <p className="mb-muted">Cargando…</p> : (
           <div key={tab} className="tab-pane">
@@ -266,7 +271,6 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
           </button>
         ))}
       </nav>
-      <Toast t={toast} />
       {sheet?.type === "checkin" && <CheckinSheet flash={flash} standalone={!sheet.dayId}
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
@@ -288,7 +292,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       {sheet?.type === "presence" && <PresenceSheet orgId={t?.relation?.orgId} demo={!!presence?.demo} flash={flash} onClose={() => setSheet(null)}
         onValidated={() => { const d = sheet.dayId; setSheet(null); void loadPresence(); if (d) void start(d, true); }} />}
       {sheet?.type === "injury" && <InjurySheet flash={flash} onClose={() => setSheet(null)} onSaved={() => setPrivKey((k) => k + 1)} />}
-    </div></div></UnitContext.Provider>
+    </div>
+    {/* A11Y-1: el aviso queda fuera de .mb-col, que se vuelve inert con una hoja abierta (si no, el lector no lo anuncia). */}
+    <Toast t={toast} /></div></UnitContext.Provider>
   );
 }
 

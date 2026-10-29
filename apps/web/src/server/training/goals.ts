@@ -5,7 +5,7 @@ import { and, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import { GOAL_KINDS, GOAL_SOURCES, GOAL_WINDOW_DAYS, bestE1rm, goalProgress, goalTitle, isGoalKind, localDate, type GoalKind } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
-import { requireClientOf, requireCoach, toLogged } from "./services";
+import { requireClientOf, requireCoach, timedPeIds, toLogged } from "./services";
 
 const { clientGoal, workoutSession, setLog, exercise, coachClient, organization, user } = schema;
 const NF = () => new AccessError("not_found", "No encontramos ese objetivo.", 404);
@@ -24,8 +24,9 @@ async function currentValue(g: { kind: GoalKind; exerciseId: string | null; targ
   const rows = await db.select({ l: setLog }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
     .where(and(eq(workoutSession.coachClientId, coachClientId), eq(setLog.exerciseId, g.exerciseId!), gte(setLog.completedAt, since),
       inArray(workoutSession.status, ["completed", "in_progress", "paused"])));
-  if (g.kind === "e1rm") return bestE1rm(rows.map((r) => toLogged(r.l)))?.e1rm ?? null;
-  const ok = rows.map((r) => r.l).filter((l) => l.weightKg != null && (l.reps ?? 0) >= (g.targetReps ?? 1)).map((l) => Number(l.weightKg));
+  const timed = await timedPeIds(rows.map((r) => r.l.programExerciseId));
+  if (g.kind === "e1rm") return bestE1rm(rows.map((r) => toLogged(r.l, timed)))?.e1rm ?? null;
+  const ok = rows.map((r) => r.l).filter((l) => !timed.has(l.programExerciseId) && l.weightKg != null && (l.reps ?? 0) >= (g.targetReps ?? 1)).map((l) => Number(l.weightKg));
   return ok.length ? Math.max(...ok) : null;
 }
 

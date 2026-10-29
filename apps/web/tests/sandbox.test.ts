@@ -6,6 +6,7 @@ import * as gym from "@/server/gym/services";
 import { coachPayments } from "@/server/coachpay/services";
 import { myTraining } from "@/server/training/services";
 import { listAlerts } from "@/server/gym/alerts";
+import { inviteCoachClient } from "@/server/access/services";
 
 // D85: cada demo es un mundo propio, coherente para recorrer los cuatro perfiles, y se borra completo al vencer.
 describe("demo guiada", () => {
@@ -29,6 +30,11 @@ describe("demo guiada", () => {
     const t = await myTraining(by("valentina.gomez"));
     expect(t.state).toBe("ready");
     expect(t.stats.doneDates.length + 0).toBeGreaterThanOrEqual(0);
+    // SEC-3 (QA 29/10): desde una demo no sale ningún correo real, aunque se invite a una dirección real.
+    const real = `real.${Date.now()}@example.com`;
+    const inv = await inviteCoachClient(by("agustin.perez"), coachId, { email: real });
+    expect(inv.delivery).toBe("local_only");
+    expect(await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, real))).toHaveLength(0);
     const pay = await coachPayments(by("agustin.perez"), coachId);
     expect(pay.totals.ARS.collectedMonth + pay.totals.ARS.pending + pay.totals.ARS.overdue).toBeGreaterThan(0);
     expect(await demoRoleOf("martin.sosa@otro.com")).toBeNull();

@@ -2,10 +2,13 @@
 // Cobros a alumnos (F-BL-01, F-CO-17; D80). Fuente: REPI Desktop Coach (SCR-C pagos): KPIs cobrado/por cobrar/vencido,
 // tabla de clientes con próximo vencimiento y «Registrar pago». Es un registro manual: REPI no cobra ni mueve dinero,
 // y no se mezcla con lo que REPI le factura al coach (Condiciones REPI). Los totales nunca suman monedas distintas.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CURRENCIES, fmtMoney, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
+
+// Mismo tope que el servidor (coachpay/services.ts): se avisa antes de enviar.
+const MAX_MINOR = 1_000_000_000;
 import { useLoad } from "@/components/gym/shared";
 
 export type Charge = {
@@ -73,12 +76,15 @@ export function ChargeModal({ orgId, clients, preset, flash, onClose }: { orgId:
   const [f, setF] = useState({ rel: preset ?? clients[0]?.id ?? "", concept: "", amount: "", currency: "ARS", dueOn: localDate(new Date()) });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false); // QA 29/10 (UX-6): un doble toque no registra el cargo dos veces
   const save = async () => {
     const minor = parseMoney(f.amount, f.currency as Currency);
     if (minor == null || minor <= 0) { setErr("Escribí un importe válido (por ejemplo 25.000 o 25000,50)."); return; }
-    setBusy(true); setErr(null);
+    if (minor > MAX_MINOR) { setErr("El importe es demasiado alto para un cargo."); return; }
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setErr(null);
     try { await api(`/api/coach/${orgId}/payments`, { body: { coachClientId: f.rel, concept: f.concept, amountMinor: minor, currency: f.currency, dueOn: f.dueOn } }); flash("Cargo registrado."); onClose(true); }
-    catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    catch (e) { setErr((e as Error).message); } finally { inFlight.current = false; setBusy(false); }
   };
   return (
     <Modal label="Nuevo cargo" onClose={() => onClose(false)}>
@@ -102,10 +108,12 @@ export function PayModal({ orgId, charge, flash, onClose }: { orgId: string; cha
   const [f, setF] = useState({ paidOn: localDate(new Date()), method: "transferencia", note: "" });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const save = async () => {
-    setBusy(true); setErr(null);
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setErr(null);
     try { await api(`/api/coach/${orgId}/payments/${charge.id}`, { body: { action: "pay", paidOn: f.paidOn, method: f.method, note: f.note || null } }); flash("Pago registrado."); onClose(true); }
-    catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    catch (e) { setErr((e as Error).message); } finally { inFlight.current = false; setBusy(false); }
   };
   return (
     <Modal label="Registrar pago" onClose={() => onClose(false)}>

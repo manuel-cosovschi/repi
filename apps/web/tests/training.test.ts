@@ -129,6 +129,47 @@ describe("sesión del alumno", () => {
     expect(prev.days[0].exercises[0].sets).toBe(5);
   });
 
+  it("QA DATA-2: editar en el lugar conserva los IDs que el teléfono bajó; el entrenamiento offline sincroniza", async () => {
+    const ctx = await ready();
+    const [a] = await db.select().from(schema.programAssignment).where(and(eq(schema.programAssignment.coachClientId, ctx.clients[0].relId), eq(schema.programAssignment.status, "active")));
+    const offlineDay = ctx.t.program.days[0];
+    const doc = DOC();
+    doc.days[0].exercises[0].sets = 5;
+    doc.days[0].name = "Torso A (editado)";
+    await tr.saveProgram(ctx.coach, ctx.orgId, a.programId, doc);
+    const sid = randomUUID();
+    const s = await tr.startSession(ctx.user, { id: sid, dayId: offlineDay.id }); // IDs viejos, como los guardó el teléfono
+    expect(s.dayName).toBe("Torso A (editado)");
+    const pe = (await tr.getSession(ctx.user, sid)).exercises[0];
+    expect(pe.sets).toBe(5);
+    await tr.logSet(ctx.user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 4, weightKg: 60, reps: 8, rir: null });
+    // El día conserva su ID tras la edición.
+    const t2 = await tr.myTraining(ctx.user);
+    if (t2.state !== "ready") throw new Error("sin programa");
+    expect(t2.program.days[0].id).toBe(offlineDay.id);
+  });
+
+  it("QA DATA-6: una serie por tiempo con carga no suma volumen ni genera récord", async () => {
+    const { user, t } = await ready();
+    const sid = randomUUID();
+    await tr.startSession(user, { id: sid, dayId: t.program.days[0].id });
+    const [pe, pe2] = (await tr.getSession(user, sid)).exercises;
+    await db.update(schema.programExercise).set({ reps: "40 s" }).where(eq(schema.programExercise.id, pe.id));
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 0, weightKg: 30, reps: 40, rir: null }); // 40 s con 30 kg
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe2.id, setIndex: 0, weightKg: 50, reps: 10, rir: null });
+    const sum = await tr.sessionSummary(user, sid);
+    expect(sum.volumeKg).toBe(500); // sólo la serie por repeticiones
+  });
+
+  it("QA DATA-1: repeticiones de más de 200 se rechazan salvo en series por tiempo", async () => {
+    const { user, t } = await ready();
+    const sid = randomUUID();
+    await tr.startSession(user, { id: sid, dayId: t.program.days[0].id });
+    const pe = (await tr.getSession(user, sid)).exercises[0];
+    await expectErr(tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 0, weightKg: 80, reps: 500, rir: null }), "invalid");
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 0, weightKg: 80, reps: 200, rir: null });
+  });
+
   it("el día elegido abre sus ejercicios (Piernas no abre Torso A) y el inicio es idempotente", async () => {
     const { user, t } = await ready();
     expect(t.program.nextDay).toBe(0);

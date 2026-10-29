@@ -2,7 +2,7 @@
 // Hojas de seguimiento de App Alumno v4: check-in, molestia, pedir ayuda y lesión. Textos del prototipo; datos reales.
 import { useEffect, useState } from "react";
 import { INJURY_STATUS, INJURY_ZONES, PAIN_WARN_LEVEL, PAIN_ZONES, REVIEW_DIMS, VIDEO_LIMITS, type InjuryStatus, type RequestKind } from "@repi/domain";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { uploadVideo } from "@/lib/upload";
 import { Sheet } from "./Sheet";
 
@@ -18,7 +18,7 @@ export function CheckinSheet({ onDone, onSkip, flash, standalone }: { onDone: ()
     if (!ready) { flash("Completá los datos marcados."); return; }
     setBusy(true);
     try { await api("/api/me/checkin", { body: { energy: v.e, sleep: v.s, mood: v.m } }); if (standalone) flash("Check-in guardado."); }
-    catch { flash("Sin conexión: este check-in no se guardó."); }
+    catch (e) { flash(e instanceof ApiError ? `No se guardó el check-in: ${e.message}` : "Sin conexión: este check-in no se guardó."); } // UX-12
     finally { setBusy(false); onDone(); }
   };
   return (

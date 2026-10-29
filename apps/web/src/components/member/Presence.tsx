@@ -128,7 +128,7 @@ export function PresenceSheet({ orgId, onClose, onValidated, flash, demo }: {
     </Sheet>
   );
   if (view === "desk") return (
-    <Sheet title="Validar en recepción" sub={`En recepción de ${gym} pueden validar tu ingreso con tu carnet de la app, o un profesor de sala desde REPI. Cuando lo hagan, volvé acá: el entrenamiento se habilita solo.`} closeLabel="Volver" onClose={() => setView("intro")}
+    <Sheet title="Validar en recepción" sub={`En recepción de ${gym} pueden validar tu ingreso con tu carnet de la app, o un profesor de sala desde REPI. Cuando lo hagan, volvé acá: el entrenamiento se habilita solo.`} closeLabel="Volver" onClose={() => { setMsg(null); setView("intro"); }} warn={msg}
       action={{ label: "Ya me validaron", ready: true, onSubmit: async () => {
         const r = await api<{ gyms: GymPresence[] }>("/api/me/gym/presence").catch(() => null);
         const x = r?.gyms.find((y) => y.orgId === (orgId ?? g?.orgId));

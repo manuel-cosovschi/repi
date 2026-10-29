@@ -21,6 +21,9 @@ export function decideSetWrite(existing: ServerSet | null, incoming: IncomingSet
   if (sameSetValues(existing, incoming)) return { kind: "noop" };
   if (existing.id !== incoming.id) return { kind: "conflict", reason: "other_device" };
   if (existing.revision === incoming.baseRevision) return { kind: "update" };
+  // DATA-8 (QA 29/10): este mismo dispositivo creó la serie (mismo id) y se perdió la respuesta; si nadie la editó desde
+  // entonces (revisión 1), corregirla no es un conflicto.
+  if (incoming.baseRevision === 0 && existing.revision === 1) return { kind: "update" };
   return { kind: "conflict", reason: "stale_base" };
 }
 

@@ -174,7 +174,7 @@ export function PerfCenterScreen({ shell }: { shell: Shell }) {
           )}
         </section>
       ) : (
-        <section className="card" style={{ padding: 0, overflowX: "auto" }}>
+        <section className="card" style={{ padding: 0, overflowX: "auto" }} tabIndex={0}>
           <table className="gy-table">
             <thead><tr><th scope="col"><span className="sr-only">Comparar</span></th><th scope="col">Entrenador</th>{COLS[cat].map(([l]) => <th key={l} scope="col">{l}</th>)}</tr></thead>
             <tbody>

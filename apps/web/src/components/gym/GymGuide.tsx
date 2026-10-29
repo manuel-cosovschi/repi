@@ -60,7 +60,7 @@ const RECEPTION: GuideStep[] = [
 ];
 
 const MEMBERS: [string, string][] = [
-  ["Cómo se suma un socio", "Escanea el QR de su sede, agrega REPI a su teléfono, crea su cuenta y pide acceso. Cuando lo aprueban, entra a su app y ve el programa que le arme el equipo de sala."],
+  ["Cómo se suma un socio", "Escanea el QR de su sede, crea su cuenta y pide acceso (después ve cómo agregar REPI a su inicio). Cuando lo aprueban, entra a su app y ve el programa que le arme el equipo de sala."],
   ["No encuentra el QR", "Cualquiera del equipo se lo muestra desde «Solicitudes de acceso» → «Mostrar QR de la sede», o le manda el enlace con «Copiar enlace»."],
   ["Ya entrena con un coach", "Puede tener las dos relaciones; en su app elige con cuál entrena. El coach no ve lo del gimnasio ni al revés."],
   ["Se da de baja", "Desde su ficha. Su historial queda; deja de ver lo del gimnasio."],
