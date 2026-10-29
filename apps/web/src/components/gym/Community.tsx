@@ -72,7 +72,7 @@ export function CommunityScreen({ shell }: { shell: Shell }) {
           {tab === "news" && <News shell={shell} com={c.data} reload={c.reload} />}
           {tab === "ch" && <Challenges shell={shell} com={c.data} reload={c.reload} />}
           {tab === "shop" && <Shop shell={shell} com={c.data} reload={c.reload} />}
-          {tab === "club" && <ClubModeration shell={shell} />}
+          {tab === "club" && <><RankingScreens shell={shell} /><ClubModeration shell={shell} /></>}
         </>
       )}
     </>
@@ -355,6 +355,46 @@ function ClubModeration({ shell }: { shell: Shell }) {
         </div>
       ))}
       {r.data && !r.data.length && <span className="muted">Sin reportes.</span>}
+    </section>
+  );
+}
+// ── Pantalla del ranking en la sala (D146) ──────────────────────────────────
+type Screen = { id: string; name: string; createdAt: string; lastSeenAt: string | null };
+function RankingScreens({ shell }: { shell: Shell }) {
+  const manage = shell.ctx.roles.some((r) => r === "owner" || r === "manager");
+  const r = useLoad<{ screens: Screen[] }>(manage ? `/api/gym/${shell.orgId}/club/screens` : null);
+  const { busy, run } = useAct(shell.flash);
+  const [name, setName] = useState("TV de la sala");
+  const [link, setLink] = useState<string | null>(null);
+  if (!manage) return null;
+  const create = () => run("new", () => api<{ link: string }>(`/api/gym/${shell.orgId}/club/screens`, { body: { name } }), "Pantalla creada. Abrí el enlace en la TV.")
+    .then((x) => { if (x) { setLink((x as { link: string }).link); void r.reload(); } });
+  const revoke = (s: Screen) => { if (window.confirm(`¿Revocar «${s.name}»? Esa pantalla deja de mostrar el ranking.`)) void run(s.id, () => api(`/api/gym/${shell.orgId}/club/screens/${s.id}/revoke`, { body: {} }), "Pantalla revocada.").then(r.reload); };
+  return (
+    <section className="card">
+      <h2>Pantalla del ranking</h2>
+      <span className="muted">Mostrá en una TV o tablet de la sala el ranking por ejercicio en vivo. Rota de ejercicio cada 20 segundos y aparecen sólo los socios que eligieron «Aparecer en el ranking».</span>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <label className="field" style={{ flex: 1, minWidth: 200 }}>Nombre<input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} /></label>
+        <button type="button" className="btn pri" aria-busy={busy === "new" || undefined} onClick={() => void create()}>Crear pantalla</button>
+      </div>
+      {link && (
+        <div className="gy-warn" role="status" style={{ margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          <span>Abrí este enlace en la TV (se muestra una sola vez; si lo perdés, creá otra pantalla):</span>
+          <code style={{ wordBreak: "break-all" }}>{link}</code>
+          <span style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn sm" onClick={() => void navigator.clipboard?.writeText(link).then(() => shell.flash("Enlace copiado."), () => shell.flash("No se pudo copiar: copialo a mano."))}>Copiar enlace</button>
+            <a className="btn sm" href={link} target="_blank" rel="noreferrer">Abrir acá</a>
+          </span>
+        </div>
+      )}
+      {r.err && <p role="alert" className="err-box">{r.err}</p>}
+      {r.data?.screens.map((s) => (
+        <div key={s.id} className="trow">
+          <span style={{ flex: 1 }}>{s.name}<br /><small className="muted">{s.lastSeenAt ? `Vista ${when(s.lastSeenAt)}` : "Todavía no se abrió"}</small></span>
+          <button type="button" className="btn sm" aria-busy={busy === s.id || undefined} onClick={() => revoke(s)}>Revocar</button>
+        </div>
+      ))}
     </section>
   );
 }

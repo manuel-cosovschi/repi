@@ -218,6 +218,13 @@
       "when": 1793283525663,
       "tag": "0030_training_wishes",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793289171371,
+      "tag": "0031_ranking_display",
+      "breakpoints": true
     }
   ]
 }

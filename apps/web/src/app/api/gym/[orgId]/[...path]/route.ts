@@ -10,6 +10,7 @@ import * as mt from "@/server/gym/metrics";
 import * as msg from "@/server/messages/services";
 import * as cm from "@/server/community/services";
 import * as club from "@/server/community/club";
+import * as screen from "@/server/community/screen";
 import * as join from "@/server/join/services";
 import * as alerts from "@/server/gym/alerts";
 import * as notices from "@/server/gym/notices";
@@ -69,7 +70,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "messages": return msg.floorThreads(me, orgId, loc(u) ?? "");
     case "community": return cm.staffCommunity(me, orgId);
     case "validations": return cm.listValidations(me, orgId);
-    case "club": return club.clubReports(me, orgId);
+    case "club": return b === "screens" ? screen.rankingScreens(me, orgId) : club.clubReports(me, orgId);
     // Anexo 26/10: bandeja de solicitudes por QR, enlaces por sede, accesos habilitados y alertas de sala.
     case "joins": return join.joinInbox(me, orgId);
     case "join-links": return join.joinLinks(me, orgId);
@@ -144,6 +145,9 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "desk" && b === "verify") return cm.verifyCard(me, orgId, (await body(req, z.object({ token: z.string().max(200) }))).token);
   if (a === "desk" && b === "checkin") { const p = await body(req, z.object({ token: z.string().max(200), loc: id })); return cm.checkIn(me, orgId, p.token, p.loc); }
   if (a === "desk" && b === "prizes" && c) return cm.deliverPrize(me, orgId, c);
+  // D146: pantallas del ranking en la sala (crear y revocar).
+  if (a === "club" && b === "screens" && !c) return screen.createRankingScreen(me, orgId, (await body(req, z.object({ name: z.string().max(60) }))).name);
+  if (a === "club" && b === "screens" && c && path[3] === "revoke") return screen.revokeRankingScreen(me, orgId, c);
   if (a === "club" && (b === "post" || b === "comment") && c) return club.moderateClub(me, orgId, { type: b, id: c, outcome: (await body(req, z.object({ outcome: z.enum(["keep", "remove"]) }))).outcome });
   if (a === "joins" && b) return join.decideJoin(me, orgId, b, await body(req, z.object({ approve: z.boolean(), method: z.string().max(40).optional(), reason: z.string().max(40).optional(), note: z.string().max(300).optional() })));
   if (a === "join-links" && b && c === "regenerate") return join.regenerateJoinLink(me, orgId, b);

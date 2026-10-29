@@ -308,10 +308,18 @@ export async function clubRankingFor(userId: string, orgId: string, now = new Da
  */
 export async function clubLiftRanking(userId: string, orgId: string, exerciseId: string | null, now = new Date()) {
   await activeMember(userId, orgId);
+  return liftBoard(orgId, exerciseId, userId, now);
+}
+
+/**
+ * Tablero por ejercicio (D144) para la app (`meUserId`: marca «Vos») y para la pantalla de la sala (D146, sin persona).
+ * Sólo quienes eligieron «Aparecer en el ranking»; nombre según su preferencia del Club.
+ */
+export async function liftBoard(orgId: string, exerciseId: string | null, meUserId: string | null, now = new Date()) {
   const members = await db.select({ userId: clubMember.userId, show: clubMember.showName, name: user.name, gm: gymMember.id }).from(clubMember)
     .innerJoin(user, eq(user.id, clubMember.userId)).innerJoin(gymMember, and(eq(gymMember.userId, clubMember.userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")))
     .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)));
-  const [mine] = await db.select({ inRanking: clubMember.inRanking }).from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, userId), isNull(clubMember.leftAt)));
+  const [mine] = meUserId ? await db.select({ inRanking: clubMember.inRanking }).from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, meUserId), isNull(clubMember.leftAt))) : [];
   const base = { inRanking: !!mine?.inRanking, metric: "Mejor 1RM estimado de los últimos 90 días", updatedAt: now.toISOString() };
   if (!members.length) return { ...base, exercises: [], exercise: null, rows: [] };
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
@@ -336,7 +344,7 @@ export async function clubLiftRanking(userId: string, orgId: string, exerciseId:
   if (!ex) return { ...base, exercises, exercise: null, rows: [] };
   // Clave opaca y estable por gym: anima los cambios de puesto sin exponer IDs de personas.
   const key = (gm: string) => createHash("sha256").update(`${orgId}:${gm}`).digest("hex").slice(0, 12);
-  const meGm = members.find((m) => m.userId === userId)?.gm;
+  const meGm = meUserId ? members.find((m) => m.userId === meUserId)?.gm : undefined;
   const rows = liftRanking([...best.get(ex.id)!.entries()].map(([gm, v]) => {
     const m = members.find((x) => x.gm === gm)!;
     return { key: key(gm), name: gm === meGm ? "Vos" : clubName(m.name, m.show), best: Math.round(v.best * 2) / 2, before: v.before == null ? null : Math.round(v.before * 2) / 2 };

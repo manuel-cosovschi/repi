@@ -45,7 +45,7 @@ async function manageCtx(actorId: string, orgId: string) {
 export async function accessSettings(actorId: string, orgId: string) {
   const ctx = await manageCtx(actorId, orgId);
   const locs = await scopedLocations(ctx, null);
-  const displays = await db.select().from(gymAccessDisplay).where(and(eq(gymAccessDisplay.orgId, orgId), isNull(gymAccessDisplay.revokedAt))).orderBy(desc(gymAccessDisplay.createdAt));
+  const displays = await db.select().from(gymAccessDisplay).where(and(eq(gymAccessDisplay.orgId, orgId), eq(gymAccessDisplay.purpose, "access"), isNull(gymAccessDisplay.revokedAt))).orderBy(desc(gymAccessDisplay.createdAt));
   return {
     policy: await policyOf(orgId), canEditPolicy: ctx.roles.includes("owner") || ctx.roles.includes("manager"),
     locations: locs.map((l) => ({ id: l.id, name: l.name, lat: l.lat, lng: l.lng, radiusM: l.geoRadiusM })),
@@ -128,7 +128,7 @@ export async function createDisplay(actorId: string, orgId: string, locationId: 
 }
 export async function revokeDisplay(actorId: string, orgId: string, displayId: string) {
   const ctx = await manageCtx(actorId, orgId);
-  const [d] = await db.select().from(gymAccessDisplay).where(and(eq(gymAccessDisplay.id, displayId), eq(gymAccessDisplay.orgId, orgId)));
+  const [d] = await db.select().from(gymAccessDisplay).where(and(eq(gymAccessDisplay.id, displayId), eq(gymAccessDisplay.orgId, orgId), eq(gymAccessDisplay.purpose, "access")));
   if (!d || !inScope(ctx, d.locationId)) throw NOT_FOUND();
   await db.update(gymAccessDisplay).set({ revokedAt: new Date() }).where(eq(gymAccessDisplay.id, d.id));
   await audit(db, { actorUserId: actorId, orgId, action: "gym_access.display_revoked", resourceType: "gym_access_display", resourceId: d.id });
@@ -140,7 +140,7 @@ export async function displayQr(secret: string, now = new Date()) {
   const [d] = await db.select({ d: gymAccessDisplay, loc: gymLocation.name, org: organization.name }).from(gymAccessDisplay)
     .innerJoin(gymLocation, eq(gymLocation.id, gymAccessDisplay.locationId)).innerJoin(organization, eq(organization.id, gymAccessDisplay.orgId))
     .where(eq(gymAccessDisplay.secretHash, createHash("sha256").update(secret).digest("hex")));
-  if (!d || d.d.revokedAt) throw new AccessError("invalid_display", "Esta pantalla ya no está autorizada. Pedí una nueva en «Acceso y presencia».", 401);
+  if (!d || d.d.revokedAt || d.d.purpose !== "access") throw new AccessError("invalid_display", "Esta pantalla ya no está autorizada. Pedí una nueva en «Acceso y presencia».", 401);
   const pol = await policyOf(d.d.orgId);
   if (!pol.enabled) throw new AccessError("module_off", "El control de acceso no está activo en este gimnasio.", 409);
   if (!d.d.lastSeenAt || now.getTime() - d.d.lastSeenAt.getTime() > 60_000) await db.update(gymAccessDisplay).set({ lastSeenAt: now }).where(eq(gymAccessDisplay.id, d.d.id));

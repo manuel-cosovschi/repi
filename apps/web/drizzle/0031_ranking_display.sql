@@ -1,0 +1,1 @@
+ALTER TABLE "gym_access_display" ADD COLUMN "purpose" text DEFAULT 'access' NOT NULL;

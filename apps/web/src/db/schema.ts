@@ -1353,6 +1353,8 @@ export const gymAccessDisplay = pgTable("gym_access_display", {
   locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   secretHash: text("secret_hash").notNull().unique(),
+  // D146: "access" = QR de ingreso (D127); "ranking" = TV de la sala con el ranking en vivo. Un secreto nunca sirve para el otro uso.
+  purpose: text("purpose", { enum: ["access", "ranking"] }).notNull().default("access"),
   createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   createdAt: now("created_at"),
   lastSeenAt: ts("last_seen_at"),

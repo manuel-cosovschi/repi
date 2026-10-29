@@ -1,0 +1,39 @@
+/* Pantalla del ranking en la sala (D146). G · Atlética sobre fondo oscuro, pensada para verse a varios metros. */
+.rs {
+  min-height: 100dvh; display: flex; flex-direction: column; gap: 1.2vh; padding: max(3vh, env(safe-area-inset-top)) 4vw max(3vh, env(safe-area-inset-bottom));
+  background: #0A0F1A; color: #F4F7FB; font-family: var(--font-ui, "Barlow", system-ui, sans-serif); overflow: hidden;
+}
+.rs-center { align-items: center; justify-content: center; text-align: center; }
+.rs-head { display: flex; align-items: center; gap: 2vw; }
+.rs-brand { font: 800 clamp(20px, 2.6vw, 40px) var(--font-display, "Barlow Condensed", sans-serif); letter-spacing: .06em; color: #00D1FF; }
+.rs-gym { flex: 1; font: 600 clamp(16px, 2vw, 30px) var(--font-ui, sans-serif); color: #B7C3D3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-live { display: inline-flex; align-items: center; gap: 8px; font: 600 clamp(13px, 1.4vw, 22px) var(--font-mono, monospace); color: #2BD576; text-transform: uppercase; }
+.rs-live i { width: .7em; height: .7em; border-radius: 50%; background: #2BD576; animation: rs-pulse 1.6s ease-in-out infinite; }
+@keyframes rs-pulse { 50% { opacity: .3; } }
+.rs-title { margin: 0; font: 700 clamp(32px, 6vw, 72px)/1 var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; }
+.rs-ex { margin: 1vh 0 0; font: 800 clamp(34px, 6.4vw, 110px)/.95 var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; letter-spacing: -.01em; animation: rs-in .5s ease-out; }
+@keyframes rs-in { from { opacity: 0; transform: translateY(12px); } }
+.rs-metric { margin: 0; font-size: clamp(14px, 1.5vw, 24px); color: #8A9AAF; }
+.rs-help { max-width: 900px; margin: 0; font-size: clamp(16px, 2.2vw, 30px); line-height: 1.4; color: #DCE4EE; }
+.rs-small, .rs-foot { margin: 0; font-size: clamp(12px, 1.2vw, 18px); color: #8A9AAF; }
+.rs-foot { margin-top: auto; }
+.rs-err { margin: 0; color: #FCD34D; font-size: clamp(13px, 1.4vw, 20px); }
+.rs-list { list-style: none; margin: 1vh 0 0; padding: 0; display: flex; flex-direction: column; gap: .8vh; }
+.rs-list li {
+  display: flex; align-items: center; gap: 2vw; padding: 1.1vh 2vw; border-radius: 14px; background: #121A28; border: 1px solid #1C2636;
+  font-size: clamp(18px, 2.4vw, 40px); transition: background-color .6s, border-color .6s;
+}
+.rs-list li[data-live="up"] { background: rgba(43, 213, 118, .18); border-color: rgba(43, 213, 118, .5); }
+.rs-list li[data-live="down"] { background: rgba(255, 92, 92, .14); border-color: rgba(255, 92, 92, .4); }
+.rs-pos { min-width: 2.2ch; font: 800 1.3em var(--font-display, "Barlow Condensed", sans-serif); color: #8A9AAF; text-align: center; }
+.rs-list li[data-pos="1"] .rs-pos { color: #00D1FF; }
+.rs-list li[data-pos="1"] { border-color: rgba(0, 209, 255, .45); }
+.rs-list li[data-pos="2"] .rs-pos, .rs-list li[data-pos="3"] .rs-pos { color: #F4F7FB; }
+.rs-name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-mv { min-width: 4ch; text-align: right; font: 600 .7em var(--font-mono, monospace); color: #8A9AAF; }
+.rs-mv.up { color: #2BD576; } .rs-mv.down { color: #FF6B6B; } .rs-mv.new { color: #00D1FF; }
+.rs-val { min-width: 6ch; text-align: right; font: 800 1.1em var(--font-display, "Barlow Condensed", sans-serif); }
+.rs-dots { display: flex; gap: 10px; justify-content: center; margin-top: 1vh; }
+.rs-dots i { width: 10px; height: 10px; border-radius: 50%; background: #2A3648; }
+.rs-dots i[data-on] { background: #00D1FF; }
+@media (prefers-reduced-motion: reduce) { .rs-live i, .rs-ex { animation: none; } .rs-list li { transition: none; } }

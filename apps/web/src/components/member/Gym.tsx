@@ -323,7 +323,7 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
       <b style={{ fontSize: 18 }}>Repi Club</b>
       <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>La comunidad de socios del gym: compartí logros, aplaudí y comentá. Es voluntario. Nunca se publican datos de salud ni tu entrenamiento privado con un coach.</span>
       <label className="sheet-check"><input type="checkbox" checked={prefs.showName} onChange={(e) => setPrefs({ ...prefs, showName: e.target.checked })} />Mostrar mi nombre (nombre e inicial). Si no, figurás como «Socio/a del gym».</label>
-      <label className="sheet-check"><input type="checkbox" checked={prefs.inRanking} onChange={(e) => setPrefs({ ...prefs, inRanking: e.target.checked })} />Aparecer en el ranking del mes (días con entrenamiento o ingreso al gym).</label>
+      <label className="sheet-check"><input type="checkbox" checked={prefs.inRanking} onChange={(e) => setPrefs({ ...prefs, inRanking: e.target.checked })} />Aparecer en los rankings (del mes y por ejercicio), también en la pantalla de la sala si el gym tiene una.</label>
       <button type="button" className="cta" onClick={join}>Sumarme</button>
       <span className="mb-muted" style={{ fontSize: 12 }}>{st.members} socio{st.members === 1 ? "" : "s"} en el Club.</span>
       <b style={{ fontSize: 16, marginTop: 8 }}>Ranking por ejercicio</b>
@@ -341,7 +341,7 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
       <ProfileEditor orgId={orgId} flash={flash} />
       <details className="club-prefs"><summary>Mis preferencias del Club</summary>
         <label className="sheet-check"><input type="checkbox" checked={prefs.showName} onChange={(e) => setPrefs({ ...prefs, showName: e.target.checked })} />Mostrar mi nombre</label>
-        <label className="sheet-check"><input type="checkbox" checked={prefs.inRanking} onChange={(e) => setPrefs({ ...prefs, inRanking: e.target.checked })} />Aparecer en el ranking</label>
+        <label className="sheet-check"><input type="checkbox" checked={prefs.inRanking} onChange={(e) => setPrefs({ ...prefs, inRanking: e.target.checked })} />Aparecer en el ranking (también en la pantalla de la sala, si el gym tiene una)</label>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="button" className="ghost sm" onClick={join}>Guardar</button>
           <button type="button" className="ghost sm" onClick={() => api(`/api/me/gym/club/leave?org=${orgId}`, { body: {} }).then(() => { flash("Saliste de Repi Club."); return loadSt(); }).catch((e) => flash(e.message))}>Salir del Club</button>

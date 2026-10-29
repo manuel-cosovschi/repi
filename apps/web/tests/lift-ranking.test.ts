@@ -8,6 +8,8 @@ import * as acc from "@/server/access/services";
 import * as gym from "@/server/gym/services";
 import * as club from "@/server/community/club";
 import * as tr from "@/server/training/services";
+import * as screen from "@/server/community/screen";
+import * as ac from "@/server/gym/access-control";
 import { resetRateLimits } from "@/server/access/util";
 
 let n = 0;
@@ -58,5 +60,30 @@ describe("ranking por ejercicio", () => {
     expect(JSON.stringify(r)).not.toContain(ana.u);
     const mine = await club.clubLiftRanking(ana.u, org.id, ex.id);
     expect(mine.rows[0]).toMatchObject({ name: "Vos", me: true });
+  });
+
+  it("D146: la pantalla de la sala muestra el tablero con su secreto, sin «Vos» y deja de andar al revocarla", async () => {
+    const owner = await verified("Dueño Pantalla");
+    const org = await acc.createGymOrganization(owner, { name: `Gym Pantalla ${Date.now()}` });
+    await db.insert(schema.gymLocation).values({ orgId: org.id, name: "Centro" });
+    const [loc] = await db.select().from(schema.gymLocation).where(eq(schema.gymLocation.orgId, org.id));
+    const trainer = await verified("Profe Pantalla");
+    await db.insert(schema.staffMembership).values({ userId: trainer, orgId: org.id, locationId: loc.id, role: "floor_trainer" });
+    // Sólo dueño o gerencia crean pantallas.
+    await expect(screen.createRankingScreen(trainer, org.id, "TV")).rejects.toMatchObject({ status: 403 });
+    await expect(screen.createRankingScreen(owner, org.id, "x")).rejects.toMatchObject({ code: "invalid" });
+    const { id, link } = await screen.createRankingScreen(owner, org.id, "TV de la sala");
+    const secret = new URL(link).hash.split("k=")[1];
+    expect(link).toContain("/ranking/pantalla#k=");
+    const b = await screen.screenBoard(secret, null);
+    expect(b).toMatchObject({ gym: org.name, rows: [], exercise: null });
+    expect((await screen.rankingScreens(owner, org.id)).screens.map((x) => x.name)).toEqual(["TV de la sala"]);
+    // El secreto del ranking no sirve para el QR de ingreso, ni aparece entre las pantallas de ingreso.
+    await expect(ac.displayQr(secret)).rejects.toMatchObject({ code: "invalid_display" });
+    expect((await ac.accessSettings(owner, org.id)).displays).toHaveLength(0);
+    await expect(screen.screenBoard("x".repeat(43), null)).rejects.toMatchObject({ status: 401 });
+    await screen.revokeRankingScreen(owner, org.id, id);
+    await expect(screen.screenBoard(secret, null)).rejects.toMatchObject({ status: 401 });
+    await expect(screen.revokeRankingScreen(owner, org.id, id)).rejects.toMatchObject({ code: "not_found" });
   });
 });
