@@ -2,7 +2,13 @@
 
 Actualizado: 28/10/2026 (D127 + D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Último bloque cerrado — 28/10/2026 · Ejercicios propios (D129), alta por invitación sin código (D130) y «En sala ahora» (D131)
+## Último bloque cerrado — 28/10/2026 · Historial anterior con IA (D132) e IA en «No vino el profe» (D133)
+
+- **Hecho:** `packages/domain/src/history-import.ts` (+ tests); `apps/web/src/server/ai/openai.ts` (cliente con esquema JSON estricto), `server/training/history-import.ts`, `server/training/ai-coach.ts`; rutas `/api/me/history-import/*` y `/api/me/solo/ai`; `components/member/HistoryImport.tsx` («Antes de REPI» en Progreso) y tarjeta de IA en `Solo.tsx`. Migración **0028** (`history_import`, `history_entry`).
+- **IA:** OpenAI `gpt-4.1-mini` (`OPENAI_MODEL`, `OPENAI_MODEL_FAST`; ≈2 s; «No vino el profe» se precarga). Clave en Vercel y `.env.local`, copia en `~/.repi-secrets/openai.env`. Recomendado rotarla porque se pegó en el chat.
+- **Siguiente:** D134 editor avanzado de series (combinaciones, drop sets, top sets, peso por serie, tempo, intensidad) pedido por entrenadores; probar con archivos reales del alumno de Urko; medir costo y tiempos; evaluar IA para coaches (resumen de progreso del alumno) con revisión de privacidad.
+
+## Bloque anterior — 28/10/2026 · Ejercicios propios (D129), alta por invitación sin código (D130) y «En sala ahora» (D131)
 
 - **Hecho:** `packages/domain/src/exercise-catalog.ts` (~200 ejercicios), `apps/web/src/server/training/library.ts` (`ensureExerciseCatalog`, `createOwnExercise`), rutas POST de biblioteca coach y gym, `components/coach/NewExercise.tsx` en ambos constructores. Invitación: `assertInvitationEmail` devuelve si está ligada, `verifyByInvitation`, `sendSignupOtp`; `AccessFlow` entra directo tras el alta por invitación.
 - D129/D130 sin migración. OpenAI: `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-5-mini` cargadas en Vercel (producción) y en `.env.local`; copia en `~/.repi-secrets/openai.env`. Nunca en el repo.

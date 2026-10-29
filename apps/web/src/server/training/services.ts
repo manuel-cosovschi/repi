@@ -9,6 +9,7 @@ import { AccessError, audit, type Tx } from "../access/util";
 import { requireGymAction } from "../gym/access-control";
 import { createOwnExercise, ensureExerciseCatalog } from "./library";
 import { todaysPick } from "../gym/floor-now";
+import { importedLastSets } from "./history-import";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
   programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest } = schema;
@@ -431,6 +432,9 @@ async function lastSetByExercise(userId: string, exerciseIds: string[], excludeS
     .orderBy(setLog.exerciseId, desc(setLog.completedAt));
   const m = new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
   for (const r of rows) m.set(r.exerciseId, { weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, at: r.completedAt });
+  // D132: si todavía no lo registró en REPI, la última marca de su historial importado sugiere el peso inicial.
+  const missing = exerciseIds.filter((id) => !m.has(id));
+  if (missing.length) for (const [id, x] of await importedLastSets(userId, missing)) m.set(id, { weightKg: x.weightKg, reps: x.reps, at: new Date(`${x.day}T12:00:00-03:00`) });
   return m;
 }
 

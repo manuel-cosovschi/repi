@@ -16,3 +16,4 @@ export * from "./adaptive";
 export * from "./connect";
 export * from "./gym-access";
 export * from "./exercise-catalog";
+export * from "./history-import";

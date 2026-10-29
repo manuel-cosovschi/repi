@@ -419,6 +419,36 @@ export const setLog = pgTable("set_log", {
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
 ]);
 
+// D132: historial anterior a REPI cargado desde un archivo. Borrador hasta que la persona lo confirma; no se guarda el archivo.
+export const historyImport = pgTable("history_import", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["draft", "confirmed", "discarded"] }).notNull().default("draft"),
+  source: text("source", { enum: ["csv", "ai"] }).notNull(),
+  fileName: text("file_name"),
+  parsed: jsonb("parsed").notNull(), // vista previa: series normalizadas, coincidencias con la biblioteca y avisos
+  sessions: integer("sessions").notNull().default(0),
+  sets: integer("sets").notNull().default(0),
+  fromDay: text("from_day"),
+  toDay: text("to_day"),
+  model: text("model"),
+  createdAt: now("created_at"),
+  confirmedAt: ts("confirmed_at"),
+}, (t) => [index("history_import_user_idx").on(t.userId, t.createdAt)]);
+
+export const historyEntry = pgTable("history_entry", {
+  id: id(),
+  importId: text("import_id").notNull().references(() => historyImport.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  day: text("day").notNull(),
+  exerciseId: text("exercise_id").references(() => exercise.id, { onDelete: "set null" }),
+  exerciseName: text("exercise_name").notNull(),
+  setIndex: integer("set_index").notNull(),
+  weightKg: text("weight_kg"),
+  reps: integer("reps"),
+  seconds: integer("seconds"),
+}, (t) => [index("history_entry_user_day_idx").on(t.userId, t.day), index("history_entry_user_ex_idx").on(t.userId, t.exerciseId)]);
+
 // Cambios de la persona a un ejercicio de ESTA sesión (F-HX-21, D106): saltarlo o hacer otro en su lugar. Nunca toca el
 // programa ni la prescripción; las series hechas con el reemplazo se registran con el ejercicio realmente hecho.
 export const sessionExerciseChange = pgTable("session_exercise_change", {

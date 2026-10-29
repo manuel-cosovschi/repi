@@ -197,6 +197,13 @@
       "when": 1793241169471,
       "tag": "0027_floor_pick",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793241480380,
+      "tag": "0028_history_import",
+      "breakpoints": true
     }
   ]
 }

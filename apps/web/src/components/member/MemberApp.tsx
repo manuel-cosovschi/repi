@@ -24,6 +24,7 @@ import { SoloEntry, SoloSheet } from "./Solo";
 import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext } from "./Connect";
 import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { FloorNow } from "./FloorNow";
+import { BeforeRepi } from "./HistoryImport";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
@@ -200,7 +201,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
-            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} />}
+            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} flash={flash} offline={!!offlineAt} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
@@ -565,7 +566,7 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
   );
 }
 
-function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; err: boolean; retry: () => void }) {
+function Progress({ t, hist, err, retry, flash, offline }: { t: Training; hist: History | null; err: boolean; retry: () => void; flash: (t: string) => void; offline?: boolean }) {
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
   // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico.
@@ -589,6 +590,7 @@ function Progress({ t, hist, err, retry }: { t: Training; hist: History | null; 
         <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
       </section>
       <MyGoals />
+      <BeforeRepi flash={flash} offline={offline} />
       <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2>Historial</h2>

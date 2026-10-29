@@ -537,3 +537,10 @@
 .fl-t small.ok { color: #5DE6D8; }
 .fl-t small.busy { color: #F5B544; }
 .fl-ini { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: rgba(0, 209, 255, .14); color: var(--core-cyan); font: 700 13px var(--font-ui); }
+
+/* Sugerencia con IA de «No vino el profe» (D133). */
+.ai-card { display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(0, 209, 255, .3); background: rgba(0, 209, 255, .06); border-radius: 14px; padding: 12px 14px; }
+.ai-card > b { font-size: 15px; font-weight: 700; }
+.ai-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ai-card li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 14px; }
+.ai-card li small { grid-column: 1 / -1; font-size: 12px; color: var(--dark-muted); }
