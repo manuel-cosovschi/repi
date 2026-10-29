@@ -11,9 +11,13 @@ export const TRAINING_WISH_GOALS = {
 } as const;
 export type TrainingWishGoal = keyof typeof TRAINING_WISH_GOALS;
 
-export type TrainingWishes = { goal: TrainingWishGoal | null; daysPerWeek: number | null; minutes: number | null; likes: string | null; avoid: string | null };
+export type TrainingWishes = {
+  goal: TrainingWishGoal | null; daysPerWeek: number | null; minutes: number | null; likes: string | null; avoid: string | null;
+  /** D147: que lo vea quien arma la rutina (coach o equipo del gym). Apagado si no lo eligió; datos guardados antes no lo traen. */
+  shareWithTrainers?: boolean;
+};
 export const WISH_TEXT_MAX = 200;
-export const emptyWishes = (): TrainingWishes => ({ goal: null, daysPerWeek: null, minutes: null, likes: null, avoid: null });
+export const emptyWishes = (): TrainingWishes => ({ goal: null, daysPerWeek: null, minutes: null, likes: null, avoid: null, shareWithTrainers: false });
 
 const text = (v: unknown) => {
   if (v == null) return null;
@@ -40,8 +44,16 @@ export function cleanWishes(input: unknown): { ok: true; wishes: TrainingWishes 
       minutes: int(x.minutes, 15, 240, "Minutos por entrenamiento"),
       likes: text(x.likes),
       avoid: text(x.avoid),
+      shareWithTrainers: x.shareWithTrainers === true,
     } };
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }
 
-export const hasWishes = (w: TrainingWishes | null | undefined) => !!w && Object.values(w).some((v) => v != null);
+export const hasWishes = (w: TrainingWishes | null | undefined) =>
+  !!w && [w.goal, w.daysPerWeek, w.minutes, w.likes, w.avoid].some((v) => v != null);
+
+/** Lo que ve quien arma la rutina (D147): sólo si la persona lo compartió y completó algo. Nunca la preferencia en sí. */
+export function sharedWishes(w: TrainingWishes | null | undefined) {
+  if (!w || w.shareWithTrainers !== true || !hasWishes(w)) return null;
+  return { goal: w.goal ? TRAINING_WISH_GOALS[w.goal] : null, daysPerWeek: w.daysPerWeek, minutes: w.minutes, likes: w.likes, avoid: w.avoid };
+}

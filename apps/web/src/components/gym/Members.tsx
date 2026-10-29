@@ -1,6 +1,7 @@
 "use client";
 // Socios de la sede: lista y ficha institucional (REPI Desktop Gym.dc.html · sc.members, modal "edit").
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
+import { SharedWishes, type SharedWishesView } from "@/components/coach/SharedWishes";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { TASK_CATEGORY, formatRest, groupLabels, mentionsHealth, parseRest, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
@@ -20,7 +21,7 @@ type Detail = {
   weeks: { label: string; n: number }[];
   program: { programId: string; startsOn: string; revision: number; doc: ProgramDoc & { days: (ProgramDoc["days"][number] & { id?: string })[] }; revisions: { number: number; author: string; reason: string | null; at: string }[] } | null;
   tasks: Task[]; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
-  canEdit: boolean; canWriteNotes: boolean; restricted: string[];
+  canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null;
   community: { attempts: { challenge: string; value: string; status: string; newRecord: boolean; at: string }[]; achievements: number; level: number; visits30: number } | null;
 };
 
@@ -110,6 +111,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
           <span className="muted">Sesiones registradas desde el programa institucional. La relación con un coach privado no se ve acá.</span>
         </section>
       </div>
+      <SharedWishes w={m.wishes} who={m.name.split(" ")[0]} />
       {m.community && (
         <section className="card">
           <h2>Comunidad del gym</h2>

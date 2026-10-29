@@ -1,4 +1,5 @@
 "use client";
+import { SharedWishes, type SharedWishesView } from "./SharedWishes";
 import { useEffect, useMemo, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, formatClock, formatRest, type ExerciseChangeReason, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
@@ -15,6 +16,7 @@ import { featureOn } from "@/lib/features";
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
   program: { programId: string; startsOn: string; version: number; doc: ProgramDoc } | null;
+  wishes?: SharedWishesView | null;
   sessions: { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; durationSec: number; sets: number; volumeKg: number;
     changes?: { exercise: string; kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: string | null }[]; setNotes?: { exercise: string; set: number; note: string }[] }[];
 };
@@ -121,6 +123,7 @@ function Tab({ tab, det, row, orgId, flash }: { tab: string; det: Detail; row: C
         <div className="stat"><span>Programa</span><strong style={{ fontSize: 18 }}>{det.program ? det.program.doc.name : "Sin programa"}</strong><small className="muted">{det.program ? `Desde ${fmtIsoDay(det.program.startsOn)} · versión ${det.program.version}` : "Asignale uno desde Programas"}</small></div>
         <div className="stat"><span>Sesiones registradas</span><strong>{done.length}</strong><small className="muted">Últimas 20</small></div>
       </div>
+      <SharedWishes w={det.wishes} who={det.name.split(" ")[0]} />
       <Sessions det={det} />
     </>
   );

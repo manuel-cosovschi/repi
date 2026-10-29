@@ -3,7 +3,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import {
   FOLLOWUP_DUE_DAYS, HANDOFF_ESCALATE_MIN, REVIEW_ELIGIBLE, REVIEW_INVITE_COOLDOWN_DAYS, REVIEW_INVITE_TTL_DAYS, SHIFT_CODES, TASK_CATEGORY,
-  coverage, floorActionAllowed, gymCan, gymCaps, requiresTwoFactor, type GymRole, isShiftCode, isTaskCategory, localDate, shiftHours, validateProgramDoc, weekOf,
+  coverage, floorActionAllowed, gymCan, gymCaps, requiresTwoFactor, sharedWishes, type TrainingWishes, type GymRole, isShiftCode, isTaskCategory, localDate, shiftHours, validateProgramDoc, weekOf,
   type GymCap, type ProgramDoc, type ShiftCode, type TaskCategory, type TaskPriority,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -12,7 +12,7 @@ import { addIso, assertLibrary, newVersion, plain, readVersion } from "../traini
 import { createOwnExercise, ensureExerciseCatalog } from "../training/library";
 
 const { user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
-  workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject } = schema;
+  workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject, userPref } = schema;
 
 export const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 const FORBIDDEN = () => new AccessError("forbidden", "Tu rol no tiene acceso a esta acción.", 403);
@@ -483,8 +483,12 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     .where(and(eq(gymNote.gymMemberId, m.m.id), isNull(gymNote.deletedAt), or(eq(gymNote.kind, "institutional"), eq(gymNote.authorUserId, actorId)))).orderBy(desc(gymNote.createdAt));
   const tasks = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.gymMemberId, m.m.id), inArray(gymTask.status, [...ACTIVE]))).orderBy(asc(gymTask.createdAt));
   const lastAt = sessions[0]?.endedAt ?? null;
+  // D147: lo que busca entrenando, sólo para quien arma su programa y sólo si el socio eligió compartirlo.
+  const builds = !!g && gymCan(rolesAt(ctx, m.m.locationId), "program.edit");
+  const [pref] = builds ? await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, m.m.userId)) : [];
   return {
     id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g,
+    wishes: builds ? sharedWishes(pref?.wishes as TrainingWishes | null) : null,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
     program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
     notes: notes.map((x) => ({ id: x.n.id, kind: x.n.kind, text: x.n.text, author: x.author, mine: x.n.authorUserId === actorId, at: x.n.createdAt })),

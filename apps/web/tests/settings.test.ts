@@ -34,7 +34,7 @@ describe("configuración del alumno", () => {
     const yo = await person();
     await updateSettings(yo, { weightUnit: "lb" });
     const r = await updateSettings(yo, { wishes: { goal: "strength", daysPerWeek: 3, minutes: "50", likes: "  peso libre ", avoid: "" } });
-    expect(r).toEqual({ weightUnit: "lb", wishes: { goal: "strength", daysPerWeek: 3, minutes: 50, likes: "peso libre", avoid: null } });
+    expect(r).toEqual({ weightUnit: "lb", wishes: { goal: "strength", daysPerWeek: 3, minutes: 50, likes: "peso libre", avoid: null, shareWithTrainers: false } });
     await expect(updateSettings(yo, { wishes: { minutes: 1000 } })).rejects.toMatchObject({ code: "invalid" });
     const log = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, yo), eq(schema.auditEvent.action, "settings.wishes")));
     expect(JSON.stringify(log[0].meta)).not.toContain("peso libre");

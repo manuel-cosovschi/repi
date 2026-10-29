@@ -7,6 +7,7 @@ import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
 import * as tr from "@/server/training/services";
 import * as subs from "@/server/training/substitutions";
+import { updateSettings } from "@/server/settings/services";
 import { resetRateLimits } from "@/server/access/util";
 
 // Adaptive Coach 1b (EXT-05): reemplazos aprobados por el coach, primeros en las alternativas de la sesión.
@@ -123,6 +124,16 @@ describe("reemplazos aprobados", () => {
     const r = await tr.upgradeSession(user, sid);
     expect(r).toMatchObject({ changed: true, moved: 0, kept: ["Sentadilla"] });
     expect(await db.select().from(schema.setLog).where(eq(schema.setLog.sessionId, sid))).toHaveLength(1);
+  });
+
+  it("D147: el coach ve lo que busca entrenando el alumno sólo si él lo compartió", async () => {
+    const { coach, org, user } = await setup();
+    const [rel] = await db.select().from(schema.coachClient).where(eq(schema.coachClient.userId, user));
+    expect((await tr.clientDetail(coach.id, org.id, rel.id)).wishes).toBeNull();
+    await updateSettings(user, { wishes: { goal: "muscle", daysPerWeek: 4, minutes: 60, likes: "peso libre", avoid: "cardio largo" } });
+    expect((await tr.clientDetail(coach.id, org.id, rel.id)).wishes).toBeNull();
+    await updateSettings(user, { wishes: { goal: "muscle", daysPerWeek: 4, minutes: 60, likes: "peso libre", avoid: "cardio largo", shareWithTrainers: true } });
+    expect((await tr.clientDetail(coach.id, org.id, rel.id)).wishes).toEqual({ goal: "Ganar músculo", daysPerWeek: 4, minutes: 60, likes: "peso libre", avoid: "cardio largo" });
   });
 
   it("sólo compatibles, sin duplicados y sólo quien arma programas en esa organización", async () => {

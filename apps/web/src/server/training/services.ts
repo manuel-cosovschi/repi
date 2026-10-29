@@ -1,7 +1,7 @@
 // Servicios de programación (coach) y ejecución (alumno). Toda autorización se resuelve aquí.
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
+  activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, type LoggedSet, type ProgramDoc, type SetFeel,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -334,8 +334,11 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
   const peNames = new Map((noted.length ? await db.select({ id: programExercise.id, name: programExercise.name }).from(programExercise)
     .where(inArray(programExercise.id, [...new Set(noted.map((x) => x.programExerciseId))])) : []).map((r) => [r.id, r.name]));
   const grants = await db.select({ item: consentGrant.item }).from(consentGrant).where(and(eq(consentGrant.relationId, coachClientId), eq(consentGrant.status, "active")));
+  // D147: lo que busca entrenando, sólo si el alumno eligió compartirlo con quien arma su rutina.
+  const [pref] = await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, rel.userId));
   return {
     id: coachClientId, name: rel.name, status: rel.rel.status, since: rel.rel.createdAt, grants: grants.map((g) => g.item), program: prog,
+    wishes: sharedWishes(pref?.wishes as TrainingWishes | null),
     sessions: sessions.map((s) => {
       const ss = sets.filter((x) => x.sessionId === s.id);
       return {
