@@ -557,3 +557,10 @@
 
 /* D134: objetivo de la serie (top set, drop, peso fijo) debajo del número. */
 .setrow .set-tg { display: block; font-size: 10px; line-height: 1.25; color: var(--core-cyan); font-weight: 600; max-width: 120px; white-space: normal; text-align: left; }
+/* D139: lo que buscás entrenando */
+.wishes { display: flex; flex-direction: column; gap: 10px; }
+.wishes label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--dark-muted); flex: 1; min-width: 0; }
+.wishes input { height: 44px; border-radius: 12px; border: 1px solid var(--dark-border); background: var(--dark-bg); color: var(--dark-ink); padding: 0 12px; font: 400 16px var(--font-ui); width: 100%; }
+.wish-goals { display: flex; flex-wrap: wrap; gap: 6px; }
+.wish-goals .ai-chip[aria-checked="true"] { background: var(--core-cyan); border-color: var(--core-cyan); color: var(--core-navy900); }
+.wish-row { display: flex; gap: 10px; }

@@ -1,12 +1,12 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D138), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D139), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 ## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
 
-**Estado:** todo lo pedido hasta D136 está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`; último commit `185ea81`). Migraciones 0025–0029 aplicadas en Supabase. Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar). Rama `gym-access` ya mergeada (puede borrarse).
+**Estado:** todo lo pedido hasta D136 está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`; último commit `185ea81`). Migraciones 0025–0030 aplicadas en Supabase. Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar). Rama `gym-access` ya mergeada (puede borrarse).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D139**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D140**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo.
 
 **Comandos:** web `cd apps/web && pnpm vitest run` (212 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck`. Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, guardado en `app_rate_limit`).
 

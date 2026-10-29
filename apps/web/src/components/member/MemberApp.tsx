@@ -25,6 +25,7 @@ import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext }
 import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { FloorNow } from "./FloorNow";
 import { BeforeRepi } from "./HistoryImport";
+import { Wishes } from "./Wishes";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
@@ -722,6 +723,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         ))}
       </section>
       <MyCharges />
+      <Wishes offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>

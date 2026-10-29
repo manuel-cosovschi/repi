@@ -6,6 +6,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { requireAdmin } from "../commercial/services";
+import { mySettings } from "../settings/services";
 
 const {
   user, coachClient, gymMember, organization, gymLocation, legalAcceptance, consentGrant, workoutSession, setLog, checkin, painReport, injury,
@@ -28,6 +29,7 @@ export async function exportMyData(userId: string, now = new Date()) {
     notice: "Copia de tus datos en REPI. Incluye lo que cargaste y lo que se registró sobre vos. Los videos e imágenes se listan sin el archivo: pedilos desde la app o a REPI.",
     account: { name: u.name, email: u.email, emailVerified: u.emailVerified, birthDate: u.birthDate, createdAt: u.createdAt, twoFactorEnabled: !!u.twoFactorEnabled },
     relations: { coaches, gyms },
+    settings: await mySettings(userId), // unidad de peso y lo que busca entrenando (D139)
     legalAcceptances: await db.select({ document: legalAcceptance.document, version: legalAcceptance.version, acceptedAt: legalAcceptance.acceptedAt }).from(legalAcceptance).where(eq(legalAcceptance.userId, userId)),
     sharing: await db.select({ scope: consentGrant.scope, item: consentGrant.item, status: consentGrant.status, grantedAt: consentGrant.grantedAt, revokedAt: consentGrant.revokedAt }).from(consentGrant).where(eq(consentGrant.userId, userId)),
     training: sessions.map((s) => ({

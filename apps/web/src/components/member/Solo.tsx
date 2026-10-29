@@ -127,7 +127,7 @@ export function SoloSheet({ variant, onClose, onStart, onContinue, onHelp, onMes
             </>}
           </div>
         )}
-        <p className="sheet-sub solo-foot">{ai ? "Sugerencia de IA (OpenAI) con tu programa, tus registros, tus objetivos, tu check-in y lo que le contestes, sin datos de salud. Los cambios valen sólo por hoy; tu programa no cambia. Revisala: tu profe decide." : "Opciones resueltas con tu programa y tus registros."}</p>
+        <p className="sheet-sub solo-foot">{ai ? "Sugerencia de IA (OpenAI) con tu programa, tus registros, tus objetivos, lo que buscás entrenando, tu check-in y lo que le contestes, sin datos de salud. Los cambios valen sólo por hoy; tu programa no cambia. Revisala: tu profe decide." : "Opciones resueltas con tu programa y tus registros."}</p>
       </>}
     </Sheet>
   );

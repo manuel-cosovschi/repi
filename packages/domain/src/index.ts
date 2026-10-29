@@ -18,3 +18,4 @@ export * from "./gym-access";
 export * from "./exercise-catalog";
 export * from "./history-import";
 export * from "./prescription";
+export * from "./wishes";

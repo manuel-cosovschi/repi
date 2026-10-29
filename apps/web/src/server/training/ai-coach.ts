@@ -4,12 +4,13 @@
 // D138: la persona puede responder («la máquina está ocupada», «no hay», «me molesta») y la IA rearma la rutina con esa
 // información, cambiando sólo por alternativas compatibles de la biblioteca (primero las aprobadas por su profe) o salteando.
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
-import { EXERCISE_CHANGE_REASONS, isChangeReason, localDate, type ExerciseChangeReason } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, hasWishes, isChangeReason, localDate, type ExerciseChangeReason } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
 import { dayAlternatives, myTraining } from "./services";
 import { myGoals } from "./goals";
+import { mySettings } from "../settings/services";
 
 const { workoutSession, setLog, checkin } = schema;
 
@@ -36,6 +37,7 @@ Reglas:
 - Elegí UN día del programa asignado (dayId exacto de la lista) para hoy: normalmente el «próximo», salvo que ya lo haya hecho hoy o la semana muestre otra cosa.
 - Para cada ejercicio de ese día proponé series, repeticiones y peso usando su última marca: progresá poco (+2,5 kg o +1 repetición) si completó bien; mantené o bajá un 5–10 % si el check-in muestra poca energía o mal sueño. Sin dato previo, weightKg null y una nota para empezar liviano.
 - Usá sólo los programExerciseId del día elegido. No agregues ejercicios nuevos ni cambies los del programa.
+- Tené en cuenta «loQueBusca» (objetivo, tiempo disponible, gustos y lo que prefiere evitar) para el enfoque, las reps y las notas; si tiene pocos minutos, sugerí menos series. No cambies el programa por eso.
 - No des consejos médicos. Si hay señales de fatiga, sugerí descansar o bajar la intensidad en «caution».
 - headline: máximo 50 caracteres. summary: máximo 160 caracteres. note: máximo 60 caracteres.
 - Sin «respuestaDeLaPersona»: swapToExerciseId null, skip false y reason null en todos.
@@ -55,6 +57,7 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
   const sets = recent.length ? await db.select({ s: setLog.sessionId }).from(setLog).where(inArray(setLog.sessionId, recent.map((r) => r.id))) : [];
   const [ci] = await db.select().from(checkin).where(and(eq(checkin.userId, userId), eq(checkin.date, today)));
   const goals = (await myGoals(userId, now).catch(() => [])).filter((g) => g.progress != null || g.current != null).slice(0, 5);
+  const { wishes } = await mySettings(userId); // D139: lo que la persona busca entrenando
   const next = t.program.days[t.program.nextDay];
   const ctx = {
     hoy: today, relacion: t.relation?.kind === "gym" ? "programa del gimnasio" : "programa de su coach",
@@ -63,6 +66,7 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
     ultimosEntrenamientos: recent.map((r) => ({ dia: r.dayName, fecha: r.endedAt ? localDate(r.endedAt) : null, rpe: r.rpe, series: sets.filter((x) => x.s === r.id).length })),
     checkinHoy: ci ? { energia: ci.energy, sueno: ci.sleep, animo: ci.mood } : null,
     objetivos: goals.map((g) => ({ objetivo: g.title, actual: g.current, meta: g.target, progreso: g.progress })),
+    loQueBusca: wishes && hasWishes(wishes) ? { objetivo: wishes.goal ? TRAINING_WISH_GOALS[wishes.goal] : null, diasPorSemana: wishes.daysPerWeek, minutosDisponibles: wishes.minutes, leGusta: wishes.likes, prefiereEvitar: wishes.avoid } : null,
   };
   // D138: con respuesta de la persona, alternativas compatibles del día que venía haciendo (o del próximo).
   const followDay = follow ? t.program.days.find((d) => d.id === follow.dayId) ?? next ?? t.program.days[0] : null;
