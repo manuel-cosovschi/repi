@@ -1,13 +1,19 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D126), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 ## EN CURSO — 28/10/2026 · Gym Access Control (D127) — rama `gym-access`, SIN publicar, migración 0026 sólo en dev
 
 - **Hecho:** dominio `packages/domain/src/gym-access.ts` (+ tests, 124/124); migración `0026_gym_access` (política por gym, pantallas, `gym_checkin`, `gym_member.access_until`, geo de sede, `workout_session.presence_checkin_id`); servidor `apps/web/src/server/gym/access-control.ts` (QR firmado HMAC con nonce y vencimiento, check-in idempotente, validación del equipo, revocación, `canPerformGymAction`/`requireGymAction`, panel `accessReport`); control en `training/services.ts` (iniciar, registrar series, cambios), Connect y desafíos (estricto), baja/pausa revoca ingresos, recepción emite pase; rutas `/api/me/gym/presence|checkin|demo-qr`, `/api/gym/[orgId]/access/*`, `/api/access-display`, Admin `contracts/[id]/access`; cola offline conserva series con `presence_required`; UI socio `components/member/Presence.tsx` (escáner BarcodeDetector + jsQR, hoja, chip), integración en `MemberApp`/`Workout`, página `/ingreso`; demo con Gym Sur y check-ins sintéticos. Tests `tests/gym-access.test.ts` 11/11; suite completa 202/203 (sandbox falló una vez en la corrida completa y pasa sola: revisar).
 - **Falta:** página kiosco `/ingreso/pantalla`; pantalla «Acceso y presencia» en Gym (política, geo, pantallas, QR, validar a mano, panel); «Vigente hasta» en Accesos; tarjeta en Admin; guía/recorrido de demo; verificación en navegador y teléfonos; docs `docs/gym-access/` (AUDIT, ARCHITECTURE, POLICIES, SECURITY, PRIVACY, API, QA, DEMO), D127, IMPLEMENTATION_STATUS, RELEASE_READINESS; revisión legal de geolocalización; migración 0026 en Supabase y deploy con autorización.
 
-## Último bloque cerrado — 28/10/2026 · REPI Connect · seguimiento de sala (D126) — publicado (`a65195e`, migración 0025 en Supabase)
+## Último bloque cerrado — 28/10/2026 · Altas por invitación: email, fecha con calendario y ver contraseña (D128) — publicado en `main`
+
+- **Hecho:** pista del email invitado y freno antes de crear la cuenta (`assertInvitationEmail` en `/api/access/sign-up`, `maskEmail` en el dominio), fecha de nacimiento con selector nativo (`parseBirthDate` acepta también AAAA-MM-DD y DDMMAAAA), `components/access/PasswordInput.tsx` con Mostrar/Ocultar en todos los campos de contraseña.
+- **Pruebas:** dominio 120/120, web 192/192, guardas 11/11; navegador 375 px con una invitación de alumno completa.
+- **Sin migración.** Siguiente: retomar Gym Access (D127) en la rama `gym-access` (mergear `main` primero) y el historial anterior (D129).
+
+## Bloque anterior — 28/10/2026 · REPI Connect · seguimiento de sala (D126) — publicado (a65195e)
 
 - **Hecho:** Core completo sobre la cola existente. Dominio `packages/domain/src/connect.ts` (+ tests). Servidor `apps/web/src/server/gym/connect.ts`; `gym/services.ts` exporta helpers, suma `addEvent`, estados `in_progress`/`follow_up` y eventos en la cola anterior; `metrics.ts`, `notices.ts`, `push/services.ts`, cron y `scripts/notifications.ts` (job `connectSweep`). Rutas `/api/me/gym/connect…`, `/api/gym/[orgId]/connect/…`, `/api/admin/contracts/[id]/connect`. UI: `components/member/Connect.tsx` (+ `MemberApp`, `Workout`, `FollowSheets`), `components/gym/Connect.tsx` (+ `GymApp`, guía), tarjeta en Admin, recorrido de la demo. Demo con Connect activo (`sandbox/services.ts#connectHistory`).
 - **Migración 0025** (`drizzle/0025_connect.sql`, sólo agrega + trigger de historial): aplicada en dev y `repi_test`; **NO aplicada en Supabase**.

@@ -204,6 +204,12 @@ describe("gimnasio", () => {
     const look = await svc.lookupInvitation(inv.code);
     expect(look.detail).toBe("Entrenador de sala · Palermo");
     expect(look.inviter).toMatch(/dueño/);
+    expect(look.emailBound).toBe(true);
+    expect(look.emailHint).toMatch(/^.{2}•••.*@/);
+    expect(look.emailHint).not.toBe(staffEmail);
+    // Antes de crear la cuenta: con otro email se frena acá (no al final, después de verificar); mayúsculas y espacios no importan.
+    await expectErr(svc.assertInvitationEmail(inv.code, mail()), "email_mismatch");
+    await svc.assertInvitationEmail(inv.code, ` ${staffEmail.toUpperCase()} `);
     const otro = await verified(mail());
     await expectErr(svc.acceptInvitation(otro, inv.code), "email_mismatch");
     const denied = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, otro), eq(schema.auditEvent.result, "denied")));
