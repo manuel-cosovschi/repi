@@ -17,7 +17,7 @@ import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./
 import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
-import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
+import { kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet, type Advice, type Routine } from "./Solo";
@@ -220,8 +220,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       // D134: el plan serie por serie fija peso o repeticiones de esa serie (top set, back-off, drop).
       const plan = e.detail?.setPlan?.[i];
       const a = aiOf(e.id); // D138: sin plan por serie, el peso y las reps sugeridos por la IA para hoy
-      const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? e.reps);
-      const w = plan?.weightKg ?? a?.weightKg ?? (a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg) ?? 0;
+      // D154: sin plan del profe ni sugerencia del día, la progresión de REPI según la última vez en ese ejercicio.
+      const sg = a?.swap || a?.skip ? null : e.suggest ?? null;
+      const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? (sg ? String(sg.reps) : e.reps));
+      const w = plan?.weightKg ?? a?.weightKg ?? (a?.swap ? a.swap.prev?.weightKg : sg?.weightKg ?? e.prev?.weightKg) ?? 0;
       sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w, r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {
@@ -229,8 +231,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       endedAt: null, rpe: null, sessionNote: null, revision: 1, synced: false, rest: null, updatedAt: nowIso, sets,
       exercises: d.exercises.map((e) => {
         const a = aiOf(e.id);
-        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null };
-        if (a?.swap) return { ...base, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name } } };
+        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null };
+        if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name } } };
         if (a?.skip) return { ...base, change: { kind: "skip" as const, reason: a.reason ?? "other", substitute: null } };
         return base;
       }),
@@ -629,6 +631,7 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
         {d.exercises.map((e, i) => (
           <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">{labels[i] ?? "foto"}</span>
             <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit)}</em></span>
+            {e.suggest && <small className="ex-suggest" aria-label={`REPI sugiere hoy ${e.suggest.text}`}>Hoy: {e.suggest.weightKg != null ? `${kg(e.suggest.weightKg, unit)} × ` : ""}{e.suggest.reps}</small>}
             <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>
           </div>
         ))}

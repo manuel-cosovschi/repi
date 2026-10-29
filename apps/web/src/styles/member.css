@@ -593,3 +593,9 @@
 .set-ctl-tap strong { font: 800 56px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .set-ctl-tap:active { background: rgba(0, 209, 255, .18); }
 @media (prefers-reduced-motion: reduce) { .set-ctl-bar i { transition: none; } }
+/* D154: carga sugerida por REPI para hoy (progresión desde la última vez). */
+.wo-suggest { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(0, 209, 255, .08); border: 1px solid rgba(0, 209, 255, .25); }
+.wo-suggest small { color: var(--light-accent-text, #00799B); font-weight: 600; }
+.wo-suggest b { font-size: 16px; }
+.wo-suggest span { font-size: 13px; line-height: 1.4; color: #475569; }
+.ex-suggest { display: block; font-size: 12px; color: #5DE6D8; white-space: nowrap; padding-right: 6px; }

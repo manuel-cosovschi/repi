@@ -42,7 +42,7 @@ describe("ranking por ejercicio", () => {
       await tr.startSession(u, { id: sid, dayId: t.program.days[0].id });
       const pe = (await tr.getSession(u, sid)).exercises[0].id;
       const log = (i: number, w: number, r: number, daysAgo = 0) => db.insert(schema.setLog).values({ id: randomUUID(), sessionId: sid, programExerciseId: pe, exerciseId: ex.id, setIndex: i, weightKg: String(w), reps: r, completedAt: new Date(Date.now() - daysAgo * 86_400_000) });
-      return { u, log, pe };
+      return { u, log, pe, sid, m };
     };
     const ana = await socio("Ana Fuerte"), beto = await socio("Beto Firme"), oculto = await socio("Oculto Total");
     await ana.log(0, 80, 5, 10); // hace 10 días: Ana iba segunda
@@ -71,6 +71,12 @@ describe("ranking por ejercicio", () => {
     await db.insert(schema.clubMember).values({ orgId: org.id, userId: teen.u, showName: true, inRanking: true });
     expect((await club.clubLiftRanking(oculto.u, org.id, ex.id)).rows.map((x) => x.name)).not.toContain("Teen R.");
     expect((await club.clubLiftRanking(oculto.u, org.id, ex.id)).rows).toHaveLength(2);
+
+    // D154: al editar el programa del socio, el profe de sala ve lo que hizo la última vez (sólo con este gym).
+    await tr.sessionAction(beto.u, beto.sid, "finish");
+    const last = await gym.memberLastTimes(coachU, org.id, beto.m.id, [ex.id]);
+    expect(last[ex.id].sets.map((x) => [x.weightKg, x.reps])).toEqual([[90, 5]]);
+    expect(await gym.memberLastTimes(coachU, org.id, ana.m.id, [ex.id])).toEqual({}); // sesión sin terminar: todavía nada
 
     // DATA-6 (QA 29/10): en una serie por tiempo `reps` son segundos; no da un 1RM ni entra al ranking.
     const hold = await socio("Hold Largo");

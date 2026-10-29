@@ -12,6 +12,7 @@ import { NewExercise } from "./NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
 import { groupLabels } from "@repi/domain";
 import { IntInput } from "@/components/ui/IntInput";
+import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -23,6 +24,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   listRef.current = list;
   const [prog, setProg] = useState<ProgramFull | null>(null);
   const [doc, setDoc] = useState<EditableDoc | null>(null);
+  // D154: en la copia de un cliente, lo que hizo la última vez en cada ejercicio (para la carga sugerida).
+  const lastTimes = useLastTimes(prog?.kind === "client_copy" ? `/api/coach/${orgId}/programs/${prog.id}/last` : null, doc?.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)) ?? []);
   const [day, setDay] = useState(0);
   const [lib, setLib] = useState<LibEx[]>([]);
   const [libQ, setLibQ] = useState("");
@@ -136,6 +139,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
+                <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />
                 {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} />}
               </div>
             )); })()}

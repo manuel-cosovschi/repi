@@ -149,6 +149,29 @@ describe("sesión del alumno", () => {
     expect(t2.program.days[0].id).toBe(offlineDay.id);
   });
 
+  it("D154: sin carga del profe, REPI sugiere la de hoy según la última vez; el coach ve lo mismo y al aplicarla manda el plan", async () => {
+    const ctx = await ready();
+    const day = ctx.t.program.days[0];
+    const sid = randomUUID();
+    await tr.startSession(ctx.user, { id: sid, dayId: day.id });
+    const pe = (await tr.getSession(ctx.user, sid)).exercises[0]; // Press de banca, 3 × 8-10
+    for (let i = 0; i < pe.sets; i++) await tr.logSet(ctx.user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: i, weightKg: 60, reps: 10, rir: 1 });
+    await tr.sessionAction(ctx.user, sid, "finish");
+    const t2 = await tr.myTraining(ctx.user);
+    if (t2.state !== "ready") throw new Error("sin programa");
+    expect(t2.program.days[0].exercises[0].suggest).toMatchObject({ action: "up", weightKg: 62.5, reps: Number(pe.reps.split("-")[0]) });
+    const s2 = randomUUID();
+    await tr.startSession(ctx.user, { id: s2, dayId: day.id });
+    expect((await tr.getSession(ctx.user, s2)).exercises[0].suggest).toMatchObject({ action: "up", weightKg: 62.5 });
+    // El coach, al actualizar la copia del cliente, ve la última vez de ese ejercicio.
+    const [a] = await db.select().from(schema.programAssignment).where(and(eq(schema.programAssignment.coachClientId, ctx.clients[0].relId), eq(schema.programAssignment.status, "active")));
+    const last = await tr.coachProgramLastTimes(ctx.coach, ctx.orgId, a.programId, [pe.exerciseId]);
+    expect(last[pe.exerciseId].sets.map((x) => [x.weightKg, x.reps])).toEqual([[60, 10], [60, 10], [60, 10]]);
+    // Otro coach no puede leerlo.
+    const other = await coachWithClients(1);
+    await expect(tr.coachProgramLastTimes(other.coach, ctx.orgId, a.programId, [pe.exerciseId])).rejects.toBeTruthy();
+  });
+
   it("QA DATA-6: una serie por tiempo con carga no suma volumen ni genera récord", async () => {
     const { user, t } = await ready();
     const sid = randomUUID();

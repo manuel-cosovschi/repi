@@ -9,6 +9,7 @@ import { NewExercise } from "@/components/coach/NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { Modal } from "@/components/ui/Modal";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
+import { LoadSuggestion, useLastTimes } from "@/components/coach/LoadSuggestion";
 import { featureOn } from "@/lib/features";
 import { NewTaskModal, TaskCard } from "./Floor";
 import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task } from "./shared";
@@ -173,6 +174,8 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
     : { name: "Programa inicial", weeks: 6, note: "", days: [{ name: "Día A", exercises: [] }] };
   const [doc, setDoc] = useState<ProgramDoc>(base);
   const [day, setDay] = useState(0);
+  // D154: lo que el socio hizo la última vez con el gym en cada ejercicio, para la carga sugerida.
+  const lastTimes = useLastTimes(`/api/gym/${shell.orgId}/members/${member.id}/last`, doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)));
   const [reason, setReason] = useState("");
   const [libQ, setLibQ] = useState("");
   const related = member.tasks.find((t) => ["open", "in_progress", "follow_up"].includes(t.status) && (!t.assignee || t.assignee.id) && ["programa_nuevo", "actualizar_programa", "onboarding", "tecnica"].includes(t.category));
@@ -216,6 +219,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
           <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
           <span className="c-act"><button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button></span>
         </div>
+        <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setEx(i, { detail })} />
         {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} />}
         </Fragment>
       ))}

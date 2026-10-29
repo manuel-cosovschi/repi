@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizz
 import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
+  coachSetLoads, suggestNext, type LastSet,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -471,6 +472,42 @@ export async function trainingStamp(userId: string) {
 }
 
 /** Última serie registrada por ejercicio (excluye la sesión indicada). */
+/**
+ * D154: series de la última sesión terminada en que la persona hizo cada ejercicio (base de la progresión sugerida).
+ * Con `excludeSessionId`, sin contar la sesión en curso.
+ */
+export async function lastTimeByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string, scope?: { coachClientId?: string; gymMemberId?: string }) {
+  const out = new Map<string, { at: Date; sets: LastSet[] }>();
+  if (!exerciseIds.length) return out;
+  const latest = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, at: setLog.completedAt })
+    .from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), inArray(setLog.exerciseId, exerciseIds),
+      excludeSessionId ? ne(workoutSession.id, excludeSessionId) : undefined,
+      // El coach o el gym ven sólo lo entrenado con ellos (nunca el entrenamiento con otro coach o gimnasio).
+      scope?.coachClientId ? eq(workoutSession.coachClientId, scope.coachClientId) : undefined,
+      scope?.gymMemberId ? eq(workoutSession.gymMemberId, scope.gymMemberId) : undefined))
+    .orderBy(setLog.exerciseId, desc(setLog.completedAt));
+  if (!latest.length) return out;
+  const rows = await db.select({ exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, w: setLog.weightKg, r: setLog.reps, rir: setLog.rir }).from(setLog)
+    .where(and(inArray(setLog.sessionId, [...new Set(latest.map((l) => l.sessionId))]), inArray(setLog.exerciseId, exerciseIds))).orderBy(asc(setLog.setIndex));
+  for (const l of latest) out.set(l.exerciseId, { at: l.at, sets: rows.filter((x) => x.sessionId === l.sessionId && x.exerciseId === l.exerciseId)
+    .map((x) => ({ weightKg: x.w == null ? null : Number(x.w), reps: x.r, rir: x.rir })) });
+  return out;
+}
+/** Sugerencia de hoy para un ejercicio del programa: nada si el profe ya indicó la carga en el plan (manda el profe). */
+const suggestionFor = (e: { reps: string; sets: number; detail?: unknown }, last: { sets: LastSet[] } | undefined) =>
+  last && !coachSetLoads(e.detail as ExerciseDetail | null) ? suggestNext({ reps: e.reps, sets: e.sets, last: last.sets }) : null;
+
+/** D154: para el coach que actualiza la copia de un cliente, lo que el cliente hizo la última vez en cada ejercicio. */
+export async function coachProgramLastTimes(actorId: string, orgId: string, programId: string, exerciseIds: string[]) {
+  await requireCoach(actorId, orgId);
+  const p = await loadProgram(orgId, programId);
+  if (p.kind !== "client_copy" || !p.coachClientId) return {};
+  const rel = await requireClientOf(orgId, p.coachClientId).catch(() => null); // sin consentimiento de entrenamientos, nada
+  if (!rel) return {};
+  return Object.fromEntries(await lastTimeByExercise(rel.userId, exerciseIds.slice(0, 60), undefined, { coachClientId: p.coachClientId }));
+}
+
 export async function lastSetByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string) {
   if (!exerciseIds.length) return new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
   const rows = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, weightKg: setLog.weightKg, reps: setLog.reps, completedAt: setLog.completedAt })
@@ -516,7 +553,7 @@ export async function myTraining(userId: string, now = new Date()) {
   const [p] = await db.select().from(program).where(eq(program.id, act.assignment.programId));
   const { version, doc } = await readVersion(p.currentVersionId!);
   const exIds = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
-  const prev = await lastSetByExercise(userId, exIds);
+  const [prev, lastTime] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds)]);
   const [lastDone] = await db.select({ dayId: workoutSession.dayId, dayName: workoutSession.dayName }).from(workoutSession)
     .where(and(eq(workoutSession.userId, userId), eq(workoutSession.assignmentId, act.assignment.id), eq(workoutSession.status, "completed")))
     .orderBy(desc(workoutSession.endedAt)).limit(1);
@@ -546,7 +583,8 @@ export async function myTraining(userId: string, now = new Date()) {
         id: d.id!, name: d.name,
         exercises: d.exercises.map((e) => {
           const pv = prev.get(e.exerciseId);
-          return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null };
+          return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
+            suggest: suggestionFor(e, lastTime.get(e.exerciseId)) };
         }),
       })),
     },
@@ -686,7 +724,8 @@ export async function getSession(userId: string, sessionId: string, now = new Da
     .leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId)).where(eq(sessionExerciseChange.sessionId, s.id));
   const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
   const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
-  const prev = await lastSetByExercise(userId, [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])], s.id);
+  const doneIds = [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])];
+  const [prev, lastTime] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id)]);
   // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
   const open = s.status === "in_progress" || s.status === "paused";
   const [cur] = open ? await db.select({ v: program.currentVersionId }).from(programAssignment).innerJoin(program, eq(program.id, programAssignment.programId))
@@ -702,6 +741,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
       return {
         id: e.id, exerciseId: e.exerciseId, name: e.name, kept: !inDay.has(e.id) || undefined, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: (e.detail as ExerciseDetail | null) ?? null,
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
+        suggest: suggestionFor(e as { reps: string; sets: number; detail: unknown }, lastTime.get(doing(e))), // D154
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
         logs: logs.filter((l) => l.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)

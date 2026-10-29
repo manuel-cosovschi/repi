@@ -8,7 +8,7 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
-import { addIso, assertLibrary, newVersion, plain, readVersion } from "../training/services";
+import { addIso, assertLibrary, lastTimeByExercise, newVersion, plain, readVersion } from "../training/services";
 import { createOwnExercise, ensureExerciseCatalog } from "../training/library";
 
 const { user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
@@ -463,6 +463,17 @@ export async function listMembers(actorId: string, orgId: string, locationId: st
 
 /** Datos que el gym nunca ve (DEC-10/11): se listan con candado en la ficha. */
 export const GYM_NEVER_SEES = ["Salud, nutrición y Mi cuerpo", "App del socio y su coach privado", "Conversaciones con su coach"];
+
+/** D154: al editar el programa de un socio, lo que hizo la última vez en cada ejercicio con este gym (con su consentimiento). */
+export async function memberLastTimes(actorId: string, orgId: string, gymMemberId: string, exerciseIds: string[]) {
+  const ctx = await gymContext(actorId, orgId);
+  need(ctx, "member.read");
+  const [m] = await db.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId)));
+  if (!m || !inScope(ctx, m.locationId)) throw NOT_FOUND();
+  const [g] = await db.select({ id: consentGrant.id }).from(consentGrant).where(and(eq(consentGrant.relationId, m.id), eq(consentGrant.item, "attendance_training"), eq(consentGrant.status, "active")));
+  if (!g) return {};
+  return Object.fromEntries(await lastTimeByExercise(m.userId, exerciseIds.slice(0, 60), undefined, { gymMemberId: m.id }));
+}
 
 export async function memberDetail(actorId: string, orgId: string, gymMemberId: string, now = new Date()) {
   const ctx = await gymContext(actorId, orgId);

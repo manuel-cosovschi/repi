@@ -248,3 +248,7 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
   .exrow .c-s, .exrow .c-r, .exrow .c-rir, .exrow .c-rest { flex: 1 1 calc(25% - 8px); min-width: 64px; }
   .exrow .c-act { flex: 1 1 100%; justify-content: flex-end; }
 }
+/* D154: carga sugerida por REPI al actualizar la rutina de un cliente o socio. */
+.ex-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: -2px 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--light-selection-bg, #E6FAFF); font-size: 13px; color: var(--light-ink); }
+.ex-sug b { color: var(--light-accent-text, #00799B); }
+.ex-sug small { color: var(--light-accent-text, #00799B); font-weight: 600; }

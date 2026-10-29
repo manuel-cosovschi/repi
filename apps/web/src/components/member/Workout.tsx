@@ -374,6 +374,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           </div>
           {featureOn("exercise_video") && <div className="video" aria-hidden="true">video demostración (pendiente)</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>
+          {ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
+            <div className="wo-suggest" role="note">
+              <small>REPI sugiere hoy</small>
+              <b>{ex.suggest.weightKg != null ? `${kg(ex.suggest.weightKg, unit)} × ` : ""}{ex.suggest.reps} reps</b>
+              <span>{ex.suggest.why}</span>
+            </div>
+          )}
           <div className="sets" role="list" aria-label="Series">
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
             {rows.map((r, i) => (

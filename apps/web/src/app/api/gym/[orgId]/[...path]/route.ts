@@ -49,6 +49,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "handoff": return gym.handoffOptions(me, orgId, loc(u) ?? "");
     case "members": {
       if (!b) return gym.listMembers(me, orgId, loc(u) ?? "", u.searchParams.get("q") ?? "");
+      if (c === "last") return gym.memberLastTimes(me, orgId, b, (u.searchParams.get("ids") ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x))); // D154
       const d = await gym.memberDetail(me, orgId, b);
       return { ...d, community: await cm.memberCommunitySummary(orgId, b) }; // intentos y logros en la ficha (F-HX-15)
     }

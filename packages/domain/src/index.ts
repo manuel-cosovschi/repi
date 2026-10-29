@@ -19,3 +19,4 @@ export * from "./exercise-catalog";
 export * from "./history-import";
 export * from "./prescription";
 export * from "./wishes";
+export * from "./progression";
