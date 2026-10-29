@@ -7,9 +7,9 @@ import { api } from "@/lib/api";
 export type GymScreen =
   | "shift" | "queue" | "members" | "handoff" | "msgs" | "perf"
   | "mdash" | "pc" | "staff" | "tasks" | "reviews" | "shifts" | "engage" | "community" | "validations"
-  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect";
+  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence";
 
-export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean };
+export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean };
 export type Task = {
   id: string; ref: string; member: string | null; gymMemberId: string | null; category: keyof typeof TASK_CATEGORY; priority: keyof typeof TASK_PRIORITY;
   status: "open" | "pending_acceptance" | "in_progress" | "follow_up" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null;

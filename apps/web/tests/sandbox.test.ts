@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { purgeSandboxes, sealDemo, startDemo, demoRoleOf, sandboxDomain } from "@/server/sandbox/services";
 import * as gym from "@/server/gym/services";
@@ -22,7 +22,8 @@ describe("demo guiada", () => {
     // Dueño: solicitud por QR pendiente. Piso: en turno, con aviso en vivo de Julián.
     const ctx = await gym.gymContext(by("martin.sosa"), gymId);
     expect(ctx.roles).toContain("owner");
-    const [loc] = await db.select().from(schema.gymLocation).where(eq(schema.gymLocation.orgId, gymId)).limit(1);
+    // Sofía está en Palermo: sin fijar la sede, la consulta podía devolver Belgrano y fallar al azar (not_found).
+    const [loc] = await db.select().from(schema.gymLocation).where(and(eq(schema.gymLocation.orgId, gymId), eq(schema.gymLocation.name, "Palermo")));
     expect((await listAlerts(by("sofia.ramirez"), gymId, loc.id)).some((a) => a.feel === "ayuda")).toBe(true);
     // Alumna con programa e historial; coach con cobros por moneda.
     const t = await myTraining(by("valentina.gomez"));

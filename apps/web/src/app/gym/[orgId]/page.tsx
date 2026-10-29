@@ -3,6 +3,7 @@ import { GymApp } from "@/components/gym/GymApp";
 import { requireOrgMember } from "@/server/access/guard";
 import "@/styles/coach.css";
 import "@/styles/gym.css";
+import "@/styles/gym-access.css";
 
 export const metadata: Metadata = { title: "REPI Gym" };
 

@@ -24,7 +24,7 @@ type Term = { id: string; kind: "quantity" | "unit_price"; version: number; valu
 type Detail = {
   contract: { id: string; orgId: string; kind: "gym" | "coach"; legalName: string | null; responsibleName: string; responsibleEmail: string; currency: Currency; scope: string; scopeNote: string | null; quantityDefinition: string | null;
     status: "draft" | "accepted" | "enabled" | "suspended" | "ended"; termsVersion: string | null; acceptedRef: string | null; acceptedAt: string | null; enabledAt: string | null; trialUntil: string | null };
-  org: { name: string; commercialStatus: string; connectEnabled?: boolean }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
+  org: { name: string; commercialStatus: string; connectEnabled?: boolean }; accessControl?: { enabled: boolean; mode: string | null }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
   preview: { ok: boolean; reason?: string; subtotalTxt?: string; note?: string | null; period: { start: string; end: string }; changes: { kind: string; version: number; effectiveFrom: string }[];
     lines?: { concept: string; quantity: number; unitMinor: number; totalMinor: number }[]; currency?: Currency };
   invitations: { id: string; email: string | null; status: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null; expiresAt: string; createdAt: string }[];
@@ -599,6 +599,23 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
               {v.org.connectEnabled ? "Desactivar" : "Activar piloto"}</button>
           </div>
           <small className="muted">Activa «Pedir ayuda» con motivos y «Mis pedidos» en la app de los socios, la bandeja «Sala» del equipo y «Seguimiento de sala» para el dueño. Desactivarlo no borra pedidos ni toca rutinas, sesiones o cuentas: vuelve la cola de asistencia de siempre.</small>
+        </section>
+      )}
+
+      {c.kind === "gym" && (
+        <section className="card" aria-label="Control de acceso">
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Control de acceso · ingreso validado</h2>
+            <span className={`chip ${v.accessControl?.enabled ? "ok" : "mute"}`}>{v.accessControl?.enabled ? `Activo${v.accessControl.mode ? ` · ${{ open: "abierto", hybrid: "híbrido", strict: "estricto" }[v.accessControl.mode] ?? v.accessControl.mode}` : ""}` : "Desactivado"}</span>
+            <button type="button" className="btn" style={{ marginLeft: "auto" }} aria-busy={busy === "access" || undefined}
+              onClick={() => {
+                const on = !v.accessControl?.enabled;
+                if (!on && !confirm("¿Desactivar el control de acceso? Se revocan los ingresos vigentes y los socios vuelven a entrenar sin validar.")) return;
+                act("access", `${base}/access`, { on }, on ? "Control de acceso activado. El gimnasio elige el modo en «Acceso y presencia»." : "Control de acceso desactivado. Ingresos vigentes revocados.");
+              }}>
+              {v.accessControl?.enabled ? "Desactivar" : "Activar"}</button>
+          </div>
+          <small className="muted">Activa el QR dinámico de ingreso, las pantallas de recepción y «Acceso y presencia» para el dueño. En modo híbrido (por defecto) los socios ven rutina e historial desde cualquier lugar y validan el ingreso para iniciar el entrenamiento del gimnasio. Antes de usar la ubicación del teléfono, revisión legal (Ley 25.326). No afecta Repi Coach ni otros gimnasios.</small>
         </section>
       )}
 

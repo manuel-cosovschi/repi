@@ -99,7 +99,8 @@ export function readQrToken(token: string, now = new Date()): { ok: true; orgId:
   if (now.getTime() >= Number(exp) * 1000) return { ok: false, reason: "expired_token", orgId, locationId };
   return { ok: true, orgId, locationId, nonce, src: src ?? "" };
 }
-const qrUrl = (token: string) => `https://repiclub.com/ingreso#c=${token}`; // fragmento: no viaja al servidor ni queda en logs
+const site = () => (process.env.NEXT_PUBLIC_APP_URL ?? "https://repiclub.com").replace(/\/$/, "");
+const qrUrl = (token: string) => `${site()}/ingreso#c=${token}`; // fragmento: no viaja al servidor ni queda en logs
 
 /** QR en la pantalla del equipo: dueño, gerencia y recepción, sólo en sus sedes y con el módulo activo. */
 export async function staffQr(actorId: string, orgId: string, locationId: string, now = new Date()) {
@@ -123,7 +124,7 @@ export async function createDisplay(actorId: string, orgId: string, locationId: 
   const secret = randomBytes(32).toString("base64url");
   const [d] = await db.insert(gymAccessDisplay).values({ orgId, locationId, name: n, secretHash: createHash("sha256").update(secret).digest("hex"), createdBy: actorId }).returning();
   await audit(db, { actorUserId: actorId, orgId, action: "gym_access.display_created", resourceType: "gym_access_display", resourceId: d.id });
-  return { id: d.id, link: `https://repiclub.com/ingreso/pantalla#k=${secret}` };
+  return { id: d.id, link: `${site()}/ingreso/pantalla#k=${secret}` };
 }
 export async function revokeDisplay(actorId: string, orgId: string, displayId: string) {
   const ctx = await manageCtx(actorId, orgId);

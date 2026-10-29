@@ -1,0 +1,22 @@
+/* Gym Access (D127): QR dinámico de ingreso a pantalla completa (tablet de recepción y capa del equipo). G · Atlética, fondo oscuro. */
+.gq {
+  min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); background: #0A0F1A; color: #F4F7FB;
+  font-family: var(--font-ui, "Barlow", system-ui, sans-serif); text-align: center;
+}
+.gq-layer { position: fixed; inset: 0; z-index: 90; min-height: 0; overflow-y: auto; }
+.gq-top { position: absolute; top: max(16px, env(safe-area-inset-top)); left: 16px; right: 16px; display: flex; align-items: center; gap: 12px; }
+.gq-brand { font: 800 20px var(--font-display, "Barlow Condensed", sans-serif); letter-spacing: .06em; color: #00D1FF; }
+.gq-where { flex: 1; text-align: left; font-size: 15px; font-weight: 600; color: #B7C3D3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gq-close { height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid #2A3648; background: transparent; color: #F4F7FB; font: 600 15px var(--font-ui, sans-serif); cursor: pointer; }
+.gq-close:focus-visible { outline: 2px solid #00D1FF; outline-offset: 2px; }
+.gq-title { margin: 48px 0 0; font: 700 clamp(30px, 6vw, 56px)/1 var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; letter-spacing: -.01em; }
+.gq-code { background: #fff; border-radius: 20px; padding: 14px; max-width: 640px; max-height: 640px; }
+.gq-code svg { width: 100%; height: 100%; display: block; }
+.gq-bar { width: min(68vh, 82vw, 640px); height: 6px; border-radius: 3px; background: #1C2636; overflow: hidden; }
+.gq-bar i { display: block; height: 100%; background: #00D1FF; transform-origin: left; transition: transform 1s linear; }
+.gq-help { max-width: 560px; margin: 0; font-size: clamp(16px, 2.2vw, 22px); line-height: 1.4; color: #DCE4EE; }
+.gq-small { margin: 0; font-size: 14px; color: #8A9AAF; }
+.gq-err { max-width: 520px; margin: 0; padding: 14px 18px; border-radius: 14px; background: rgba(239, 68, 68, .14); color: #FCA5A5; font-size: 17px; line-height: 1.45; }
+.gq-warn { position: fixed; bottom: 12px; left: 16px; right: 16px; margin: 0; text-align: center; font-size: 13px; color: #FCD34D; }
+@media (prefers-reduced-motion: reduce) { .gq-bar i { transition: none; } }

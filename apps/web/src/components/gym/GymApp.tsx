@@ -18,13 +18,14 @@ import { AccessesScreen, ConditionsScreen, JoinsScreen } from "./Access";
 import { NoticesScreen } from "./Notices";
 import { GymGuide } from "./GymGuide";
 import { ConnectQueueScreen, ConnectReportScreen } from "./Connect";
+import { AccessControlScreen, AccessDesk, ManualCheckin } from "./AccessControl";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowsLeftRight, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
+import { ArrowsLeftRight, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, type Icon } from "@phosphor-icons/react";
 
 const IC = {
   home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
-  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen,
+  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen, qr: QrCode,
 };
 type NavItem = [GymScreen, string, Icon, string | null];
 
@@ -51,6 +52,11 @@ function navFor(ctx: GymCtxView): NavItem[] {
     const q = out.find((x) => x[0] === "queue");
     if (q) q[1] = "Sala";
     if (can(ctx, "team.read")) out.splice(Math.min(2, out.length), 0, ["connect", "Seguimiento de sala", IC.pulse, null]);
+  }
+  // Gym Access (D127): con el módulo activo, dueño y gerencia ven «Acceso y presencia» junto a Accesos.
+  if (ctx.accessControl && (r.includes("owner") || r.includes("manager"))) {
+    const i = out.findIndex((x) => x[0] === "accesses");
+    out.splice(i < 0 ? out.length : i + 1, 0, ["presence", "Acceso y presencia", IC.qr, null]);
   }
   if (can(ctx, "members.approve") || can(ctx, "reception.desk")) add(["reception", r.includes("reception") ? "Recepción" : "Mostrador", IC.desk, null]);
   if (can(ctx, "members.approve")) { add(["joins", "Solicitudes de acceso", IC.door, null]); add(["accesses", "Accesos", IC.key, null]); }
@@ -168,9 +174,10 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         </div>
         <div className="co-content" ref={mainRef} key={`${screen}-${loc}`} data-section={screen}>
           {screen === "notices" && <NoticesScreen shell={shell} />}
-          {screen === "shift" && <ShiftScreen shell={shell} />}
+          {screen === "shift" && <><ShiftScreen shell={shell} />{shell.ctx.accessControl && can(shell.ctx, "members.validate") && !can(shell.ctx, "reception.desk") && <ManualCheckin shell={shell} loc={shell.loc ?? shell.ctx.locations[0]?.id ?? null} />}</>}
           {screen === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
           {screen === "connect" && <ConnectReportScreen shell={shell} />}
+          {screen === "presence" && <AccessControlScreen shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}
           {screen === "handoff" && <HandoffScreen shell={shell} />}
           {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido." emptyText="Todavía no hay conversaciones. Se abren cuando un socio escribe o desde su ficha con «Escribir»." initial={sel} onSeen={refreshBadges} />}
@@ -209,6 +216,7 @@ function ReceptionScreen({ shell }: { shell: Shell }) {
         {can(shell.ctx, "task.create") && <button type="button" className="btn pri" onClick={() => setTask(true)}>Nueva tarea para sala</button>}
       </Head>
       {can(shell.ctx, "reception.desk") && <DeskCard shell={shell} />}
+      <AccessDesk shell={shell} />
       {can(shell.ctx, "members.approve") && <div className="gy-incoming"><span style={{ flex: 1 }}>Las solicitudes de socios que escanean el QR llegan a la bandeja compartida con el piso en turno.</span><button type="button" className="btn pri" onClick={() => shell.go("joins")}>Ver solicitudes</button></div>}
       <span className="muted">Recepción no ve fichas, programas, reseñas ni datos de salud.</span>
       {task && loc && <NewTaskModal shell={shell} loc={loc} onClose={() => setTask(false)} />}

@@ -151,7 +151,7 @@ function DecideModal({ shell, inbox, row, approve, onClose }: { shell: Shell; in
 }
 
 // ── Accesos habilitados y QR por sede ───────────────────────────────────────
-type Access = { id: string; name: string; email: string; location: string; extraLocations: string[]; status: "active" | "suspended" | "ended"; since: string };
+type Access = { id: string; name: string; email: string; location: string; extraLocations: string[]; status: "active" | "suspended" | "ended"; since: string; accessUntil: string | null };
 const AST: Record<string, [string, string]> = { active: ["Habilitado", "ok"], suspended: ["Pausado", "warn"], ended: ["Baja", "mute"] };
 
 export function AccessesScreen({ shell }: { shell: Shell }) {
@@ -178,13 +178,14 @@ export function AccessesScreen({ shell }: { shell: Shell }) {
         {!d.data ? <p className="muted">Cargando…</p> : !d.data.length ? <div className="empty">{term ? "Sin resultados." : "Todavía no hay accesos habilitados."}</div> : (
           <div style={{ overflowX: "auto" }}>
             <table className="gy-table">
-              <thead><tr><th>Socio/a</th><th>Sede</th><th>Estado</th><th>Desde</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+              <thead><tr><th>Socio/a</th><th>Sede</th><th>Estado</th><th>Desde</th><th>Vigente hasta</th><th><span className="sr-only">Acciones</span></th></tr></thead>
               <tbody>{d.data.map((a) => (
                 <tr key={a.id}>
                   <th scope="row">{a.name}<br /><small className="muted">{a.email}</small></th>
                   <td>{a.location}{a.extraLocations.length ? <><br /><small className="muted">+ {a.extraLocations.join(", ")}</small></> : null}</td>
                   <td><span className={`chip ${AST[a.status][1]}`}>{AST[a.status][0]}</span></td>
                   <td>{fmt(a.since)}</td>
+                  <td><UntilCell shell={shell} a={a} onSaved={d.reload} /></td>
                   <td style={{ display: "flex", gap: 6 }}>
                     {a.status === "active" && <button type="button" className="btn sm" onClick={() => setConfirm({ a, action: "suspend" })}>Pausar</button>}
                     {a.status !== "ended" && <button type="button" className="btn sm" onClick={() => setConfirm({ a, action: "end" })}>Dar de baja</button>}
@@ -204,6 +205,29 @@ export function AccessesScreen({ shell }: { shell: Shell }) {
         </Modal>
       )}
     </>
+  );
+}
+
+/**
+ * Vigencia de la membresía (D127): fecha hasta la que el gimnasio considera activa la cuota, cargada a mano o desde su sistema.
+ * Vencida, la app no habilita entrenamientos presenciales del gimnasio; rutina e historial siguen visibles para el socio.
+ */
+function UntilCell({ shell, a, onSaved }: { shell: Shell; a: Access; onSaved: () => void }) {
+  const [v, setV] = useState(a.accessUntil ?? "");
+  const { busy, run } = useAct(shell.flash);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
+  const expired = !!a.accessUntil && a.accessUntil < today;
+  const save = (next: string | null) => run(`u-${a.id}`, () => api(`/api/gym/${shell.orgId}/accesses/${a.id}/until`, { body: { until: next } }),
+    next ? `Vigencia de ${a.name} hasta el ${fmt(next + "T12:00:00-03:00")}.` : `${a.name}: sin fecha de vencimiento.`).then((r) => { if (r) onSaved(); });
+  if (a.status === "ended") return <span className="muted">—</span>;
+  return (
+    <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+      <input type="date" aria-label={`Vigente hasta · ${a.name}`} value={v} onChange={(e) => setV(e.target.value)}
+        style={{ height: 34, borderRadius: 8, border: "1px solid #C9D2DD", padding: "0 8px", font: "500 13px var(--font-ui)" }} />
+      {v !== (a.accessUntil ?? "") && <button type="button" className="btn sm pri" aria-busy={busy === `u-${a.id}` || undefined} onClick={() => void save(v || null)}>Guardar</button>}
+      {a.accessUntil && v === a.accessUntil && <button type="button" className="btn sm" onClick={() => { setV(""); void save(null); }}>Sin vencimiento</button>}
+      {expired && <span className="chip warn">Vencida</span>}
+    </span>
   );
 }
 

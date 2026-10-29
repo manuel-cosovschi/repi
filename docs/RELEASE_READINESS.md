@@ -8,6 +8,19 @@ Estados: **Verificado** (prueba automática o navegador con evidencia y fecha), 
 
 Las pruebas de integración corren contra la base descartable `repi_test` (`apps/web/tests/global-setup.ts`); el navegador, en dev local y en https://repiclub.com cuando se indica.
 
+## Gym Access Control (por gimnasio, D127)
+
+| ID | Requisito | Prior. | Estado | Evidencia / prueba | Bloqueantes | Área | Validado |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| GA-01 | Híbrido: rutina desde cualquier lugar; iniciar y registrar exige ingreso validado en el servidor | P0 piloto | Verificado | `tests/gym-access.test.ts` casos 1–2, 10, 19, 26 | — | Seguridad | 28/10 |
+| GA-02 | QR dinámico firmado, vencido o alterado rechazado, multi-socio e idempotente | P0 piloto | Verificado | casos 3–9, 24; jsQR en navegador | — | Seguridad | 28/10 |
+| GA-03 | Membresía: baja, pausa y vigencia vencida cortan y revocan | P0 piloto | Verificado | caso 11 | — | Producto | 28/10 |
+| GA-04 | Multi-gimnasio y Repi Coach sin cambios | P0 piloto | Verificado | casos 16–18, 20; navegador | — | Producto | 28/10 |
+| GA-05 | Alternativas: validación a mano, carnet, pantalla de recepción revocable | P0 piloto | Verificado (local) | casos 14–15, 21; navegador | — | Operación | 28/10 |
+| GA-06 | Panel del dueño sin rastreo ni coordenadas | P0 piloto | Verificado (local) | navegador; `GYM_ACCESS_PRIVACY.md` | — | Privacidad | 28/10 |
+| GA-07 | Cámara en iPhone Safari/PWA y Android Chrome/PWA | P0 piloto | Externo | jsQR + BarcodeDetector | LB-03 | Socio | — |
+| GA-08 | Revisión legal antes de usar la ubicación | P1 | Externo | Ubicación apagada por defecto | Asesoría legal | Legal | — |
+
 ## REPI Connect (piloto por gimnasio, D126)
 
 | ID | Requisito | Prior. | Estado | Evidencia / prueba | Bloqueantes | Área | Validado |
@@ -18,7 +31,7 @@ Las pruebas de integración corren contra la base descartable `repi_test` (`apps
 | RC-04 | Permisos: socio, sede, organización, coach privado, gestión sin detalle | P0 piloto | Verificado | `connect.test.ts` | — | Seguridad | 28/10 |
 | RC-05 | Tablero del dueño con indicadores reales, sin textos ni salud | P0 piloto | Verificado (local) | `connect.test.ts`, navegador | — | Gestión | 28/10 |
 | RC-06 | Bandera por gimnasio y general; apagado no toca datos | P0 piloto | Verificado | `connect.test.ts` | — | Producto | 28/10 |
-| RC-07 | Migración 0025 en Supabase y deploy | P0 piloto | Pendiente | — | Autorización del titular | Operación | — |
+| RC-07 | Migración 0025 en Supabase y deploy | P0 piloto | Hecho | `a65195e` en producción | — | Operación | 28/10 |
 | RC-08 | Push de pedidos al profesor en turno en un teléfono real | P1 | Externo | Cola y centro de avisos probados | LB-03 | Connect | — |
 
 ## Coach (mercado P0 del primer lanzamiento)

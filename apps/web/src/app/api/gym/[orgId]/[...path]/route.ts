@@ -36,7 +36,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "context": {
       const ctx = await gym.gymContext(me, orgId);
       const { allowed } = await gym.scopedLocation(ctx, null);
-      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org) };
+      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled };
     }
     case "notices": return notices.myStaffNotices(me, orgId);
     case "shift": return gym.myShift(me, orgId, loc(u));

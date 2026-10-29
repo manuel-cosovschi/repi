@@ -1,13 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 28/10/2026 (D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 28/10/2026 (D127 + D128), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## EN CURSO — 28/10/2026 · Gym Access Control (D127) — rama `gym-access`, SIN publicar, migración 0026 sólo en dev
+## Último bloque cerrado — 28/10/2026 · Gym Access Control · ingreso validado (D127)
 
-- **Hecho:** dominio `packages/domain/src/gym-access.ts` (+ tests, 124/124); migración `0026_gym_access` (política por gym, pantallas, `gym_checkin`, `gym_member.access_until`, geo de sede, `workout_session.presence_checkin_id`); servidor `apps/web/src/server/gym/access-control.ts` (QR firmado HMAC con nonce y vencimiento, check-in idempotente, validación del equipo, revocación, `canPerformGymAction`/`requireGymAction`, panel `accessReport`); control en `training/services.ts` (iniciar, registrar series, cambios), Connect y desafíos (estricto), baja/pausa revoca ingresos, recepción emite pase; rutas `/api/me/gym/presence|checkin|demo-qr`, `/api/gym/[orgId]/access/*`, `/api/access-display`, Admin `contracts/[id]/access`; cola offline conserva series con `presence_required`; UI socio `components/member/Presence.tsx` (escáner BarcodeDetector + jsQR, hoja, chip), integración en `MemberApp`/`Workout`, página `/ingreso`; demo con Gym Sur y check-ins sintéticos. Tests `tests/gym-access.test.ts` 11/11; suite completa 202/203 (sandbox falló una vez en la corrida completa y pasa sola: revisar).
-- **Falta:** página kiosco `/ingreso/pantalla`; pantalla «Acceso y presencia» en Gym (política, geo, pantallas, QR, validar a mano, panel); «Vigente hasta» en Accesos; tarjeta en Admin; guía/recorrido de demo; verificación en navegador y teléfonos; docs `docs/gym-access/` (AUDIT, ARCHITECTURE, POLICIES, SECURITY, PRIVACY, API, QA, DEMO), D127, IMPLEMENTATION_STATUS, RELEASE_READINESS; revisión legal de geolocalización; migración 0026 en Supabase y deploy con autorización.
+- **Hecho:** dominio `packages/domain/src/gym-access.ts`; migración `0026_gym_access` (política, pantallas, `gym_checkin`, `gym_member.access_until`, geo de sede, `workout_session.presence_checkin_id`); servidor `apps/web/src/server/gym/access-control.ts` con ganchos en entrenamiento, accesos, carnet, Connect y Admin; socio `components/member/Presence.tsx` (cámara con BarcodeDetector o jsQR, hoja, chip) y `/ingreso`; kiosco `/ingreso/pantalla` (`components/gym-access/{LiveQr,KioskDisplay}.tsx`, `styles/gym-access.css`); «Acceso y presencia» `components/gym/AccessControl.tsx` (panel, política, pantallas y sedes, validar a mano, QR a pantalla completa), validación a mano en Recepción y en «Mi turno», «Vigente hasta» en Accesos, tarjeta en Admin, guías y demo.
+- **Pruebas:** dominio 126/126, web 203/203 (`tests/gym-access.test.ts` 11; `sandbox.test.ts` ya no falla al azar: fijaba una sede cualquiera), guardas 11/11, build OK. Navegador: socio 375 px, dueño, kiosco.
+- **Migración 0026:** aditiva. Ver estado de publicación en la línea siguiente.
+- **Docs:** `docs/gym-access/` (8), FEATURE_FLAGS, IMPLEMENTATION_STATUS, RELEASE_READINESS (GA-01..08), D127.
+- **Siguiente:** activar el módulo en un gimnasio piloto desde Admin; probar la cámara en iPhone y Android reales (LB-03); revisión legal antes de usar ubicación. Pendiente aparte: historial anterior (D129).
 
-## Último bloque cerrado — 28/10/2026 · Altas por invitación: email, fecha con calendario y ver contraseña (D128) — publicado en `main`
+## Bloque anterior — 28/10/2026 · Altas por invitación: email, fecha con calendario y ver contraseña (D128) — publicado en `main`
 
 - **Hecho:** pista del email invitado y freno antes de crear la cuenta (`assertInvitationEmail` en `/api/access/sign-up`, `maskEmail` en el dominio), fecha de nacimiento con selector nativo (`parseBirthDate` acepta también AAAA-MM-DD y DDMMAAAA), `components/access/PasswordInput.tsx` con Mostrar/Ocultar en todos los campos de contraseña.
 - **Pruebas:** dominio 120/120, web 192/192, guardas 11/11; navegador 375 px con una invitación de alumno completa.

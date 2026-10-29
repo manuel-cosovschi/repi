@@ -13,7 +13,7 @@ export type GymPresence = {
 };
 type CheckinResult = { ok: true; duplicate: boolean; gym: string; pass: NonNullable<GymPresence["pass"]> } | { ok: false; reason: string; message: string };
 
-const hm = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+const hm = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 
 /** Acepta el token o el enlace de ingreso de REPI. Nunca navega a la URL escaneada (sin redirecciones). */
 export function extractToken(text: string): string | null {

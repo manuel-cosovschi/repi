@@ -41,6 +41,17 @@ const CONNECT: GuideStep[] = [
   { t: "«Seguimiento de sala» (dueño, gerencia y coordinación)", d: "Pedidos, tiempos de primera atención y resolución, seguimientos, traspasos y opinión de los socios. Sólo números: no muestra el texto de los pedidos, notas, chats ni salud." },
 ];
 
+// Gym Access (D127): sólo con el control de acceso activo.
+const ACCESS: GuideStep[] = [
+  { t: "«Acceso y presencia» → «Política»", d: "Abierto (no pide nada), Híbrido (recomendado: rutina e historial desde cualquier lugar; para iniciar y registrar el entrenamiento del gimnasio se valida el ingreso) o Estricto (suma pedir ayuda o desafíos). Cuánto dura el QR y cuántas horas vale el ingreso." },
+  { t: "«Pantallas y sedes» → «Crear pantalla»", d: "Abrí el enlace una sola vez en la tablet o TV de recepción: muestra el QR de la sede, que se renueva solo. Si se pierde el equipo, «Revocar»." },
+  { t: "«Mostrar QR de ingreso»", d: "Recepción, dueño o gerencia muestran el mismo QR desde su pantalla, sin tablet." },
+  { t: "«Validar a mano»", d: "Para quien no tiene batería, datos o cámara: buscás al socio y validás. Entrenadores de sala, desde «Mi turno» con el turno iniciado. Queda registrado quién lo hizo." },
+  { t: "«Accesos» → «Vigente hasta»", d: "Fecha de la cuota. Vencida, el socio sigue viendo su rutina e historial pero no inicia entrenamientos del gimnasio. Pausar o dar de baja revoca los ingresos vigentes." },
+  { t: "«Panel»", d: "Ingresos validados, socios distintos, rechazos por motivo, ingresos vigentes (con «Revocar») e intentos. No hay mapa ni rastreo: sólo validaciones." },
+  { t: "Ubicación del teléfono", d: "Opcional y apagada por defecto. Antes de activarla, revisión legal (Ley 25.326) y aviso a los socios. Se lee una vez al validar y no se guardan coordenadas." },
+];
+
 const RECEPTION: GuideStep[] = [
   { t: "«Solicitudes de acceso» → «Mostrar QR de la sede»", d: "Para que el socio lo escanee en el mostrador o te pida el enlace por WhatsApp." },
   { t: "«Solicitudes de acceso»", d: "Socios que escanearon el QR. Verificá su identidad y su membresía y aprobá o rechazá con motivo." },
@@ -67,6 +78,7 @@ export function GymGuide({ shell }: { shell: Shell }) {
       <GuideCard title="Quién hace qué"><GuideDefs items={ROLES} /></GuideCard>
       {floor && <GuideCard title="Entrenador de sala y coordinación"><GuideSteps items={FLOOR} /></GuideCard>}
       {shell.ctx.connect && (floor || r.includes("owner")) && <GuideCard title="REPI Connect · seguimiento de sala"><GuideSteps items={CONNECT} /></GuideCard>}
+      {shell.ctx.accessControl && (floor || desk) && <GuideCard title="Acceso y presencia · ingreso validado"><GuideSteps items={ACCESS} /></GuideCard>}
       {desk && <GuideCard title="Recepción"><GuideSteps items={RECEPTION} /></GuideCard>}
       <GuideCard title="Socios"><GuideDefs items={MEMBERS} /></GuideCard>
       <GuideCard title="Ayuda">

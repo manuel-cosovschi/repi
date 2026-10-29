@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { extractToken, sendCheckin } from "@/components/member/Presence";
 
 type R = Awaited<ReturnType<typeof sendCheckin>>;
-const hm = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+const hm = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 
 export function CheckinLanding() {
   const [r, setR] = useState<R | null>(null);
@@ -16,18 +16,20 @@ export function CheckinLanding() {
     void sendCheckin(token, "optional").then(setR);
   }, []);
   return (
-    <div className="ac-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <h1 tabIndex={-1}>Validar ingreso</h1>
-      {!r && <p role="status">Validando con el servidor…</p>}
+    <div className="ac-form">
+      <div className="ac-head"><h1 tabIndex={-1}>Validar ingreso</h1></div>
+      {!r && <p className="ac-sub" role="status">Validando con el servidor…</p>}
       {r?.ok && <>
-        <p role="status"><b>Ingreso validado en {r.pass.location}</b> · {r.gym}. Podés iniciar tu entrenamiento presencial hasta las {hm(r.pass.expiresAt)}.</p>
-        <a className="ac-btn" href="/app?t=train">Ir a entrenar</a>
+        <p className="ac-note" role="status"><b>Ingreso validado en {r.pass.location}</b> · {r.gym}. Podés iniciar tu entrenamiento presencial hasta las {hm(r.pass.expiresAt)}.</p>
+        <a className="ac-cta" style={ctaLink} href="/app?t=train">Ir a entrenar</a>
       </>}
       {r && !r.ok && <>
-        <p role="alert">{r.message}</p>
-        <a className="ac-btn" href="/app?t=train">Volver a mi rutina</a>
+        <p className="ac-error" role="alert">{r.message}</p>
+        <a className="ac-cta" style={ctaLink} href="/app?t=train">Volver a mi rutina</a>
       </>}
-      <small style={{ color: "#94A3B8", lineHeight: 1.45 }}>El ingreso validado sirve para las funciones presenciales de ese gimnasio y vence solo. No guarda tu ubicación.</small>
+      <p className="ac-sub" style={{ fontSize: 13 }}>El ingreso validado sirve para las funciones presenciales de ese gimnasio y vence solo. No guarda tu ubicación.</p>
     </div>
   );
 }
+
+const ctaLink: React.CSSProperties = { display: "grid", placeItems: "center", textDecoration: "none" };
