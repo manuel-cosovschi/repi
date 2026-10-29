@@ -3,7 +3,7 @@
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -11,6 +11,7 @@ import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { useUnit } from "./units";
 import { PainSheet } from "./FollowSheets";
 import { PlatesSheet } from "./PlatesSheet";
+import { SetControl } from "./SetControl";
 import { ExerciseChangeSheet } from "./ExerciseChange";
 import { ConnectHelpSheet } from "./Connect";
 import { PresenceSheet } from "./Presence";
@@ -71,6 +72,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const unit = useUnit();
   const [s, setS] = useState<LocalSession | null>(null);
   const [exIdx, setExIdx] = useState(0);
+  const [outdated, setOutdated] = useState(false); // D145: la sesión quedó con una versión anterior al abrirla
   const [sel, setSel] = useState<number | null>(null);
   const [rir, setRir] = useState<number | null>(null);
   const [feel, setFeel] = useState<SetFeel | null>(null);
@@ -106,9 +108,10 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     let x: LocalSession | undefined = local;
     if (!local || (pending === 0 && !local.conflict)) {
       try {
-        const srv = await api<Parameters<typeof fromServer>[0]>(`/api/me/sessions/${sessionId}`);
+        const srv = await api<Parameters<typeof fromServer>[0] & { outdated?: boolean }>(`/api/me/sessions/${sessionId}`);
         x = fromServer(srv, local?.rest);
         await putLocal(x);
+        setOutdated(!!srv.outdated);
       } catch (e) {
         if (!local) { setErr((e as Error).message || "Sin conexión y sin datos de este entrenamiento en el teléfono."); return; }
       }
@@ -144,6 +147,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const cur = sel ?? rows.findIndex((r) => !r.done);
   const curRow = cur >= 0 ? rows[cur] : null;
   const repsKind = ex ? parseReps(ex.reps).kind : "reps";
+  // D148: cronómetro (series por tiempo) o contador (AMRAP, al fallo) para la serie en curso.
+  const ctl = ex && cur >= 0 ? setControl(setTarget(ex, cur)) : null;
   const elapsed = s ? activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, new Date(now)) : 0;
   const paused = s?.status === "paused";
   const conflicts = s ? Object.entries(s.sets).filter(([, x]) => x.conflict) : [];
@@ -257,7 +262,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       const at = fresh.exercises.findIndex((e) => e.exerciseId === ex?.exerciseId);
       setExIdx(at >= 0 ? at : 0); setSel(null); setRir(null); setNoteDraft(null);
       await commit(fresh);
-      onDismissChange?.();
+      onDismissChange?.(); setOutdated(false);
       flash(!r.changed ? "Ya tenías la rutina al día." : r.kept.length ? `Rutina nueva aplicada. Lo que hiciste de ${r.kept.join(", ")} quedó guardado.` : "Rutina nueva aplicada a este entrenamiento.");
     } catch (e) { flash((e as Error).message); } finally { setUpgrading(false); }
   };
@@ -333,12 +338,12 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             <div><button type="button" className="cta sm" onClick={() => resolveOpen("close_other")}>Cerrar el otro y seguir con este</button><button type="button" className="ghost sm" onClick={() => resolveOpen("discard")}>Descartar este</button></div>
           </div>
         )}
-        {programChanged && (
+        {(programChanged || outdated) && (
           <div className="conflict" role="status">
             <strong>{coachFirst[0].toUpperCase()}{coachFirst.slice(1)} actualizó tu rutina</strong>
             <span>Lo que ya registraste queda guardado. Podés aplicar los cambios a este entrenamiento o seguir así y aplicarlos desde el próximo.</span>
             <div><button type="button" className="cta sm" aria-busy={upgrading || undefined} disabled={upgrading} onClick={() => void applyNewRoutine()}>{upgrading ? "Aplicando…" : "Aplicar ahora"}</button>
-              <button type="button" className="ghost sm" onClick={onDismissChange}>Seguir así</button></div>
+              <button type="button" className="ghost sm" onClick={() => { setOutdated(false); onDismissChange?.(); }}>Seguir así</button></div>
           </div>
         )}
         {conflicts.map(([k, x]) => {
@@ -424,6 +429,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           </>
         ) : curRow && (!exComplete || sel != null) ? (
           <>
+            {!curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
             <div className="steppers">
               <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>

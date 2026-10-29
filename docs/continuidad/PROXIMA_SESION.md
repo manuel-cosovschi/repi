@@ -1,12 +1,12 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D144), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D148), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 ## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
 
-**Estado:** todo lo pedido hasta **D144** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones hasta 0031 aplicadas en Supabase (0031 = `gym_access_display.purpose`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
+**Estado:** todo lo pedido hasta **D148** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones hasta 0031 aplicadas en Supabase (0031 = `gym_access_display.purpose`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D148**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D149**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
 **Comandos:** web `cd apps/web && pnpm vitest run` (221 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (141). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 
@@ -25,7 +25,7 @@ Actualizado: 29/10/2026 (hasta D144), sobre la release candidata rc-2026.10.27 (
 **Próximos pasos sugeridos:**
 1. Excel verificado con 25 archivos reales (D142). Falta: un .ods real y los archivos del alumno de Urko.
 2. HECHO (D147): «Lo que buscás entrenando» lo ve el coach o el gym si la persona marca «Que lo vea quien arma mi rutina».
-3. Que entrenadores reales prueben «Series y técnica» en el celular; control propio para AMRAP y series por tiempo en el entrenamiento.
+3. Que entrenadores reales prueben «Series y técnica» en el celular. HECHO (D148): cronómetro para series por tiempo y contador para AMRAP/al fallo.
 4. «No vino el profe» medido en producción (D142): primera sugerencia 2,3–3,8 s (se precarga al abrir Entrenar), rearmar 2,7–3,8 s, reemplazo correcto 3 de 3.
 6. Bloqueantes del titular (docs/LAUNCH_BLOCKERS.md): LB-02 planes pagos de Vercel/Supabase, LB-03 teléfonos reales, LB-04 abogado y datos de la empresa, LB-05 respaldos fuera de la computadora, LB-06 alertas de errores; además dominio de correo y rotar la clave de OpenAI.
 5. Pendientes externos: cámara del QR de ingreso en iPhone/Android reales (LB-03), revisión legal de la ubicación (Gym Access), dominio de correo.

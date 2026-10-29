@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeSeconds, detectPR, epley1rm, nextDayIndex, parseReps, parseRest, restLeft, startOptions, stepWeight,
-  validateProgramDoc, volumeKg, weekOf, weeklyAdherence, defaultRepsFor, formatClock,
+  validateProgramDoc, volumeKg, weekOf, weeklyAdherence, defaultRepsFor, formatClock, setControl,
 } from "./training";
 
 describe("prescripción", () => {
@@ -95,5 +95,16 @@ describe("documento de programa", () => {
     expect(validateProgramDoc({ ...ok, days: [] })).toMatchObject({ ok: false });
     const bad = validateProgramDoc({ ...ok, days: [{ name: "A", exercises: [{ ...ok.days[0].exercises[0], rir: 7 }] }] });
     expect(bad).toEqual({ ok: false, error: "A · Press: el RIR va de 0 a 5." });
+  });
+});
+
+describe("setControl (D148)", () => {
+  it("cronómetro para series por tiempo y contador para AMRAP o al fallo", () => {
+    expect(setControl({ reps: "40 s" })).toEqual({ mode: "time", seconds: 40 });
+    expect(setControl({ kind: "amrap", reps: "AMRAP" })).toEqual({ mode: "amrap" });
+    expect(setControl({ kind: "work", reps: "al fallo técnico" })).toEqual({ mode: "amrap" });
+    expect(setControl({ kind: "failure", reps: "8" })).toEqual({ mode: "amrap" });
+    expect(setControl({ kind: "work", reps: "8-10" })).toBeNull();
+    expect(setControl({ reps: "10" })).toBeNull();
   });
 });

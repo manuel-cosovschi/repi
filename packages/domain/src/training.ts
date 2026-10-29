@@ -43,6 +43,17 @@ export const stepWeight = (w: number, dir: 1 | -1, step: number = WEIGHT_STEP) =
 export const stepReps = (r: number, dir: 1 | -1) => Math.max(0, r + dir);
 
 /**
+ * D148: control propio de la serie en curso. Series por tiempo («40 s»): cronómetro con el objetivo; AMRAP o al fallo:
+ * contador de repeticiones con un toque. El resultado se guarda igual que siempre (segundos o repeticiones en `reps`).
+ */
+export function setControl(t: { kind?: string | null; reps: string }): { mode: "time"; seconds: number } | { mode: "amrap" } | null {
+  const r = parseReps(t.reps);
+  if (r.kind === "time") return { mode: "time", seconds: r.seconds };
+  if (t.kind === "amrap" || t.kind === "failure" || /amrap|fallo|m[aá]x/i.test(t.reps)) return { mode: "amrap" };
+  return null;
+}
+
+/**
  * 1RM estimado por Epley: w × (1 + r/30). Sólo para 1–12 reps con carga > 0;
  * fuera de ese rango devuelve null (la fórmula pierde validez). Es una estimación, no una carga medida.
  */

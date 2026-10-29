@@ -599,8 +599,12 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
   const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
   const prev = await lastSetByExercise(userId, [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])], s.id);
+  // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
+  const open = s.status === "in_progress" || s.status === "paused";
+  const [cur] = open ? await db.select({ v: program.currentVersionId }).from(programAssignment).innerJoin(program, eq(program.id, programAssignment.programId))
+    .where(and(eq(programAssignment.id, s.assignmentId), eq(programAssignment.status, "active"))) : [];
   return {
-    id: s.id, dayId: s.dayId, dayName: s.dayName, status: s.status, note: v?.note ?? "", rpe: s.rpe, sessionNote: s.note,
+    id: s.id, dayId: s.dayId, dayName: s.dayName, status: s.status, note: v?.note ?? "", rpe: s.rpe, sessionNote: s.note, outdated: !!cur?.v && cur.v !== s.versionId,
     startedAt: s.startedAt, endedAt: s.endedAt, activeMs: s.activeMs, lastResumedAt: s.lastResumedAt,
     elapsedSec: activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, now), revision: s.revision,
     conflicts: await listConflicts(userId, s.id),

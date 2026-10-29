@@ -100,8 +100,10 @@ describe("reemplazos aprobados", () => {
       { exerciseId: EX["Prensa"], name: "Prensa", sets: 3, reps: "10", rir: 2, restSec: 90 },
       { exerciseId: EX["Sentadilla"], name: "Sentadilla", sets: 5, reps: "5", rir: 1, restSec: 150 },
     ] }] });
+    expect((await tr.getSession(user, sid)).outdated).toBe(true);
     const r = await tr.upgradeSession(user, sid);
     expect(r).toMatchObject({ changed: true, moved: 1, kept: [] });
+    expect(r.session.outdated).toBe(false);
     expect(r.session.dayName).toBe("Piernas B");
     expect(r.session.exercises.map((e) => [e.name, e.sets])).toEqual([["Prensa", 3], ["Sentadilla", 5]]);
     const sq = r.session.exercises[1];

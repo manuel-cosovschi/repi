@@ -579,3 +579,16 @@
 .lift-rank .mv.new { color: var(--core-cyan); }
 .lift-rank > div > strong { min-width: 72px; text-align: right; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+/* D148: cronómetro y contador de la serie */
+.set-ctl { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px; background: var(--dark-surface, #121A28); border: 1px solid var(--dark-border); }
+.set-ctl-clock { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.set-ctl-clock strong { font: 800 44px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.set-ctl-clock small, .set-ctl-tap small { color: var(--dark-muted); font-size: 13px; }
+.set-ctl-bar { height: 6px; border-radius: 3px; background: var(--dark-border); overflow: hidden; }
+.set-ctl-bar i { display: block; height: 100%; background: var(--core-cyan); transform-origin: left; transition: transform .25s linear; }
+.set-ctl-act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.set-ctl-tap { min-height: 112px; border-radius: 14px; border: 1px solid var(--core-cyan); background: rgba(0, 209, 255, .08); color: var(--dark-ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; touch-action: manipulation; }
+.set-ctl-tap strong { font: 800 56px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.set-ctl-tap:active { background: rgba(0, 209, 255, .18); }
+@media (prefers-reduced-motion: reduce) { .set-ctl-bar i { transition: none; } }
