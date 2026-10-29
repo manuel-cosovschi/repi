@@ -3,7 +3,7 @@
 // Diferencia documentada (D30): los días del programa no tienen día de semana fijo; se elige el día y se sugiere
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { fmtMoney, formatClock, formatRest, formatDayEs, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
+import { TECHNIQUES, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { allLocal, delLocal, ensureOwner, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
@@ -162,13 +162,15 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     const nowIso = new Date().toISOString();
     const sets: LocalSession["sets"] = {};
     for (const e of d.exercises) for (let i = 0; i < e.sets; i++) {
-      const reps = /^(\d+)/.exec(e.reps);
-      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: e.prev?.weightKg ?? 0, r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
+      // D134: el plan serie por serie fija peso o repeticiones de esa serie (top set, back-off, drop).
+      const plan = e.detail?.setPlan?.[i];
+      const reps = /^(\d+)/.exec(plan?.reps ?? e.reps);
+      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: plan?.weightKg ?? e.prev?.weightKg ?? 0, r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {
       id: crypto.randomUUID(), dayId: d.id, dayName: d.name, note: t.program!.note, startedAt: nowIso, status: "in_progress", activeMs: 0, lastResumedAt: nowIso,
       endedAt: null, rpe: null, sessionNote: null, revision: 1, synced: false, rest: null, updatedAt: nowIso, sets,
-      exercises: d.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev })),
+      exercises: d.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null })),
     };
     try {
       await putLocal(s);
@@ -543,6 +545,7 @@ function DayDetail({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: stri
 
 function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string }) {
   const unit = useUnit();
+  const labels = groupLabels(d.exercises); // D137: A1, A2 en la vista previa
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -554,9 +557,9 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
         <div className="coachnote"><span className="av32" aria-hidden="true">{(t.relation?.kind === "gym" ? "Equipo Sala" : t.coach?.name ?? "C").split(" ").map((w) => w[0]).slice(0, 2).join("")}</span><span><small>{t.relation?.kind === "gym" ? "Indicación del equipo de sala" : `Indicación de ${coachFirst}`}</small><p>{t.program!.note}</p></span></div>
       )}
       <div className="exlist">
-        {d.exercises.map((e) => (
-          <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">foto</span>
-            <span><b>{e.name}</b><small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit)}</em></span>
+        {d.exercises.map((e, i) => (
+          <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">{labels[i] ?? "foto"}</span>
+            <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit)}</em></span>
             <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>
           </div>
         ))}

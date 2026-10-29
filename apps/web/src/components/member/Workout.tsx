@@ -3,7 +3,7 @@
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -169,9 +169,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const sets = { ...s.sets, [k]: { ...curRow, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done) sets[kk] = { ...sets[kk], w: curRow.w }; }
     const more = !wasDone && Array.from({ length: ex.sets }, (_, i) => sets[setKey(ex.id, i)]).some((x) => !x.done);
-    const restS = setTarget(ex, cur).restSec ?? ex.restSec; // D134: descanso de esta serie (un drop va sin descanso)
-    const next = { ...s, sets, rest: more && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : s.rest };
+    let restS = setTarget(ex, cur).restSec ?? ex.restSec; // D134: descanso de esta serie (un drop va sin descanso)
+    // D137: en una superserie o circuito se alterna solo (A1 → A2 → … → descanso → A1) sin descansar entre ejercicios.
+    const flow = !wasDone ? comboNext(s.exercises, (i, k) => !!sets[setKey(s.exercises[i].id, k)]?.done, exIdx, cur) : null;
+    if (flow) restS = flow.endOfRound ? restS : 0;
+    const next = { ...s, sets, rest: (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : flow ? null : s.rest };
     setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
+    if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); }
     await commit(next);
     await enqueue({ key: `set:${s.id}:${k}`, kind: "set", sid: s.id, peId: ex.id, idx: cur });
     if (!wasDone && gym && f && FEEL_ALERTS.includes(f as SetFeel) && !navigator.onLine) flash("Sin conexión: el aviso a sala sale al reconectar (si pasaron menos de 10 minutos).");
@@ -584,3 +588,4 @@ function detailLine(d: ExerciseDetail, label: string | null | undefined, all: { 
     d.tempo ? `Tempo ${d.tempo}` : null, d.variant, d.unilateral ? "Por lado" : null, d.progression,
   ].filter(Boolean).join(" · ");
 }
+

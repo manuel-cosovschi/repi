@@ -119,3 +119,20 @@ export function groupLabels(exs: { detail?: ExerciseDetail | null }[]) {
   const count = new Map<string, number>();
   return exs.map((e) => { const g = e.detail?.group; if (!g) return null; const n = (count.get(g) ?? 0) + 1; count.set(g, n); return `${g}${n}`; });
 }
+
+/**
+ * D137: siguiente ejercicio de la combinación (misma letra) al terminar la serie `setIdx` del ejercicio `idx`. Dentro de la
+ * vuelta va al siguiente del grupo con esa serie pendiente (sin descanso); al cerrar la vuelta vuelve al primero con series
+ * pendientes y corresponde el descanso. Sin grupo, con un solo miembro o con todo hecho, null. Los salteados no cuentan.
+ */
+export function comboNext(exs: { sets: number; detail?: ExerciseDetail | null; change?: { kind: string } | null }[], done: (i: number, k: number) => boolean, idx: number, setIdx: number) {
+  const g = exs[idx]?.detail?.group;
+  if (!g) return null;
+  const members = exs.map((_, i) => i).filter((i) => exs[i].detail?.group === g && exs[i].change?.kind !== "skip");
+  if (members.length < 2) return null;
+  const pending = (i: number, k: number) => k < exs[i].sets && !done(i, k);
+  const later = members.slice(members.indexOf(idx) + 1).find((i) => pending(i, setIdx));
+  if (later != null) return { idx: later, endOfRound: false };
+  const first = members.find((i) => Array.from({ length: exs[i].sets }, (_, k) => k).some((k) => pending(i, k)));
+  return first != null ? { idx: first, endOfRound: true } : null;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupLabels, presetPlan, setTarget, setTargetText, validateDetail } from "./prescription";
+import { comboNext, groupLabels, presetPlan, setTarget, setTargetText, validateDetail } from "./prescription";
 import { validateProgramDoc } from "./training";
 
 describe("prescripción avanzada", () => {
@@ -32,5 +32,19 @@ describe("prescripción avanzada", () => {
     const r = validateProgramDoc({ name: "P", weeks: 4, note: "", days: [{ name: "A", exercises: [{ exerciseId: "x", name: "Sentadilla", sets: 3, reps: "8", rir: 2, restSec: 120,
       detail: { technique: "drop_set", setPlan: presetPlan("drop_set", { sets: 3, reps: "8", weightKg: 60 }), group: null, groupKind: null, rounds: null, tempo: null, variant: "con pausa", unilateral: false, progression: null } }] }] });
     expect(r.ok && r.doc.days[0].exercises[0]).toMatchObject({ sets: 3, detail: { technique: "drop_set", variant: "con pausa" } });
+  });
+  it("superserie: alterna A1 → A2 sin descanso y al cerrar la vuelta vuelve a A1 con descanso", () => {
+    const g = (group: string | null) => ({ technique: "straight" as const, setPlan: null, group, groupKind: group ? "superset" as const : null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null });
+    const exs = [{ sets: 3, detail: g("A") }, { sets: 3, detail: g(null) }, { sets: 3, detail: g("A") }];
+    const done = new Set<string>();
+    const isDone = (i: number, k: number) => done.has(`${i}:${k}`);
+    done.add("0:0");
+    expect(comboNext(exs, isDone, 0, 0)).toEqual({ idx: 2, endOfRound: false });
+    done.add("2:0");
+    expect(comboNext(exs, isDone, 2, 0)).toEqual({ idx: 0, endOfRound: true });
+    expect(comboNext(exs, isDone, 1, 0)).toBeNull(); // sin grupo
+    for (const k of [1, 2]) { done.add(`0:${k}`); done.add(`2:${k}`); }
+    expect(comboNext(exs, isDone, 2, 2)).toBeNull(); // todo hecho
+    expect(comboNext([{ sets: 3, detail: g("A") }, { sets: 3, detail: g("A"), change: { kind: "skip" } }], () => false, 0, 0)).toBeNull(); // el salteado no cuenta
   });
 });
