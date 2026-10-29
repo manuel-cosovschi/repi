@@ -16,6 +16,7 @@ import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task
 import { Ic } from "@/components/ui/Ic";
 import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
 import { IntInput } from "@/components/ui/IntInput";
+import { ProgramAssistant } from "@/components/coach/ProgramAssistant";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -195,13 +196,17 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   return (
     <Modal label={`Editar programa · ${member.name}`} onClose={() => onClose(false)} wide>
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
+      <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} hasContent={doc.days.some((d) => d.exercises.length > 0)}
+        onUse={(d) => { setDoc(d); setDay(0); if (reason.trim().length < 3) setReason("Programa armado con la propuesta de REPI"); }} />
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <label className="field" style={{ flex: "2 1 240px" }}>Nombre<input value={doc.name} maxLength={120} onChange={(e) => setDoc({ ...doc, name: e.target.value })} /></label>
         <label className="field" style={{ flex: "0 0 110px" }}>Semanas<IntInput min={1} max={52} value={doc.weeks} onChange={(n) => n != null && setDoc({ ...doc, weeks: n })} /></label>
       </div>
-      <div className="seg" role="tablist" aria-label="Días">
-        {doc.days.map((d, i) => <button key={i} type="button" role="tab" aria-selected={day === i} onClick={() => setDay(i)}>{d.name || `Día ${i + 1}`}</button>)}
-        {doc.days.length < 7 && <button type="button" onClick={() => { setDoc({ ...doc, days: [...doc.days, { name: `Día ${String.fromCharCode(65 + doc.days.length)}`, exercises: [] }] }); setDay(doc.days.length); }}>+ Día</button>}
+      <div className="seg">
+        <div role="tablist" aria-label="Días" style={{ display: "contents" }}>
+          {doc.days.map((d, i) => <button key={i} type="button" role="tab" aria-selected={day === i} onClick={() => setDay(i)}>{d.name || `Día ${i + 1}`}</button>)}
+        </div>
+        {doc.days.length < 7 && <button type="button" aria-label="Agregar día" onClick={() => { setDoc({ ...doc, days: [...doc.days, { name: `Día ${String.fromCharCode(65 + doc.days.length)}`, exercises: [] }] }); setDay(doc.days.length); }}>+ Día</button>}
       </div>
       <label className="field">Nombre del día<input value={cur.name} maxLength={60} onChange={(e) => setDoc({ ...doc, days: doc.days.map((x, j) => j === day ? { ...x, name: e.target.value } : x) })} /></label>
       <div className="exhead"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Desc.</span><span className="c-act" /></div>

@@ -13,6 +13,7 @@ import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
 import { groupLabels } from "@repi/domain";
 import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
+import { ProgramAssistant } from "./ProgramAssistant";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -116,6 +117,9 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
         </div>
         {doc && cur ? (
           <section className="card" style={{ flex: "3 1 480px", minWidth: 0, gap: 14 }}>
+            {/* D155: propuesta completa armada por REPI; reemplaza el editor sólo si el coach la usa (y se guarda como cualquier edición). */}
+            <ProgramAssistant url={`/api/coach/${orgId}/programs/draft`} hasContent={doc.days.some((d) => d.exercises.length > 0)}
+              onUse={(d) => { edit(() => d as EditableDoc); setDay(0); }} />
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
               <div className="seg">
                 <div role="tablist" aria-label="Días del programa" style={{ display: "contents" }}>

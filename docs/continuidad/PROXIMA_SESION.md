@@ -1,6 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D154), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D155), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## «Armar con REPI» (D155) — 29/10/2026
+
+- **Servidor:** `server/training/program-ai.ts` (`draftProgram`, `cleanBrief`), `memberProgramDraft` (gym) y `coachProgramDraft` (coach).
+- **Rutas:** `POST /api/gym/:org/members/:id/program-draft` y `POST /api/coach/:org/programs/draft`.
+- **UI:** `components/coach/ProgramAssistant.tsx`.
+- **Arreglo:** carrera vieja en `Workout.tsx`. Al sincronizar el inicio, una copia vieja podía pisar el peso tipeado de una serie sin completar.
+- **Pruebas:** web 242 ✓, dominio 153 ✓, E2E 36/36 ✓. Con IA real en local: 4,4 s, evita la zona lesionada y el nombre no menciona la salud.
 
 ## Carga sugerida por REPI (D154) — 29/10/2026
 
@@ -42,7 +50,7 @@ Actualizado: 29/10/2026 (hasta D154), sobre la release candidata rc-2026.10.27 (
 
 **Estado:** todo lo pedido hasta **D150** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones hasta 0031 aplicadas en Supabase (0031 = `gym_access_display.purpose`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D155**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D156**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
 **Comandos:** web `cd apps/web && pnpm vitest run` (221 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (141). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 

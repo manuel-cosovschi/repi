@@ -25,6 +25,11 @@ beforeAll(async () => {
   SQ = e?.id ?? (await db.select().from(schema.exercise).where(eq(schema.exercise.name, "Sentadilla")))[0].id;
 });
 beforeEach(() => resetRateLimits());
+// D153/D155: las propuestas se prueban con reglas (sin llamar a OpenAI desde las pruebas).
+const withoutAi = async <T,>(fn: () => Promise<T>) => {
+  const k = process.env.OPENAI_API_KEY; delete process.env.OPENAI_API_KEY;
+  try { return await fn(); } finally { if (k) process.env.OPENAI_API_KEY = k; }
+};
 
 async function member(withProgram = true) {
   const coach = await verified();
@@ -67,7 +72,7 @@ describe("Adaptive Coach · entrenar por mi cuenta", () => {
 
   it("D153: sin rutina asignada, REPI arma la rutina de hoy con la biblioteca y se puede entrenar; no pasa a ser el programa", async () => {
     const user = await member(false);
-    const r = await soloRoutine(user); // sin clave de OpenAI en las pruebas: se arma con reglas
+    const r = await withoutAi(() => soloRoutine(user)); // con reglas, sin OpenAI
     expect(r.kind).toBe("routine");
     expect(r.exercises.length).toBeGreaterThanOrEqual(2);
     expect(new Set(r.exercises.map((e) => e.group)).size).toBe(r.exercises.length); // un ejercicio por grupo
@@ -98,5 +103,22 @@ describe("Adaptive Coach · entrenar por mi cuenta", () => {
     const alone = await verified();
     await expect(soloRoutine(alone.id)).rejects.toMatchObject({ code: "no_relation" });
     await expect(tr.startSoloRoutine(alone.id, { id: randomUUID(), dayName: "X", exercises: [{ exerciseId: SQ, sets: 3, reps: "8" }] })).rejects.toMatchObject({ code: "no_relation" });
+  });
+
+  it("D155: el profe carga datos y REPI propone un programa completo y válido con la biblioteca; sin coach no se puede", async () => {
+    const coach = await verified();
+    const org = await acc.createCoachOrganization(coach.id, { brand: `Coach D155 ${n}` });
+    const d = await withoutAi(() => tr.coachProgramDraft(coach.id, org.id, { goal: "muscle", daysPerWeek: 4, minutes: 45, level: "intermediate", limitations: "molestia en el hombro" }));
+    expect(d.byRules).toBe(true);
+    expect(d.doc.days.map((x) => x.name)).toEqual(["Torso A", "Piernas A", "Torso B", "Piernas B"]);
+    expect(d.doc.days.every((x) => x.exercises.length >= 3)).toBe(true);
+    expect(d.caution).toMatch(/limitaciones/);
+    expect(d.doc.name).not.toMatch(/hombro|molest/i); // lo de salud nunca queda en el nombre del programa
+    const pid = await tr.createTemplate(coach.id, org.id, d.doc); // se guarda como cualquier programa
+    expect(pid).toBeTruthy();
+    const ev = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, coach.id), eq(schema.auditEvent.action, "program.ai_draft")));
+    expect(JSON.stringify(ev[0].meta)).not.toContain("hombro"); // lo escrito sobre lesiones no se guarda
+    const other = await verified();
+    await expect(tr.coachProgramDraft(other.id, org.id, { daysPerWeek: 3, level: "beginner" })).rejects.toBeTruthy();
   });
 });

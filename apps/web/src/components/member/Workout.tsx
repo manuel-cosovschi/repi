@@ -127,7 +127,22 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     setSync(st);
     // Tras sincronizar, el estado local (revisiones, conflictos) puede haber cambiado.
     const fresh = await getLocal(sessionId);
-    if (fresh) setS((cur) => (cur && fresh.updatedAt > cur.updatedAt ? fresh : cur));
+    if (!fresh) return;
+    setS((cur) => {
+      if (!cur || fresh.updatedAt <= cur.updatedAt) return cur;
+      // QA 29/10: la sincronización sólo cambia series ya hechas (ids, revisiones, conflictos). Lo que la persona está
+      // cargando en una serie sin completar es de la pantalla: una copia leída antes de su última tecla no lo pisa.
+      let kept = false;
+      const sets = Object.fromEntries(Object.entries(fresh.sets).map(([k, v]) => {
+        const mine = cur.sets[k];
+        if (mine && (!v.done || (mine.done && !v.done)) && (mine.w !== v.w || mine.r !== v.r || mine.done !== v.done)) { kept = true; return [k, mine]; }
+        return [k, v];
+      }));
+      if (!kept) return fresh;
+      const merged = { ...fresh, sets };
+      void putLocal(merged);
+      return merged;
+    });
   }), [sessionId]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
 

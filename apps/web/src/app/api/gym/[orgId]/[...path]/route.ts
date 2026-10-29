@@ -1,6 +1,7 @@
 // API del escritorio Gym (Etapa 5). Un único punto de entrada; la autorización por capacidad y sede vive en los servicios.
 import { z } from "zod";
 import { DetailZ } from "@/server/training/detail-schema";
+import { BriefZ } from "@/server/training/brief-schema";
 import { isPeriod, type Period } from "@repi/domain";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";
 import { AccessError } from "@/server/access/util";
@@ -11,6 +12,8 @@ import * as msg from "@/server/messages/services";
 import * as cm from "@/server/community/services";
 import * as club from "@/server/community/club";
 import * as screen from "@/server/community/screen";
+
+export const maxDuration = 60; // D155: la propuesta de programa de REPI puede tardar
 import * as join from "@/server/join/services";
 import * as alerts from "@/server/gym/alerts";
 import * as notices from "@/server/gym/notices";
@@ -116,6 +119,10 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "tasks" && b && c === "complete") return gym.completeTask(me, orgId, b);
   if (a === "tasks" && b && c === "accept") return gym.acceptHandoff(me, orgId, b);
   if (a === "tasks" && b && c === "reassign") return gym.reassignTask(me, orgId, b, (await body(req, z.object({ toUserId: id.nullable() }))).toUserId);
+  if (a === "members" && b && c === "program-draft") { // D155: propuesta de REPI (usa OpenAI: mismo tope que el resto)
+    await limit(`program-draft:${me}`, 20, 3_600_000);
+    return gym.memberProgramDraft(me, orgId, b, await body(req, BriefZ));
+  }
   if (a === "members" && b && c === "program") return gym.saveMemberProgram(me, orgId, b, await body(req, z.object({ doc: DOC, reason: z.string().max(300), completeTaskId: id.nullable().optional() })));
   if (a === "members" && b && c === "notes") return gym.addNote(me, orgId, b, await body(req, z.object({ kind: z.enum(["institutional", "personal"]), text: z.string().max(1000) })));
   if (a === "members" && b && c === "conversation") return msg.floorConversationFor(me, orgId, b);
