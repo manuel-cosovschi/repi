@@ -34,6 +34,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "club" && !b) return club.clubState(me, org(req));
   if (a === "club" && b === "feed") return club.feed(me, org(req), u.searchParams.get("before"));
   if (a === "club" && b === "ranking") return club.clubRankingFor(me, org(req));
+  if (a === "club" && b === "lifts") return club.clubLiftRanking(me, org(req), u.searchParams.get("ex"));
   if (a === "club" && b === "exercises") return { exercises: await club.myExercises(me, org(req)), sessions: await club.shareableSessions(me, org(req)) };
   if (a === "club" && b === "evolution" && c) return club.exerciseEvolution(me, org(req), c);
   if (a === "club" && b === "profile" && !c) return club.myClubProfile(me, org(req));

@@ -564,3 +564,18 @@
 .wish-goals { display: flex; flex-wrap: wrap; gap: 6px; }
 .wish-goals .ai-chip[aria-checked="true"] { background: var(--core-cyan); border-color: var(--core-cyan); color: var(--core-navy900); }
 .wish-row { display: flex; gap: 10px; }
+/* D144: ranking por ejercicio en vivo */
+.lift-ex { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.lift-ex .ai-chip { flex: none; }
+.lift-ex .ai-chip[aria-checked="true"] { background: var(--core-cyan); border-color: var(--core-cyan); color: var(--core-navy900); }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #2BD576; margin-right: 6px; vertical-align: 1px; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: .35; } }
+.lift-rank > div { transition: background-color .6s; }
+.lift-rank > div[data-live="up"] { background: rgba(43, 213, 118, .16); }
+.lift-rank > div[data-live="down"] { background: rgba(255, 92, 92, .12); }
+.lift-rank .mv { margin-left: auto; min-width: 44px; text-align: right; font: 600 12px var(--font-mono); color: var(--dark-muted); }
+.lift-rank .mv.up { color: #2BD576; }
+.lift-rank .mv.down { color: #FF6B6B; }
+.lift-rank .mv.new { color: var(--core-cyan); }
+.lift-rank > div > strong { min-width: 72px; text-align: right; }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }

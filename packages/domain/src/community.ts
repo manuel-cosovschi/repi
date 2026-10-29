@@ -119,3 +119,23 @@ export function clubRanking<T extends { userId: string; name: string; sessions: 
   return [...rows].sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name)).map((r, i, arr) => ({ ...r, pos: i > 0 && arr[i - 1].sessions === r.sessions ? -1 : i + 1 }))
     .map((r, i, arr) => ({ ...r, pos: r.pos === -1 ? (arr.slice(0, i).reverse().find((x) => x.pos !== -1)?.pos ?? 1) : r.pos }));
 }
+
+/**
+ * Ranking por ejercicio del gym (D144): mejor 1RM estimado de cada persona. `before` es su mejor marca hasta hace una
+ * semana: con eso se calcula cuántos puestos subió o bajó (o si entra nuevo). Empates comparten puesto.
+ */
+export function liftRanking<T extends { key: string; name: string; best: number; before: number | null }>(rows: T[]) {
+  const place = <R extends { v: number; name: string }>(xs: R[]) => {
+    const s = [...xs].sort((a, b) => b.v - a.v || a.name.localeCompare(b.name));
+    const pos = new Map<R, number>();
+    s.forEach((x, i) => pos.set(x, i > 0 && s[i - 1].v === x.v ? pos.get(s[i - 1])! : i + 1));
+    return { s, pos };
+  };
+  const now = place(rows.map((r) => ({ ...r, v: r.best })));
+  const prev = place(rows.filter((r) => r.before != null).map((r) => ({ ...r, v: r.before! })));
+  const prevPos = new Map([...prev.pos].map(([x, p]) => [x.key, p]));
+  return now.s.map((r) => {
+    const p = prevPos.get(r.key);
+    return { key: r.key, name: r.name, best: r.best, pos: now.pos.get(r)!, delta: p == null ? null : p - now.pos.get(r)!, isNew: p == null };
+  });
+}

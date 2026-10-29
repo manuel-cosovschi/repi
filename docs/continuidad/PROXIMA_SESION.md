@@ -1,14 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D143), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D144), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 ## TRASPASO PARA OTRO AGENTE — 29/10/2026 (leer primero)
 
-**Estado:** todo lo pedido hasta **D143** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones 0025–0030 aplicadas en Supabase (0030 = `user_pref.wishes`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
+**Estado:** todo lo pedido hasta **D144** está en `main` y publicado en https://repiclub.com (verificar con `curl https://repiclub.com/api/version`). Migraciones 0025–0030 aplicadas en Supabase (0030 = `user_pref.wishes`). Nada pendiente sin commitear salvo `docs/continuidad/CODEX_PARA_CLAUDE.md` (no tocar).
 
-**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D144**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
+**Cómo trabajar (mandato del titular):** seguir sin preguntar, bloque tras bloque; commit y push a `main` de cada bloque; actualizar `docs/DECISIONS.md` (una fila por decisión, D-número siguiente: **D145**) y este archivo al cerrar cada bloque; chat en español y conciso; Barlow / Barlow Condensed, no tocar logo. En la interfaz decir «REPI», no «IA» (D141), salvo la mención de OpenAI en notas de privacidad.
 
-**Comandos:** web `cd apps/web && pnpm vitest run` (218 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (140). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
+**Comandos:** web `cd apps/web && pnpm vitest run` (221 pruebas; `tests/global-setup.ts` borra sólo la base `repi_test`), `pnpm test:guards`, `pnpm exec tsc --noEmit`, `pnpm build` (con el dev detenido; después `git checkout next-env.d.ts`). Dominio `cd packages/domain && pnpm test && pnpm typecheck` (141). Migraciones: `pnpm db:generate --name X`, `pnpm db:migrate` (dev, base `repi_dev`); producción: `DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d= -f2-)" npx tsx scripts/migrate.ts` desde `apps/web`, **antes** del push. Dev server: launch `repi-local`. Demo: `POST /api/demo {role: owner|floor|member|coach}` (límite 6/h por IP, en `app_rate_limit`).
 
 **Secretos (nunca en el repo ni en logs):** `~/.repi-secrets/supabase.env`, `~/.repi-secrets/openai.env`. OpenAI: `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-4.1-mini` en Vercel y en `apps/web/.env.local`. El titular rota la clave cuando avise (no insistir). Respuestas de IA ≤3 s: gpt-4.1-mini con salida corta (gpt-5-mini tarda 4–17 s; gpt-4.1-nano dado de baja).
 
@@ -16,7 +16,7 @@ Actualizado: 29/10/2026 (hasta D143), sobre la release candidata rc-2026.10.27 (
 
 **Pedidos nuevos del titular (29/10/2026, en curso — si este agente no llegó, seguir acá):**
 - **A. Cambios de rutina en tiempo real: HECHO (D143).** Falta sólo aplicar el cambio dentro de un entrenamiento ya empezado (mapear ejercicios entre versiones en el servidor; hoy se avisa y aplica desde el próximo).
-- **B. Ranking por gimnasio y por ejercicio, visual y en vivo:** «el ranking debería verse visual para todo el mundo y ver cómo se actualiza en tiempo real; cómo baja alguien de una posición, cómo sube alguien». Revisar si ya existe algo (desafíos/logros de Comunidad) y respetar privacidad (opt-in para aparecer con nombre; menores; datos de salud no). Animación de subida/bajada.
+- **B. Ranking por gimnasio y ejercicio en vivo: HECHO (D144).** Falta: modo pantalla/TV para la sala (reusar la pantalla de recepción de D127 con token del gym) y, si el titular quiere, podio animado y rankings por categoría (peso corporal, sexo, edad) con consentimiento.
 
 **Decisiones del titular pendientes:**
 1. El titular decidió **no** pedir nueva aceptación por ahora (no subir `TERMS_VERSION`); lo revisa más adelante con el abogado.

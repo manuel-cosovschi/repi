@@ -1,7 +1,7 @@
 "use client";
 // Pestaña «Gym» de App Alumno v4 (SCR-M-19..25): novedades, desafíos con video, recepción informativa, logros,
 // carnet QR y Repi Club. Datos reales de /api/me/gym; ningún ranking ni participante simulado.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { renderSVG } from "uqr";
 import { ATTEMPT_VIDEO_LIMITS, CHALLENGE_CATEGORIES, CHALLENGE_UNITS, CLUB_COMMENT_MAX, CLUB_POST_MAX, DIVISIONS, RANK_FILTERS, attemptValueOk, type ChallengeUnit, fmtWeight, kgTo, volumeIn } from "@repi/domain";
 import { api } from "@/lib/api";
@@ -312,7 +312,7 @@ type ClubRank = { month: string; inRanking: boolean; rows: { pos: number; name: 
 
 function Club({ orgId, achievements, flash }: { orgId: string; achievements: Home["achievements"]; flash: (t: string) => void }) {
   const [st, setSt] = useState<ClubState | null>(null);
-  const [view, setView] = useState<"feed" | "rank">("feed");
+  const [view, setView] = useState<"feed" | "rank" | "lifts">("feed");
   const [prefs, setPrefs] = useState({ showName: true, inRanking: false });
   const loadSt = useCallback(() => api<ClubState>(`/api/me/gym/club?org=${orgId}`).then((s) => { setSt(s); setPrefs({ showName: s.showName, inRanking: s.inRanking }); }).catch((e) => flash(e.message)), [orgId, flash]);
   useEffect(() => { void loadSt(); }, [loadSt]);
@@ -326,6 +326,8 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
       <label className="sheet-check"><input type="checkbox" checked={prefs.inRanking} onChange={(e) => setPrefs({ ...prefs, inRanking: e.target.checked })} />Aparecer en el ranking del mes (días con entrenamiento o ingreso al gym).</label>
       <button type="button" className="cta" onClick={join}>Sumarme</button>
       <span className="mb-muted" style={{ fontSize: 12 }}>{st.members} socio{st.members === 1 ? "" : "s"} en el Club.</span>
+      <b style={{ fontSize: 16, marginTop: 8 }}>Ranking por ejercicio</b>
+      <LiftRankView orgId={orgId} />
     </div>
   );
   return (
@@ -333,8 +335,9 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
       <div className="gtabs" role="tablist" aria-label="Repi Club">
         <button type="button" role="tab" aria-selected={view === "feed"} onClick={() => setView("feed")}>Publicaciones</button>
         <button type="button" role="tab" aria-selected={view === "rank"} onClick={() => setView("rank")}>Ranking del mes</button>
+        <button type="button" role="tab" aria-selected={view === "lifts"} onClick={() => setView("lifts")}>Por ejercicio</button>
       </div>
-      {view === "feed" ? <Feed orgId={orgId} achievements={achievements} flash={flash} /> : <ClubRankView orgId={orgId} />}
+      {view === "feed" ? <Feed orgId={orgId} achievements={achievements} flash={flash} /> : view === "rank" ? <ClubRankView orgId={orgId} /> : <LiftRankView orgId={orgId} />}
       <ProfileEditor orgId={orgId} flash={flash} />
       <details className="club-prefs"><summary>Mis preferencias del Club</summary>
         <label className="sheet-check"><input type="checkbox" checked={prefs.showName} onChange={(e) => setPrefs({ ...prefs, showName: e.target.checked })} />Mostrar mi nombre</label>
@@ -445,11 +448,80 @@ function CommentBox({ onSend }: { onSend: (t: string) => void }) {
 }
 
 /** Ranking del mes con transición FLIP al reordenar (F-RC-03). Respeta «reducir movimiento». */
+// Ranking por ejercicio en vivo (D144): se actualiza cada 10 s mientras está a la vista; los cambios de puesto se animan
+// (quien sube se desliza hacia arriba y se resalta) y cada fila dice cuántos puestos subió o bajó en la semana.
+type LiftRank = { inRanking: boolean; metric: string; updatedAt: string; exercises: { id: string; name: string; people: number }[]; exercise: { id: string; name: string } | null;
+  rows: { key: string; name: string; best: number; pos: number; delta: number | null; isNew: boolean; me: boolean }[] };
+function LiftRankView({ orgId }: { orgId: string }) {
+  const [r, setR] = useState<LiftRank | null>(null);
+  const [ex, setEx] = useState<string | null>(null);
+  const [live, setLive] = useState<Record<string, "up" | "down">>({});
+  const box = useRef<HTMLDivElement>(null);
+  const tops = useRef(new Map<string, number>());
+  const lastPos = useRef(new Map<string, number>());
+  useEffect(() => {
+    let stop = false;
+    lastPos.current = new Map(); tops.current = new Map();
+    const get = () => {
+      if (document.visibilityState !== "visible") return;
+      api<LiftRank>(`/api/me/gym/club/lifts?org=${orgId}${ex ? `&ex=${ex}` : ""}`).then((x) => {
+        if (stop) return;
+        // Cambios desde la consulta anterior: se marcan unos segundos.
+        const moved: Record<string, "up" | "down"> = {};
+        for (const row of x.rows) { const p = lastPos.current.get(row.key); if (p != null && p !== row.pos) moved[row.key] = row.pos < p ? "up" : "down"; }
+        lastPos.current = new Map(x.rows.map((row) => [row.key, row.pos]));
+        setR(x); if (Object.keys(moved).length) { setLive(moved); setTimeout(() => !stop && setLive({}), 4000); }
+      }).catch(() => { if (!stop) setR((v) => v ?? { inRanking: false, metric: "", updatedAt: "", exercises: [], exercise: null, rows: [] }); });
+    };
+    get();
+    const id = setInterval(get, 10_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [orgId, ex]);
+  useLayoutEffect(() => {
+    const el = box.current; if (!el) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    for (const row of [...el.children] as HTMLElement[]) {
+      const k = row.dataset.k; if (!k) continue;
+      const top = row.getBoundingClientRect().top, before = tops.current.get(k);
+      if (!reduce && before != null && before !== top) row.animate([{ transform: `translateY(${before - top}px)` }, { transform: "none" }], { duration: 600, easing: "cubic-bezier(.2,.8,.2,1)" });
+      tops.current.set(k, top);
+    }
+  }, [r]);
+  if (!r) return <span className="mb-muted">Cargando…</span>;
+  const kg = (v: number) => `${v.toLocaleString("es-AR")} kg`;
+  return (
+    <>
+      {r.exercises.length > 0 && <div className="lift-ex" role="radiogroup" aria-label="Ejercicio">
+        {r.exercises.map((e) => <button key={e.id} type="button" role="radio" aria-checked={r.exercise?.id === e.id} className="ai-chip" onClick={() => setEx(e.id)}>{e.name}</button>)}
+      </div>}
+      <span className="mb-muted" style={{ fontSize: 13 }}><span className="live-dot" aria-hidden="true" />En vivo · {r.metric}. ▲▼ = puestos ganados o perdidos en la semana.</span>
+      {!r.inRanking && <p className="mb-note">No aparecés en el ranking. Podés sumarte desde Repi Club (preferencias).</p>}
+      <div className="rank lift-rank" ref={box} aria-live="polite">
+        {r.rows.map((x) => (
+          <div key={x.key} data-k={x.key} data-me={x.me ? "1" : undefined} data-live={live[x.key]}>
+            <span className={x.pos <= 3 ? "top" : ""}>{x.pos}</span><b>{x.name}</b>
+            <small className={x.isNew ? "mv new" : x.delta ? (x.delta > 0 ? "mv up" : "mv down") : "mv"} aria-label={x.isNew ? "Nuevo esta semana" : x.delta ? `${x.delta > 0 ? "Subió" : "Bajó"} ${Math.abs(x.delta)} puesto${Math.abs(x.delta) === 1 ? "" : "s"}` : "Sin cambios"}>
+              {x.isNew ? "NUEVO" : x.delta ? `${x.delta > 0 ? "▲" : "▼"}${Math.abs(x.delta)}` : "="}</small>
+            <strong>{kg(x.best)}</strong>
+          </div>
+        ))}
+        {!r.rows.length && <span className="mb-muted" style={{ padding: "12px 0" }}>Todavía no hay marcas de quienes se sumaron al ranking.</span>}
+      </div>
+    </>
+  );
+}
+
 function ClubRankView({ orgId }: { orgId: string }) {
   const [r, setR] = useState<ClubRank | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const prev = useRef(new Map<string, number>());
-  useEffect(() => { api<ClubRank>(`/api/me/gym/club/ranking?org=${orgId}`).then(setR).catch(() => setR(null)); }, [orgId]);
+  // D144: también en vivo (cada 15 s mientras está a la vista).
+  useEffect(() => {
+    const get = () => { if (document.visibilityState === "visible") api<ClubRank>(`/api/me/gym/club/ranking?org=${orgId}`).then(setR).catch(() => {}); };
+    get();
+    const id = setInterval(get, 15_000);
+    return () => clearInterval(id);
+  }, [orgId]);
   useEffect(() => {
     const el = box.current; if (!el) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -462,7 +534,7 @@ function ClubRankView({ orgId }: { orgId: string }) {
   if (!r) return <span className="mb-muted">Cargando…</span>;
   return (
     <>
-      <span className="mb-muted" style={{ fontSize: 13 }}>{r.metric}. Se actualiza al registrar; no hace falta mirarlo seguido.</span>
+      <span className="mb-muted" style={{ fontSize: 13 }}><span className="live-dot" aria-hidden="true" />En vivo · {r.metric}.</span>
       {!r.inRanking && <p className="mb-note">No aparecés en el ranking. Podés sumarte en «Mis preferencias del Club».</p>}
       <div className="rank" ref={box}>
         {r.rows.map((x) => <div key={x.name + x.pos} data-k={x.name} data-me={x.me ? "1" : undefined}><span className={x.pos <= 3 ? "top" : ""}>{x.pos}</span><b>{x.name}</b><small /><strong>{x.days} día{x.days === 1 ? "" : "s"}</strong></div>)}

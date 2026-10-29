@@ -70,3 +70,16 @@ describe("archivos por firma", () => {
     expect(fileOk("attempt_video", "video/quicktime", bytes(0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d))).toBe(true);
   });
 });
+
+describe("ranking por ejercicio (D144)", () => {
+  it("ordena por 1RM estimado, comparte puesto en empate y calcula subidas, bajadas y nuevos", async () => {
+    const { liftRanking } = await import("./community");
+    const r = liftRanking([
+      { key: "a", name: "Ana", best: 100, before: 90 },
+      { key: "b", name: "Beto", best: 95, before: 95 },
+      { key: "c", name: "Caro", best: 95, before: null },
+      { key: "d", name: "Dani", best: 80, before: 99 },
+    ]);
+    expect(r.map((x) => [x.name, x.pos, x.delta, x.isNew])).toEqual([["Ana", 1, 2, false], ["Beto", 2, 0, false], ["Caro", 2, null, true], ["Dani", 4, -3, false]]);
+  });
+});

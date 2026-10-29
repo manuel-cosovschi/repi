@@ -2,7 +2,8 @@
 // Participación voluntaria; nunca datos de salud; sin enlaces; reportes, bloqueo y moderación del gym con historial.
 // El ranking usa sólo sesiones del programa institucional del gym y asistencia: nunca la relación con un coach privado.
 import { and, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, clubName, clubRanking, epley1rm, hasLink, localDate, volumeKg } from "@repi/domain";
+import { createHash } from "node:crypto";
+import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, clubName, clubRanking, epley1rm, hasLink, liftRanking, localDate, volumeKg } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
@@ -298,6 +299,49 @@ export async function clubRankingFor(userId: string, orgId: string, now = new Da
     ) x group by gm`) as unknown as { gm: string; n: number }[] : [];
   const rows = clubRanking(members.map((m) => ({ userId: m.userId, name: m.userId === userId ? "Vos" : clubName(m.name, m.show), sessions: days.find((d) => d.gm === m.gm)?.n ?? 0 })));
   return { month, inRanking: me.inRanking, rows: rows.slice(0, 20).map((r) => ({ pos: r.pos, name: r.name, days: r.sessions, me: r.userId === userId })), metric: "Días con entrenamiento o ingreso registrado este mes" };
+}
+
+/**
+ * Ranking por ejercicio del gym (D144): mejor 1RM estimado (Epley, series de 1 a 12 reps) de los últimos 90 días en
+ * sesiones del programa institucional, sólo de quienes eligieron aparecer en el ranking del Club. Lo ve cualquier socio
+ * activo del gym. Subidas y bajadas contra la mejor marca de cada uno hasta hace 7 días. Sin datos de salud.
+ */
+export async function clubLiftRanking(userId: string, orgId: string, exerciseId: string | null, now = new Date()) {
+  await activeMember(userId, orgId);
+  const members = await db.select({ userId: clubMember.userId, show: clubMember.showName, name: user.name, gm: gymMember.id }).from(clubMember)
+    .innerJoin(user, eq(user.id, clubMember.userId)).innerJoin(gymMember, and(eq(gymMember.userId, clubMember.userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")))
+    .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)));
+  const [mine] = await db.select({ inRanking: clubMember.inRanking }).from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, userId), isNull(clubMember.leftAt)));
+  const base = { inRanking: !!mine?.inRanking, metric: "Mejor 1RM estimado de los últimos 90 días", updatedAt: now.toISOString() };
+  if (!members.length) return { ...base, exercises: [], exercise: null, rows: [] };
+  const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
+  const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt }).from(setLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+    .where(and(inArray(workoutSession.gymMemberId, members.map((m) => m.gm)), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
+  // Mejor marca por ejercicio y persona, y la mejor hasta hace una semana.
+  const best = new Map<string, Map<string, { best: number; before: number | null }>>();
+  for (const x of sets) {
+    const e = x.w == null || x.r == null ? null : epley1rm(Number(x.w), x.r);
+    if (e == null || !x.gm) continue;
+    const per = best.get(x.ex) ?? new Map(); best.set(x.ex, per);
+    const cur = per.get(x.gm) ?? { best: 0, before: null };
+    cur.best = Math.max(cur.best, e);
+    if (x.at < weekAgo) cur.before = Math.max(cur.before ?? 0, e);
+    per.set(x.gm, cur);
+  }
+  const names = best.size ? await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(inArray(exercise.id, [...best.keys()])) : [];
+  const exercises = [...best.entries()].map(([id, per]) => ({ id, name: names.find((n) => n.id === id)?.name ?? "Ejercicio", people: per.size }))
+    .sort((a, b) => b.people - a.people || a.name.localeCompare(b.name, "es")).slice(0, 12);
+  const ex = exercises.find((e) => e.id === exerciseId) ?? exercises[0] ?? null;
+  if (!ex) return { ...base, exercises, exercise: null, rows: [] };
+  // Clave opaca y estable por gym: anima los cambios de puesto sin exponer IDs de personas.
+  const key = (gm: string) => createHash("sha256").update(`${orgId}:${gm}`).digest("hex").slice(0, 12);
+  const meGm = members.find((m) => m.userId === userId)?.gm;
+  const rows = liftRanking([...best.get(ex.id)!.entries()].map(([gm, v]) => {
+    const m = members.find((x) => x.gm === gm)!;
+    return { key: key(gm), name: gm === meGm ? "Vos" : clubName(m.name, m.show), best: Math.round(v.best * 2) / 2, before: v.before == null ? null : Math.round(v.before * 2) / 2 };
+  })).slice(0, 30).map((r) => ({ ...r, me: !!meGm && r.key === key(meGm) }));
+  return { ...base, exercises, exercise: { id: ex.id, name: ex.name }, rows };
 }
 
 // ── Moderación del gym (F-RC-05) ────────────────────────────────────────────
