@@ -13,6 +13,7 @@ import { Carousel } from "@/components/motion/Carousel";
 import { uploadVideo } from "@/lib/upload";
 import { Check, QrCode, VideoCamera } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
+import { useScrollLock } from "@/components/ui/scrollLock";
 
 type Home = {
   org: { id: string; name: string }; location: { id: string; name: string; receptionHours: string | null }; safety: string; minorRestricted: boolean; onFloor: string[];
@@ -173,6 +174,7 @@ function Award({ n, onClose }: { n: Home["notices"][number]; onClose: () => void
   // QA 29/10 (A11Y-4): Escape cierra y el foco no sale del aviso (tiene un solo botón).
   const close = useRef(onClose);
   close.current = onClose;
+  useScrollLock();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); close.current(); } else if (e.key === "Tab") e.preventDefault(); };
     document.addEventListener("keydown", onKey);

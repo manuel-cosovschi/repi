@@ -116,15 +116,16 @@ const cleanText = (t: string, max: number) => {
 // la serie más pesada. Se publica una instantánea elegida; el historial completo nunca se expone.
 type Point = { d: string; kg: number; reps: number; e1rm: number | null };
 async function evolution(gymMemberId: string, exerciseId: string, limit = 8): Promise<Point[]> {
-  const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps }).from(setLog)
-    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+  const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps }).from(setLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(eq(workoutSession.gymMemberId, gymMemberId), eq(setLog.exerciseId, exerciseId), ne(workoutSession.status, "abandoned")))
     .orderBy(desc(workoutSession.startedAt)).limit(400);
   const best = new Map<string, Point>();
   for (const r of rows) {
     const kg = r.w == null ? 0 : Number(r.w), reps = r.r ?? 0;
+    const timed = r.target != null && parseReps(r.target).kind === "time"; // DATA-6: segundos, sin 1RM estimado
     const cur = best.get(r.sid);
-    if (!cur || kg > cur.kg || (kg === cur.kg && reps > cur.reps)) best.set(r.sid, { d: localDate(r.at), kg, reps, e1rm: epley1rm(kg, reps) });
+    if (!cur || kg > cur.kg || (kg === cur.kg && reps > cur.reps)) best.set(r.sid, { d: localDate(r.at), kg, reps, e1rm: timed ? null : epley1rm(kg, reps) });
   }
   return [...best.values()].slice(0, limit).reverse();
 }
@@ -149,10 +150,11 @@ export async function shareableSessions(userId: string, orgId: string) {
 async function sessionSnapshot(memberId: string, sessionId: string) {
   const [s] = await db.select().from(workoutSession).where(and(eq(workoutSession.id, sessionId), eq(workoutSession.gymMemberId, memberId), eq(workoutSession.status, "completed")));
   if (!s) throw new AccessError("invalid", "Elegí un entrenamiento terminado del programa del gym.");
-  const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId)).where(eq(setLog.sessionId, s.id));
+  const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name, target: programExercise.reps }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+    .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId)).where(eq(setLog.sessionId, s.id));
   return {
     type: "session", dayName: s.dayName, date: localDate(s.startedAt), minutes: Math.round(s.activeMs / 60_000), sets: logs.length,
-    volumeKg: volumeKg(logs.map((l) => ({ exerciseId: "", weightKg: l.w == null ? null : Number(l.w), reps: l.r, completed: true }))),
+    volumeKg: volumeKg(logs.map((l) => ({ exerciseId: "", weightKg: l.w == null ? null : Number(l.w), reps: l.r, completed: true, timed: l.target != null && parseReps(l.target).kind === "time" }))),
     exercises: [...new Set(logs.map((l) => l.name))].slice(0, 8),
   };
 }

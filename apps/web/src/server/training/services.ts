@@ -314,9 +314,10 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
     (r.l.completedAt >= mid ? e.recent : e.before).push(r);
     byEx.set(r.l.exerciseId, e);
   }
+  const timed = await timedPeIds(rows.map((r) => r.l.programExerciseId));
   const exercises = [...byEx.values()].map((e) => {
-    const cur = bestE1rm(e.recent.map((r) => toLogged(r.l)));
-    const prev = bestE1rm(e.before.map((r) => toLogged(r.l)));
+    const cur = bestE1rm(e.recent.map((r) => toLogged(r.l, timed)));
+    const prev = bestE1rm(e.before.map((r) => toLogged(r.l, timed)));
     return { name: e.name, group: e.group, best: cur, previous: prev, sets: e.recent.length };
   }).filter((e) => e.best || e.previous).sort((a, b) => (b.best?.e1rm ?? 0) - (a.best?.e1rm ?? 0));
   const week = weekOf(now);
@@ -324,7 +325,7 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
   const groups = new Map<string, { thisWeek: number; lastWeek: number }>();
   for (const r of rows) {
     const g = groups.get(r.group) ?? { thisWeek: 0, lastWeek: 0 };
-    const v = volumeKg([toLogged(r.l)]);
+    const v = volumeKg([toLogged(r.l, timed)]);
     if (r.l.completedAt >= start) g.thisWeek += v; else if (r.l.completedAt >= prevStart) g.lastWeek += v;
     groups.set(r.group, g);
   }
@@ -353,6 +354,7 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
   const changes = sessions.length ? await db.select({ c: sessionExerciseChange, pe: programExercise.name, sub: exercise.name }).from(sessionExerciseChange)
     .innerJoin(programExercise, eq(programExercise.id, sessionExerciseChange.programExerciseId)).leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId))
     .where(inArray(sessionExerciseChange.sessionId, sessions.map((s) => s.id))) : [];
+  const timed = await timedPeIds(sets.map((x) => x.programExerciseId));
   const noted = sets.filter((x) => x.note);
   const peNames = new Map((noted.length ? await db.select({ id: programExercise.id, name: programExercise.name }).from(programExercise)
     .where(inArray(programExercise.id, [...new Set(noted.map((x) => x.programExerciseId))])) : []).map((r) => [r.id, r.name]));
@@ -367,7 +369,7 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
       return {
         id: s.id, dayName: s.dayName, status: s.status, startedAt: s.startedAt, endedAt: s.endedAt, rpe: s.rpe, note: s.note,
         durationSec: activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, new Date()), sets: ss.length,
-        volumeKg: volumeKg(ss.map(toLogged)),
+        volumeKg: volumeKg(ss.map((x) => toLogged(x, timed))),
         changes: changes.filter((x) => x.c.sessionId === s.id).map((x) => ({ exercise: x.pe, kind: x.c.kind, reason: x.c.reason, substitute: x.sub })),
         setNotes: ss.filter((x) => x.note).sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime())
           .map((x) => ({ exercise: peNames.get(x.programExerciseId) ?? "", set: x.setIndex + 1, note: x.note! })),
@@ -399,7 +401,14 @@ export async function setClientStatus(actorId: string, orgId: string, coachClien
 }
 
 // ── Alumno ──────────────────────────────────────────────────────────────────
-export const toLogged = (s: typeof setLog.$inferSelect): LoggedSet => ({ exerciseId: s.exerciseId, weightKg: s.weightKg == null ? null : Number(s.weightKg), reps: s.reps, completed: true, at: s.completedAt.toISOString() });
+export const toLogged = (s: typeof setLog.$inferSelect, timed?: ReadonlySet<string>): LoggedSet => ({ exerciseId: s.exerciseId, weightKg: s.weightKg == null ? null : Number(s.weightKg), reps: s.reps, completed: true, at: s.completedAt.toISOString(), timed: timed?.has(s.programExerciseId) || undefined });
+/** Ejercicios del programa con prescripción por tiempo (D148): sus series guardan segundos en `reps` (QA DATA-6). */
+export async function timedPeIds(peIds: Iterable<string>): Promise<Set<string>> {
+  const ids = [...new Set(peIds)];
+  if (!ids.length) return new Set();
+  const rows = await db.select({ id: programExercise.id, reps: programExercise.reps }).from(programExercise).where(inArray(programExercise.id, ids));
+  return new Set(rows.filter((r) => parseReps(r.reps).kind === "time").map((r) => r.id));
+}
 
 /** Relación de entrenamiento: coach privado o programa institucional del gym. Cada una con sus datos y permisos propios. */
 export type TrainingRelation = {
@@ -495,7 +504,12 @@ export async function myTraining(userId: string, now = new Date()) {
   const doneDates = completed.map((c) => localDate(c.endedAt!));
   const thisWeek = completed.filter((c) => week.includes(localDate(c.endedAt!)));
   const lastWeek = completed.filter((c) => !week.includes(localDate(c.endedAt!)));
-  const vol = async (ids: string[]) => ids.length ? volumeKg((await db.select().from(setLog).where(inArray(setLog.sessionId, ids))).map(toLogged)) : 0;
+  const vol = async (ids: string[]) => {
+    if (!ids.length) return 0;
+    const ls = await db.select().from(setLog).where(inArray(setLog.sessionId, ids));
+    const timed = await timedPeIds(ls.map((l) => l.programExerciseId));
+    return volumeKg(ls.map((l) => toLogged(l, timed)));
+  };
   const stats = { weekDone: thisWeek.length, doneDates, volumeThisWeek: await vol(thisWeek.map((c) => c.id)), volumeLastWeek: await vol(lastWeek.map((c) => c.id)) };
   if (!act?.assignment) return { ...base, state: "no_program" as const, stats, openSession: open[0]?.id ?? null, openSessionDay: open[0]?.dayName ?? null };
   if (act.assignment.startsOn > base.today) return { ...base, state: "scheduled" as const, startsOn: act.assignment.startsOn, stats, openSession: open[0]?.id ?? null, openSessionDay: open[0]?.dayName ?? null };
@@ -613,9 +627,14 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
 
 export async function getSession(userId: string, sessionId: string, now = new Date()) {
   const s = await mySession(userId, sessionId);
-  const exs = await db.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
+  const dayExs = await db.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
   const [v] = await db.select({ note: programVersion.note }).from(programVersion).where(eq(programVersion.id, s.versionId));
   const logs = await db.select().from(setLog).where(eq(setLog.sessionId, s.id));
+  // QA 29/10 (DATA-5): series de un ejercicio que la rutina nueva ya no tiene («Aplicar ahora») siguen a la vista, al final.
+  const inDay = new Set(dayExs.map((e) => e.id));
+  const keptIds = [...new Set(logs.map((l) => l.programExerciseId).filter((id) => !inDay.has(id)))];
+  const keptExs = keptIds.length ? await db.select().from(programExercise).where(inArray(programExercise.id, keptIds)).orderBy(asc(programExercise.position)) : [];
+  const exs = [...dayExs, ...keptExs];
   // F-HX-21: saltos y reemplazos de esta sesión. El «anterior» y el peso inicial salen del ejercicio que realmente se hace.
   const changes = await db.select({ c: sessionExerciseChange, name: exercise.name, kind: exercise.kind }).from(sessionExerciseChange)
     .leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId)).where(eq(sessionExerciseChange.sessionId, s.id));
@@ -635,7 +654,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
       const pv = prev.get(doing(e));
       const ch = changeOf.get(e.id);
       return {
-        id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: (e.detail as ExerciseDetail | null) ?? null,
+        id: e.id, exerciseId: e.exerciseId, name: e.name, kept: !inDay.has(e.id) || undefined, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: (e.detail as ExerciseDetail | null) ?? null,
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
@@ -671,7 +690,10 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
     await assertRelationActive(tx, s);
     if (s.gymMemberId) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
-    const [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
+    let [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
+    // DATA-5: también un ejercicio de la rutina anterior que ya tiene series en esta sesión (quedó tras «Aplicar ahora»).
+    if (!pe && (await tx.select({ id: setLog.id }).from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, p.programExerciseId))).limit(1)).length)
+      [pe] = await tx.select().from(programExercise).where(eq(programExercise.id, p.programExerciseId));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     if (!Number.isInteger(p.setIndex) || p.setIndex < 0 || p.setIndex >= pe.sets) throw new AccessError("invalid", "Esa serie no está prescripta.");
     if (p.reps != null && p.reps > MAX_REPS && parseReps(pe.reps).kind !== "time") throw new AccessError("invalid", "Las repeticiones no son válidas.");
@@ -849,10 +871,17 @@ export async function upgradeSession(userId: string, sessionId: string, now = ne
     const [{ n: open }] = await tx.select({ n: sql<number>`count(*)::int` }).from(syncConflict).where(and(eq(syncConflict.sessionId, s.id), eq(syncConflict.status, "open")));
     if (open) throw new AccessError("conflicts", "Resolvé primero las series con dos versiones.", 409);
     const [oldDay] = await tx.select().from(programDay).where(eq(programDay.id, s.dayId));
-    const [newDay] = await tx.select().from(programDay).where(and(eq(programDay.versionId, cur.v), eq(programDay.position, oldDay.position)));
-    if (!newDay) throw new AccessError("day_removed", "Ese día ya no está en tu rutina nueva: terminá este entrenamiento y seguí con la nueva.", 409);
     const oldEx = await tx.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
-    const newEx = await tx.select().from(programExercise).where(eq(programExercise.dayId, newDay.id)).orderBy(asc(programExercise.position));
+    // QA 29/10 (DATA-5): el día equivalente es el del mismo nombre o, si no, el que más ejercicios comparte; la posición
+    // sólo desempata. Antes era sólo la posición: si el coach reordenaba los días, el entrenamiento cambiaba de día.
+    const newDays = await tx.select().from(programDay).where(eq(programDay.versionId, cur.v));
+    const newExAll = newDays.length ? await tx.select().from(programExercise).where(inArray(programExercise.dayId, newDays.map((d) => d.id))).orderBy(asc(programExercise.position)) : [];
+    const oldIds = new Set(oldEx.map((e) => e.exerciseId));
+    const score = (d: typeof newDays[number]) => (d.name.trim().toLowerCase() === oldDay.name.trim().toLowerCase() ? 1000 : 0)
+      + newExAll.filter((e) => e.dayId === d.id && oldIds.has(e.exerciseId)).length * 10 + (d.position === oldDay.position ? 1 : 0);
+    const newDay = newDays.map((d) => ({ d, k: score(d) })).filter((x) => x.k > 0).sort((a, b) => b.k - a.k)[0]?.d;
+    if (!newDay) throw new AccessError("day_removed", "Ese día ya no está en tu rutina nueva: terminá este entrenamiento y seguí con la nueva.", 409);
+    const newEx = newExAll.filter((e) => e.dayId === newDay.id);
     const map = matchProgramExercises(oldEx, newEx);
     let moved = 0;
     for (const [from, to] of Object.entries(map)) {
@@ -898,6 +927,8 @@ export async function sessionFeedback(userId: string, sessionId: string, p: { rp
   return { ok: true };
 }
 
+const isTimed = (e: { reps: string }) => parseReps(e.reps).kind === "time" || undefined;
+
 /** Resumen derivado de series persistidas: nada de valores fijos (C25). */
 export async function sessionSummary(userId: string, sessionId: string) {
   const s = await getSession(userId, sessionId);
@@ -913,7 +944,8 @@ export async function sessionSummary(userId: string, sessionId: string) {
       const before = await db.select({ l: setLog }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
         .where(and(eq(workoutSession.userId, userId), eq(setLog.exerciseId, exId), ne(workoutSession.id, s.id), lt(setLog.completedAt, s.startedAt),
           inArray(workoutSession.status, ["completed"])));
-      const pr = detectPR(before.map((b) => toLogged(b.l)), mine.map((l) => ({ exerciseId: exId, weightKg: l.weightKg, reps: l.reps, completed: true })));
+      const timedBefore = await timedPeIds(before.map((b) => b.l.programExerciseId));
+      const pr = detectPR(before.map((b) => toLogged(b.l, timedBefore)), mine.map((l) => ({ exerciseId: exId, weightKg: l.weightKg, reps: l.reps, completed: true, timed: isTimed(e) })));
       if (pr) {
         const prevAt = before.map((b) => b.l).find((l) => Number(l.weightKg) === pr.previous.weightKg && l.reps === pr.previous.reps)?.completedAt ?? null;
         prs.push({ exercise: exId === e.exerciseId ? e.name : e.change?.substitute?.name ?? e.name, ...pr, previousAt: prevAt });
@@ -922,7 +954,7 @@ export async function sessionSummary(userId: string, sessionId: string) {
   }
   return {
     ...s, exDone, exSkipped, exTotal: s.exercises.length, setsDone, setsTotal, prs,
-    volumeKg: volumeKg(s.exercises.flatMap((e) => e.logs.map((l) => ({ exerciseId: l.exerciseId, weightKg: l.weightKg, reps: l.reps, completed: true })))),
+    volumeKg: volumeKg(s.exercises.flatMap((e) => e.logs.map((l) => ({ exerciseId: l.exerciseId, weightKg: l.weightKg, reps: l.reps, completed: true, timed: isTimed(e) })))),
   };
 }
 
@@ -930,9 +962,10 @@ export async function myHistory(userId: string) {
   const sessions = await db.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed")))
     .orderBy(desc(workoutSession.endedAt)).limit(30);
   const sets = sessions.length ? await db.select().from(setLog).where(inArray(setLog.sessionId, sessions.map((s) => s.id))) : [];
+  const timed = await timedPeIds(sets.map((x) => x.programExerciseId));
   return sessions.map((s) => {
     const ss = sets.filter((x) => x.sessionId === s.id);
-    return { id: s.id, dayName: s.dayName, endedAt: s.endedAt, durationSec: Math.floor(s.activeMs / 1000), sets: ss.length, volumeKg: volumeKg(ss.map(toLogged)), rpe: s.rpe };
+    return { id: s.id, dayName: s.dayName, endedAt: s.endedAt, durationSec: Math.floor(s.activeMs / 1000), sets: ss.length, volumeKg: volumeKg(ss.map((x) => toLogged(x, timed))), rpe: s.rpe };
   });
 }
 

@@ -5,6 +5,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Ic } from "@/components/ui/Ic";
 import { VideoCamera } from "@phosphor-icons/react";
+import { useScrollLock } from "@/components/ui/scrollLock";
 
 export type SheetGroup<T extends string | number> = { label: string; minW?: number; opts: [T, string][]; value: T | null | undefined; onPick: (v: T) => void };
 
@@ -18,6 +19,7 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  useScrollLock();
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const root = ref.current!;

@@ -175,6 +175,7 @@ export function AccessesScreen({ shell }: { shell: Shell }) {
       <section className="card" aria-label="Accesos">
         <label className="search"><span className="sr-only">Buscar</span><input placeholder="Buscar por nombre o email" value={q} onChange={(e) => setQ(e.target.value)} /></label>
         {d.err && <p role="alert" className="err-box">{d.err}</p>}
+        {d.data && d.data.length >= 200 && <p className="muted" role="status" style={{ fontSize: 13 }}>Se muestran los primeros 200 en orden alfabético. Buscá por nombre o email para encontrar al resto.</p>}
         {!d.data ? <p className="muted">Cargando…</p> : !d.data.length ? <div className="empty">{term ? "Sin resultados." : "Todavía no hay accesos habilitados."}</div> : (
           <div style={{ overflowX: "auto" }} tabIndex={0}>
             <table className="gy-table">

@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useScrollLock } from "./scrollLock";
 
 // Modal accesible: foco inicial, trap con Tab, Esc y clic de fondo cierran, foco restaurado al cerrar.
 export function Modal({ label, onClose, children, wide }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  useScrollLock();
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const root = ref.current!;

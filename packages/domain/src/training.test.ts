@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeSeconds, detectPR, epley1rm, nextDayIndex, parseReps, parseRest, restLeft, startOptions, stepWeight,
-  validateProgramDoc, volumeKg, weekOf, weeklyAdherence, defaultRepsFor, formatClock, setControl,
+  validateProgramDoc, volumeKg, bestE1rm, weekOf, weeklyAdherence, defaultRepsFor, formatClock, setControl,
 } from "./training";
 
 describe("prescripción", () => {
@@ -44,6 +44,9 @@ describe("récords y volumen", () => {
   });
   it("volumen ignora series no completadas", () => {
     expect(volumeKg([{ exerciseId: "a", weightKg: 80, reps: 10, completed: true }, { exerciseId: "a", weightKg: 80, reps: 10, completed: false }])).toBe(800);
+    // QA DATA-6: una serie por tiempo (reps = segundos) no suma volumen ni da 1RM.
+    expect(volumeKg([{ exerciseId: "a", weightKg: 30, reps: 40, completed: true, timed: true }])).toBe(0);
+    expect(bestE1rm([{ exerciseId: "a", weightKg: 140, reps: 10, completed: true, timed: true }])).toBeNull();
   });
 });
 

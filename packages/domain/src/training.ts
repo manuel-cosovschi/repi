@@ -62,13 +62,14 @@ export function epley1rm(weightKg: number, reps: number): number | null {
   return reps === 1 ? weightKg : Math.round(weightKg * (1 + reps / 30) * 10) / 10;
 }
 
-export type LoggedSet = { exerciseId: string; weightKg: number | null; reps: number | null; completed: boolean; at?: string };
+/** `timed`: serie por tiempo (D148): `reps` son segundos, no cuentan para 1RM ni volumen (QA DATA-6). */
+export type LoggedSet = { exerciseId: string; weightKg: number | null; reps: number | null; completed: boolean; at?: string; timed?: boolean };
 
 /** Mejor 1RM estimado de un conjunto de series completadas para un ejercicio. */
 export function bestE1rm(sets: LoggedSet[]): { e1rm: number; weightKg: number; reps: number } | null {
   let best: { e1rm: number; weightKg: number; reps: number } | null = null;
   for (const s of sets) {
-    if (!s.completed || s.weightKg == null || s.reps == null) continue;
+    if (!s.completed || s.timed || s.weightKg == null || s.reps == null) continue;
     const e = epley1rm(s.weightKg, s.reps);
     if (e != null && (!best || e > best.e1rm)) best = { e1rm: e, weightKg: s.weightKg, reps: s.reps };
   }
@@ -88,7 +89,7 @@ export function detectPR(previous: LoggedSet[], current: LoggedSet[]) {
 
 /** Volumen = Σ peso × reps de series completadas con carga (documentado en F-CL-06). */
 export const volumeKg = (sets: LoggedSet[]) =>
-  Math.round(sets.reduce((a, s) => a + (s.completed && s.weightKg && s.reps ? s.weightKg * s.reps : 0), 0) * 10) / 10;
+  Math.round(sets.reduce((a, s) => a + (s.completed && !s.timed && s.weightKg && s.reps ? s.weightKg * s.reps : 0), 0) * 10) / 10;
 
 /** Duración activa: tiempo acumulado + tramo en curso si no está en pausa. */
 export function activeSeconds(activeMs: number, lastResumedAt: Date | string | null, now: Date) {

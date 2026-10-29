@@ -338,14 +338,17 @@ export async function deleteClient(actorId: string, contractId: string, confirmN
   const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
   if (!o) throw NOT_FOUND();
   if ((confirmName ?? "").trim().toLowerCase() !== o.name.trim().toLowerCase()) throw new AccessError("invalid", `Escribí el nombre exacto del cliente («${o.name}») para eliminarlo.`);
-  const count = async (t: typeof staffMembership | typeof gymMember | typeof membershipRequest | typeof legalAcceptance) =>
-    (await db.select({ n: sql<number>`count(*)::int` }).from(t).where(eq(t.orgId, c.orgId)))[0]?.n ?? 0;
-  const people = (await count(staffMembership)) + (await count(gymMember)) + (await count(membershipRequest)) + (await count(legalAcceptance))
-    + ((await db.select({ n: sql<number>`count(*)::int` }).from(coachClient).where(eq(coachClient.coachOrgId, c.orgId)))[0]?.n ?? 0);
-  if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
-  const [pay] = await db.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
-  if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
+  // QA 29/10 (DATA-11): los conteos van dentro de la transacción, con la organización bloqueada: un alta que entra
+  // mientras se elimina no queda huérfana ni se borra en cascada.
   await db.transaction(async (tx) => {
+    await tx.select({ id: organization.id }).from(organization).where(eq(organization.id, c.orgId)).for("update");
+    const count = async (t: typeof staffMembership | typeof gymMember | typeof membershipRequest | typeof legalAcceptance) =>
+      (await tx.select({ n: sql<number>`count(*)::int` }).from(t).where(eq(t.orgId, c.orgId)))[0]?.n ?? 0;
+    const people = (await count(staffMembership)) + (await count(gymMember)) + (await count(membershipRequest)) + (await count(legalAcceptance))
+      + ((await tx.select({ n: sql<number>`count(*)::int` }).from(coachClient).where(eq(coachClient.coachOrgId, c.orgId)))[0]?.n ?? 0);
+    if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
+    const [pay] = await tx.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
+    if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
     await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.client_deleted", resourceType: "client_contract", resourceId: c.id, meta: { name: o.name, kind: o.kind, status: c.status } });
     await tx.delete(organization).where(eq(organization.id, c.orgId));
   });

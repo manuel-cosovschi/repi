@@ -149,6 +149,18 @@ describe("sesión del alumno", () => {
     expect(t2.program.days[0].id).toBe(offlineDay.id);
   });
 
+  it("QA DATA-6: una serie por tiempo con carga no suma volumen ni genera récord", async () => {
+    const { user, t } = await ready();
+    const sid = randomUUID();
+    await tr.startSession(user, { id: sid, dayId: t.program.days[0].id });
+    const [pe, pe2] = (await tr.getSession(user, sid)).exercises;
+    await db.update(schema.programExercise).set({ reps: "40 s" }).where(eq(schema.programExercise.id, pe.id));
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: 0, weightKg: 30, reps: 40, rir: null }); // 40 s con 30 kg
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe2.id, setIndex: 0, weightKg: 50, reps: 10, rir: null });
+    const sum = await tr.sessionSummary(user, sid);
+    expect(sum.volumeKg).toBe(500); // sólo la serie por repeticiones
+  });
+
   it("QA DATA-1: repeticiones de más de 200 se rechazan salvo en series por tiempo", async () => {
     const { user, t } = await ready();
     const sid = randomUUID();

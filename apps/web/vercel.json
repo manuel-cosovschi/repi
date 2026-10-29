@@ -2,5 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "crons": [{ "path": "/api/cron/purge-media", "schedule": "30 6 * * *" }]
+  "crons": [
+    {
+      "path": "/api/cron/purge-media",
+      "schedule": "30 6 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "**": false
+    }
+  }
 }

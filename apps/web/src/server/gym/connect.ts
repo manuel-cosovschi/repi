@@ -85,6 +85,13 @@ export async function memberCreate(userId: string, p: CreateInput, now = new Dat
   const priority: TaskPriority = connectPriority({ reason, fromSession: !!context?.fromSession });
   const summary = comment || `${CONNECT_REASONS[reason].label}${context?.exerciseName ? ` · ${context.exerciseName}` : ""}`;
   const t = await db.transaction(async (tx) => {
+    // QA 29/10 (DATA-11): dos toques casi juntos (otra clave) no crean dos pedidos iguales: se serializa por socio y se
+    // vuelve a buscar el pedido abierto ya con el candado tomado.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`connect:${r.m.id}`}))`);
+    const again = await tx.select({ id: gymTask.id, number: gymTask.number, context: gymTask.context }).from(gymTask)
+      .where(and(eq(gymTask.gymMemberId, r.m.id), eq(gymTask.reason, reason), inArray(gymTask.status, CONNECT_ACTIVE)));
+    const dup = again.find((o) => (o.context?.exerciseId ?? null) === (context?.exerciseId ?? null));
+    if (dup) return { ...dup, duplicate: true as const };
     const number = await nextNumber(tx, "gym_task", r.org.id);
     const [row] = await tx.insert(gymTask).values({
       number, orgId: r.org.id, locationId, gymMemberId: r.m.id, category, priority, source: "app", summary, reason, context, clientKey, createdBy: userId, createdAt: now,
@@ -98,6 +105,7 @@ export async function memberCreate(userId: string, p: CreateInput, now = new Dat
     const [prev] = await db.select({ id: gymTask.id, number: gymTask.number }).from(gymTask).where(and(eq(gymTask.createdBy, userId), eq(gymTask.clientKey, clientKey!)));
     return { id: prev.id, ref: `T-${prev.number}`, duplicate: true, place: `${r.org.name} · ${r.loc.name}` };
   }
+  if ("duplicate" in t) return { id: t.id, ref: `T-${t.number}`, duplicate: true, place: `${r.org.name} · ${r.loc.name}` };
   // Aviso a quienes están en turno en esa sede. Texto mínimo (puede verse en la pantalla bloqueada): sin nombre del socio.
   const to = (await floorOnShift(r.org.id, locationId)).filter((u) => u !== userId);
   await enqueue(to, { kind: "assist_new", dedupe: `assist:${t.id}`, title: "Nuevo pedido en sala", body: CONNECT_REASONS[reason].label + (context?.exerciseName ? ` · ${context.exerciseName}` : ""), url: `/gym/${r.org.id}?s=queue&sel=${t.id}` });

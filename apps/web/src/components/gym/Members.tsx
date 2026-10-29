@@ -39,6 +39,8 @@ export function MembersScreen({ shell }: { shell: Shell }) {
       <div className="split">
         <div className="list-pane">
           <label className="search"><Ic i={MagnifyingGlass} size={16} color="#5B6B80" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar socio" aria-label="Buscar socio" /></label>
+          {/* QA 29/10 (DATA-10): la lista trae hasta 200; con más, se avisa y se busca por nombre. */}
+          {(list.data?.members.length ?? 0) >= 200 && <span className="muted" role="status" style={{ padding: "8px 12px", fontSize: 13 }}>Se muestran los primeros 200 en orden alfabético. Buscá por nombre para encontrar al resto.</span>}
           {list.data?.members.map((m) => (
             <button key={m.id} type="button" className="crow" aria-current={m.id === current} onClick={() => shell.setSel(m.id)}>
               <span className="av36">{initials(m.name)}</span>

@@ -262,6 +262,8 @@ describe("acceso del socio por QR (criterios 10–19)", () => {
     const id = "request" in r ? r.request!.id : "";
     await db.update(schema.membershipRequest).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.membershipRequest.id, id));
     expect(await code(join.decideJoin(w.recep, w.org, id, { approve: true, method: "recepcion" }))).toBe("expired");
+    // QA DATA-11: el vencimiento queda guardado (antes el throw lo deshacía y seguía «pendiente»).
+    expect((await db.select().from(schema.membershipRequest).where(eq(schema.membershipRequest.id, id)))[0].status).toBe("expired");
     const r2 = await join.requestAccess(socio, slug, { terms: true });
     expect(r2.state).toBe("created");
     await join.cancelRequest(socio, "request" in r2 ? r2.request!.id : "");
