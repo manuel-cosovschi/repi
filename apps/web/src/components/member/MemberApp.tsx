@@ -20,7 +20,7 @@ import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjurySt
 import { metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
-import { SoloEntry, SoloSheet } from "./Solo";
+import { SoloEntry, SoloSheet, type Advice } from "./Solo";
 import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext } from "./Connect";
 import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { FloorNow } from "./FloorNow";
@@ -139,6 +139,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const openId = localOpen?.id ?? t?.openSession ?? null;
   // Iniciar crea la sesión en el teléfono (con su ID) y la encola: funciona igual con o sin conexión.
   // Antes de entrenar, check-in de 3 toques (saltable). Sin conexión se entra directo.
+  // D138: la sugerencia de IA aceptada (cargas, reemplazos y salteos de hoy) se aplica al iniciar ese día, aunque antes pase
+  // por el check-in o la validación de ingreso.
+  const aiPlan = useRef<Advice | null>(null);
   const start = async (dayId: string, validated = false) => {
     if (openId) { setWorkout(openId); return; }
     // D127: entrenamiento del programa del gimnasio con validación de ingreso. Se consulta al servidor en el momento.
@@ -161,20 +164,32 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (!t || !d) return;
     const nowIso = new Date().toISOString();
     const sets: LocalSession["sets"] = {};
+    const ai = aiPlan.current?.dayId === d.id ? aiPlan.current : null;
+    aiPlan.current = null;
+    const aiOf = (id: string) => ai?.exercises.find((x) => x.id === id) ?? null;
     for (const e of d.exercises) for (let i = 0; i < e.sets; i++) {
       // D134: el plan serie por serie fija peso o repeticiones de esa serie (top set, back-off, drop).
       const plan = e.detail?.setPlan?.[i];
-      const reps = /^(\d+)/.exec(plan?.reps ?? e.reps);
-      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: plan?.weightKg ?? e.prev?.weightKg ?? 0, r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
+      const a = aiOf(e.id); // D138: sin plan por serie, el peso y las reps sugeridos por la IA para hoy
+      const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? e.reps);
+      const w = plan?.weightKg ?? a?.weightKg ?? (a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg) ?? 0;
+      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w, r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {
       id: crypto.randomUUID(), dayId: d.id, dayName: d.name, note: t.program!.note, startedAt: nowIso, status: "in_progress", activeMs: 0, lastResumedAt: nowIso,
       endedAt: null, rpe: null, sessionNote: null, revision: 1, synced: false, rest: null, updatedAt: nowIso, sets,
-      exercises: d.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null })),
+      exercises: d.exercises.map((e) => {
+        const a = aiOf(e.id);
+        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null };
+        if (a?.swap) return { ...base, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name } } };
+        if (a?.skip) return { ...base, change: { kind: "skip" as const, reason: a.reason ?? "other", substitute: null } };
+        return base;
+      }),
     };
     try {
       await putLocal(s);
       await enqueue({ key: `start:${s.id}`, kind: "start", sid: s.id });
+      for (const e of s.exercises) if (e.change) await enqueue({ key: `exchange:${s.id}:${e.id}`, kind: "exchange", sid: s.id, peId: e.id });
       setWorkout(s.id);
     } catch { flash("Este navegador no permite guardar datos en el teléfono; no se puede entrenar sin conexión."); }
   };
@@ -227,7 +242,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
-      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={start} onContinue={() => openId && setWorkout(openId)}
+      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onContinue={() => openId && setWorkout(openId)}
         onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
       {sheet?.type === "help" && (inbox?.gym?.connect && (sheet.to ?? (t?.relation?.kind === "gym" || !inbox.coach ? "gym" : "coach")) === "gym"
         ? <ConnectHelpSheet place={inbox.gym.place} coachName={inbox.coach?.name ?? null} onCoach={() => setSheet({ type: "help", kind: sheet.kind, to: "coach" })} flash={flash}

@@ -63,6 +63,19 @@ describe("reemplazos aprobados", () => {
     expect(log.map((l) => l.action).sort()).toEqual(["substitution.add", "substitution.remove"]);
   });
 
+  it("D138: alternativas del día para la IA, con el aprobado primero y sin incompatibles", async () => {
+    const { coach, org, user } = await setup();
+    await subs.addSubstitution(coach.id, org.id, { exerciseId: EX["Sentadilla"], substituteExerciseId: EX["Prensa"], note: "si no hay rack" });
+    const t = await tr.myTraining(user);
+    if (t.state !== "ready") throw new Error("sin programa");
+    const day = t.program.days[0];
+    const alts = await tr.dayAlternatives(user, day.id);
+    const list = alts.get(day.exercises[0].id)!;
+    expect(list[0]).toMatchObject({ exerciseId: EX["Prensa"], approved: true, note: "si no hay rack" });
+    expect(list.some((x) => x.exerciseId === EX["Plancha"] || x.exerciseId === EX["Sentadilla"])).toBe(false);
+    expect(list.length).toBeLessThanOrEqual(5);
+  });
+
   it("sólo compatibles, sin duplicados y sólo quien arma programas en esa organización", async () => {
     const { coach, org, user, sid, squat } = await setup();
     await expect(subs.addSubstitution(coach.id, org.id, { exerciseId: EX["Sentadilla"], substituteExerciseId: EX["Plancha"] })).rejects.toMatchObject({ code: "invalid" });

@@ -580,8 +580,8 @@ function RirControl({ value, onChange, onPain }: { value: number | null; onChang
 }
 
 /** D134: técnica, combinación (con qué se alterna), tempo y variante del ejercicio, en una línea. */
-function detailLine(d: ExerciseDetail, label: string | null | undefined, all: { name: string; detail?: ExerciseDetail | null }[], idx: number) {
-  const mates = d.group ? all.filter((x, i) => i !== idx && x.detail?.group === d.group).map((x) => x.name) : [];
+function detailLine(d: ExerciseDetail, label: string | null | undefined, all: { name: string; detail?: ExerciseDetail | null; change?: ExChange | null }[], idx: number) {
+  const mates = d.group ? all.filter((x, i) => i !== idx && x.detail?.group === d.group && x.change?.kind !== "skip").map((x) => x.change?.substitute?.name ?? x.name) : [];
   return [
     d.technique !== "straight" ? TECHNIQUES[d.technique].label : null,
     label && mates.length ? `${d.groupKind === "circuit" ? `Circuito${d.rounds ? ` × ${d.rounds} vueltas` : ""}` : "Combinado"} con ${mates.join(", ")}` : null,

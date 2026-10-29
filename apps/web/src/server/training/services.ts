@@ -706,6 +706,29 @@ export async function sessionAlternatives(userId: string, sessionId: string, pro
   const [o] = await db.select({ kind: organization.kind }).from(organization).where(eq(organization.id, orgId));
   return { group: pe.group, approvedBy: o?.kind ?? null, alternatives: list.map((x) => ({ ...x, sameGroup: x.muscleGroup === pe.group, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })) };
 }
+/**
+ * D138: alternativas para varios ejercicios de un día (para que la IA de «No vino el profe» rearme la rutina cuando algo no
+ * se puede). Mismo criterio que en la sesión: compatibles por tipo de registro, aprobados por el profe primero. Sin los que
+ * ya están en el día.
+ */
+export async function dayAlternatives(userId: string, dayId: string, perExercise = 5) {
+  const rows = await db.select({ peId: programExercise.id, exerciseId: programExercise.exerciseId, kind: exercise.kind, group: exercise.muscleGroup, versionId: programDay.versionId })
+    .from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId)).innerJoin(programDay, eq(programDay.id, programExercise.dayId))
+    .where(eq(programExercise.dayId, dayId));
+  const out = new Map<string, { exerciseId: string; name: string; approved: boolean; note: string | null; prev: { weightKg: number | null; reps: number | null } | null }[]>();
+  if (!rows.length) return out;
+  const orgId = await sessionOrg(rows[0].versionId);
+  const lib = await db.select({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
+    .where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId)));
+  const subs = await db.select({ ex: exerciseSubstitution.exerciseId, id: exerciseSubstitution.substituteExerciseId, note: exerciseSubstitution.note }).from(exerciseSubstitution)
+    .where(and(eq(exerciseSubstitution.orgId, orgId), inArray(exerciseSubstitution.exerciseId, rows.map((r) => r.exerciseId)))).orderBy(asc(exerciseSubstitution.createdAt));
+  const inDay = new Set(rows.map((r) => r.exerciseId));
+  const lists = rows.map((r) => ({ peId: r.peId, list: withApproved(rankAlternatives({ id: r.exerciseId, kind: r.kind, muscleGroup: r.group }, lib.filter((x) => !inDay.has(x.id))),
+    subs.filter((x) => x.ex === r.exerciseId)).slice(0, perExercise) }));
+  const prev = await lastSetByExercise(userId, [...new Set(lists.flatMap((l) => l.list.map((x) => x.id)))]);
+  for (const l of lists) out.set(l.peId, l.list.map((x) => ({ exerciseId: x.id, name: x.name, approved: x.approved, note: x.approvedNote, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })));
+  return out;
+}
 async function sessionOrg(versionId: string) {
   const [r] = await db.select({ org: program.orgId }).from(programVersion).innerJoin(program, eq(program.id, programVersion.programId)).where(eq(programVersion.id, versionId));
   return r.org;
