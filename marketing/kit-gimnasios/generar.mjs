@@ -6,7 +6,7 @@
 // sale de Gym › «Accesos y QR». Genera PDF vectorial para imprenta y PNG para ver o compartir en salida/<carpeta>/.
 // Textos sin promesas de resultados: los números los ve cada gimnasio en su panel.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -18,6 +18,8 @@ const { renderSVG } = require("uqr");
 const arg = (k) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : undefined; };
 const url = arg("url") ?? "https://repiclub.com/instalar";
 const gym = (arg("gym") ?? "").trim();
+// Logo del gimnasio (SVG) para el cartel co-marca «repi × gym». El SVG se incrusta: su texto usa las fuentes de la página.
+const logo = arg("logo") ? readFileSync(arg("logo"), "utf8").replace(/<!--[\s\S]*?-->/g, "") : null;
 const sede = /\/unirse\//.test(url);
 const slug = gym ? gym.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : "general";
 const out = join(here, "salida", slug);
@@ -35,7 +37,7 @@ const G = esc(gym);
 // Marca: Concepto 2 · G · Atlética. Barlow en interfaz y cuerpo, Barlow Condensed en titulares. Navy, cian y turquesa.
 const base = (size, body) => `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Montserrat:wght@500;700&display=block" rel="stylesheet">
 <style>
 @page { size: ${size}; margin: 0; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,6 +77,43 @@ mm("folleto-a5-frente", 148, 210, `
       <span class="d cy" style="font-size:20pt">${n}</span><p style="font-weight:700;font-size:9.5pt;line-height:1.2;margin-top:1mm">${t}</p><p class="mu" style="font-size:8pt;line-height:1.3;margin-top:1mm">${d}</p></div>`).join("")}
   </div>
   <p style="margin-top:4mm;font-size:8pt;color:#94A3B8">iPhone y Android · No se descarga nada de una tienda · Gratis para socios</p>
+</div>`);
+
+// 1b · Cartel de pared A4 (pedido del titular, 30/10): QR grande y tres pasos con íconos, para pegar en la sala. Todo lo
+// importante queda lejos de los bordes: la imprenta puede recortarlo a otra proporción (un cartón 3:4) sin cortar nada.
+const ico = {
+  cam: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M19 8v6M16 11h6"/></svg>`,
+  home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>`,
+  bar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/></svg>`,
+  tap: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V12m0-1a1.5 1.5 0 0 1 3 0v4.5a5.5 5.5 0 0 1-5.5 5.5h-1A5.5 5.5 0 0 1 6 18l-2-3.5a1.5 1.5 0 0 1 2.6-1.5L9 15"/></svg>`,
+};
+const wallSteps = sede
+  ? [["1", ico.cam, "Escaneá", "con la cámara"], ["2", ico.plus, "Pedí acceso", "creá tu cuenta"], ["3", ico.bar, "Entrená", "anotá cada serie"]]
+  : [["1", ico.cam, "Escaneá", "con la cámara"], ["2", ico.home, "Agregala", "a tu inicio"], ["3", ico.tap, "Entrá", "con un toque"]];
+mm("cartel-pared-a4", 210, 297, `
+<div class="glow" style="inset:-20% -35% auto;height:65%"></div>
+<div style="position:absolute;inset:auto -30% -25% 20%;height:45%;background:radial-gradient(closest-side,rgba(93,230,216,.12),transparent 70%)"></div>
+<div style="position:relative;height:100%;padding:22mm 18mm 22mm;display:flex;flex-direction:column;align-items:center;text-align:center">
+  ${logo
+    ? `<div style="display:flex;align-items:center;justify-content:center;gap:8mm">${wm("40mm")}<span class="cy" style="font-weight:500;font-size:30pt;line-height:1">×</span><span style="display:block;width:70mm">${logo.replace("<svg ", '<svg style="width:100%;height:auto;display:block" ')}</span></div>`
+    : `<div style="width:100%;display:flex;justify-content:space-between;align-items:center">${wm("42mm")}
+    <span class="tq" style="font-weight:700;font-size:10.5pt;letter-spacing:.2em;text-transform:uppercase;text-align:right;line-height:1.5">${G ? `Socios de<br>${G}` : "Para socios<br>y alumnos"}</span></div>`}
+  <h1 class="d" style="margin-top:11mm;font-size:58pt">Tu rutina,<br>en tu teléfono<span class="cy">.</span></h1>
+  <p class="mu" style="margin-top:5mm;font-size:13.5pt;line-height:1.45;max-width:172mm">${sede
+    ? `${logo ? "" : `${G || "Tu gym"} entrena con REPI. `}Escaneá el código, creá tu cuenta y pedí acceso. El equipo te habilita y tu rutina, tus pesos y tu progreso quedan en tu teléfono.`
+    : "Escaneá el código con la cámara y agregá REPI a tu pantalla de inicio. No hace falta pasar por ninguna tienda de apps."}</p>
+  <div style="margin-top:8mm;padding:2.2mm;border-radius:11mm;background:#00D1FF">
+    <div style="padding:3mm;border-radius:9mm;background:#0B0F14"><div class="qr" style="width:86mm;height:86mm;padding:5.5mm;border-radius:7mm">${qr}</div></div>
+  </div>
+  <p style="margin-top:5mm;font-weight:700;font-size:16pt">${esc(short)}</p>
+  <div style="margin-top:auto;padding-top:8mm;width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:5mm">
+    ${wallSteps.map(([n, i, t, d]) => `<div style="display:flex;align-items:center;gap:3mm;text-align:left">
+      <span style="flex:none;width:11mm;height:11mm;border-radius:50%;background:#00D1FF;color:#0B0F14;display:grid;place-items:center;font-weight:700;font-size:12pt">${n}</span>
+      <span class="tq" style="flex:none;width:9mm;height:9mm;display:block">${i}</span>
+      <span><b style="display:block;font-size:13pt">${t}</b><span class="mu" style="font-size:10.5pt">${d}</span></span></div>`).join("")}
+  </div>
+  <p style="margin-top:7mm;font-size:10pt;color:#94A3B8">iPhone y Android · Sin tiendas de apps · Gratis para socios</p>
 </div>`);
 
 // 2 · Folleto A5, dorso: qué tiene el socio y cómo agregar a inicio.

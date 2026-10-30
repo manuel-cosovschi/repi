@@ -13,6 +13,12 @@ La versión general ya está en `salida/general/`. `salida/contacto.jpg` muestra
 node marketing/kit-gimnasios/generar.mjs --gym "Gym Norte" --url "https://repiclub.com/unirse/<código-de-sede>"
 ```
 
+Con `--logo ruta/al/logo.svg` el cartel de pared lleva «repi × logo del gym» arriba. Ejemplo (Smart Center Gym, sede principal; su logo está redibujado en vector en `assets/smart-center-gym.svg`):
+
+```bash
+node marketing/kit-gimnasios/generar.mjs --gym "Smart Center Gym" --url "https://repiclub.com/unirse/tzYB3ida1SAT" --logo marketing/kit-gimnasios/assets/smart-center-gym.svg
+```
+
 Se ejecuta desde la raíz del repo y deja todo en `salida/gym-norte/`. Necesita Google Chrome instalado (o la variable `CHROME` con su ruta) y conexión para bajar las fuentes. Sin `--gym` genera la versión general.
 
 ## Piezas y cómo imprimirlas
@@ -21,6 +27,7 @@ Cada pieza impresa viene en PDF (vectorial, tamaño final, sin márgenes) para l
 
 | Archivo | Tamaño | Uso | Impresión sugerida |
 | --- | --- | --- | --- |
+| `cartel-pared-a4` | A4, 210 × 297 mm | Cartel para la pared de la sala con QR grande | Ilustración o cartulina 250–300 g, a sangre. Lo importante queda a más de 18 mm de los bordes: se puede recortar o escalar a otra proporción (por ejemplo 3:4) sin perder nada. |
 | `folleto-a5-frente` / `folleto-a5-dorso` | A5, 148 × 210 mm | Folleto para recepción y mostrador | Ilustración 300 g, doble faz, plastificado brillante. Pedir sin sangrado o agregar 3 mm en la imprenta. |
 | `sticker-redondo-80mm` | Ø 80 mm | Puertas, heladera, recepción | Vinilo autoadhesivo con laminado, troquelado circular |
 | `sticker-maquina-70x50` | 70 × 50 mm | Máquinas, racks y bancos: «Anotá esta serie» | Vinilo con laminado mate (resiste sudor y limpieza) |

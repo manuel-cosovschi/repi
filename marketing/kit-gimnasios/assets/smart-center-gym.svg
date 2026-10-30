@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 300" role="img" aria-label="Smart Centergym">
+  <!-- Logo de Smart Center Gym redibujado en vector desde su perfil público (30/10/2026), para el cartel co-marca del gym.
+       Isotipo con las medidas del original; el texto usa Montserrat (la del original es una geométrica parecida). -->
+  <path fill="#73F0D1" transform="translate(0 20) scale(0.226)" d="M0,0 L482,342 L960,0 L960,198 L482,540 L120,283 L120,391 L482,648 L960,308 L960,810 L482,1150 L0,810 L0,612 L482,954 L840,700 L840,600 L482,852 L0,510 Z"/>
+  <text x="262" y="182" fill="#F8FAFC" font-family="Montserrat, Arial, sans-serif" font-weight="700" font-size="186" letter-spacing="2">SMART</text>
+  <text x="272" y="262" fill="#F8FAFC" font-family="Montserrat, Arial, sans-serif" font-weight="500" font-size="58" letter-spacing="21">CENTERGYM</text>
+</svg>
