@@ -9,6 +9,7 @@ Actualizado: 29/10/2026 (hasta D157), sobre la release candidata rc-2026.10.27 (
 - **Sugerencias:** `Ideas.tsx` ahora vive en Inicio (`Home` en `MemberApp.tsx`), plegada; ya no está en Perfil.
 - **Pruebas:** web 243 ✓ (`annex.test.ts` cubre el `href`), E2E 36/36 ✓. Navegador: `/app` y el QR con `pending_consent` llevan a «Qué ve Gym Norte» → app.
 - **Próxima acción:** confirmar con la socia afectada que ya entra.
+- **Incidente 29/10, 22:43–22:58 (resuelto):** al diagnosticar JOIN-1, un `SET default_transaction_read_only=on` hecho por el pooler en modo transacción (`DATABASE_URL`, puerto 6543) quedó pegado a una conexión de la app. Dio 500 con código 25006 en `/api/me/notifications`, `/api/me/inbox` y el cron de notificaciones. Se corrigió solo cuando Supavisor recicló la conexión; desde las 22:59 no hubo más errores. Sólo fallaron lecturas y marcas de visto: no se perdieron entrenamientos ni datos. **Regla:** para leer producción usar `DATABASE_URL_SESSION` con `BEGIN READ ONLY … COMMIT`, nunca un SET de sesión.
 
 ## «Sugerí una mejora» (D156) — 29/10/2026
 
