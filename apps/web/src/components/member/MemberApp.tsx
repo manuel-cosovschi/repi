@@ -30,7 +30,7 @@ import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
-import { OwnRoutines } from "./OwnRoutines";
+import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -292,7 +292,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         {offlineAt && <p className="offline-bar" role="status">Sin conexión · programa guardado el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(offlineAt))}</p>}
         {!t ? <p className="mb-muted">Cargando…</p> : (
           <div key={tab} className="tab-pane">
-            {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} go={go}
+            {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} />}
@@ -428,8 +428,8 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence }: {
-  t: Training; coachFirst: string; onStart: (dayId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
+function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence }: {
+  t: Training; coachFirst: string; onStart: (dayId: string) => void; onOwn: (routineId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null;
 }) {
   const connect = !!inbox?.gym?.connect;
@@ -477,11 +477,13 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
       ) : t.state === "scheduled" ? (
         <div className="dashed-card"><strong>Tu programa empieza el {formatDayEs(t.startsOn!)}</strong><span>{cap(coachFirst)} ya te lo asignó. Ese día lo vas a ver acá.</span></div>
       ) : (
+        // D162: con rutinas propias, Inicio muestra la que toca hoy; sin ellas, la tarjeta para pedir programa o cargar la propia.
+        <NextOwnRoutine offline={offline} busyOpen={!!t.openSession} onStart={onOwn} fallback={
         <div className="dashed-card"><strong>Todavía no tenés programa</strong>
           <span>{t.relation ? (pendingProgram ? `Ya se lo pediste ${gymRel ? "al equipo de sala" : `a ${coachFirst}`}. Te avisamos cuando lo asigne.` : `${cap(coachFirst)} todavía no te asignó un programa. Podés pedírselo.`) : "Todavía no tenés coach ni gym en REPI."}</span>
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
-          {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala y registrá tus entrenamientos</button>}
-        </div>
+          {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
+        </div>} />
       )}
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
       {!offline && <Ideas offline={offline} flash={flash} />}

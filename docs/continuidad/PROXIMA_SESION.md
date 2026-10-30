@@ -1,6 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D161), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D162), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Subir la rutina propia y «Te toca hoy» (D162) — 30/10/2026
+
+- **Dominio:** `parseRoutineCsv` en `packages/domain/src/routine-import.ts` (+ test).
+- **Servidor:** `previewRoutineImport` y `next` en `listOwnRoutines` (`server/training/own-routines.ts`, orden de carga); ruta `app/api/me/routines/import/route.ts`; `matchExercises` exportado de `history-import.ts`.
+- **UI:** `components/member/RoutineImport.tsx` (subir y revisar); `OwnRoutines.tsx` («Subir», «Te toca hoy», `NextOwnRoutine` para Inicio); `readImportFile` compartido en `HistoryImport.tsx`.
+- **Pruebas:** dominio 156 ✓, web 248 ✓ (`adaptive` D162: planilla sin IA, emparejamiento, foto sin REPI → `ai_unavailable`, rotación A → B → A), guardas ✓, sin deriva, E2E 36/36 ✓. Navegador (iPhone emulado, demo alumno, REPI real): texto libre de 2 días → emparejó «Press plano», «Aperturas c/ mancuernas» y «Tríceps soga»; «Camilla de isquios» se eligió a mano (Curl femoral); guardó 2 rutinas con «Te toca hoy».
+- **Sin probar en navegador:** la tarjeta de Inicio sin programa (la alumna de la demo tiene programa) y una foto real.
 
 ## Propuesta de «Armar con REPI» editable (D161) — 30/10/2026
 

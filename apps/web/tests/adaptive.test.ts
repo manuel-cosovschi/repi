@@ -235,3 +235,31 @@ describe("entrenamientos olvidados (D160)", () => {
     expect((await tr.getSession(user, sid2)).status).toBe("abandoned");
   });
 });
+
+describe("subir la rutina propia (D162)", () => {
+  it("una planilla se lee sin IA, se empareja con la biblioteca y «Te toca hoy» sigue el orden de los días", async () => {
+    const user = await member(false);
+    const csv = "Día,Ejercicio,Series,Reps,Peso\nDía A,Sentadilla,4,8-10,60\nDía A,Ejercicio inventado xyz,3,12,\nDía B,Press de banca,3,10,40\n";
+    const p = await withoutAi(() => own.previewRoutineImport(user, { fileName: "rutina.csv", kind: "text", text: csv }));
+    expect(p.source).toBe("csv");
+    expect(p.days.map((d) => d.name)).toEqual(["Día A", "Día B"]);
+    expect(p.days[0].exercises[0]).toMatchObject({ written: "Sentadilla", exerciseId: SQ, sets: 4, reps: "8-10", weightKg: 60 });
+    expect(p.days[0].exercises[1]).toMatchObject({ written: "Ejercicio inventado xyz", exerciseId: null }); // se elige a mano o se quita
+    expect(p.days[1].exercises[0].exerciseId).toBeTruthy();
+    // Una foto sin REPI disponible no se puede leer (la planilla sí).
+    await expect(withoutAi(() => own.previewRoutineImport(user, { fileName: "foto.jpg", kind: "image", dataUrl: "data:image/jpeg;base64,AAAA" }))).rejects.toMatchObject({ code: "ai_unavailable" });
+    // Guardadas en orden, como días de un programa: toca la A; después de entrenarla, la B; después, otra vez la A.
+    for (const d of p.days) await own.saveOwnRoutine(user, { name: d.name, exercises: d.exercises.filter((e) => e.exerciseId).map((e) => ({ exerciseId: e.exerciseId!, sets: e.sets, reps: e.reps, weightKg: e.weightKg, restSec: e.restSec, note: e.note })) });
+    const next = async () => (await own.listOwnRoutines(user)).find((r) => r.next)?.name;
+    expect(await next()).toBe("Día A");
+    const [a, b] = await own.listOwnRoutines(user);
+    const s1 = randomUUID();
+    await own.startOwnRoutine(user, a.id, s1, new Date(Date.now() - 2 * 86_400_000));
+    await tr.sessionAction(user, s1, "finish");
+    expect(await next()).toBe("Día B");
+    const s2 = randomUUID();
+    await own.startOwnRoutine(user, b.id, s2, new Date(Date.now() - 86_400_000));
+    await tr.sessionAction(user, s2, "finish");
+    expect(await next()).toBe("Día A");
+  });
+});

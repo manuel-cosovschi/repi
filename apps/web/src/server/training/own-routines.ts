@@ -2,10 +2,13 @@
 // propios de su coach o gimnasio) y las entrena cuando quiere, tenga o no programa asignado. Al empezar se crea una sesión
 // como la de D153: registra pesos, repeticiones, RIR, sensación y notas por serie, y el esfuerzo y la nota de la sesión.
 // Las rutinas son sólo del alumno; lo que entrena queda en su historial como cualquier sesión.
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
+import { parseRoutineCsv, type ImportedRoutineDay } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
+import { aiJson, aiOn, type AiPart } from "../ai/openai";
 import { ensureExerciseCatalog } from "./library";
+import { matchExercises, type ImportFile } from "./history-import";
 import { lastSetByExercise, myActive, startSoloRoutine } from "./services";
 
 const { ownRoutine, exercise } = schema;
@@ -48,17 +51,22 @@ function clean(p: Input): Input {
   return { id: p.id, name, exercises };
 }
 
-/** Mis rutinas, con el nombre actual de cada ejercicio y la última vez que hice cada uno. */
+/**
+ * Mis rutinas en el orden en que se cargaron (como los días de un programa: Día A, Día B…), con el nombre actual de cada
+ * ejercicio y la última vez que hice cada uno. D162: `next` marca la que toca hoy, la siguiente a la última que entrené.
+ */
 export async function listOwnRoutines(userId: string) {
-  const rows = await db.select().from(ownRoutine).where(eq(ownRoutine.userId, userId)).orderBy(desc(ownRoutine.lastUsedAt), desc(ownRoutine.updatedAt));
+  const rows = await db.select().from(ownRoutine).where(eq(ownRoutine.userId, userId)).orderBy(asc(ownRoutine.createdAt), asc(ownRoutine.name));
+  const used = rows.reduce((b, r, i) => (r.lastUsedAt && (b < 0 || r.lastUsedAt > rows[b].lastUsedAt!) ? i : b), -1);
+  const nextIdx = rows.length ? (used + 1) % rows.length : -1;
   const ids = [...new Set(rows.flatMap((r) => r.exercises.map((e) => e.exerciseId)))];
   const [lib, prev] = await Promise.all([
     ids.length ? db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind }).from(exercise).where(inArray(exercise.id, ids)) : [],
     lastSetByExercise(userId, ids),
   ]);
   const byId = new Map(lib.map((e) => [e.id, e]));
-  return rows.map((r) => ({
-    id: r.id, name: r.name, updatedAt: r.updatedAt, lastUsedAt: r.lastUsedAt,
+  return rows.map((r, i) => ({
+    id: r.id, name: r.name, updatedAt: r.updatedAt, lastUsedAt: r.lastUsedAt, next: i === nextIdx,
     exercises: r.exercises.map((e) => {
       const x = byId.get(e.exerciseId);
       const pv = prev.get(e.exerciseId);
@@ -103,4 +111,70 @@ export async function startOwnRoutine(userId: string, routineId: string, session
   const s = await startSoloRoutine(userId, { id: sessionId, dayName: r.name, source: "own", exercises: r.exercises }, now);
   await db.update(ownRoutine).set({ lastUsedAt: now }).where(eq(ownRoutine.id, r.id));
   return s;
+}
+
+// ── D162: cargar la rutina que ya tiene desde una foto, una captura, un PDF, una planilla o texto ─────────────────────────
+const AI_SCHEMA = {
+  type: "object", additionalProperties: false, required: ["days", "notes"],
+  properties: {
+    days: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "exercises"], properties: {
+      name: { type: "string" },
+      exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "sets", "reps", "weight_kg", "rest_sec", "note"], properties: {
+        name: { type: "string" }, sets: { type: "integer" }, reps: { type: "string" }, weight_kg: { type: ["number", "null"] }, rest_sec: { type: ["integer", "null"] }, note: { type: "string" },
+      } } },
+    } } },
+    notes: { type: "array", items: { type: "string" } },
+  },
+};
+type AiOut = { days: { name: string; exercises: { name: string; sets: number; reps: string; weight_kg: number | null; rest_sec: number | null; note: string }[] }[]; notes: string[] };
+const SYSTEM = `Transcribís a datos la rutina de gimnasio que ya tiene una persona (foto, captura, PDF o texto). NO la diseñes, no la mejores ni agregues nada: copiá lo que está escrito.
+- Un elemento de days por cada día o sesión de la rutina, en el orden en que aparecen, con su nombre tal como está («Día 1», «Lunes», «Pecho y tríceps»). Si no hay días, uno solo llamado «Mi rutina».
+- Por ejercicio: nombre en español como está escrito (corregí sólo errores evidentes de tipeo), series (entero; si no figura, 3), repeticiones como texto («10», «8-12», «al fallo», «30 s»), peso en kg si figura (libras × 0,4536; si no, null), descanso en segundos si figura (si no, null) y una nota corta si hay una indicación (si no, vacío).
+- «3x10» son 3 series de 10. Una pirámide «12-10-8» va en reps tal cual.
+- Si la rutina cambia semana a semana, transcribí la semana que la persona marque como actual o, si no, la primera, y avisalo en notes.
+- Si algo no se lee o es ambiguo, omitilo y explicalo en notes (en español, breve). Nunca digas «IA».`;
+
+/** Vista previa: días y ejercicios leídos, emparejados con la biblioteca. No guarda nada: la persona revisa y guarda. */
+export async function previewRoutineImport(userId: string, f: ImportFile) {
+  if (!["text", "image", "pdf"].includes(f.kind)) throw new AccessError("invalid", "Formato no admitido.");
+  if (f.kind === "text" && !(f.text ?? "").trim()) throw new AccessError("invalid", "El archivo está vacío.");
+  if (f.kind !== "text" && !/^data:(image\/(jpeg|png|webp|gif)|application\/pdf);base64,/.test(f.dataUrl ?? "")) throw new AccessError("invalid", "Subí una foto o captura (JPG o PNG), un PDF o una planilla.");
+  const lib = await myExerciseLibrary(userId);
+  let days: ImportedRoutineDay[] | null = f.kind === "text" ? parseRoutineCsv(f.text!) : null;
+  let notes: string[] = [];
+  const source: "csv" | "ai" = days ? "csv" : "ai";
+  if (!days) {
+    if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora sólo podemos leer planillas con columnas Día, Ejercicio, Series, Reps y Peso. Cargala a mano con «Nueva».", 503);
+    const parts: AiPart[] = [{ type: "text", text: `Archivo: ${f.fileName.slice(0, 120)}. Transcribí la rutina.` }];
+    if (f.kind === "text") parts.push({ type: "text", text: (f.text ?? "").slice(0, 60_000) });
+    else if (f.kind === "image") parts.push({ type: "image_url", image_url: { url: f.dataUrl!, detail: "high" } });
+    else parts.push({ type: "file", file: { filename: f.fileName.slice(0, 120) || "rutina.pdf", file_data: f.dataUrl! } });
+    const out = await aiJson<AiOut>({ name: "rutina_propia", system: SYSTEM, parts, schema: AI_SCHEMA, maxTokens: 8000 });
+    days = (out.days ?? []).map((d) => ({ name: d.name, exercises: (d.exercises ?? []).map((e) => ({
+      name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weight_kg, restSec: e.rest_sec, note: e.note || null })) }));
+    notes = (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 8);
+  }
+  const clean = days.map((d, i) => ({
+    name: d.name.replace(/\s+/g, " ").trim().slice(0, 60) || `Día ${i + 1}`,
+    exercises: d.exercises.filter((e) => e.name?.trim()).map((e) => {
+      const sets = Math.round(Number(e.sets));
+      const w = e.weightKg == null ? null : Number(e.weightKg);
+      const rest = e.restSec == null ? null : Math.round(Number(e.restSec));
+      return { written: e.name.replace(/\s+/g, " ").trim().slice(0, 80), sets: sets >= 1 && sets <= 10 ? sets : 3, reps: String(e.reps ?? "").trim().slice(0, 20) || "10",
+        weightKg: w != null && w > 0 && w <= 500 ? Math.round(w * 100) / 100 : null, restSec: rest != null && rest >= 0 && rest <= 600 ? rest : null, note: e.note?.trim().slice(0, 120) || null };
+    }),
+  })).filter((d) => d.exercises.length);
+  if (!clean.length) throw new AccessError("empty", "No encontramos ejercicios en ese archivo. Probá con otra foto o cargala a mano.", 422);
+  if (clean.length > OWN_ROUTINES_MAX) { clean.length = OWN_ROUTINES_MAX; notes.push(`Se cargan los primeros ${OWN_ROUTINES_MAX} días.`); }
+  for (const d of clean) if (d.exercises.length > OWN_ROUTINE_EXERCISES_MAX) { d.exercises.length = OWN_ROUTINE_EXERCISES_MAX; notes.push(`${d.name}: se cargan los primeros ${OWN_ROUTINE_EXERCISES_MAX} ejercicios.`); }
+  const matches = await matchExercises([...new Set(clean.flatMap((d) => d.exercises.map((e) => e.written)))], lib);
+  const byId = new Map(lib.map((e) => [e.id, e]));
+  await audit(db, { actorUserId: userId, action: "own_routine.import_previewed", resourceType: "own_routine", meta: { source, days: clean.length } });
+  return {
+    source, notes,
+    days: clean.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => {
+      const m = matches[e.written] ? byId.get(matches[e.written]!.id) : undefined;
+      return { ...e, exerciseId: m?.id ?? null, name: m?.name ?? null, group: m?.group ?? null, kind: m?.kind ?? null };
+    }) })),
+  };
 }

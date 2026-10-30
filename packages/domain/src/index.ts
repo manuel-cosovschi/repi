@@ -20,3 +20,4 @@ export * from "./history-import";
 export * from "./prescription";
 export * from "./wishes";
 export * from "./progression";
+export * from "./routine-import";

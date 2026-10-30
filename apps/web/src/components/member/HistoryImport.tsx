@@ -30,6 +30,29 @@ async function shrinkImage(file: File): Promise<string> {
 }
 const asDataUrl = (f: File) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
 
+export type ImportBody = { fileName: string; kind: "text" | "image" | "pdf"; text?: string; dataUrl?: string };
+/** Archivo elegido → lo que viaja al servidor (D140: Excel y OpenDocument como CSV), o el mensaje de por qué no se puede. */
+export async function readImportFile(f: File): Promise<ImportBody | string> {
+  const name = f.name.toLowerCase();
+  try {
+    if (/\.(xlsx|ods)$/.test(name)) {
+      if (typeof DecompressionStream === "undefined") return "Este navegador no puede abrir planillas. Actualizá el teléfono o guardala como CSV.";
+      if (f.size > 5_000_000) return "La planilla pesa más de 5 MB. Dejá sólo las hojas que hacen falta.";
+      const csv = await spreadsheetToCsv(f);
+      if (csv.length > 400_000) return "La planilla es muy grande. Dejá sólo las hojas o filas que hacen falta.";
+      return { fileName: f.name, kind: "text", text: csv };
+    }
+    if (/\.(xls|numbers)$/.test(name)) return name.endsWith(".numbers") ? "Las planillas de Numbers exportalas a Excel o CSV (Archivo › Exportar a) o subí una captura." : "Ese Excel es de un formato viejo: guardalo como .xlsx o CSV, o subí una captura.";
+    if (f.type.startsWith("image/") || /\.(jpe?g|png|heic|webp)$/.test(name)) return { fileName: f.name, kind: "image", dataUrl: await shrinkImage(f) };
+    if (f.type === "application/pdf" || name.endsWith(".pdf")) {
+      if (f.size > 3_000_000) return "El PDF pesa más de 3 MB. Subí sólo las páginas que hacen falta o una captura.";
+      return { fileName: f.name, kind: "pdf", dataUrl: await asDataUrl(f) };
+    }
+    if (f.size > 400_000) return "El archivo es muy grande. Subí una planilla CSV de hasta 400 KB.";
+    return { fileName: f.name, kind: "text", text: await f.text() };
+  } catch { return "No pudimos abrir ese archivo. Probá con otro formato o una foto."; }
+}
+
 export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; offline?: boolean }) {
   const [mine, setMine] = useState<Mine | null>(null);
   const [open, setOpen] = useState(false);
@@ -67,31 +90,15 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
   const [err, setErr] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [p, setP] = useState<Preview | null>(null);
-  const send = async (body: { fileName: string; kind: "text" | "image" | "pdf"; text?: string; dataUrl?: string }) => {
+  const send = async (body: ImportBody) => {
     setBusy("read"); setErr(null);
     try { setP(await api<Preview>("/api/me/history-import", { body })); } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   };
   const pick = async (f: File | undefined) => {
     if (!f) return;
-    const name = f.name.toLowerCase();
-    try {
-      // D140: Excel (.xlsx) y OpenDocument (.ods) se leen acá y viajan como CSV. Numbers y .xls viejos, a exportar.
-      if (/\.(xlsx|ods)$/.test(name)) {
-        if (typeof DecompressionStream === "undefined") return setErr("Este navegador no puede abrir planillas. Actualizá el teléfono o guardala como CSV.");
-        if (f.size > 5_000_000) return setErr("La planilla pesa más de 5 MB. Dejá sólo las hojas del historial.");
-        const csv = await spreadsheetToCsv(f);
-        if (csv.length > 400_000) return setErr("La planilla es muy grande. Dejá sólo las hojas o filas del historial.");
-        return void send({ fileName: f.name, kind: "text", text: csv });
-      }
-      if (/\.(xls|numbers)$/.test(name)) return setErr(name.endsWith(".numbers") ? "Las planillas de Numbers exportalas a Excel o CSV (Archivo › Exportar a) o subí una captura." : "Ese Excel es de un formato viejo: guardalo como .xlsx o CSV, o subí una captura.");
-      if (f.type.startsWith("image/") || /\.(jpe?g|png|heic|webp)$/.test(name)) return void send({ fileName: f.name, kind: "image", dataUrl: await shrinkImage(f) });
-      if (f.type === "application/pdf" || name.endsWith(".pdf")) {
-        if (f.size > 3_000_000) return setErr("El PDF pesa más de 3 MB. Subí sólo las páginas del historial o una foto.");
-        return void send({ fileName: f.name, kind: "pdf", dataUrl: await asDataUrl(f) });
-      }
-      if (f.size > 400_000) return setErr("El archivo es muy grande. Subí una planilla CSV de hasta 400 KB.");
-      return void send({ fileName: f.name, kind: "text", text: await f.text() });
-    } catch { setErr("No pudimos abrir ese archivo. Probá con otro formato o una foto."); }
+    // D140: Excel (.xlsx) y OpenDocument (.ods) se leen acá y viajan como CSV. Numbers y .xls viejos, a exportar.
+    const b = await readImportFile(f);
+    if (typeof b === "string") setErr(b); else void send(b);
   };
   const confirmIt = async () => {
     if (!p) return;

@@ -3,19 +3,22 @@
 // biblioteca, la guarda y la entrena cuando quiere. En el entrenamiento registra pesos, repeticiones, RIR, cómo se sintió
 // cada serie y sus notas, y al terminar el esfuerzo de la sesión y lo que pensó. La primera vez usa el peso que puso acá;
 // después manda su última marca y la sugerencia de REPI.
-import { useCallback, useEffect, useMemo, useState } from "react";
+// D162: también se cargan desde una foto, una captura, un PDF, una planilla o texto (un día por rutina). Se ordenan como los
+// días de un programa y «Te toca hoy» marca la siguiente a la última que entrenó; en Inicio aparece igual.
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
 import { EXERCISE_GROUPS, kgTo, parseWeightIn, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
+import { RoutineImportSheet } from "./RoutineImport";
 import { IntInput } from "@/components/ui/IntInput";
 import { Sheet } from "./Sheet";
 import { kg } from "./types";
 import { useUnit } from "./units";
 
-type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time" };
+export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time" };
 type Ex = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null };
-type Saved = { id: string; name: string; lastUsedAt: string | null; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
+type Saved = { id: string; name: string; lastUsedAt: string | null; next?: boolean; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
 type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w: string };
 
 const MAX_EX = 12;
@@ -26,26 +29,32 @@ const wTxt = (w: number | null, unit: WeightUnit) => (w == null ? "" : String(kg
 export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: boolean; flash: (m: string) => void; onStart: (id: string) => void; busyOpen: boolean }) {
   const [list, setList] = useState<Saved[] | null>(null);
   const [edit, setEdit] = useState<Saved | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const unit = useUnit();
   const load = useCallback(() => api<Saved[]>("/api/me/routines").then(setList).catch(() => setList((l) => l ?? [])), []);
   useEffect(() => { void load(); }, [load]);
   const open = (r: Saved | "new") => { if (offline) { flash("Necesitás conexión para armar o editar tus rutinas."); return; } setEdit(r); };
+  const upload = () => { if (offline) { flash("Necesitás conexión para subir tu rutina."); return; } setImporting(true); };
   return (
     <section className="or" aria-labelledby="or-h">
       <div className="or-head">
         <h2 id="or-h">Mis rutinas</h2>
-        {!!list?.length && <button type="button" className="linkbtn" onClick={() => open("new")}><Ic i={Plus} size={16} /> Nueva</button>}
+        {!!list?.length && <span className="or-head-acts">
+          <button type="button" className="linkbtn" onClick={upload}>Subir</button>
+          <button type="button" className="linkbtn" onClick={() => open("new")}><Ic i={Plus} size={16} /> Nueva</button>
+        </span>}
       </div>
       {list && !list.length && (
         <div className="dashed-card">
           <strong>¿Tenés tu propia rutina?</strong>
           <span>Cargala acá y registrá en cada entrenamiento pesos, repeticiones, intensidad y tus notas. Es tuya: la usás cuando quieras, con o sin programa de tu profe.</span>
-          <button type="button" className="cta sm" onClick={() => open("new")}><Ic i={Plus} size={16} color="#0B0F14" /> Cargar mi rutina</button>
+          <button type="button" className="cta sm" onClick={() => open("new")}><Ic i={Plus} size={16} color="#0B0F14" /> Cargarla a mano</button>
+          <button type="button" className="ghost sm" onClick={upload}>Subir foto, captura o archivo</button>
         </div>
       )}
       {list?.map((r) => (
         <div key={r.id} className="or-card">
-          <div className="or-title"><b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
+          <div className="or-title">{r.next && list.length > 1 && <span className="or-next">Te toca hoy</span>}<b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
           <ul>{r.exercises.map((e, i) => (
             <li key={i}><span>{e.name}</span><span>{e.sets}×{e.reps}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
           ))}</ul>
@@ -57,6 +66,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
           </div>
         </div>
       ))}
+      {importing && <RoutineImportSheet flash={flash} onClose={() => setImporting(false)} onDone={() => { setImporting(false); void load(); }} />}
       {edit && <Editor initial={edit === "new" ? null : edit} unit={unit} flash={flash} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); void load(); }} />}
     </section>
   );
@@ -122,7 +132,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   );
 }
 
-function Picker({ onPick, onCancel, taken }: { onPick: (e: Lib) => void; onCancel?: () => void; taken: Set<string> }) {
+export function Picker({ onPick, onCancel, taken }: { onPick: (e: Lib) => void; onCancel?: () => void; taken: Set<string> }) {
   const [lib, setLib] = useState<Lib[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -150,6 +160,29 @@ function Picker({ onPick, onCancel, taken }: { onPick: (e: Lib) => void; onCance
         </ul>
       )}
       {onCancel && <button type="button" className="linkbtn" onClick={onCancel}>Cancelar</button>}
+    </div>
+  );
+}
+
+/**
+ * D162: en Inicio, sin programa asignado, la rutina propia que toca hoy (la siguiente a la última que entrenó). Sin rutinas
+ * propias muestra `fallback` (la tarjeta de siempre: pedir programa o cargar la propia).
+ */
+export function NextOwnRoutine({ offline, busyOpen, onStart, fallback }: { offline: boolean; busyOpen: boolean; onStart: (id: string) => void; fallback: ReactNode }) {
+  const [list, setList] = useState<Saved[] | null>(null);
+  useEffect(() => { api<Saved[]>("/api/me/routines").then(setList).catch(() => setList([])); }, []);
+  const r = list?.find((x) => x.next) ?? list?.[0];
+  if (!list) return null;
+  if (!r) return <>{fallback}</>;
+  return (
+    <div className="or-card or-today">
+      <div className="or-title"><span className="or-next">{list.length > 1 ? "Te toca hoy" : "Tu rutina"}</span><b>{r.name}</b>
+        <small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
+      <div className="or-actions">
+        <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
+          <Ic i={Play} size={16} weight="fill" color="#0B0F14" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
+        </button>
+      </div>
     </div>
   );
 }

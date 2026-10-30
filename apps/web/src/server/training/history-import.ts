@@ -70,7 +70,7 @@ const MAP_SCHEMA = {
 };
 
 /** Empareja los nombres escritos con la biblioteca: igual sin tildes; si no, la IA propone el equivalente (o ninguno). */
-async function matchExercises(names: string[], lib: { id: string; name: string }[]) {
+export async function matchExercises(names: string[], lib: { id: string; name: string }[]) {
   const byKey = new Map(lib.map((e) => [exerciseKey(e.name), e]));
   const byLoose = new Map(lib.map((e) => [looseKey(e.name), e]));
   const out: Parsed["matches"] = {};

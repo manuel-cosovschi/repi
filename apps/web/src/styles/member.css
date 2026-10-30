@@ -617,6 +617,12 @@
 .or { display: flex; flex-direction: column; gap: 12px; }
 .or-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .or-head .linkbtn { display: inline-flex; align-items: center; gap: 4px; height: 44px; }
+/* D162: subir la rutina y «Te toca hoy». */
+.or-head-acts { display: inline-flex; gap: 12px; }
+.or-next { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--core-navy900); background: var(--core-cyan); border-radius: 999px; padding: 2px 8px; margin-bottom: 4px; }
+.ri-ex { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--dark-border); }
+.ri-ex-name { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.ri-missing { color: #FCD38A; }
 .or-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; border: 1px solid #233044; background: var(--dark-surface-2); }
 .or-title { display: flex; flex-direction: column; gap: 2px; }
 .or-title b { font-size: 16px; font-weight: 600; }
