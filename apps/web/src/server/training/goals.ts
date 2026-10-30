@@ -6,6 +6,7 @@ import { GOAL_KINDS, GOAL_SOURCES, GOAL_WINDOW_DAYS, bestE1rm, goalProgress, goa
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { requireClientOf, requireCoach, timedPeIds, toLogged } from "./services";
+import { visibleIn } from "./library";
 
 const { clientGoal, workoutSession, setLog, exercise, coachClient, organization, user } = schema;
 const NF = () => new AccessError("not_found", "No encontramos ese objetivo.", 404);
@@ -61,7 +62,7 @@ export async function createGoal(actorId: string, orgId: string, coachClientId: 
   let exName: string | null = null;
   if (kind === "e1rm" || kind === "load") {
     if (!p.exerciseId) throw new AccessError("invalid", "Elegí el ejercicio.");
-    const [e] = await db.select({ name: exercise.name }).from(exercise).where(and(eq(exercise.id, p.exerciseId), or(isNull(exercise.orgId), eq(exercise.orgId, orgId))));
+    const [e] = await db.select({ name: exercise.name }).from(exercise).where(and(eq(exercise.id, p.exerciseId), visibleIn(orgId)));
     if (!e) throw new AccessError("invalid", "Ese ejercicio no está en tu biblioteca.");
     exName = e.name;
   }

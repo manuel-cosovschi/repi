@@ -8,7 +8,7 @@ import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
 import { mySettings } from "../settings/services";
-import { ensureExerciseCatalog } from "./library";
+import { ensureExerciseCatalog, visibleIn } from "./library";
 import { lastSetByExercise, myActive, myTraining } from "./services";
 
 const { exercise, checkin } = schema;
@@ -49,7 +49,7 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
   if (t.state === "ready") throw new AccessError("has_program", "Ya tenés una rutina asignada: usá «Tu rutina para hoy».", 409);
   await ensureExerciseCatalog();
   const [lib, { wishes }, [ci]] = await Promise.all([
-    db.select().from(exercise).where(or(isNull(exercise.orgId), eq(exercise.orgId, act.orgId))),
+    db.select().from(exercise).where(visibleIn(act.orgId)),
     mySettings(userId),
     db.select().from(checkin).where(and(eq(checkin.userId, userId), eq(checkin.date, localDate(now)))),
   ]);

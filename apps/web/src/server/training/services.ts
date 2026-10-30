@@ -8,7 +8,7 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 import { requireGymAction } from "../gym/access-control";
-import { createOwnExercise, ensureExerciseCatalog } from "./library";
+import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "./library";
 import { todaysPick } from "../gym/floor-now";
 import { importedLastSets } from "./history-import";
 
@@ -44,7 +44,7 @@ export async function listLibrary(actorId: string, orgId: string) {
   await requireCoach(actorId, orgId);
   await ensureExerciseCatalog();
   return db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, own: sql<boolean>`${exercise.orgId} is not null` })
-    .from(exercise).where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId))).orderBy(asc(exercise.name));
+    .from(exercise).where(visibleIn(orgId)).orderBy(asc(exercise.name));
 }
 
 /** Ejercicio propio del coach (D129): para lo que no está en el catálogo base. */
@@ -133,7 +133,7 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
 export async function assertLibrary(orgId: string, doc: ProgramDoc) {
   const ids = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
   if (!ids.length) return;
-  const ok = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), or(isNull(exercise.orgId), eq(exercise.orgId, orgId))));
+  const ok = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
   if (ok.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
 }
 
@@ -696,7 +696,7 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
     if (!e.reps?.trim() || e.reps.length > 20) throw new AccessError("invalid", "Revisá las repeticiones.");
   }
   const ids = [...new Set(p.exercises.map((e) => e.exerciseId))];
-  const lib = await db.select().from(exercise).where(and(inArray(exercise.id, ids), or(isNull(exercise.orgId), eq(exercise.orgId, act.orgId))));
+  const lib = await db.select().from(exercise).where(and(inArray(exercise.id, ids), visibleIn(act.orgId, userId)));
   if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en la biblioteca.");
   const byId = new Map(lib.map((e) => [e.id, e]));
   const own = p.source === "own";
@@ -873,7 +873,7 @@ export async function sessionAlternatives(userId: string, sessionId: string, pro
   if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
   const orgId = await sessionOrg(s.versionId);
   const lib = await db.select({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
-    .where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId)));
+    .where(visibleIn(orgId, userId));
   // Reemplazos aprobados por el coach o el gimnasio (Adaptive Coach 1b): primero y marcados, sin habilitar incompatibles.
   const approved = await db.select({ id: exerciseSubstitution.substituteExerciseId, note: exerciseSubstitution.note }).from(exerciseSubstitution)
     .where(and(eq(exerciseSubstitution.orgId, orgId), eq(exerciseSubstitution.exerciseId, pe.pe.exerciseId))).orderBy(asc(exerciseSubstitution.createdAt));
@@ -897,7 +897,7 @@ export async function dayAlternatives(userId: string, dayId: string, perExercise
   if (!rows.length) return out;
   const orgId = await sessionOrg(rows[0].versionId);
   const lib = await db.select({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
-    .where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId)));
+    .where(visibleIn(orgId, userId));
   const subs = await db.select({ ex: exerciseSubstitution.exerciseId, id: exerciseSubstitution.substituteExerciseId, note: exerciseSubstitution.note }).from(exerciseSubstitution)
     .where(and(eq(exerciseSubstitution.orgId, orgId), inArray(exerciseSubstitution.exerciseId, rows.map((r) => r.exerciseId)))).orderBy(asc(exerciseSubstitution.createdAt));
   const inDay = new Set(rows.map((r) => r.exerciseId));
@@ -947,7 +947,7 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     if (p.change.kind === "substitute") {
       const orgId = await sessionOrg(s.versionId);
       const [x] = await tx.select({ id: exercise.id, name: exercise.name, kind: exercise.kind }).from(exercise)
-        .where(and(eq(exercise.id, p.change.exerciseId ?? ""), or(isNull(exercise.orgId), eq(exercise.orgId, orgId))));
+        .where(and(eq(exercise.id, p.change.exerciseId ?? ""), visibleIn(orgId, userId)));
       if (!x) throw new AccessError("invalid", "Ese ejercicio no está en la biblioteca.");
       if (x.id === pe.pe.exerciseId || x.kind !== pe.kind) throw new AccessError("invalid", "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");
       sub = x;

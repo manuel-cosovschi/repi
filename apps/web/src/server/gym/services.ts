@@ -9,7 +9,7 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { addIso, assertLibrary, lastTimeByExercise, newVersion, plain, readVersion } from "../training/services";
-import { createOwnExercise, ensureExerciseCatalog } from "../training/library";
+import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 
 const { user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
@@ -624,7 +624,7 @@ export async function gymLibrary(actorId: string, orgId: string) {
   need(ctx, "program.edit");
   await ensureExerciseCatalog();
   return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup, kind: schema.exercise.kind, own: sql<boolean>`${schema.exercise.orgId} is not null` }).from(schema.exercise)
-    .where(or(isNull(schema.exercise.orgId), eq(schema.exercise.orgId, orgId))).orderBy(asc(schema.exercise.name));
+    .where(visibleIn(orgId)).orderBy(asc(schema.exercise.name));
 }
 
 /** Ejercicio propio del gimnasio (D129): entrenadores de sala y gestión con permiso de armar programas. */

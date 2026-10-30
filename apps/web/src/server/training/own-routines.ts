@@ -2,12 +2,12 @@
 // propios de su coach o gimnasio) y las entrena cuando quiere, tenga o no programa asignado. Al empezar se crea una sesión
 // como la de D153: registra pesos, repeticiones, RIR, sensación y notas por serie, y el esfuerzo y la nota de la sesión.
 // Las rutinas son sólo del alumno; lo que entrena queda en su historial como cualquier sesión.
-import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { parseRoutineCsv, type ImportedRoutineDay } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiOn, type AiPart } from "../ai/openai";
-import { ensureExerciseCatalog } from "./library";
+import { createMemberExercise, ensureExerciseCatalog, visibleIn } from "./library";
 import { matchExercises, type ImportFile } from "./history-import";
 import { lastSetByExercise, myActive, startSoloRoutine } from "./services";
 
@@ -26,12 +26,17 @@ async function relationOrg(userId: string) {
   return act.orgId;
 }
 
+/** D163: ejercicio propio del alumno (lo que no encuentra en la biblioteca). */
+export async function createMyExercise(userId: string, p: { name: string; group: string; kind: string }) {
+  return createMemberExercise(userId, await relationOrg(userId), p);
+}
+
 /** Biblioteca para armar la rutina: catálogo de REPI y ejercicios propios de la organización con la que entrena. */
 export async function myExerciseLibrary(userId: string) {
   const orgId = await relationOrg(userId);
   await ensureExerciseCatalog();
-  const rows = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
-    .where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId)));
+  const rows = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, mine: sql<boolean>`${exercise.ownerUserId} is not null` }).from(exercise)
+    .where(visibleIn(orgId, userId));
   return rows.sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
@@ -80,7 +85,7 @@ export async function saveOwnRoutine(userId: string, p: Input) {
   const c = clean(p);
   await ensureExerciseCatalog();
   const ids = [...new Set(c.exercises.map((e) => e.exerciseId))];
-  const lib = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), or(isNull(exercise.orgId), eq(exercise.orgId, orgId))));
+  const lib = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId, userId)));
   if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
   const now = new Date();
   if (c.id) {

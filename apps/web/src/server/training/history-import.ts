@@ -6,7 +6,7 @@ import { exerciseEvolution, exerciseKey, localDate, normalizeImport, parseHistor
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiModel, aiOn, type AiPart } from "../ai/openai";
-import { ensureExerciseCatalog } from "./library";
+import { catalogOnly, ensureExerciseCatalog } from "./library";
 
 const { historyImport, historyEntry, exercise, coachClient, gymMember } = schema;
 
@@ -58,7 +58,7 @@ async function libraryFor(userId: string) {
     ...(await db.select({ o: coachClient.coachOrgId }).from(coachClient).where(eq(coachClient.userId, userId))).map((r) => r.o),
     ...(await db.select({ o: gymMember.orgId }).from(gymMember).where(eq(gymMember.userId, userId))).map((r) => r.o),
   ];
-  return db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(orgs.length ? or(isNull(exercise.orgId), inArray(exercise.orgId, orgs)) : isNull(exercise.orgId));
+  return db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(or(catalogOnly(), orgs.length ? inArray(exercise.orgId, orgs) : undefined, eq(exercise.ownerUserId, userId)));
 }
 
 /** Sin conectores ni abreviaturas comunes: «Press banca» = «Press de banca», «Remo c/ barra» = «Remo con barra». */

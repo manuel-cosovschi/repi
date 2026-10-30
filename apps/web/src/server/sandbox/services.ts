@@ -54,7 +54,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   };
   try {
     for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind }).onConflictDoNothing();
-    const lib = new Map((await db.select().from(schema.exercise).where(inArray(schema.exercise.name, LIB.map((l) => l[0])))).filter((e) => !e.orgId).map((e) => [e.name, e.id]));
+    const lib = new Map((await db.select().from(schema.exercise).where(inArray(schema.exercise.name, LIB.map((l) => l[0])))).filter((e) => !e.orgId && !e.ownerUserId).map((e) => [e.name, e.id]));
     const ex = (name: string, sets: number, reps: string, rir: number, restSec: number) => ({ exerciseId: lib.get(name)!, name, sets, reps, rir, restSec });
 
     const owner = await person("martin.sosa", "Martín Sosa");

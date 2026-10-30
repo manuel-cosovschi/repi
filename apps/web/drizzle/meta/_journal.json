@@ -232,6 +232,13 @@
       "when": 1793327165724,
       "tag": "0032_own_routine",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793370067216,
+      "tag": "0033_member_exercise",
+      "breakpoints": true
     }
   ]
 }

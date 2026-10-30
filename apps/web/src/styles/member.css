@@ -646,4 +646,5 @@
 .or-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
 .or-results button { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--dark-border); background: var(--dark-surface); color: var(--dark-ink); font: 500 15px var(--font-ui); cursor: pointer; }
 .or-results small { color: var(--dark-muted); font-size: 12px; flex: none; }
+.or-create { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; border: 1px dashed var(--dark-border); }
 .or-del { color: #F87171; align-self: center; height: 44px; }

@@ -300,8 +300,10 @@ export const exercise = pgTable("exercise", {
   name: text("name").notNull(),
   muscleGroup: text("muscle_group").notNull(),
   kind: text("kind", { enum: ["load_reps", "bodyweight", "time"] }).notNull().default("load_reps"),
+  // D163: ejercicio propio de un alumno (org null). Sólo lo ve esa persona; el catálogo es org y dueño null.
+  ownerUserId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
   createdAt: now("created_at"),
-}, (t) => [uniqueIndex("exercise_org_name_unique").on(sql`coalesce(${t.orgId}, '')`, t.name)]);
+}, (t) => [uniqueIndex("exercise_org_name_unique").on(sql`coalesce(${t.orgId}, '')`, sql`coalesce(${t.ownerUserId}, '')`, t.name), index("exercise_owner_idx").on(t.ownerUserId)]);
 
 // Programa: plantilla del coach o copia propia de un cliente (C04: nunca un objeto compartido).
 export const program = pgTable("program", {

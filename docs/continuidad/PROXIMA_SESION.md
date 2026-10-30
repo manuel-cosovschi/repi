@@ -1,6 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D162), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D163), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Ejercicios propios del alumno (D163) — 30/10/2026
+
+- **Migración:** `drizzle/0033_member_exercise.sql` (columna `exercise.owner_user_id`, índice `exercise_owner_idx`, índice único de nombres con dueño). Aplicada en dev, pruebas y Supabase (RLS sin cambios: misma tabla).
+- **Servidor:** `catalogOnly`, `visibleIn` y `createMemberExercise` en `server/training/library.ts`; `createMyExercise` en `own-routines.ts`; `POST /api/me/exercises`. Todas las consultas de biblioteca pasan por `visibleIn`.
+- **UI:** `Picker` en `components/member/OwnRoutines.tsx` («Crear «…»», grupo, tipo; marca «tuyo»); `RoutineImport.tsx` («Elegir o crear» con el nombre escrito).
+- **Pruebas:** web 249 ✓ (`adaptive` D163: crear, sin duplicar, nombre del catálogo devuelve el del catálogo, entrenar y última marca, otro alumno y el coach no lo ven), dominio 156 ✓, guardas ✓, sin deriva, E2E 36/36 ✓. Navegador (iPhone emulado, demo alumno): crear «Camilla de isquios» desde el buscador y guardar la rutina.
 
 ## Subir la rutina propia y «Te toca hoy» (D162) — 30/10/2026
 
@@ -39,7 +46,7 @@ Actualizado: 30/10/2026 (hasta D162), sobre la release candidata rc-2026.10.27 (
 - **Sugerencias:** sin `notifyIdea`; sólo REPI Admin → Sugerencias.
 - **Arreglo de paso:** `.sheet > * { flex-shrink: 0 }`: en hojas largas los botones quedaban aplastados.
 - **Pruebas:** web 245 ✓, dominio 154 ✓, guardas ✓, E2E 36/36 ✓, sin deriva de esquema. Navegador (iPhone emulado): armar, guardar y empezar una rutina propia; la sesión muestra la serie anterior y la sugerencia de REPI.
-- **Pendiente:** el alumno no puede crear ejercicios que no estén en la biblioteca (los suma su coach o el gym).
+- **Resuelto en D163:** el alumno crea los ejercicios que no están en la biblioteca.
 - **Chat del alumno (después de D158):** con la conversación abierta el chat ocupa todo el alto y el campo para escribir queda a 12 px de la barra (antes, ~195 px de vacío). Arriba, 12 px menos de aire (sigue fuera del difuminado de iOS 26, D122). El texto del campo dice «Escribile al equipo de sala» (decía «a el»). CSS en `member.css` (`.mb-scroll:has(.mb-chat)`), texto en `ChatPane.tsx`.
 
 ## Alta aprobada sin 404 y sugerencias en Inicio (D157) — 29/10/2026

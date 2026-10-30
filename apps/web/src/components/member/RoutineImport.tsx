@@ -2,7 +2,7 @@
 // D162: el alumno que ya tiene su rutina (en una foto, una captura, un PDF, una planilla o sus notas) la sube y queda en «Mis
 // rutinas», un día por rutina. Una planilla con columnas claras se lee sin IA; lo demás lo transcribe REPI (OpenAI) sin
 // cambiar nada. Antes de guardar se revisa: nombres de los días, ejercicios, series, reps y peso, y los ejercicios que no están
-// en la biblioteca se eligen a mano o se quitan. Después cada día se edita como cualquier rutina propia.
+// en la biblioteca se eligen a mano, se crean (D163, sólo para la persona) o se quitan. Después cada día se edita como cualquier rutina propia.
 import { useRef, useState } from "react";
 import { kgTo, parseWeightIn } from "@repi/domain";
 import { api } from "@/lib/api";
@@ -70,7 +70,7 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
       action={{ label: days.length === 1 ? "Guardar rutina" : `Guardar ${days.length} rutinas`, ready, busy: busy === "save", onSubmit: () => void save() }}>
       {p.source === "ai" && <p className="sheet-sub">La leyó REPI tal como está escrita, sin cambiarla. Revisá series, repeticiones y pesos.</p>}
       {p.notes.map((n, i) => <p key={i} className="sheet-warn">{n}</p>)}
-      {missing > 0 && <p className="sheet-warn" role="status">{missing === 1 ? "Un ejercicio no está" : `${missing} ejercicios no están`} en la biblioteca: elegí el más parecido o quitalo.</p>}
+      {missing > 0 && <p className="sheet-warn" role="status">{missing === 1 ? "Un ejercicio no está" : `${missing} ejercicios no están`} en la biblioteca: elegí el más parecido, crealo o quitalo.</p>}
       {days.map((d, di) => (
         <fieldset key={di} className="or-ex">
           <legend>Día {di + 1}</legend>
@@ -90,10 +90,10 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
               </div>
               {e.note && <small className="mb-muted">{e.note}</small>}
               <div className="or-ex-actions">
-                <button type="button" className="linkbtn" onClick={() => setPicking(picking?.d === di && picking.e === ei ? null : { d: di, e: ei })}>{e.name ? "Cambiar" : "Elegir de la biblioteca"}</button>
+                <button type="button" className="linkbtn" onClick={() => setPicking(picking?.d === di && picking.e === ei ? null : { d: di, e: ei })}>{e.name ? "Cambiar" : "Elegir o crear"}</button>
                 <button type="button" className="linkbtn" onClick={() => removeEx(di, ei)}>Quitar</button>
               </div>
-              {picking?.d === di && picking.e === ei && <Picker onPick={choose} onCancel={() => setPicking(null)} taken={new Set(d.exercises.map((x) => x.exerciseId ?? ""))} />}
+              {picking?.d === di && picking.e === ei && <Picker onPick={choose} onCancel={() => setPicking(null)} taken={new Set(d.exercises.map((x) => x.exerciseId ?? ""))} initialQuery={e.name ? "" : e.written} />}
             </div>
           ))}
         </fieldset>

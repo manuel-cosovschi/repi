@@ -7,6 +7,7 @@ import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { gymContext, need } from "../gym/services";
 import { requireCoach } from "./services";
+import { visibleIn } from "./library";
 
 const { organization, exercise, exerciseSubstitution } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -30,7 +31,7 @@ export async function listSubstitutions(actorId: string, orgId: string) {
 export async function addSubstitution(actorId: string, orgId: string, p: { exerciseId: string; substituteExerciseId: string; note?: string | null }) {
   await requireAuthor(actorId, orgId);
   const ex = await db.select({ id: exercise.id, kind: exercise.kind, name: exercise.name, group: exercise.muscleGroup }).from(exercise)
-    .where(and(or(eq(exercise.id, p.exerciseId), eq(exercise.id, p.substituteExerciseId)), or(isNull(exercise.orgId), eq(exercise.orgId, orgId))));
+    .where(and(or(eq(exercise.id, p.exerciseId), eq(exercise.id, p.substituteExerciseId)), visibleIn(orgId)));
   const a = ex.find((x) => x.id === p.exerciseId), b = ex.find((x) => x.id === p.substituteExerciseId);
   if (!a || !b) throw new AccessError("invalid", "Ese ejercicio no está en tu biblioteca.");
   if (!canSubstitute(a, b)) throw new AccessError("invalid", "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");

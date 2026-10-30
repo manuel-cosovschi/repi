@@ -7,7 +7,7 @@ import { TRAINING_WISH_GOALS, validateProgramDoc, type ProgramDoc, type Training
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
 import { aiJson, aiOn } from "../ai/openai";
-import { ensureExerciseCatalog } from "./library";
+import { ensureExerciseCatalog, visibleIn } from "./library";
 
 const { exercise } = schema;
 
@@ -84,7 +84,7 @@ export function reviseOf(p: { change?: string; current?: ProgramDoc }) {
 /** Propuesta de programa para un alumno, con la biblioteca de la organización (catálogo + propios). */
 export async function draftProgram(orgId: string, brief: ProgramBrief, revise?: { current: ProgramDoc; change: string }): Promise<ProgramDraft> {
   await ensureExerciseCatalog();
-  const lib = (await db.select().from(exercise).where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId))))
+  const lib = (await db.select().from(exercise).where(visibleIn(orgId)))
     .filter((e) => e.kind !== "time" && GROUPS.includes(e.muscleGroup));
   if (lib.length < 4) throw new AccessError("no_library", "La biblioteca todavía no tiene ejercicios suficientes para armar un programa.", 409);
   const perDay = brief.minutes == null ? 5 : Math.max(3, Math.min(7, Math.round(brief.minutes / 9)));

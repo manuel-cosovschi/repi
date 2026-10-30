@@ -16,7 +16,8 @@ import { Sheet } from "./Sheet";
 import { kg } from "./types";
 import { useUnit } from "./units";
 
-export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time" };
+export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time"; mine?: boolean };
+const KIND_LABEL: [Lib["kind"], string][] = [["load_reps", "Con peso"], ["bodyweight", "Peso corporal"], ["time", "Por tiempo"]];
 type Ex = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null };
 type Saved = { id: string; name: string; lastUsedAt: string | null; next?: boolean; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
 type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w: string };
@@ -132,11 +133,24 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   );
 }
 
-export function Picker({ onPick, onCancel, taken }: { onPick: (e: Lib) => void; onCancel?: () => void; taken: Set<string> }) {
+export function Picker({ onPick, onCancel, taken, initialQuery = "" }: { onPick: (e: Lib) => void; onCancel?: () => void; taken: Set<string>; initialQuery?: string }) {
   const [lib, setLib] = useState<Lib[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [group, setGroup] = useState<string | null>(null);
+  // D163: lo que no está en la biblioteca, el alumno lo crea (sólo lo ve él).
+  const [creating, setCreating] = useState<{ name: string; group: string | null; kind: Lib["kind"] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const create = async () => {
+    if (!creating?.group || creating.name.trim().length < 2) return;
+    setBusy(true); setErr(null);
+    try {
+      const e = await api<Lib>("/api/me/exercises", { body: { name: creating.name.trim(), group: creating.group, kind: creating.kind } });
+      setLib((l) => (l && !l.some((x) => x.id === e.id) ? [...l, e] : l));
+      setCreating(null);
+      onPick(e);
+    } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+  };
   useEffect(() => { api<Lib[]>("/api/me/exercises").then(setLib).catch((e) => setErr((e as Error).message)); }, []);
   const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const found = useMemo(() => {
@@ -154,10 +168,30 @@ export function Picker({ onPick, onCancel, taken }: { onPick: (e: Lib) => void; 
       {lib && (
         <ul className="or-results">
           {found.map((e) => (
-            <li key={e.id}><button type="button" onClick={() => onPick(e)}><span>{e.name}</span><small>{e.group}{taken.has(e.id) ? " · ya está" : ""}</small></button></li>
+            <li key={e.id}><button type="button" onClick={() => onPick(e)}><span>{e.name}</span><small>{e.group}{e.mine ? " · tuyo" : ""}{taken.has(e.id) ? " · ya está" : ""}</small></button></li>
           ))}
-          {!found.length && <li className="sheet-sub">No encontramos ese ejercicio. Probá con otro nombre o pedile a tu profe que lo sume a la biblioteca.</li>}
+          {!found.length && <li className="sheet-sub">No encontramos ese ejercicio en la biblioteca. Probá con otro nombre o crealo.</li>}
         </ul>
+      )}
+      {lib && !creating && <button type="button" className="ghost sm" onClick={() => setCreating({ name: q.trim(), group, kind: "load_reps" })}>
+        <Ic i={Plus} size={16} /> {q.trim().length >= 2 ? `Crear «${q.trim().slice(0, 40)}»` : "Crear un ejercicio"}</button>}
+      {creating && (
+        <div className="or-create" role="group" aria-label="Crear ejercicio">
+          <label className="or-field">Nombre<input value={creating.name} maxLength={60} onChange={(e) => setCreating({ ...creating, name: e.target.value })} placeholder="Ej.: Camilla de isquios" /></label>
+          <span className="sheet-sub">Grupo muscular</span>
+          <div className="wish-goals" role="group" aria-label="Grupo muscular del ejercicio nuevo">
+            {EXERCISE_GROUPS.map((g) => <button key={g} type="button" className="ai-chip" aria-pressed={creating.group === g} onClick={() => setCreating({ ...creating, group: g })}>{g}</button>)}
+          </div>
+          <span className="sheet-sub">Cómo lo registrás</span>
+          <div className="wish-goals" role="group" aria-label="Cómo se registra">
+            {KIND_LABEL.map(([k, l]) => <button key={k} type="button" className="ai-chip" aria-pressed={creating.kind === k} onClick={() => setCreating({ ...creating, kind: k })}>{l}</button>)}
+          </div>
+          <div className="or-actions">
+            <button type="button" className="cta sm" disabled={!creating.group || creating.name.trim().length < 2} aria-busy={busy || undefined} onClick={() => void create()}>Crear y agregar</button>
+            <button type="button" className="ghost sm" onClick={() => setCreating(null)}>Cancelar</button>
+          </div>
+          <small className="mb-muted">Es tuyo: lo ves vos en tus rutinas y tu progreso. No se suma a la biblioteca de tu profe ni del gimnasio.</small>
+        </div>
       )}
       {onCancel && <button type="button" className="linkbtn" onClick={onCancel}>Cancelar</button>}
     </div>

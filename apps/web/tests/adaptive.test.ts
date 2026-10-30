@@ -263,3 +263,34 @@ describe("subir la rutina propia (D162)", () => {
     expect(await next()).toBe("Día A");
   });
 });
+
+describe("ejercicios propios del alumno (D163)", () => {
+  it("crea lo que no está en la biblioteca, lo usa y entrena; sólo lo ve él (ni otros alumnos ni el coach)", async () => {
+    const user = await member(false);
+    const e = await own.createMyExercise(user, { name: "  Camilla de isquios  ", group: "Piernas", kind: "load_reps" });
+    expect(e).toMatchObject({ name: "Camilla de isquios", group: "Piernas", mine: true, existed: false });
+    expect((await own.createMyExercise(user, { name: "camilla de ISQUIOS", group: "Piernas", kind: "load_reps" })).id).toBe(e.id); // sin duplicar
+    // Con el nombre de uno de la biblioteca devuelve ese, no crea otro.
+    const sq = await own.createMyExercise(user, { name: "Sentadilla", group: "Piernas", kind: "load_reps" });
+    expect([sq.id, sq.mine]).toEqual([SQ, false]);
+    expect((await own.myExerciseLibrary(user)).find((x) => x.id === e.id)).toMatchObject({ mine: true });
+    await expect(own.createMyExercise(user, { name: "X", group: "Piernas", kind: "load_reps" })).rejects.toMatchObject({ code: "invalid" });
+    await expect(own.createMyExercise(user, { name: "Algo", group: "Inventado", kind: "load_reps" })).rejects.toMatchObject({ code: "invalid" });
+    // Lo usa en su rutina y lo entrena.
+    const { id } = await own.saveOwnRoutine(user, { name: "Piernas", exercises: [{ exerciseId: e.id, sets: 3, reps: "12", weightKg: 40, restSec: 60, note: null }] });
+    const sid = randomUUID();
+    await own.startOwnRoutine(user, id, sid);
+    const g = await tr.getSession(user, sid);
+    expect(g.exercises[0].name).toBe("Camilla de isquios");
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: g.exercises[0].id, setIndex: 0, weightKg: 42.5, reps: 12, rir: 2 });
+    await tr.sessionAction(user, sid, "finish");
+    expect((await own.listOwnRoutines(user))[0].exercises[0].prev).toEqual({ weightKg: 42.5, reps: 12 });
+    // Otro alumno no lo ve ni lo puede usar; tampoco aparece en el catálogo ni en la biblioteca de un coach.
+    const other = await member(false);
+    expect((await own.myExerciseLibrary(other)).some((x) => x.id === e.id)).toBe(false);
+    await expect(own.saveOwnRoutine(other, { name: "Ajena", exercises: [{ exerciseId: e.id, sets: 3, reps: "8", weightKg: null, restSec: null, note: null }] })).rejects.toMatchObject({ code: "invalid" });
+    const coach = await verified();
+    const org = await acc.createCoachOrganization(coach.id, { brand: `Coach D163 ${n}` });
+    expect((await tr.listLibrary(coach.id, org.id)).some((x) => x.id === e.id)).toBe(false);
+  });
+});
