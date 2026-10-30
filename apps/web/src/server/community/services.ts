@@ -12,6 +12,8 @@ import { minorWithoutGuardian } from "../access/services";
 import { NOT_FOUND, gate, gymContext, inScope, need, scopedLocations, type GymCtx } from "../gym/services";
 import { requireEnv } from "../env";
 import { putObject } from "../storage";
+import { enqueue } from "../push/services";
+import { visibleIn } from "../training/library";
 
 const { user, organization, gymLocation, gymMember, rosterEntry, consentGrant, mediaObject, shiftLog, workoutSession, communityPost, challenge,
   challengeAttempt, achievement, prize, catalogItem, attendance, memberNotice } = schema;
@@ -59,7 +61,7 @@ export async function memberOf(userId: string, orgId: string) {
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")));
   return m ?? null;
 }
-async function myGym(userId: string, orgId?: string | null) {
+export async function myGym(userId: string, orgId?: string | null) {
   const rows = await db.select({ m: gymMember, org: organization, loc: gymLocation }).from(gymMember)
     .innerJoin(organization, eq(organization.id, gymMember.orgId)).innerJoin(gymLocation, eq(gymLocation.id, gymMember.locationId))
     .where(and(eq(gymMember.userId, userId), eq(gymMember.status, "active"))).orderBy(asc(gymMember.createdAt));
@@ -118,6 +120,9 @@ export async function staffCommunity(actorId: string, orgId: string) {
     .from(challengeAttempt).where(inArray(challengeAttempt.challengeId, chs.map((c) => c.id))).groupBy(challengeAttempt.challengeId) : [];
   const holders = await recordHolders(chs.map((c) => c.recordAttemptId).filter(Boolean) as string[]);
   const items = await db.select().from(catalogItem).where(and(eq(catalogItem.orgId, orgId), isNull(catalogItem.deletedAt), scope(catalogItem.locationId))).orderBy(asc(catalogItem.category), asc(catalogItem.name));
+  // D168: ejercicios para ligar un desafío (biblioteca de REPI y los propios del gym).
+  const exercises = ctx.caps.includes("community.publish") ? await db.select({ id: schema.exercise.id, name: schema.exercise.name }).from(schema.exercise).where(visibleIn(orgId)).orderBy(asc(schema.exercise.name)) : [];
+  const exName = new Map(exercises.map((e) => [e.id, e.name]));
   const locName = new Map(locs.map((l) => [l.id, l.name]));
   return {
     canPublish: ctx.caps.includes("community.publish"), canCatalog: ctx.caps.includes("catalog.publish"), allLocations: ctx.locationIds === null || ctx.roles.includes("owner"),
@@ -127,9 +132,10 @@ export async function staffCommunity(actorId: string, orgId: string) {
       const s = stats.find((x) => x.ch === c.id);
       return { id: c.id, title: c.title, rule: c.rule, unit: c.unit, lowerIsBetter: c.lowerIsBetter, category: c.category, prize: c.prize, endsOn: c.endsOn, status: c.status,
         sede: c.locationId ? locName.get(c.locationId) ?? "" : "Todas las sedes", record: fmtValue(v10(c.recordValue), c.unit), holder: c.recordAttemptId ? holders.get(c.recordAttemptId) ?? null : null,
-        participants: s?.parts ?? 0, pending: s?.pending ?? 0 };
+        participants: s?.parts ?? 0, pending: s?.pending ?? 0, exercise: c.exerciseId ? exName.get(c.exerciseId) ?? null : null };
     }),
     catalog: items.map((i) => ({ ...i, sede: i.locationId ? locName.get(i.locationId) ?? "" : "Todas las sedes" })),
+    exercises,
   };
 }
 async function recordHolders(attemptIds: string[]) {
@@ -164,7 +170,7 @@ export async function removePost(actorId: string, orgId: string, id: string) {
   return { ok: true };
 }
 
-export async function createChallenge(actorId: string, orgId: string, p: { locationId?: string | null; title: string; rule: string; unit: string; lowerIsBetter?: boolean; category: string; prize: string; endsOn: string }) {
+export async function createChallenge(actorId: string, orgId: string, p: { locationId?: string | null; title: string; rule: string; unit: string; lowerIsBetter?: boolean; category: string; prize: string; endsOn: string; exerciseId?: string | null }) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "community.publish");
   const title = (p.title ?? "").trim(), prizeTxt = (p.prize ?? "").trim(), rule = (p.rule ?? "").trim();
@@ -173,11 +179,24 @@ export async function createChallenge(actorId: string, orgId: string, p: { locat
   if (!isUnit(p.unit) || !(p.category in CHALLENGE_CATEGORIES)) throw new AccessError("invalid", "Elegí unidad y categoría.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.endsOn) || p.endsOn < todayAr()) throw new AccessError("invalid", "La fecha de fin no puede ser anterior a hoy.");
   const locationId = await locationOk(orgId, p.locationId, ctx);
+  let exerciseId: string | null = null;
+  if (p.exerciseId && p.unit !== "seg") {
+    const [ex] = await db.select({ id: schema.exercise.id }).from(schema.exercise).where(and(eq(schema.exercise.id, p.exerciseId), visibleIn(orgId)));
+    if (!ex) throw new AccessError("invalid", "Elegí un ejercicio de la biblioteca.");
+    exerciseId = ex.id;
+  }
   const [row] = await db.insert(challenge).values({
     orgId, locationId, title: title.slice(0, 80), rule: rule.slice(0, 400), unit: p.unit, lowerIsBetter: p.unit === "seg" ? !!p.lowerIsBetter : false,
-    category: p.category as keyof typeof CHALLENGE_CATEGORIES, prize: prizeTxt.slice(0, 120), endsOn: p.endsOn, createdBy: actorId,
+    category: p.category as keyof typeof CHALLENGE_CATEGORIES, prize: prizeTxt.slice(0, 120), endsOn: p.endsOn, createdBy: actorId, exerciseId,
   }).returning();
   await audit(db, { actorUserId: actorId, orgId, action: "challenge.published", resourceType: "challenge", resourceId: row.id });
+  // D168: aviso a los socios activos de la sede (o de todo el gym). El push respeta pausas y dispositivos de cada persona.
+  const members = await db.select({ userId: gymMember.userId }).from(gymMember)
+    .where(and(eq(gymMember.orgId, orgId), eq(gymMember.status, "active"), locationId ? eq(gymMember.locationId, locationId) : undefined));
+  const [org] = await db.select({ name: organization.name }).from(organization).where(eq(organization.id, orgId));
+  await enqueue(members.map((m) => m.userId).filter((u) => u !== actorId), {
+    kind: "challenge_new", dedupe: `chnew:${row.id}`, title: `Nuevo desafío en ${org?.name ?? "tu gym"}`, body: `${row.title} · Premio: ${row.prize}`, url: "/app?gym=ch",
+  }).catch(() => {});
   return { id: row.id };
 }
 
@@ -266,7 +285,8 @@ export async function decideAttempt(actorId: string, orgId: string, attemptId: s
   const ctx = await gymContext(actorId, orgId);
   const scope = validationScope(ctx);
   if (!p.approve && (p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Elegí o escribí el motivo del rechazo.");
-  return db.transaction(async (tx) => {
+  let beaten: string | null = null;
+  const out = await db.transaction(async (tx) => {
     const [a0] = await tx.select().from(challengeAttempt).where(and(eq(challengeAttempt.id, attemptId), eq(challengeAttempt.orgId, orgId))).for("update");
     if (!a0) throw NOT_FOUND();
     if (scope === "in_person" && a0.method !== "in_person") throw new AccessError("forbidden", "Los intentos con video los valida la gerencia del gym.", 403);
@@ -299,6 +319,9 @@ export async function decideAttempt(actorId: string, orgId: string, attemptId: s
     await grant(tx, a.userId, orgId, "challenge_validated", c.id, `${c.title}`, `${valTxt} · ${witness ? "validado en sala" : "validado"}`);
     let prizeCode: string | null = null;
     if (record) {
+      // D168: quien tenía el récord se entera de que se lo superaron (después de confirmar la transacción).
+      const [prev] = c.recordAttemptId ? await tx.select({ userId: challengeAttempt.userId }).from(challengeAttempt).where(eq(challengeAttempt.id, c.recordAttemptId)) : [];
+      if (prev && prev.userId !== a.userId) beaten = prev.userId;
       await tx.update(challenge).set({ recordValue: a.valueX10, recordAttemptId: a.id }).where(eq(challenge.id, c.id));
       await grant(tx, a.userId, orgId, "gym_record", c.id, `Récord · ${c.title}`, valTxt);
       const [existing] = await tx.select().from(prize).where(and(eq(prize.challengeId, c.id), eq(prize.userId, a.userId)));
@@ -315,8 +338,14 @@ export async function decideAttempt(actorId: string, orgId: string, attemptId: s
       body: `${witness ? `Lo validó ${witness} en sala. ` : ""}${record ? `${valTxt}. ${prizeCode ? "Retirá tu premio en recepción con tu carnet." : "Ya tenías el premio de este desafío."}` : `${valTxt}. Queda en tu registro; el récord vigente es ${fmtValue(v10(c.recordValue), c.unit)}.`}`,
     });
     await audit(tx, { actorUserId: actorId, orgId, action: "attempt.approved", resourceType: "challenge_attempt", resourceId: a.id, meta: { newRecord: record, method: a.method, corrected: a.valueX10 !== a0.valueX10 } });
-    return { status: "approved" as const, newRecord: record, prize: !!prizeCode };
+    return { status: "approved" as const, newRecord: record, prize: !!prizeCode, challenge: { id: c.id, title: c.title, record: valTxt } };
   });
+  if (beaten && out.status === "approved") {
+    const c = out.challenge;
+    await enqueue([beaten], { kind: "challenge_beaten", dedupe: `chbeat:${c.id}:${attemptId}`, title: "Te superaron el récord", body: `${c.title}: ahora es ${c.record}. ¿Lo recuperás?`, url: "/app?gym=ch" }).catch(() => {});
+  }
+  if (out.status === "approved") { const { challenge: _c, ...rest } = out; return rest; } // eslint-disable-line @typescript-eslint/no-unused-vars
+  return out;
 }
 
 /** Logro permanente; idempotente por (persona, tipo, fuente). */

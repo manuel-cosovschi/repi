@@ -1015,6 +1015,8 @@ export const challenge = pgTable("challenge", {
   unit: text("unit", { enum: ["reps", "seg", "kg"] }).notNull(),
   lowerIsBetter: boolean("lower_is_better").notNull().default(false),
   category: text("category", { enum: ["fuerza", "resistencia", "cardio", "movilidad"] }).notNull(),
+  // D168: ejercicio que mide el desafío (opcional): con él REPI le avisa a cada socio en qué puesto entraría con lo que ya levanta.
+  exerciseId: text("exercise_id").references(() => exercise.id),
   prize: text("prize").notNull(),
   endsOn: text("ends_on").notNull(), // AAAA-MM-DD hora AR (último día para subir intentos)
   recordValue: integer("record_value_x10"), // récord vigente ×10 (kilos con un decimal sin flotantes)
@@ -1321,7 +1323,7 @@ export const notifyPref = pgTable("notify_pref", {
 export const notificationOutbox = pgTable("notification_outbox", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update"] }).notNull(),
+  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten"] }).notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
   url: text("url").notNull(),

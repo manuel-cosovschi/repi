@@ -16,6 +16,7 @@ import { Workout } from "./Workout";
 import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./FollowSheets";
 import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
+import { Nudges, type Nudge } from "./Nudges";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
 import { kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
@@ -83,11 +84,15 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("pedido");
     if (id) { setSheet({ type: "connectPanel", id: id.slice(0, 64) }); window.history.replaceState(null, "", window.location.pathname); }
+    // Push de desafíos (D168) → /app?gym=ch abre la pestaña del gym.
+    const g = new URLSearchParams(window.location.search).get("gym");
+    if (g === "ch" || g === "club") { setTab("gym"); setGymTab(g); window.history.replaceState(null, "", window.location.pathname); }
   }, []);
   const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then(setInbox).catch(() => setInbox(null)), []);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [gymTab, setGymTab] = useState<GymTab | undefined>(undefined);
+  const [openCh, setOpenCh] = useState<string | null>(null); // D168: desafío a abrir desde una invitación
   const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then(setFeed).catch(() => {}), []);
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
   // Online primero; si no hay red, el programa guardado en el teléfono. Antes de mostrar nada se verifica el dueño.
@@ -173,13 +178,18 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const scrolls = useRef<Record<string, number>>({});
   useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [tab, workout]);
 
-  const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); };
+  const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); setOpenCh(null); };
   const notifs = withProgramNotice(feed, t);
   const openNotifs = () => {
     setNotifOpen(true);
     if (offlineAt) return;
     // Abrir el centro marca lo listado como leído; la lista se refresca para no mostrar algo viejo.
     void loadFeed().then(() => api("/api/me/notifications/seen", { body: {} })).catch(() => {});
+  };
+  // D168: a dónde lleva cada invitación de REPI.
+  const goNudge = (n: Nudge) => {
+    if (n.action === "progress") { go("prog"); return; }
+    go("gym"); setGymTab(n.action === "challenge" ? "ch" : "club"); setOpenCh(n.challengeId ?? null);
   };
   const pickNotif = (d: NotifDest) => {
     setNotifOpen(false);
@@ -290,7 +300,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const unit: WeightUnit = t?.weightUnit ?? "kg";
   if (workout) return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
-      <Workout sessionId={workout} coachFirst={coachFirst} programChanged={changedMidWorkout} onDismissChange={() => setChangedMidWorkout(false)} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setChangedMidWorkout(false); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }} />
+      <Workout sessionId={workout} coachFirst={coachFirst} programChanged={changedMidWorkout} onDismissChange={() => setChangedMidWorkout(false)} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setChangedMidWorkout(false); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }}
+        onNudge={(n) => { setWorkout(null); setChangedMidWorkout(false); goNudge(n); load(); }} />
     </div><Toast t={toast} /></div></UnitContext.Provider>
   );
 
@@ -304,13 +315,13 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
-              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} />}
+              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
               own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} flash={flash} offline={!!offlineAt} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
-            {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
+            {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
           </div>
         )}
@@ -438,9 +449,9 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence }: {
+function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge }: {
   t: Training; coachFirst: string; onStart: (dayId: string) => void; onOwn: (routineId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
-  onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null;
+  onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
 }) {
   const connect = !!inbox?.gym?.connect;
   const gymRel = t.relation?.kind === "gym";
@@ -495,6 +506,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
         </div>} />
       )}
+      {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
+      {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
       {!offline && <Ideas offline={offline} flash={flash} />}
       {!offline && <NextAppointment flash={flash} />}

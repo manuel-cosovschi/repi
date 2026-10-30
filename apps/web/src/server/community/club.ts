@@ -54,6 +54,11 @@ export async function joinClub(userId: string, orgId: string, p: { showName: boo
   await audit(db, { actorUserId: userId, orgId, action: "club.joined", resourceType: "club_member", meta: { showName: !!p.showName, inRanking: !!p.inRanking } });
   return clubState(userId, orgId);
 }
+/** D168: sumarse al ranking desde una invitación de REPI, sin tocar cómo figura el nombre (si es nuevo en el Club, nombre e inicial). */
+export async function optIntoRanking(userId: string, orgId: string) {
+  const [c] = await db.select().from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, userId)));
+  return joinClub(userId, orgId, { showName: c && !c.leftAt ? c.showName : true, inRanking: true });
+}
 /** Salir: deja de aparecer en el ranking y sus publicaciones y comentarios se ocultan (no se borran: siguen siendo suyos). */
 export async function leaveClub(userId: string, orgId: string) {
   await joined(userId, orgId);
@@ -332,22 +337,20 @@ export async function clubLiftRanking(userId: string, orgId: string, exerciseId:
   return liftBoard(orgId, exerciseId, userId, now);
 }
 
-/**
- * Tablero por ejercicio (D144) para la app (`meUserId`: marca «Vos») y para la pantalla de la sala (D146, sin persona).
- * Sólo quienes eligieron «Aparecer en el ranking»; nombre según su preferencia del Club.
- */
-export async function liftBoard(orgId: string, exerciseId: string | null, meUserId: string | null, now = new Date()) {
-  const members = await db.select({ userId: clubMember.userId, show: clubMember.showName, name: user.name, gm: gymMember.id }).from(clubMember)
+/** Quienes eligieron aparecer en el ranking del Club (sin menores sin consentimiento de su adulto responsable). */
+export async function rankingMembers(orgId: string, now = new Date()) {
+  return db.select({ userId: clubMember.userId, show: clubMember.showName, name: user.name, gm: gymMember.id }).from(clubMember)
     .innerJoin(user, eq(user.id, clubMember.userId)).innerJoin(gymMember, and(eq(gymMember.userId, clubMember.userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")))
     .where(and(eq(clubMember.orgId, orgId), isNull(clubMember.leftAt), eq(clubMember.inRanking, true)))
     .then((rows) => withoutRestrictedMinors(rows, now));
-  const [mine] = meUserId ? await db.select({ inRanking: clubMember.inRanking }).from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, meUserId), isNull(clubMember.leftAt))) : [];
-  const base = { inRanking: !!mine?.inRanking, metric: "Mejor 1RM estimado de los últimos 90 días", updatedAt: now.toISOString() };
-  if (!members.length) return { ...base, exercises: [], exercise: null, rows: [] };
+}
+
+/** Mejor 1RM estimado por ejercicio y socio en los últimos 90 días (y la mejor hasta hace 7 días), D144. También para D168. */
+export async function liftBests(gms: string[], now = new Date()) {
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
   const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(and(inArray(workoutSession.gymMemberId, members.map((m) => m.gm)), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
+    .where(and(inArray(workoutSession.gymMemberId, gms), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
   // Mejor marca por ejercicio y persona, y la mejor hasta hace una semana.
   const best = new Map<string, Map<string, { best: number; before: number | null }>>();
   for (const x of sets) {
@@ -360,6 +363,19 @@ export async function liftBoard(orgId: string, exerciseId: string | null, meUser
     if (x.at < weekAgo) cur.before = Math.max(cur.before ?? 0, e);
     per.set(x.gm, cur);
   }
+  return best;
+}
+
+/**
+ * Tablero por ejercicio (D144) para la app (`meUserId`: marca «Vos») y para la pantalla de la sala (D146, sin persona).
+ * Sólo quienes eligieron «Aparecer en el ranking»; nombre según su preferencia del Club.
+ */
+export async function liftBoard(orgId: string, exerciseId: string | null, meUserId: string | null, now = new Date()) {
+  const members = await rankingMembers(orgId, now);
+  const [mine] = meUserId ? await db.select({ inRanking: clubMember.inRanking }).from(clubMember).where(and(eq(clubMember.orgId, orgId), eq(clubMember.userId, meUserId), isNull(clubMember.leftAt))) : [];
+  const base = { inRanking: !!mine?.inRanking, metric: "Mejor 1RM estimado de los últimos 90 días", updatedAt: now.toISOString() };
+  if (!members.length) return { ...base, exercises: [], exercise: null, rows: [] };
+  const best = await liftBests(members.map((m) => m.gm), now);
   const names = best.size ? await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(inArray(exercise.id, [...best.keys()])) : [];
   const exercises = [...best.entries()].map(([id, per]) => ({ id, name: names.find((n) => n.id === id)?.name ?? "Ejercicio", people: per.size }))
     .sort((a, b) => b.people - a.people || a.name.localeCompare(b.name, "es")).slice(0, 12);

@@ -23,7 +23,7 @@ type Detail = {
   id: string; name: string; since: string; status: { label: string; tone: string }; trainingShared: boolean; lastSessionAt: string | null; visits30: number;
   weeks: { label: string; n: number }[];
   program: { programId: string; startsOn: string; revision: number; doc: ProgramDoc & { days: (ProgramDoc["days"][number] & { id?: string })[] }; revisions: { number: number; author: string; reason: string | null; at: string }[] } | null;
-  tasks: Task[]; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
+  tasks: Task[]; programTaskId: string | null; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
   canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null;
   community: { attempts: { challenge: string; value: string; status: string; newRecord: boolean; at: string }[]; achievements: number; level: number; visits30: number } | null;
 };
@@ -179,7 +179,8 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const lastTimes = useLastTimes(`/api/gym/${shell.orgId}/members/${member.id}/last`, doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)));
   const [reason, setReason] = useState("");
   const [libQ, setLibQ] = useState("");
-  const related = member.tasks.find((t) => ["open", "in_progress", "follow_up"].includes(t.status) && (!t.assignee || t.assignee.id) && ["programa_nuevo", "actualizar_programa", "onboarding", "tecnica"].includes(t.category));
+  // La tarea que se cierra al guardar la elige el servidor (libre o tomada por quien guarda): la misma regla que valida.
+  const related = member.tasks.find((t) => t.id === member.programTaskId);
   const [complete, setComplete] = useState(!!related);
   const { busy, run } = useAct(shell.flash);
   const setEx = (i: number, patch: Partial<Ex>) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.map((e, k) => k === i ? { ...e, ...patch } : e) } : x) }));

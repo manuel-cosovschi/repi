@@ -82,6 +82,10 @@ const FLOOR_ROLES = ["floor_trainer", "coordinator"] as const;
 export const ACTIVE = ["open", "pending_acceptance", "in_progress", "follow_up"] as const;
 export const WORKING = ["open", "in_progress", "follow_up"] as const;
 const isWorking = (s: string) => (WORKING as readonly string[]).includes(s);
+/** Tarea que se puede cerrar al guardar el programa del socio: de programa o técnica, activa y libre o tomada por quien guarda. */
+const PROGRAM_TASKS = ["programa_nuevo", "actualizar_programa", "onboarding", "tecnica"];
+const closesWithProgram = (t: { status: string; category: string; assigneeUserId: string | null }, actorId: string) =>
+  isWorking(t.status) && PROGRAM_TASKS.includes(t.category) && (!t.assigneeUserId || t.assigneeUserId === actorId);
 
 /** Historial de la tarea (gym_task_event, D126). Sólo agrega filas; un trigger impide editarlas. */
 export async function addEvent(tx: Tx | typeof db, t: { id: string; orgId: string }, e: {
@@ -529,6 +533,7 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     wishes: builds ? sharedWishes(pref?.wishes as TrainingWishes | null) : null,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
     program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
+    programTaskId: tasks.find((t) => closesWithProgram(t, actorId))?.id ?? null,
     notes: notes.map((x) => ({ id: x.n.id, kind: x.n.kind, text: x.n.text, author: x.author, mine: x.n.authorUserId === actorId, at: x.n.createdAt })),
     canEdit: gymCan(rolesAt(ctx, m.m.locationId), "program.edit"), canWriteNotes: gymCan(rolesAt(ctx, m.m.locationId), "floor.work"), restricted: GYM_NEVER_SEES,
   };
@@ -598,7 +603,7 @@ export async function saveMemberProgram(actorId: string, orgId: string, gymMembe
     let completed: { ref: string; invite: string | null } | null = null;
     if (p.completeTaskId) {
       const t = await lockTask(tx, ctx, p.completeTaskId);
-      if (t.gymMemberId !== m.id || t.status !== "open" || (t.assigneeUserId && t.assigneeUserId !== actorId)) throw new AccessError("invalid", "La tarea elegida no está disponible.", 409);
+      if (t.gymMemberId !== m.id || !closesWithProgram(t, actorId)) throw new AccessError("invalid", "La tarea elegida no está disponible.", 409);
       if (!t.assigneeUserId) await tx.update(gymTask).set({ assigneeUserId: actorId, takenAt: new Date(), takenBy: t.takenBy ?? actorId }).where(eq(gymTask.id, t.id));
       const r = await completeInTx(tx, ctx, t, offShift);
       completed = { ref: `T-${t.number}`, invite: r.invite };

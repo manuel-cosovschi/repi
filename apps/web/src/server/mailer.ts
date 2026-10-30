@@ -57,7 +57,7 @@ function resendConfig(): ResendConfig | null {
  * Dominio remitente en Resend (D84): lo da de alta si falta, pide verificarlo y devuelve los registros DNS a cargar.
  * Corre en el servidor con la clave del entorno; quien lo dispara (job con CRON_SECRET) nunca ve la clave.
  */
-export async function resendDomain(name: string, verify = false) {
+export async function resendDomain(name: string, verify = false, harden = false) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { configured: false as const };
   const h = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
@@ -70,8 +70,11 @@ export async function resendDomain(name: string, verify = false) {
   let d = list.data.find((x) => x.name === name);
   if (!d) d = (await api("/domains", { method: "POST", body: JSON.stringify({ name, region: "sa-east-1" }) })) as { id: string; name: string };
   if (verify) await api(`/domains/${d.id}/verify`, { method: "POST" });
-  const full = (await api(`/domains/${d.id}`)) as { name: string; status: string; records: { record: string; type: string; name: string; value: string; priority?: number; status: string }[] };
-  return { configured: true as const, name: full.name, status: full.status, records: full.records.map(({ record, type, name: n, value, priority, status }) => ({ record, type, name: n, value, priority, status })) };
+  // D167: el seguimiento de aperturas y clics reescribe los enlaces a otro dominio y suma un píxel: señales de spam en un
+  // correo con código o enlace personal. Se apaga y no se usa.
+  if (harden) await api(`/domains/${d.id}`, { method: "PATCH", body: JSON.stringify({ open_tracking: false, click_tracking: false }) });
+  const full = (await api(`/domains/${d.id}`)) as { name: string; status: string; open_tracking?: boolean; click_tracking?: boolean; records: { record: string; type: string; name: string; value: string; priority?: number; status: string }[] };
+  return { configured: true as const, name: full.name, status: full.status, openTracking: full.open_tracking ?? null, clickTracking: full.click_tracking ?? null, records: full.records.map(({ record, type, name: n, value, priority, status }) => ({ record, type, name: n, value, priority, status })) };
 }
 
 /** Envío directo por el proveedor, sin buzón ni tolerancia DEMO: para comprobar la entrega (D84). */

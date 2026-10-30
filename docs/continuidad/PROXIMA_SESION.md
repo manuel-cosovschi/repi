@@ -1,6 +1,17 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D166), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D168), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Invitaciones a rankings y desafíos (D168), tarea al guardar programa y correo en spam (D167) — 30/10/2026
+
+- **D167 tarea:** `server/gym/services.ts` (`closesWithProgram`, `memberDetail.programTaskId`); `components/gym/Members.tsx` usa la tarea que elige el servidor. Prueba en `gym.test.ts` (tarea `in_progress` tomada se cierra; otro profe no la ve).
+- **D167 correo:** DMARC `p=quarantine` en Vercel DNS (registro `_dmarc`, rec_fad54ada9e39ccf221b962f9); texto del código con motivo (`server/auth.ts`, `OTP_WHY`); `resendDomain(..., harden)` apaga seguimiento de aperturas y clics (`/api/cron/mail-domain?harden=1`, con CRON_SECRET). Pendiente del titular: marcar «No es spam», Google Postmaster Tools, buzón para hola@repiclub.com si se quieren respuestas.
+- **D168 migración:** `drizzle/0036_challenge_exercise.sql` (`challenge.exercise_id` opcional). Aplicada en dev y pruebas; Supabase al desplegar.
+- **D168 servidor:** `server/community/nudges.ts` (`communityNudges`, `placeAmong`); `club.ts` (`rankingMembers`, `liftBests`, `optIntoRanking`); `services.ts` (`createChallenge` con `exerciseId` y push `challenge_new`; `decideAttempt` avisa `challenge_beaten`; `myGym` exportado; `staffCommunity.exercises`). Rutas: `GET /api/me/gym/nudges`, `POST /api/me/gym/club/ranking`.
+- **D168 UI:** `components/member/Nudges.tsx` (`.ndg*`); Inicio, resumen del entrenamiento (`Workout.tsx` `onNudge`), Desafíos (`Gym.tsx`, abre el intento con `openChallenge`), `/app?gym=ch`; `components/gym/Community.tsx` (selector «Ejercicio que mide»).
+- **Pruebas:** web 255 ✓ (`nudges.test.ts`: puesto, «serías récord», «entrarías 2°», récord superado con push, aviso de desafío nuevo, sumarse al ranking y puesto en el Club), dominio 160 ✓, guardas ✓. Navegador (demo alumna, 375 px): tarjetas en Inicio y «Ver desafío» abre el intento.
+- **Sin probar:** push real en un teléfono (cubierto por la cola en la prueba).
+- **Próximo:** perfil del socio con foto, máximos y publicaciones con imagen (pedido 30/10); animación de entrada (F-BR-02); asistente de REPI para el coach.
 
 ## Nivel REPI y trofeos con desbloqueo 3D (D166) — 30/10/2026
 

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { renderSVG } from "uqr";
 import { ATTEMPT_VIDEO_LIMITS, CHALLENGE_CATEGORIES, CHALLENGE_UNITS, CLUB_COMMENT_MAX, CLUB_POST_MAX, DIVISIONS, RANK_FILTERS, attemptValueOk, type ChallengeUnit, fmtWeight, kgTo, volumeIn } from "@repi/domain";
 import { api } from "@/lib/api";
+import { Nudges } from "./Nudges";
 import { useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
@@ -29,7 +30,7 @@ export type GymTab = "news" | "ch" | "shop" | "logros" | "club";
 const dayEs = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return new Intl.DateTimeFormat("es-AR", { timeZone: "UTC", day: "numeric", month: "short" }).format(new Date(Date.UTC(y, m - 1, d))); };
 const ars = (n: number) => `ARS ${n.toLocaleString("es-AR")}`;
 
-export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: boolean; flash: (t: string) => void; onSeen: () => void; initialTab?: GymTab }) {
+export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }: { offline: boolean; flash: (t: string) => void; onSeen: () => void; initialTab?: GymTab; openChallenge?: string | null }) {
   const [h, setH] = useState<Home | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<GymTab>(initialTab ?? "news");
@@ -40,6 +41,9 @@ export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: bo
   const load = useCallback(() => api<Home>("/api/me/gym/home").then((x) => { setH(x); setErr(null); return x; }).catch((e) => { setErr(e.message); return null; }), []);
   const rv = useReveal(!!h || !!err || offline);
   useEffect(() => { if (offline) return; void load().then((x) => {
+    // D168: desde una invitación de REPI se abre directo el intento del desafío.
+    const ch = openChallenge ? x?.challenges.find((c) => c.id === openChallenge && c.status === "active") : null;
+    if (ch) setUp(ch);
     // Overlay de logro validado (AN-21) con el aviso más reciente sin ver.
     const n = x?.notices.find((y) => y.unseen && y.kind === "attempt_approved");
     if (n) setAward(n);
@@ -85,6 +89,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: bo
         <>
           <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Superá un récord con video o delante de un profe de sala, y {h.org.name} lo valida. El premio se retira en recepción con tu carnet. {h.safety}</span>
           {h.minorRestricted && <p className="mb-note">Los videos de récord se habilitan cuando tu adulto responsable lo autorice.</p>}
+          {!h.minorRestricted && <Nudges only={["challenge"]} exclude="new:" max={2} title="Para vos" flash={flash} go={(n) => { const c = h.challenges.find((x) => x.id === n.challengeId); if (c) setUp(c); }} />}
           {!h.challenges.length && <div className="dashed-card"><span>No hay desafíos activos.</span></div>}
           {h.challenges.map((c) => {
             const st = c.last?.status;

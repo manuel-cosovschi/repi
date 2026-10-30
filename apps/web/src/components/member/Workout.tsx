@@ -25,6 +25,7 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { Ic } from "@/components/ui/Ic";
 import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, NotePencil, Pause, Play, PlayCircle, Trophy } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
+import { Nudges, type Nudge } from "./Nudges";
 
 const RING = 207.35;
 type DoneData = {
@@ -64,8 +65,8 @@ function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   };
 }
 
-export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = false, connectPlace = null, onExit, flash, programChanged = false, onDismissChange }: {
-  sessionId: string; coachFirst: string; gym: boolean; gymOrgId?: string | null; demo?: boolean; connectPlace?: string | null; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void;
+export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = false, connectPlace = null, onExit, onNudge, flash, programChanged = false, onDismissChange }: {
+  sessionId: string; coachFirst: string; gym: boolean; gymOrgId?: string | null; demo?: boolean; connectPlace?: string | null; onExit: (to: "train" | "home" | "prog") => void; onNudge?: (n: Nudge) => void; flash: (t: string) => void;
   programChanged?: boolean; onDismissChange?: () => void; // D143: el coach cambió la rutina con este entrenamiento abierto
 }) {
   const [asking, setAsking] = useState(false); // REPI Connect (D126): pedido al equipo de sala sobre este ejercicio
@@ -320,7 +321,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   };
 
   if (err) return <div className="mb-scroll nobar"><p role="alert" className="mb-err">{err}</p><button type="button" className="ghost" onClick={() => onExit("train")}>Volver</button></div>;
-  if (summary) return <Done sum={summary} coachFirst={coachFirst} onExit={onExit} flash={flash} justFinished={justFinished} />;
+  if (summary) return <Done sum={summary} coachFirst={coachFirst} onExit={onExit} flash={flash} justFinished={justFinished} onNudge={gym && !demo ? onNudge : undefined} />;
   const painSheet = pain && s && ex ? <PainSheet exerciseName={ex.name} sessionId={s.id} flash={flash} onClose={() => setPain(false)} /> : null;
   if (!s || !ex) return <div className="mb-scroll nobar"><p className="mb-muted">Cargando entrenamiento…</p></div>;
 
@@ -551,7 +552,7 @@ function celebrationFor(sum: DoneData, justFinished: boolean): "full" | "quiet" 
   return !sum.local && sum.setsDone >= sum.setsTotal ? "full" : "quiet";
 }
 
-function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData; coachFirst: string; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void; justFinished: boolean }) {
+function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: DoneData; coachFirst: string; onExit: (to: "train" | "home" | "prog") => void; flash: (t: string) => void; justFinished: boolean; onNudge?: (n: Nudge) => void }) {
   const unit = useUnit();
   const [cel] = useState(() => celebrationFor(sum, justFinished));
   const [burst, setBurst] = useState(() => cel === "full" && !prefersReducedMotion());
@@ -595,6 +596,8 @@ function Done({ sum, coachFirst, onExit, flash, justFinished }: { sum: DoneData;
             <span>Anterior: {kg(pr.previous.weightKg, unit)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {kgTo(pr.previous.e1rm, unit).toLocaleString("es-AR")} → {kgTo(pr.current.e1rm, unit).toLocaleString("es-AR")} {unit}</span></div>
         </div>
       )}
+      {/* D168: con lo que acaba de levantar, dónde entraría en desafíos y rankings del gym. */}
+      {onNudge && !sum.local && <Nudges go={onNudge} flash={flash} only={["challenge", "ranking_optin", "club"]} max={1} title="Con lo que venís levantando" />}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 style={{ fontSize: 16 }}>Resumen</h2>
         {sum.rows.map((r) => <div key={r.name} className="sumrow"><span>{r.name}</span><span className="mb-muted">{r.txt}</span></div>)}

@@ -11,6 +11,7 @@ import * as connect from "@/server/gym/connect";
 import * as ac from "@/server/gym/access-control";
 import { demoQr } from "@/server/sandbox/services";
 import * as floor from "@/server/gym/floor-now";
+import { communityNudges } from "@/server/community/nudges";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -29,6 +30,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "joins") return join.myJoinRequests(me); // solicitudes de acceso por QR (anexo §5)
   if (a === "reviews") return { invites: await rv.myReviewInvites(me), given: await rv.myGivenReviews(me) };
   if (a === "home") return cm.myGymHome(me, u.searchParams.get("org"));
+  if (a === "nudges") return communityNudges(me); // D168: invitaciones a rankings, desafíos y trofeos
   if (a === "card") return cm.myCard(me, u.searchParams.get("org"));
   if (a === "ranking" && b) return cm.challengeRanking(me, b, u.searchParams.get("f") ?? "all");
   if (a === "club" && !b) return club.clubState(me, org(req));
@@ -81,6 +83,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "club") {
     const o = org(req);
     if (b === "join") return club.joinClub(me, o, await body(req, z.object({ showName: z.boolean(), inRanking: z.boolean() })));
+    if (b === "ranking") return club.optIntoRanking(me, o); // D168: desde una invitación de REPI
     if (b === "leave") return club.leaveClub(me, o);
     if (b === "posts" && !c) return club.createClubPost(me, o, await body(req, z.object({ text: z.string().max(600).optional(), achievementId: id.nullable().optional(), progressExerciseId: id.nullable().optional(), sessionId: id.nullable().optional() })));
     if (b === "profile") return club.setClubProfile(me, o, await body(req, z.object({ bio: z.string().max(200).optional(), showLevel: z.boolean().optional(), showcase: z.array(id).max(10).optional() })));

@@ -8,9 +8,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
 
 type Post = { id: string; type: "novedad" | "descuento"; title: string; text: string; badge: string | null; imageId: string | null; validUntil: string | null; sede: string; expired: boolean; createdAt: string };
-type Ch = { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; sede: string; record: string; holder: string | null; participants: number; pending: number };
+type Ch = { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; sede: string; record: string; holder: string | null; participants: number; pending: number; exercise: string | null };
 type Item = { id: string; category: string; name: string; priceArs: number; promo: string | null; highlighted: boolean; available: boolean; imageId: string | null; sede: string };
-type Com = { canPublish: boolean; canCatalog: boolean; allLocations: boolean; locations: { id: string; name: string; receptionHours: string | null }[]; posts: Post[]; challenges: Ch[]; catalog: Item[] };
+type Com = { canPublish: boolean; canCatalog: boolean; allLocations: boolean; locations: { id: string; name: string; receptionHours: string | null }[]; posts: Post[]; challenges: Ch[]; catalog: Item[]; exercises: { id: string; name: string }[] };
 const CATS = ["Suplementos", "Bebidas", "Snacks", "Alimentos", "Indumentaria"];
 const isoDay = (iso: string) => iso.split("-").reverse().join("/");
 const ars = (n: number) => `ARS ${n.toLocaleString("es-AR")}`;
@@ -133,27 +133,36 @@ function News({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
 }
 
 function Challenges({ shell, com, reload }: { shell: Shell; com: Com; reload: () => void }) {
-  const [d, setD] = useState({ title: "", rule: "", unit: "reps" as ChallengeUnit, lower: false, category: "fuerza" as keyof typeof CHALLENGE_CATEGORIES, prize: "", endsOn: "", loc: com.allLocations ? "" : com.locations[0]?.id ?? "" });
+  const [d, setD] = useState({ title: "", rule: "", unit: "reps" as ChallengeUnit, lower: false, category: "fuerza" as keyof typeof CHALLENGE_CATEGORIES, prize: "", endsOn: "", loc: com.allLocations ? "" : com.locations[0]?.id ?? "", ex: "" });
   const { busy, run } = useAct(shell.flash);
   const [remove, setRemove] = useState<Ch | null>(null);
   const ok = d.title.trim().length >= 3 && d.prize.trim().length >= 2 && d.rule.trim().length >= 10 && !!d.endsOn;
-  const publish = () => run("ch", () => api(`/api/gym/${shell.orgId}/community/challenges`, { body: { title: d.title, rule: d.rule, unit: d.unit, lowerIsBetter: d.unit === "seg" && d.lower, category: d.category, prize: d.prize, endsOn: d.endsOn, locationId: d.loc || null } }), "Desafío publicado en la app.")
-    .then((r) => { if (r) { setD({ ...d, title: "", rule: "", prize: "", endsOn: "" }); reload(); } });
+  const publish = () => run("ch", () => api(`/api/gym/${shell.orgId}/community/challenges`, { body: { title: d.title, rule: d.rule, unit: d.unit, lowerIsBetter: d.unit === "seg" && d.lower, category: d.category, prize: d.prize, endsOn: d.endsOn, locationId: d.loc || null, exerciseId: d.unit !== "seg" && d.ex ? d.ex : null } }), "Desafío publicado y avisado a los socios.")
+    .then((r) => { if (r) { setD({ ...d, title: "", rule: "", prize: "", endsOn: "", ex: "" }); reload(); } });
   return (
     <div className="grid-2" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,380px),1fr))", alignItems: "start" }}>
       <section className="card">
         <h2>Nuevo desafío</h2>
         <label className="field">Nombre<input value={d.title} maxLength={80} placeholder="Dominadas máximas" onChange={(e) => setD({ ...d, title: e.target.value })} /></label>
-        <label className="field">Reglas: cómo debe verse el intento en el video<textarea className="note" rows={2} value={d.rule} maxLength={400} onChange={(e) => setD({ ...d, rule: e.target.value })} /></label>
+        <label className="field">Reglas: cómo debe verse el intento (en video o frente a un profe)<textarea className="note" rows={2} value={d.rule} maxLength={400} onChange={(e) => setD({ ...d, rule: e.target.value })} /></label>
         <div className="pills" role="group" aria-label="Se mide en">{(Object.keys(CHALLENGE_UNITS) as ChallengeUnit[]).map((u) => <button key={u} type="button" className="pill" aria-pressed={d.unit === u} onClick={() => setD({ ...d, unit: u })}>{CHALLENGE_UNITS[u]}</button>)}</div>
         {d.unit === "seg" && <label className="mrow" style={{ border: "1px solid #E2E8F0" }}><input type="checkbox" checked={d.lower} onChange={(e) => setD({ ...d, lower: e.target.checked })} /><span style={{ fontSize: 14 }}>Gana el menor tiempo (por ejemplo, remo 500 m)</span></label>}
+        {d.unit !== "seg" && (
+          <label className="field">Ejercicio que mide (opcional)
+            <select value={d.ex} onChange={(e) => setD({ ...d, ex: e.target.value })}>
+              <option value="">Sin ejercicio</option>
+              {com.exercises.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+            <small className="muted">Con el ejercicio, REPI le avisa a cada socio en qué puesto entraría con lo que ya levanta entrenando.</small>
+          </label>
+        )}
         <div className="pills" role="group" aria-label="Categoría">{(Object.keys(CHALLENGE_CATEGORIES) as (keyof typeof CHALLENGE_CATEGORIES)[]).map((k) => <button key={k} type="button" className="pill" aria-pressed={d.category === k} onClick={() => setD({ ...d, category: k })}>{CHALLENGE_CATEGORIES[k]}</button>)}</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <label className="field" style={{ flex: "2 1 200px" }}>Premio<input value={d.prize} maxLength={120} placeholder="Shaker REPI" onChange={(e) => setD({ ...d, prize: e.target.value })} /></label>
           <label className="field" style={{ flex: "1 1 140px" }}>Termina<input type="date" value={d.endsOn} onChange={(e) => setD({ ...d, endsOn: e.target.value })} /></label>
         </div>
         <LocField com={com} value={d.loc} onChange={(v) => setD({ ...d, loc: v })} />
-        <span className="muted" style={{ lineHeight: 1.45 }}>Todo intento de récord requiere video subido desde la app. El premio se retira en recepción. No se piden ni muestran datos de salud. Los socios ven este aviso: «{SAFETY_NOTE}»</span>
+        <span className="muted" style={{ lineHeight: 1.45 }}>Todo intento de récord se valida con video desde la app o en persona frente a un profe de sala. Al publicarlo, los socios reciben un aviso. El premio se retira en recepción. No se piden ni muestran datos de salud. Los socios ven este aviso: «{SAFETY_NOTE}»</span>
         <button type="button" className="btn pri" aria-busy={busy === "ch" || undefined} aria-disabled={!ok} onClick={() => ok ? publish() : shell.flash("Completá nombre, reglas, premio y fecha de fin.")}>Publicar desafío</button>
       </section>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -163,7 +172,7 @@ function Challenges({ shell, com, reload }: { shell: Shell; com: Com; reload: ()
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><span className="chip info">{CHALLENGE_CATEGORIES[c.category]}</span><span className={`chip ${c.status === "active" ? "ok" : "mute"}`}>{c.status === "active" ? "Activo" : "Cerrado"}</span><span className="muted">{c.sede}</span></div>
               <b style={{ fontSize: 16 }}>{c.title}</b>
               <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>{c.rule}</span>
-              <span style={{ fontSize: 13 }}>Premio: {c.prize} · {c.status === "active" ? "termina" : "terminó"} {isoDay(c.endsOn)}</span>
+              <span style={{ fontSize: 13 }}>Premio: {c.prize}{c.exercise ? ` · mide ${c.exercise}` : ""} · {c.status === "active" ? "termina" : "terminó"} {isoDay(c.endsOn)}</span>
             </div>
             <div style={{ flex: "1 1 140px", display: "flex", flexDirection: "column", gap: 2 }}><span className="muted">{c.status === "active" ? "Récord vigente" : "Récord final"}</span><strong style={{ fontSize: 22 }}>{c.record}</strong><span className="muted">{c.holder ? `de ${c.holder}` : "Esperando el primer intento"}</span></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>

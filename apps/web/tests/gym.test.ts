@@ -206,6 +206,13 @@ describe("socio: pedido al equipo de sala (D41), programa institucional y relaci
     expect((await db.select().from(schema.workoutSession).where(eq(schema.workoutSession.id, sid)))[0].versionId).toBe(s.versionId);
     const d = await gym.memberDetail(w.t2, w.org, w.vale.memberId);
     expect(d.program?.revisions.map((x) => [x.number, x.author, x.reason])).toEqual([[2, "Agustín Sala", "Subí volumen"], [1, "Agustín Sala", "Programa inicial"]]);
+    // Una tarea de programa tomada y «en atención» también se cierra al guardar, sólo por quien la tomó.
+    const t2 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Cambiemos el programa" });
+    await db.update(schema.gymTask).set({ status: "in_progress", assigneeUserId: w.t1 }).where(eq(schema.gymTask.id, t2.id));
+    expect((await gym.memberDetail(w.t1, w.org, w.vale.memberId)).programTaskId).toBe(t2.id);
+    expect((await gym.memberDetail(w.t2, w.org, w.vale.memberId)).programTaskId).toBeNull();
+    const r3 = await gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC("Inicial v3"), reason: "Cambio pedido", completeTaskId: t2.id });
+    expect(r3.completed?.ref).toMatch(/^T-\d+$/);
   });
 
   it("con coach y gym, la persona elige la relación activa", async () => {

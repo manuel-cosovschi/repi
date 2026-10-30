@@ -24,6 +24,12 @@ const OTP_SUBJECT = {
   "sign-in": "Tu código para ingresar",
   "change-email": "Tu código para cambiar el email",
 } as const;
+const OTP_WHY = {
+  "email-verification": "Para terminar de crear tu cuenta en REPI, confirmá que este email es tuyo.",
+  "forget-password": "Pediste recuperar la contraseña de tu cuenta en REPI.",
+  "sign-in": "Pediste entrar a REPI con un código.",
+  "change-email": "Pediste usar este email en tu cuenta de REPI.",
+} as const;
 
 const social: Record<string, { clientId: string; clientSecret: string }> = {};
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -87,7 +93,8 @@ export const auth = betterAuth({
       disableSignUp: true, // SEC-4: ingresar con código nunca crea una cuenta (sin términos ni edad)
       sendVerificationOnSignUp: false, // lo dispara /api/access/sign-up tras registrar la aceptación legal
       async sendVerificationOTP({ email, otp, type }) {
-        await sendMail({ to: email, subject: OTP_SUBJECT[type], body: `Tu código REPI es ${otp}. Vence en 15 minutos.` });
+        // Una frase de por qué llega y qué hacer si no fue la persona: los filtros de spam desconfían de un código suelto.
+        await sendMail({ to: email, subject: OTP_SUBJECT[type], body: `Hola. ${OTP_WHY[type]}\n\nTu código REPI es ${otp}. Vence en 15 minutos.\n\nSi no lo pediste vos, ignorá este correo: sin el código nadie puede usar tu email.` });
       },
     }),
     magicLink({

@@ -253,6 +253,13 @@
       "when": 1793385864095,
       "tag": "0035_attempt_in_person",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793402945362,
+      "tag": "0036_challenge_exercise",
+      "breakpoints": true
     }
   ]
 }
