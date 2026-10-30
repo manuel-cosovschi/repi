@@ -260,6 +260,13 @@
       "when": 1793402945362,
       "tag": "0036_challenge_exercise",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793404043789,
+      "tag": "0037_club_profile_media",
+      "breakpoints": true
     }
   ]
 }

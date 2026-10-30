@@ -40,7 +40,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "club" && b === "exercises") return { exercises: await club.myExercises(me, org(req)), sessions: await club.shareableSessions(me, org(req)) };
   if (a === "club" && b === "evolution" && c) return club.exerciseEvolution(me, org(req), c);
   if (a === "club" && b === "profile" && !c) return club.myClubProfile(me, org(req));
-  if (a === "club" && b === "profile" && c) return club.viewClubProfile(me, org(req), c);
+  if (a === "club" && b === "profile" && c) return club.viewClubProfile(me, org(req), c === "me" ? me : c);
   throw NF();
 });
 
@@ -85,8 +85,13 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     if (b === "join") return club.joinClub(me, o, await body(req, z.object({ showName: z.boolean(), inRanking: z.boolean() })));
     if (b === "ranking") return club.optIntoRanking(me, o); // D168: desde una invitación de REPI
     if (b === "leave") return club.leaveClub(me, o);
-    if (b === "posts" && !c) return club.createClubPost(me, o, await body(req, z.object({ text: z.string().max(600).optional(), achievementId: id.nullable().optional(), progressExerciseId: id.nullable().optional(), sessionId: id.nullable().optional() })));
-    if (b === "profile") return club.setClubProfile(me, o, await body(req, z.object({ bio: z.string().max(200).optional(), showLevel: z.boolean().optional(), showcase: z.array(id).max(10).optional() })));
+    if (b === "posts" && !c) return club.createClubPost(me, o, await body(req, z.object({ text: z.string().max(600).optional(), achievementId: id.nullable().optional(), progressExerciseId: id.nullable().optional(), sessionId: id.nullable().optional(), imageId: id.nullable().optional() })));
+    if (b === "profile") return club.setClubProfile(me, o, await body(req, z.object({ bio: z.string().max(200).optional(), showLevel: z.boolean().optional(), showcase: z.array(id).max(10).optional(), avatarId: id.nullable().optional(), showMaxes: z.boolean().optional() })));
+    if (b === "images") { // D169: fotos del Club y de perfil
+      const f = (await req.formData()).get("file");
+      if (!(f instanceof File)) throw new AccessError("invalid_file", "Elegí una foto.");
+      return club.uploadClubImage(me, o, { mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });
+    }
     if (b === "posts" && c && d === "applause") return club.toggleApplause(me, o, c);
     if (b === "posts" && c && d === "comments") return club.commentPost(me, o, c, (await body(req, z.object({ text: z.string().max(400) }))).text);
     if (b === "report") return club.report(me, o, await body(req, z.object({ type: z.enum(["post", "comment"]), id, reason: z.string().max(120) })));

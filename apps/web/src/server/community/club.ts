@@ -2,13 +2,15 @@
 // Participación voluntaria; nunca datos de salud; sin enlaces; reportes, bloqueo y moderación del gym con historial.
 // El ranking usa sólo sesiones del programa institucional del gym y asistencia: nunca la relación con un coach privado.
 import { and, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { createHash } from "node:crypto";
-import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, hasLink, liftRanking, localDate, parseReps, volumeKg } from "@repi/domain";
+import { createHash, randomUUID } from "node:crypto";
+import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, fileOk, hasLink, liftRanking, localDate, parseReps, volumeKg } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
+import { minorWithoutGuardian } from "../access/services";
+import { putObject } from "../storage";
 
-const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise, programExercise } = schema;
+const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise, programExercise, mediaObject } = schema;
 
 async function activeMember(userId: string, orgId: string) {
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")));
@@ -75,8 +77,9 @@ export async function feed(userId: string, orgId: string, before?: string | null
   await joined(userId, orgId);
   const blocked = await blockedSets(userId);
   const b = before ? new Date(before) : null;
-  const rows = await db.select({ p: clubPost, name: user.name, show: clubMember.showName, a: achievement }).from(clubPost)
+  const rows = await db.select({ p: clubPost, name: user.name, show: clubMember.showName, a: achievement, avatar: clubProfile.avatarId }).from(clubPost)
     .innerJoin(user, eq(user.id, clubPost.userId))
+    .leftJoin(clubProfile, and(eq(clubProfile.orgId, clubPost.orgId), eq(clubProfile.userId, clubPost.userId)))
     .innerJoin(clubMember, and(eq(clubMember.orgId, clubPost.orgId), eq(clubMember.userId, clubPost.userId)))
     .leftJoin(achievement, eq(achievement.id, clubPost.achievementId))
     .where(and(eq(clubPost.orgId, orgId), or(eq(clubPost.status, "visible"), eq(clubPost.userId, userId)), ne(clubPost.status, "removed"), isNull(clubMember.leftAt),
@@ -91,11 +94,11 @@ export async function feed(userId: string, orgId: string, before?: string | null
     .where(and(inArray(clubComment.postId, ids), or(eq(clubComment.status, "visible"), eq(clubComment.userId, userId)), ne(clubComment.status, "removed"),
       or(eq(clubComment.userId, userId), isNull(clubMember.leftAt))))
     .orderBy(clubComment.createdAt) : [];
-  return posts.map(({ p, name, show, a }) => {
+  return posts.map(({ p, name, show, a, avatar }) => {
     const r = reacts.find((x) => x.post === p.id);
     const cs = comments.filter((c) => c.c.postId === p.id && !blocked.has(c.c.userId));
     return {
-      id: p.id, mine: p.userId === userId, author: p.userId === userId ? "Vos" : clubName(name, show), authorId: p.userId, kind: p.kind, text: p.text, at: p.createdAt, hidden: p.status === "hidden",
+      id: p.id, mine: p.userId === userId, author: p.userId === userId ? "Vos" : clubName(name, show), authorId: p.userId, avatarId: avatar ?? null, imageId: p.imageId, kind: p.kind, text: p.text, at: p.createdAt, hidden: p.status === "hidden",
       achievement: a ? { title: a.title, detail: a.detail } : null, payload: p.payload ?? null, applause: r?.n ?? 0, applauded: !!r?.mine,
       comments: cs.map((c) => ({ id: c.c.id, mine: c.c.userId === userId, author: c.c.userId === userId ? "Vos" : clubName(c.name, c.show ?? false), authorId: c.c.userId, text: c.c.text, at: c.c.createdAt, hidden: c.c.status === "hidden" })),
     };
@@ -168,12 +171,38 @@ async function sessionSnapshot(memberId: string, sessionId: string) {
  * Publicar: texto, un logro propio, la evolución de un ejercicio o un entrenamiento terminado (todo voluntario y elegido).
  * Nunca datos de salud, Body Intelligence ni sensaciones por serie: no hay forma de adjuntarlos.
  */
-export async function createClubPost(userId: string, orgId: string, p: { text?: string; achievementId?: string | null; progressExerciseId?: string | null; sessionId?: string | null }) {
+/**
+ * D169: foto para una publicación o para el perfil del Club. Sólo socios del Club; un menor sin consentimiento de su adulto
+ * responsable no sube fotos. JPG, PNG o WebP de hasta 5 MB (la app la achica antes). Máximo 20 por hora.
+ */
+export async function uploadClubImage(userId: string, orgId: string, p: { mime: string; bytes: Uint8Array }) {
+  await joined(userId, orgId);
+  if (await minorWithoutGuardian(userId)) throw new AccessError("guardian_required", "Para subir fotos al Club hace falta el consentimiento de tu adulto responsable.", 403);
+  if (!fileOk("image", p.mime, p.bytes)) throw new AccessError("invalid_file", "La imagen tiene que ser JPG, PNG o WebP de hasta 5 MB.");
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(mediaObject)
+    .where(and(eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "club_image"), gte(mediaObject.createdAt, new Date(Date.now() - 3_600_000))));
+  if (n >= 20) throw new AccessError("rate_limited", "Llegaste al límite de fotos por hora. Probá más tarde.", 429);
+  const id = randomUUID();
+  const key = `club/${orgId.replace(/[^a-z0-9]/gi, "")}/${id}`;
+  await putObject(key, p.bytes);
+  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId, purpose: "club_image", storageKey: key, mime: p.mime, sizeBytes: p.bytes.byteLength });
+  return { id };
+}
+/** Foto propia del Club, de este gym, sin usar todavía en otra publicación. */
+async function ownClubImage(userId: string, orgId: string, imageId: string, forPost: boolean) {
+  const [m] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, imageId), eq(mediaObject.ownerUserId, userId), eq(mediaObject.orgId, orgId), eq(mediaObject.purpose, "club_image"), isNull(mediaObject.deletedAt)));
+  if (!m) throw new AccessError("invalid", "La foto no es válida. Subila de nuevo.");
+  if (forPost && (await db.select({ id: clubPost.id }).from(clubPost).where(eq(clubPost.imageId, m.id))).length) throw new AccessError("invalid", "Esa foto ya está publicada.");
+  return m.id;
+}
+
+export async function createClubPost(userId: string, orgId: string, p: { text?: string; achievementId?: string | null; progressExerciseId?: string | null; sessionId?: string | null; imageId?: string | null }) {
   await joined(userId, orgId);
   await rate("post", userId);
+  const imageId = p.imageId ? await ownClubImage(userId, orgId, p.imageId, true) : null;
   const text = cleanText(p.text ?? "", CLUB_POST_MAX);
   let achievementId: string | null = null;
-  let kind: "text" | "achievement" | "progress" | "session" = "text";
+  let kind: "text" | "achievement" | "progress" | "session" | "image" = imageId ? "image" : "text";
   let payload: unknown = null;
   if (p.achievementId) {
     const [a] = await db.select().from(achievement).where(and(eq(achievement.id, p.achievementId), eq(achievement.userId, userId), or(isNull(achievement.orgId), eq(achievement.orgId, orgId))));
@@ -192,24 +221,52 @@ export async function createClubPost(userId: string, orgId: string, p: { text?: 
     kind = "session";
   }
   if (!text && kind === "text") throw new AccessError("invalid", "Escribí algo o elegí qué compartir.");
-  const [row] = await db.insert(clubPost).values({ orgId, userId, kind, text, achievementId, payload }).returning();
+  const [row] = await db.insert(clubPost).values({ orgId, userId, kind, text, achievementId, payload, imageId }).returning();
   return { id: row.id };
 }
 
 // ── Perfil del Club: vitrina elegida (nada se muestra por defecto) ──────────
+/**
+ * D169: máximos de la persona en el gym: por ejercicio, la serie más pesada (y con más repeticiones a ese peso) de su
+ * programa institucional, con el 1RM estimado. Los 8 de mayor 1RM. Series por tiempo no cuentan (DATA-6).
+ */
+export async function maxesOf(gymMemberId: string, limit = 8) {
+  const rows = await db.select({ ex: setLog.exerciseId, name: exercise.name, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
+    .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+    .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
+    .where(and(eq(workoutSession.gymMemberId, gymMemberId), ne(workoutSession.status, "abandoned")));
+  const best = new Map<string, { exercise: string; kg: number; reps: number; e1rm: number; at: Date }>();
+  for (const x of rows) {
+    if (x.w == null || x.r == null || x.r < 1 || (x.target != null && parseReps(x.target).kind === "time")) continue;
+    const kg = Number(x.w);
+    if (kg <= 0) continue;
+    const cur = best.get(x.ex);
+    if (!cur || kg > cur.kg || (kg === cur.kg && x.r > cur.reps)) best.set(x.ex, { exercise: x.name, kg, reps: x.r, e1rm: Math.round((epley1rm(kg, x.r) ?? kg) * 2) / 2, at: x.at });
+  }
+  return [...best.values()].sort((a, b) => b.e1rm - a.e1rm).slice(0, limit).map((m) => ({ ...m, at: localDate(m.at) }));
+}
+
 export async function myClubProfile(userId: string, orgId: string) {
   await joined(userId, orgId);
+  const m = await activeMember(userId, orgId);
   const [p] = await db.select().from(clubProfile).where(and(eq(clubProfile.orgId, orgId), eq(clubProfile.userId, userId)));
-  return { bio: p?.bio ?? "", showLevel: p?.showLevel ?? false, showcase: (p?.showcase as string[] | undefined) ?? [], exercises: await myExercises(userId, orgId) };
+  return { bio: p?.bio ?? "", showLevel: p?.showLevel ?? false, showcase: (p?.showcase as string[] | undefined) ?? [], exercises: await myExercises(userId, orgId),
+    avatarId: p?.avatarId ?? null, showMaxes: p?.showMaxes ?? false, maxes: await maxesOf(m.id) };
 }
-export async function setClubProfile(userId: string, orgId: string, p: { bio?: string; showLevel?: boolean; showcase?: string[] }) {
+export async function setClubProfile(userId: string, orgId: string, p: { bio?: string; showLevel?: boolean; showcase?: string[]; avatarId?: string | null; showMaxes?: boolean }) {
   await joined(userId, orgId);
   const bio = cleanText(p.bio ?? "", 160);
   const mine = new Set((await myExercises(userId, orgId)).map((e) => e.id));
   const showcase = [...new Set(p.showcase ?? [])].filter((x) => mine.has(x)).slice(0, 4);
-  await db.insert(clubProfile).values({ orgId, userId, bio: bio || null, showLevel: !!p.showLevel, showcase })
-    .onConflictDoUpdate({ target: [clubProfile.orgId, clubProfile.userId], set: { bio: bio || null, showLevel: !!p.showLevel, showcase, updatedAt: new Date() } });
-  await audit(db, { actorUserId: userId, orgId, action: "club.profile_updated", resourceType: "club_profile", meta: { showcase: showcase.length, showLevel: !!p.showLevel } });
+  const [cur] = await db.select().from(clubProfile).where(and(eq(clubProfile.orgId, orgId), eq(clubProfile.userId, userId)));
+  // Sin `avatarId` queda la foto que tenía; con null se quita.
+  const avatarId = p.avatarId === undefined ? cur?.avatarId ?? null : p.avatarId ? (p.avatarId === cur?.avatarId ? cur.avatarId : await ownClubImage(userId, orgId, p.avatarId, false)) : null;
+  if (avatarId && await minorWithoutGuardian(userId)) throw new AccessError("guardian_required", "Para usar una foto de perfil hace falta el consentimiento de tu adulto responsable.", 403);
+  const showMaxes = p.showMaxes === undefined ? cur?.showMaxes ?? false : !!p.showMaxes;
+  const vals = { bio: bio || null, showLevel: !!p.showLevel, showcase, avatarId, showMaxes };
+  await db.insert(clubProfile).values({ orgId, userId, ...vals })
+    .onConflictDoUpdate({ target: [clubProfile.orgId, clubProfile.userId], set: { ...vals, updatedAt: new Date() } });
+  await audit(db, { actorUserId: userId, orgId, action: "club.profile_updated", resourceType: "club_profile", meta: { showcase: showcase.length, showLevel: !!p.showLevel, avatar: !!avatarId, showMaxes } });
   return myClubProfile(userId, orgId);
 }
 /** Perfil visible para otro socio del Club: sólo lo que la persona eligió. Bloqueos y salida del Club lo ocultan. */
@@ -237,7 +294,10 @@ export async function viewClubProfile(viewerId: string, orgId: string, targetId:
     monthDays = n;
   }
   const [{ posts }] = await db.select({ posts: sql<number>`count(*)::int` }).from(clubPost).where(and(eq(clubPost.orgId, orgId), eq(clubPost.userId, targetId), eq(clubPost.status, "visible")));
-  return { mine: targetId === viewerId, name: targetId === viewerId ? "Vos" : clubName(t.name, t.c.showName), bio: p?.bio ?? "", showcase, monthDays, posts, since: t.c.joinedAt };
+  // D169: foto de perfil y máximos, sólo si la persona eligió mostrarlos; últimas fotos que publicó.
+  const photos = await db.select({ id: clubPost.imageId }).from(clubPost).where(and(eq(clubPost.orgId, orgId), eq(clubPost.userId, targetId), eq(clubPost.status, "visible"), sql`${clubPost.imageId} is not null`)).orderBy(desc(clubPost.createdAt)).limit(9);
+  return { mine: targetId === viewerId, name: targetId === viewerId ? "Vos" : clubName(t.name, t.c.showName), bio: p?.bio ?? "", showcase, monthDays, posts, since: t.c.joinedAt,
+    avatarId: p?.avatarId ?? null, maxes: p?.showMaxes || targetId === viewerId ? await maxesOf(m.id) : null, photos: photos.map((x) => x.id!) };
 }
 
 async function postIn(orgId: string, postId: string) {

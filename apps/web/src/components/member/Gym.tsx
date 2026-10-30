@@ -12,7 +12,8 @@ import { Ic } from "@/components/ui/Ic";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Carousel } from "@/components/motion/Carousel";
 import { uploadVideo } from "@/lib/upload";
-import { Check, QrCode, VideoCamera } from "@phosphor-icons/react";
+import { Camera, Check, ImageSquare, QrCode, VideoCamera, X } from "@phosphor-icons/react";
+import { uploadImage } from "@/lib/image";
 import { featureOn } from "@/lib/features";
 import { LevelPanel, type LevelData } from "./Trophies";
 import { useScrollLock } from "@/components/ui/scrollLock";
@@ -338,7 +339,7 @@ function CardSheet({ onClose }: { onClose: () => void }) {
 type ClubState = { joined: boolean; showName: boolean; inRanking: boolean; members: number };
 type Pt = { d: string; kg: number; reps: number };
 type Payload = { type: "progress"; exercise: string; points: Pt[]; deltaKg: number } | { type: "session"; dayName: string; date: string; minutes: number; sets: number; volumeKg: number; exercises: string[] } | null;
-type Post = { id: string; mine: boolean; author: string; authorId: string; kind: string; text: string; at: string; hidden: boolean; achievement: { title: string; detail: string } | null; payload: Payload; applause: number; applauded: boolean;
+type Post = { id: string; mine: boolean; author: string; authorId: string; avatarId: string | null; imageId: string | null; kind: string; text: string; at: string; hidden: boolean; achievement: { title: string; detail: string } | null; payload: Payload; applause: number; applauded: boolean;
   comments: { id: string; mine: boolean; author: string; authorId: string; text: string; at: string; hidden: boolean }[] };
 type ClubRank = { month: string; inRanking: boolean; rows: { pos: number; name: string; days: number; me: boolean }[]; metric: string };
 
@@ -369,6 +370,7 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
         <button type="button" role="tab" aria-selected={view === "rank"} onClick={() => setView("rank")}>Ranking del mes</button>
         <button type="button" role="tab" aria-selected={view === "lifts"} onClick={() => setView("lifts")}>Por ejercicio</button>
       </div>
+      <MeCard orgId={orgId} />
       {view === "feed" ? <Feed orgId={orgId} achievements={achievements} flash={flash} /> : view === "rank" ? <ClubRankView orgId={orgId} /> : <LiftRankView orgId={orgId} />}
       <ProfileEditor orgId={orgId} flash={flash} />
       <details className="club-prefs"><summary>Mis preferencias del Club</summary>
@@ -383,6 +385,46 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
   );
 }
 
+/** D169: acceso directo a cómo ven los demás el perfil propio. */
+function MeCard({ orgId }: { orgId: string }) {
+  const [v, setV] = useState<ProfileView | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => { api<ProfileView>(`/api/me/gym/club/profile/me?org=${orgId}`).then(setV).catch(() => {}); }, [orgId, open]);
+  return (
+    <>
+      <button type="button" className="hbanner club-me" onClick={() => setOpen(true)}>
+        <Avatar id={v?.avatarId ?? null} name="Vos" size={44} />
+        <span><b>Mi perfil</b><small>{v ? `${v.posts} publicaci${v.posts === 1 ? "ón" : "ones"}${v.maxes?.length ? ` · ${v.maxes.length} máximos` : ""}` : "Foto, máximos y lo que elegís mostrar"}</small></span>
+        <em>Ver</em>
+      </button>
+      {open && <ProfileSheet orgId={orgId} userId="me" onClose={() => setOpen(false)} onEdit={() => {
+        setOpen(false);
+        const d = document.getElementById("club-profile-edit") as HTMLDetailsElement | null;
+        if (d) { d.open = true; d.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      }} />}
+    </>
+  );
+}
+/** D169: foto de perfil del Club (o iniciales). */
+function Avatar({ id, name, size = 36 }: { id: string | null; name: string; size?: number }) {
+  const ini = name === "Vos" ? "Vos" : name.split(/\s+/).map((x) => x[0]).join("").slice(0, 2).toUpperCase();
+  return id ? <img className="club-av" src={`/api/media/${id}`} alt="" width={size} height={size} style={{ width: size, height: size }} />
+    : <span className="club-av club-av-ini" aria-hidden="true" style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}>{ini}</span>;
+}
+/** Elegir y subir una foto al Club (se achica en el teléfono, sin metadatos de ubicación). */
+function useClubPhoto(orgId: string, flash: (t: string) => void, max = 1400) {
+  const [photo, setPhoto] = useState<{ id: string; preview: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try { setPhoto(await uploadImage(`/api/me/gym/club/images?org=${orgId}`, f, max)); } catch (e) { flash((e as Error).message); } finally { setBusy(false); if (input.current) input.current.value = ""; }
+  };
+  const field = <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => void pick(e.target.files?.[0])} />;
+  return { photo, setPhoto, busy, open: () => input.current?.click(), field };
+}
+
 function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Home["achievements"]; flash: (t: string) => void }) {
   const unit = useUnit();
   const [posts, setPosts] = useState<Post[] | null>(null);
@@ -395,20 +437,25 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
   const [preview, setPreview] = useState<Pt[] | null>(null);
   const [sesId, setSesId] = useState<string | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
+  const ph = useClubPhoto(orgId, flash);
   const q = `?org=${orgId}`;
   const load = useCallback(() => api<Post[]>(`/api/me/gym/club/feed${q}`).then(setPosts).catch((e) => flash(e.message)), [q, flash]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if ((share === "progress" || share === "session") && !opts) api<NonNullable<typeof opts>>(`/api/me/gym/club/exercises${q}`).then(setOpts).catch((e) => flash(e.message)); }, [share, opts, q, flash]);
   useEffect(() => { setPreview(null); if (exId) api<Pt[]>(`/api/me/gym/club/evolution/${exId}${q}`).then(setPreview).catch(() => setPreview([])); }, [exId, q]);
-  const reset = () => { setText(""); setAch(null); setExId(null); setSesId(null); setShare("none"); };
-  const ready = !!text.trim() || (share === "ach" && !!ach) || (share === "progress" && !!exId && (preview?.length ?? 0) >= 2) || (share === "session" && !!sesId);
-  const post = () => api(`/api/me/gym/club/posts${q}`, { body: { text, achievementId: share === "ach" ? ach : null, progressExerciseId: share === "progress" ? exId : null, sessionId: share === "session" ? sesId : null } })
+  const reset = () => { setText(""); setAch(null); setExId(null); setSesId(null); setShare("none"); ph.setPhoto(null); };
+  const ready = !!text.trim() || !!ph.photo || (share === "ach" && !!ach) || (share === "progress" && !!exId && (preview?.length ?? 0) >= 2) || (share === "session" && !!sesId);
+  const post = () => api(`/api/me/gym/club/posts${q}`, { body: { text, achievementId: share === "ach" ? ach : null, progressExerciseId: share === "progress" ? exId : null, sessionId: share === "session" ? sesId : null, imageId: ph.photo?.id ?? null } })
     .then(() => { reset(); flash("Publicado en Repi Club."); return load(); }).catch((e) => flash(e.message));
   const act = (p: Promise<unknown>, ok?: string) => p.then(() => { if (ok) flash(ok); return load(); }).catch((e) => flash(e.message));
   return (
     <>
       <div className="club-compose">
         <textarea rows={2} value={text} maxLength={CLUB_POST_MAX} onChange={(e) => setText(e.target.value)} placeholder="Contale algo al Club" aria-label="Nueva publicación" />
+        {ph.field}
+        {ph.photo ? (
+          <div className="club-photo-prev"><img src={ph.photo.preview} alt="Foto elegida" /><button type="button" aria-label="Quitar la foto" onClick={() => ph.setPhoto(null)}><Ic i={X} size={16} /></button></div>
+        ) : <button type="button" className="ghost sm club-photo-btn" aria-busy={ph.busy || undefined} disabled={ph.busy} onClick={ph.open}><Ic i={ImageSquare} size={18} />{ph.busy ? "Subiendo foto…" : "Agregar foto"}</button>}
         <div className="club-share" role="radiogroup" aria-label="Qué compartir">
           {([["none", "Sólo texto"], ["progress", "Mi progreso"], ["session", "Un entrenamiento"], ...(achievements.length ? [["ach", "Un logro"]] : [])] as [typeof share, string][]).map(([k, l]) => (
             <button key={k} type="button" role="radio" aria-checked={share === k} onClick={() => setShare(k)}>{l}</button>
@@ -434,16 +481,17 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
           </select>
         ))}
         <button type="button" className="cta sm" style={{ height: 40 }} onClick={() => (ready ? post() : flash("Escribí algo o elegí qué compartir."))}>Publicar</button>
-        <small className="mb-muted">Sólo se publica lo que elegís acá. Compartir con tu entrenador no publica nada. Nunca se muestran salud, molestias ni Body Intelligence. Sin enlaces; podés borrar lo tuyo cuando quieras.</small>
+        <small className="mb-muted">Sólo se publica lo que elegís acá. Las fotos las ven sólo socios del Club; no subas fotos de otras personas sin su permiso. Compartir con tu entrenador no publica nada. Nunca se muestran salud, molestias ni Body Intelligence. Sin enlaces; podés borrar lo tuyo cuando quieras.</small>
       </div>
       {!posts ? <span className="mb-muted">Cargando…</span> : !posts.length ? <div className="dashed-card"><span>Todavía no hay publicaciones. ¡Compartí tu primer logro!</span></div> : posts.map((p) => (
         <article key={p.id} className="club-post">
-          <div className="club-head"><button type="button" className="club-author" onClick={() => setProfile(p.authorId)}>{p.author}</button><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(p.at))}</small>
+          <div className="club-head"><button type="button" className="club-author" onClick={() => setProfile(p.authorId)}><Avatar id={p.avatarId} name={p.author} size={32} />{p.author}</button><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(p.at))}</small>
             <button type="button" className="linkbtn" aria-label="Más opciones" onClick={() => setMore(p)}>···</button></div>
           {p.hidden && <small style={{ color: "#FCD38A" }}>Oculto por reportes: lo revisa el gym.</small>}
           {p.achievement && <div className="club-ach"><Sticker on size={36} /><span><b>{p.achievement.title}</b><small>{p.achievement.detail}</small></span></div>}
           {p.payload?.type === "progress" && <div className="club-ach club-prog"><span><b>{p.payload.exercise}</b><small>{kgTo(p.payload.points[0].kg, unit).toLocaleString("es-AR")} → {fmtWeight(p.payload.points.at(-1)!.kg, unit)}{p.payload.deltaKg > 0 ? ` · +${fmtWeight(p.payload.deltaKg, unit)}` : ""} en {p.payload.points.length} entrenamientos</small></span><Spark points={p.payload.points} small /></div>}
           {p.payload?.type === "session" && <div className="club-ach"><span><b>Entrenamiento completo · {p.payload.dayName}</b><small>{p.payload.minutes} min · {p.payload.sets} series · {volumeIn(p.payload.volumeKg, unit).toLocaleString("es-AR")} {unit} de volumen</small><small>{p.payload.exercises.join(" · ")}</small></span></div>}
+          {p.imageId && <img className="club-img" src={`/api/media/${p.imageId}`} alt={p.text ? "" : `Foto de ${p.author}`} loading="lazy" />}
           {p.text && <p>{p.text}</p>}
           <div className="club-actions">
             <button type="button" aria-pressed={p.applauded} onClick={() => act(api(`/api/me/gym/club/posts/${p.id}/applause${q}`, { body: {} }))}>👏 {p.applause > 0 ? p.applause : "Aplaudir"}</button>
@@ -591,8 +639,19 @@ function Spark({ points, small }: { points: Pt[]; small?: boolean }) {
   );
 }
 
-type ProfileView = { mine: boolean; name: string; bio: string; showcase: { exercise: string; points: Pt[] }[]; monthDays: number | null; posts: number; since: string };
-function ProfileSheet({ orgId, userId, onClose }: { orgId: string; userId: string; onClose: () => void }) {
+type Max = { exercise: string; kg: number; reps: number; e1rm: number; at: string };
+type ProfileView = { mine: boolean; name: string; bio: string; showcase: { exercise: string; points: Pt[] }[]; monthDays: number | null; posts: number; since: string; avatarId: string | null; maxes: Max[] | null; photos: string[] };
+function MaxList({ maxes }: { maxes: Max[] }) {
+  const unit = useUnit();
+  return (
+    <div className="club-max" role="table" aria-label="Máximos">
+      {maxes.map((m) => (
+        <div key={m.exercise} role="row"><span role="cell">{m.exercise}</span><b role="cell">{fmtWeight(m.kg, unit)} × {m.reps}</b><small role="cell">1RM est. {fmtWeight(m.e1rm, unit)}</small></div>
+      ))}
+    </div>
+  );
+}
+function ProfileSheet({ orgId, userId, onClose, onEdit }: { orgId: string; userId: string; onClose: () => void; onEdit?: () => void }) {
   const unit = useUnit();
   const [v, setV] = useState<ProfileView | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -601,32 +660,47 @@ function ProfileSheet({ orgId, userId, onClose }: { orgId: string; userId: strin
     <Sheet title={v?.name ?? "Perfil"} sub={v ? `En el Club desde ${new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" }).format(new Date(v.since))} · ${v.posts} publicaci${v.posts === 1 ? "ón" : "ones"}` : undefined} closeLabel="Cerrar" onClose={onClose}>
       {err && <p className="mb-note">{err}</p>}
       {v && <>
-        {v.bio && <p style={{ margin: 0, fontSize: 15, lineHeight: 1.45 }}>{v.bio}</p>}
+        <div className="club-pf-head"><Avatar id={v.avatarId} name={v.name} size={72} /><span><b>{v.name}</b>{v.bio && <small>{v.bio}</small>}</span></div>
+        {v.maxes && v.maxes.length > 0 && <><b style={{ fontSize: 14 }}>Máximos</b><MaxList maxes={v.maxes} /></>}
         {v.monthDays != null && <div className="club-ach"><span><b>{v.monthDays} día{v.monthDays === 1 ? "" : "s"} entrenando este mes</b><small>Programa del gym</small></span></div>}
         {v.showcase.map((x) => <div key={x.exercise} className="club-ach club-prog"><span><b>{x.exercise}</b><small>Última: {fmtWeight(x.points.at(-1)!.kg, unit)} × {x.points.at(-1)!.reps}</small></span><Spark points={x.points} small /></div>)}
-        {!v.bio && !v.showcase.length && v.monthDays == null && <span className="mb-muted">{v.mine ? "Tu perfil está vacío: elegí qué mostrar en «Mi perfil del Club»." : "Esta persona todavía no eligió qué mostrar."}</span>}
+        {v.mine && onEdit && <button type="button" className="ghost sm" style={{ alignSelf: "flex-start" }} onClick={onEdit}>Editar mi perfil</button>}
+        {v.photos.length > 0 && <div className="club-grid">{v.photos.map((id) => <img key={id} src={`/api/media/${id}`} alt="" loading="lazy" />)}</div>}
+        {!v.bio && !v.showcase.length && v.monthDays == null && !v.maxes?.length && !v.photos.length && <span className="mb-muted">{v.mine ? "Tu perfil está vacío: elegí qué mostrar en «Mi perfil del Club»." : "Esta persona todavía no eligió qué mostrar."}</span>}
       </>}
     </Sheet>
   );
 }
 
-type MyProfile = { bio: string; showLevel: boolean; showcase: string[]; exercises: { id: string; name: string; sessions: number }[] };
+type MyProfile = { bio: string; showLevel: boolean; showcase: string[]; exercises: { id: string; name: string; sessions: number }[]; avatarId: string | null; showMaxes: boolean; maxes: Max[] };
 function ProfileEditor({ orgId, flash }: { orgId: string; flash: (t: string) => void }) {
   const [p, setP] = useState<MyProfile | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(() => { if (open && !p) api<MyProfile>(`/api/me/gym/club/profile?org=${orgId}`).then(setP).catch((e) => flash(e.message)); }, [open, p, orgId, flash]);
   const toggle = (id: string) => p && setP({ ...p, showcase: p.showcase.includes(id) ? p.showcase.filter((x) => x !== id) : p.showcase.length >= 4 ? (flash("Hasta 4 ejercicios."), p.showcase) : [...p.showcase, id] });
-  const save = () => p && api<MyProfile>(`/api/me/gym/club/profile?org=${orgId}`, { body: { bio: p.bio, showLevel: p.showLevel, showcase: p.showcase } }).then((x) => { setP(x); flash("Perfil guardado."); }).catch((e) => flash(e.message));
+  const ph = useClubPhoto(orgId, flash, 600);
+  const avatar = ph.photo?.id ?? p?.avatarId ?? null;
+  const save = () => p && api<MyProfile>(`/api/me/gym/club/profile?org=${orgId}`, { body: { bio: p.bio, showLevel: p.showLevel, showcase: p.showcase, avatarId: avatar, showMaxes: p.showMaxes } }).then((x) => { setP(x); ph.setPhoto(null); flash("Perfil guardado."); }).catch((e) => flash(e.message));
   return (
-    <details className="club-prefs" onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}><summary>Mi perfil del Club</summary>
+    <details id="club-profile-edit" className="club-prefs" onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}><summary>Mi perfil del Club</summary>
       {!p ? <span className="mb-muted">Cargando…</span> : <>
         <span className="mb-muted" style={{ fontSize: 13 }}>Nada se muestra hasta que lo elijas. Podés sacarlo cuando quieras.</span>
+        {ph.field}
+        <div className="club-pf-head">
+          {ph.photo ? <img className="club-av" src={ph.photo.preview} alt="" style={{ width: 64, height: 64 }} /> : <Avatar id={avatar} name="Vos" size={64} />}
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" className="ghost sm" aria-busy={ph.busy || undefined} disabled={ph.busy} onClick={ph.open}><Ic i={Camera} size={18} />{avatar ? "Cambiar foto" : "Poner foto"}</button>
+            {avatar && <button type="button" className="linkbtn" onClick={() => { ph.setPhoto(null); setP({ ...p, avatarId: null }); }}>Quitar</button>}
+          </span>
+        </div>
         <label className="club-field">Sobre mí (opcional)<textarea rows={2} maxLength={160} value={p.bio} onChange={(e) => setP({ ...p, bio: e.target.value })} placeholder="Ej.: Entreno a la mañana, voy por mi primer 100 en sentadilla" /></label>
         <span style={{ fontSize: 13, fontWeight: 600 }}>Ejercicios que muestro (hasta 4, con su evolución)</span>
         {!p.exercises.length ? <span className="mb-muted" style={{ fontSize: 13 }}>Cuando registres ejercicios del programa del gym, vas a poder elegirlos.</span> : (
           <div className="club-share">{p.exercises.map((x) => <button key={x.id} type="button" aria-pressed={p.showcase.includes(x.id)} onClick={() => toggle(x.id)}>{x.name}</button>)}</div>
         )}
         <label className="sheet-check"><input type="checkbox" checked={p.showLevel} onChange={(e) => setP({ ...p, showLevel: e.target.checked })} />Mostrar cuántos días entrené este mes</label>
+        <label className="sheet-check"><input type="checkbox" checked={p.showMaxes} onChange={(e) => setP({ ...p, showMaxes: e.target.checked })} />Mostrar mis máximos (la serie más pesada de cada ejercicio)</label>
+        {p.maxes.length > 0 ? <MaxList maxes={p.maxes} /> : <span className="mb-muted" style={{ fontSize: 13 }}>Tus máximos aparecen cuando registres series con peso del programa del gym.</span>}
         <button type="button" className="ghost sm" style={{ alignSelf: "flex-start" }} onClick={save}>Guardar perfil</button>
       </>}
     </details>

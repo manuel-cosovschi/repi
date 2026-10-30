@@ -48,6 +48,20 @@ export async function authorizeCommunityMedia(actorId: string, m: typeof mediaOb
       .where(and(eq(schema.staffMembership.userId, actorId), eq(schema.staffMembership.orgId, m.orgId), eq(schema.staffMembership.status, "active")));
     return staff.length > 0;
   }
+  // D169: fotos del Club: socios del Club de ese gym (y quien lo modera); nunca la de una publicación oculta o quitada,
+  // ni entre personas bloqueadas.
+  if (m.purpose === "club_image") {
+    const [post] = await db.select({ status: schema.clubPost.status }).from(schema.clubPost).where(eq(schema.clubPost.imageId, m.id));
+    const ctx = await gymContext(actorId, m.orgId).catch(() => null);
+    if (ctx?.caps.includes("club.moderate")) return true;
+    if (post && post.status !== "visible") return false;
+    const [inClub] = await db.select({ id: schema.clubMember.userId }).from(schema.clubMember)
+      .where(and(eq(schema.clubMember.orgId, m.orgId), eq(schema.clubMember.userId, actorId), isNull(schema.clubMember.leftAt)));
+    if (!inClub) return false;
+    const blocks = await db.select({ a: schema.clubBlock.userId }).from(schema.clubBlock)
+      .where(or(and(eq(schema.clubBlock.userId, actorId), eq(schema.clubBlock.blockedUserId, m.ownerUserId)), and(eq(schema.clubBlock.userId, m.ownerUserId), eq(schema.clubBlock.blockedUserId, actorId))));
+    return !blocks.length;
+  }
   if (m.purpose === "attempt_video") {
     const ctx = await gymContext(actorId, m.orgId).catch(() => null);
     if (!ctx || !ctx.caps.includes("challenges.validate")) return false;

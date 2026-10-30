@@ -1,6 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D168), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D169), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Perfil del socio con foto, máximos y fotos en el Club (D169) — 30/10/2026
+
+- **Migración:** `drizzle/0037_club_profile_media.sql` (`club_post.image_id`, `club_profile.avatar_id`, `club_profile.show_maxes`). Aplicada en dev y pruebas; Supabase al desplegar.
+- **Servidor:** `server/community/club.ts` (`uploadClubImage`, `ownClubImage`, `maxesOf`, `createClubPost` con `imageId`, perfil con `avatarId`/`showMaxes`, `viewClubProfile` con foto, máximos y fotos; `feed` con `avatarId` e `imageId`); `authorizeCommunityMedia` para `club_image`. Rutas: `POST /api/me/gym/club/images`, `GET /api/me/gym/club/profile/me`.
+- **UI:** `components/member/Gym.tsx` (`Avatar`, `useClubPhoto`, `MeCard`, `MaxList`, «Agregar foto» en el compositor, hoja de perfil, editor con foto y «Mostrar mis máximos»); `lib/image.ts`; estilos `.club-av`, `.club-img`, `.club-max`, `.club-grid`, `.club-pf-head`.
+- **Pruebas:** `club-profile.test.ts` (sólo socios del Club suben, archivo inválido, máximo 110 × 3 con 1RM 121, máximos ocultos hasta elegirlos, foto publicada una vez, la ve el Club y no quien no está, bloqueo corta el acceso, foto ajena no se usa). Navegador (demo alumna, 375 px, almacenamiento local): foto de perfil, publicación con foto, hoja de perfil.
+- **Sin probar:** subir una foto real desde la cámara de un teléfono (en la prueba se generó en el navegador).
 
 ## Invitaciones a rankings y desafíos (D168), tarea al guardar programa y correo en spam (D167) — 30/10/2026
 

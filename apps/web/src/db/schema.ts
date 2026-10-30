@@ -549,7 +549,7 @@ export const injury = pgTable("injury", {
 export const mediaObject = pgTable("media_object", {
   id: id(),
   ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image", "exercise_video"] }).notNull(), // request_video también para tareas del equipo de sala (D41); exercise_video: D164
+  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image", "exercise_video", "club_image"] }).notNull(), // club_image: fotos del Club y de perfil (D169); request_video también para tareas del equipo de sala (D41); exercise_video: D164
   orgId: text("org_id"), // imágenes de comunidad: las ven los socios y el staff de esa organización
   storageKey: text("storage_key").notNull(),
   mime: text("mime").notNull(),
@@ -1134,8 +1134,9 @@ export const clubPost = pgTable("club_post", {
   id: id(),
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["text", "achievement", "progress", "session"] }).notNull(),
+  kind: text("kind", { enum: ["text", "achievement", "progress", "session", "image"] }).notNull(),
   text: text("text").notNull().default(""),
+  imageId: text("image_id").references(() => mediaObject.id), // D169: foto de la publicación
   achievementId: text("achievement_id").references(() => achievement.id, { onDelete: "cascade" }),
   payload: jsonb("payload"), // instantánea elegida por la persona (evolución de un ejercicio o sesión); nunca el historial completo
   status: text("status", { enum: ["visible", "hidden", "removed"] }).notNull().default("visible"),
@@ -1359,6 +1360,8 @@ export const clubProfile = pgTable("club_profile", {
   bio: text("bio"),
   showLevel: boolean("show_level").notNull().default(false),
   showcase: jsonb("showcase").notNull().default([]), // exerciseIds elegidos
+  avatarId: text("avatar_id").references(() => mediaObject.id), // D169: foto de perfil (sólo la ven socios del Club)
+  showMaxes: boolean("show_maxes").notNull().default(false), // D169: mostrar sus máximos por ejercicio
   updatedAt: now("updated_at"),
 }, (t) => [primaryKey({ columns: [t.orgId, t.userId] })]);
 

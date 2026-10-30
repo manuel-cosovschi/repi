@@ -4,6 +4,7 @@
 import { useRef, useState } from "react";
 import { CHALLENGE_CATEGORIES, CHALLENGE_UNITS, IMAGE_LIMITS, SAFETY_NOTE, attemptValueOk, isNewRecord, type ChallengeUnit } from "@repi/domain";
 import { api } from "@/lib/api";
+import { shrinkImage } from "@/lib/image";
 import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
 
@@ -15,17 +16,6 @@ const CATS = ["Suplementos", "Bebidas", "Snacks", "Alimentos", "Indumentaria"];
 const isoDay = (iso: string) => iso.split("-").reverse().join("/");
 const ars = (n: number) => `ARS ${n.toLocaleString("es-AR")}`;
 
-/** Achica la imagen en el navegador antes de subirla (como el prototipo: 900 px, JPEG). */
-async function shrink(file: File, max = 900): Promise<Blob> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const k = Math.min(1, max / Math.max(img.width, img.height));
-    const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    return await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("No se pudo procesar la imagen."))), "image/jpeg", 0.82));
-  } finally { URL.revokeObjectURL(url); }
-}
 function useImage(orgId: string, flash: (t: string) => void) {
   const [img, setImg] = useState<{ id: string; preview: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,7 +24,7 @@ function useImage(orgId: string, flash: (t: string) => void) {
     if (!(IMAGE_LIMITS.mimes as readonly string[]).includes(f.type)) { flash("La imagen tiene que ser JPG, PNG o WebP."); return; }
     setBusy(true);
     try {
-      const blob = await shrink(f);
+      const blob = await shrinkImage(f);
       const fd = new FormData(); fd.append("file", new File([blob], "imagen.jpg", { type: "image/jpeg" }));
       const res = await fetch(`/api/gym/${orgId}/community/images`, { method: "POST", body: fd, credentials: "same-origin" });
       const data = await res.json().catch(() => ({}));
