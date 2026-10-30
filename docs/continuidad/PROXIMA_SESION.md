@@ -1,6 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D156), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D157), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Alta aprobada sin 404 y sugerencias en Inicio (D157) — 29/10/2026
+
+- **Bug (JOIN-1):** una socia aprobada por QR veía «404» al entrar. «Continuar» volvía a pedir el acceso, salteaba el consentimiento y `/app` daba `notFound()` con la membresía en `pending_consent`. Afectó a las 2 últimas altas de producción, que ahora entran y ven el consentimiento.
+- **Archivos:** `components/access/AccessFlow.tsx` (`afterAuth`, `requestJoin`), `server/join/services.ts` (`href` según estado), `app/app/page.tsx` (redirige a `/acceso`).
+- **Sugerencias:** `Ideas.tsx` ahora vive en Inicio (`Home` en `MemberApp.tsx`), plegada; ya no está en Perfil.
+- **Pruebas:** web 243 ✓ (`annex.test.ts` cubre el `href`), E2E 36/36 ✓. Navegador: `/app` y el QR con `pending_consent` llevan a «Qué ve Gym Norte» → app.
+- **Próxima acción:** confirmar con la socia afectada que ya entra.
 
 ## «Sugerí una mejora» (D156) — 29/10/2026
 

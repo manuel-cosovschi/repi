@@ -128,7 +128,8 @@ export async function requestAccess(userId: string, s: string, p: { name?: strin
       if (m.status === "suspended" || m.status === "ended") kind = "reactivation";
       else {
         const extra = await tx.select().from(gymMemberLocation).where(and(eq(gymMemberLocation.gymMemberId, m.id), eq(gymMemberLocation.locationId, r.loc.id), isNull(gymMemberLocation.revokedAt)));
-        if (m.locationId === r.loc.id || extra.length) return { state: "already" as const, href: "/app" };
+        // Aprobada pero sin el consentimiento del socio: todavía no entra a /app; /acceso lo lleva a «Qué ve tu gimnasio».
+        if (m.locationId === r.loc.id || extra.length) return { state: "already" as const, href: m.status === "active" ? "/app" : "/acceso" };
         kind = "expansion";
       }
     }

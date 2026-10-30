@@ -25,6 +25,8 @@ Actualizado el 29/10, 18:30. Cada fila sale de [BUG_REGISTER.md](BUG_REGISTER.md
 | UX (incluye QR-1) | 14 | 14 | 0 |
 | Accesibilidad | 11 | 11 | 0 |
 
+**Después de la auditoría:** JOIN-1 (P0, alta aprobada por QR que terminaba en 404), reportado por el titular y corregido en D157. No se suma a los totales de arriba.
+
 **Verificación de los 46 corregidos, por tipo de evidencia:**
 
 | Evidencia | Cantidad |

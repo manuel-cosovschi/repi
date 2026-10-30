@@ -234,8 +234,11 @@ describe("acceso del socio por QR (criterios 10–19)", () => {
     const [req] = await db.select().from(schema.membershipRequest).where(eq(schema.membershipRequest.id, id));
     expect([req.decidedAs, req.validationMethod, req.decidedShiftId != null]).toEqual(["floor", "conocimiento_directo", true]);
     expect((await acc.memberOnboardingState(socio)).step).toBe("consentGym");
-    // Ya habilitado: escanear de nuevo lleva a la app, sin otra solicitud.
-    expect((await join.requestAccess(socio, slug, { terms: true })).state).toBe("already");
+    // Aprobado sin el consentimiento del socio: escanear de nuevo no crea otra solicitud y lleva a /acceso (al paso
+    // «Qué ve tu gimnasio»), no a /app, que todavía no lo deja entrar (antes daba 404).
+    expect(await join.requestAccess(socio, slug, { terms: true })).toEqual({ state: "already", href: "/acceso" });
+    await db.update(schema.gymMember).set({ status: "active" }).where(eq(schema.gymMember.userId, socio));
+    expect(await join.requestAccess(socio, slug, { terms: true })).toEqual({ state: "already", href: "/app" });
   });
 
   it("recepción resuelve sin turno; rechazo con motivo apto; nadie aprueba su propia solicitud", async () => {

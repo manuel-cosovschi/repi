@@ -126,7 +126,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   // Función simple (no memorizada): lee siempre el flujo y los campos vigentes (QR y activación dependen de ellos).
   async function afterAuth(code: string | null = pendingCode) {
     setSignedIn(true);
-    if (initial.join && flow === "join") { await requestJoin(); return; }
+    // Con la solicitud ya cargada (p. ej. «¡Acceso aprobado!» → Continuar) no se vuelve a pedir: sigue al paso que toca
+    // (qué ve el gimnasio). Pedirla de nuevo devolvía «ya sos socio» y salteaba el consentimiento: /app daba 404.
+    if (initial.join && flow === "join" && !joinReq) { await requestJoin(); return; }
     if (initial.activate && flow === "activate") { await acceptActivation(); return; }
     if (code) {
       const inv = await api<Invite>(`invitations/${code}`);
@@ -227,7 +229,11 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const pwHintField = (label = "Contraseña"): FieldV => ({ k: "pw", label, type: "password", ac: "new-password", hint: passwordHint(s("pw")), hintOk: passwordOk(s("pw")) });
   async function requestJoin() {
     const r = await api<{ state: "already" | "pending" | "created"; href?: string; request?: JoinReq }>(`/api/join/${initial.join}`, { body: { name: s("name") || undefined, terms: true } });
-    if (r.state === "already") { clearEntry(); enter(r.href ?? "/app"); return; }
+    if (r.state === "already") {
+      const m = await loadMe();
+      if (m.member.step === "consentGym") { setFlow("member"); setHist([]); setStep("consentGym"); return; }
+      clearEntry(); enter(r.href ?? "/app"); return;
+    }
     setJoinReq(r.request ?? null); setHist([]); setStep("joinStatus"); setErr(null);
   }
   async function refreshJoin() {
