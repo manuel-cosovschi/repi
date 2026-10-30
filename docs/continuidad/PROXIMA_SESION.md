@@ -10,6 +10,7 @@ Actualizado: 29/10/2026 (hasta D158), sobre la release candidata rc-2026.10.27 (
 - **Arreglo de paso:** `.sheet > * { flex-shrink: 0 }`: en hojas largas los botones quedaban aplastados.
 - **Pruebas:** web 245 ✓, dominio 154 ✓, guardas ✓, E2E 36/36 ✓, sin deriva de esquema. Navegador (iPhone emulado): armar, guardar y empezar una rutina propia; la sesión muestra la serie anterior y la sugerencia de REPI.
 - **Pendiente:** el alumno no puede crear ejercicios que no estén en la biblioteca (los suma su coach o el gym).
+- **Chat del alumno (después de D158):** con la conversación abierta el chat ocupa todo el alto y el campo para escribir queda a 12 px de la barra (antes, ~195 px de vacío). Arriba, 12 px menos de aire (sigue fuera del difuminado de iOS 26, D122). El texto del campo dice «Escribile al equipo de sala» (decía «a el»). CSS en `member.css` (`.mb-scroll:has(.mb-chat)`), texto en `ChatPane.tsx`.
 
 ## Alta aprobada sin 404 y sugerencias en Inicio (D157) — 29/10/2026
 
