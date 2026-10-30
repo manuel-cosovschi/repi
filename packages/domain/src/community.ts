@@ -61,6 +61,7 @@ export const ACHIEVEMENT_KIND = {
   month_12: "Constancia del mes",
   challenge_validated: "Marca validada",
   gym_record: "Récord del gym",
+  trophy: "Trofeo", // D166: escalón de una familia de trofeos (levels.ts)
 } as const;
 export type AchievementKind = keyof typeof ACHIEVEMENT_KIND;
 /** [S] Constancia: 12 sesiones completadas en un mes calendario. */

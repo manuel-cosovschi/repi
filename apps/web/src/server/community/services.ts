@@ -4,7 +4,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
   ACHIEVEMENT_KIND, CARD_TOKEN_TTL_MIN, CHALLENGE_CATEGORIES, MONTH_SESSIONS_GOAL, SAFETY_NOTE, ageAt, attemptValueOk, bestByMember, fileOk, fmtValue,
-  isDivision, isNewRecord, isUnit, levelOf, localDate, weekOf, type AchievementKind, type ChallengeUnit, type Division,
+  isDivision, isNewRecord, isUnit, localDate, weekOf, type AchievementKind, type ChallengeUnit, type Division,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, newInviteCode, type Tx } from "../access/util";
@@ -337,6 +337,8 @@ export async function awardTrainingAchievements(userId: string, now = new Date()
     const label = new Intl.DateTimeFormat("es-AR", { timeZone: "UTC", month: "long" }).format(new Date(`${month}-15T12:00:00Z`));
     if (await grant(db, userId, null, "month_12", month, `${ACHIEVEMENT_KIND.month_12}`, `${MONTH_SESSIONS_GOAL} sesiones en ${label}`)) out.push("month_12");
   }
+  const lv = await import("./levels"); // D166: trofeos alcanzados con esta sesión
+  if ((await lv.syncTrophies(userId, await lv.levelStats(userId))).length) out.push("trophy");
   return out;
 }
 
@@ -441,11 +443,12 @@ export async function myGymHome(userId: string, orgId?: string | null, now = new
   const holders = await recordHolders(chs.map((c) => c.recordAttemptId).filter(Boolean) as string[]);
   const items = await db.select().from(catalogItem).where(and(eq(catalogItem.orgId, r.org.id), isNull(catalogItem.deletedAt), or(isNull(catalogItem.locationId), eq(catalogItem.locationId, r.loc.id))))
     .orderBy(desc(catalogItem.highlighted), asc(catalogItem.category), asc(catalogItem.name));
-  const ach = await db.select().from(achievement).where(and(eq(achievement.userId, userId), or(isNull(achievement.orgId), eq(achievement.orgId, r.org.id)))).orderBy(asc(achievement.createdAt));
+  const ach = await db.select().from(achievement).where(and(eq(achievement.userId, userId), or(isNull(achievement.orgId), eq(achievement.orgId, r.org.id)), ne(achievement.kind, "trophy"))).orderBy(asc(achievement.createdAt));
   const notices = await db.select().from(memberNotice).where(and(eq(memberNotice.userId, userId), or(isNull(memberNotice.orgId), eq(memberNotice.orgId, r.org.id)))).orderBy(desc(memberNotice.createdAt)).limit(20);
   const onFloor = await db.select({ name: user.name }).from(shiftLog).innerJoin(user, eq(user.id, shiftLog.userId)).where(and(eq(shiftLog.locationId, r.loc.id), isNull(shiftLog.endedAt)));
   const prizes = await db.select({ n: sql<number>`count(*)::int` }).from(prize).where(and(eq(prize.userId, userId), eq(prize.orgId, r.org.id), eq(prize.status, "ready")));
-  const lv = levelOf(ach.length);
+  const { myLevel } = await import("./levels"); // D166: nivel por entrenamiento y logros (import diferido: ciclo de módulos)
+  const lv = await myLevel(userId);
   const locked = chs.filter((c) => c.status === "active" && !ach.some((a) => a.kind === "challenge_validated" && a.sourceKey === c.id));
   return {
     org: { id: r.org.id, name: r.org.name }, location: { id: r.loc.id, name: r.loc.name, receptionHours: r.loc.receptionHours }, safety: SAFETY_NOTE,
@@ -474,7 +477,8 @@ export async function myGymHome(userId: string, orgId?: string | null, now = new
 export async function markNoticesSeen(userId: string) {
   const now = new Date();
   await db.update(memberNotice).set({ seenAt: now }).where(and(eq(memberNotice.userId, userId), isNull(memberNotice.seenAt)));
-  await db.update(achievement).set({ seenAt: now }).where(and(eq(achievement.userId, userId), isNull(achievement.seenAt)));
+  // Los trofeos (D166) se marcan vistos al cerrar su animación de desbloqueo, no al abrir el gym.
+  await db.update(achievement).set({ seenAt: now }).where(and(eq(achievement.userId, userId), isNull(achievement.seenAt), ne(achievement.kind, "trophy")));
 }
 
 /** Intento de récord: con video, o (D165) «en sala»: sin video, lo valida en persona un profe con turno en la sede. */
@@ -543,6 +547,6 @@ export async function memberCommunitySummary(orgId: string, gymMemberId: string)
   const visits = await db.select({ n: sql<number>`count(*)::int` }).from(attendance).where(and(eq(attendance.gymMemberId, m.id), gte(attendance.at, addDays(new Date(), -30))));
   return {
     attempts: attempts.map((x) => ({ challenge: x.c.title, value: fmtValue(v10(x.a.valueX10), x.c.unit), status: x.a.status, newRecord: x.a.newRecord, at: x.a.createdAt })),
-    achievements: ach.length, level: levelOf(ach.length).level, visits30: visits[0]?.n ?? 0,
+    achievements: ach.length, level: await (await import("./levels")).levelOfUser(m.userId), visits30: visits[0]?.n ?? 0,
   };
 }

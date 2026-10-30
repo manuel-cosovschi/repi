@@ -1,6 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D165), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D166), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Nivel REPI y trofeos con desbloqueo 3D (D166) — 30/10/2026
+
+- **Dominio:** `packages/domain/src/levels.ts` (`XP`, `levelFromXp`, `xpBreakdown`, `TROPHIES`, `trophyState`, `isFullBody`) + `levels.test.ts`; `ACHIEVEMENT_KIND.trophy`.
+- **Servidor:** `server/community/levels.ts` (`levelStats`, `syncTrophies`, `myLevel`, `markTrophiesSeen`, `levelOfUser`); `app/api/me/level/route.ts`; `awardTrainingAchievements` otorga trofeos; `myGymHome.level` es el nivel nuevo; `markNoticesSeen` no toca trofeos; la ficha del socio para el equipo usa `levelOfUser`. Sin migración (`achievement.kind` es texto).
+- **UI:** `components/member/Trophies.tsx` (`Medal`, `LevelPanel`, `TrophyUnlock`); en `MemberApp.tsx` (Progreso y desbloqueo automático, salvo demo) y `Gym.tsx` (Logros). Estilos `.lv*`, `.tcase*`, `.tm*`, `.tu*` en `member.css`; la píldora de la demo se oculta con `.tu`.
+- **Pruebas:** dominio 160 ✓, web 253 ✓ (`levels.test.ts`: 2 sesiones → 2 días, 6 récords, 6 ejercicios, 6,6 t, una semana de cuerpo completo = 152 puntos, nivel 2, trofeos Fuerza y Cuerpo completo bronce, no se otorgan dos veces, abrir el gym no los marca vistos, récord del gym suma 60), guardas ✓, sin deriva, E2E 36/36 ✓. Navegador (iPhone emulado, demo alumna): nivel 4 con 347 puntos, vitrina en Progreso y Logros, animación revisada cuadro por cuadro (620/1900 ms y final), giro con el dedo muestra la cara trasera y vuelve; plata y oro revisados.
+- **Arreglo durante la prueba:** el brillo animado con `fill: both` hacía que Chrome dibujara el frente espejado durante el giro; ahora se anima sin relleno previo.
+- **Sin probar en navegador:** el salto automático con una cuenta real (en la demo no salta a propósito); cubierto por la prueba de `unseen`.
+- **Próximo:** animación de entrada de la marca (F-BR-02) y asistente de REPI para el coach.
 
 ## Récord validado en sala por el profe (D165) — 30/10/2026
 

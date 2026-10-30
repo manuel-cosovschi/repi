@@ -1053,7 +1053,7 @@ export const achievement = pgTable("achievement", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   orgId: text("org_id").references(() => organization.id, { onDelete: "cascade" }), // null = logro de entrenamiento REPI
-  kind: text("kind", { enum: ["first_session", "month_12", "challenge_validated", "gym_record"] }).notNull(),
+  kind: text("kind", { enum: ["first_session", "month_12", "challenge_validated", "gym_record", "trophy"] }).notNull(), // trophy: D166
   title: text("title").notNull(),
   detail: text("detail").notNull(),
   sourceKey: text("source_key").notNull(),

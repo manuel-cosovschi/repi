@@ -1671,7 +1671,7 @@
    "diseno": "sin diseño",
    "certeza": "documentado",
    "conflicto": null,
-   "estado_tecnico": "sin_implementar",
+   "estado_tecnico": "probado",
    "dependencias": "—",
    "aceptacion": "",
    "pendiente": "Criterio de aceptación vacío en el handoff: definir",

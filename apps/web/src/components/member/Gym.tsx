@@ -13,6 +13,7 @@ import { Carousel } from "@/components/motion/Carousel";
 import { uploadVideo } from "@/lib/upload";
 import { Check, QrCode, VideoCamera } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
+import { LevelPanel, type LevelData } from "./Trophies";
 import { useScrollLock } from "@/components/ui/scrollLock";
 
 type Home = {
@@ -21,7 +22,7 @@ type Home = {
   challenges: { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; record: string; holder: string | null; myBest: string | null; last: { status: string; reason: string | null; value: string; method: string } | null }[];
   catalog: { id: string; category: string; name: string; priceArs: number; promo: string | null; highlighted: boolean; available: boolean; imageId: string | null }[];
   achievements: { id: string; kind: string; title: string; detail: string; at: string; unseen: boolean }[];
-  locked: { title: string; detail: string }[]; level: { level: number; toNext: number; pct: number }; readyPrizes: number;
+  locked: { title: string; detail: string }[]; level: LevelData; readyPrizes: number;
   notices: { id: string; kind: string; title: string; body: string; at: string; unseen: boolean }[];
 };
 export type GymTab = "news" | "ch" | "shop" | "logros" | "club";
@@ -156,11 +157,8 @@ function Sticker({ on, size = 60 }: { on: boolean; size?: number }) {
 function Logros({ h }: { h: Home }) {
   return (
     <>
-      <div className="lvl">
-        <div><span style={{ fontSize: 22, fontWeight: 600 }}>Nivel {h.level.level}</span><span style={{ fontSize: 13, color: "#5DE6D8" }}>{h.achievements.length} logro{h.achievements.length === 1 ? "" : "s"}</span></div>
-        <div className="lvl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={h.level.pct} aria-label="Progreso al próximo nivel"><i style={{ width: `${Math.max(8, h.level.pct)}%` }} /></div>
-        <span className="mb-muted" style={{ fontSize: 12 }}>Te falta{h.level.toNext === 1 ? "" : "n"} {h.level.toNext} logro{h.level.toNext === 1 ? "" : "s"} para el nivel {h.level.level + 1}</span>
-      </div>
+      <LevelPanel data={h.level} />
+      <h2 style={{ margin: "6px 0 0" }}>Logros</h2>
       <div className="stickers">
         {h.achievements.map((a) => <div key={a.id}><Sticker on /><b>{a.title}</b><small>{a.detail}</small></div>)}
         {h.locked.map((a, i) => <div key={i} style={{ opacity: .45 }}><Sticker on={false} /><b>{a.title}</b><small>{a.detail}</small></div>)}

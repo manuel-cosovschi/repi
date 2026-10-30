@@ -31,6 +31,7 @@ import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
+import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -58,6 +59,14 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [workout, setWorkout] = useState<string | null>(null);
   const [hist, setHist] = useState<History | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // D166: trofeos nuevos se muestran con su desbloqueo 3D al abrir la app o al volver de entrenar. En la demo no salta
+  // solo (taparía la guía): se ve tocando un trofeo de la vitrina.
+  const [unlocks, setUnlocks] = useState<Unlock[]>([]);
+  const checkTrophies = useCallback(() => {
+    if (typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
+    api<LevelData>("/api/me/level").then((l) => { if (l.unseen.length) setUnlocks(l.unseen); }).catch(() => {});
+  }, []);
+  const closeUnlocks = useCallback(() => { setUnlocks([]); void api("/api/me/level", { body: {} }).catch(() => {}); }, []);
   const [err, setErr] = useState<string | null>(null);
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const flash = useCallback((x: string) => { clearTimeout(tt.current); setToast(x); tt.current = setTimeout(() => setToast(null), 2800); }, []);
@@ -90,7 +99,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       await ensureOwner(x.userId).catch(() => {});
       await saveTraining(x).catch(() => {});
       setT(x); setErr(null); setOfflineAt(null);
-      void loadInbox(); void loadFeed(); void loadPresence();
+      void loadInbox(); void loadFeed(); void loadPresence(); checkTrophies();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404)) { await wipeLocal().catch(() => {}); setErr(e.message); return null; }
       const cached = await loadTraining<Training>().catch(() => undefined);
@@ -113,7 +122,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       if ((ls.status === "completed" || ls.status === "abandoned") && Date.now() - new Date(ls.updatedAt).getTime() > 86_400_000 && !(await pendingFor(ls.id))) await delLocal(ls.id);
     }
     return null;
-  }, [loadInbox, loadPresence]);
+  }, [loadInbox, loadPresence, checkTrophies]);
   useEffect(() => { load(); }, [load]);
   // QA 29/10 (UX-8): al volver la conexión se recarga; antes «Sin conexión» quedaba fijo hasta que el coach cambiara algo.
   useEffect(() => {
@@ -341,6 +350,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       {sheet?.type === "injury" && <InjurySheet flash={flash} onClose={() => setSheet(null)} onSaved={() => setPrivKey((k) => k + 1)} />}
     </div>
     {/* A11Y-1: el aviso queda fuera de .mb-col, que se vuelve inert con una hoja abierta (si no, el lector no lo anuncia). */}
+    {unlocks.length > 0 && <TrophyUnlock items={unlocks} onDone={closeUnlocks} />}
     <Toast t={toast} /></div></UnitContext.Provider>
   );
 }
@@ -701,6 +711,7 @@ function Progress({ t, hist, err, retry, flash, offline }: { t: Training; hist: 
         )}
         <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
       </section>
+      {!offline && <LevelPanel />}
       <MyGoals />
       <BeforeRepi flash={flash} offline={offline} />
       <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>

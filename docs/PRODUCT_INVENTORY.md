@@ -4,7 +4,7 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6, persistente 9, probado 81, sin_implementar 44.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6, persistente 9, probado 82, sin_implementar 43.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
@@ -94,7 +94,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6,
 | F-RC-01 | Repi Club · feed y publicaciones de logros | Repi Club | Alumno, coach, gym | documentado | sin diseño | probado | features.json · F-RC-01 | Voluntario; nunca datos de salud |
 | F-RC-02 | Reacciones y comentarios | Repi Club | Alumno | documentado | sin diseño | probado | features.json · F-RC-02 | Criterio de aceptación vacío en el handoff: definir |
 | F-RC-03 | Rankings con transiciones FLIP | Repi Club | Alumno | documentado | sin diseño | probado | features.json · F-RC-03 | Sin incentivar chequeo compulsivo |
-| F-RC-04 | Trofeos (familia + desbloqueo 3D) | Repi Club | Alumno | documentado | sin diseño | sin_implementar | features.json · F-RC-04 | Criterio de aceptación vacío en el handoff: definir |
+| F-RC-04 | Trofeos (familia + desbloqueo 3D) | Repi Club | Alumno | documentado | sin diseño | probado | features.json · F-RC-04 | Criterio de aceptación vacío en el handoff: definir |
 | F-RC-05 | Moderación del Club | Repi Club | Moderadores | documentado | sin diseño | probado | features.json · F-RC-05 | Criterio de aceptación vacío en el handoff: definir |
 | F-AI-01 | Asistente IA del coach | IA | Coach | documentado | sin diseño | sin_implementar | features.json · F-AI-01 | Revisión humana obligatoria; no diagnosticar |
 | F-PU-01 | Sitio público | Sitio público | Visitante | documentado | sin diseño | sin_implementar | features.json · F-PU-01 | Criterio de aceptación vacío en el handoff: definir |
