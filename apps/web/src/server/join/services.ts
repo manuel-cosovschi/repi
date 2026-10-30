@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
   JOIN_ESCALATE_MIN, JOIN_REQUEST_TTL_HOURS, PUSH_JOIN, REJECT_REASONS, TERMS_VERSION, VALIDATION_METHODS, gymCan, isValidationMethod, orgOperational, shortCodeOf,
-  type RejectReason,
+  type RejectReason, TZ,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -303,6 +303,29 @@ async function mailJoinDecision(userId: string, orgId: string, status: "approved
   await sendMail(status === "approved"
     ? { to: u.email, subject: `${o.name} aprobó tu acceso a REPI`, body: `${hi} ya podés entrar.\nAbrí ${appUrl()}/acceso, confirmá qué ve tu gimnasio y empezá a entrenar.` }
     : { to: u.email, subject: `Tu pedido de acceso a ${o.name}`, body: `${hi} el gimnasio no aprobó tu pedido. Mirá el motivo en ${appUrl()}/acceso o consultá en recepción.` });
+}
+
+/**
+ * D160: recordatorio único a las 8 de la mañana (hora argentina) para quien quedó aprobado sin terminar el alta (falta «Qué ve
+ * tu gimnasio») desde hace al menos 6 horas. Lo dispara el cron de cada minuto; el registro de auditoría evita repetirlo.
+ */
+export async function remindPendingConsent(now = new Date()) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: TZ }).format(now));
+  if (hour !== 8) return 0;
+  const rows = await db.select({ id: gymMember.id, orgId: gymMember.orgId, email: user.email, name: user.name, org: organization.name }).from(gymMember)
+    .innerJoin(user, eq(user.id, gymMember.userId)).innerJoin(organization, eq(organization.id, gymMember.orgId))
+    .where(and(eq(gymMember.status, "pending_consent"), eq(organization.isDemo, false), lt(gymMember.createdAt, new Date(now.getTime() - 6 * 3_600_000)),
+      sql`not exists (select 1 from ${schema.auditEvent} a where a.action = 'join.consent_reminder' and a.resource_id = ${gymMember.id})`));
+  let sent = 0;
+  for (const r of rows) {
+    // Primero el registro: si el envío falla no se reintenta cada minuto (el proveedor ya avisa el error).
+    await audit(db, { actorUserId: null, orgId: r.orgId, action: "join.consent_reminder", resourceType: "gym_member", resourceId: r.id });
+    await sendMail({
+      to: r.email, subject: `${r.org} aprobó tu acceso: falta un paso`,
+      body: `Hola ${r.name.split(" ")[0]}: ${r.org} ya aprobó tu acceso a REPI.\nFalta confirmar qué ve tu gimnasio para empezar a entrenar. Entrá en ${appUrl()}/acceso con tu email.`,
+    }).then(() => sent++, () => {});
+  }
+  return sent;
 }
 
 // ── Gestión de accesos habilitados (anexo §8) ───────────────────────────────

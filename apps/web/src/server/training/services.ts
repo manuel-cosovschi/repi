@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizz
 import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
-  applyLoad, coachSetLoads, suggestNext, type LastSet,
+  applyLoad, coachSetLoads, suggestNext, type LastSet, workoutAutoClose, WORKOUT_IDLE_CLOSE_MS,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -1024,6 +1024,42 @@ export async function sessionAction(userId: string, sessionId: string, action: "
     return { ...r, achievements: await awardTrainingAchievements(userId, now).catch(() => []) };
   }
   return r;
+}
+
+/**
+ * D160: cierra los entrenamientos olvidados (cron de cada minuto). En el gimnasio, fuera del horario (a las 22 o si quedaron de
+ * otro día); en cualquier caso, tras 6 horas sin actividad. Termina en la última actividad (no suma las horas de abandono):
+ * con series queda completado, sin series se descarta, como «Finalizar». Si el teléfono manda después una serie de ese
+ * entrenamiento, la conserva y la persona decide (QA 29/10, DATA-7).
+ */
+export async function closeIdleWorkouts(now = new Date()) {
+  const lastSet = sql<string | null>`(select max(${setLog.completedAt}) from ${setLog} where ${setLog.sessionId} = ${workoutSession.id})`;
+  const open = await db.select({ s: workoutSession, isDemo: organization.isDemo, lastSet }).from(workoutSession)
+    .leftJoin(gymMember, eq(gymMember.id, workoutSession.gymMemberId)).leftJoin(organization, eq(organization.id, gymMember.orgId))
+    .where(inArray(workoutSession.status, ["in_progress", "paused"]));
+  let closed = 0;
+  for (const r of open) {
+    const lastActivityAt = new Date(Math.max(r.s.startedAt.getTime(), r.s.lastResumedAt?.getTime() ?? 0, r.lastSet ? new Date(r.lastSet).getTime() : 0));
+    const gymHours = !!r.s.gymMemberId && r.isDemo === false && process.env.REPI_GYM_HOURS !== "off";
+    if (!workoutAutoClose({ startedAt: r.s.startedAt, lastActivityAt, gymHours }, now)) continue;
+    const status = await db.transaction(async (tx) => {
+      const [s] = await tx.select().from(workoutSession).where(eq(workoutSession.id, r.s.id)).for("update");
+      if (!s || s.revision !== r.s.revision) return null; // la persona lo tocó mientras tanto: queda para la próxima vuelta
+      const next = applySessionAction(s, "finish", lastActivityAt, !!r.lastSet);
+      if (!next) return null;
+      await tx.update(workoutSession).set({ ...next, revision: s.revision + 1, updatedAt: now }).where(eq(workoutSession.id, s.id));
+      await audit(tx, { actorUserId: null, action: "workout.auto_closed", resourceType: "workout_session", resourceId: s.id,
+        meta: { status: next.status, reason: gymHours && now.getTime() - lastActivityAt.getTime() < WORKOUT_IDLE_CLOSE_MS ? "gym_hours" : "idle" } });
+      return next.status;
+    });
+    if (!status) continue;
+    closed++;
+    if (status === "completed") {
+      const { awardTrainingAchievements } = await import("../community/services");
+      await awardTrainingAchievements(r.s.userId, now).catch(() => []);
+    }
+  }
+  return closed;
 }
 
 export async function sessionFeedback(userId: string, sessionId: string, p: { rpe: number; note?: string | null }) {

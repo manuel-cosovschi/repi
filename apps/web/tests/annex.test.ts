@@ -242,6 +242,14 @@ describe("acceso del socio por QR (criterios 10–19)", () => {
     // Aprobado sin el consentimiento del socio: escanear de nuevo no crea otra solicitud y lleva a /acceso (al paso
     // «Qué ve tu gimnasio»), no a /app, que todavía no lo deja entrar (antes daba 404).
     expect(await join.requestAccess(socio, slug, { terms: true })).toEqual({ state: "already", href: "/acceso" });
+    // D160: si no termina el alta, a las 8 (hora argentina) del día siguiente le llega un recordatorio, una sola vez.
+    const day2 = (h: string) => new Date(`${new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10)}T${h}:00-03:00`);
+    expect(await join.remindPendingConsent(day2("09:05"))).toBe(0); // fuera de la hora del recordatorio
+    expect(await join.remindPendingConsent(day2("08:05"))).toBeGreaterThanOrEqual(1);
+    const reminders = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, u.email));
+    expect(reminders.filter((x) => x.subject.includes("falta un paso"))).toHaveLength(1);
+    await join.remindPendingConsent(day2("08:06"));
+    expect((await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, u.email))).filter((x) => x.subject.includes("falta un paso"))).toHaveLength(1);
     await db.update(schema.gymMember).set({ status: "active" }).where(eq(schema.gymMember.userId, socio));
     expect(await join.requestAccess(socio, slug, { terms: true })).toEqual({ state: "already", href: "/app" });
   });

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { TECHNIQUES, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { signOutSafely } from "@/lib/session-cleanup";
-import { allLocal, delLocal, ensureOwner, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
+import { allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
 import { ApiError } from "@/lib/api";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -83,8 +83,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
   // Online primero; si no hay red, el programa guardado en el teléfono. Antes de mostrar nada se verifica el dueño.
   const load = useCallback(async () => {
+    let srvOpen: string | null | undefined; // undefined: sin respuesta del servidor
     try {
       const x = await api<Training>("/api/me/training");
+      srvOpen = x.openSession;
       await ensureOwner(x.userId).catch(() => {});
       await saveTraining(x).catch(() => {});
       setT(x); setErr(null); setOfflineAt(null);
@@ -95,7 +97,17 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       if (cached) { setT(cached.t); setOfflineAt(cached.at); setErr(null); }
       else setErr("Sin conexión y sin programa guardado en este teléfono.");
     }
-    setLocalOpen(await openLocal().catch(() => null));
+    let lo = await openLocal().catch(() => null);
+    // D160: el servidor puede cerrar solo un entrenamiento olvidado (22 h en el gym, 6 h sin actividad). Si el teléfono no tiene
+    // nada pendiente de ese entrenamiento, se actualiza la copia local para que Inicio no lo muestre «en curso».
+    if (lo && srvOpen !== undefined && srvOpen !== lo.id && lo.synced && !(await pendingFor(lo.id).catch(() => 1))) {
+      try {
+        const f = fromServer(await api<Parameters<typeof fromServer>[0]>(`/api/me/sessions/${lo.id}`), lo.rest);
+        await putLocal(f);
+        if (f.status !== "in_progress" && f.status !== "paused") lo = null;
+      } catch { /* sin conexión: queda como estaba */ }
+    }
+    setLocalOpen(lo);
     // Minimización: sesiones terminadas y ya sincronizadas no se guardan en el teléfono más de un día.
     for (const ls of await allLocal().catch(() => [])) {
       if ((ls.status === "completed" || ls.status === "abandoned") && Date.now() - new Date(ls.updatedAt).getTime() > 86_400_000 && !(await pendingFor(ls.id))) await delLocal(ls.id);

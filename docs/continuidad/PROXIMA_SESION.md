@@ -1,13 +1,21 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D159), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D160), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Entrenamientos que no quedan abiertos y recordatorio de alta (D160) — 30/10/2026
+
+- **Pop-up:** `components/member/Workout.tsx` (estado `still`, `lastAct`, `WORKOUT_IDLE_PROMPT_MS` = 20 min en `packages/domain/src/gym.ts`). «Volver» con el entrenamiento abierto pregunta; también tras 20 min sin tocar nada (no en descanso).
+- **Cierre automático:** `workoutAutoClose` (dominio) y `closeIdleWorkouts` (`server/training/services.ts`) en `/api/cron/notifications` (`workoutsClosed`). Gym: fuera de 6 a 22; todos: 6 h sin actividad. Terminan en la última actividad. `MemberApp.load` actualiza la copia local si el servidor lo cerró.
+- **Recordatorio:** `remindPendingConsent` (`server/join/services.ts`), cron `consentReminders`: a las 8 hora argentina, una vez por socio (auditoría `join.consent_reminder`). Las 5 altas de Smart Center lo reciben a las 8 del 30/10.
+- **Pruebas:** dominio 155 ✓, web 246 ✓ (cierre por inactividad en `adaptive`, recordatorio en `annex`), guardas ✓, E2E 36/36 ✓. Navegador (iPhone emulado): «Volver» → pop-up; «Pausar y seguir más tarde» pausa y sale; con el reloj adelantado 21 min aparece solo y «Pausar» pausa.
+- **Sin probar:** el cierre por horario del gym en integración (las pruebas corren con `REPI_GYM_HOURS=off`; la regla está cubierta en dominio). Verificar a las 8 que salieron los 5 recordatorios (auditoría `join.consent_reminder` y Resend).
 
 ## Auditoría post-lanzamiento (D159) — 30/10/2026
 
 - **Producción (sólo lectura):** sin errores en la última hora de Vercel. 5 de 7 altas aprobadas en Smart Center siguen en `pending_consent`: nunca volvieron a entrar. La cola push dice «sin dispositivos» para todos salvo una suscripción (titular).
 - **Arreglos:** email al aprobar o rechazar el acceso (`mailJoinDecision` en `server/join/services.ts`); `purgeSandboxes` borra programas y alumnos antes que la organización y aísla cada demo; `/api/cron/notifications` corre cada tarea por separado; `.modal` con `max-height: 100%` y `.modal > * { flex-shrink: 0 }`; `.sheet` debajo del difuminado; check-in sin programa; `.gq-warn` sobre la zona segura. Detalle en BUG_REGISTER (AUD-1 a AUD-4).
 - **Pruebas:** web 245 ✓ (`annex` con email de aprobación, `sandbox` con ejercicio propio en un programa, falla sin el arreglo), guardas ✓, sin deriva de esquema, E2E 36/36 ✓, navegador con iPhone emulado (modal largo con zona segura de 90 px).
-- **Pendiente con decisión del titular:** (1) mandar el email de aprobación a las 5 personas ya trabadas (son correos reales); (2) cerrar solos los entrenamientos olvidados abiertos (hay uno real en pausa desde el 29/10 00:00; uno que queda «en curso» suma horas a la duración).
+- **Resuelto en D160:** las 5 personas trabadas reciben el recordatorio a las 8 y los entrenamientos olvidados se cierran solos.
 
 ## Horario del gym, «Mis rutinas» y sugerencias sin email (D158) — 29/10/2026
 

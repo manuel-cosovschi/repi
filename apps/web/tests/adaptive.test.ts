@@ -166,3 +166,28 @@ describe("Mis rutinas (D158)", () => {
     expect(await own.listOwnRoutines(user)).toEqual([]);
   });
 });
+
+describe("entrenamientos olvidados (D160)", () => {
+  it("se cierran solos tras 6 horas sin actividad, en la última actividad; sin series se descartan", async () => {
+    const user = await member(false);
+    const { id } = await own.saveOwnRoutine(user, { name: "Olvidada", exercises: [{ exerciseId: SQ, sets: 3, reps: "8", weightKg: null, restSec: null, note: null }] });
+    const t0 = new Date(Date.now() - 60_000);
+    const at = (min: number) => new Date(t0.getTime() + min * 60_000);
+    const sid = randomUUID();
+    await own.startOwnRoutine(user, id, sid, t0);
+    const g = await tr.getSession(user, sid);
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: g.exercises[0].id, setIndex: 0, weightKg: 80, reps: 8, rir: 2 }, at(10));
+    await tr.closeIdleWorkouts(at(3 * 60)); // 3 horas: sigue abierto
+    expect((await tr.getSession(user, sid)).status).toBe("in_progress");
+    await tr.closeIdleWorkouts(at(10 + 6 * 60 + 1));
+    const done = await tr.getSession(user, sid);
+    expect(done.status).toBe("completed");
+    expect(new Date(done.endedAt!).getTime()).toBe(at(10).getTime()); // termina en la última serie, sin sumar horas
+    expect(done.activeMs).toBeLessThanOrEqual(10 * 60_000 + 1000);
+    // Sin series: se descarta.
+    const sid2 = randomUUID();
+    await own.startOwnRoutine(user, id, sid2, at(7 * 60));
+    await tr.closeIdleWorkouts(at(14 * 60));
+    expect((await tr.getSession(user, sid2)).status).toBe("abandoned");
+  });
+});

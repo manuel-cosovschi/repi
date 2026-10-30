@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bandsCovered, coverage, gymOpenAt, shiftAutoEnd, deliveryState, floorActionAllowed, gymCan, median, mentionsHealth, per10h, ratio, REVIEW_MIN_N, reviewAggregate, shiftHours,
+  bandsCovered, coverage, gymOpenAt, shiftAutoEnd, deliveryState, floorActionAllowed, gymCan, median, mentionsHealth, per10h, ratio, REVIEW_MIN_N, reviewAggregate, shiftHours, workoutAutoClose,
 } from "./gym";
 
 describe("capacidades por rol (matriz 06)", () => {
@@ -47,6 +47,16 @@ describe("turno (D08)", () => {
     // Abierto fuera de horario (antes de la regla): termina ya, sin sumar horas.
     expect(shiftAutoEnd(at("2026-10-29T05:00:00-03:00"), at("2026-10-29T05:30:00-03:00"))).toEqual(at("2026-10-29T05:30:00-03:00"));
     expect(shiftAutoEnd(at("2026-10-29T23:00:00-03:00"), at("2026-10-29T23:10:00-03:00"))).toEqual(at("2026-10-29T23:00:00-03:00"));
+  });
+  it("D160: un entrenamiento abierto se cierra solo a las 22 en el gym o tras 6 horas sin actividad", () => {
+    const at = (iso: string) => new Date(iso);
+    const start = at("2026-10-30T20:00:00-03:00");
+    const gym = { startedAt: start, lastActivityAt: at("2026-10-30T21:40:00-03:00"), gymHours: true };
+    expect(workoutAutoClose(gym, at("2026-10-30T21:50:00-03:00"))).toBe(false);
+    expect(workoutAutoClose(gym, at("2026-10-30T22:00:00-03:00"))).toBe(true);
+    // Con un coach (sin horario de gym) sigue abierto de noche, pero no más de 6 horas sin actividad.
+    expect(workoutAutoClose({ ...gym, gymHours: false }, at("2026-10-30T23:30:00-03:00"))).toBe(false);
+    expect(workoutAutoClose({ ...gym, gymHours: false }, at("2026-10-31T03:40:00-03:00"))).toBe(true);
   });
   it("cobertura detecta huecos y no exige la noche del domingo", () => {
     const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];

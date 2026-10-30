@@ -4,6 +4,7 @@
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
+import { WORKOUT_IDLE_PROMPT_MS } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -150,6 +151,19 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const left = rest ? (rest.paused ? rest.left : restLeft(rest.end, now)) : 0;
   useEffect(() => { if (s && rest && !rest.paused && left <= 0) { void commit({ ...s, rest: null }); flash("Descanso terminado. ¡A la próxima serie!"); } }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // D160: «¿Seguís entrenando?» al salir con el entrenamiento abierto y tras 20 minutos sin tocar nada (no durante un descanso).
+  // La última actividad arranca de lo guardado (inicio, reanudación, última serie): si la app se abre horas después, pregunta.
+  const [still, setStill] = useState<null | "leave" | "idle">(null);
+  const lastAct = useRef(Date.now());
+  const seeded = useRef<string | null>(null);
+  useEffect(() => {
+    if (!s || seeded.current === s.id) return;
+    seeded.current = s.id;
+    lastAct.current = Math.max(Date.parse(s.startedAt), s.lastResumedAt ? Date.parse(s.lastResumedAt) : 0, ...Object.values(s.sets).map((x) => (x.at ? Date.parse(x.at) : 0)));
+  }, [s]);
+  const idle = !!s && s.status === "in_progress" && !(rest && !rest.paused) && now - lastAct.current >= WORKOUT_IDLE_PROMPT_MS;
+  useEffect(() => { if (idle && !still && !summary) setStill("idle"); }, [idle]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const ex = s?.exercises[exIdx];
   // F-HX-22: aviso local al terminar el descanso si la app pasa a segundo plano (opcional, por dispositivo).
   const restEnd = rest && !rest.paused ? rest.end : null;
@@ -210,11 +224,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action, at: new Date().toISOString() });
     if (action === "pause") flash("Entrenamiento en pausa. El reloj se detuvo.");
   };
-  const finish = async () => {
+  const finish = async (confirmed = false) => {
     if (!s) return;
     // «Finalizar» está siempre en la cabecera: terminar con series pendientes se confirma (F-06). Lo registrado queda igual.
     const left = s.exercises.reduce((n, e, i) => n + (skippedAt(i) ? 0 : rowsOf(i).filter((r) => !r.done).length), 0);
-    if (left && anyDone && !window.confirm(`Te ${left === 1 ? "queda 1 serie" : `quedan ${left} series`} sin hacer. ¿Terminar igual? Lo que registraste queda guardado.`)) return;
+    if (!confirmed && left && anyDone && !window.confirm(`Te ${left === 1 ? "queda 1 serie" : `quedan ${left} series`} sin hacer. ¿Cortar el entrenamiento acá? Lo que registraste queda guardado.`)) return;
     setBusy(true);
     try {
       const n = localAction(s, "finish");
@@ -327,16 +341,18 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             : anyDone ? (s.synced ? "Guardado" : "Guardado en el teléfono") : "Sin series todavía";
   const savedInk = sync.kind === "error" || sync.kind === "conflict" || conflicts.length ? "#FCA5A5" : sync.kind === "offline" || sync.kind === "pending" ? "#F59E0B" : "#5DE6D8";
 
+  const pendingSets = s.exercises.reduce((n, _, i) => n + (skippedAt(i) ? 0 : rowsOf(i).filter((r) => !r.done).length), 0);
+  const keep = () => { lastAct.current = Date.now(); setStill(null); };
   return (
-    <div className="wo">
+    <div className="wo" onPointerDownCapture={() => { lastAct.current = Date.now(); }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
       <div className="wo-body">
         <div className="wo-head">
-          <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => onExit("train")}><Ic i={ArrowLeft} size={22} color="#F8FAFC" /></button>
+          <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => (s.rejected ? onExit("train") : setStill("leave"))}><Ic i={ArrowLeft} size={22} color="#F8FAFC" /></button>
           <div>
             <strong>{s.dayName}</strong>
             <small><span aria-label={`Duración ${formatClock(elapsed)}`}>{formatClock(elapsed)}</span> · <span role="status" style={{ color: savedInk }}>{savedTxt}</span> · <button type="button" className="linkbtn tgt" onClick={() => act(paused ? "resume" : "pause")}>{paused ? "Reanudar" : "Pausar"}</button></small>
           </div>
-          <button type="button" className="fin" onClick={finish} aria-busy={busy || undefined}>Finalizar</button>
+          <button type="button" className="fin" onClick={() => void finish()} aria-busy={busy || undefined}>Finalizar</button>
         </div>
         {s.rejected ? (
           <div className="conflict" role="alert">
@@ -450,7 +466,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             <button type="button" className="ghost" onClick={() => applyChange(null)}>Retomar {ex.name}</button>
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
               : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a lo pendiente</button>
-                : <button type="button" className="cta" onClick={finish} aria-busy={busy || undefined}>Finalizar entrenamiento</button>}
+                : <button type="button" className="cta" onClick={() => void finish()} aria-busy={busy || undefined}>Completar entrenamiento</button>}
           </>
         ) : curRow && (!exComplete || sel != null) ? (
           <>
@@ -481,7 +497,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {rows.length} series</span>
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
               : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a la serie pendiente</button>
-                : <button type="button" className="cta" onClick={finish} aria-busy={busy || undefined}>Finalizar entrenamiento</button>}
+                : <button type="button" className="cta" onClick={() => void finish()} aria-busy={busy || undefined}>Completar entrenamiento</button>}
           </>
         )}
       </div>
@@ -491,6 +507,17 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       {revalidate && <PresenceSheet orgId={gymOrgId} demo={demo} flash={flash} onClose={() => setRevalidate(false)} onValidated={() => { setRevalidate(false); void flush(); }} />}
       {asking && connectPlace && <ConnectHelpSheet place={connectPlace} flash={flash} onClose={() => setAsking(false)}
         context={{ sessionId: s.id, programExerciseId: ex.id, exerciseId: (sub ?? ex).exerciseId, exerciseName: sub ? sub.name : ex.name, setIndex: cur }} />}
+      {still && (
+        <Sheet title="¿Seguís entrenando?" closeLabel="Seguir" onClose={keep}
+          sub={still === "idle" ? `Hace ${Math.round((now - lastAct.current) / 60_000)} minutos que no registrás nada.` : `Si salís, «${s.dayName}» queda abierto y lo retomás desde Entrenar.`}>
+          <button type="button" className="cta" onClick={keep}>Sí, sigo entrenando</button>
+          <button type="button" className="ghost" onClick={async () => { setStill(null); if (s.status === "in_progress") await act("pause"); if (still === "leave") onExit("train"); }}>
+            {still === "leave" ? "Pausar y seguir más tarde" : "Pausar el entrenamiento"}</button>
+          <button type="button" className="ghost" aria-busy={busy || undefined} onClick={() => { setStill(null); void finish(true); }}>
+            {!anyDone ? "Cortar entrenamiento (sin series, se descarta)" : pendingSets ? "Cortar entrenamiento acá" : "Completar entrenamiento"}</button>
+          {anyDone && pendingSets > 0 && <p className="sheet-sub">Lo que registraste queda guardado; las {pendingSets} series que faltan no se cuentan.</p>}
+        </Sheet>
+      )}
       {noteOpen && curRow && <SetNoteSheet n={cur + 1} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}
     </div>
   );

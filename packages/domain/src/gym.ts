@@ -108,6 +108,19 @@ export function shiftAutoEnd(startedAt: Date, now: Date): Date | null {
   return end > startedAt ? end : startedAt;
 }
 
+/** D160: tras 20 minutos sin tocar nada con el entrenamiento en curso, la app pregunta «¿Seguís entrenando?». */
+export const WORKOUT_IDLE_PROMPT_MS = 20 * 60_000;
+/** D160: un entrenamiento abierto sin actividad durante 6 horas se cierra solo. */
+export const WORKOUT_IDLE_CLOSE_MS = 6 * 3_600_000;
+/**
+ * D160: ¿se cierra solo este entrenamiento abierto? Sí con 6 horas sin actividad y, si es del gimnasio, fuera del horario
+ * (a las 22 o si quedó de otro día, igual que los turnos).
+ */
+export function workoutAutoClose(p: { startedAt: Date; lastActivityAt: Date; gymHours: boolean }, now: Date) {
+  if (now.getTime() - p.lastActivityAt.getTime() >= WORKOUT_IDLE_CLOSE_MS) return true;
+  return p.gymHours && shiftAutoEnd(p.startedAt, now) != null;
+}
+
 /** Franja (mañana/tarde/noche) que cubre cada código: cuenta si cubre al menos la mitad de la franja. */
 const BANDS = { M: ["06:00", "12:00"], T: ["12:00", "17:00"], N: ["17:00", "22:00"] } as const;
 export type Band = keyof typeof BANDS;
