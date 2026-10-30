@@ -8,6 +8,7 @@ import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { AccessError } from "../access/util";
+import { logError } from "../log";
 import { assignProgram, createTemplate, logSet, startSession, myTraining, getSession } from "../training/services";
 import { saveMemberProgram, startShift } from "../gym/services";
 import { memberCreate, setAvailability, staffAct } from "../gym/connect";
@@ -299,19 +300,32 @@ async function history(userId: string, relId: string, count: number, now: Date, 
 /** Borra entornos vencidos: primero las organizaciones (arrastran casi todo), después las personas. */
 export async function purgeSandboxes(now = new Date()) {
   const old = await db.select().from(schema.demoSandbox).where(lt(schema.demoSandbox.expiresAt, now)).limit(50);
+  let purged = 0;
   for (const b of old) {
     const orgs = (b.orgIds as string[]) ?? [], users = (b.userIds as string[]) ?? [];
-    await db.transaction(async (tx) => {
-      if (users.length) {
-        await tx.delete(schema.workoutSession).where(inArray(schema.workoutSession.userId, users));
-        await tx.delete(schema.auditEvent).where(inArray(schema.auditEvent.actorUserId, users));
-      }
-      if (orgs.length) await tx.delete(schema.organization).where(inArray(schema.organization.id, orgs));
-      if (users.length) await tx.delete(schema.user).where(inArray(schema.user.id, users));
-      await tx.delete(schema.demoSandbox).where(eq(schema.demoSandbox.id, b.id));
-    });
+    try {
+      await db.transaction(async (tx) => {
+        if (users.length) {
+          await tx.delete(schema.workoutSession).where(inArray(schema.workoutSession.userId, users));
+          await tx.delete(schema.auditEvent).where(inArray(schema.auditEvent.actorUserId, users));
+        }
+        if (orgs.length) {
+          // Auditoría 30/10: programas y alumnos antes que la organización. En un solo DELETE en cascada Postgres puede chequear
+          // program_exercise → exercise (un ejercicio propio de la demo usado en un programa) antes de borrar el programa, y falla.
+          await tx.delete(schema.program).where(inArray(schema.program.orgId, orgs));
+          await tx.delete(schema.coachClient).where(inArray(schema.coachClient.coachOrgId, orgs));
+          await tx.delete(schema.organization).where(inArray(schema.organization.id, orgs));
+        }
+        if (users.length) await tx.delete(schema.user).where(inArray(schema.user.id, users));
+        await tx.delete(schema.demoSandbox).where(eq(schema.demoSandbox.id, b.id));
+      });
+      purged++;
+    } catch (e) {
+      // Una demo que no se puede borrar no frena a las demás ni al resto del job de cada minuto.
+      logError("sandbox.purge", e);
+    }
   }
-  return old.length;
+  return purged;
 }
 
 /** ¿La sesión es de una demo? Devuelve el rol para que la app muestre el recorrido guiado. */

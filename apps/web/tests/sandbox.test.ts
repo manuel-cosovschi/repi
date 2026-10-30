@@ -38,10 +38,17 @@ describe("demo guiada", () => {
     const pay = await coachPayments(by("agustin.perez"), coachId);
     expect(pay.totals.ARS.collectedMonth + pay.totals.ARS.pending + pay.totals.ARS.overdue).toBeGreaterThan(0);
     expect(await demoRoleOf("martin.sosa@otro.com")).toBeNull();
+    // Auditoría 30/10: un ejercicio propio del coach de la demo usado en un programa hacía fallar la limpieza (y con ella el job
+    // de cada minuto). Lo agregamos y la limpieza tiene que borrarlo todo igual.
+    const [own] = await db.insert(schema.exercise).values({ orgId: coachId, name: "Ejercicio propio demo", muscleGroup: "Pecho" }).returning();
+    const [day] = await db.select({ id: schema.programDay.id }).from(schema.programDay).innerJoin(schema.programVersion, eq(schema.programVersion.id, schema.programDay.versionId))
+      .innerJoin(schema.program, eq(schema.program.id, schema.programVersion.programId)).where(eq(schema.program.orgId, coachId)).limit(1);
+    await db.insert(schema.programExercise).values({ dayId: day.id, position: 99, exerciseId: own.id, name: own.name, sets: 3, reps: "10", restSec: 90 });
     // Limpieza.
     await db.update(schema.demoSandbox).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.demoSandbox.id, box.id));
     expect(await purgeSandboxes()).toBe(1);
     expect(await db.select().from(schema.user).where(inArray(schema.user.id, box.userIds as string[]))).toHaveLength(0);
     expect(await db.select().from(schema.organization).where(inArray(schema.organization.id, [gymId, coachId]))).toHaveLength(0);
+    expect(await db.select().from(schema.exercise).where(eq(schema.exercise.id, own.id))).toHaveLength(0);
   });
 });

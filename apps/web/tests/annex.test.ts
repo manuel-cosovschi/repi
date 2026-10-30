@@ -228,6 +228,11 @@ describe("acceso del socio por QR (criterios 10–19)", () => {
     expect(await code(join.decideJoin(w.tA, w.org, id, { approve: true }))).toBe("invalid"); // método obligatorio
     const ok = await join.decideJoin(w.tA, w.org, id, { approve: true, method: "conocimiento_directo" });
     expect(ok.status).toBe("approved");
+    // Auditoría 30/10: la aprobación también llega por email (el push sólo con notificaciones activadas).
+    const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, socio));
+    const [m] = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, u.email)).orderBy(desc(schema.devMailbox.createdAt)).limit(1);
+    expect(m?.subject).toContain("aprobó tu acceso");
+    expect(m?.body).toContain("/acceso");
     const e = await err(join.decideJoin(w.recep, w.org, id, { approve: false, reason: "not_member" }));
     expect(e?.code).toBe("already_decided");
     expect(e?.message).toContain("Piso A");

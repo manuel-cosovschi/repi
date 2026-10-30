@@ -152,7 +152,10 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 /* Modal */
 .modal-bg { position: fixed; inset: 0; z-index: 60; background: rgba(11, 15, 20, .5); display: flex; align-items: center; justify-content: center;
   padding: max(20px, var(--safe-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
-.modal { color: var(--light-ink); font-family: var(--font-ui); width: 100%; max-width: 520px; max-height: calc(100dvh - 40px); overflow: auto; background: var(--light-surface); border-radius: 18px; box-shadow: var(--modal-shadow, 0 30px 80px rgba(11,15,20,.35)); padding: 24px; display: flex; flex-direction: column; gap: 14px; animation: co-pop 200ms var(--ease-out); }
+.modal { color: var(--light-ink); font-family: var(--font-ui); width: 100%; max-width: 520px; max-height: 100%; overflow: auto; background: var(--light-surface); border-radius: 18px; box-shadow: var(--modal-shadow, 0 30px 80px rgba(11,15,20,.35)); padding: 24px; display: flex; flex-direction: column; gap: 14px; animation: co-pop 200ms var(--ease-out); }
+/* Auditoría 30/10: el alto sale del fondo, que ya descuenta la zona segura y el difuminado de iOS 26 (antes 100dvh − 40 px
+   quedaba debajo). Con contenido largo el modal scrollea y sus hijos no se encogen (mismo caso que la hoja del alumno, D158). */
+.modal > * { flex-shrink: 0; }
 @keyframes co-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 .modal h2 { font-size: 19px; }
 .mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }

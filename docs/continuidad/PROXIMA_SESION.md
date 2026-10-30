@@ -1,6 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D158), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D159), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Auditoría post-lanzamiento (D159) — 30/10/2026
+
+- **Producción (sólo lectura):** sin errores en la última hora de Vercel. 5 de 7 altas aprobadas en Smart Center siguen en `pending_consent`: nunca volvieron a entrar. La cola push dice «sin dispositivos» para todos salvo una suscripción (titular).
+- **Arreglos:** email al aprobar o rechazar el acceso (`mailJoinDecision` en `server/join/services.ts`); `purgeSandboxes` borra programas y alumnos antes que la organización y aísla cada demo; `/api/cron/notifications` corre cada tarea por separado; `.modal` con `max-height: 100%` y `.modal > * { flex-shrink: 0 }`; `.sheet` debajo del difuminado; check-in sin programa; `.gq-warn` sobre la zona segura. Detalle en BUG_REGISTER (AUD-1 a AUD-4).
+- **Pruebas:** web 245 ✓ (`annex` con email de aprobación, `sandbox` con ejercicio propio en un programa, falla sin el arreglo), guardas ✓, sin deriva de esquema, E2E 36/36 ✓, navegador con iPhone emulado (modal largo con zona segura de 90 px).
+- **Pendiente con decisión del titular:** (1) mandar el email de aprobación a las 5 personas ya trabadas (son correos reales); (2) cerrar solos los entrenamientos olvidados abiertos (hay uno real en pausa desde el 29/10 00:00; uno que queda «en curso» suma horas a la duración).
 
 ## Horario del gym, «Mis rutinas» y sugerencias sin email (D158) — 29/10/2026
 

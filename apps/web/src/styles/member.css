@@ -187,7 +187,7 @@
 
 /* Etapa 4: hoja inferior (fbSheet de v4), seguimiento y privacidad */
 .sheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(5, 7, 10, .6); display: flex; align-items: flex-end; justify-content: center; }
-.sheet { width: 100%; max-width: 480px; max-height: 90dvh; overflow-y: auto; background: var(--dark-surface-2); color: var(--dark-ink); border-radius: 24px 24px 0 0;
+.sheet { width: 100%; max-width: 480px; max-height: min(90dvh, calc(100dvh - var(--safe-top) - 12px)); overflow-y: auto; background: var(--dark-surface-2); color: var(--dark-ink); border-radius: 24px 24px 0 0;
   padding: 12px 20px max(34px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; font-family: var(--font-ui); animation: sheet-up var(--dur-sheet) var(--ease-out); outline: none; }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 /* Con contenido largo la hoja scrollea: sus hijos no se encogen (antes los botones quedaban aplastados, D158). */

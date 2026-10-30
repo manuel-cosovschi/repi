@@ -437,7 +437,8 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
   const QUICK: [string, Icon, () => void][] = [
     ["Pedir ayuda", Question, () => onSheet({ type: "help" })],
     ["Molestia", Warning, () => onSheet({ type: "pain" })],
-    ["Check-in", CheckCircle, () => (inbox?.checkinToday ? flash("Ya hiciste el check-in de hoy.") : next ? onSheet({ type: "checkin", dayId: "" }) : flash("Sin programa no hay entrenamiento para iniciar."))],
+    // Auditoría 30/10: el check-in (energía, sueño, ánimo) no depende del programa; sin él también sirve para «Mis rutinas».
+    ["Check-in", CheckCircle, () => (inbox?.checkinToday ? flash("Ya hiciste el check-in de hoy.") : onSheet({ type: "checkin", dayId: "" }))],
   ];
   return (
     <>

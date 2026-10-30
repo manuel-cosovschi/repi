@@ -10,11 +10,13 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 import { NOT_FOUND, gymContext, inScope, need, needRoles, scopedLocations } from "../gym/services";
+import { sendMail } from "../mailer";
 import { enqueue } from "../push/services";
 
 const { user, organization, gymLocation, staffMembership, gymMember, gymMemberLocation, membershipRequest, locationJoinLink, shiftLog, legalAcceptance } = schema;
 
 const slug = () => randomBytes(9).toString("base64url"); // 72 bits, no adivinable
+const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 // ── QR por sede ─────────────────────────────────────────────────────────────
 export async function joinLinks(actorId: string, orgId: string) {
@@ -283,7 +285,24 @@ export async function decideJoin(actorId: string, orgId: string, requestId: stri
     throw e;
   });
   await enqueue([res.userId], { kind: "join_resolved", dedupe: `res:${requestId}`, title: "REPI", body: "Tu solicitud de acceso tiene novedades", url: "/acceso?step=workspace" }).catch(() => {});
+  await mailJoinDecision(res.userId, orgId, res.status).catch(() => {});
   return res;
+}
+
+/**
+ * Auditoría 30/10: el push sólo llega a quien activó notificaciones, y casi nadie las activa antes de que lo aprueben. Las 5
+ * primeras altas aprobadas por QR nunca se enteraron y quedaron sin entrar. La decisión también va por email (no en DEMO).
+ */
+async function mailJoinDecision(userId: string, orgId: string, status: "approved" | "rejected") {
+  const [[u], [o]] = await Promise.all([
+    db.select({ email: user.email, name: user.name }).from(user).where(eq(user.id, userId)),
+    db.select({ name: organization.name, isDemo: organization.isDemo }).from(organization).where(eq(organization.id, orgId)),
+  ]);
+  if (!u || !o || o.isDemo) return;
+  const hi = `Hola ${u.name.split(" ")[0]}:`;
+  await sendMail(status === "approved"
+    ? { to: u.email, subject: `${o.name} aprobó tu acceso a REPI`, body: `${hi} ya podés entrar.\nAbrí ${appUrl()}/acceso, confirmá qué ve tu gimnasio y empezá a entrenar.` }
+    : { to: u.email, subject: `Tu pedido de acceso a ${o.name}`, body: `${hi} el gimnasio no aprobó tu pedido. Mirá el motivo en ${appUrl()}/acceso o consultá en recepción.` });
 }
 
 // ── Gestión de accesos habilitados (anexo §8) ───────────────────────────────
