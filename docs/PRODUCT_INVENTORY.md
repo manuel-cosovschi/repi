@@ -4,7 +4,7 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6, persistente 9, probado 80, sin_implementar 45.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6, persistente 9, probado 81, sin_implementar 44.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
@@ -78,7 +78,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6,
 | F-GO-03 | Puesta en marcha del gym | Gym · dueño | Dueño | documentado | prototipo interactivo | integrado | features.json · F-GO-03 | Activar bloqueado hasta importar |
 | F-GC-01 | Novedades y descuentos del gym | Comunidad gym | Gerente, dueño, socio | confirmado | prototipo interactivo | probado | features.json · F-GC-01 | Solo socios de esa org |
 | F-GC-02 | Desafíos con premio en recepción | Comunidad gym | Gerente, dueño, socio | confirmado | prototipo interactivo | probado | features.json · F-GC-02 | Reglas de técnica; sin presión insegura |
-| F-GC-03 | Intento de récord con video + validación | Comunidad gym | Socio, gerente | en_conflicto (DEC-14 video obligatorio vs v4 'validadas con video o por un entrenador en sala') | prototipo interactivo | probado | features.json · F-GC-03 | Video privado; notificación a ambas partes |
+| F-GC-03 | Intento de récord con video + validación | Comunidad gym | Socio, gerente | confirmado | prototipo interactivo | probado | features.json · F-GC-03 | Video privado; notificación a ambas partes |
 | F-GC-04 | Catálogo informativo de recepción | Comunidad gym | Gerente, socio | confirmado | prototipo interactivo | probado | features.json · F-GC-04 | Sin checkout |
 | F-GC-05 | Logros, stickers y nivel | Logros | Socio | confirmado | prototipo interactivo | probado | features.json · F-GC-05 | Permanente en registro |
 | F-GR-01 | Rol recepción | Gym | Recepción | documentado | sin diseño | integrado | features.json · F-GR-01 | Criterio de aceptación vacío en el handoff: definir |
@@ -151,7 +151,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6,
 | F-HX-09 | Selector de relación activa gym/coach y regla de programa | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 3.4 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-10 | Cierre de desafíos: ganador, anuncio, archivo, ranking, historial | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 3.7 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-11 | Categorías de desafíos y deslinde de seguridad | Auditoría de huecos |  | propuesto | sin diseño | integrado | REPI Auditoría de huecos.md · 3.8 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
-| F-HX-12 | Validación presencial sin video por entrenador de sala | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 3.9 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
+| F-HX-12 | Validación presencial sin video por entrenador de sala | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 3.9 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-13 | Novedades/desafíos por sede, vencimiento de descuentos, push al publicar | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 3.10 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-14 | Catálogo con disponibilidad, horarios y promos destacadas | Auditoría de huecos |  | propuesto | sin diseño | integrado | REPI Auditoría de huecos.md · 3.11 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-15 | Intentos y logros en la ficha del socio (sala) | Auditoría de huecos |  | propuesto | sin diseño | integrado | REPI Auditoría de huecos.md · 3.12 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |

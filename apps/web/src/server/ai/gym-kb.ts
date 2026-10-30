@@ -11,7 +11,7 @@ SOCIOS EN LA APP: en su Perfil completan «Lo que buscás entrenando» (objetivo
 ASISTENCIA Y PEDIDOS: la cola de asistencia (o «Sala» con REPI Connect) recibe pedidos de ayuda, técnica o cambio de rutina; el profesor los toma, registra y resuelve. «Seguimiento de sala» muestra tiempos y resultados sólo con números.
 ACCESO Y PRESENCIA (si REPI lo activó para el gimnasio): modo abierto, híbrido o estricto; QR de ingreso que se renueva cada 30 segundos en una tablet de recepción («Pantallas y sedes»), validación a mano para quien no tiene teléfono, «Vigente hasta» en Accesos para cuotas vencidas, panel de ingresos sin rastrear ubicación.
 ACCESOS: «Accesos» lista quién tiene acceso; se puede pausar, dar de baja o reactivar. El historial del socio es suyo y no se borra.
-COMUNIDAD: «Comunidad» publica novedades, descuentos y desafíos con premio que los socios ven en la app. «Validaciones» aprueba intentos de desafíos. «Reseñas» muestra la opinión de los socios sobre el servicio del equipo.
+COMUNIDAD: «Comunidad» publica novedades, descuentos y desafíos con premio que los socios ven en la app. «Validaciones» aprueba intentos de desafíos: con video (dueño y gerencia) o en sala, sin video, por el profe de sala con turno que lo vio. «Reseñas» muestra la opinión de los socios sobre el servicio del equipo.
 CONDICIONES: «Condiciones REPI» muestra la cantidad de socios y el precio acordados con REPI; si algo no coincide, «Pedir corrección». No se cobra por activaciones sino por lo acordado.
 SEGURIDAD: «Mi cuenta» permite activar verificación en dos pasos. Nadie de REPI pide contraseñas ni códigos.
 AYUDA: «Ayuda» junto a «Cerrar sesión» o escribir a REPI.

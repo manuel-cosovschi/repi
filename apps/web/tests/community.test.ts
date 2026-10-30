@@ -8,6 +8,7 @@ import * as acc from "@/server/access/services";
 import * as cm from "@/server/community/services";
 import * as club from "@/server/community/club";
 import * as fu from "@/server/followup/services";
+import * as gym from "@/server/gym/services";
 import { AccessError, addDays, resetRateLimits } from "@/server/access/util";
 
 let n = 0;
@@ -127,7 +128,7 @@ describe("desafíos, validación, récords, logros y premios", () => {
     expect((await cm.challengeRanking(vale.userId, ch.id, "M")).rows.map((r) => r.value)).toEqual(["12 reps"]);
     // Video del intento: lo ve quien valida, no otro socio ni el entrenador de sala.
     const [att] = await db.select().from(schema.challengeAttempt).where(eq(schema.challengeAttempt.id, a1.id));
-    const [vid] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, att.videoId));
+    const [vid] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, att.videoId!));
     expect(await cm.authorizeCommunityMedia(w.manager, vid)).toBe(true);
     expect(await cm.authorizeCommunityMedia(juli.userId, vid)).toBe(false);
     expect(await cm.authorizeCommunityMedia(w.trainer, vid)).toBe(false);
@@ -186,6 +187,39 @@ describe("desafíos, validación, récords, logros y premios", () => {
     expect(await cm.grant(db, vale.userId, null, "first_session", "first", "x", "y")).toBeNull();
   });
 
+  it("en sala (D165): sin video, lo valida el profe con turno en la sede y anota la marca que vio", async () => {
+    const w = await world();
+    const vale = await w.member("Valentina Gómez", w.A, true);
+    const bel = await w.member("Bruno Belgrano", w.B);
+    const ch = await cm.createChallenge(w.owner, w.org, { title: "Sentadilla máxima", rule: "Profundidad bajo paralelo.", unit: "kg", category: "fuerza", prize: "Remera", endsOn: today(), locationId: null });
+    expect((await err(cm.submitAttempt(vale.userId, { challengeId: ch.id, value: 100, inPerson: true, confirm: false })))?.code).toBe("invalid");
+    const a = await cm.submitAttempt(vale.userId, { challengeId: ch.id, value: 100, inPerson: true, confirm: true });
+    const video = await attempt((await w.member("Julián Ortiz")).userId, w.org, ch.id, 90);
+    // El profe ve sólo los intentos en sala de su sede; no los de video.
+    const v = await cm.listValidations(w.trainer, w.org);
+    expect(v.pending.map((x) => x.id)).toEqual([a.id]);
+    expect(v.pending[0]).toMatchObject({ method: "in_person", videoId: null });
+    expect((await err(cm.decideAttempt(w.trainer, w.org, video.id, { approve: true })))?.code).toBe("forbidden");
+    // Sin turno no valida; con turno en la sede, sí, y la marca es la que vio.
+    expect((await err(cm.decideAttempt(w.trainer, w.org, a.id, { approve: true, value: 97.5 })))?.code).toBe("no_shift");
+    await gym.startShift(w.trainer, w.org, w.A);
+    expect((await err(cm.decideAttempt(w.trainer, w.org, a.id, { approve: true, value: 0 })))?.code).toBe("invalid");
+    expect(await cm.decideAttempt(w.trainer, w.org, a.id, { approve: true, value: 97.5 })).toMatchObject({ status: "approved", newRecord: true });
+    const [n] = await db.select().from(schema.memberNotice).where(and(eq(schema.memberNotice.userId, vale.userId), eq(schema.memberNotice.refId, a.id)));
+    expect(n.body).toContain("Lo validó Agustín Sala en sala");
+    expect(n.body).toContain("97,5 kg");
+    expect((await cm.myGymHome(vale.userId)).challenges[0].myBest).toBe("97,5 kg");
+    // Socio de otra sede: el profe de Palermo no lo ve ni lo decide.
+    const b = await cm.submitAttempt(bel.userId, { challengeId: ch.id, value: 120, inPerson: true, confirm: true });
+    expect((await cm.listValidations(w.trainer, w.org)).pending).toHaveLength(0);
+    expect((await err(cm.decideAttempt(w.trainer, w.org, b.id, { approve: true })))?.code).toBe("not_found");
+    // La gerencia ve todo y también decide en sala (sin turno: no es piso).
+    expect((await cm.listValidations(w.owner, w.org)).pending.map((x) => x.id).sort()).toEqual([b.id, video.id].sort());
+    expect(await cm.decideAttempt(w.owner, w.org, b.id, { approve: false, reason: "No llegó a la profundidad" })).toMatchObject({ status: "rejected" });
+    // Recepción no valida.
+    expect((await err(cm.listValidations(w.recep, w.org)))?.code).toBe("forbidden");
+  });
+
   it("purga: video de intento decidido hace más de 90 días", async () => {
     const w = await world();
     const vale = await w.member("Valentina Gómez");
@@ -196,7 +230,7 @@ describe("desafíos, validación, récords, logros y premios", () => {
     const r = await fu.purgeMedia();
     expect(r.retention).toBeGreaterThanOrEqual(1);
     const [att] = await db.select().from(schema.challengeAttempt).where(eq(schema.challengeAttempt.id, a.id));
-    const [vid] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, att.videoId));
+    const [vid] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, att.videoId!));
     expect(vid.deletedAt).not.toBeNull();
     expect((await cm.myGymHome(vale.userId)).challenges[0].myBest).toBe("82,5 kg"); // la marca queda aunque se borre el video
   });

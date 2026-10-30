@@ -1034,7 +1034,8 @@ export const challengeAttempt = pgTable("challenge_attempt", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   valueX10: integer("value_x10").notNull(),
   division: text("division", { enum: ["F", "M"] }), // opcional, declarada por el socio
-  videoId: text("video_id").notNull().references(() => mediaObject.id),
+  videoId: text("video_id").references(() => mediaObject.id), // null: validación en sala (D165)
+  method: text("method", { enum: ["video", "in_person"] }).notNull().default("video"),
   status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
   reason: text("reason"),
   newRecord: boolean("new_record").notNull().default(false),

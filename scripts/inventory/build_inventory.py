@@ -29,11 +29,12 @@ CONFIRMED = {
     "F-CO-08", "F-GC-01", "F-GC-02", "F-GC-03", "F-GC-04", "F-GC-05", "F-BL-01",
     # Anexo 26/10/2026: base facturable, precio por cliente y alta comercial confirmados (D57–D59)
     "F-BL-02", "F-BL-03", "F-AD-02", "F-AD-03",
+    # Chat 30/10/2026: el titular pide que el profe de sala valide el récord en persona (D165, cierra D23)
+    "F-HX-12",
 }
 CONFLICT = {
     "F-GT-01": "DEC-09 gating por turno vs trabajo remoto (D08)",
     "F-RV-02": "INC-01 umbral n=5 vs n=10; 'rango 95%' sin método",
-    "F-GC-03": "DEC-14 video obligatorio vs v4 'validadas con video o por un entrenador en sala'",
     "F-MO-02": "GAP-24: selector de relación activa sin regla de programa",
 }
 
@@ -73,6 +74,8 @@ REPO_STATUS = {
     # 27/10/2026 · evidencia en docs/IMPLEMENTATION_STATUS.md (D75–D79) y tests (privacy, denied, training, gym)
     "F-PR-02": "probado", "F-PR-03": "probado", "F-PR-04": "probado", "F-AD-01": "probado", "F-CL-14": "probado",
     "F-BL-01": "probado", "F-CO-17": "probado", "F-HX-06": "probado", "F-CO-04": "integrado",
+    # 30/10/2026 · validación en sala sin video (D165, tests/community.test.ts)
+    "F-HX-12": "probado",
 }
 
 NEW = [

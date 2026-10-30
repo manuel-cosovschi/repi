@@ -18,7 +18,7 @@ import { useScrollLock } from "@/components/ui/scrollLock";
 type Home = {
   org: { id: string; name: string }; location: { id: string; name: string; receptionHours: string | null }; safety: string; minorRestricted: boolean; onFloor: string[];
   posts: { id: string; type: "novedad" | "descuento"; title: string; text: string; badge: string | null; imageId: string | null; validUntil: string | null; at: string }[];
-  challenges: { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; record: string; holder: string | null; myBest: string | null; last: { status: string; reason: string | null; value: string } | null }[];
+  challenges: { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; record: string; holder: string | null; myBest: string | null; last: { status: string; reason: string | null; value: string; method: string } | null }[];
   catalog: { id: string; category: string; name: string; priceArs: number; promo: string | null; highlighted: boolean; available: boolean; imageId: string | null }[];
   achievements: { id: string; kind: string; title: string; detail: string; at: string; unseen: boolean }[];
   locked: { title: string; detail: string }[]; level: { level: number; toNext: number; pct: number }; readyPrizes: number;
@@ -82,7 +82,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: bo
       )}
       {tab === "ch" && (
         <>
-          <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Superá un récord, subí el video y {h.org.name} lo valida. El premio se retira en recepción con tu carnet. {h.safety}</span>
+          <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Superá un récord con video o delante de un profe de sala, y {h.org.name} lo valida. El premio se retira en recepción con tu carnet. {h.safety}</span>
           {h.minorRestricted && <p className="mb-note">Los videos de récord se habilitan cuando tu adulto responsable lo autorice.</p>}
           {!h.challenges.length && <div className="dashed-card"><span>No hay desafíos activos.</span></div>}
           {h.challenges.map((c) => {
@@ -99,6 +99,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab }: { offline: bo
                   <div><small>Premio</small><span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{c.prize}</span><small>{c.status === "closed" ? "Terminó" : "Hasta"} el {dayEs(c.endsOn)}</small></div>
                 </div>
                 {st === "rejected" && c.last?.reason && <span style={{ fontSize: 12, color: "#FCA5A5" }}>Motivo: {c.last.reason}</span>}
+                {st === "pending" && c.last?.method === "in_person" && <span className="mb-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>Validación en sala: avisale a un profe y hacé el intento frente al profe, que anota la marca.</span>}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                   <span className="mb-muted">Tu mejor marca: <strong style={{ color: "#F8FAFC" }}>{c.myBest ?? "sin intentos validados"}</strong></span>
                   <button type="button" className="linkbtn" style={{ height: 32 }} onClick={() => setRank(c)}>Ver ranking</button>
@@ -194,6 +195,7 @@ function Award({ n, onClose }: { n: Home["notices"][number]; onClose: () => void
 }
 
 function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][number]; orgId: string; flash: (t: string) => void; onClose: (sent: boolean) => void }) {
+  const [inPerson, setInPerson] = useState(false); // D165: sin video, lo valida un profe de sala que lo ve
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [value, setValue] = useState("");
@@ -213,11 +215,18 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
     setFile(f); setUrl(u);
   };
   const num = Number(value.replace(",", "."));
-  const ready = !!file && attemptValueOk(c.unit, num) && ok;
+  const ready = (inPerson || !!file) && attemptValueOk(c.unit, num) && ok;
   const submit = async () => {
-    if (!file) { flash("Subí el video del intento."); return; }
-    if (!attemptValueOk(c.unit, num)) { flash("Ingresá tu marca."); return; }
-    if (!ok) { flash("Confirmá que el video muestra el intento completo."); return; }
+    if (!inPerson && !file) { flash("Subí el video del intento."); return; }
+    if (!attemptValueOk(c.unit, num)) { flash(inPerson ? "Ingresá la marca que vas a intentar." : "Ingresá tu marca."); return; }
+    if (!ok) { flash(inPerson ? "Confirmá que vas a hacer el intento frente a un profe." : "Confirmá que el video muestra el intento completo."); return; }
+    if (inPerson) {
+      setPct(50);
+      try { await api("/api/me/gym/attempts", { body: { challengeId: c.id, value: num, division: div, inPerson: true, confirm: true } }); setPct(100); setSent(true); }
+      catch (e) { setPct(null); flash((e as Error).message); }
+      return;
+    }
+    if (!file) return;
     setPct(4);
     try {
       const vid = await uploadVideo({ purpose: "attempt_video", orgId, file, legacyUrl: `/api/me/gym/attempt-video?org=${orgId}`, onProgress: (p) => setPct(Math.max(4, Math.round(p * 95))) });
@@ -231,19 +240,27 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
       {sent ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", padding: "20px 0" }}>
           <span className="okdot" aria-hidden="true"><Ic i={Check} size={26} color="#00D1FF" /></span>
-          <span style={{ fontSize: 20, fontWeight: 600 }}>Enviado para validar</span>
-          <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>El equipo revisa el video. Te avisamos cuando lo validen.</span>
+          <span style={{ fontSize: 20, fontWeight: 600 }}>{inPerson ? "Pedido de validación en sala" : "Enviado para validar"}</span>
+          <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>{inPerson ? "Avisale a un profe de sala y hacé el intento frente al profe. Lo ve en «Validaciones», anota la marca que vio y te llega el aviso." : "El equipo revisa el video. Te avisamos cuando lo validen."}</span>
           <button type="button" className="ghost" style={{ height: 46, padding: "0 22px" }} onClick={() => onClose(true)}>Listo</button>
         </div>
       ) : pct !== null ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "30px 0" }}>
-          <span style={{ fontSize: 16, fontWeight: 600, textAlign: "center" }}>Subiendo video…</span>
+          <span style={{ fontSize: 16, fontWeight: 600, textAlign: "center" }}>{inPerson ? "Enviando…" : "Subiendo video…"}</span>
           <div className="lvl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Subida del video"><i style={{ width: `${pct}%` }} /></div>
         </div>
       ) : (
         <>
           <p className="mb-note"><strong style={{ color: "#F8FAFC" }}>Regla:</strong> {c.rule}</p>
-          {!file ? (
+          <fieldset className="sheet-group"><legend>Cómo se valida</legend>
+            <div>
+              <button type="button" aria-pressed={!inPerson} onClick={() => { setInPerson(false); setOk(false); }}>Con video</button>
+              <button type="button" aria-pressed={inPerson} onClick={() => { setInPerson(true); setOk(false); }}>En sala con un profe</button>
+            </div>
+          </fieldset>
+          {inPerson ? (
+            <p className="mb-muted" style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>Sin video: hacés el intento frente a un profe de sala con turno, que lo mira, anota la marca que logres y lo valida desde su panel.</p>
+          ) : !file ? (
             <label className="sheet-video" style={{ height: 150, flexDirection: "column" }}>
               <Ic i={VideoCamera} size={30} color="#00D1FF" />
               <span style={{ fontSize: 15, fontWeight: 600 }}>Grabar o elegir video</span><small className="mb-muted">Que se vea el intento completo, de principio a fin</small>
@@ -255,13 +272,13 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
               <label className="linkbtn" style={{ alignSelf: "flex-start", position: "relative" }}>Cambiar video<input type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" onChange={(e) => pick(e.target.files?.[0] ?? null)} style={{ position: "absolute", inset: 0, opacity: 0 }} /></label>
             </>
           )}
-          <label className="attempt-val">Tu marca<span><input inputMode={c.unit === "kg" ? "decimal" : "numeric"} value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d,.]/g, ""))} placeholder="0" aria-label={`Tu marca en ${unitTxt}`} /><em>{unitTxt}</em></span></label>
+          <label className="attempt-val">{inPerson ? "Marca que vas a intentar" : "Tu marca"}<span><input inputMode={c.unit === "kg" ? "decimal" : "numeric"} value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d,.]/g, ""))} placeholder="0" aria-label={`Tu marca en ${unitTxt}`} /><em>{unitTxt}</em></span></label>
           <span className="mb-muted" style={{ fontSize: 12 }}>Récord actual: {c.record}{c.lowerIsBetter ? " · gana el menor tiempo" : ""}</span>
           <fieldset className="sheet-group"><legend>Categoría para el ranking (opcional)</legend>
             <div>{(Object.keys(DIVISIONS) as ("F" | "M")[]).map((k) => <button key={k} type="button" aria-pressed={div === k} onClick={() => setDiv(div === k ? null : k)}>{DIVISIONS[k]}</button>)}</div>
           </fieldset>
-          <label className="sheet-check"><input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} />Confirmo que el video es mío y muestra el intento completo. Lo ve sólo el equipo del gym que valida.</label>
-          <button type="button" className="cta" style={{ height: 52, opacity: ready ? 1 : .45 }} onClick={submit}>Enviar para validar</button>
+          <label className="sheet-check"><input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} />{inPerson ? "Voy a hacer el intento frente a un profe de sala. Vale la marca que anote el profe." : "Confirmo que el video es mío y muestra el intento completo. Lo ve sólo el equipo del gym que valida."}</label>
+          <button type="button" className="cta" style={{ height: 52, opacity: ready ? 1 : .45 }} onClick={submit}>{inPerson ? "Pedir validación en sala" : "Enviar para validar"}</button>
         </>
       )}
     </Sheet>
@@ -282,7 +299,7 @@ function RankSheet({ c, onClose }: { c: Home["challenges"][number]; onClose: () 
         {failed && <span className="mb-muted" role="alert" style={{ padding: "12px 0" }}>No pudimos cargar el ranking. Revisá la conexión y volvé a abrirlo.</span>}
         {r && !r.rows.length && <span className="mb-muted" style={{ padding: "12px 0" }}>Todavía no hay marcas validadas en esta categoría.</span>}
       </div>
-      <span className="mb-muted" style={{ fontSize: 12 }}>{r?.note || "Sólo marcas validadas con video."} «+40» usa tu fecha de nacimiento si la cargaste.</span>
+      <span className="mb-muted" style={{ fontSize: 12 }}>{r?.note || "Sólo marcas validadas por el gym."} «+40» usa tu fecha de nacimiento si la cargaste.</span>
     </Sheet>
   );
 }

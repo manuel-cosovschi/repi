@@ -1,6 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D164), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D165), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Récord validado en sala por el profe (D165) — 30/10/2026
+
+- **Migración:** `drizzle/0035_attempt_in_person.sql` (`challenge_attempt.video_id` opcional, columna `method`). Aplicada en dev, pruebas y Supabase.
+- **Dominio:** capacidad `challenges.witness` (entrenador de sala y coordinación) en `packages/domain/src/gym.ts`.
+- **Servidor:** `server/community/services.ts`: `submitAttempt` con `inPerson`; `validationScope`, `listValidations` y `decideAttempt` (turno en la sede para el piso, `value` con la marca vista, aviso con el nombre de quien validó); `last.method` en `myGymHome`. Rutas en `app/api/me/gym/[[...path]]` y `app/api/gym/[orgId]/[...path]`. Texto de REPI Gym en `server/ai/gym-kb.ts`.
+- **UI:** `components/member/Gym.tsx` (hoja «Con video / En sala con un profe», aviso en la tarjeta); `components/gym/Community.tsx` (`ValidationsScreen` con «Marca que viste» y «Lo vi: aprobar récord», `.vl-*` en `coach.css`); `GymApp.tsx` (Validaciones con contador para el piso).
+- **Pruebas:** web 252 ✓ (`community` D165: sin confirmar no envía, el profe ve sólo en sala de su sede, no decide video, sin turno `no_shift`, marca corregida a 97,5 kg con récord y aviso, otra sede `not_found`, dueño ve todo y rechaza, recepción `forbidden`), dominio 156 ✓, guardas ✓, sin deriva, E2E 36/36 ✓. Navegador: demo socio (iPhone emulado) pide validación en sala de Dominadas; demo profe de sala: «Validaciones» en el menú, intento en sala (creado en la base local del sandbox), anota 14 en vez de 15 y aprueba → récord y aviso «Lo validó Sofía Ramírez en sala»; sin scroll horizontal a 375 px.
+- **Sin probar:** el flujo socio → profe en un mismo gimnasio real (las demos de cada rol son sandboxes distintos).
+- **Próximo:** trofeos del club con niveles por pesos, récords, tipos de entrenamiento y variedad; animación de entrada; asistente de REPI para el coach.
 
 ## Videos de ejercicios (D164) — 30/10/2026
 

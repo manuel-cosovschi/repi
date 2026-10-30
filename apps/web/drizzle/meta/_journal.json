@@ -246,6 +246,13 @@
       "when": 1793373605798,
       "tag": "0034_exercise_media",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793385864095,
+      "tag": "0035_attempt_in_person",
+      "breakpoints": true
     }
   ]
 }

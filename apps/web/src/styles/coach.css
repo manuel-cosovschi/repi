@@ -275,6 +275,12 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 .xv-acts .btn { height: 34px; padding: 0 10px; font-size: 13px; }
 .xv-link { grid-column: 1 / -1; display: flex; gap: 8px; }
 .xv-link input { flex: 1; height: 38px; border-radius: 8px; border: 1px solid var(--light-border-strong); padding: 0 10px; font: 400 14px var(--font-ui); }
+/* D165: validación en sala, sin video */
+.vl-live { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 140px; padding: 18px; border-radius: 12px; background: var(--light-surface); border: 1px dashed var(--light-border-strong); color: var(--light-ink-2); font-size: 14px; line-height: 1.5; }
+.vl-live b { font-size: 16px; color: var(--light-ink); }
+.vl-seen { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--light-muted); }
+.vl-seen input { height: 42px; border-radius: 10px; border: 1px solid var(--light-border-strong); padding: 0 12px; font: 600 18px var(--font-ui); max-width: 200px; }
+.vl-seen input[aria-invalid] { border-color: #DC2626; }
 @media (max-width: 640px) { .xv-list li { grid-template-columns: 1fr auto; } .xv-acts { grid-column: 1 / -1; justify-content: flex-start; } }
 /* D161: propuesta editable antes de usarla. */
 .pa-day li.pa-ex { grid-template-columns: 1fr auto; align-items: center; padding: 8px 0; }

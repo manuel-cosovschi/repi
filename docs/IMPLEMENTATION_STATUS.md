@@ -303,7 +303,7 @@ Pruebas: 67 de dominio + 66 de integración (9 nuevas de comunidad y Club, más 
 - Etiqueta «1 avisos».
 
 ## Limitaciones y pendientes
-- **Validación sin video (F-HX-12, D23):** no implementada.
+- **Validación sin video (F-HX-12, D23 → D165):** implementada. El socio pide «En sala con un profe»; el entrenador de sala o la coordinación, con turno en la sede, anota la marca que vio y valida.
 - **Trofeos 3D (F-RC-04):** Etapa 8 / motion.
 - **Comunidad propia del coach (F-HX-25):** pendiente.
 - **Repi Club:** faltan feeds de coach, sede y clase, equipos, checkpoints, perfiles y anuncios de entrenadores (D53).

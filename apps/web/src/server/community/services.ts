@@ -9,7 +9,7 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, newInviteCode, type Tx } from "../access/util";
 import { minorWithoutGuardian } from "../access/services";
-import { NOT_FOUND, gymContext, inScope, need, scopedLocations } from "../gym/services";
+import { NOT_FOUND, gate, gymContext, inScope, need, scopedLocations, type GymCtx } from "../gym/services";
 import { requireEnv } from "../env";
 import { putObject } from "../storage";
 
@@ -232,18 +232,27 @@ export async function setReceptionHours(actorId: string, orgId: string, location
 }
 
 // ── Staff: validaciones (F-GC-03) ───────────────────────────────────────────
+// D165: el profe de sala y la coordinación (`challenges.witness`) ven y deciden sólo los intentos «en sala» de sus sedes;
+// dueño y gerencia (`challenges.validate`), todos.
+function validationScope(ctx: GymCtx) {
+  if (ctx.caps.includes("challenges.validate")) return "all" as const;
+  if (ctx.caps.includes("challenges.witness")) return "in_person" as const;
+  throw new AccessError("forbidden", "Tu rol no tiene acceso a esta acción.", 403);
+}
+
 export async function listValidations(actorId: string, orgId: string) {
   const ctx = await gymContext(actorId, orgId);
-  need(ctx, "challenges.validate");
+  const scope = validationScope(ctx);
   const ids = (await scopedLocations(ctx, null)).map((l) => l.id);
-  const rows = await db.select({ a: challengeAttempt, c: challenge, name: user.name }).from(challengeAttempt)
+  const rows = await db.select({ a: challengeAttempt, c: challenge, name: user.name, loc: gymMember.locationId }).from(challengeAttempt)
     .innerJoin(challenge, eq(challenge.id, challengeAttempt.challengeId)).innerJoin(gymMember, eq(gymMember.id, challengeAttempt.gymMemberId)).innerJoin(user, eq(user.id, challengeAttempt.userId))
-    .where(and(eq(challengeAttempt.orgId, orgId), inArray(gymMember.locationId, ids), or(eq(challengeAttempt.status, "pending"), gte(challengeAttempt.decidedAt, addDays(new Date(), -30)))))
+    .where(and(eq(challengeAttempt.orgId, orgId), inArray(gymMember.locationId, ids), scope === "in_person" ? eq(challengeAttempt.method, "in_person") : undefined,
+      or(eq(challengeAttempt.status, "pending"), gte(challengeAttempt.decidedAt, addDays(new Date(), -30)))))
     .orderBy(desc(challengeAttempt.createdAt)).limit(100);
   const deciders = new Map((rows.length ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, [...new Set(rows.map((r) => r.a.decidedBy).filter(Boolean) as string[])].concat(["-"]))) : []).map((u) => [u.id, u.name]));
   const view = (r: (typeof rows)[number]) => ({
-    id: r.a.id, member: r.name, challenge: r.c.title, rule: r.c.rule, value: fmtValue(v10(r.a.valueX10), r.c.unit), record: fmtValue(v10(r.c.recordValue), r.c.unit),
-    wouldBeRecord: isNewRecord(r.a.valueX10, r.c.recordValue, r.c.lowerIsBetter), videoId: r.a.videoId, at: r.a.createdAt, status: r.a.status, reason: r.a.reason, newRecord: r.a.newRecord,
+    id: r.a.id, member: r.name, challenge: r.c.title, rule: r.c.rule, value: fmtValue(v10(r.a.valueX10), r.c.unit), declared: r.a.valueX10 / 10, record: fmtValue(v10(r.c.recordValue), r.c.unit),
+    wouldBeRecord: isNewRecord(r.a.valueX10, r.c.recordValue, r.c.lowerIsBetter), videoId: r.a.videoId, method: r.a.method, unit: r.c.unit, lowerIsBetter: r.c.lowerIsBetter, recordX10: r.c.recordValue, at: r.a.createdAt, status: r.a.status, reason: r.a.reason, newRecord: r.a.newRecord,
     decidedBy: r.a.decidedBy ? deciders.get(r.a.decidedBy) ?? null : null, decidedAt: r.a.decidedAt,
   });
   return { pending: rows.filter((r) => r.a.status === "pending").map(view), done: rows.filter((r) => r.a.status !== "pending").map(view) };
@@ -253,18 +262,28 @@ export async function listValidations(actorId: string, orgId: string) {
  * Validar o rechazar. Bloquea el intento y el desafío: no hay doble validación ni carrera entre récords.
  * Aprobar: logro "Marca validada" (uno por desafío). Sólo si mejora el récord vigente: récord, logro "Récord del gym" y premio.
  */
-export async function decideAttempt(actorId: string, orgId: string, attemptId: string, p: { approve: boolean; reason?: string | null }) {
+export async function decideAttempt(actorId: string, orgId: string, attemptId: string, p: { approve: boolean; reason?: string | null; value?: number | null }) {
   const ctx = await gymContext(actorId, orgId);
-  need(ctx, "challenges.validate");
+  const scope = validationScope(ctx);
   if (!p.approve && (p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Elegí o escribí el motivo del rechazo.");
   return db.transaction(async (tx) => {
-    const [a] = await tx.select().from(challengeAttempt).where(and(eq(challengeAttempt.id, attemptId), eq(challengeAttempt.orgId, orgId))).for("update");
-    if (!a) throw NOT_FOUND();
-    const [gm] = await tx.select().from(gymMember).where(eq(gymMember.id, a.gymMemberId));
+    const [a0] = await tx.select().from(challengeAttempt).where(and(eq(challengeAttempt.id, attemptId), eq(challengeAttempt.orgId, orgId))).for("update");
+    if (!a0) throw NOT_FOUND();
+    if (scope === "in_person" && a0.method !== "in_person") throw new AccessError("forbidden", "Los intentos con video los valida la gerencia del gym.", 403);
+    const [gm] = await tx.select().from(gymMember).where(eq(gymMember.id, a0.gymMemberId));
     if (!gm || !inScope(ctx, gm.locationId)) throw NOT_FOUND();
-    if (a.status !== "pending") throw new AccessError("decided", "Este intento ya fue resuelto.", 409);
-    if (a.userId === actorId) throw new AccessError("forbidden", "No podés validar tu propio intento.", 403);
-    const [c] = await tx.select().from(challenge).where(eq(challenge.id, a.challengeId)).for("update");
+    if (a0.status !== "pending") throw new AccessError("decided", "Este intento ya fue resuelto.", 409);
+    if (a0.userId === actorId) throw new AccessError("forbidden", "No podés validar tu propio intento.", 403);
+    // En sala lo valida quien lo vio: el piso, con turno en la sede del socio (como las altas por QR).
+    if (scope === "in_person") await gate(ctx, gm.locationId, "validar un récord en sala", tx);
+    const [c] = await tx.select().from(challenge).where(eq(challenge.id, a0.challengeId)).for("update");
+    // En sala, quien valida anota la marca que vio (puede corregir la declarada); con video, vale la declarada.
+    let a = a0;
+    if (p.approve && a0.method === "in_person" && p.value != null) {
+      if (!attemptValueOk(c.unit, p.value)) throw new AccessError("invalid", "Anotá la marca que viste.");
+      a = { ...a0, valueX10: x10(p.value) };
+      if (a.valueX10 !== a0.valueX10) await tx.update(challengeAttempt).set({ valueX10: a.valueX10 }).where(eq(challengeAttempt.id, a.id));
+    }
     const now = new Date();
     if (!p.approve) {
       const reason = p.reason!.trim().slice(0, 200);
@@ -276,7 +295,8 @@ export async function decideAttempt(actorId: string, orgId: string, attemptId: s
     const record = isNewRecord(a.valueX10, c.recordValue, c.lowerIsBetter);
     await tx.update(challengeAttempt).set({ status: "approved", newRecord: record, decidedBy: actorId, decidedAt: now }).where(eq(challengeAttempt.id, a.id));
     const valTxt = fmtValue(v10(a.valueX10), c.unit);
-    await grant(tx, a.userId, orgId, "challenge_validated", c.id, `${c.title}`, `${valTxt} · validado`);
+    const witness = a.method === "in_person" ? ((await tx.select({ name: user.name }).from(user).where(eq(user.id, actorId)))[0]?.name ?? null) : null;
+    await grant(tx, a.userId, orgId, "challenge_validated", c.id, `${c.title}`, `${valTxt} · ${witness ? "validado en sala" : "validado"}`);
     let prizeCode: string | null = null;
     if (record) {
       await tx.update(challenge).set({ recordValue: a.valueX10, recordAttemptId: a.id }).where(eq(challenge.id, c.id));
@@ -292,9 +312,9 @@ export async function decideAttempt(actorId: string, orgId: string, attemptId: s
     }
     await tx.insert(memberNotice).values({
       userId: a.userId, orgId, kind: "attempt_approved", refId: a.id, title: record ? `¡Nuevo récord del gym! · ${c.title}` : `Marca validada · ${c.title}`,
-      body: record ? `${valTxt}. ${prizeCode ? "Retirá tu premio en recepción con tu carnet." : "Ya tenías el premio de este desafío."}` : `${valTxt}. Queda en tu registro; el récord vigente es ${fmtValue(v10(c.recordValue), c.unit)}.`,
+      body: `${witness ? `Lo validó ${witness} en sala. ` : ""}${record ? `${valTxt}. ${prizeCode ? "Retirá tu premio en recepción con tu carnet." : "Ya tenías el premio de este desafío."}` : `${valTxt}. Queda en tu registro; el récord vigente es ${fmtValue(v10(c.recordValue), c.unit)}.`}`,
     });
-    await audit(tx, { actorUserId: actorId, orgId, action: "attempt.approved", resourceType: "challenge_attempt", resourceId: a.id, meta: { newRecord: record } });
+    await audit(tx, { actorUserId: actorId, orgId, action: "attempt.approved", resourceType: "challenge_attempt", resourceId: a.id, meta: { newRecord: record, method: a.method, corrected: a.valueX10 !== a0.valueX10 } });
     return { status: "approved" as const, newRecord: record, prize: !!prizeCode };
   });
 }
@@ -440,7 +460,7 @@ export async function myGymHome(userId: string, orgId?: string | null, now = new
       return {
         id: c.id, title: c.title, rule: c.rule, unit: c.unit as ChallengeUnit, lowerIsBetter: c.lowerIsBetter, category: c.category, prize: c.prize, endsOn: c.endsOn, status: c.status,
         record: fmtValue(v10(c.recordValue), c.unit), holder: c.recordAttemptId ? holders.get(c.recordAttemptId) ?? null : null, myBest: best ? fmtValue(v10(best.value), c.unit) : null,
-        last: last ? { status: last.status, reason: last.reason, value: fmtValue(v10(last.valueX10), c.unit) } : null,
+        last: last ? { status: last.status, reason: last.reason, value: fmtValue(v10(last.valueX10), c.unit), method: last.method } : null,
       };
     }),
     catalog: items.map((i) => ({ id: i.id, category: i.category, name: i.name, priceArs: i.priceArs, promo: i.promo, highlighted: i.highlighted, available: i.available, imageId: i.imageId })),
@@ -457,7 +477,8 @@ export async function markNoticesSeen(userId: string) {
   await db.update(achievement).set({ seenAt: now }).where(and(eq(achievement.userId, userId), isNull(achievement.seenAt)));
 }
 
-export async function submitAttempt(userId: string, p: { challengeId: string; value: number; division?: string | null; videoId: string; confirm: boolean }) {
+/** Intento de récord: con video, o (D165) «en sala»: sin video, lo valida en persona un profe con turno en la sede. */
+export async function submitAttempt(userId: string, p: { challengeId: string; value: number; division?: string | null; videoId?: string | null; inPerson?: boolean; confirm: boolean }) {
   const [c] = await db.select().from(challenge).where(eq(challenge.id, p.challengeId));
   if (!c) throw NOT_FOUND();
   const r = await myGym(userId, c.orgId).catch(() => { throw NOT_FOUND(); });
@@ -465,15 +486,20 @@ export async function submitAttempt(userId: string, p: { challengeId: string; va
   if (c.status !== "active" || c.endsOn < todayAr()) throw new AccessError("closed", "Este desafío ya terminó.", 409);
   { const { requireGymAction } = await import("../gym/access-control"); await requireGymAction({ userId, orgId: c.orgId, action: "gym.challenge.attempt" }); } // D127 (sólo modo estricto configurado)
   if (await minorWithoutGuardian(userId)) throw new AccessError("minor", "Los videos de récord se habilitan cuando tu adulto responsable lo autorice.", 403);
-  if (!p.confirm) throw new AccessError("invalid", "Confirmá que el video es tuyo y muestra el intento completo.");
+  if (!p.confirm) throw new AccessError("invalid", p.inPerson ? "Confirmá que vas a hacer el intento frente a un profe." : "Confirmá que el video es tuyo y muestra el intento completo.");
   if (!attemptValueOk(c.unit, p.value)) throw new AccessError("invalid", "Ingresá una marca válida.");
   if (p.division != null && !isDivision(p.division)) throw new AccessError("invalid", "Categoría inválida.");
-  const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, p.videoId), eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "attempt_video"), eq(mediaObject.orgId, c.orgId), isNull(mediaObject.deletedAt)));
-  const used = await db.select({ id: challengeAttempt.id }).from(challengeAttempt).where(eq(challengeAttempt.videoId, p.videoId));
-  if (!v || used.length) throw new AccessError("invalid", "Subí el video del intento.");
+  let videoId: string | null = null;
+  if (!p.inPerson) {
+    if (!p.videoId) throw new AccessError("invalid", "Subí el video del intento.");
+    const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, p.videoId), eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "attempt_video"), eq(mediaObject.orgId, c.orgId), isNull(mediaObject.deletedAt)));
+    const used = await db.select({ id: challengeAttempt.id }).from(challengeAttempt).where(eq(challengeAttempt.videoId, p.videoId));
+    if (!v || used.length) throw new AccessError("invalid", "Subí el video del intento.");
+    videoId = v.id;
+  }
   try {
-    const [a] = await db.insert(challengeAttempt).values({ challengeId: c.id, orgId: c.orgId, gymMemberId: r.m.id, userId, valueX10: x10(p.value), division: (p.division as Division) ?? null, videoId: v.id }).returning();
-    await audit(db, { actorUserId: userId, orgId: c.orgId, action: "attempt.submitted", resourceType: "challenge_attempt", resourceId: a.id });
+    const [a] = await db.insert(challengeAttempt).values({ challengeId: c.id, orgId: c.orgId, gymMemberId: r.m.id, userId, valueX10: x10(p.value), division: (p.division as Division) ?? null, videoId, method: p.inPerson ? "in_person" : "video" }).returning();
+    await audit(db, { actorUserId: userId, orgId: c.orgId, action: "attempt.submitted", resourceType: "challenge_attempt", resourceId: a.id, meta: { method: a.method } });
     return { id: a.id };
   } catch (e) {
     const code = (e as { code?: string; cause?: { code?: string } }).code ?? (e as { cause?: { code?: string } }).cause?.code;
@@ -503,7 +529,7 @@ export async function challengeRanking(userId: string, challengeId: string, filt
       name: b.memberId === userId ? "Vos" : consent.has(b.row.a.gymMemberId) ? shortName(b.row.name) : "Socio/a",
       division: b.row.a.division,
     })),
-    note: "Sólo marcas validadas con video. Tu nombre aparece si aceptaste participar en rankings.",
+    note: "Sólo marcas validadas por el gym, con video o en sala. Tu nombre aparece si aceptaste participar en rankings.",
   };
 }
 

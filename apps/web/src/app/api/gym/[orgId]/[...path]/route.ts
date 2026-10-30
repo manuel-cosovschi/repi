@@ -149,7 +149,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "community" && b === "catalog" && !c) return cm.upsertItem(me, orgId, await body(req, z.object({ id: id.nullable().optional(), locationId: id.nullable().optional(), category: z.string().max(30), name: z.string().max(80), priceArs: z.number().int(), promo: z.string().max(40).nullable().optional(), highlighted: z.boolean().optional(), available: z.boolean().optional(), imageId: id.nullable().optional() })));
   if (a === "community" && b === "catalog" && c) return cm.removeItem(me, orgId, c);
   if (a === "community" && b === "hours") { const p = await body(req, z.object({ loc: id, hours: z.string().max(120) })); return cm.setReceptionHours(me, orgId, p.loc, p.hours); }
-  if (a === "validations" && b) return cm.decideAttempt(me, orgId, b, await body(req, z.object({ approve: z.boolean(), reason: z.string().max(200).nullable().optional() })));
+  if (a === "validations" && b) return cm.decideAttempt(me, orgId, b, await body(req, z.object({ approve: z.boolean(), reason: z.string().max(200).nullable().optional(), value: z.number().nullable().optional() })));
   if (a === "desk" && b === "verify") return cm.verifyCard(me, orgId, (await body(req, z.object({ token: z.string().max(200) }))).token);
   if (a === "desk" && b === "checkin") { const p = await body(req, z.object({ token: z.string().max(200), loc: id })); return cm.checkIn(me, orgId, p.token, p.loc); }
   if (a === "desk" && b === "prizes" && c) return cm.deliverPrize(me, orgId, c);

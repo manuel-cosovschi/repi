@@ -2,7 +2,7 @@
 // Comunidad del gym, Validaciones, mostrador de recepción y moderación de Repi Club
 // (REPI Desktop Gym.dc.html · sc.community / sc.validations). Datos reales de /api/gym/[orgId].
 import { useRef, useState } from "react";
-import { CHALLENGE_CATEGORIES, CHALLENGE_UNITS, IMAGE_LIMITS, SAFETY_NOTE, type ChallengeUnit } from "@repi/domain";
+import { CHALLENGE_CATEGORIES, CHALLENGE_UNITS, IMAGE_LIMITS, SAFETY_NOTE, attemptValueOk, isNewRecord, type ChallengeUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
@@ -250,46 +250,67 @@ function Shop({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
 }
 
 // ── Validaciones (SCR-GC-02) ────────────────────────────────────────────────
-type Att = { id: string; member: string; challenge: string; rule: string; value: string; record: string; wouldBeRecord: boolean; videoId: string; at: string; status: string; reason: string | null; newRecord: boolean; decidedBy: string | null; decidedAt: string | null };
+type Att = { id: string; member: string; challenge: string; rule: string; value: string; declared: number; record: string; recordX10: number | null; unit: ChallengeUnit; lowerIsBetter: boolean; wouldBeRecord: boolean;
+  videoId: string | null; method: "video" | "in_person"; at: string; status: string; reason: string | null; newRecord: boolean; decidedBy: string | null; decidedAt: string | null };
 const REASONS = ["No se ve el intento completo", "No cumple la regla", "Video poco claro"];
+const REASONS_LIVE = ["No cumple la regla", "No completó el intento", "No llegó a la marca"]; // D165: en sala
 
 export function ValidationsScreen({ shell }: { shell: Shell }) {
   const v = useLoad<{ pending: Att[]; done: Att[] }>(`/api/gym/${shell.orgId}/validations`);
   const [why, setWhy] = useState<Record<string, string>>({});
+  const [seen, setSeen] = useState<Record<string, string>>({}); // marca que vio el profe (en sala)
   const { busy, run } = useAct(shell.flash);
-  const decide = (a: Att, approve: boolean) => run(a.id, () => api<{ newRecord: boolean; prize?: boolean }>(`/api/gym/${shell.orgId}/validations/${a.id}`, { body: { approve, reason: approve ? null : why[a.id] ?? null } }),
+  const seenNum = (a: Att) => (seen[a.id] == null ? a.declared : Number(seen[a.id].replace(",", ".")));
+  const decide = (a: Att, approve: boolean) => run(a.id, () => api<{ newRecord: boolean; prize?: boolean }>(`/api/gym/${shell.orgId}/validations/${a.id}`, { body: { approve, reason: approve ? null : why[a.id] ?? null, value: a.method === "in_person" && approve ? seenNum(a) : null } }),
     (r) => { const x = r as { newRecord: boolean; prize?: boolean }; return approve ? (x.newRecord ? `Nuevo récord de ${a.member}. Le llega el aviso, el logro${x.prize ? " y el premio para retirar en recepción" : ""}.` : `Marca de ${a.member} validada. No supera el récord vigente: queda como logro.`) : `Intento rechazado. ${a.member} recibe el motivo.`; })
     .then(() => { v.reload(); shell.refreshBadges(); });
   return (
     <>
-      <Head kicker="Intentos de récord enviados desde la app con video de prueba" title="Validaciones" />
+      <Head kicker="Intentos de récord con video, o en sala delante de un profe" title="Validaciones" />
       {v.err && <p role="alert" className="err-box">{v.err}</p>}
-      {v.data && !v.data.pending.length && <div className="empty">No hay intentos por validar. Cuando un socio suba un video, aparece acá.</div>}
+      {v.data && !v.data.pending.length && <div className="empty">No hay intentos por validar. Cuando un socio suba un video o pida validación en sala, aparece acá.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {v.data?.pending.map((a) => (
-          <section key={a.id} className="card" style={{ flexDirection: "row", flexWrap: "wrap", gap: 16, padding: 16 }}>
-            <video src={`/api/media/${a.videoId}`} controls preload="metadata" playsInline style={{ flex: "1 1 300px", maxWidth: 420, maxHeight: 320, borderRadius: 12, background: "#0B0F14" }} aria-label={`Video del intento de ${a.member}`} />
-            <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><b style={{ fontSize: 16 }}>{a.member} · {a.challenge}</b><span className="muted">{when(a.at)}</span></div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <div className="stat" style={{ flex: 1 }}><span>Marca declarada</span><strong>{a.value}</strong></div>
-                <div className="stat" style={{ flex: 1 }}><span>Récord vigente</span><strong>{a.record}</strong></div>
+        {v.data?.pending.map((a) => {
+          const live = a.method === "in_person";
+          const n = seenNum(a);
+          const okVal = attemptValueOk(a.unit, n);
+          const rec = live ? okVal && isNewRecord(Math.round(n * 10), a.recordX10, a.lowerIsBetter) : a.wouldBeRecord;
+          return (
+            <section key={a.id} className="card" style={{ flexDirection: "row", flexWrap: "wrap", gap: 16, padding: 16 }}>
+              {live ? (
+                <div className="vl-live" style={{ flex: "1 1 300px", maxWidth: 420 }}>
+                  <b>Validación en sala</b>
+                  <span>Sin video. Mirá el intento completo de {a.member} y anotá la marca que logró. Hace falta tener el turno iniciado en su sede.</span>
+                </div>
+              ) : <video src={`/api/media/${a.videoId}`} controls preload="metadata" playsInline style={{ flex: "1 1 300px", maxWidth: 420, maxHeight: 320, borderRadius: 12, background: "#0B0F14" }} aria-label={`Video del intento de ${a.member}`} />}
+              <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><b style={{ fontSize: 16 }}>{a.member} · {a.challenge}</b><span className="muted">{when(a.at)}</span></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div className="stat" style={{ flex: 1 }}><span>{live ? "Va a intentar" : "Marca declarada"}</span><strong>{a.value}</strong></div>
+                  <div className="stat" style={{ flex: 1 }}><span>Récord vigente</span><strong>{a.record}</strong></div>
+                </div>
+                {live && (
+                  <label className="vl-seen">Marca que viste ({a.unit === "seg" ? "segundos" : CHALLENGE_UNITS[a.unit]})
+                    <input inputMode={a.unit === "kg" ? "decimal" : "numeric"} value={seen[a.id] ?? String(a.declared).replace(".", ",")} aria-invalid={!okVal || undefined}
+                      onChange={(e) => setSeen({ ...seen, [a.id]: e.target.value.replace(/[^\d,.]/g, "") })} />
+                  </label>
+                )}
+                <span className={`chip ${rec ? "ok" : "mute"}`} style={{ alignSelf: "flex-start" }}>{rec ? "Si se aprueba, es nuevo récord" : "Si se aprueba, no supera el récord"}</span>
+                <span className="muted" style={{ lineHeight: 1.45 }}>Regla: {a.rule}</span>
+                <div className="pills" role="group" aria-label="Motivo de rechazo">{(live ? REASONS_LIVE : REASONS).map((r) => <button key={r} type="button" className="pill" aria-pressed={why[a.id] === r} onClick={() => setWhy({ ...why, [a.id]: why[a.id] === r ? "" : r })}>{r}</button>)}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" className="btn" aria-busy={busy === a.id || undefined} onClick={() => why[a.id] ? decide(a, false) : shell.flash("Elegí el motivo del rechazo.")}>Rechazar</button>
+                  <button type="button" className="btn pri" aria-busy={busy === a.id || undefined} disabled={live && !okVal} onClick={() => decide(a, true)}>{live ? (rec ? "Lo vi: aprobar récord" : "Lo vi: validar marca") : rec ? "Aprobar récord" : "Validar marca"}</button>
+                </div>
               </div>
-              <span className={`chip ${a.wouldBeRecord ? "ok" : "mute"}`} style={{ alignSelf: "flex-start" }}>{a.wouldBeRecord ? "Si se aprueba, es nuevo récord" : "Si se aprueba, no supera el récord"}</span>
-              <span className="muted" style={{ lineHeight: 1.45 }}>Regla: {a.rule}</span>
-              <div className="pills" role="group" aria-label="Motivo de rechazo">{REASONS.map((r) => <button key={r} type="button" className="pill" aria-pressed={why[a.id] === r} onClick={() => setWhy({ ...why, [a.id]: why[a.id] === r ? "" : r })}>{r}</button>)}</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="btn" aria-busy={busy === a.id || undefined} onClick={() => why[a.id] ? decide(a, false) : shell.flash("Elegí el motivo del rechazo.")}>Rechazar</button>
-                <button type="button" className="btn pri" aria-busy={busy === a.id || undefined} onClick={() => decide(a, true)}>{a.wouldBeRecord ? "Aprobar récord" : "Validar marca"}</button>
-              </div>
-            </div>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
       <section className="card">
         <h2>Resueltos · 30 días</h2>
         {v.data?.done.map((a) => (
-          <div key={a.id} className="trow"><span style={{ flex: 1 }}>{a.member} · {a.challenge} · <b>{a.value}</b>{a.newRecord ? " · nuevo récord" : ""}</span>
+          <div key={a.id} className="trow"><span style={{ flex: 1 }}>{a.member} · {a.challenge} · <b>{a.value}</b>{a.newRecord ? " · nuevo récord" : ""}{a.method === "in_person" ? " · en sala" : ""}</span>
             <span className="muted">{a.status === "approved" ? `${a.decidedBy ?? ""} · ${when(a.decidedAt)}` : a.reason}</span>
             <span className={`chip ${a.status === "approved" ? "ok" : "bad"}`}>{a.status === "approved" ? "Aprobado" : "Rechazado"}</span></div>
         ))}

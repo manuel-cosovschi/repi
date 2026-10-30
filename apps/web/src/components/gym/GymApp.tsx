@@ -48,6 +48,7 @@ function navFor(ctx: GymCtxView): NavItem[] {
   if (can(ctx, "floor.work")) {
     [["shift", "Mi turno", IC.home, null], ["queue", "Cola de asistencia", IC.queue, null], ["joins", "Solicitudes de acceso", IC.door, null], ["members", "Socios", IC.users, null], ["handoff", "Traspaso de turno", IC.swap, null], ["msgs", "Mensajes", IC.msg, null], ["perf", "Mi desempeño", IC.chart, null]].forEach((x) => add(x as NavItem));
   }
+  if (can(ctx, "challenges.witness")) add(["validations", "Validaciones", IC.check, null]); // D165: en sala
   if (r.includes("coordinator")) [["staff", "Equipo", IC.users, null], ["pc", "Performance Center", IC.gauge, null], ["tasks", "Tareas", IC.check, null], ["shifts", "Turnos", IC.cal, null]].forEach((x) => add(x as NavItem));
   // REPI Connect (D126): con el módulo activo la cola se llama «Sala» y la gestión suma «Seguimiento de sala».
   if (ctx.connect) {
@@ -96,7 +97,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const refreshBadges = useCallback(() => {
     if (ctx && navFor(ctx).some((n) => n[0] === "notices")) api<{ unread: number }>(`/api/gym/${orgId}/notices`).then((x) => setBadges((b) => ({ ...b, notices: x.unread }))).catch(() => {});
     if (ctx?.roles.includes("owner")) api<{ unacked: number }>(`/api/conditions/${orgId}`).then((x) => setBadges((b) => ({ ...b, billing: x.unacked }))).catch(() => {});
-    if (ctx && can(ctx, "challenges.validate")) api<{ pending: unknown[] }>(`/api/gym/${orgId}/validations`).then((v) => setBadges((b) => ({ ...b, validations: v.pending.length }))).catch(() => {});
+    if (ctx && (can(ctx, "challenges.validate") || can(ctx, "challenges.witness"))) api<{ pending: unknown[] }>(`/api/gym/${orgId}/validations`).then((v) => setBadges((b) => ({ ...b, validations: v.pending.length }))).catch(() => {});
     if (ctx && (can(ctx, "members.approve") || can(ctx, "members.validate"))) {
       api<{ canActAt: { id: string }[]; requests: { status: string; locationId: string }[] }>(`/api/gym/${orgId}/joins`)
         .then((j) => setBadges((b) => ({ ...b, joins: j.requests.filter((x) => x.status === "pending" && j.canActAt.some((c) => c.id === x.locationId)).length }))).catch(() => {});

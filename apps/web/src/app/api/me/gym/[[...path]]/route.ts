@@ -77,7 +77,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     if (!(f instanceof File)) throw new AccessError("invalid_file", "Elegí un video.");
     return cm.uploadMedia(me, { kind: "attempt_video", orgId: org(req), mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });
   }
-  if (a === "attempts") return cm.submitAttempt(me, await body(req, z.object({ challengeId: id, value: z.number(), division: z.enum(["F", "M"]).nullable().optional(), videoId: id, confirm: z.boolean() })));
+  if (a === "attempts") return cm.submitAttempt(me, await body(req, z.object({ challengeId: id, value: z.number(), division: z.enum(["F", "M"]).nullable().optional(), videoId: id.nullable().optional(), inPerson: z.boolean().optional(), confirm: z.boolean() })));
   if (a === "club") {
     const o = org(req);
     if (b === "join") return club.joinClub(me, o, await body(req, z.object({ showName: z.boolean(), inRanking: z.boolean() })));
