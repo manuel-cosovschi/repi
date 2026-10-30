@@ -9,7 +9,7 @@ export const FEATURES = {
   club: { on: true, what: "Repi Club del gimnasio: publicaciones voluntarias, ranking y moderación" },
   nutrition: { on: false, what: "Pestaña Nutrición en la ficha del coach: falta la carga desde la app del alumno" },
   body: { on: false, what: "Mi cuerpo (Body Intelligence): faltan registro de medidas y fotos, y el visor" },
-  exercise_video: { on: false, what: "Video demostración del ejercicio en la sesión: faltan medios licenciados" },
+  exercise_video: { on: true, what: "Cómo se hace cada ejercicio en la sesión: video o enlace del gimnasio o del coach (D164); si no hay, búsqueda en YouTube" },
 } as const;
 export type Feature = keyof typeof FEATURES;
 

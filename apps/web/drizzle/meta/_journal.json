@@ -239,6 +239,13 @@
       "when": 1793370067216,
       "tag": "0033_member_exercise",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793373605798,
+      "tag": "0034_exercise_media",
+      "breakpoints": true
     }
   ]
 }

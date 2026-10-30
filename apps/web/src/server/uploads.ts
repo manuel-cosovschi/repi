@@ -10,13 +10,15 @@ import { ATTEMPT_VIDEO_LIMITS, VIDEO_LIMITS, sniff } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "./access/util";
 import { memberOf } from "./community/services";
+import { requireMediaManager } from "./training/exercise-media";
 import { deleteObject, directUploadTarget, probeObject } from "./storage";
 
 const { uploadIntent, mediaObject } = schema;
-export type UploadPurpose = "request_video" | "attempt_video";
+export type UploadPurpose = "request_video" | "attempt_video" | "exercise_video";
 const RULES: Record<UploadPurpose, { limits: { maxBytes: number; mimes: readonly string[] }; msg: string }> = {
   request_video: { limits: VIDEO_LIMITS, msg: "El video tiene que ser MP4, MOV o WebM de hasta 60 MB." },
   attempt_video: { limits: ATTEMPT_VIDEO_LIMITS, msg: "El video tiene que ser MP4, MOV o WebM de hasta 80 MB." },
+  exercise_video: { limits: ATTEMPT_VIDEO_LIMITS, msg: "El video tiene que ser MP4, MOV o WebM de hasta 80 MB." }, // D164
 };
 const INTENT_TTL_MS = 2 * 3_600_000;
 const iso = (m: string) => (m === "video/quicktime" ? "video/mp4" : m); // mp4 y mov comparten contenedor
@@ -31,6 +33,10 @@ export async function beginUpload(userId: string, p: { purpose: UploadPurpose; o
   if (p.purpose === "attempt_video") {
     if (!p.orgId || !(await memberOf(userId, p.orgId))) throw new AccessError("not_found", "No encontrado.", 404);
     key = `attempt/${clean(p.orgId)}/${id}`;
+  } else if (p.purpose === "exercise_video") {
+    if (!p.orgId) throw new AccessError("not_found", "No encontrado.", 404);
+    await requireMediaManager(userId, p.orgId);
+    key = `exercise/${clean(p.orgId)}/${id}`;
   } else key = `request-video/${clean(userId)}/${id}`;
   const upload = await directUploadTarget(key);
   if (!upload) return { id: null, upload: null };

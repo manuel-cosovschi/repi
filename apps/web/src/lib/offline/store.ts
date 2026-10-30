@@ -13,6 +13,7 @@ export type LocalEx = { id: string; exerciseId: string; name: string; sets: numb
   detail?: ExerciseDetail | null; // D134: plan serie por serie, técnica, combinación
   change?: ExChange | null; origPrev?: LocalEx["prev"];
   suggest?: Suggestion | null; // D154: carga y reps sugeridas por REPI para hoy (sin carga indicada por el profe)
+  media?: { kind: "video" | "link"; url: string } | null; // D164: cómo se hace (video o enlace del gimnasio o del coach)
 };
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
@@ -84,7 +85,7 @@ export function fromServer(x: {
   return {
     id: x.id, dayId: x.dayId ?? "", dayName: x.dayName, note: x.note, startedAt: x.startedAt, status: x.status, activeMs: x.activeMs, lastResumedAt: x.lastResumedAt,
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null })),
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null })),
     sets,
   };
 }

@@ -6,6 +6,6 @@ import { beginUpload } from "@/server/uploads";
 export const POST = handle(async (req) => {
   const uid = await sessionUserId();
   await limit("upload-begin", 20);
-  const p = await body(req, z.object({ purpose: z.enum(["request_video", "attempt_video"]), orgId: z.string().max(64).nullable().optional(), mime: z.string().max(60), size: z.number().int().positive() }));
+  const p = await body(req, z.object({ purpose: z.enum(["request_video", "attempt_video", "exercise_video"]), orgId: z.string().max(64).nullable().optional(), mime: z.string().max(60), size: z.number().int().positive() }));
   return beginUpload(uid, p);
 });

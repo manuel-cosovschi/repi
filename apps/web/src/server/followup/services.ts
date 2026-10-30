@@ -327,6 +327,12 @@ export async function authorizeVideo(actorId: string, videoId: string) {
       .where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, t.orgId), eq(staffMembership.status, "active")));
     if (gymCan(roles.filter((r) => !r.loc || r.loc === t.loc).map((r) => r.role), "floor.work")) return v;
   }
+  // D164: video de un ejercicio del gimnasio o del coach: lo ven su equipo, sus socios y sus alumnos.
+  if (v.purpose === "exercise_video" && v.orgId) {
+    const { canSeeOrgMedia } = await import("../training/exercise-media");
+    if (await canSeeOrgMedia(actorId, v.orgId)) return v;
+    throw NOT_FOUND();
+  }
   // Comunidad (Etapa 6): imágenes para socios y staff de la organización; videos de intento para quien valida.
   if (v.purpose !== "request_video" && await authorizeCommunityMedia(actorId, v)) return v;
   throw NOT_FOUND();
@@ -348,7 +354,8 @@ export async function purgeMedia(now = new Date()) {
   const orphans = await db.select().from(mediaObject)
     .where(and(isNull(mediaObject.deletedAt), lt(mediaObject.createdAt, limitOrphan), sql`not exists (select 1 from student_request r where r.video_id = ${mediaObject.id})`,
       sql`not exists (select 1 from gym_task t where t.video_id = ${mediaObject.id})`, sql`not exists (select 1 from challenge_attempt a where a.video_id = ${mediaObject.id})`,
-      sql`not exists (select 1 from community_post p where p.image_id = ${mediaObject.id} and p.deleted_at is null)`, sql`not exists (select 1 from catalog_item c where c.image_id = ${mediaObject.id} and c.deleted_at is null)`));
+      sql`not exists (select 1 from community_post p where p.image_id = ${mediaObject.id} and p.deleted_at is null)`, sql`not exists (select 1 from catalog_item c where c.image_id = ${mediaObject.id} and c.deleted_at is null)`,
+      sql`not exists (select 1 from exercise_media e where e.media_id = ${mediaObject.id})`));
   // Video de intento de récord: 90 días después de la decisión (05_BUSINESS_RULES · Comunidad).
   const expiredAttempts = await db.select({ m: mediaObject }).from(mediaObject).innerJoin(schema.challengeAttempt, eq(schema.challengeAttempt.videoId, mediaObject.id))
     .where(and(isNull(mediaObject.deletedAt), inArray(schema.challengeAttempt.status, ["approved", "rejected"]), lt(schema.challengeAttempt.decidedAt, limitResolved)));

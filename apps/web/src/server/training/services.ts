@@ -747,7 +747,8 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
   const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
   const doneIds = [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])];
-  const [prev, lastTime] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id)]);
+  const [prev, lastTime, media] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id),
+    sessionOrg(s.versionId).then((orgId) => import("./exercise-media").then((m) => m.mediaFor(orgId, doneIds)))]); // D164: video de cómo se hace
   // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
   const open = s.status === "in_progress" || s.status === "paused";
   const [cur] = open ? await db.select({ v: program.currentVersionId }).from(programAssignment).innerJoin(program, eq(program.id, programAssignment.programId))
@@ -765,6 +766,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
         suggest: suggestionFor(e as { reps: string; sets: number; detail: unknown }, lastTime.get(doing(e))), // D154
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
+        media: media.get(doing(e)) ?? null,
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
         logs: logs.filter((l) => l.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)
           .map((l) => ({ id: l.id, setIndex: l.setIndex, exerciseId: l.exerciseId, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, completedAt: l.completedAt, revision: l.revision })),

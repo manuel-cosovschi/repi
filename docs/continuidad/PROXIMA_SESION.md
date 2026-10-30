@@ -1,6 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D163), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D164), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Videos de ejercicios (D164) — 30/10/2026
+
+- **Migración:** `drizzle/0034_exercise_media.sql` (tabla `exercise_media`, propósito `exercise_video` en `media_object` y `upload_intent`). Aplicada en dev, pruebas y Supabase.
+- **Servidor:** `server/training/exercise-media.ts` (`requireMediaManager`, `canSeeOrgMedia`, `cleanVideoLink`, `listExerciseMedia`, `setExerciseLink`, `setExerciseUpload`, `removeExerciseMedia`, `mediaFor`); rutas `app/api/org/[orgId]/exercise-media` (+ `/upload` sólo para disco local); `exercise_video` en `server/uploads.ts`; `authorizeVideo` y la purga en `server/followup/services.ts`; `getSession` devuelve `media` por ejercicio.
+- **UI:** `components/coach/ExerciseVideos.tsx` (pantalla «Videos de ejercicios» en Coach y Gym, `.xv-*`); `Workout.tsx` («Ver cómo se hace» o «Buscar cómo se hace en YouTube», `.wo-howto`).
+- **Biblioteca gratuita:** no hay una usable (detalle en D164).
+- **Pruebas:** web 250 ✓ (`adaptive` D164: enlace válido e inválido, permisos, el alumno lo ve en la sesión, el video reemplaza el enlace, `authorizeVideo` para el alumno y un tercero, quitar), dominio 156 ✓, guardas ✓, sin deriva, E2E 36/36 ✓. Navegador (demo coach, escritorio y teléfono emulado): buscar, enlace inválido rechazado, enlace de YouTube guardado («Cargados: 1»); demo alumno: «Buscar cómo se hace en YouTube» en Press de banca.
+- **Sin probar en navegador:** subir un archivo de video real al almacenamiento de producción y verlo en el entrenamiento.
+- **Próximo:** el profe de sala valida el récord en persona; después trofeos del club con niveles, animación de entrada y asistente de REPI para el coach.
 
 ## Ejercicios propios del alumno (D163) — 30/10/2026
 

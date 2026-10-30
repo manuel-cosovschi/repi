@@ -7,7 +7,9 @@ describe("feature flags", () => {
   it("los módulos sin carga real arrancan apagados", () => {
     expect(FEATURES.body.on).toBe(false);
     expect(FEATURES.nutrition.on).toBe(false);
-    expect(FEATURES.exercise_video.on).toBe(false);
+  });
+  it("los videos de ejercicios están encendidos desde que el panel los carga (D164)", () => {
+    expect(FEATURES.exercise_video.on).toBe(true);
   });
   it("el override enciende, apaga e ignora claves desconocidas", () => {
     expect(parseFeatures(" body , -club, inventado, -")).toEqual({ body: true, club: false });

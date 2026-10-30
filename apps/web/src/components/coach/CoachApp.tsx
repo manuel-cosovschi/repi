@@ -17,13 +17,14 @@ import { ChatPane } from "@/components/messages/ChatPane";
 import { initials, type Overview, type Screen } from "./types";
 import { CoachGuide } from "./CoachGuide";
 import { Ic } from "@/components/ui/Ic";
-import { BookOpen, CalendarBlank, CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, type Icon } from "@phosphor-icons/react";
+import { BookOpen, CalendarBlank, CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, VideoCamera, type Icon } from "@phosphor-icons/react";
+import { ExerciseVideos } from "./ExerciseVideos";
 
-const IC = { home: House, users: Users, cal: CalendarBlank, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt, book: BookOpen };
+const IC = { home: House, users: Users, cal: CalendarBlank, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt, book: BookOpen, video: VideoCamera };
 
 // Cobros del coach a sus alumnos (F-BL-01, D80): registro manual, separado del cobro de REPI al coach (anexo §10).
 const NAV: [Screen, string, Icon, string | null][] = [
-  ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["agenda", "Agenda", IC.cal, null], ["builder", "Programas", IC.build, null],
+  ["dash", "Panel", IC.home, null], ["clients", "Clientes", IC.users, null], ["agenda", "Agenda", IC.cal, null], ["builder", "Programas", IC.build, null], ["videos", "Videos de ejercicios", IC.video, null],
   ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, null],
   ["terms", "Condiciones REPI", IC.receipt, null], ["guide", "Guía", IC.book, null],
 ];
@@ -114,6 +115,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
               {screen === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}
               {screen === "dash" && <CoachDash orgId={orgId} ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} />}
               {screen === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} />}
+              {screen === "videos" && <ExerciseVideos orgId={orgId} flash={flash} />}
               {screen === "builder" && <ProgramBuilder orgId={orgId} ov={ov} pid={pid} setPid={setPid} flash={flash} onNewProgram={newProgram} onAssigned={reload} />}
               {screen === "inbox" && <CoachInbox orgId={orgId} flash={flash} go={go} onChanged={reload} />}
               {screen === "msgs" && <ChatPane listUrl={`/api/coach/${orgId}/messages`} kicker="Conversaciones privadas entre vos y cada cliente" emptyText="Todavía no tenés clientes. Las conversaciones aparecen cuando aceptan tu invitación."

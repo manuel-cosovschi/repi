@@ -23,7 +23,7 @@ import { StepSlider } from "@/components/motion/StepSlider";
 import { seedOf } from "@/lib/confetti";
 import { prefersReducedMotion } from "@/lib/motion";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, NotePencil, Pause, Play, Trophy } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, NotePencil, Pause, Play, PlayCircle, Trophy } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
 
 const RING = 207.35;
@@ -88,6 +88,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const [plates, setPlates] = useState(false);
   const [changing, setChanging] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [howto, setHowto] = useState(false); // D164: video de cómo se hace
   // Nota de la serie en edición (F-HX-21): como RIR y sensación, se guarda al completar o guardar la serie.
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [restAlert, setRestAlert] = useState<RestAlertState>("unsupported");
@@ -403,7 +404,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretRight} size={16} /></button>
             </div>
           </div>
-          {featureOn("exercise_video") && <div className="video" aria-hidden="true">video demostración (pendiente)</div>}
+          {/* D164: video del gimnasio o del coach; si no cargaron uno, búsqueda en YouTube (provisoria). */}
+          {featureOn("exercise_video") && (ex.media?.kind === "video"
+            ? <button type="button" className="wo-howto" onClick={() => setHowto(true)}><Ic i={PlayCircle} size={18} /> Ver cómo se hace</button>
+            : <a className="wo-howto" href={ex.media?.url ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${sub ? sub.name : ex.name} técnica`)}`} target="_blank" rel="noopener noreferrer">
+              <Ic i={PlayCircle} size={18} /> {ex.media ? "Ver cómo se hace" : "Buscar cómo se hace en YouTube"}</a>)}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>
           {ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
             <div className="wo-suggest" role="note">
@@ -516,6 +521,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           <button type="button" className="ghost" aria-busy={busy || undefined} onClick={() => { setStill(null); void finish(true); }}>
             {!anyDone ? "Cortar entrenamiento (sin series, se descarta)" : pendingSets ? "Cortar entrenamiento acá" : "Completar entrenamiento"}</button>
           {anyDone && pendingSets > 0 && <p className="sheet-sub">Lo que registraste queda guardado; las {pendingSets} series que faltan no se cuentan.</p>}
+        </Sheet>
+      )}
+      {howto && ex.media?.kind === "video" && (
+        <Sheet title={sub ? sub.name : ex.name} sub="Cómo se hace, según tu gimnasio o tu coach." closeLabel="Cerrar" onClose={() => setHowto(false)}>
+          <video className="wo-howto-video" src={ex.media.url} controls playsInline autoPlay muted loop preload="metadata" />
         </Sheet>
       )}
       {noteOpen && curRow && <SetNoteSheet n={cur + 1} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}

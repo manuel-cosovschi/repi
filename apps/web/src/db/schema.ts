@@ -549,7 +549,7 @@ export const injury = pgTable("injury", {
 export const mediaObject = pgTable("media_object", {
   id: id(),
   ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image"] }).notNull(), // request_video también para tareas del equipo de sala (D41)
+  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image", "exercise_video"] }).notNull(), // request_video también para tareas del equipo de sala (D41); exercise_video: D164
   orgId: text("org_id"), // imágenes de comunidad: las ven los socios y el staff de esa organización
   storageKey: text("storage_key").notNull(),
   mime: text("mime").notNull(),
@@ -557,6 +557,19 @@ export const mediaObject = pgTable("media_object", {
   createdAt: now("created_at"),
   deletedAt: ts("deleted_at"),
 });
+
+// D164: video de cómo se hace un ejercicio, cargado por el gimnasio o el coach (uno por ejercicio y organización). Puede ser
+// un video subido (media_object) o un enlace a YouTube, TikTok o Instagram. Lo ven sus socios o alumnos en el entrenamiento.
+export const exerciseMedia = pgTable("exercise_media", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  exerciseId: text("exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }),
+  mediaId: text("media_id").references(() => mediaObject.id),
+  url: text("url"),
+  createdBy: text("created_by").notNull().references(() => user.id),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [uniqueIndex("exercise_media_unique").on(t.orgId, t.exerciseId)]);
 
 // Entornos de la demo guiada (D85): uno por visita, con sus personas y organizaciones ficticias; se borran al vencer.
 export const demoSandbox = pgTable("demo_sandbox", {
@@ -690,7 +703,7 @@ export const appRateLimit = pgTable("app_rate_limit", {
 export const uploadIntent = pgTable("upload_intent", {
   id: id(),
   ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image"] }).notNull(),
+  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image", "exercise_video"] }).notNull(),
   orgId: text("org_id"),
   storageKey: text("storage_key").notNull(),
   mime: text("mime").notNull(),

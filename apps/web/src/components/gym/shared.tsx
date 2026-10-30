@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 export type GymScreen =
   | "shift" | "queue" | "members" | "handoff" | "msgs" | "perf"
   | "mdash" | "pc" | "staff" | "tasks" | "reviews" | "shifts" | "engage" | "community" | "validations"
-  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence";
+  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence" | "videos";
 
 export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean };
 export type Task = {

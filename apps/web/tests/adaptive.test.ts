@@ -294,3 +294,39 @@ describe("ejercicios propios del alumno (D163)", () => {
     expect((await tr.listLibrary(coach.id, org.id)).some((x) => x.id === e.id)).toBe(false);
   });
 });
+
+describe("videos de ejercicios (D164)", () => {
+  it("el coach carga un enlace o un video por ejercicio; sus alumnos lo ven en el entrenamiento y nadie más puede cargar", async () => {
+    const em = await import("@/server/training/exercise-media");
+    const fu = await import("@/server/followup/services");
+    const coach = await verified();
+    const org = await acc.createCoachOrganization(coach.id, { brand: `Coach D164 ${n}` });
+    const u = await verified();
+    const inv = await acc.inviteCoachClient(coach.id, org.id, { email: u.email });
+    const rel = await acc.acceptInvitation(u.id, inv.code, []);
+    const pid = await tr.createTemplate(coach.id, org.id, { name: "Base", weeks: 4, note: "", days: [{ name: "Día A", exercises: [{ exerciseId: SQ, name: "Sentadilla", sets: 3, reps: "8", rir: 2, restSec: 90 }] }] });
+    await tr.assignProgram(coach.id, org.id, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
+    // Enlace: sólo https de YouTube, TikTok o Instagram.
+    await expect(em.setExerciseLink(coach.id, org.id, SQ, "http://youtube.com/x")).rejects.toMatchObject({ code: "invalid" });
+    await expect(em.setExerciseLink(coach.id, org.id, SQ, "https://evil.example.com/v")).rejects.toMatchObject({ code: "invalid" });
+    expect((await em.setExerciseLink(coach.id, org.id, SQ, "https://youtu.be/abc123")).media).toEqual({ kind: "link", url: "https://youtu.be/abc123" });
+    expect((await em.listExerciseMedia(coach.id, org.id, { only: true })).exercises.map((x) => x.id)).toEqual([SQ]);
+    // Nadie de afuera ni el alumno puede cargar.
+    const other = await verified();
+    await expect(em.setExerciseLink(other.id, org.id, SQ, "https://youtu.be/x")).rejects.toMatchObject({ code: "not_found" });
+    await expect(em.setExerciseLink(u.id, org.id, SQ, "https://youtu.be/x")).rejects.toMatchObject({ code: "not_found" });
+    // El alumno lo ve en la sesión.
+    const t = await tr.myTraining(u.id);
+    const sid = randomUUID();
+    await tr.startSession(u.id, { id: sid, dayId: t.state === "ready" ? t.program.days[0].id : "" });
+    expect((await tr.getSession(u.id, sid)).exercises[0].media).toEqual({ kind: "link", url: "https://youtu.be/abc123" });
+    // Video subido (registro como lo deja la subida directa): reemplaza el enlace y lo puede abrir el alumno, no un tercero.
+    const [m] = await db.insert(schema.mediaObject).values({ ownerUserId: coach.id, orgId: org.id, purpose: "exercise_video", storageKey: `exercise/test/${randomUUID()}`, mime: "video/mp4", sizeBytes: 10 }).returning();
+    expect((await em.setExerciseUpload(coach.id, org.id, SQ, m.id)).media).toEqual({ kind: "video", url: `/api/media/${m.id}` });
+    expect((await tr.getSession(u.id, sid)).exercises[0].media?.kind).toBe("video");
+    expect((await fu.authorizeVideo(u.id, m.id)).id).toBe(m.id);
+    await expect(fu.authorizeVideo(other.id, m.id)).rejects.toMatchObject({ code: "not_found" });
+    await em.removeExerciseMedia(coach.id, org.id, SQ);
+    expect((await tr.getSession(u.id, sid)).exercises[0].media).toBeNull();
+  });
+});

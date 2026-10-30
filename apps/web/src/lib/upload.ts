@@ -21,7 +21,7 @@ function send(method: string, url: string, body: XMLHttpRequestBodyInit, headers
   });
 }
 
-export async function uploadVideo(p: { purpose: "request_video" | "attempt_video"; orgId?: string; file: File; legacyUrl: string; onProgress?: (p: number) => void }): Promise<{ id: string }> {
+export async function uploadVideo(p: { purpose: "request_video" | "attempt_video" | "exercise_video"; orgId?: string; file: File; legacyUrl: string; onProgress?: (p: number) => void }): Promise<{ id: string }> {
   const b = await api<Begin>("/api/uploads", { body: { purpose: p.purpose, orgId: p.orgId ?? null, mime: p.file.type, size: p.file.size } });
   if (!b.upload || !b.id) {
     const fd = new FormData(); fd.append("file", p.file);
