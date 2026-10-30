@@ -196,7 +196,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   return (
     <Modal label={`Editar programa · ${member.name}`} onClose={() => onClose(false)} wide>
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
-      <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} hasContent={doc.days.some((d) => d.exercises.length > 0)}
+      <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib.data ?? []}
         onUse={(d) => { setDoc(d); setDay(0); if (reason.trim().length < 3) setReason("Programa armado con la propuesta de REPI"); }} />
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <label className="field" style={{ flex: "2 1 240px" }}>Nombre<input value={doc.name} maxLength={120} onChange={(e) => setDoc({ ...doc, name: e.target.value })} /></label>

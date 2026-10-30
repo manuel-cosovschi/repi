@@ -39,6 +39,13 @@ Reglas:
 - Respetá «leGusta» y «prefiereEvitar». reps como texto («8-12», «10»). restSec en segundos. note: máximo 60 caracteres o vacío.
 - name: nombre corto del programa según el objetivo y el reparto (p. ej. «Hipertrofia · 4 días»). NUNCA menciones lesiones, dolores, limitaciones ni datos de la persona en name ni en note: el nombre lo ve todo el equipo.
 - headline: máximo 60 caracteres. summary: máximo 220, cómo está armado y por qué. weeks: entre 4 y 8.`;
+// D161: cambio puntual sobre la propuesta (con lo que el profe ya editó a mano), sin rearmarla.
+const REVISE = `
+Esta vez NO armás de cero: «programaActual» es la propuesta tal como la dejó el profesor (puede haberla editado a mano) y «pedidoDeCambio» es lo que quiere cambiar.
+- Aplicá SÓLO ese cambio. Todo lo demás queda exactamente igual: mismos días y nombres, mismos ejercicios (mismo código), mismo orden, series, reps, RIR, descanso y notas.
+- Si el pedido nombra un ejercicio, buscalo en «programaActual»; si hay que reemplazarlo, elegí uno de «biblioteca» del mismo grupo muscular salvo que pida otra cosa.
+- Seguí respetando «limitaciones», «leGusta» y «prefiereEvitar».
+- summary: en una oración, qué cambiaste. headline: igual que antes salvo que el cambio lo afecte. weeks, name y note: los de «programaActual» salvo que el pedido los cambie.`;
 const SCHEMA = {
   type: "object", additionalProperties: false, required: ["headline", "summary", "caution", "name", "weeks", "note", "days"],
   properties: {
@@ -66,8 +73,16 @@ export function cleanBrief(b: Partial<ProgramBrief>): ProgramBrief {
   };
 }
 
+/** D161: pedido de cambio puntual sobre la propuesta (validada como cualquier programa). Sin pedido, se arma de cero. */
+export function reviseOf(p: { change?: string; current?: ProgramDoc }) {
+  if (!p.change || !p.current) return undefined;
+  const v = validateProgramDoc(p.current);
+  if (!v.ok) throw new AccessError("invalid", v.error);
+  return { current: v.doc, change: p.change };
+}
+
 /** Propuesta de programa para un alumno, con la biblioteca de la organización (catálogo + propios). */
-export async function draftProgram(orgId: string, brief: ProgramBrief): Promise<ProgramDraft> {
+export async function draftProgram(orgId: string, brief: ProgramBrief, revise?: { current: ProgramDoc; change: string }): Promise<ProgramDraft> {
   await ensureExerciseCatalog();
   const lib = (await db.select().from(exercise).where(or(isNull(exercise.orgId), eq(exercise.orgId, orgId))))
     .filter((e) => e.kind !== "time" && GROUPS.includes(e.muscleGroup));
@@ -102,18 +117,41 @@ export async function draftProgram(orgId: string, brief: ProgramBrief): Promise<
   };
 
   let draft: ProgramDraft;
+  const change = revise?.change.trim().slice(0, 300);
+  // Un cambio puntual necesita a REPI: con reglas sólo se puede armar de cero, y eso borraría lo editado.
+  if (revise && !aiOn()) throw new AccessError("ai_unavailable", "REPI no está disponible para cambios en este momento. Editá la propuesta a mano.", 503);
   if (!aiOn()) draft = byRules();
   else {
     const cands = GROUPS.flatMap((g) => lib.filter((e) => e.muscleGroup === g).sort((a, b) => a.name.localeCompare(b.name, "es")).slice(0, 18));
+    // Los ejercicios de la propuesta actual van siempre en la biblioteca que recibe REPI (aunque no estén entre los primeros).
+    const curIds = [...new Set(revise?.current.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)) ?? [])];
+    const byId = new Map(lib.map((e) => [e.id, e]));
+    if (curIds.some((id) => !byId.has(id))) throw new AccessError("invalid", "La propuesta tiene ejercicios que no están en la biblioteca.");
+    for (const id of curIds) if (!cands.some((c) => c.id === id)) cands.push(byId.get(id)!);
+    // Y los que nombra el pedido («cambiá las estocadas por prensa»): si no, REPI elige el más parecido de los que recibió.
+    if (change) {
+      const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const words = norm(change).split(/[^a-zñ]+/).filter((w) => w.length >= 4);
+      const named = lib.filter((e) => !cands.some((c) => c.id === e.id) && words.some((w) => norm(e.name).split(/[^a-zñ]+/).some((x) => x.startsWith(w))))
+        .sort((a, b) => a.name.length - b.name.length).slice(0, 20);
+      cands.push(...named);
+    }
     const code = new Map(cands.map((e, i) => [`x${i + 1}`, e]));
+    const codeOf = new Map([...code].map(([k, e]) => [e.id, k]));
     const ctx = {
       diasPorSemana: brief.daysPerWeek, minutosPorSesion: brief.minutes, nivel: LEVELS[brief.level],
       objetivo: brief.goal ? TRAINING_WISH_GOALS[brief.goal] : null, leGusta: brief.likes || null, prefiereEvitar: brief.avoid || null,
       limitaciones: brief.limitations || null, notasDelProfe: brief.notes || null,
       biblioteca: [...code].map(([k, e]) => ({ code: k, nombre: e.name, grupo: e.muscleGroup, tipo: e.kind === "bodyweight" ? "peso corporal" : "con carga" })),
+      ...(revise ? {
+        pedidoDeCambio: change,
+        programaActual: { name: revise.current.name, weeks: revise.current.weeks, note: revise.current.note, days: revise.current.days.map((d) => ({ name: d.name,
+          exercises: d.exercises.map((e) => ({ code: codeOf.get(e.exerciseId), nombre: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? "" })) })) },
+      } : {}),
     };
+    const perDayMax = revise ? 12 : 8;
     try {
-      const r = await aiJson<Out>({ name: "programa_alumno", system: SYSTEM, parts: [{ type: "text", text: JSON.stringify(ctx) }], schema: SCHEMA, fast: true, maxTokens: 2200, timeoutMs: 40_000 });
+      const r = await aiJson<Out>({ name: "programa_alumno", system: revise ? SYSTEM + REVISE : SYSTEM, parts: [{ type: "text", text: JSON.stringify(ctx) }], schema: SCHEMA, fast: true, maxTokens: 2600, timeoutMs: 40_000 });
       const days = r.days.slice(0, 6).map((d, i) => {
         const seen = new Set<string>();
         return { name: clip(d.name, 60) || `Día ${i + 1}`, exercises: d.exercises.flatMap((x) => {
@@ -122,13 +160,17 @@ export async function draftProgram(orgId: string, brief: ProgramBrief): Promise<
           seen.add(e.id);
           return [{ exerciseId: e.id, name: e.name, sets: Math.min(Math.max(x.sets, 1), 6), reps: clip(x.reps, 20) || repsFor(brief.goal),
             rir: x.rir != null && x.rir >= 0 && x.rir <= 5 ? x.rir : null, restSec: x.restSec >= 30 && x.restSec <= 300 ? x.restSec : restFor(brief.goal), note: clip(x.note, 120) || null }];
-        }).slice(0, 8) };
+        }).slice(0, perDayMax) };
       }).filter((d) => d.exercises.length);
+      if (revise && !days.length) throw new Error("vacía");
       draft = days.length
         ? { byRules: false, headline: clip(r.headline, 80), summary: clip(r.summary, 400), caution: r.caution ? clip(r.caution, 300) : null,
           doc: { name: clip(r.name, 120) || `Programa ${brief.daysPerWeek} días`, weeks: r.weeks >= 1 && r.weeks <= 12 ? r.weeks : 6, note: clip(r.note, 500), days } }
         : byRules();
-    } catch { draft = byRules(); }
+    } catch {
+      if (revise) throw new AccessError("ai_failed", "REPI no pudo aplicar el cambio. Probá de nuevo o editalo a mano.", 503);
+      draft = byRules();
+    }
   }
   // El nombre y la nota general del programa los ve todo el equipo: si mencionan lo que se contó de salud, se reemplazan.
   const words = brief.limitations.toLowerCase().split(/[^a-záéíóúñü]+/).filter((w) => w.length >= 5);

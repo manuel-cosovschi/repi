@@ -10,7 +10,7 @@ import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { addIso, assertLibrary, lastTimeByExercise, newVersion, plain, readVersion } from "../training/services";
 import { createOwnExercise, ensureExerciseCatalog } from "../training/library";
-import { cleanBrief, draftProgram, type ProgramBrief } from "../training/program-ai";
+import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 
 const { user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
   workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject, userPref } = schema;
@@ -552,16 +552,17 @@ async function memberProgram(gymMemberId: string) {
  * anteriores conservan su versión). Opcionalmente completa en la misma transacción la tarea relacionada.
  */
 /** D155: propuesta de programa armada por REPI con los datos que carga el profe (borrador: se revisa y se guarda aparte). */
-export async function memberProgramDraft(actorId: string, orgId: string, gymMemberId: string, brief: Partial<ProgramBrief>) {
+export async function memberProgramDraft(actorId: string, orgId: string, gymMemberId: string, brief: Partial<ProgramBrief> & { change?: string; current?: ProgramDoc }) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId)));
   if (!m || !inScope(ctx, m.locationId)) throw NOT_FOUND();
   const b = cleanBrief(brief);
-  const d = await draftProgram(orgId, b);
-  // Sin el texto de limitaciones ni preferencias (datos de salud): sólo que se pidió y cómo salió.
+  const revise = reviseOf(brief);
+  const d = await draftProgram(orgId, b, revise);
+  // Sin el texto de limitaciones ni preferencias (datos de salud) ni el pedido de cambio: sólo que se pidió y cómo salió.
   await audit(db, { actorUserId: actorId, orgId, action: "member_program.ai_draft", resourceType: "gym_member", resourceId: m.id,
-    meta: { byRules: d.byRules, days: d.doc.days.length, hadLimitations: !!b.limitations } });
+    meta: { byRules: d.byRules, days: d.doc.days.length, hadLimitations: !!b.limitations, revised: !!revise } });
   return d;
 }
 

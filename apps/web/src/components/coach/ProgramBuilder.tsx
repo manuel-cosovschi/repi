@@ -118,7 +118,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
         {doc && cur ? (
           <section className="card" style={{ flex: "3 1 480px", minWidth: 0, gap: 14 }}>
             {/* D155: propuesta completa armada por REPI; reemplaza el editor sólo si el coach la usa (y se guarda como cualquier edición). */}
-            <ProgramAssistant url={`/api/coach/${orgId}/programs/draft`} hasContent={doc.days.some((d) => d.exercises.length > 0)}
+            <ProgramAssistant url={`/api/coach/${orgId}/programs/draft`} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib}
               onUse={(d) => { edit(() => d as EditableDoc); setDay(0); }} />
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
               <div className="seg">

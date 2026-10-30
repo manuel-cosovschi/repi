@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
@@ -121,6 +121,50 @@ describe("Adaptive Coach · entrenar por mi cuenta", () => {
     expect(JSON.stringify(ev[0].meta)).not.toContain("hombro"); // lo escrito sobre lesiones no se guarda
     const other = await verified();
     await expect(tr.coachProgramDraft(other.id, org.id, { daysPerWeek: 3, level: "beginner" })).rejects.toBeTruthy();
+  });
+
+  it("D161: un cambio puntual sobre la propuesta (ya editada a mano) cambia sólo eso; sin REPI no se rearma de cero", async () => {
+    const coach = await verified();
+    const org = await acc.createCoachOrganization(coach.id, { brand: `Coach D161 ${n}` });
+    const brief = { goal: "muscle" as const, daysPerWeek: 2, minutes: 45, level: "beginner" as const };
+    const d = await withoutAi(() => tr.coachProgramDraft(coach.id, org.id, brief));
+    // El profe la editó a mano: dio vuelta los dos primeros ejercicios del día 1 y cambió las series.
+    const day0 = d.doc.days[0].exercises;
+    const current = { ...d.doc, days: [{ ...d.doc.days[0], exercises: [{ ...day0[1], sets: 5 }, day0[0], ...day0.slice(2)] }, ...d.doc.days.slice(1)] };
+    await expect(withoutAi(() => tr.coachProgramDraft(coach.id, org.id, { ...brief, change: "cambiá el primero", current })))
+      .rejects.toMatchObject({ code: "ai_unavailable" });
+    await expect(withoutAi(() => tr.coachProgramDraft(coach.id, org.id, { ...brief, change: "cambiá el primero",
+      current: { ...current, days: [{ ...current.days[0], exercises: [{ ...current.days[0].exercises[0], exerciseId: randomUUID() }] }] } })))
+      .rejects.toMatchObject({ code: "ai_unavailable" }); // sin REPI corta antes de mirar los ejercicios
+    // Con REPI (respuesta simulada): recibe la propuesta editada y el pedido; reemplaza sólo el primer ejercicio.
+    const key = process.env.OPENAI_API_KEY; process.env.OPENAI_API_KEY = "test";
+    let sent: { pedidoDeCambio: string; programaActual: { days: { exercises: { code: string; sets: number }[] }[] }; biblioteca: { code: string }[] } | null = null;
+    vi.stubGlobal("fetch", async (_u: string, init: { body: string }) => {
+      const req = JSON.parse(init.body);
+      sent = JSON.parse(req.messages[1].content[0].text);
+      const cur = sent!.programaActual;
+      const used = new Set(cur.days.flatMap((x) => x.exercises.map((e) => e.code)));
+      const swap = sent!.biblioteca.find((b) => !used.has(b.code))!.code;
+      const out = { headline: d.headline, summary: "Cambié el primer ejercicio.", caution: null, name: d.doc.name, weeks: d.doc.weeks, note: d.doc.note,
+        days: cur.days.map((x, i) => ({ name: d.doc.days[i].name, exercises: x.exercises.map((e, j) => ({ code: i === 0 && j === 0 ? swap : e.code, sets: e.sets, reps: "8-12", rir: 2, restSec: 90, note: "" })) })) };
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(out) } }] }), { status: 200 });
+    });
+    try {
+      const r = await tr.coachProgramDraft(coach.id, org.id, { ...brief, change: "cambiá el primero", current });
+      expect(sent!.pedidoDeCambio).toBe("cambiá el primero");
+      expect(sent!.programaActual.days[0].exercises[0].sets).toBe(5); // viajó lo editado a mano
+      expect(r.byRules).toBe(false);
+      expect(r.doc.days[0].exercises[0].exerciseId).not.toBe(current.days[0].exercises[0].exerciseId);
+      expect(r.doc.days[0].exercises.slice(1).map((e) => e.exerciseId)).toEqual(current.days[0].exercises.slice(1).map((e) => e.exerciseId));
+      expect(r.doc.days[1].exercises.map((e) => e.exerciseId)).toEqual(current.days[1].exercises.map((e) => e.exerciseId));
+      // Un ejercicio que no es de la biblioteca de esta organización no viaja.
+      await expect(tr.coachProgramDraft(coach.id, org.id, { ...brief, change: "cambiá el primero",
+        current: { ...current, days: [{ ...current.days[0], exercises: [{ ...current.days[0].exercises[0], exerciseId: randomUUID() }] }] } }))
+        .rejects.toMatchObject({ code: "invalid" });
+    } finally {
+      vi.unstubAllGlobals();
+      if (key) process.env.OPENAI_API_KEY = key; else delete process.env.OPENAI_API_KEY;
+    }
   });
 });
 

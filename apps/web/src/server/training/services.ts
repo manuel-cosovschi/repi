@@ -499,13 +499,14 @@ const suggestionFor = (e: { reps: string; sets: number; detail?: unknown }, last
   last && !coachSetLoads(e.detail as ExerciseDetail | null) ? suggestNext({ reps: e.reps, sets: e.sets, last: last.sets }) : null;
 
 /** D155: propuesta de programa armada por REPI para el coach (plantilla o copia de un cliente). Borrador: no se guarda. */
-export async function coachProgramDraft(actorId: string, orgId: string, brief: Partial<import("./program-ai").ProgramBrief>) {
+export async function coachProgramDraft(actorId: string, orgId: string, brief: Partial<import("./program-ai").ProgramBrief> & { change?: string; current?: ProgramDoc }) {
   await requireCoach(actorId, orgId);
-  const { cleanBrief, draftProgram } = await import("./program-ai");
+  const { cleanBrief, draftProgram, reviseOf } = await import("./program-ai");
   const b = cleanBrief(brief);
-  const d = await draftProgram(orgId, b);
+  const revise = reviseOf(brief);
+  const d = await draftProgram(orgId, b, revise);
   await audit(db, { actorUserId: actorId, orgId, action: "program.ai_draft", resourceType: "organization", resourceId: orgId,
-    meta: { byRules: d.byRules, days: d.doc.days.length, hadLimitations: !!b.limitations } });
+    meta: { byRules: d.byRules, days: d.doc.days.length, hadLimitations: !!b.limitations, revised: !!revise } });
   return d;
 }
 

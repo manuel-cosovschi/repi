@@ -1,6 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D160), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D161), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Propuesta de «Armar con REPI» editable (D161) — 30/10/2026
+
+- **UI:** `components/coach/ProgramAssistant.tsx` (prop `library`; la pasan `ProgramBuilder` y `gym/Members`). Estilos `.pa-ex*`, `.pa-pick`, `.pa-change` en `styles/coach.css`.
+- **Servidor:** `draftProgram(orgId, brief, revise?)` y `reviseOf` en `server/training/program-ai.ts`; `BriefZ` acepta `change` y `current`; `coachProgramDraft` y `memberProgramDraft` registran `revised` en la auditoría (sin el texto del pedido).
+- **Pruebas:** web 247 ✓ (`adaptive` D161 con respuesta de REPI simulada: cambia sólo lo pedido y conserva lo editado; sin REPI da `ai_unavailable`; ejercicio ajeno da `invalid`), guardas ✓, E2E 36/36 ✓. Navegador (demo coach, REPI real): editar, reordenar, quitar, agregar, «Cambiá Peso muerto por prensa» → sólo ese cambio; «Usar esta propuesta» lleva lo editado al editor; teléfono emulado sin scroll horizontal.
+- **Sin probar en navegador:** la misma pantalla en REPI Gym (mismo componente).
 
 ## Entrenamientos que no quedan abiertos y recordatorio de alta (D160) — 30/10/2026
 
