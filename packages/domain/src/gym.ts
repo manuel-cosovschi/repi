@@ -1,6 +1,7 @@
 // Operación del gym (Etapa 5). Fuente: REPI Desktop Gym.dc.html, 05_BUSINESS_RULES, 06_ROLE_PERMISSION_MATRIX y MASTER_PROMPT §8.
 // Reglas marcadas [S] en el handoff siguen siendo supuestos: ver docs/DECISIONS.md (D07–D11, D42–D47).
 import type { GymRole } from "./access";
+import { TZ, localDate } from "./training";
 
 // ── Capacidades por rol (matriz 06; política inicial) ───────────────────────
 export const GYM_CAPS = [
@@ -75,11 +76,11 @@ const HEALTH_WORDS = /\b(lesi[oó]n|lesionad|dolor|molestia|diagn[oó]stic|medic
 export const mentionsHealth = (text: string) => HEALTH_WORDS.test(text);
 
 // ── Turnos ──────────────────────────────────────────────────────────────────
-/** Códigos de la grilla del prototipo (SH_LBL). Horas en hora local AR. */
+/** Códigos de la grilla del prototipo (SH_LBL). Horas en hora local AR. D158: el gimnasio abre de 6 a 22 (titular, 29/10). */
 export const SHIFT_CODES = {
-  M: { label: "Mañana", from: "07:00", to: "13:00" },
-  T: { label: "Tarde", from: "13:00", to: "19:00" },
-  N: { label: "Noche", from: "19:00", to: "23:00" },
+  M: { label: "Mañana", from: "06:00", to: "12:00" },
+  T: { label: "Tarde", from: "12:00", to: "17:00" },
+  N: { label: "Noche", from: "17:00", to: "22:00" },
   P: { label: "Mañana parcial", from: "09:00", to: "13:00" },
   F: { label: "Fin de semana", from: "09:00", to: "15:00" },
 } as const;
@@ -89,8 +90,26 @@ export const isShiftCode = (x: unknown): x is ShiftCode => typeof x === "string"
 const toMin = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
 export const shiftHours = (c: ShiftCode) => (toMin(SHIFT_CODES[c].to) - toMin(SHIFT_CODES[c].from)) / 60;
 
+/** D158: horario del gimnasio (titular, 29/10/2026): de 6 a 22, hora AR. Fuera de ese horario nadie del equipo figura en turno. */
+export const GYM_HOURS = { open: "06:00", close: "22:00" } as const;
+const localMin = (d: Date) => {
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).split(":").map(Number);
+  return h * 60 + m;
+};
+export const gymOpenAt = (now: Date) => { const m = localMin(now); return m >= toMin(GYM_HOURS.open) && m < toMin(GYM_HOURS.close); };
+/**
+ * Cuándo termina solo un turno que quedó abierto: al cierre del día en que empezó (o ahora, si se abrió fuera de horario y
+ * todavía no llegó ese cierre). Nunca antes del inicio. null: sigue abierto.
+ */
+export function shiftAutoEnd(startedAt: Date, now: Date): Date | null {
+  const close = new Date(`${localDate(startedAt)}T${GYM_HOURS.close}:00-03:00`); // Argentina no tiene horario de verano
+  if (now < close && gymOpenAt(now)) return null;
+  const end = now < close ? now : close;
+  return end > startedAt ? end : startedAt;
+}
+
 /** Franja (mañana/tarde/noche) que cubre cada código: cuenta si cubre al menos la mitad de la franja. */
-const BANDS = { M: ["07:00", "13:00"], T: ["13:00", "19:00"], N: ["19:00", "23:00"] } as const;
+const BANDS = { M: ["06:00", "12:00"], T: ["12:00", "17:00"], N: ["17:00", "22:00"] } as const;
 export type Band = keyof typeof BANDS;
 export function bandsCovered(c: ShiftCode): Band[] {
   const [a, b] = [toMin(SHIFT_CODES[c].from), toMin(SHIFT_CODES[c].to)];

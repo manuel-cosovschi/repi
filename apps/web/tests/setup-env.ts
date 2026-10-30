@@ -9,3 +9,5 @@ process.env.MAIL_DRIVER = "dev";
 process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-00";
 process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 process.env.ROSTER_HMAC_SECRET ??= "test-roster-secret";
+// D158: el horario del gimnasio (6 a 22) no aplica a las pruebas, que corren a cualquier hora; tiene su propia prueba.
+process.env.REPI_GYM_HOURS = "off";

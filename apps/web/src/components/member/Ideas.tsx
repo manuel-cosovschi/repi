@@ -1,6 +1,6 @@
 "use client";
 // D156: «Sugerí una mejora». El alumno cuenta qué le gustaría que REPI haga mejor; le llega al equipo de REPI (REPI Admin
-// → Sugerencias, y un aviso por email al titular). La respuesta, si la hay, aparece acá mismo. Vive en Inicio, la primera
+// → Sugerencias; sin email, D158). La respuesta, si la hay, aparece acá mismo. Vive en Inicio, la primera
 // pantalla: cerrada es una tarjeta de una línea y al tocarla se despliega el formulario.
 import { useCallback, useEffect, useState } from "react";
 import { Lightbulb } from "@phosphor-icons/react";

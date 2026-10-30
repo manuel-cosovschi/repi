@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizz
 import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
-  coachSetLoads, suggestNext, type LastSet,
+  applyLoad, coachSetLoads, suggestNext, type LastSet,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -680,7 +680,12 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
  * cerrado de entrada: no cuenta como programa asignado ni cambia lo que el coach o el gym ven como rutina, pero la sesión
  * es una sesión normal (series, sincronización, historial, progreso; el coach o el gym la ven en el historial).
  */
-export async function startSoloRoutine(userId: string, p: { id: string; dayName: string; exercises: { exerciseId: string; sets: number; reps: string; restSec?: number | null; weightKg?: number | null; note?: string | null }[] }, now = new Date()) {
+/**
+ * Rutina de un día sin programa: la que arma REPI (D153) o una propia del alumno (D158, `source: "own"`). En la propia, el
+ * peso que puso el alumno queda como plan de cada serie sólo en los ejercicios que nunca registró; con historial manda su
+ * última marca y la sugerencia de REPI (D154), como en cualquier entrenamiento.
+ */
+export async function startSoloRoutine(userId: string, p: { id: string; dayName: string; source?: "repi" | "own"; exercises: { exerciseId: string; sets: number; reps: string; restSec?: number | null; weightKg?: number | null; note?: string | null }[] }, now = new Date()) {
   if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de sesión inválido.");
   const act = await myActive(userId);
   if (!act) throw new AccessError("no_relation", "Para entrenar con REPI necesitás estar con un coach o un gimnasio.", 409);
@@ -693,7 +698,11 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
   const lib = await db.select().from(exercise).where(and(inArray(exercise.id, ids), or(isNull(exercise.orgId), eq(exercise.orgId, act.orgId))));
   if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en la biblioteca.");
   const byId = new Map(lib.map((e) => [e.id, e]));
-  const dayName = (p.dayName.trim() || "Rutina de hoy").slice(0, 60);
+  const own = p.source === "own";
+  const dayName = (p.dayName.trim() || (own ? "Mi rutina" : "Rutina de hoy")).slice(0, 60);
+  const prevMarks = own ? await lastSetByExercise(userId, ids) : new Map();
+  const okKg = (w: number | null | undefined): w is number => w != null && w > 0 && w <= 500;
+  const kgTxt = (w: number) => `${String(Math.round(w * 4) / 4).replace(".", ",")} kg`;
   return db.transaction(async (tx) => {
     const [existing] = await tx.select().from(workoutSession).where(eq(workoutSession.id, p.id));
     if (existing) { if (existing.userId !== userId) throw NOT_FOUND(); return existing; } // reintento idempotente
@@ -702,20 +711,21 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
     const presenceCheckinId = act.kind === "gym" ? await gymPresence(tx, userId, act.id, "gym.workout.start", now, now) : null;
     const rel = act.kind === "coach" ? { coachClientId: act.id } : { gymMemberId: act.id };
     const [pr] = await tx.insert(program).values({ orgId: act.orgId, kind: "solo", ...rel, createdBy: userId }).returning();
-    const [v] = await tx.insert(programVersion).values({ programId: pr.id, number: 1, name: dayName, weeks: 1, note: "", createdBy: userId, reason: "Rutina de hoy armada por REPI", locked: true }).returning();
+    const [v] = await tx.insert(programVersion).values({ programId: pr.id, number: 1, name: dayName, weeks: 1, note: "", createdBy: userId, reason: own ? "Rutina propia del alumno" : "Rutina de hoy armada por REPI", locked: true }).returning();
     await tx.update(program).set({ currentVersionId: v.id }).where(eq(program.id, pr.id));
     const [day] = await tx.insert(programDay).values({ versionId: v.id, position: 0, name: dayName }).returning();
     await tx.insert(programExercise).values(p.exercises.map((e, j) => ({ dayId: day.id, position: j, exerciseId: e.exerciseId, name: byId.get(e.exerciseId)!.name,
-      sets: e.sets, reps: e.reps.trim(), rir: null, restSec: e.restSec != null && e.restSec >= 0 && e.restSec <= 600 ? e.restSec : 90, detail: null,
-      // La carga sugerida va en la nota del ejercicio (el peso inicial de cada serie sale de su última marca, como siempre).
-      note: [e.weightKg != null && e.weightKg > 0 && e.weightKg <= 500 ? `Sugerido: ${String(Math.round(e.weightKg * 4) / 4).replace(".", ",")} kg` : null, e.note?.trim().slice(0, 120) || null].filter(Boolean).join(". ") || null })));
+      sets: e.sets, reps: e.reps.trim(), rir: null, restSec: e.restSec != null && e.restSec >= 0 && e.restSec <= 600 ? e.restSec : 90,
+      detail: own && okKg(e.weightKg) && !prevMarks.get(e.exerciseId) ? applyLoad(null, e.sets, e.reps.trim(), Math.round(e.weightKg * 100) / 100) : null,
+      // REPI: la carga sugerida va en la nota (el peso inicial de cada serie sale de su última marca, como siempre).
+      note: [!own && okKg(e.weightKg) ? `Sugerido: ${kgTxt(e.weightKg)}` : null, e.note?.trim().slice(0, 120) || null].filter(Boolean).join(". ") || null })));
     // Asignación ya cerrada: la sesión necesita una, pero no es «el programa» de la persona.
     const [a] = await tx.insert(programAssignment).values({ ...rel, programId: pr.id, startsOn: localDate(now), status: "ended", assignedBy: userId, assignedAt: now, endedAt: now }).returning();
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: a.id, versionId: v.id, dayId: day.id, dayName,
       startedAt: now, lastResumedAt: now, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
     }).returning();
-    await audit(tx, { actorUserId: userId, action: "adaptive.solo_routine_started", resourceType: "workout_session", resourceId: s.id, meta: { exercises: p.exercises.length } });
+    await audit(tx, { actorUserId: userId, action: own ? "own_routine.started" : "adaptive.solo_routine_started", resourceType: "workout_session", resourceId: s.id, meta: { exercises: p.exercises.length } });
     return s;
   });
 }

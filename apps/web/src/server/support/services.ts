@@ -8,7 +8,6 @@ import { isEmail, normalizeEmail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, rateLimit, sha256 } from "../access/util";
 import { requireAdmin } from "../commercial/services";
-import { providerConfigured, sendViaProvider } from "../mailer";
 
 const { supportTicket, user } = schema;
 
@@ -76,26 +75,12 @@ export async function openTicket(p: {
       }).returning();
       // Auditoría sin el texto de la consulta.
       await audit(db, { actorUserId: p.userId, action: "support.opened", resourceType: "support_ticket", resourceId: t.id, meta: { category: t.category, identity: t.identity } });
-      if (t.category === "idea") await notifyIdea(t.code, t.message, (t.diagnostics as { area?: string } | null)?.area ?? null);
       return { code: t.code, createdAt: t.createdAt, already: false };
     } catch (e) {
       if (i < 3 && (e as { code?: string }).code === "23505") continue; // código repetido: otro intento
       throw e;
     }
   }
-}
-
-/** D156: aviso al titular (ALERT_EMAIL) de cada sugerencia nueva. Sin datos de la persona: el texto y dónde. Nunca rompe. */
-async function notifyIdea(code: string, message: string, area: string | null) {
-  const to = process.env.ALERT_EMAIL;
-  if (!to || !providerConfigured()) return;
-  try {
-    await rateLimit("idea-mail", 30, 3_600_000);
-    await sendViaProvider({ to, subject: `Sugerencia para REPI${area ? ` · ${area}` : ""}`.slice(0, 120), body: [
-      `Un alumno sugirió una mejora (${code}).`, area ? `Dónde: ${area}` : "", "", message, "",
-      `La ves y la respondés en REPI Admin → Sugerencias: ${process.env.NEXT_PUBLIC_APP_URL ?? "https://repiclub.com"}/admin`,
-    ].filter((l, i) => l || i > 1).join("\n") });
-  } catch { /* el aviso es un extra: la sugerencia ya quedó guardada */ }
 }
 
 /** Sólo las consultas abiertas con esta cuenta; las enviadas sin sesión no se suman aunque coincida el email. */

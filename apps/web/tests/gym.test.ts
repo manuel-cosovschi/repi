@@ -88,6 +88,22 @@ describe("permisos y sedes", () => {
 });
 
 describe("turno, cola y traspaso", () => {
+  it("D158: fuera de 6 a 22 no se inicia turno y el que quedó abierto termina solo a las 22", async () => {
+    const w = await world();
+    const prev = process.env.REPI_GYM_HOURS;
+    process.env.REPI_GYM_HOURS = "on";
+    try {
+      const night = new Date("2026-10-29T23:10:00-03:00");
+      const e = await gym.startShift(w.t1, w.org, w.A, night).catch((x) => x as AccessError);
+      expect((e as AccessError).code).toBe("gym_closed");
+      await gym.startShift(w.t1, w.org, w.A, new Date("2026-10-29T17:30:00-03:00"));
+      expect(await gym.closeShiftsAfterHours(new Date("2026-10-29T21:00:00-03:00"))).toBe(0); // abierto: sigue
+      await gym.closeShiftsAfterHours(new Date("2026-10-29T22:01:00-03:00"));
+      const [s] = await db.select().from(schema.shiftLog).where(eq(schema.shiftLog.userId, w.t1));
+      expect(s.endedAt).toEqual(new Date("2026-10-29T22:00:00-03:00"));
+      expect(await gym.activeShift(w.t1)).toBeNull();
+    } finally { process.env.REPI_GYM_HOURS = prev; }
+  });
   it("sin turno no se toma; con turno se toma una sola vez; fuera de turno autorizado queda marcado", async () => {
     const w = await world();
     const t = await gym.createTask(w.manager, w.org, w.A, { gymMemberId: w.vale.memberId, category: "consulta", summary: "Duda sobre horarios" });

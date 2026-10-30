@@ -221,7 +221,7 @@ function Shop({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
             <h2>Horario de recepción</h2>
             {com.locations.map((l) => (
               <div key={l.id} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-                <label className="field" style={{ flex: "1 1 200px" }}>{l.name}<input value={hours[l.id] ?? ""} maxLength={120} placeholder="Lun a vie 7 a 23 · sáb 9 a 14" onChange={(e) => setHours({ ...hours, [l.id]: e.target.value })} /></label>
+                <label className="field" style={{ flex: "1 1 200px" }}>{l.name}<input value={hours[l.id] ?? ""} maxLength={120} placeholder="Lun a vie 6 a 22 · sáb 9 a 14" onChange={(e) => setHours({ ...hours, [l.id]: e.target.value })} /></label>
                 <button type="button" className="btn sm" onClick={() => run("h" + l.id, () => api(`/api/gym/${shell.orgId}/community/hours`, { body: { loc: l.id, hours: hours[l.id] ?? "" } }), "Horario guardado.")}>Guardar</button>
               </div>
             ))}

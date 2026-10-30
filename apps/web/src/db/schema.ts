@@ -333,6 +333,18 @@ export const programVersion = pgTable("program_version", {
   createdAt: now("created_at"),
 }, (t) => [uniqueIndex("program_version_unique").on(t.programId, t.number)]);
 
+// D158: rutinas propias del alumno («Mis rutinas»): para quien entrena con su propia rutina, tenga o no programa asignado.
+// Son sólo del alumno (no se comparten con el coach ni el gym); al empezar una se crea una sesión como la de D153.
+export const ownRoutine = pgTable("own_routine", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  exercises: jsonb("exercises").$type<{ exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null }[]>().notNull(),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+  lastUsedAt: ts("last_used_at"),
+}, (t) => [index("own_routine_user_idx").on(t.userId)]);
+
 export const programDay = pgTable("program_day", {
   id: id(),
   versionId: text("version_id").notNull().references(() => programVersion.id, { onDelete: "cascade" }),

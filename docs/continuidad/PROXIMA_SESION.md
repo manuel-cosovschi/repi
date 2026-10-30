@@ -1,6 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 29/10/2026 (hasta D157), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 29/10/2026 (hasta D158), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Horario del gym, «Mis rutinas» y sugerencias sin email (D158) — 29/10/2026
+
+- **Horario 6 a 22:** `GYM_HOURS`, `gymOpenAt` y `shiftAutoEnd` en `packages/domain/src/gym.ts`; `startShift` rechaza fuera de horario y `closeShiftsAfterHours` (en `/api/cron/notifications`) cierra los turnos abiertos a las 22. No aplica a demos ni a las pruebas (`REPI_GYM_HOURS=off` en `tests/setup-env.ts`; la regla tiene su propia prueba en `gym.test.ts`). Es el mismo horario para todos los gimnasios: si otro gimnasio abre distinto, hay que hacerlo configurable por sede.
+- **Mis rutinas:** `server/training/own-routines.ts`, rutas `/api/me/routines` (GET, POST), `/api/me/routines/[id]/delete`, `/api/me/routines/[id]/start` y `/api/me/exercises`; UI `components/member/OwnRoutines.tsx` en Entrenar. `startSoloRoutine` acepta `source: "own"`. Migración `0032_own_routine` **aplicada en `repi_dev` y en producción** (aditiva, con RLS).
+- **Sugerencias:** sin `notifyIdea`; sólo REPI Admin → Sugerencias.
+- **Arreglo de paso:** `.sheet > * { flex-shrink: 0 }`: en hojas largas los botones quedaban aplastados.
+- **Pruebas:** web 245 ✓, dominio 154 ✓, guardas ✓, E2E 36/36 ✓, sin deriva de esquema. Navegador (iPhone emulado): armar, guardar y empezar una rutina propia; la sesión muestra la serie anterior y la sugerencia de REPI.
+- **Pendiente:** el alumno no puede crear ejercicios que no estén en la biblioteca (los suma su coach o el gym).
 
 ## Alta aprobada sin 404 y sugerencias en Inicio (D157) — 29/10/2026
 

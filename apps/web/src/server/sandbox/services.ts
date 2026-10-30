@@ -68,7 +68,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     // ── Gimnasio ──
     const [gym] = await db.insert(schema.organization).values({ kind: "gym", name: "Gym Norte", isDemo: true, status: "active", commercialStatus: "enabled", connectEnabled: true, createdBy: owner.id }).returning();
     orgIds.push(gym.id);
-    const [palermo] = await db.insert(schema.gymLocation).values({ orgId: gym.id, name: "Palermo", address: "Av. Santa Fe 3200", receptionHours: "Lun a vie 7 a 23 · sáb 9 a 14" }).returning();
+    const [palermo] = await db.insert(schema.gymLocation).values({ orgId: gym.id, name: "Palermo", address: "Av. Santa Fe 3200", receptionHours: "Lun a vie 6 a 22 · sáb 9 a 14" }).returning();
     const [belgrano] = await db.insert(schema.gymLocation).values({ orgId: gym.id, name: "Belgrano", address: "Cabildo 2100" }).returning();
     await db.insert(schema.staffMembership).values([
       { userId: owner.id, orgId: gym.id, role: "owner" },

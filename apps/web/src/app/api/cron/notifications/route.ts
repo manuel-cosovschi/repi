@@ -5,6 +5,7 @@ import { logError } from "@/server/log";
 import { purgeSandboxes } from "@/server/sandbox/services";
 import { trialNotices } from "@/server/commercial/notices";
 import { connectSweep } from "@/server/gym/connect";
+import { closeShiftsAfterHours } from "@/server/gym/services";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export async function GET(req: Request) {
     const demos = await purgeSandboxes(); // demos vencidas (D85): consulta indexada, casi siempre vacía
     const trial = await trialNotices(); // F-BL-05: fin de prueba; idempotente por contrato y fecha
     const connect = await connectSweep(); // D126: pedidos esperando y seguimientos por vencer; deduplicado
+    const shiftsClosed = await closeShiftsAfterHours(); // D158: nadie queda en turno fuera de 6 a 22
     const p = await processOutbox();
-    return Response.json({ escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect });
+    return Response.json({ escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed });
   } catch (err) { logError("cron.notifications", err, req); return Response.json({ error: "job falló" }, { status: 500 }); }
 }

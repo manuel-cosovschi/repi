@@ -30,6 +30,7 @@ import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
+import { OwnRoutines } from "./OwnRoutines";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -208,6 +209,20 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       setWorkout(s.id);
     } catch (e) { flash((e as Error).message); }
   };
+  // D158: rutina propia del alumno. Igual que la de REPI: con conexión, validando el ingreso al gym si hace falta.
+  const startOwn = async (routineId: string) => {
+    if (openId) { setWorkout(openId); return; }
+    if (offlineAt || !navigator.onLine) { flash("Para empezar tu rutina necesitás conexión."); return; }
+    if (t?.relation?.kind === "gym") {
+      const fresh = await loadPresence();
+      const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
+      if (p?.startNeedsCheckin && !p.pass) { flash("Validá tu ingreso al gimnasio y volvé a tocar «Empezar»."); setSheet({ type: "presence" }); return; }
+    }
+    try {
+      const s = await api<{ id: string }>(`/api/me/routines/${routineId}/start`, { body: { id: crypto.randomUUID() } });
+      setWorkout(s.id);
+    } catch (e) { flash((e as Error).message); }
+  };
   const begin = async (dayId: string) => {
     setSheet(null);
     const d = t?.program?.days.find((x) => x.id === dayId);
@@ -270,7 +285,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo} /></>}
+              {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
+              own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} flash={flash} offline={!!offlineAt} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
@@ -451,6 +467,7 @@ function Home({ t, coachFirst, onStart, go, bell, inbox, offline, onSheet, flash
         <div className="dashed-card"><strong>Todavía no tenés programa</strong>
           <span>{t.relation ? (pendingProgram ? `Ya se lo pediste ${gymRel ? "al equipo de sala" : `a ${coachFirst}`}. Te avisamos cuando lo asigne.` : `${cap(coachFirst)} todavía no te asignó un programa. Podés pedírselo.`) : "Todavía no tenés coach ni gym en REPI."}</span>
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
+          {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala y registrá tus entrenamientos</button>}
         </div>
       )}
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
@@ -525,7 +542,7 @@ function RelationPicker({ t, offline, busyOpen, onChange, flash }: { t: Training
   );
 }
 
-function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void }) {
+function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void; own: React.ReactNode }) {
   if (t.state !== "ready" || !t.program) return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
@@ -533,6 +550,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; s
       {t.openSession && (
         <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="#0B0F14" />Continuar entrenamiento en curso</button>
       )}
+      {own}
       {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
       <div className="restday"><span style={{ fontSize: 22, fontWeight: 600 }}>{t.state === "scheduled" ? `Empieza el ${formatDayEs(t.startsOn!)}` : "Sin programa asignado"}</span><span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>Cuando {coachFirst} te asigne un programa, sus días aparecen acá.</span></div>
     </>
@@ -549,6 +567,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo }: { t: Training; s
           <Ic i={Play} size={18} weight="fill" color="#0B0F14" />{t.openSession ? "Continuar entrenamiento en curso" : "Comenzar entrenamiento"}
         </button>
       )}
+      {own}
     </>
   );
 }

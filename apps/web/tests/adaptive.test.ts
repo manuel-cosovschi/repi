@@ -8,6 +8,7 @@ import * as acc from "@/server/access/services";
 import * as tr from "@/server/training/services";
 import { soloPlan } from "@/server/training/adaptive";
 import { soloRoutine } from "@/server/training/solo-routine";
+import * as own from "@/server/training/own-routines";
 import { resetRateLimits } from "@/server/access/util";
 
 // Adaptive Coach fase 1 (D108): «entrenar por mi cuenta» con datos existentes y reglas; nunca IA ni rutina inventada.
@@ -120,5 +121,48 @@ describe("Adaptive Coach · entrenar por mi cuenta", () => {
     expect(JSON.stringify(ev[0].meta)).not.toContain("hombro"); // lo escrito sobre lesiones no se guarda
     const other = await verified();
     await expect(tr.coachProgramDraft(other.id, org.id, { daysPerWeek: 3, level: "beginner" })).rejects.toBeTruthy();
+  });
+});
+
+describe("Mis rutinas (D158)", () => {
+  it("el alumno sin programa arma, guarda y entrena su propia rutina; registra series, esfuerzo y nota", async () => {
+    const user = await member(false);
+    const lib = await own.myExerciseLibrary(user);
+    expect(lib.length).toBeGreaterThan(50);
+    const curl = lib.find((e) => e.group === "Brazos" && e.kind === "load_reps")!;
+    const { id } = await own.saveOwnRoutine(user, { name: "  Día A · piernas  ", exercises: [
+      { exerciseId: SQ, sets: 3, reps: "8-10", weightKg: 60, restSec: 120, note: "pausa abajo" },
+      { exerciseId: curl.id, sets: 2, reps: "12", weightKg: null, restSec: null, note: null },
+    ] });
+    const [r] = await own.listOwnRoutines(user);
+    expect(r).toMatchObject({ id, name: "Día A · piernas", lastUsedAt: null });
+    expect(r.exercises.map((e) => e.name)).toEqual(["Sentadilla", curl.name]);
+    // Entrenar: la sesión usa su rutina; el peso propio queda como plan de la serie (nunca hizo el ejercicio).
+    const sid = randomUUID();
+    await own.startOwnRoutine(user, id, sid);
+    const g = await tr.getSession(user, sid);
+    expect(g.exercises.map((e) => e.name)).toEqual(["Sentadilla", curl.name]);
+    expect(g.exercises[0].detail?.setPlan?.map((x) => x.weightKg)).toEqual([60, 60, 60]);
+    expect(g.exercises[0].note).toBe("pausa abajo");
+    await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: g.exercises[0].id, setIndex: 0, weightKg: 62.5, reps: 9, rir: 2, note: "bien" });
+    await tr.sessionAction(user, sid, "finish");
+    expect((await own.listOwnRoutines(user))[0].lastUsedAt).not.toBeNull();
+    expect((await own.listOwnRoutines(user))[0].exercises[0].prev).toEqual({ weightKg: 62.5, reps: 9 });
+    // La segunda vez manda su última marca (y la sugerencia de REPI), no el peso fijo de la rutina.
+    const sid2 = randomUUID();
+    await own.startOwnRoutine(user, id, sid2);
+    expect((await tr.getSession(user, sid2)).exercises[0].detail).toBeNull();
+    await tr.sessionAction(user, sid2, "finish");
+    // Editar, validar y borrar: sólo las propias.
+    await own.saveOwnRoutine(user, { id, name: "Día A", exercises: [{ exerciseId: SQ, sets: 4, reps: "6", weightKg: 70, restSec: 150, note: null }] });
+    expect((await own.listOwnRoutines(user))[0]).toMatchObject({ name: "Día A", exercises: [{ sets: 4, reps: "6", weightKg: 70 }] });
+    await expect(own.saveOwnRoutine(user, { name: "X", exercises: [{ exerciseId: SQ, sets: 3, reps: "8", weightKg: null, restSec: null, note: null }] })).rejects.toMatchObject({ code: "invalid" });
+    await expect(own.saveOwnRoutine(user, { name: "Sin nada", exercises: [] })).rejects.toMatchObject({ code: "invalid" });
+    await expect(own.saveOwnRoutine(user, { name: "Ajena", exercises: [{ exerciseId: randomUUID(), sets: 3, reps: "8", weightKg: null, restSec: null, note: null }] })).rejects.toMatchObject({ code: "invalid" });
+    const other = await member(false);
+    await expect(own.startOwnRoutine(other, id, randomUUID())).rejects.toMatchObject({ code: "not_found" });
+    await expect(own.deleteOwnRoutine(other, id)).rejects.toMatchObject({ code: "not_found" });
+    await own.deleteOwnRoutine(user, id);
+    expect(await own.listOwnRoutines(user)).toEqual([]);
   });
 });

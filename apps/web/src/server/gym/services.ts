@@ -3,7 +3,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import {
   FOLLOWUP_DUE_DAYS, HANDOFF_ESCALATE_MIN, REVIEW_ELIGIBLE, REVIEW_INVITE_COOLDOWN_DAYS, REVIEW_INVITE_TTL_DAYS, SHIFT_CODES, TASK_CATEGORY,
-  coverage, floorActionAllowed, gymCan, gymCaps, requiresTwoFactor, sharedWishes, type TrainingWishes, type GymRole, isShiftCode, isTaskCategory, localDate, shiftHours, validateProgramDoc, weekOf,
+  GYM_HOURS, coverage, floorActionAllowed, gymCan, gymOpenAt, shiftAutoEnd, gymCaps, requiresTwoFactor, sharedWishes, type TrainingWishes, type GymRole, isShiftCode, isTaskCategory, localDate, shiftHours, validateProgramDoc, weekOf,
   type GymCap, type ProgramDoc, type ShiftCode, type TaskCategory, type TaskPriority,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -149,15 +149,41 @@ async function queueCounts(ctx: GymCtx, locationId: string) {
   };
 }
 
+/** D158: las pruebas de integración corren a cualquier hora; en producción la regla siempre aplica (y las demos no la tienen). */
+const hoursApply = (org: { isDemo: boolean }) => !org.isDemo && process.env.REPI_GYM_HOURS !== "off";
+
 export async function startShift(actorId: string, orgId: string, locationId: string, now = new Date()) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "floor.work");
   const { loc } = await scopedLocation(ctx, locationId);
+  if (hoursApply(ctx.org) && !gymOpenAt(now)) {
+    throw new AccessError("gym_closed", `El gimnasio abre de ${GYM_HOURS.open.slice(0, 2).replace(/^0/, "")} a ${GYM_HOURS.close.slice(0, 2)}: el turno se inicia en ese horario.`, 409);
+  }
   if (await activeShift(actorId)) throw new AccessError("shift_active", "Ya tenés un turno iniciado.", 409);
   const [plan] = await db.select().from(shiftPlan).where(and(eq(shiftPlan.userId, actorId), eq(shiftPlan.locationId, loc.id), eq(shiftPlan.date, localDate(now))));
   const [s] = await db.insert(shiftLog).values({ orgId, locationId: loc.id, userId: actorId, planId: plan?.id ?? null, startedAt: now }).returning();
   await audit(db, { actorUserId: actorId, orgId, action: "shift.started", resourceType: "shift_log", resourceId: s.id, meta: { planned: !!plan } });
   return { startedAt: s.startedAt, planned: !!plan };
+}
+
+/**
+ * D158: nadie del equipo figura en turno fuera del horario del gimnasio. Los turnos que quedaron abiertos terminan solos al
+ * cierre del día en que empezaron (las horas del desempeño no se inflan). Lo corre el cron de cada minuto; las demos no.
+ */
+export async function closeShiftsAfterHours(now = new Date()) {
+  const open = await db.select({ s: shiftLog, isDemo: organization.isDemo }).from(shiftLog)
+    .innerJoin(organization, eq(organization.id, shiftLog.orgId)).where(isNull(shiftLog.endedAt));
+  let closed = 0;
+  for (const { s, isDemo } of open) {
+    if (!hoursApply({ isDemo })) continue;
+    const end = shiftAutoEnd(s.startedAt, now);
+    if (!end) continue;
+    const r = await db.update(shiftLog).set({ endedAt: end }).where(and(eq(shiftLog.id, s.id), isNull(shiftLog.endedAt))).returning({ id: shiftLog.id });
+    if (!r.length) continue;
+    closed++;
+    await audit(db, { actorUserId: null, orgId: s.orgId, action: "shift.auto_ended", resourceType: "shift_log", resourceId: s.id, meta: { endedAt: end.toISOString(), reason: "gym_hours" } });
+  }
+  return closed;
 }
 
 // ── Cola de asistencia (F-GT-02) ────────────────────────────────────────────

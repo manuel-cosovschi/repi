@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bandsCovered, coverage, deliveryState, floorActionAllowed, gymCan, median, mentionsHealth, per10h, ratio, REVIEW_MIN_N, reviewAggregate, shiftHours,
+  bandsCovered, coverage, gymOpenAt, shiftAutoEnd, deliveryState, floorActionAllowed, gymCan, median, mentionsHealth, per10h, ratio, REVIEW_MIN_N, reviewAggregate, shiftHours,
 } from "./gym";
 
 describe("capacidades por rol (matriz 06)", () => {
@@ -29,9 +29,24 @@ describe("turno (D08)", () => {
   });
   it("horas y franjas de cada código", () => {
     expect(shiftHours("M")).toBe(6);
-    expect(shiftHours("N")).toBe(4);
+    expect(shiftHours("T")).toBe(5);
+    expect(shiftHours("N")).toBe(5);
     expect(bandsCovered("P")).toEqual(["M"]);
-    expect(bandsCovered("F")).toEqual(["M"]);
+    expect(bandsCovered("F")).toEqual(["M", "T"]); // 9 a 15 cubre media mañana y más de media tarde
+  });
+  it("D158: el gimnasio abre de 6 a 22 y un turno olvidado termina solo al cierre", () => {
+    const at = (iso: string) => new Date(iso);
+    expect(gymOpenAt(at("2026-10-29T06:00:00-03:00"))).toBe(true);
+    expect(gymOpenAt(at("2026-10-29T21:59:00-03:00"))).toBe(true);
+    expect(gymOpenAt(at("2026-10-29T22:00:00-03:00"))).toBe(false);
+    expect(gymOpenAt(at("2026-10-29T05:59:00-03:00"))).toBe(false);
+    const start = at("2026-10-29T17:30:00-03:00");
+    expect(shiftAutoEnd(start, at("2026-10-29T21:00:00-03:00"))).toBeNull();
+    expect(shiftAutoEnd(start, at("2026-10-29T22:01:00-03:00"))).toEqual(at("2026-10-29T22:00:00-03:00"));
+    expect(shiftAutoEnd(start, at("2026-10-30T09:00:00-03:00"))).toEqual(at("2026-10-29T22:00:00-03:00")); // al día siguiente, igual al cierre
+    // Abierto fuera de horario (antes de la regla): termina ya, sin sumar horas.
+    expect(shiftAutoEnd(at("2026-10-29T05:00:00-03:00"), at("2026-10-29T05:30:00-03:00"))).toEqual(at("2026-10-29T05:30:00-03:00"));
+    expect(shiftAutoEnd(at("2026-10-29T23:00:00-03:00"), at("2026-10-29T23:10:00-03:00"))).toEqual(at("2026-10-29T23:00:00-03:00"));
   });
   it("cobertura detecta huecos y no exige la noche del domingo", () => {
     const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
