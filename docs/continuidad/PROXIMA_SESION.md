@@ -1,6 +1,12 @@
 # REPI — Retomar acá
 
-Actualizado: 31/10/2026 (hasta D175), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 31/10/2026 (hasta D176), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Incidente de acceso y DNS (D176) — 31/10/2026
+
+- Síntoma: «ERR_CONNECTION_TIMED_OUT» para un coach en Argentina; la app estaba sana. Causa: IP anycast de Vercel 216.198.79.1 inalcanzable desde redes AR.
+- Cambio (autorizado): registros A `@` y `www` → 76.76.21.21 en Vercel DNS (ids en D176). Verificado: el DNS de Vercel, 8.8.8.8 y 1.1.1.1 devuelven 76.76.21.21; `curl --resolve` a esa IP da 200 con el certificado válido.
+- Pendiente: confirmar con Urko que ya entra (cachés de DNS de hasta 1 h). Si Vercel arregla el ruteo, se puede volver al ALIAS por defecto borrando esos dos registros.
 
 ## Eliminar y cambiar programas (D175) — 31/10/2026
 
