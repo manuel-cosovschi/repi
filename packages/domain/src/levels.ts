@@ -9,19 +9,22 @@ export const XP = {
   pr: 15, // récord personal: superar el peso máximo propio en un ejercicio (la primera vez no cuenta)
   newExercise: 5, // ejercicio que hace por primera vez
   ton: 2, // cada 1000 kg movidos (peso × repeticiones)
-  validated: 30, // marca validada en un desafío del gym
+  validated: 30, // marca validada en un desafío del gym sin dificultad (con dificultad, D172: 20, 40 o 70)
   gymRecord: 60, // récord del gym
   month: 40, // constancia del mes (12 sesiones)
 } as const;
 
 export type LevelStats = {
   days: number; prs: number; exercises: number; tons: number; validated: number; gymRecords: number; months: number; fullBodyWeeks: number;
+  /** D172: puntos de los desafíos validados (según su dificultad). Si falta, 30 por cada uno. */
+  challengeXp?: number;
 };
 export const EMPTY_STATS: LevelStats = { days: 0, prs: 0, exercises: 0, tons: 0, validated: 0, gymRecords: 0, months: 0, fullBodyWeeks: 0 };
+const validatedXp = (s: LevelStats) => s.challengeXp ?? s.validated * XP.validated;
 
 export function xpOf(s: LevelStats) {
   return s.days * XP.day + s.prs * XP.pr + s.exercises * XP.newExercise + Math.floor(s.tons) * XP.ton
-    + s.validated * XP.validated + s.gymRecords * XP.gymRecord + s.months * XP.month;
+    + validatedXp(s) + s.gymRecords * XP.gymRecord + s.months * XP.month;
 }
 
 /** Puntos para pasar del nivel n al n+1: 60 al principio, 40 más por cada nivel (cada nivel cuesta un poco más). */
@@ -41,7 +44,7 @@ export function xpBreakdown(s: LevelStats) {
     ["Récords personales", s.prs, s.prs * XP.pr],
     ["Ejercicios nuevos", s.exercises, s.exercises * XP.newExercise],
     ["Toneladas movidas", Math.floor(s.tons), Math.floor(s.tons) * XP.ton],
-    ["Marcas validadas", s.validated, s.validated * XP.validated],
+    ["Desafíos validados", s.validated, validatedXp(s)],
     ["Récords del gym", s.gymRecords, s.gymRecords * XP.gymRecord],
     ["Meses de constancia", s.months, s.months * XP.month],
   ] as const).filter(([, n]) => n > 0).map(([label, count, xp]) => ({ label, count, xp }));

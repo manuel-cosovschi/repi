@@ -30,6 +30,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "joins") return join.myJoinRequests(me); // solicitudes de acceso por QR (anexo §5)
   if (a === "reviews") return { invites: await rv.myReviewInvites(me), given: await rv.myGivenReviews(me) };
   if (a === "home") return cm.myGymHome(me, u.searchParams.get("org"));
+  if (a === "community-challenges") return cm.communityChallenges(me); // D172: desafíos propuestos por socios, en Inicio
   if (a === "nudges") return communityNudges(me); // D168: invitaciones a rankings, desafíos y trofeos
   if (a === "card") return cm.myCard(me, u.searchParams.get("org"));
   if (a === "ranking" && b) return cm.challengeRanking(me, b, u.searchParams.get("f") ?? "all");
@@ -78,6 +79,10 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     const f = (await req.formData()).get("file");
     if (!(f instanceof File)) throw new AccessError("invalid_file", "Elegí un video.");
     return cm.uploadMedia(me, { kind: "attempt_video", orgId: org(req), mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });
+  }
+  if (a === "proposals") { // D172: el socio propone un desafío; lo publica un profe con una dificultad
+    await limit("challenge-proposal", 5);
+    return cm.proposeChallenge(me, { ...(await body(req, z.object({ title: z.string().max(80), rule: z.string().max(400), unit: z.string().max(4), lowerIsBetter: z.boolean().optional(), exerciseId: id.nullable().optional() }))), orgId: new URL(req.url).searchParams.get("org") });
   }
   if (a === "attempts") return cm.submitAttempt(me, await body(req, z.object({ challengeId: id, value: z.number(), division: z.enum(["F", "M"]).nullable().optional(), videoId: id.nullable().optional(), inPerson: z.boolean().optional(), confirm: z.boolean() })));
   if (a === "club") {

@@ -2,7 +2,7 @@
 // Comunidad del gym, Validaciones, mostrador de recepción y moderación de Repi Club
 // (REPI Desktop Gym.dc.html · sc.community / sc.validations). Datos reales de /api/gym/[orgId].
 import { useRef, useState } from "react";
-import { CHALLENGE_CATEGORIES, CHALLENGE_UNITS, IMAGE_LIMITS, SAFETY_NOTE, attemptValueOk, isNewRecord, type ChallengeUnit } from "@repi/domain";
+import { CHALLENGE_CATEGORIES, CHALLENGE_DIFFICULTY, CHALLENGE_UNITS, IMAGE_LIMITS, type ChallengeDifficulty, SAFETY_NOTE, attemptValueOk, isNewRecord, type ChallengeUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { shrinkImage } from "@/lib/image";
 import { Modal } from "@/components/ui/Modal";
@@ -254,6 +254,62 @@ type Att = { id: string; member: string; challenge: string; rule: string; value:
 const REASONS = ["No se ve el intento completo", "No cumple la regla", "Video poco claro"];
 const REASONS_LIVE = ["No cumple la regla", "No completó el intento", "No llegó a la marca"]; // D165: en sala
 
+// ── Desafíos propuestos por socios (D172) ──────────────────────────────────
+type Prop = { id: string; by: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; exercise: string | null; status: string; difficulty: number | null; note: string | null; at: string };
+const in30 = () => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+
+/** El profe aprueba la propuesta con una dificultad (define los puntos para el nivel) o la rechaza con un motivo. */
+function Proposals({ shell }: { shell: Shell }) {
+  const v = useLoad<Prop[]>(`/api/gym/${shell.orgId}/proposals`);
+  const [diff, setDiff] = useState<Record<string, ChallengeDifficulty>>({});
+  const [ends, setEnds] = useState<Record<string, string>>({});
+  const [prize, setPrize] = useState<Record<string, string>>({});
+  const [why, setWhy] = useState<Record<string, string>>({});
+  const { busy, run } = useAct(shell.flash);
+  const pending = v.data?.filter((p) => p.status === "proposed") ?? [];
+  const done = v.data?.filter((p) => p.status !== "proposed").slice(0, 8) ?? [];
+  if (!v.data?.length) return null;
+  const decide = (p: Prop, approve: boolean) => run(p.id, () => api(`/api/gym/${shell.orgId}/proposals/${p.id}`, {
+    body: approve ? { approve, difficulty: diff[p.id], endsOn: ends[p.id] ?? in30(), prize: prize[p.id]?.trim() || null } : { approve, reason: why[p.id] },
+  }), approve ? `Publicado. Lo ven los socios de la sede y validarlo suma ${CHALLENGE_DIFFICULTY[diff[p.id]]?.xp ?? 0} puntos. ${p.by.split(" ")[0]} recibe el aviso.` : `No se publica. ${p.by.split(" ")[0]} recibe el motivo.`)
+    .then(() => { v.reload(); shell.refreshBadges(); });
+  return (
+    <section className="card" style={{ gap: 12 }}>
+      <h2>Desafíos propuestos por socios</h2>
+      <span className="muted" style={{ lineHeight: 1.45 }}>Elegí la dificultad: define cuántos puntos suma al nivel validarlo ({Object.values(CHALLENGE_DIFFICULTY).map((d) => `${d.label.toLowerCase()} +${d.xp}`).join(", ")}). Al aprobarlo se publica en la sede y se avisa a sus socios.</span>
+      {!pending.length && <span className="muted">No hay propuestas por revisar.</span>}
+      {pending.map((p) => (
+        <div key={p.id} className="prop-row">
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><b style={{ fontSize: 16 }}>{p.title}</b><span className="muted">{p.by} · {when(p.at)}</span></div>
+          <span className="muted" style={{ lineHeight: 1.45 }}>{p.rule}</span>
+          <span className="muted">Se mide en {p.unit === "seg" ? `tiempo${p.lowerIsBetter ? " (gana el menor)" : ""}` : CHALLENGE_UNITS[p.unit]}{p.exercise ? ` · ${p.exercise}` : ""}</span>
+          <div className="pills" role="group" aria-label={`Dificultad de ${p.title}`}>
+            {(Object.keys(CHALLENGE_DIFFICULTY).map(Number) as ChallengeDifficulty[]).map((k) => <button key={k} type="button" className="pill" aria-pressed={diff[p.id] === k} onClick={() => setDiff({ ...diff, [p.id]: k })}>{CHALLENGE_DIFFICULTY[k].label} · +{CHALLENGE_DIFFICULTY[k].xp}</button>)}
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <label className="field" style={{ flex: "1 1 160px" }}>Cierra el<input type="date" value={ends[p.id] ?? in30()} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setEnds({ ...ends, [p.id]: e.target.value })} /></label>
+            <label className="field" style={{ flex: "2 1 220px" }}>Premio (opcional)<input value={prize[p.id] ?? ""} maxLength={120} placeholder={diff[p.id] ? `+${CHALLENGE_DIFFICULTY[diff[p.id]].xp} puntos para tu nivel` : "Ej.: un batido en recepción"} onChange={(e) => setPrize({ ...prize, [p.id]: e.target.value })} /></label>
+          </div>
+          <div className="pills" role="group" aria-label="Motivo para no publicarlo">{PROP_REASONS.map((r) => <button key={r} type="button" className="pill" aria-pressed={why[p.id] === r} onClick={() => setWhy({ ...why, [p.id]: why[p.id] === r ? "" : r })}>{r}</button>)}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn" aria-busy={busy === p.id || undefined} onClick={() => (why[p.id] ? decide(p, false) : shell.flash("Elegí el motivo para no publicarlo."))}>No publicar</button>
+            <button type="button" className="btn pri" aria-busy={busy === p.id || undefined} aria-disabled={!diff[p.id]} onClick={() => (diff[p.id] ? decide(p, true) : shell.flash("Elegí la dificultad."))}>Aprobar y publicar</button>
+          </div>
+        </div>
+      ))}
+      {done.length > 0 && <>
+        <span className="muted" style={{ fontWeight: 600 }}>Revisadas · 30 días</span>
+        {done.map((p) => (
+          <div key={p.id} className="trow"><span style={{ flex: 1 }}>{p.title} · {p.by}</span>
+            <span className="muted">{p.status === "rejected" ? p.note : p.difficulty ? CHALLENGE_DIFFICULTY[p.difficulty as ChallengeDifficulty]?.label : ""}</span>
+            <span className={`chip ${p.status === "rejected" ? "bad" : "ok"}`}>{p.status === "rejected" ? "No publicado" : "Publicado"}</span></div>
+        ))}
+      </>}
+    </section>
+  );
+}
+const PROP_REASONS = ["Ya existe uno parecido", "No es seguro", "No se puede validar", "Regla poco clara"];
+
 export function ValidationsScreen({ shell }: { shell: Shell }) {
   const v = useLoad<{ pending: Att[]; done: Att[] }>(`/api/gym/${shell.orgId}/validations`);
   const [why, setWhy] = useState<Record<string, string>>({});
@@ -267,6 +323,7 @@ export function ValidationsScreen({ shell }: { shell: Shell }) {
     <>
       <Head kicker="Intentos de récord con video, o en sala delante de un profe" title="Validaciones" />
       {v.err && <p role="alert" className="err-box">{v.err}</p>}
+      <Proposals shell={shell} />
       {v.data && !v.data.pending.length && <div className="empty">No hay intentos por validar. Cuando un socio suba un video o pida validación en sala, aparece acá.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {v.data?.pending.map((a) => {

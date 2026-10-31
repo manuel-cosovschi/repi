@@ -6,7 +6,7 @@
 // dedo. Con «reducir movimiento», sólo fundidos.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Barbell, CalendarCheck, PersonSimple, Shuffle, Stack, Trophy, type Icon } from "@phosphor-icons/react";
-import { TIER_LABEL, XP, type TrophyTier } from "@repi/domain";
+import { CHALLENGE_DIFFICULTY, TIER_LABEL, XP, type TrophyTier } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
 
@@ -68,7 +68,7 @@ export function LevelPanel({ data, onReplay }: { data?: LevelData | null; onRepl
         {how && (
           <div className="lv-how">
             {d.breakdown.map((b) => <div key={b.label}><span>{b.label} <small>× {b.count}</small></span><b>+{b.xp}</b></div>)}
-            <p className="mb-muted">Día entrenado +{XP.day} · récord personal +{XP.pr} · ejercicio nuevo +{XP.newExercise} · cada tonelada movida +{XP.ton} · marca validada en un desafío +{XP.validated} · récord del gym +{XP.gymRecord} · constancia del mes +{XP.month}. Récord personal: superar tu peso máximo en un ejercicio.</p>
+            <p className="mb-muted">Día entrenado +{XP.day} · récord personal +{XP.pr} · ejercicio nuevo +{XP.newExercise} · cada tonelada movida +{XP.ton} · desafío validado +{XP.validated} (con dificultad: fácil +{CHALLENGE_DIFFICULTY[1].xp}, media +{CHALLENGE_DIFFICULTY[2].xp}, difícil +{CHALLENGE_DIFFICULTY[3].xp}) · récord del gym +{XP.gymRecord} · constancia del mes +{XP.month}. Récord personal: superar tu peso máximo en un ejercicio.</p>
           </div>
         )}
       </div>

@@ -98,7 +98,11 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const refreshBadges = useCallback(() => {
     if (ctx && navFor(ctx).some((n) => n[0] === "notices")) api<{ unread: number }>(`/api/gym/${orgId}/notices`).then((x) => setBadges((b) => ({ ...b, notices: x.unread }))).catch(() => {});
     if (ctx?.roles.includes("owner")) api<{ unacked: number }>(`/api/conditions/${orgId}`).then((x) => setBadges((b) => ({ ...b, billing: x.unacked }))).catch(() => {});
-    if (ctx && (can(ctx, "challenges.validate") || can(ctx, "challenges.witness"))) api<{ pending: unknown[] }>(`/api/gym/${orgId}/validations`).then((v) => setBadges((b) => ({ ...b, validations: v.pending.length }))).catch(() => {});
+    // D172: el número de Validaciones suma los intentos y los desafíos propuestos por socios que esperan revisión.
+    if (ctx && (can(ctx, "challenges.validate") || can(ctx, "challenges.witness"))) Promise.all([
+      api<{ pending: unknown[] }>(`/api/gym/${orgId}/validations`),
+      api<{ status: string }[]>(`/api/gym/${orgId}/proposals`).catch(() => []),
+    ]).then(([v, p]) => setBadges((b) => ({ ...b, validations: v.pending.length + p.filter((x) => x.status === "proposed").length }))).catch(() => {});
     if (ctx && (can(ctx, "members.approve") || can(ctx, "members.validate"))) {
       api<{ canActAt: { id: string }[]; requests: { status: string; locationId: string }[] }>(`/api/gym/${orgId}/joins`)
         .then((j) => setBadges((b) => ({ ...b, joins: j.requests.filter((x) => x.status === "pending" && j.canActAt.some((c) => c.id === x.locationId)).length }))).catch(() => {});

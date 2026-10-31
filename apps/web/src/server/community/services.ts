@@ -1,9 +1,9 @@
 // Comunidad del gym (Etapa 6): novedades, descuentos, desafíos con video, validación, logros, premios,
 // catálogo informativo, carnet QR, asistencia por recepción. Fuentes: REPI Desktop Gym.dc.html y REPI App Alumno v4.dc.html.
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  ACHIEVEMENT_KIND, CARD_TOKEN_TTL_MIN, CHALLENGE_CATEGORIES, MONTH_SESSIONS_GOAL, SAFETY_NOTE, ageAt, attemptValueOk, bestByMember, fileOk, fmtValue,
+  ACHIEVEMENT_KIND, CARD_TOKEN_TTL_MIN, CHALLENGE_CATEGORIES, CHALLENGE_DIFFICULTY, MAX_PENDING_PROPOSALS, isDifficulty, MONTH_SESSIONS_GOAL, SAFETY_NOTE, ageAt, attemptValueOk, bestByMember, fileOk, fmtValue,
   isDivision, isNewRecord, isUnit, localDate, weekOf, type AchievementKind, type ChallengeUnit, type Division,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -21,6 +21,7 @@ const { user, organization, gymLocation, gymMember, rosterEntry, consentGrant, m
 const x10 = (v: number) => Math.round(v * 10);
 const v10 = (n: number | null) => (n == null ? null : n / 10);
 const todayAr = () => localDate(new Date());
+const in30Days = () => localDate(addDays(new Date(), 30));
 
 // ── Archivos ────────────────────────────────────────────────────────────────
 /** Sube una imagen de comunidad (staff con permiso de publicar) o un video de intento (socio). Tipo validado por firma. */
@@ -129,7 +130,7 @@ export async function staffCommunity(actorId: string, orgId: string) {
   const ids = locs.map((l) => l.id);
   const scope = (col: typeof communityPost.locationId | typeof challenge.locationId | typeof catalogItem.locationId) => or(isNull(col), inArray(col, ids));
   const posts = await db.select().from(communityPost).where(and(eq(communityPost.orgId, orgId), isNull(communityPost.deletedAt), scope(communityPost.locationId))).orderBy(desc(communityPost.createdAt)).limit(50);
-  const chs = await db.select().from(challenge).where(and(eq(challenge.orgId, orgId), ne(challenge.status, "removed"), scope(challenge.locationId))).orderBy(desc(challenge.createdAt)).limit(50);
+  const chs = await db.select().from(challenge).where(and(eq(challenge.orgId, orgId), inArray(challenge.status, ["active", "closed"]), scope(challenge.locationId))).orderBy(desc(challenge.createdAt)).limit(50);
   const stats = chs.length ? await db.select({ ch: challengeAttempt.challengeId, parts: sql<number>`count(distinct ${challengeAttempt.userId})::int`, pending: sql<number>`count(*) filter (where ${challengeAttempt.status} = 'pending')::int` })
     .from(challengeAttempt).where(inArray(challengeAttempt.challengeId, chs.map((c) => c.id))).groupBy(challengeAttempt.challengeId) : [];
   const holders = await recordHolders(chs.map((c) => c.recordAttemptId).filter(Boolean) as string[]);
@@ -212,6 +213,113 @@ export async function createChallenge(actorId: string, orgId: string, p: { locat
     kind: "challenge_new", dedupe: `chnew:${row.id}`, title: `Nuevo desafío en ${org?.name ?? "tu gym"}`, body: `${row.title} · Premio: ${row.prize}`, url: "/app?gym=ch",
   }).catch(() => {});
   return { id: row.id };
+}
+
+// ── Desafíos propuestos por socios (D172) ──────────────────────────────────
+/** Revisan propuestas quienes validan intentos (gerencia y, en sala, entrenadores y coordinación) o publican en la comunidad. */
+const canReview = (ctx: GymCtx) => ["challenges.validate", "challenges.witness", "community.publish"].some((c) => ctx.caps.includes(c as never));
+
+/** Un socio propone un desafío para su sede; queda esperando que un profe lo apruebe con una dificultad. */
+export async function proposeChallenge(userId: string, p: { title: string; rule: string; unit: string; lowerIsBetter?: boolean; exerciseId?: string | null; orgId?: string | null }) {
+  const r = await myGym(userId, p.orgId);
+  const title = (p.title ?? "").trim(), rule = (p.rule ?? "").trim();
+  if (title.length < 3) throw new AccessError("invalid", "Poné un nombre al desafío.");
+  if (rule.length < 10) throw new AccessError("invalid", "Contá cómo se hace: qué cuenta y cómo tiene que verse el intento.");
+  if (!isUnit(p.unit)) throw new AccessError("invalid", "Elegí cómo se mide.");
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(challenge).where(and(eq(challenge.proposedBy, userId), eq(challenge.status, "proposed")));
+  if (n >= MAX_PENDING_PROPOSALS) throw new AccessError("rate_limited", `Ya tenés ${MAX_PENDING_PROPOSALS} propuestas esperando al equipo.`, 429);
+  let exerciseId: string | null = null;
+  if (p.exerciseId && p.unit !== "seg") {
+    const [ex] = await db.select({ id: schema.exercise.id }).from(schema.exercise).where(and(eq(schema.exercise.id, p.exerciseId), visibleIn(r.org.id)));
+    exerciseId = ex?.id ?? null;
+  }
+  const category = p.unit === "seg" ? "resistencia" : "fuerza";
+  const [row] = await db.insert(challenge).values({
+    orgId: r.org.id, locationId: r.loc.id, title: title.slice(0, 80), rule: rule.slice(0, 400), unit: p.unit, lowerIsBetter: p.unit === "seg" ? !!p.lowerIsBetter : false,
+    category, prize: "", endsOn: in30Days(), status: "proposed", createdBy: userId, proposedBy: userId, exerciseId,
+  }).returning();
+  await audit(db, { actorUserId: userId, orgId: r.org.id, action: "challenge.proposed", resourceType: "challenge", resourceId: row.id });
+  return { id: row.id };
+}
+
+/** Propuestas de socios de las sedes de quien revisa (pendientes y las últimas resueltas). */
+export async function listProposals(actorId: string, orgId: string) {
+  const ctx = await gymContext(actorId, orgId);
+  if (!canReview(ctx)) throw new AccessError("forbidden", "Tu rol no tiene acceso a esta acción.", 403);
+  const ids = (await scopedLocations(ctx, null)).map((l) => l.id);
+  const rows = await db.select({ c: challenge, name: user.name }).from(challenge).innerJoin(user, eq(user.id, challenge.proposedBy))
+    .where(and(eq(challenge.orgId, orgId), inArray(challenge.locationId, ids.length ? ids : ["-"]), or(eq(challenge.status, "proposed"), gte(challenge.createdAt, addDays(new Date(), -30)))))
+    .orderBy(desc(challenge.createdAt)).limit(50);
+  const exNames = new Map((await db.select({ id: schema.exercise.id, name: schema.exercise.name }).from(schema.exercise)
+    .where(inArray(schema.exercise.id, [...new Set(rows.map((r) => r.c.exerciseId).filter(Boolean) as string[])].concat(["-"])))).map((e) => [e.id, e.name]));
+  return rows.map(({ c, name }) => ({
+    id: c.id, by: name, title: c.title, rule: c.rule, unit: c.unit, lowerIsBetter: c.lowerIsBetter, exercise: c.exerciseId ? exNames.get(c.exerciseId) ?? null : null,
+    status: c.status, difficulty: c.difficulty, note: c.reviewNote, at: c.createdAt,
+  }));
+}
+
+/** El profe aprueba (con dificultad, fecha de cierre y premio opcional: se publica y se avisa) o la rechaza con un motivo. */
+export async function reviewProposal(actorId: string, orgId: string, id: string, p: { approve: boolean; difficulty?: number | null; endsOn?: string | null; prize?: string | null; reason?: string | null }) {
+  const ctx = await gymContext(actorId, orgId);
+  if (!canReview(ctx)) throw new AccessError("forbidden", "Tu rol no tiene acceso a esta acción.", 403);
+  const out = await db.transaction(async (tx) => {
+    const [c] = await tx.select().from(challenge).where(and(eq(challenge.id, id), eq(challenge.orgId, orgId))).for("update");
+    if (!c || !c.proposedBy || !c.locationId || !inScope(ctx, c.locationId)) throw NOT_FOUND();
+    if (c.status !== "proposed") throw new AccessError("decided", "Esta propuesta ya fue revisada.", 409);
+    if (c.proposedBy === actorId) throw new AccessError("forbidden", "No podés revisar tu propia propuesta.", 403);
+    if (!p.approve) {
+      const reason = (p.reason ?? "").trim();
+      if (reason.length < 3) throw new AccessError("invalid", "Contá por qué no se publica.");
+      await tx.update(challenge).set({ status: "rejected", reviewedBy: actorId, reviewNote: reason.slice(0, 200) }).where(eq(challenge.id, c.id));
+      await tx.insert(memberNotice).values({ userId: c.proposedBy, orgId, kind: "proposal_rejected", refId: c.id, title: `Tu desafío no se publicó · ${c.title}`, body: `Motivo: ${reason.slice(0, 200)}. Podés proponer otro.` });
+      await audit(tx, { actorUserId: actorId, orgId, action: "challenge.proposal_rejected", resourceType: "challenge", resourceId: c.id });
+      return { status: "rejected" as const, c };
+    }
+    if (!isDifficulty(p.difficulty)) throw new AccessError("invalid", "Elegí la dificultad.");
+    const endsOn = p.endsOn ?? in30Days();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endsOn) || endsOn < todayAr()) throw new AccessError("invalid", "La fecha de cierre no puede ser anterior a hoy.");
+    const d = CHALLENGE_DIFFICULTY[p.difficulty];
+    const prizeTxt = (p.prize ?? "").trim().slice(0, 120) || `+${d.xp} puntos para tu nivel`;
+    await tx.update(challenge).set({ status: "active", difficulty: p.difficulty, endsOn, prize: prizeTxt, reviewedBy: actorId, createdAt: new Date() }).where(eq(challenge.id, c.id));
+    await tx.insert(memberNotice).values({ userId: c.proposedBy, orgId, kind: "proposal_approved", refId: c.id, title: `¡Se publicó tu desafío! · ${c.title}`, body: `Dificultad ${d.label.toLowerCase()}: validarlo suma ${d.xp} puntos a tu nivel. Ya lo ven los socios de tu sede.` });
+    await audit(tx, { actorUserId: actorId, orgId, action: "challenge.proposal_approved", resourceType: "challenge", resourceId: c.id, meta: { difficulty: p.difficulty } });
+    return { status: "active" as const, c: { ...c, prize: prizeTxt } };
+  });
+  if (out.status === "active") {
+    const c = out.c;
+    const members = await db.select({ userId: gymMember.userId }).from(gymMember).where(and(eq(gymMember.orgId, orgId), eq(gymMember.status, "active"), eq(gymMember.locationId, c.locationId!)));
+    await enqueue(members.map((m) => m.userId).filter((u) => u !== actorId), {
+      kind: "challenge_new", dedupe: `chnew:${c.id}`, title: "Nuevo desafío de la comunidad", body: `${c.title} · ${c.prize}`, url: "/app?gym=ch",
+    }).catch(() => {});
+  }
+  return { status: out.status };
+}
+
+/**
+ * Inicio del socio (D172): desafíos de la comunidad activos en su sede, con dificultad, quién lo propuso y su estado.
+ * Sin gym activo, nada (la sección no se muestra).
+ */
+export async function communityChallenges(userId: string, now = new Date()) {
+  const r = await myGym(userId).catch(() => null);
+  if (!r) return { orgId: null, minor: false, items: [], pending: 0 };
+  const today = localDate(now);
+  const chs = await db.select({ c: challenge, name: user.name }).from(challenge).innerJoin(user, eq(user.id, challenge.proposedBy))
+    .where(and(eq(challenge.orgId, r.org.id), eq(challenge.locationId, r.loc.id), eq(challenge.status, "active"), gte(challenge.endsOn, today), isNotNull(challenge.difficulty)))
+    .orderBy(desc(challenge.createdAt)).limit(6);
+  const mine = chs.length ? await db.select({ ch: challengeAttempt.challengeId, status: challengeAttempt.status }).from(challengeAttempt)
+    .where(and(eq(challengeAttempt.userId, userId), inArray(challengeAttempt.challengeId, chs.map((x) => x.c.id)))).orderBy(desc(challengeAttempt.createdAt)) : [];
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(challenge).where(and(eq(challenge.proposedBy, userId), eq(challenge.status, "proposed")));
+  return {
+    orgId: r.org.id, minor: await minorWithoutGuardian(userId), pending: n,
+    items: chs.map(({ c, name }) => {
+      const d = isDifficulty(c.difficulty) ? CHALLENGE_DIFFICULTY[c.difficulty] : CHALLENGE_DIFFICULTY[1];
+      return {
+        id: c.id, title: c.title, rule: c.rule, endsOn: c.endsOn, difficulty: { level: c.difficulty, ...d }, prize: c.prize,
+        by: c.proposedBy === userId ? "Vos" : name.split(" ")[0], record: fmtValue(v10(c.recordValue), c.unit),
+        mine: mine.find((a) => a.ch === c.id)?.status ?? null,
+      };
+    }),
+  };
 }
 
 /** Retirar un desafío: los intentos pendientes se rechazan con motivo y se avisa a cada socio. */
@@ -484,6 +592,11 @@ export async function myGymHome(userId: string, orgId?: string | null, now = new
     or(eq(challenge.status, "active"), and(eq(challenge.status, "closed"), gte(challenge.closedAt, addDays(now, -30)))))).orderBy(asc(challenge.status), asc(challenge.endsOn));
   const mine = chs.length ? await db.select().from(challengeAttempt).where(and(eq(challengeAttempt.userId, userId), inArray(challengeAttempt.challengeId, chs.map((c) => c.id)))).orderBy(desc(challengeAttempt.createdAt)) : [];
   const holders = await recordHolders(chs.map((c) => c.recordAttemptId).filter(Boolean) as string[]);
+  // D172: desafíos propuestos por socios (quién lo propuso, por nombre de pila) y mis propuestas en revisión o rechazadas.
+  const authorIds = [...new Set(chs.map((c) => c.proposedBy).filter(Boolean) as string[])];
+  const authors = new Map(authorIds.length ? (await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, authorIds))).map((x) => [x.id, x.name.split(" ")[0]]) : []);
+  const myProps = await db.select().from(challenge).where(and(eq(challenge.proposedBy, userId), eq(challenge.orgId, r.org.id),
+    or(eq(challenge.status, "proposed"), and(eq(challenge.status, "rejected"), gte(challenge.createdAt, addDays(now, -30)))))).orderBy(desc(challenge.createdAt)).limit(10);
   const items = await db.select().from(catalogItem).where(and(eq(catalogItem.orgId, r.org.id), isNull(catalogItem.deletedAt), or(isNull(catalogItem.locationId), eq(catalogItem.locationId, r.loc.id))))
     .orderBy(desc(catalogItem.highlighted), asc(catalogItem.category), asc(catalogItem.name));
   const ach = await db.select().from(achievement).where(and(eq(achievement.userId, userId), or(isNull(achievement.orgId), eq(achievement.orgId, r.org.id)), ne(achievement.kind, "trophy"))).orderBy(asc(achievement.createdAt));
@@ -507,8 +620,11 @@ export async function myGymHome(userId: string, orgId?: string | null, now = new
         id: c.id, title: c.title, rule: c.rule, unit: c.unit as ChallengeUnit, lowerIsBetter: c.lowerIsBetter, category: c.category, prize: c.prize, endsOn: c.endsOn, status: c.status,
         record: fmtValue(v10(c.recordValue), c.unit), holder: c.recordAttemptId ? holders.get(c.recordAttemptId) ?? null : null, myBest: best ? fmtValue(v10(best.value), c.unit) : null,
         last: last ? { status: last.status, reason: last.reason, value: fmtValue(v10(last.valueX10), c.unit), method: last.method } : null,
+        difficulty: isDifficulty(c.difficulty) ? { level: c.difficulty, ...CHALLENGE_DIFFICULTY[c.difficulty] } : null,
+        by: c.proposedBy ? (c.proposedBy === userId ? "Vos" : authors.get(c.proposedBy) ?? "Un socio") : null,
       };
     }),
+    proposals: myProps.map((c) => ({ id: c.id, title: c.title, status: c.status, note: c.reviewNote, at: c.createdAt })),
     catalog: items.map((i) => ({ id: i.id, category: i.category, name: i.name, priceArs: i.priceArs, promo: i.promo, highlighted: i.highlighted, available: i.available, imageId: i.imageId })),
     achievements: ach.map((a) => ({ id: a.id, kind: a.kind, title: a.title, detail: a.detail, at: a.createdAt, unseen: !a.seenAt })),
     locked: locked.map((c) => ({ title: c.title, detail: "Por superar" })),

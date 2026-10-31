@@ -140,3 +140,17 @@ export function liftRanking<T extends { key: string; name: string; best: number;
     return { key: r.key, name: r.name, best: r.best, pos: now.pos.get(r)!, delta: p == null ? null : p - now.pos.get(r)!, isNew: p == null };
   });
 }
+
+/**
+ * D172: dificultad de un desafío (la pone el profe al aprobar uno propuesto por un socio; también sirve para los del gym).
+ * [S] Puntos para el nivel REPI cuando el intento se valida, con video o en sala. Sin dificultad: 30 (`XP.validated`).
+ */
+export const CHALLENGE_DIFFICULTY = {
+  1: { label: "Fácil", xp: 20 },
+  2: { label: "Media", xp: 40 },
+  3: { label: "Difícil", xp: 70 },
+} as const;
+export type ChallengeDifficulty = keyof typeof CHALLENGE_DIFFICULTY;
+export const isDifficulty = (x: unknown): x is ChallengeDifficulty => x === 1 || x === 2 || x === 3;
+/** Máximo de propuestas de un socio esperando revisión. */
+export const MAX_PENDING_PROPOSALS = 3;

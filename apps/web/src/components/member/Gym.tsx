@@ -6,13 +6,14 @@ import { renderSVG } from "uqr";
 import { ATTEMPT_VIDEO_LIMITS, CHALLENGE_CATEGORIES, CHALLENGE_UNITS, CLUB_COMMENT_MAX, CLUB_POST_MAX, DIVISIONS, RANK_FILTERS, attemptValueOk, type ChallengeUnit, fmtWeight, kgTo, volumeIn } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Nudges } from "./Nudges";
+import { DifficultyChip, ProposeSheet } from "./CommunityChallenges";
 import { useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Carousel } from "@/components/motion/Carousel";
 import { uploadVideo } from "@/lib/upload";
-import { Camera, Check, ImageSquare, QrCode, VideoCamera, X } from "@phosphor-icons/react";
+import { Camera, Check, ImageSquare, Lightbulb, QrCode, VideoCamera, X } from "@phosphor-icons/react";
 import { uploadImage } from "@/lib/image";
 import { featureOn } from "@/lib/features";
 import { LevelPanel, type LevelData } from "./Trophies";
@@ -21,7 +22,9 @@ import { useScrollLock } from "@/components/ui/scrollLock";
 type Home = {
   org: { id: string; name: string }; location: { id: string; name: string; receptionHours: string | null }; safety: string; minorRestricted: boolean; onFloor: string[];
   posts: { id: string; type: "novedad" | "descuento"; title: string; text: string; badge: string | null; imageId: string | null; validUntil: string | null; at: string }[];
-  challenges: { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; record: string; holder: string | null; myBest: string | null; last: { status: string; reason: string | null; value: string; method: string } | null }[];
+  challenges: { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; record: string; holder: string | null; myBest: string | null; last: { status: string; reason: string | null; value: string; method: string } | null;
+    difficulty: { level: number; label: string; xp: number } | null; by: string | null }[];
+  proposals: { id: string; title: string; status: "proposed" | "rejected"; note: string | null; at: string }[];
   catalog: { id: string; category: string; name: string; priceArs: number; promo: string | null; highlighted: boolean; available: boolean; imageId: string | null }[];
   achievements: { id: string; kind: string; title: string; detail: string; at: string; unseen: boolean }[];
   locked: { title: string; detail: string }[]; level: LevelData; readyPrizes: number;
@@ -39,6 +42,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
   const [rank, setRank] = useState<Home["challenges"][number] | null>(null);
   const [card, setCard] = useState(false);
   const [award, setAward] = useState<Home["notices"][number] | null>(null);
+  const [propose, setPropose] = useState(false);
   const load = useCallback(() => api<Home>("/api/me/gym/home").then((x) => { setH(x); setErr(null); return x; }).catch((e) => { setErr(e.message); return null; }), []);
   const rv = useReveal(!!h || !!err || offline);
   useEffect(() => { if (offline) return; void load().then((x) => {
@@ -91,6 +95,18 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
           <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Superá un récord con video o delante de un profe de sala, y {h.org.name} lo valida. El premio se retira en recepción con tu carnet. {h.safety}</span>
           {h.minorRestricted && <p className="mb-note">Los videos de récord se habilitan cuando tu adulto responsable lo autorice.</p>}
           {!h.minorRestricted && <Nudges only={["challenge"]} exclude="new:" max={2} title="Para vos" flash={flash} go={(n) => { const c = h.challenges.find((x) => x.id === n.challengeId); if (c) setUp(c); }} />}
+          {!h.minorRestricted && (
+            <button type="button" className="hbanner" onClick={() => setPropose(true)}>
+              <Ic i={Lightbulb} size={24} color="#00D1FF" />
+              <span><b>Proponer un desafío</b><small>Si un profe lo aprueba, lo ve toda la sede y validarlo suma puntos a tu nivel.</small></span>
+            </button>
+          )}
+          {h.proposals.map((p) => (
+            <div key={p.id} className="hbanner" style={{ cursor: "default" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: p.status === "rejected" ? "#EF4444" : "#F59E0B", flex: "none" }} />
+              <span><b>{p.title}</b><small>{p.status === "proposed" ? "Tu propuesta: esperando que un profe la revise" : `No se publicó${p.note ? ` · ${p.note}` : ""}`}</small></span>
+            </div>
+          ))}
           {!h.challenges.length && <div className="dashed-card"><span>No hay desafíos activos.</span></div>}
           {h.challenges.map((c) => {
             const st = c.last?.status;
@@ -100,6 +116,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
                   <b style={{ fontSize: 17 }}>{c.title}</b>
                   {c.status === "closed" ? <span className="st-chip mute">Terminado</span> : st === "pending" ? <span className="st-chip warn">En validación</span> : st === "approved" ? <span className="st-chip ok">Validado</span> : st === "rejected" ? <span className="st-chip bad">No aprobado</span> : null}
                 </div>
+                {(c.difficulty || c.by) && <span className="cch-meta">{c.difficulty && <DifficultyChip d={c.difficulty} />}{c.by && <small>Propuesto por {c.by}</small>}</span>}
                 <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>{CHALLENGE_CATEGORIES[c.category]} · {c.rule}</span>
                 <div className="gch-boxes">
                   <div><small>{c.status === "closed" ? "Récord final" : "Récord del gym"}</small><strong>{c.record}</strong><small>{c.holder ? `de ${c.holder}` : "Esperando el primer intento"}</small></div>
@@ -142,6 +159,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
       {up && <AttemptSheet c={up} orgId={h.org.id} flash={flash} onClose={(sent) => { setUp(null); if (sent) void load(); }} />}
       {rank && <RankSheet c={rank} onClose={() => setRank(null)} />}
       {card && <CardSheet onClose={() => setCard(false)} />}
+      {propose && <ProposeSheet orgId={h.org.id} pending={h.proposals.filter((p) => p.status === "proposed").length} flash={flash} onClose={(sent) => { setPropose(false); if (sent) void load(); }} />}
       {award && <Award n={award} onClose={() => { setAward(null); setTab("logros"); }} />}
     </div>
   );

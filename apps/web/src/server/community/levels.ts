@@ -3,13 +3,13 @@
 // guardan como logro (`achievement`, tipo «trophy») para no otorgarlos dos veces y para mostrar el desbloqueo una sola vez.
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  EMPTY_STATS, TIER_LABEL, TROPHIES, TROPHY_TIERS, isFullBody, levelFromXp, localDate, trophySource, trophyState, trophyUnit, weekOf, xpBreakdown, xpOf,
+  CHALLENGE_DIFFICULTY, EMPTY_STATS, TIER_LABEL, XP, isDifficulty, TROPHIES, TROPHY_TIERS, isFullBody, levelFromXp, localDate, trophySource, trophyState, trophyUnit, weekOf, xpBreakdown, xpOf,
   type LevelStats,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { grant } from "./services";
 
-const { achievement, workoutSession, setLog, exercise } = schema;
+const { achievement, workoutSession, setLog, exercise, challenge } = schema;
 
 /** Estadísticas que alimentan el nivel y los trofeos. */
 export async function levelStats(userId: string): Promise<LevelStats> {
@@ -46,6 +46,10 @@ export async function levelStats(userId: string): Promise<LevelStats> {
   s.fullBodyWeeks = [...weeks.values()].filter(isFullBody).length;
   const ach = await db.select({ kind: achievement.kind, n: sql<number>`count(*)::int` }).from(achievement)
     .where(and(eq(achievement.userId, userId), inArray(achievement.kind, ["challenge_validated", "gym_record", "month_12"]))).groupBy(achievement.kind);
+  // D172: cada desafío validado suma según su dificultad (sin dificultad, XP.validated).
+  const val = await db.select({ d: challenge.difficulty }).from(achievement).leftJoin(challenge, eq(challenge.id, achievement.sourceKey))
+    .where(and(eq(achievement.userId, userId), eq(achievement.kind, "challenge_validated")));
+  s.challengeXp = val.reduce((t, v) => t + (isDifficulty(v.d) ? CHALLENGE_DIFFICULTY[v.d].xp : XP.validated), 0);
   for (const a of ach) {
     if (a.kind === "challenge_validated") s.validated = a.n;
     if (a.kind === "gym_record") s.gymRecords = a.n;

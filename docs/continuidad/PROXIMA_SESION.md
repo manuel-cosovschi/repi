@@ -1,6 +1,14 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D171), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 31/10/2026 (hasta D172), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Desafíos propuestos por socios (D172) — 31/10/2026
+
+- **Migración:** `drizzle/0039_challenge_proposals.sql` (aditiva: `challenge.proposed_by`, `difficulty`, `reviewed_by`, `review_note`; estados `proposed`/`rejected` y avisos `proposal_*` son texto, sin restricción). Aplicada en dev, pruebas y Supabase.
+- **Dominio:** `community.ts` (`CHALLENGE_DIFFICULTY` 20/40/70, `isDifficulty`, `MAX_PENDING_PROPOSALS`); `levels.ts` (`challengeXp`, `validatedXp`).
+- **Servidor:** `server/community/services.ts` (`proposeChallenge`, `listProposals`, `reviewProposal`, `communityChallenges`; `myGymHome` con `difficulty`, `by` y `proposals`); `server/community/levels.ts` (puntos por dificultad). Rutas: `POST /api/me/gym/proposals?org=`, `GET /api/me/gym/community-challenges`, `GET /api/gym/:org/proposals`, `POST /api/gym/:org/proposals/:id`.
+- **UI:** `components/member/CommunityChallenges.tsx` (sección de Inicio, `ProposeSheet`, `DifficultyChip`; estilos `.cch*`, `.chd*`); `Gym.tsx` (Desafíos: «Proponer un desafío», mis propuestas, chip de dificultad y autor); `components/gym/Community.tsx` (`Proposals` dentro de Validaciones; `.prop-row`); `GymApp.tsx` (número de Validaciones con propuestas).
+- **Pruebas:** `challenge-proposals.test.ts` (validaciones, tope de 3, oculto hasta aprobar, dificultad obligatoria, una sola revisión, premio por defecto, aviso, rechazo con motivo, validado en sala suma 40 y no 30).
 
 ## Intro de marca (D171, F-BR-02) — 30/10/2026
 

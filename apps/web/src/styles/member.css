@@ -780,3 +780,28 @@
 .bi-iris { background: var(--dark-bg); }
 .bi-skip { position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translateX(-50%); height: 40px; padding: 0 18px; border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); color: var(--dark-ink); font: 600 14px var(--font-ui); cursor: pointer; opacity: 0; }
+
+/* D172: desafíos de la comunidad (propuestos por socios, aprobados con dificultad por un profe). */
+.cch { display: flex; flex-direction: column; gap: 10px; }
+.cch-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cch-head h2 { display: flex; align-items: center; gap: 6px; font-size: 16px; }
+.cch-head .linkbtn { height: 36px; font-size: 14px; }
+.cch-empty { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 14px; border-radius: 16px; border: 1px dashed var(--dark-border); background: none; color: var(--dark-ink); cursor: pointer; font: inherit; }
+.cch-empty span { display: flex; flex-direction: column; gap: 4px; }
+.cch-empty b { font-size: 15px; }
+.cch-empty small { font-size: 13px; line-height: 1.4; color: var(--dark-muted); }
+.cch-list { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; margin: 0 -16px; padding-inline: 16px; scrollbar-width: none; }
+.cch-list::-webkit-scrollbar { display: none; }
+.cch-card { flex: 0 0 min(280px, 82%); scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 16px; background: var(--dark-surface, #121A24); border: 1px solid var(--dark-border); }
+.cch-card > b { font: 700 19px/1.15 "Barlow Condensed", "Barlow", sans-serif; text-transform: uppercase; letter-spacing: .01em; color: var(--dark-ink); }
+.cch-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cch-meta small, .cch-foot small { font-size: 12px; color: var(--dark-muted); }
+.cch-foot strong { color: var(--dark-ink); }
+.cch-rule { font-size: 13px; line-height: 1.4; color: var(--dark-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cch-foot { margin-top: auto; padding-top: 4px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cch-foot .cta.sm { height: 36px; font-size: 14px; padding: 0 14px; }
+.chd { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.chd-easy { background: rgba(16, 185, 129, .16); color: #6EE7B7; }
+.chd-mid { background: rgba(0, 209, 255, .16); color: #7DE3FF; }
+.chd-hard { background: rgba(249, 115, 22, .18); color: #FDBA74; }
+.sheet .or-field textarea { width: 100%; }

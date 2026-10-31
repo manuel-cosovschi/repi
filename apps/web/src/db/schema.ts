@@ -1035,9 +1035,14 @@ export const challenge = pgTable("challenge", {
   endsOn: text("ends_on").notNull(), // AAAA-MM-DD hora AR (último día para subir intentos)
   recordValue: integer("record_value_x10"), // récord vigente ×10 (kilos con un decimal sin flotantes)
   recordAttemptId: text("record_attempt_id"),
-  status: text("status", { enum: ["active", "closed", "removed"] }).notNull().default("active"),
+  // D172: «proposed» la propuso un socio y espera al profe; «rejected» no se publicó.
+  status: text("status", { enum: ["active", "closed", "removed", "proposed", "rejected"] }).notNull().default("active"),
   closedAt: ts("closed_at"),
   createdBy: text("created_by").notNull().references(() => user.id),
+  proposedBy: text("proposed_by").references(() => user.id), // D172: socio que lo propuso (null: lo creó el gym)
+  difficulty: integer("difficulty"), // D172: 1 fácil, 2 media, 3 difícil (puntos del nivel al validar)
+  reviewedBy: text("reviewed_by").references(() => user.id),
+  reviewNote: text("review_note"),
   createdAt: now("created_at"),
 }, (t) => [index("challenge_org_idx").on(t.orgId, t.status)]);
 
@@ -1125,7 +1130,7 @@ export const memberNotice = pgTable("member_notice", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   orgId: text("org_id").references(() => organization.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["attempt_approved", "attempt_rejected", "prize_delivered", "challenge_closed"] }).notNull(),
+  kind: text("kind", { enum: ["attempt_approved", "attempt_rejected", "prize_delivered", "challenge_closed", "proposal_approved", "proposal_rejected"] }).notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
   refId: text("ref_id"),

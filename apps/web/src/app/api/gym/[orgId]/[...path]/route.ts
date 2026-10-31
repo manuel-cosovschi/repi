@@ -75,6 +75,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "messages": return msg.floorThreads(me, orgId, loc(u) ?? "");
     case "community": return cm.staffCommunity(me, orgId);
     case "validations": return cm.listValidations(me, orgId);
+    case "proposals": return cm.listProposals(me, orgId); // D172
     case "club": return b === "screens" ? screen.rankingScreens(me, orgId) : club.clubReports(me, orgId);
     // Anexo 26/10: bandeja de solicitudes por QR, enlaces por sede, accesos habilitados y alertas de sala.
     case "joins": return join.joinInbox(me, orgId);
@@ -151,6 +152,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "community" && b === "catalog" && !c) return cm.upsertItem(me, orgId, await body(req, z.object({ id: id.nullable().optional(), locationId: id.nullable().optional(), category: z.string().max(30), name: z.string().max(80), priceArs: z.number().int(), promo: z.string().max(40).nullable().optional(), highlighted: z.boolean().optional(), available: z.boolean().optional(), imageId: id.nullable().optional() })));
   if (a === "community" && b === "catalog" && c) return cm.removeItem(me, orgId, c);
   if (a === "community" && b === "hours") { const p = await body(req, z.object({ loc: id, hours: z.string().max(120) })); return cm.setReceptionHours(me, orgId, p.loc, p.hours); }
+  if (a === "proposals" && b) return cm.reviewProposal(me, orgId, b, await body(req, z.object({ approve: z.boolean(), difficulty: z.number().int().nullable().optional(), endsOn: z.string().max(10).nullable().optional(), prize: z.string().max(120).nullable().optional(), reason: z.string().max(200).nullable().optional() })));
   if (a === "validations" && b) return cm.decideAttempt(me, orgId, b, await body(req, z.object({ approve: z.boolean(), reason: z.string().max(200).nullable().optional(), value: z.number().nullable().optional() })));
   if (a === "desk" && b === "verify") return cm.verifyCard(me, orgId, (await body(req, z.object({ token: z.string().max(200) }))).token);
   if (a === "desk" && b === "checkin") { const p = await body(req, z.object({ token: z.string().max(200), loc: id })); return cm.checkIn(me, orgId, p.token, p.loc); }
