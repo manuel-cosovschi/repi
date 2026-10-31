@@ -4,12 +4,12 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 25, no_aplica 6, persistente 9, probado 82, sin_implementar 43.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 26, no_aplica 6, persistente 9, probado 82, sin_implementar 42.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
 | F-BR-01 | Identidad Concepto 2 (wordmark, isotipo, paleta) con tipografía Barlow (G · Atlética) | Marca | Todos | confirmado | diseño aprobado (assets) | integrado | features.json · F-BR-01 | Logo = PNG original o vector verificado; nunca texto en Inter Tight; punto cian #00D1FF |
-| F-BR-02 | Intro de marca 1a + inicio regular + reducido | Marca / motion | Alumno | confirmado | prototipo interactivo | sin_implementar | features.json · F-BR-02 | 1ª vez ~2,6 s saltable; luego ≤0,5 s; reduced-motion = fade; nunca durante entrenamiento activo; termina en pantalla real |
+| F-BR-02 | Intro de marca 1a + inicio regular + reducido | Marca / motion | Alumno | confirmado | prototipo interactivo | integrado | features.json · F-BR-02 | 1ª vez ~2,6 s saltable; luego ≤0,5 s; reduced-motion = fade; nunca durante entrenamiento activo; termina en pantalla real |
 | F-CL-01 | Inicio del alumno | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-01 | Muestra entrenamiento de hoy y semana reales; CTA inicia sesión |
 | F-CL-02 | Semana y detalle de día | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-02 | Día de descanso como estado propio; valores anteriores por ejercicio |
 | F-CL-03 | Registro de series en un toque | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-03 | Completar serie ≤1 toque; steppers ±2,5 kg/±1 rep; autosave visible |

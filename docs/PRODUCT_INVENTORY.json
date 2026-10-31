@@ -35,7 +35,7 @@
    "diseno": "prototipo interactivo",
    "certeza": "confirmado",
    "conflicto": null,
-   "estado_tecnico": "sin_implementar",
+   "estado_tecnico": "integrado",
    "dependencias": "F-BR-01",
    "aceptacion": "1ª vez ~2,6 s saltable; luego ≤0,5 s; reduced-motion = fade; nunca durante entrenamiento activo; termina en pantalla real",
    "pendiente": "",

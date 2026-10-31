@@ -1,6 +1,12 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D170), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D171), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Intro de marca (D171, F-BR-02) — 30/10/2026
+
+- **Código:** `components/motion/BrandIntro.tsx` (montada en `MemberApp.tsx` con `abort` si hay entrenamiento abierto); estilos `.bi*` en `member.css`; capas en `public/brand/intro/` (copiadas del video de lanzamiento).
+- **Verificado en navegador (375 px):** cuadros a 1,25 s (isotipo con el punto), 1,9 s y 2,0 s (lockup y punto de la «i»), 2,28 s (iris nítido), retiro al terminar, sin intro en la misma sesión, versión corta de 0,48 s centrada. Probar en un teléfono real: `https://repiclub.com/app?intro=1`.
+- **Sin probar:** movimiento reducido en un dispositivo (el código sólo funde).
 
 ## Horario del profesor y turno automático (D170) — 30/10/2026
 

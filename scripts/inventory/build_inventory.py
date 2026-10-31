@@ -78,6 +78,8 @@ REPO_STATUS = {
     "F-HX-12": "probado",
     # 30/10/2026 · nivel y trofeos con desbloqueo 3D (D166, tests/levels.test.ts, packages/domain/src/levels.test.ts)
     "F-RC-04": "probado",
+    # 30/10/2026 · intro de marca (D171): revisada cuadro por cuadro en el navegador; sin prueba automática de la animación
+    "F-BR-02": "integrado",
 }
 
 NEW = [

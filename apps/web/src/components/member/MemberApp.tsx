@@ -17,6 +17,7 @@ import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./
 import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
 import { Nudges, type Nudge } from "./Nudges";
+import { BrandIntro } from "@/components/motion/BrandIntro";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
 import { kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
@@ -307,6 +308,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
 
   return (
     <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
+      {/* F-BR-02: intro de marca; con un entrenamiento abierto sale enseguida. */}
+      <BrandIntro abort={!!openId} />
       <main className="mb-scroll">
         {err && <p role="alert" className="mb-err">{err} <button type="button" className="linkbtn" onClick={() => void load()}>Reintentar</button></p>}
         {offlineAt && <p className="offline-bar" role="status">Sin conexión · programa guardado el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(offlineAt))}</p>}

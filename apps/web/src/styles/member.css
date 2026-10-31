@@ -759,3 +759,24 @@
 .club-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .club-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
 .club-me em { font-style: normal; color: #00D1FF; font-weight: 600; font-size: 14px; }
+
+/* F-BR-02: intro de marca (escena 1 del video de lanzamiento). */
+.bi { position: fixed; inset: 0; z-index: 400; background: var(--dark-bg); overflow: hidden; touch-action: none; }
+.bi-glow { position: absolute; inset: 0; background: radial-gradient(520px 420px at 70% -8%, #13263a 0%, rgba(11, 15, 20, 0) 64%); pointer-events: none; }
+.bi-stage { position: absolute; left: 0; top: 0; width: 360px; height: 360px; transform-origin: 0 0; }
+.bi-stage > * { position: absolute; left: 0; top: 0; opacity: 0; }
+.bi-icon { width: 120px; height: 120px; transform-origin: 0 0; }
+.bi-tile { position: absolute; inset: 0; clip-path: inset(4px 9px 1.5px 0.7px round 25px); opacity: 0; }
+.bi-tile img { width: 120px; height: 120px; display: block; }
+.bi-r { position: absolute; left: 20.7px; top: 28.9px; width: 41.5px; height: 65.2px; clip-path: inset(100% 0 0 0); }
+.bi-r img { width: 100%; height: 100%; display: block; }
+.bi-wm { width: 200px; height: 97.8px; transform-origin: 0 0; }
+.bi-l { position: absolute; top: 0; height: 97.8px; overflow: hidden; }
+.bi-l img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; transform: translateY(105%); }
+.bi-dot, .bi-wdot, .bi-iris { width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; transform-origin: 50% 50%; will-change: transform; }
+.bi-wdot, .bi-iris { width: 260px; height: 260px; margin: -130px 0 0 -130px; }
+.bi-dot { background: #00D1FF; box-shadow: 0 0 28px rgba(0, 209, 255, .45); }
+.bi-wdot { background: #00D1FF; box-shadow: 0 0 120px rgba(0, 209, 255, .4); }
+.bi-iris { background: var(--dark-bg); }
+.bi-skip { position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translateX(-50%); height: 40px; padding: 0 18px; border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); color: var(--dark-ink); font: 600 14px var(--font-ui); cursor: pointer; opacity: 0; }
