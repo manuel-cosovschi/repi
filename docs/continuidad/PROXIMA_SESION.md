@@ -1,6 +1,12 @@
 # REPI — Retomar acá
 
-Actualizado: 31/10/2026 (hasta D174), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 31/10/2026 (hasta D175), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Eliminar y cambiar programas (D175) — 31/10/2026
+
+- **Código:** `server/training/services.ts` (`archiveProgram`: archiva; si es copia de cliente cierra la asignación activa; audita); `components/coach/ProgramBuilder.tsx` («Eliminar» con confirmación, «Cambiar por otro» en programas de cliente); `components/coach/CoachClients.tsx` («Cambiar programa»).
+- **Pruebas:** `training.test.ts` (eliminar plantilla no le quita el programa al cliente; asignar otro lo reemplaza; eliminar el del cliente lo deja sin programa) — 19 ✓. Navegador (demo coach): eliminar plantilla sale de la lista.
+- **Sin hacer:** el editor de sala (gym, `Members.tsx`) no tiene «Quitar programa» al socio; si lo piden, mismo criterio con `program.kind = member_copy`. **Sin probar en navegador:** eliminar el programa de un cliente (cubierto por la prueba).
 
 ## Próxima acción (31/10/2026)
 

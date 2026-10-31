@@ -73,6 +73,25 @@ describe("programas versionados y asignación", () => {
     expect(tb.state === "ready" && tb.program.name).toBe("Hipertrofia · 2 días");
     expect((await tr.listTemplates(coach, orgId))[0]).toMatchObject({ name: "Hipertrofia v2", clients: 2, version: 2 });
   });
+  it("D175: eliminar una plantilla no le saca el programa a nadie; eliminar el de un cliente lo deja sin programa; asignar otro lo reemplaza", async () => {
+    const { coach, orgId, clients: [a] } = await coachWithClients(1);
+    const pid = await tr.createTemplate(coach, orgId, DOC());
+    await tr.assignProgram(coach, orgId, pid, { coachClientIds: [a.relId], startsOn: today() });
+    await tr.archiveProgram(coach, orgId, pid);
+    expect((await tr.listTemplates(coach, orgId)).find((x) => x.id === pid)).toBeUndefined();
+    expect((await tr.myTraining(a.userId)).state).toBe("ready");
+    // Reemplazar: asignar otro cierra el anterior.
+    const other = await tr.createTemplate(coach, orgId, { ...DOC(), name: "Fuerza nueva" });
+    await tr.assignProgram(coach, orgId, other, { coachClientIds: [a.relId], startsOn: today() });
+    const t = await tr.myTraining(a.userId);
+    expect(t.state === "ready" && t.program.name).toBe("Fuerza nueva");
+    // Eliminar el programa del cliente: queda sin programa; el historial sigue.
+    const det = await tr.clientDetail(coach, orgId, a.relId);
+    expect(await tr.archiveProgram(coach, orgId, det.program!.programId)).toEqual({ unassigned: 1 });
+    expect((await tr.myTraining(a.userId)).state).not.toBe("ready");
+    expect((await tr.clientDetail(coach, orgId, a.relId)).program).toBeNull();
+  });
+
   it("otro coach no ve ni asigna programas ajenos; no se asigna a clientes de otra organización", async () => {
     const one = await coachWithClients(1);
     const two = await coachWithClients(1);

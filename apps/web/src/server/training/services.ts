@@ -205,10 +205,21 @@ export async function duplicateProgram(actorId: string, orgId: string, programId
   return createTemplate(actorId, orgId, { ...plain(doc), name: `${doc.name} (copia)`.slice(0, 120) });
 }
 
+/**
+ * Eliminar un programa (D175): sale de la lista del coach. Una plantilla no le cambia nada a quien ya la tiene (cada cliente
+ * tiene su copia). El programa de un cliente, además, deja de estar asignado: el cliente queda sin programa hasta que le
+ * asignen otro. El historial (versiones, entrenamientos) no se borra.
+ */
 export async function archiveProgram(actorId: string, orgId: string, programId: string) {
   await requireCoach(actorId, orgId);
-  await loadProgram(orgId, programId);
-  await db.update(program).set({ archivedAt: new Date() }).where(eq(program.id, programId));
+  const p = await loadProgram(orgId, programId);
+  return db.transaction(async (tx) => {
+    await tx.update(program).set({ archivedAt: new Date() }).where(eq(program.id, programId));
+    const ended = p.kind === "client_copy" ? await tx.update(programAssignment).set({ status: "ended", endedAt: new Date() })
+      .where(and(eq(programAssignment.programId, programId), eq(programAssignment.status, "active"))).returning() : [];
+    await audit(tx, { actorUserId: actorId, orgId, action: "program.archived", resourceType: "program", resourceId: programId, meta: { kind: p.kind, unassigned: ended.length } });
+    return { unassigned: ended.length };
+  });
 }
 
 /**

@@ -6,6 +6,7 @@ import { formatRest, parseRest } from "@repi/domain";
 import { api } from "@/lib/api";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
+import { Modal } from "@/components/ui/Modal";
 import { featureOn } from "@/lib/features";
 import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./types";
 import { NewExercise } from "./NewExercise";
@@ -33,6 +34,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const [libQ, setLibQ] = useState("");
   const [save, setSave] = useState<Save>({ s: "idle" });
   const [assign, setAssign] = useState(false);
+  const [del, setDel] = useState(false);
   const [subsFor, setSubsFor] = useState<string | null>(null); // ejercicio con el panel de reemplazos abierto
   const { subs, setSubs } = useSubstitutions(orgId);
   const dirty = useRef(false);
@@ -87,6 +89,17 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     try { const r = await api<{ id: string }>(`/api/coach/${orgId}/programs/${prog.id}/duplicate`, { body: {} }); await loadList(); setPid(r.id); flash("Programa duplicado. Estás editando la copia."); }
     catch (e) { flash((e as Error).message); }
   };
+  // D175: eliminar sale de la lista (y, si es el programa de un cliente, se lo quita); el historial queda.
+  const remove = async () => {
+    if (!prog) return;
+    try {
+      await api(`/api/coach/${orgId}/programs/${prog.id}`, { method: "DELETE" });
+      setDel(false);
+      const ps = await loadList(); setPid(ps.find((x) => x.id !== prog.id)?.id ?? null);
+      flash(prog.kind === "client_copy" ? `Programa eliminado. ${prog.forClient?.split(" ")[0] ?? "Tu cliente"} queda sin programa hasta que le asignes otro.` : "Programa eliminado de tu lista. Quien ya lo tenía lo sigue usando.");
+      if (prog.kind === "client_copy") onAssigned();
+    } catch (e) { flash((e as Error).message); }
+  };
   const forTxt = !prog ? "" : prog.kind === "client_copy" ? `Programa de ${prog.forClient ?? "un cliente"} · versión ${prog.version}` : `Programa · ${prog.clients.map((c) => c.split(" ")[0]).join(", ") || "sin clientes asignados"} · versión ${prog.version}`;
 
   return (
@@ -99,11 +112,22 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
         </div>
         {prog && (
           <div className="co-actions">
+            <button type="button" className="btn danger" onClick={() => setDel(true)}>Eliminar</button>
+            {prog.kind === "client_copy" && <button type="button" className="btn" onClick={() => { setPid(null); flash(`Elegí otro programa de tu lista y asignáselo a ${prog.forClient?.split(" ")[0] ?? "tu cliente"}: reemplaza al actual.`); }}>Cambiar por otro</button>}
             <button type="button" className="btn" onClick={duplicate}>Duplicar</button>
             {prog.kind === "template" && <button type="button" className="btn pri" onClick={() => setAssign(true)}>Asignar a clientes</button>}
           </div>
         )}
       </div>
+      {del && prog && (
+        <Modal label="Eliminar programa" onClose={() => setDel(false)}>
+          <h2 style={{ margin: 0 }}>¿Eliminar «{doc?.name}»?</h2>
+          <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>{prog.kind === "client_copy"
+            ? `${prog.forClient?.split(" ")[0] ?? "Tu cliente"} deja de verlo y queda sin programa hasta que le asignes otro. Sus entrenamientos y su historial no se borran.`
+            : prog.clients.length ? `Sale de tu lista. ${prog.clients.map((c) => c.split(" ")[0]).join(", ")} lo sigue${prog.clients.length > 1 ? "n" : ""} usando: cada cliente tiene su copia. Para cambiárselo, asignale otro programa.` : "Sale de tu lista de programas."}</p>
+          <div className="mfoot"><button type="button" className="btn" onClick={() => setDel(false)}>Cancelar</button><button type="button" className="btn pri danger" onClick={() => void remove()}>Eliminar</button></div>
+        </Modal>
+      )}
       {save.s === "error" && <p role="alert" className="err-box">No se guardó: {save.m}</p>}
       <div className="split">
         <div className="side-pane">

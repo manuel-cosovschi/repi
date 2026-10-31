@@ -95,6 +95,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
                 <span className="av56">{initials(current.name)}</span>
                 <div style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 4 }}><span style={{ fontSize: 22, fontWeight: 600 }}>{current.name}</span><span className="muted" style={{ fontSize: 13 }}>Cliente desde {fmtDate(current.since, { month: "short", year: "numeric" })}{current.status === "paused" ? " · En pausa" : ""}</span></div>
                 <div className="co-actions">
+                  {det?.program && <button type="button" className="btn" onClick={() => go("builder", { pid: null })}>Cambiar programa</button>}
                   {det?.program ? <button type="button" className="btn pri" onClick={() => go("builder", { pid: det.program!.programId })}>Editar programa</button>
                     : <button type="button" className="btn pri" onClick={() => go("builder", { pid: null })}>Asignar programa</button>}
                   {current.status === "active" && <button type="button" className="btn" onClick={() => relStatus("paused", `¿Pausar a ${current.name.split(" ")[0]}? Deja de ver su programa hasta que lo reactives; el chat y su historial quedan.`)}>Pausar</button>}
