@@ -1,6 +1,11 @@
 # REPI — Retomar acá
 
-Actualizado: 31/10/2026 (hasta D176), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 31/10/2026 (hasta D177), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Constructor sin pérdida de cambios (D177) — 31/10/2026
+
+- **Código:** `components/coach/ProgramBuilder.tsx` (`readDraft`/`writeDraft`/`clearDraft`, reintento con `retry`, `online`, `beforeunload`).
+- **Pruebas:** navegador local (demo coach): con el guardado fallando, el nombre editado quedó en el navegador con aviso; al recargar se recuperó y se guardó (versión 2) y se borró el borrador. Typecheck ✓. **Sin hacer:** el editor de programa del gym (`Members.tsx`) guarda con botón; si falla, el modal queda abierto con el error (no se pierde mientras no se cierre).
 
 ## Incidente de acceso y DNS (D176) — 31/10/2026
 

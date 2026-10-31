@@ -50,13 +50,25 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     if (prog?.id !== pid) { setProg(null); setDoc(null); }
     let live = true; // una respuesta tardía de un programa ya dejado no pisa al actual
     // Un programa recién creado tiene que aparecer en la lista sin esperar al primer guardado (F-03).
-    api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => { if (!live) return; setProg(p); setDoc(p.doc); setDay(0); if (listRef.current && !listRef.current.some((x) => x.id === p.id)) loadList(); }).catch((e) => { if (!live) return; flash(e.message); setPid(null); });
+    api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => {
+      if (!live) return;
+      setProg(p); setDay(0);
+      // D177: cambios que no llegaron al servidor (sin conexión, pestaña cerrada) se recuperan y se vuelven a guardar.
+      const d = readDraft(p.id);
+      if (d && d.version === p.version && JSON.stringify(strip(d.doc)) !== JSON.stringify(strip(p.doc))) {
+        dirty.current = true; setDoc(d.doc); flash("Recuperamos cambios que no se habían guardado. Guardando…");
+      } else { clearDraft(p.id); setDoc(p.doc); }
+      if (listRef.current && !listRef.current.some((x) => x.id === p.id)) loadList();
+    }).catch((e) => { if (!live) return; flash(e.message); setPid(null); });
     return () => { live = false; };
   }, [orgId, pid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autoguardado con debounce; el estado visible refleja el resultado real del servidor.
+  // D177: cada cambio queda también en este navegador hasta que el servidor lo confirma; sin conexión se reintenta solo.
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!doc || !prog || !dirty.current) return;
+    writeDraft(prog.id, prog.version, doc);
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       setSave({ s: "saving" });
@@ -68,11 +80,22 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
           setProg((p) => p && { ...p, version: r.version, locked: false });
         }
         dirty.current = false;
+        clearDraft(prog.id);
         loadList();
-      } catch (e) { setSave({ s: "error", m: (e as Error).message }); }
-    }, 700);
+      } catch (e) {
+        setSave({ s: "error", m: `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.` });
+        timer.current = setTimeout(() => setRetry((n) => n + 1), 8000);
+      }
+    }, retry ? 0 : 700);
     return () => clearTimeout(timer.current);
-  }, [doc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [doc, retry]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const online = () => { if (dirty.current) setRetry((n) => n + 1); };
+    // Cerrar o recargar con cambios sin confirmar: el navegador pregunta antes.
+    const leave = (ev: BeforeUnloadEvent) => { if (dirty.current) { ev.preventDefault(); ev.returnValue = ""; } };
+    window.addEventListener("online", online); window.addEventListener("beforeunload", leave);
+    return () => { window.removeEventListener("online", online); window.removeEventListener("beforeunload", leave); };
+  }, []);
 
   const edit = (fn: (d: EditableDoc) => EditableDoc) => { dirty.current = true; setDoc((d) => (d ? fn(d) : d)); };
   const setDayDoc = (fn: (x: EditableDoc["days"][number]) => EditableDoc["days"][number]) => edit((d) => ({ ...d, days: d.days.map((x, i) => (i === day ? fn(x) : x)) }));
@@ -196,6 +219,12 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     </>
   );
 }
+
+// D177: borrador local del programa (por si el guardado no llega al servidor).
+const draftKey = (id: string) => `repi:program-draft:${id}`;
+function readDraft(id: string): { version: number; doc: EditableDoc } | null { try { return JSON.parse(localStorage.getItem(draftKey(id)) ?? "null"); } catch { return null; } }
+function writeDraft(id: string, version: number, doc: EditableDoc) { try { localStorage.setItem(draftKey(id), JSON.stringify({ version, doc, at: Date.now() })); } catch { /* sin almacenamiento: sólo queda el reintento */ } }
+function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); } catch { /* nada que borrar */ } }
 
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
