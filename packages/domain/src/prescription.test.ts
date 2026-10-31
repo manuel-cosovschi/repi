@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comboNext, groupLabels, presetPlan, setTarget, setTargetText, validateDetail } from "./prescription";
+import { comboNext, emptyDetail, groupLabels, presetPlan, setTarget, setTargetText, straightRow, uniformPlan, validateDetail } from "./prescription";
 import { validateProgramDoc } from "./training";
 
 describe("prescripción avanzada", () => {
@@ -9,6 +9,19 @@ describe("prescripción avanzada", () => {
     const drop = presetPlan("drop_set", { sets: 3, reps: "10", weightKg: 50 })!;
     expect(drop.map((s) => [s.kind, s.weightKg, s.restSec])).toEqual([["work", 50, null], ["drop", 40, 0], ["drop", 30, 0]]);
     expect(presetPlan("straight", { sets: 3, reps: "10" })).toBeNull();
+    // D173: series rectas con peso: el peso queda guardado en todas las series y lo ve el socio.
+    const sp = presetPlan("straight", { sets: 3, reps: "8-10", rir: 2, weightKg: 60 })!;
+    expect(sp).toHaveLength(3);
+    expect(uniformPlan(sp) && sp[0]).toMatchObject({ kind: "work", reps: "8-10", weightKg: 60, rir: 2 });
+    const v = validateDetail({ ...emptyDetail(), setPlan: sp }, 3);
+    expect(v.ok && v.detail?.technique).toBe("straight");
+    expect(v.ok && setTarget({ sets: 3, reps: "8-10", rir: 2, restSec: 90, detail: v.detail }, 2).weightKg).toBe(60);
+    // Lo que se cambia en la fila (series, reps, RIR) se copia a todas las series.
+    const row = straightRow({ ...emptyDetail(), setPlan: sp }, { sets: 4, reps: "6-8" });
+    expect(row.sets).toBe(4);
+    expect(row.detail?.setPlan).toHaveLength(4);
+    expect(row.detail?.setPlan?.[3]).toMatchObject({ reps: "6-8", weightKg: 60, rir: 2 });
+    expect(straightRow(null, { reps: "5" })).toEqual({ reps: "5" });
   });
   it("valida y normaliza; las series salen del plan", () => {
     const r = validateDetail({ technique: "custom", setPlan: [

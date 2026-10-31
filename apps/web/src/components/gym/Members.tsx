@@ -3,7 +3,7 @@
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
 import { SharedWishes, type SharedWishesView } from "@/components/coach/SharedWishes";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { TASK_CATEGORY, formatRest, groupLabels, mentionsHealth, parseRest, type ProgramDoc } from "@repi/domain";
+import { TASK_CATEGORY, formatRest, groupLabels, isStraightPlan, mentionsHealth, parseRest, straightRow, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
@@ -219,9 +219,9 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
             {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
               onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}</span>
           {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
-          <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan} aria-label={`Series de ${e.name}`} min={1} max={20} value={e.sets} onChange={(n) => n != null && setEx(i, { sets: n })} /></span>
-          <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, { reps: ev.target.value })} /></span>
-          <span className="c-rir"><small className="c-lbl">RIR</small><IntInput aria-label={`RIR de ${e.name}`} min={0} max={5} nullable value={e.rir} onChange={(n) => setEx(i, { rir: n })} /></span>
+          <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan && !isStraightPlan(e.detail)} aria-label={`Series de ${e.name}`} min={1} max={20} value={e.sets} onChange={(n) => n != null && setEx(i, straightRow(e.detail, { sets: n }))} /></span>
+          <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, straightRow(e.detail, { reps: ev.target.value }))} /></span>
+          <span className="c-rir"><small className="c-lbl">RIR</small><IntInput aria-label={`RIR de ${e.name}`} min={0} max={5} nullable value={e.rir} onChange={(n) => setEx(i, straightRow(e.detail, { rir: n }))} /></span>
           <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
           <span className="c-act"><button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button></span>
         </div>

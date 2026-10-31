@@ -5,7 +5,7 @@
 import { useState, type InputHTMLAttributes } from "react";
 import { Modal } from "@/components/ui/Modal";
 import {
-  GROUP_KIND_LABEL, GROUP_LETTERS, SET_KIND_LABEL, TECHNIQUES, emptyDetail, presetPlan, setTarget, setTargetText, validateDetail,
+  GROUP_KIND_LABEL, GROUP_LETTERS, SET_KIND_LABEL, TECHNIQUES, emptyDetail, isStraightPlan, presetPlan, setTarget, setTargetText, uniformPlan, validateDetail,
   type ExerciseDetail, type GroupKind, type SetKind, type SetSpec, type Technique,
 } from "@repi/domain";
 
@@ -15,8 +15,10 @@ type Ex = { name: string; sets: number; reps: string; rir: number | null; restSe
 export function detailSummary(e: Ex, label?: string | null) {
   const d = e.detail;
   if (!d) return null;
+  const straightKg = isStraightPlan(d) && uniformPlan(d.setPlan) ? d.setPlan![0].weightKg : null; // D173: series rectas con peso
   return [d.technique !== "straight" ? TECHNIQUES[d.technique].label : null, label ? `${label}${d.groupKind === "circuit" ? " (circuito)" : ""}` : null,
-    d.tempo ? `tempo ${d.tempo}` : null, d.variant, d.unilateral ? "unilateral" : null, d.setPlan ? `${d.setPlan.length} series a medida` : null].filter(Boolean).join(" · ");
+    d.tempo ? `tempo ${d.tempo}` : null, d.variant, d.unilateral ? "unilateral" : null,
+    straightKg != null ? `${straightKg.toLocaleString("es-AR")} kg en todas las series` : d.setPlan ? `${d.setPlan.length} series a medida` : null].filter(Boolean).join(" · ");
 }
 
 const blank = (reps: string): SetSpec => ({ kind: "work", reps, weightKg: null, pct1rm: null, rir: null, rpe: null, restSec: null, note: null });
@@ -34,14 +36,23 @@ function NumInput({ value, onChange, ...rest }: { value: number | null; onChange
 
 export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p: { detail: ExerciseDetail | null; sets: number }) => void; onClose: () => void }) {
   const [d, setD] = useState<ExerciseDetail>(e.detail ?? emptyDetail());
-  const [ref, setRef] = useState("");
+  const [ref, setRef] = useState(() => (isStraightPlan(e.detail) && e.detail!.setPlan![0].weightKg != null ? String(e.detail!.setPlan![0].weightKg).replace(".", ",") : ""));
   const [err, setErr] = useState<string | null>(null);
   const plan = d.setPlan;
   const pick = (t: Technique) => {
-    const p = presetPlan(t, { sets: plan?.length ?? e.sets, reps: e.reps, weightKg: numOrNull(ref) });
+    const p = presetPlan(t, { sets: plan?.length ?? e.sets, reps: e.reps, rir: e.rir, weightKg: numOrNull(ref) });
     setD({ ...d, technique: t, setPlan: p });
   };
-  const setAt = (i: number, patch: Partial<SetSpec>) => setD({ ...d, technique: d.technique === "straight" ? "custom" : d.technique, setPlan: (plan ?? []).map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+  // D173: en series rectas, el peso de referencia es el peso de todas las series (se guarda); vacío, vuelven a ser «N × reps».
+  const changeRef = (v: string) => {
+    setRef(v);
+    if (d.technique === "straight") setD({ ...d, setPlan: presetPlan("straight", { sets: plan?.length ?? e.sets, reps: plan?.[0]?.reps ?? e.reps, rir: plan ? plan[0].rir : e.rir, weightKg: numOrNull(v) }) });
+  };
+  // Cambiar una serie sola la vuelve «Personalizada»; si todas siguen iguales, sigue siendo «Series rectas».
+  const setAt = (i: number, patch: Partial<SetSpec>) => {
+    const next = (plan ?? []).map((s, j) => (j === i ? { ...s, ...patch } : s));
+    setD({ ...d, technique: d.technique === "straight" && !uniformPlan(next) ? "custom" : d.technique, setPlan: next });
+  };
   const perSet = () => setD({ ...d, technique: d.technique === "straight" ? "custom" : d.technique, setPlan: Array.from({ length: e.sets }, () => ({ ...blank(e.reps), rir: e.rir })) });
   const save = () => {
     const r = validateDetail(d, e.sets);
@@ -59,8 +70,8 @@ export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p
             <button key={t} type="button" className="pill" aria-pressed={d.technique === t} title={TECHNIQUES[t].what} onClick={() => pick(t)}>{TECHNIQUES[t].label}</button>
           ))}</div>
           <small className="muted">{TECHNIQUES[d.technique].what}</small>
-          <label className="field" style={{ maxWidth: 260 }}>Peso de referencia (kg, opcional)<input inputMode="decimal" value={ref} onChange={(ev) => setRef(ev.target.value)} placeholder="Ej.: 100" />
-            <small className="muted" style={{ fontWeight: 400 }}>Al elegir una técnica calcula los pesos de cada serie (top set, back-off, drops). Después los ajustás.</small></label>
+          <label className="field" style={{ maxWidth: 260 }}>Peso de referencia (kg, opcional)<input inputMode="decimal" value={ref} onChange={(ev) => changeRef(ev.target.value)} placeholder="Ej.: 100" />
+            <small className="muted" style={{ fontWeight: 400 }}>{d.technique === "straight" ? "Con series rectas, es el peso de todas las series." : "Al elegir una técnica calcula los pesos de cada serie (top set, back-off, drops). Después los ajustás."}</small></label>
         </section>
 
         <section className="dx-sec"><b>Series</b>
@@ -93,7 +104,7 @@ export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p
               ))}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button type="button" className="btn sm" disabled={plan.length >= 20} onClick={() => setD({ ...d, setPlan: [...plan, { ...(plan[plan.length - 1] ?? blank(e.reps)) }] })}>+ Agregar serie</button>
-                <button type="button" className="btn sm" onClick={() => setD({ ...d, technique: "straight", setPlan: null })}>Volver a series iguales</button>
+                <button type="button" className="btn sm" onClick={() => setD({ ...d, technique: "straight", setPlan: presetPlan("straight", { sets: plan.length, reps: e.reps, rir: e.rir, weightKg: numOrNull(ref) }) })}>Volver a series iguales</button>
               </div>
             </>
           )}

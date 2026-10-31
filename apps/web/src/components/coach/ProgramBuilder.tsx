@@ -10,7 +10,7 @@ import { featureOn } from "@/lib/features";
 import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./types";
 import { NewExercise } from "./NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
-import { groupLabels } from "@repi/domain";
+import { groupLabels, isStraightPlan, straightRow } from "@repi/domain";
 import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 import { ProgramAssistant } from "./ProgramAssistant";
@@ -184,17 +184,18 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
   const restBad = parseRest(rest) == null || (parseRest(rest) ?? 0) > 900;
   const [detail, setDetail] = useState(false);
   const sum = detailSummary(e, group);
-  const custom = !!e.detail?.setPlan;
+  const custom = !!e.detail?.setPlan && !isStraightPlan(e.detail); // D173: series rectas con peso se editan en la fila
+  const row = (p: { sets?: number; reps?: string; rir?: number | null }) => onChange(straightRow(e.detail, p));
   return (
     <div className="exrow">
       <span className="c-name"><code>{group ?? String(n + 1).padStart(2, "0")}</code>{e.name}
         <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
         {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}</span>
       {sum && <span className="ex-sum">{sum}</span>}
-      <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && onChange({ sets: n })} /></span>
+      <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && row({ sets: n })} /></span>
       <span className="c-r"><small className="c-lbl">Reps</small><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
-        onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) onChange({ reps: ev.target.value }); }} /></span>
-      <span className="c-rir"><small className="c-lbl">RIR</small><IntInput min={0} max={5} nullable value={e.rir} aria-label={`RIR de ${e.name}`} placeholder="—" onChange={(n) => onChange({ rir: n })} /></span>
+        onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) row({ reps: ev.target.value }); }} /></span>
+      <span className="c-rir"><small className="c-lbl">RIR</small><IntInput min={0} max={5} nullable value={e.rir} aria-label={`RIR de ${e.name}`} placeholder="—" onChange={(n) => row({ rir: n })} /></span>
       <span className="c-rest"><small className="c-lbl">Descanso</small><input value={rest} aria-label={`Descanso de ${e.name}`} aria-invalid={restBad || undefined} placeholder="m:ss"
         onChange={(ev) => { setRest(ev.target.value); const s = parseRest(ev.target.value); if (s != null && s <= 900) onChange({ restSec: s }); }}
         onBlur={() => setRest(formatRest(e.restSec))} /></span>

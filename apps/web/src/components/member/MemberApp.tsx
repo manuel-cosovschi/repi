@@ -513,7 +513,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}
-      {!offline && gymRel && !t.openSession && <CommunityChallenges go={onNudge} flash={flash} />}
+      {!offline && !t.openSession && <CommunityChallenges go={onNudge} flash={flash} />}
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
       {!offline && <Ideas offline={offline} flash={flash} />}
       {!offline && <NextAppointment flash={flash} />}

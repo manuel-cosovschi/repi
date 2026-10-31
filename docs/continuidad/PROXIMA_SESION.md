@@ -1,6 +1,12 @@
 # REPI — Retomar acá
 
-Actualizado: 31/10/2026 (hasta D172), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 31/10/2026 (hasta D173), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Constructor de programas: top set y peso en series rectas (D173) — 31/10/2026
+
+- **Código:** `packages/domain/src/prescription.ts` (`presetPlan("straight")` con peso, `isStraightPlan`, `straightRow`, `uniformPlan`); `components/coach/ExerciseDetailEditor.tsx` (peso de referencia guardado en series rectas, resumen «N kg en todas las series»); `ProgramBuilder.tsx` y `components/gym/Members.tsx` (fila copia series/reps/RIR al plan); `styles/coach.css` (resumen debajo de la fila en la compu; container query de la fila a 640 px).
+- **Pruebas:** dominio (`prescription.test.ts`: series rectas con peso, validación, objetivo del socio, copia desde la fila). Navegador (demo coach): 1700 px top set con cajitas alineadas; 1280 px columna angosta con rótulos; 375 px celular; peso 80 kg guardado y visible tras recargar.
+- **D172 en navegador:** demo alumna propone desde Inicio («Tenés 1 propuesta esperando…»); demo profe la ve en Validaciones (número 1), aprueba con «Media» y queda publicada con «+40 puntos para tu nivel».
 
 ## Desafíos propuestos por socios (D172) — 31/10/2026
 

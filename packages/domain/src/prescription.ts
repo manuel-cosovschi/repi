@@ -46,12 +46,13 @@ export const emptyDetail = (): ExerciseDetail => ({ technique: "straight", setPl
 const S = (kind: SetKind, reps: string, p: Partial<SetSpec> = {}): SetSpec => ({ kind, reps, weightKg: null, pct1rm: null, rir: null, rpe: null, restSec: null, note: null, ...p });
 
 /** Plan serie por serie para una técnica, a partir de lo cargado (series, repeticiones y peso opcional). El coach lo ajusta después. */
-export function presetPlan(t: Technique, base: { sets: number; reps: string; weightKg?: number | null }): SetSpec[] | null {
+export function presetPlan(t: Technique, base: { sets: number; reps: string; weightKg?: number | null; rir?: number | null }): SetSpec[] | null {
   const n = Math.max(1, Math.min(10, base.sets));
   const w = base.weightKg ?? null;
   const round = (x: number) => Math.round(x * 2) / 2;
   switch (t) {
-    case "straight": return null;
+    // D173: series rectas con peso = N series iguales con ese peso (antes el peso se perdía al guardar).
+    case "straight": return w == null || !Number.isFinite(w) ? null : Array.from({ length: n }, () => S("work", base.reps, { weightKg: w, rir: base.rir ?? null }));
     case "top_backoff": return [S("top", "3-5", { weightKg: w, rpe: 8 }), ...Array.from({ length: Math.max(1, n - 1) }, () => S("backoff", "6-8", { weightKg: w ? round(w * 0.85) : null, note: "−15 % del top set" }))];
     case "drop_set": return [S("work", base.reps, { weightKg: w, rir: 0 }), S("drop", "al fallo", { weightKg: w ? round(w * 0.8) : null, restSec: 0, note: "−20 %" }), S("drop", "al fallo", { weightKg: w ? round(w * 0.6) : null, restSec: 0, note: "−20 %" })];
     case "pyramid": return Array.from({ length: n }, (_, i) => S("work", String(Math.max(4, 12 - i * 2)), { weightKg: w ? round(w * (1 + i * 0.07)) : null }));
@@ -100,6 +101,19 @@ export function validateDetail(d: Partial<ExerciseDetail> | null | undefined, se
   const empty = technique === "straight" && !setPlan && !group && !detail.tempo && !detail.variant && !detail.unilateral && !detail.progression;
   return { ok: true, detail: empty ? null : detail, sets: setPlan ? setPlan.length : sets };
 }
+
+/** D173: series rectas con un plan de series iguales (con peso). Lo que se cambia en la fila del constructor se copia al plan. */
+export const isStraightPlan = (d: ExerciseDetail | null | undefined) => d?.technique === "straight" && !!d.setPlan?.length;
+export function straightRow(detail: ExerciseDetail | null | undefined, patch: { sets?: number; reps?: string; rir?: number | null }) {
+  if (!detail || !isStraightPlan(detail)) return patch;
+  const first = detail.setPlan![0];
+  const one: SetSpec = { ...first, reps: patch.reps ?? first.reps, rir: patch.rir !== undefined ? patch.rir : first.rir };
+  const n = Math.max(1, Math.min(20, patch.sets ?? detail.setPlan!.length));
+  return { ...patch, sets: n, detail: { ...detail, setPlan: Array.from({ length: n }, () => ({ ...one })) } };
+}
+const sameSet = (a: SetSpec, b: SetSpec) => (Object.keys(a) as (keyof SetSpec)[]).every((k) => a[k] === b[k]);
+/** Todas las series del plan son iguales (siguen siendo «series rectas»). */
+export const uniformPlan = (plan: SetSpec[] | null | undefined) => !!plan?.length && plan.every((x) => sameSet(x, plan[0]));
 
 /** Objetivo de la serie `i` para mostrarle al socio y precargar su registro. */
 export function setTarget(e: { sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null }, i: number) {
