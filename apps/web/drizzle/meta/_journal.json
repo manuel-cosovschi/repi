@@ -267,6 +267,13 @@
       "when": 1793404043789,
       "tag": "0037_club_profile_media",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793404847123,
+      "tag": "0038_staff_hours",
+      "breakpoints": true
     }
   ]
 }

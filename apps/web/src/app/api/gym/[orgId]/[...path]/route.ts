@@ -47,6 +47,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     }
     case "notices": return notices.myStaffNotices(me, orgId);
     case "shift": return gym.myShift(me, orgId, loc(u));
+    case "hours": return gym.staffHoursFor(me, orgId, u.searchParams.get("user")); // D170
     case "queue": return gym.listQueue(me, orgId, loc(u) ?? "");
     case "tasks": return gym.managerTasks(me, orgId, loc(u), u.searchParams.get("filter") ?? "all");
     case "handoff": return gym.handoffOptions(me, orgId, loc(u) ?? "");
@@ -106,6 +107,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   await limit(`gym:${me}`, 120);
   const [a, b, c] = path;
   if (a === "notices" && b === "read") return notices.markStaffNoticesRead(me, orgId, (await body(req, z.object({ ids: z.array(id).max(100).nullable() }))).ids);
+  if (a === "hours") return gym.setStaffHours(me, orgId, await body(req, z.object({ locationId: id, days: z.array(z.number().int()).max(7), from: z.string().max(5), to: z.string().max(5), userId: id.nullable().optional() })));
   if (a === "shift" && b === "start") return gym.startShift(me, orgId, (await body(req, z.object({ loc: id }))).loc);
   if (a === "shift" && b === "close") {
     const p = await body(req, z.object({ loc: id, toUserId: id.nullable(), items: z.array(z.object({ taskId: id, summary: z.string().max(500) })).max(50) }));

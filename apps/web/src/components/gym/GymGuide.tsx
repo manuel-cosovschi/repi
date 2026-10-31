@@ -23,7 +23,7 @@ const ROLES: [string, string][] = [
 ];
 
 const FLOOR: GuideStep[] = [
-  { t: "«Mi turno» → «Iniciar turno»", d: "Sin turno iniciado no podés tomar pedidos, editar programas ni aprobar socios. Al irte, «Cerrar turno» o dejá el traspaso." },
+  { t: "«Mi turno»: cargá tu horario", d: "Con tu horario, el turno empieza y termina solo; sin horario, «Iniciar turno». Sin turno no podés tomar pedidos, editar programas ni aprobar socios. Si te vas antes, cerrá el turno con el traspaso." },
   { t: "«Cola de asistencia» → «Tomar»", d: "Pedidos de ayuda, cambios de rutina o técnica de los socios de tu sede. Al tomarlo queda a tu nombre." },
   { t: "«Socios» → ficha → «Crear programa» o «Editar programa»", d: "Días, ejercicios, series, reps y descanso, con el motivo del cambio. El socio lo ve en su app. «Reemplazos» deja aprobadas alternativas si una máquina está ocupada." },
   { t: "«Solicitudes de acceso» → «Mostrar QR de la sede»", d: "Si un socio está con vos y no quiere ir a recepción, mostrale el QR en tu pantalla o mandale el enlace con «Copiar enlace». Después aprobás su pedido ahí mismo (con el turno iniciado)." },

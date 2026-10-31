@@ -1,6 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 30/10/2026 (hasta D169), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 30/10/2026 (hasta D170), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Horario del profesor y turno automático (D170) — 30/10/2026
+
+- **Migración:** `drizzle/0038_staff_hours.sql` (tabla `staff_hours`, `shift_log.source`). Aplicada en dev, pruebas y Supabase.
+- **Dominio:** `packages/domain/src/gym.ts` (`WeeklyHours`, `weeklyHoursOk`, `inWeeklyHours`, `slotOn`, `fmtWeeklyHours`, `WEEKDAYS`) + `hours.test.ts`.
+- **Servidor:** `server/gym/services.ts` (`ensureScheduledShift` en `gate` y `myShift`, `syncScheduledShifts` en el cron de notificaciones, `staffHoursFor`, `setStaffHours`); `myShift` devuelve `hours`, `auto`, `autoEndsAt`. Rutas `GET/POST /api/gym/:org/hours`.
+- **UI:** `components/gym/Hours.tsx` (`HoursModal`, `HoursPrompt`), `GymApp.tsx` (aviso al entrar), `Floor.tsx` (horario y «se cierra a las…»), `GymGuide.tsx`.
+- **Pruebas:** `staff-hours.test.ts` (pide horario, valida, abre a las 16:05 una vez, cierra a las 20:00, no reabre uno cerrado a mano, gerencia carga el de su equipo y un profe no el de otro, `gate` pasa sin «Iniciar turno»). Navegador (demo profe): guardar 6 a 12 y ver el horario en «Mi turno».
+- **Smart (prod):** Lisandro 16–20 y Manuel 18–22, lunes a viernes. **Pendiente del titular:** confirmar días (¿sábados?), y Sofía (6–12) y la cuarta persona (12–16) cargan el suyo al crear su cuenta (o la gerencia desde la API).
 
 ## Perfil del socio con foto, máximos y fotos en el Club (D169) — 30/10/2026
 

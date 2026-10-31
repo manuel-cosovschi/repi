@@ -20,6 +20,7 @@ import { GymGuide } from "./GymGuide";
 import { ConnectQueueScreen, ConnectReportScreen } from "./Connect";
 import { AccessControlScreen, AccessDesk, ManualCheckin } from "./AccessControl";
 import { FloorNowCard } from "./FloorNow";
+import { HoursPrompt } from "./Hours";
 import { ExerciseVideos } from "@/components/coach/ExerciseVideos";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
@@ -209,6 +210,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {(screen === "shift" || screen === "exec" || screen === "mdash" || screen === "reception" || screen === "queue") && <FloorNowCard shell={shell} />}
         </div>
       </main>
+      {can(shell.ctx, "floor.work") && <HoursPrompt shell={shell} />}
       <div aria-live="polite" className="sr-only">{toast}</div>
       {toast && <div className="co-toast" aria-hidden="true">{toast}</div>}
     </div>

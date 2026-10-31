@@ -5,7 +5,7 @@ import { logError } from "@/server/log";
 import { purgeSandboxes } from "@/server/sandbox/services";
 import { trialNotices } from "@/server/commercial/notices";
 import { connectSweep } from "@/server/gym/connect";
-import { closeShiftsAfterHours } from "@/server/gym/services";
+import { closeShiftsAfterHours, syncScheduledShifts } from "@/server/gym/services";
 import { closeIdleWorkouts } from "@/server/training/services";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +25,10 @@ export async function GET(req: Request) {
   const trial = await step("trial", () => trialNotices(), { created: 0 }); // F-BL-05: fin de prueba; idempotente por contrato y fecha
   const connect = await step("connect", () => connectSweep(), null); // D126: pedidos esperando y seguimientos por vencer; deduplicado
   const shiftsClosed = await step("shifts", () => closeShiftsAfterHours(), 0); // D158: nadie queda en turno fuera de 6 a 22
+  const scheduled = await step("scheduled", () => syncScheduledShifts(), { opened: 0, closed: 0 }); // D170: turnos por horario
   const workoutsClosed = await step("workouts", () => closeIdleWorkouts(), 0); // D160: entrenamientos olvidados (22 h en el gym, 6 h sin actividad)
   const consentReminders = await step("consent", () => remindPendingConsent(), 0); // D160: altas aprobadas sin terminar, a las 8
   const p = await step("outbox", () => processOutbox(), { processed: 0 });
-  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, workoutsClosed, consentReminders };
+  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders };
   return failed.length ? Response.json({ ...out, error: "job falló", failed }, { status: 500 }) : Response.json(out);
 }

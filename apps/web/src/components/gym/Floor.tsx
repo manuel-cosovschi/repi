@@ -1,15 +1,17 @@
 "use client";
 // Entrenador de sala: Mi turno, Cola de asistencia y Traspaso (REPI Desktop Gym.dc.html · sc.shift/queue/handoff).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TASK_CATEGORY, TASK_PRIORITY, mentionsHealth } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Head, PRI_CHIP, SOURCE, fmt, useAct, useLoad, when, type Shell, type Task } from "./shared";
 import { FloorAlertsCard } from "./Access";
+import { HOURS_EVENT, HoursModal } from "./Hours";
 
 type ShiftView = {
   location: { id: string; name: string }; status: "off" | "on" | "ended" | "elsewhere"; startedAt: string | null;
   plan: { code: string; label: string; from: string; to: string } | null; afterHoursAccess: boolean;
+  hours: { days: number[]; from: string; to: string; text: string } | null; auto: boolean; autoEndsAt: string | null;
   shared: number; mine: number; incoming: number; doneWeek: number;
 };
 type Queue = { shared: Task[]; mine: Task[]; done: Task[] };
@@ -21,6 +23,9 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
   const s = useLoad<ShiftView>(`/api/gym/${shell.orgId}/shift?loc=${loc}`);
   const q = useLoad<Queue>(`/api/gym/${shell.orgId}/queue?loc=${loc}`);
   const { busy, run } = useAct(shell.flash);
+  const [editHours, setEditHours] = useState(false);
+  const reloadShift = s.reload;
+  useEffect(() => { window.addEventListener(HOURS_EVENT, reloadShift); return () => window.removeEventListener(HOURS_EVENT, reloadShift); }, [reloadShift]);
   const reload = () => { s.reload(); q.reload(); shell.refreshBadges(); };
   const start = () => run("start", () => api(`/api/gym/${shell.orgId}/shift/start`, { body: { loc } }), "Turno iniciado. Tu cola de asistencia está activa.").then(reload);
   const accept = (t: Task) => run(t.id, () => api(`/api/gym/${shell.orgId}/tasks/${t.id}/accept`, { body: {} }), `Aceptaste el traspaso ${t.ref}.`).then(reload);
@@ -38,8 +43,10 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
         <div className="gy-hero">
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <span style={{ fontSize: 13, color: "#94A3B8" }}>Tu turno de hoy</span>
-            <span style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-.01em" }}>{v.plan ? `${v.plan.from} – ${v.plan.to}` : "Sin turno planificado"}</span>
+            <span style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-.01em" }}>{v.plan ? `${v.plan.from} – ${v.plan.to}` : v.hours ? `${v.hours.from} – ${v.hours.to}` : "Sin turno planificado"}</span>
             <span style={{ fontSize: 14, color: "#CBD5E1", display: "flex", gap: 8, alignItems: "center" }}><span className="dot" style={{ background: dot }} />{status}{v.plan ? ` · ${v.plan.label}` : ""}</span>
+            {v.auto && v.autoEndsAt && <span style={{ fontSize: 13, color: "#5DE6D8" }}>Se abrió solo por tu horario y se cierra a las {fmt(v.autoEndsAt, { hour: "2-digit", minute: "2-digit" })}.</span>}
+            <span style={{ fontSize: 13, color: "#94A3B8" }}>{v.hours ? `Tu horario: ${v.hours.text}` : "Sin horario cargado: el turno se inicia a mano."} <button type="button" className="linkbtn" style={{ color: "#5DE6D8", background: "none", border: 0, padding: 0, height: "auto", font: "inherit", fontWeight: 600, cursor: "pointer" }} onClick={() => setEditHours(true)}>{v.hours ? "Cambiar" : "Cargar horario"}</button></span>
             {v.afterHoursAccess && <span style={{ fontSize: 12, color: "#5DE6D8" }}>Gerencia te habilitó trabajo fuera de turno: lo que completes así queda marcado.</span>}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -51,6 +58,7 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
           </div>
         </div>
       )}
+      {editHours && v && <HoursModal shell={shell} current={v.hours ? [{ locationId: v.location.id, location: v.location.name, ...v.hours }] : []} onClose={(saved) => { setEditHours(false); if (saved) reload(); }} />}
       {loc && <FloorAlertsCard shell={shell} loc={loc} highlight={shell.sel} />}
       {v && (
         <div className="grid-kpi">

@@ -777,6 +777,19 @@ export const shiftPlan = pgTable("shift_plan", {
   updatedAt: now("updated_at"),
 }, (t) => [uniqueIndex("shift_plan_unique").on(t.userId, t.locationId, t.date), index("shift_plan_loc_idx").on(t.locationId, t.date)]);
 
+// D170: horario habitual del profesor en una sede (días y franja, hora AR). Con él el turno empieza y termina solo.
+export const staffHours = pgTable("staff_hours", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  days: jsonb("days").$type<number[]>().notNull(), // 0 = domingo … 6 = sábado
+  from: text("from").notNull(), // HH:MM
+  to: text("to").notNull(),
+  setBy: text("set_by").notNull().references(() => user.id),
+  updatedAt: now("updated_at"),
+}, (t) => [uniqueIndex("staff_hours_unique").on(t.userId, t.locationId), index("staff_hours_org_idx").on(t.orgId)]);
+
 // Turno trabajado (F-GT-01): inicio y cierre reales. Base de "horas de turno".
 // D131: con quién entrena hoy el socio (elige entre los profesores en turno de su sede). Uno por socio y día; se puede cambiar.
 export const gymFloorPick = pgTable("gym_floor_pick", {
@@ -799,6 +812,7 @@ export const shiftLog = pgTable("shift_log", {
   endedAt: ts("ended_at"),
   // D126: disponibilidad declarada por el profesor durante el turno. No es ubicación ni presencia comprobada.
   availability: text("availability", { enum: ["available", "busy"] }).notNull().default("available"),
+  source: text("source", { enum: ["manual", "schedule"] }).notNull().default("manual"), // D170: «schedule» lo abrió y lo cierra el horario
 }, (t) => [
   uniqueIndex("shift_log_one_active").on(t.userId).where(sql`ended_at is null`),
   index("shift_log_loc_idx").on(t.locationId, t.startedAt),

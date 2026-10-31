@@ -5,6 +5,7 @@ import {
   FOLLOWUP_DUE_DAYS, HANDOFF_ESCALATE_MIN, REVIEW_ELIGIBLE, REVIEW_INVITE_COOLDOWN_DAYS, REVIEW_INVITE_TTL_DAYS, SHIFT_CODES, TASK_CATEGORY,
   GYM_HOURS, coverage, floorActionAllowed, gymCan, gymOpenAt, shiftAutoEnd, gymCaps, requiresTwoFactor, sharedWishes, type TrainingWishes, type GymRole, isShiftCode, isTaskCategory, localDate, shiftHours, validateProgramDoc, weekOf,
   type GymCap, type ProgramDoc, type ShiftCode, type TaskCategory, type TaskPriority,
+  fmtWeeklyHours, inWeeklyHours, slotOn, weeklyHoursOk, type WeeklyHours,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
@@ -12,7 +13,7 @@ import { addIso, assertLibrary, lastTimeByExercise, newVersion, plain, readVersi
 import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 
-const { user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
+const { staffHours, user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
   workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject, userPref } = schema;
 
 export const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -114,6 +115,7 @@ export async function activeShift(userId: string, tx: Tx | typeof db = db) {
 }
 /** D08: turno activo en esa sede, o permiso de trabajo fuera de turno. */
 export async function gate(ctx: GymCtx, locationId: string, what: string, tx: Tx | typeof db = db) {
+  await ensureScheduledShift(ctx.userId, new Date(), tx); // D170: dentro de su horario el turno ya está abierto
   const s = await activeShift(ctx.userId, tx);
   const r = floorActionAllowed({ shiftActive: !!s && s.locationId === locationId, afterHoursAccess: afterHoursAt(ctx, locationId) });
   if (!r.ok) throw new AccessError("no_shift", `Iniciá tu turno para ${what}.`, 409);
@@ -125,8 +127,10 @@ export async function myShift(actorId: string, orgId: string, locationId?: strin
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "floor.work");
   const { loc, allowed } = await scopedLocation(ctx, locationId);
+  await ensureScheduledShift(actorId, now);
   const active = await activeShift(actorId);
   const today = localDate(now);
+  const [hours] = await db.select().from(staffHours).where(and(eq(staffHours.userId, actorId), eq(staffHours.locationId, loc.id)));
   const [plan] = await db.select().from(shiftPlan).where(and(eq(shiftPlan.userId, actorId), eq(shiftPlan.locationId, loc.id), eq(shiftPlan.date, today)));
   const [lastEnded] = await db.select().from(shiftLog).where(and(eq(shiftLog.userId, actorId), eq(shiftLog.locationId, loc.id), gte(shiftLog.startedAt, new Date(`${today}T03:00:00Z`))))
     .orderBy(desc(shiftLog.startedAt)).limit(1);
@@ -136,6 +140,8 @@ export async function myShift(actorId: string, orgId: string, locationId?: strin
     status: active ? (active.locationId === loc.id ? "on" : "elsewhere") : lastEnded?.endedAt ? "ended" : "off",
     startedAt: active?.startedAt ?? null, activeLocationId: active?.locationId ?? null,
     plan: plan ? { code: plan.code, ...SHIFT_CODES[plan.code] } : null,
+    hours: hours ? { days: hours.days, from: hours.from, to: hours.to, text: fmtWeeklyHours(hours) } : null,
+    auto: active?.source === "schedule", autoEndsAt: active?.source === "schedule" && hours ? slotOn(hours, active.startedAt).end : null,
     afterHoursAccess: afterHoursAt(ctx, loc.id), ...q,
   };
 }
@@ -188,6 +194,81 @@ export async function closeShiftsAfterHours(now = new Date()) {
     await audit(db, { actorUserId: null, orgId: s.orgId, action: "shift.auto_ended", resourceType: "shift_log", resourceId: s.id, meta: { endedAt: end.toISOString(), reason: "gym_hours" } });
   }
   return closed;
+}
+
+// ── Horario habitual del profesor (D170) ────────────────────────────────────
+/** Franja del horario que cubre `now` para esta persona (con rol de sala vigente en esa sede), si la hay. */
+async function scheduledSlot(userId: string, now: Date, tx: Tx | typeof db = db) {
+  const rows = await tx.select({ h: staffHours, isDemo: organization.isDemo }).from(staffHours).innerJoin(organization, eq(organization.id, staffHours.orgId))
+    .innerJoin(staffMembership, and(eq(staffMembership.userId, staffHours.userId), eq(staffMembership.orgId, staffHours.orgId), eq(staffMembership.status, "active"),
+      inArray(staffMembership.role, [...FLOOR_ROLES]), or(isNull(staffMembership.locationId), eq(staffMembership.locationId, staffHours.locationId))))
+    .where(eq(staffHours.userId, userId));
+  return rows.find((r) => inWeeklyHours(r.h, now) && (!hoursApply(r) || gymOpenAt(now))) ?? null;
+}
+
+/**
+ * Dentro de su horario el turno se abre solo (sin «Iniciar turno»). Si ya tuvo un turno en esa franja (por ejemplo, lo
+ * cerró con el traspaso), no se reabre. Idempotente: un solo turno abierto por persona (índice único).
+ */
+export async function ensureScheduledShift(userId: string, now = new Date(), tx: Tx | typeof db = db) {
+  if (await activeShift(userId, tx)) return null;
+  const slot = await scheduledSlot(userId, now, tx);
+  if (!slot) return null;
+  const { start } = slotOn(slot.h, now);
+  // Las horas cuentan desde que se abre (el cron corre cada minuto), no desde el inicio teórico de la franja.
+  const [had] = await tx.select({ id: shiftLog.id }).from(shiftLog).where(and(eq(shiftLog.userId, userId), eq(shiftLog.locationId, slot.h.locationId), gte(shiftLog.startedAt, start))).limit(1);
+  if (had) return null;
+  const [plan] = await tx.select({ id: shiftPlan.id }).from(shiftPlan).where(and(eq(shiftPlan.userId, userId), eq(shiftPlan.locationId, slot.h.locationId), eq(shiftPlan.date, localDate(now))));
+  const [s] = await tx.insert(shiftLog).values({ orgId: slot.h.orgId, locationId: slot.h.locationId, userId, planId: plan?.id ?? null, startedAt: now, source: "schedule" })
+    .onConflictDoNothing().returning();
+  if (s) await audit(tx, { actorUserId: null, orgId: slot.h.orgId, action: "shift.started", resourceType: "shift_log", resourceId: s.id, meta: { source: "schedule" } });
+  return s ?? null;
+}
+
+/** Cron de cada minuto: abre los turnos de quienes entran en su horario y cierra los abiertos por horario al terminar la franja. */
+export async function syncScheduledShifts(now = new Date()) {
+  let opened = 0, closed = 0;
+  const auto = await db.select({ s: shiftLog, h: staffHours }).from(shiftLog)
+    .leftJoin(staffHours, and(eq(staffHours.userId, shiftLog.userId), eq(staffHours.locationId, shiftLog.locationId)))
+    .where(and(isNull(shiftLog.endedAt), eq(shiftLog.source, "schedule")));
+  for (const { s, h } of auto) {
+    const end = h ? slotOn(h, s.startedAt).end : null;
+    if (!end || now < end) continue;
+    const r = await db.update(shiftLog).set({ endedAt: end }).where(and(eq(shiftLog.id, s.id), isNull(shiftLog.endedAt))).returning({ id: shiftLog.id });
+    if (r.length) { closed++; await audit(db, { actorUserId: null, orgId: s.orgId, action: "shift.auto_ended", resourceType: "shift_log", resourceId: s.id, meta: { endedAt: end.toISOString(), reason: "schedule" } }); }
+  }
+  const people = await db.selectDistinct({ userId: staffHours.userId }).from(staffHours).innerJoin(organization, eq(organization.id, staffHours.orgId)).where(eq(organization.isDemo, false));
+  for (const p of people) if (await ensureScheduledShift(p.userId, now)) opened++;
+  return { opened, closed };
+}
+
+/** Horario de quien entra (o, con permiso de planificar turnos, de alguien de su equipo). */
+export async function staffHoursFor(actorId: string, orgId: string, userId?: string | null) {
+  const ctx = await gymContext(actorId, orgId);
+  need(ctx, userId && userId !== actorId ? "shifts.plan" : "floor.work");
+  const who = userId ?? actorId;
+  const rows = await db.select({ h: staffHours, loc: gymLocation.name }).from(staffHours).innerJoin(gymLocation, eq(gymLocation.id, staffHours.locationId))
+    .where(and(eq(staffHours.userId, who), eq(staffHours.orgId, orgId)));
+  const floor = gymCan(ctx.roles, "floor.work") && ctx.roles.some((r) => (FLOOR_ROLES as readonly string[]).includes(r));
+  return {
+    hours: rows.filter((r) => inScope(ctx, r.h.locationId)).map((r) => ({ locationId: r.h.locationId, location: r.loc, days: r.h.days, from: r.h.from, to: r.h.to, text: fmtWeeklyHours(r.h) })),
+    // Pedírselo a quien trabaja en sala y todavía no lo cargó.
+    missing: who === actorId && floor && !rows.length,
+  };
+}
+
+export async function setStaffHours(actorId: string, orgId: string, p: { locationId: string; days: number[]; from: string; to: string; userId?: string | null }) {
+  const ctx = await gymContext(actorId, orgId);
+  const who = p.userId ?? actorId;
+  need(ctx, who !== actorId ? "shifts.plan" : "floor.work");
+  const { loc } = await scopedLocation(ctx, p.locationId);
+  const h: WeeklyHours = { days: [...new Set(p.days)].sort(), from: p.from, to: p.to };
+  if (!weeklyHoursOk(h)) throw new AccessError("invalid", "Elegí al menos un día y una franja válida (la hora de fin, después de la de inicio).");
+  if (!(await floorStaff(orgId, loc.id)).some((x) => x.userId === who)) throw new AccessError("invalid", "Esa persona no trabaja en sala en esta sede.");
+  await db.insert(staffHours).values({ orgId, locationId: loc.id, userId: who, ...h, setBy: actorId })
+    .onConflictDoUpdate({ target: [staffHours.userId, staffHours.locationId], set: { ...h, setBy: actorId, updatedAt: new Date() } });
+  await audit(db, { actorUserId: actorId, orgId, action: "staff.hours_set", resourceType: "staff_hours", resourceId: who, meta: { locationId: loc.id, ...h } });
+  return staffHoursFor(actorId, orgId, who === actorId ? null : who);
 }
 
 // ── Cola de asistencia (F-GT-02) ────────────────────────────────────────────

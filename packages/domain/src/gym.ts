@@ -236,3 +236,35 @@ export function deliveryState(sentAt: Date, others: { deliveredAt: Date | null; 
   return "sent";
 }
 export const DELIVERY_LABEL: Record<DeliveryState, string> = { sent: "Enviado", delivered: "Entregado", read: "Leído" };
+
+/**
+ * D170: horario habitual del profesor (días de la semana y franja, hora AR). Con él el turno empieza y termina solo: no
+ * hace falta «Iniciar turno». `days`: 0 = domingo … 6 = sábado.
+ */
+export type WeeklyHours = { days: number[]; from: string; to: string };
+export const WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"] as const;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+export function weeklyHoursOk(h: WeeklyHours) {
+  return Array.isArray(h.days) && h.days.length > 0 && h.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6) && new Set(h.days).size === h.days.length
+    && HHMM.test(h.from) && HHMM.test(h.to) && toMin(h.from) < toMin(h.to);
+}
+export const localWeekday = (d: Date) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(d));
+/** Instante en que empieza y termina la franja del día local de `at` (Argentina no tiene horario de verano). */
+export function slotOn(h: WeeklyHours, at: Date) {
+  const day = localDate(at);
+  return { start: new Date(`${day}T${h.from}:00-03:00`), end: new Date(`${day}T${h.to}:00-03:00`) };
+}
+/** ¿`now` cae dentro del horario? */
+export function inWeeklyHours(h: WeeklyHours, now: Date) {
+  if (!h.days.includes(localWeekday(now))) return false;
+  const { start, end } = slotOn(h, now);
+  return now >= start && now < end;
+}
+/** «Lun a vie · 16 a 20 h», «Lun, mié y vie · 6:30 a 12 h». */
+export function fmtWeeklyHours(h: WeeklyHours) {
+  const d = [...h.days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)); // la semana empieza el lunes
+  const run = d.length > 2 && d.every((x, i) => i === 0 || (x === (d[i - 1] + 1) % 7));
+  const days = d.length === 7 ? "Todos los días" : run ? `${WEEKDAYS[d[0]]} a ${WEEKDAYS[d.at(-1)!].toLowerCase()}` : d.map((x, i) => (i === 0 ? WEEKDAYS[x] : WEEKDAYS[x].toLowerCase())).join(", ").replace(/, ([^,]+)$/, " y $1");
+  const t = (s: string) => (s.endsWith(":00") ? String(Number(s.slice(0, 2))) : `${Number(s.slice(0, 2))}:${s.slice(3)}`);
+  return `${days} · ${t(h.from)} a ${t(h.to)} h`;
+}
