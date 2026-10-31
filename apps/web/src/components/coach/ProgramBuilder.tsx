@@ -10,6 +10,7 @@ import { featureOn } from "@/lib/features";
 import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./types";
 import { NewExercise } from "./NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
+import { NoteButton, NoteField } from "./ExerciseNote";
 import { groupLabels, isStraightPlan, straightRow } from "@repi/domain";
 import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
@@ -183,6 +184,7 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
   const [reps, setReps] = useState(e.reps);
   const restBad = parseRest(rest) == null || (parseRest(rest) ?? 0) > 900;
   const [detail, setDetail] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(!!e.note);
   const sum = detailSummary(e, group);
   const custom = !!e.detail?.setPlan && !isStraightPlan(e.detail); // D173: series rectas con peso se editan en la fila
   const row = (p: { sets?: number; reps?: string; rir?: number | null }) => onChange(straightRow(e.detail, p));
@@ -190,7 +192,8 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
     <div className="exrow">
       <span className="c-name"><code>{group ?? String(n + 1).padStart(2, "0")}</code>{e.name}
         <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
-        {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}</span>
+        {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}
+        {!noteOpen && !e.note && <NoteButton name={e.name} onOpen={() => setNoteOpen(true)} />}</span>
       {sum && <span className="ex-sum">{sum}</span>}
       <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && row({ sets: n })} /></span>
       <span className="c-r"><small className="c-lbl">Reps</small><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
@@ -203,6 +206,7 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
         <button type="button" className="ibtn" aria-label={`Subir ${e.name}`} disabled={n === 0} onClick={() => onMove(-1)}>↑</button>
         <button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={onRemove}>×</button>
       </span>
+      {(noteOpen || !!e.note) && <NoteField name={e.name} value={e.note ?? ""} who="tu cliente" onChange={(v) => onChange({ note: v })} onEmpty={() => setNoteOpen(false)} />}
       {detail && <ExerciseDetailEditor e={e} onClose={() => setDetail(false)} onSave={(p) => { onChange({ detail: p.detail, sets: p.sets }); setDetail(false); }} />}
     </div>
   );

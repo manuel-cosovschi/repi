@@ -7,6 +7,7 @@ import { TASK_CATEGORY, formatRest, groupLabels, isStraightPlan, mentionsHealth,
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
+import { NoteButton, NoteField } from "@/components/coach/ExerciseNote";
 import { Modal } from "@/components/ui/Modal";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
 import { LoadSuggestion, useLastTimes } from "@/components/coach/LoadSuggestion";
@@ -183,6 +184,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const related = member.tasks.find((t) => t.id === member.programTaskId);
   const [complete, setComplete] = useState(!!related);
   const { busy, run } = useAct(shell.flash);
+  const [noteOpen, setNoteOpen] = useState<string | null>(null); // D174: «día:posición» del ejercicio con la nota recién abierta
   const setEx = (i: number, patch: Partial<Ex>) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.map((e, k) => k === i ? { ...e, ...patch } : e) } : x) }));
   const removeEx = (i: number) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.filter((_, k) => k !== i) } : x) }));
   const addEx = (e: Lib[number]) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: [...x.exercises, { exerciseId: e.id, name: e.name, sets: 3, reps: "10-12", rir: 2, restSec: 90, note: null }] } : x) }));
@@ -217,13 +219,15 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
           <span className="c-name">{labels[i] && <code>{labels[i]}</code>}{e.name}
             <button type="button" className="ex-edit" onClick={() => setDetailFor(i)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
             {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
-              onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}</span>
+              onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}
+            {!e.note && noteOpen !== `${day}:${i}` && <NoteButton name={e.name} onOpen={() => setNoteOpen(`${day}:${i}`)} />}</span>
           {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
           <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan && !isStraightPlan(e.detail)} aria-label={`Series de ${e.name}`} min={1} max={20} value={e.sets} onChange={(n) => n != null && setEx(i, straightRow(e.detail, { sets: n }))} /></span>
           <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, straightRow(e.detail, { reps: ev.target.value }))} /></span>
           <span className="c-rir"><small className="c-lbl">RIR</small><IntInput aria-label={`RIR de ${e.name}`} min={0} max={5} nullable value={e.rir} onChange={(n) => setEx(i, straightRow(e.detail, { rir: n }))} /></span>
           <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
           <span className="c-act"><button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button></span>
+          {(!!e.note || noteOpen === `${day}:${i}`) && <NoteField name={e.name} value={e.note ?? ""} who="el socio" onChange={(v) => setEx(i, { note: v })} onEmpty={() => setNoteOpen(null)} />}
         </div>
         <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setEx(i, { detail })} />
         {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} />}

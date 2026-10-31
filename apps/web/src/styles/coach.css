@@ -245,6 +245,11 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 /* D173: en la compu el resumen va debajo de la fila; antes partía la fila y las cajitas de series, reps y RIR se corrían. */
 @media (min-width: 721px) { .exrow .ex-sum { order: 1; margin-top: -4px; } }
 /* D173: la fila se acomoda al ancho de su columna, no de la pantalla (en una notebook la columna del constructor es angosta). */
+/* D174: nota por ejercicio, a lo ancho y debajo de la fila. */
+.ex-note-btn { flex: none; height: 26px; padding: 0 10px; border-radius: 999px; border: 1px dashed var(--light-border-strong); background: transparent; color: var(--light-ink-2); font: 600 12px var(--font-ui); cursor: pointer; white-space: nowrap; }
+.c-name:has(.ex-note-btn) { flex-wrap: wrap; row-gap: 4px; }
+.exrow .ex-note { order: 2; flex: 1 1 100%; display: flex; align-items: center; gap: 10px; padding-left: 26px; font-size: 12px; font-weight: 600; color: var(--light-muted); }
+.exrow .ex-note input { flex: 1; min-width: 0; height: 36px; font-weight: 400; }
 :has(> .exrow), :has(> .exhead) { container-type: inline-size; }
 @container (max-width: 640px) {
   .exhead { display: none; }
@@ -254,6 +259,7 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
   .exrow .c-lbl { display: block; margin-bottom: 3px; }
   .exrow .c-s, .exrow .c-r, .exrow .c-rir, .exrow .c-rest { flex: 1 1 calc(25% - 8px); min-width: 64px; }
   .exrow .c-act { flex: 1 1 100%; justify-content: flex-end; }
+  .exrow .ex-note { order: 0; padding-left: 0; }
 }
 .ex-edit { height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid var(--core-cyan); background: rgba(0, 209, 255, .08); color: var(--light-ink); font: 600 12px var(--font-ui); cursor: pointer; }
 @media (max-width: 720px) {
@@ -263,6 +269,7 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
   .exrow .c-lbl { display: block; margin-bottom: 3px; }
   .exrow .c-s, .exrow .c-r, .exrow .c-rir, .exrow .c-rest { flex: 1 1 calc(25% - 8px); min-width: 64px; }
   .exrow .c-act { flex: 1 1 100%; justify-content: flex-end; }
+  .exrow .ex-note { order: 0; padding-left: 0; }
 }
 /* D154: carga sugerida por REPI al actualizar la rutina de un cliente o socio. */
 .ex-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: -2px 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--light-selection-bg, #E6FAFF); font-size: 13px; color: var(--light-ink); }

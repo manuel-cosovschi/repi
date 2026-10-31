@@ -1,6 +1,17 @@
 # REPI — Retomar acá
 
-Actualizado: 31/10/2026 (hasta D173), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 31/10/2026 (hasta D174), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Próxima acción (31/10/2026)
+
+1. **F-AI-01: asistente de REPI para el coach** (pedido pendiente del titular, todavía sin empezar). Antes de diseñar, mirar lo que ya existe de IA: `server/training/ai-coach.ts` (sugerencia para el socio), `ProgramAssistant` («Armar con REPI», `components/coach/`), `server/training/own-routines.ts`. En la UI se dice «REPI», nunca «IA».
+2. **Pendientes del titular:** confirmar los días de Smart (cargué lunes a viernes para Lisandro 16–20 y Manuel 18–22); Sofía (6–12) y la cuarta persona (12–16) cargan su horario al crear la cuenta; correo en spam: marcar «No es spam», Google Postmaster Tools, buzón para hola@repiclub.com.
+3. **Sin probar en dispositivo real:** push de desafíos (D168/D172), foto desde la cámara (D169), movimiento reducido de la intro (D171).
+
+## Nota por ejercicio (D174) — 31/10/2026
+
+- **Código:** `components/coach/ExerciseNote.tsx` (`NoteButton`, `NoteField`); `ProgramBuilder.tsx` (`ExRow`); `components/gym/Members.tsx` (estado `noteOpen` «día:posición»); estilos `.ex-note-btn`, `.ex-note` en `coach.css` (también dentro del container query y del media de 720 px). Sin migración: `program_exercise.note` ya existía y el socio ya la ve en `Workout.tsx`.
+- **Pruebas:** typecheck, e2e 36 ✓. Navegador (demo coach): 1700 px nota debajo de la fila; guardada tras recargar; 375 px con rótulo. **Sin probar en navegador:** el editor de programa del gym (mismo componente y estilos) y la nota vista por el alumno al entrenar (código previo).
 
 ## Constructor de programas: top set y peso en series rectas (D173) — 31/10/2026
 
