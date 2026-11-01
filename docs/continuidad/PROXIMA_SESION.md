@@ -1,6 +1,13 @@
 # REPI — Retomar acá
 
-Actualizado: 31/10/2026 (hasta D177), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 01/11/2026 (hasta D178), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Series de cada alumno para coach y sala (D178) — 01/11/2026
+
+- **Pedido:** Urko no encontraba qué pesos anotó su alumno; coaches y entrenadores de sala tienen que ver el detalle de todos sus alumnos para seguir el progreso.
+- **Código:** `server/training/services.ts` (`sessionLogs`; `clientDetail` agrega `exercises` a cada sesión); `server/gym/services.ts` (`memberDetail` agrega `log`, últimas 10 sesiones, sólo con `attendance_training`); `components/coach/SessionLog.tsx` (nuevo: `SessionLog`, `LoggedSets`, comparación con la vez anterior); `CoachClients.tsx` («Registro de sesiones»); `components/gym/Members.tsx` (tarjeta «Entrenamientos registrados»); estilos `.slog*` en `coach.css`.
+- **Pruebas:** `session-changes.test.ts` (el coach ve la serie con peso, reps, RIR y nota) y `gym.test.ts` (sala ve la serie del socio que comparte); suite web 260 ✓ (48 archivos) y guardas ✓. Navegador local: demo coach (Martina, sesión «Piernas» abierta con 4 ejercicios y sus series) y demo sala (socio con sesión en curso: «60 kg × 10 rep. · RIR 2 · Bien», «Quiero que venga un entrenador») en escritorio y móvil 375 px sin scroll horizontal.
+- **Sin migraciones.**
 
 ## Constructor sin pérdida de cambios (D177) — 31/10/2026
 

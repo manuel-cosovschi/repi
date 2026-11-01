@@ -18,6 +18,7 @@ import { Ic } from "@/components/ui/Ic";
 import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
 import { IntInput } from "@/components/ui/IntInput";
 import { ProgramAssistant } from "@/components/coach/ProgramAssistant";
+import { SessionLog, type LoggedSession } from "@/components/coach/SessionLog";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -25,7 +26,7 @@ type Detail = {
   weeks: { label: string; n: number }[];
   program: { programId: string; startsOn: string; revision: number; doc: ProgramDoc & { days: (ProgramDoc["days"][number] & { id?: string })[] }; revisions: { number: number; author: string; reason: string | null; at: string }[] } | null;
   tasks: Task[]; programTaskId: string | null; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
-  canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null;
+  canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null; log: LoggedSession[];
   community: { attempts: { challenge: string; value: string; status: string; newRecord: boolean; at: string }[]; achievements: number; level: number; visits30: number } | null;
 };
 
@@ -117,6 +118,12 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
           <span className="muted">Sesiones registradas desde el programa institucional. La relación con un coach privado no se ve acá.</span>
         </section>
       </div>
+      <section className="card">
+        <h2>Entrenamientos registrados</h2>
+        {!m.trainingShared ? <span className="muted" style={{ fontSize: 14 }}>El socio no comparte sus entrenamientos con el gym: no se ven sus series.</span>
+          : !m.log.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span>
+          : <SessionLog sessions={m.log} />}
+      </section>
       <SharedWishes w={m.wishes} who={m.name.split(" ")[0]} />
       {m.community && (
         <section className="card">

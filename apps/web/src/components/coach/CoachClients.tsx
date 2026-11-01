@@ -12,13 +12,14 @@ import { GoalsTab } from "./CoachGoals";
 import { ImportModal } from "./ImportModal";
 import { useLoad } from "@/components/gym/shared";
 import { featureOn } from "@/lib/features";
+import { SessionLog, type LoggedExercise } from "./SessionLog";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
   program: { programId: string; startsOn: string; version: number; doc: ProgramDoc } | null;
   wishes?: SharedWishesView | null;
   sessions: { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; durationSec: number; sets: number; volumeKg: number;
-    changes?: { exercise: string; kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: string | null }[]; setNotes?: { exercise: string; set: number; note: string }[] }[];
+    changes?: { exercise: string; kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: string | null }[]; exercises: LoggedExercise[] }[];
 };
 // Nutrición y Mi cuerpo sólo con su módulo encendido (FEATURE_FLAGS.md): sin carga del alumno serían pantallas vacías.
 const TABS: [string, string][] = ([["res", "Resumen"], ["rend", "Rendimiento"], ["prog", "Rutinas"], ["progreso", "Progreso"], ["salud", "Salud"], ["nutri", "Nutrición"], ["body", "Mi cuerpo"], ["pay", "Pagos"]] as [string, string][])
@@ -150,19 +151,9 @@ function Sessions({ det }: { det: Detail }) {
     <section className="card">
       <h2>Registro de sesiones</h2>
       {!det.sessions.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span> : (
-        <div className="table">
-          {det.sessions.map((s) => (
-            <div key={s.id} className="trow">
-              <span style={{ flex: "0 0 90px" }} className="muted">{fmtDate(s.endedAt ?? s.startedAt, { weekday: "short", day: "numeric", month: "short" })}</span>
-              <b style={{ flex: "1 1 120px" }}>{s.dayName}</b>
-              <span style={{ flex: "0 0 auto" }}>{s.status === "completed" ? `${formatClock(s.durationSec)} · ${s.sets} series · ${nf(s.volumeKg)} kg` : <span className="chip info">En curso</span>}</span>
-              {s.rpe != null && <span className="chip mute">RPE {s.rpe}</span>}
-              {s.note && <span style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>“{s.note}”</span>}
-              {s.changes?.map((c) => <span key={c.exercise} style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>{c.kind === "skip" ? `Salteó ${c.exercise}` : `Hizo ${c.substitute} en lugar de ${c.exercise}`} · {EXERCISE_CHANGE_REASONS[c.reason].toLowerCase()}</span>)}
-              {s.setNotes?.map((x) => <span key={`${x.exercise}${x.set}`} style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>{x.exercise} · serie {x.set}: “{x.note}”</span>)}
-            </div>
-          ))}
-        </div>
+        <SessionLog sessions={det.sessions}
+          line={(s) => `${formatClock(s.durationSec)} · ${s.sets} series · ${nf(s.volumeKg)} kg`}
+          extra={(s) => s.changes?.map((c) => <span key={c.exercise} style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>{c.kind === "skip" ? `Salteó ${c.exercise}` : `Hizo ${c.substitute} en lugar de ${c.exercise}`} · {EXERCISE_CHANGE_REASONS[c.reason].toLowerCase()}</span>)} />
       )}
     </section>
   );

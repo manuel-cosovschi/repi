@@ -349,6 +349,28 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
   };
 }
 
+/**
+ * D178: lo que registró la persona en cada sesión, serie por serie (ejercicio real hecho, peso, repeticiones o segundos,
+ * RIR y sensación), en el orden en que lo hizo. Lo ven su coach y el equipo de sala con quien compartió su entrenamiento.
+ */
+export async function sessionLogs(sessionIds: string[]) {
+  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null }[] }[]>();
+  if (!sessionIds.length) return out;
+  const rows = await db.select({ l: setLog, name: exercise.name }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+    .where(inArray(setLog.sessionId, sessionIds)).orderBy(asc(setLog.completedAt));
+  const timed = await timedPeIds(rows.map((r) => r.l.programExerciseId));
+  for (const { l, name } of rows) {
+    const list = out.get(l.sessionId) ?? [];
+    const key = `${l.programExerciseId}:${l.exerciseId}`;
+    let ex = list.find((x) => (x as { key?: string }).key === key);
+    if (!ex) { ex = Object.assign({ exercise: name, timed: timed.has(l.programExerciseId), sets: [] }, { key }); list.push(ex); }
+    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note });
+    out.set(l.sessionId, list);
+  }
+  for (const list of out.values()) for (const ex of list) { delete (ex as { key?: string }).key; ex.sets.sort((a, b) => a.n - b.n); }
+  return out;
+}
+
 export async function clientDetail(actorId: string, orgId: string, coachClientId: string) {
   await requireCoach(actorId, orgId);
   const rel = await requireClientOf(orgId, coachClientId);
@@ -370,6 +392,7 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
   const noted = sets.filter((x) => x.note);
   const peNames = new Map((noted.length ? await db.select({ id: programExercise.id, name: programExercise.name }).from(programExercise)
     .where(inArray(programExercise.id, [...new Set(noted.map((x) => x.programExerciseId))])) : []).map((r) => [r.id, r.name]));
+  const logs = await sessionLogs(sessions.map((s) => s.id));
   const grants = await db.select({ item: consentGrant.item }).from(consentGrant).where(and(eq(consentGrant.relationId, coachClientId), eq(consentGrant.status, "active")));
   // D147: lo que busca entrenando, sólo si el alumno eligió compartirlo con quien arma su rutina.
   const [pref] = await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, rel.userId));
@@ -385,6 +408,7 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
         changes: changes.filter((x) => x.c.sessionId === s.id).map((x) => ({ exercise: x.pe, kind: x.c.kind, reason: x.c.reason, substitute: x.sub })),
         setNotes: ss.filter((x) => x.note).sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime())
           .map((x) => ({ exercise: peNames.get(x.programExerciseId) ?? "", set: x.setIndex + 1, note: x.note! })),
+        exercises: logs.get(s.id) ?? [],
       };
     }),
   };

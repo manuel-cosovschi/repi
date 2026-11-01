@@ -201,10 +201,13 @@ describe("socio: pedido al equipo de sala (D41), programa institucional y relaci
     const sid = randomUUID();
     const s = await tr.startSession(w.vale.userId, { id: sid, dayId: day });
     expect([s.gymMemberId, s.coachClientId]).toEqual([w.vale.memberId, null]);
+    await tr.logSet(w.vale.userId, sid, { id: randomUUID(), programExerciseId: (await tr.getSession(w.vale.userId, sid)).exercises[0].id, setIndex: 0, weightKg: 42.5, reps: 8, rir: 2, feel: "bien" });
     const r2 = await gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC("Inicial v2"), reason: "Subí volumen" });
     expect(r2.revision).toBe(2);
     expect((await db.select().from(schema.workoutSession).where(eq(schema.workoutSession.id, sid)))[0].versionId).toBe(s.versionId);
     const d = await gym.memberDetail(w.t2, w.org, w.vale.memberId);
+    // D178: el equipo de sala ve las series que anotó el socio que comparte su entrenamiento.
+    expect(d.log[0].exercises[0].sets[0]).toMatchObject({ n: 1, weightKg: 42.5, reps: 8, rir: 2, feel: "bien" });
     expect(d.program?.revisions.map((x) => [x.number, x.author, x.reason])).toEqual([[2, "Agustín Sala", "Subí volumen"], [1, "Agustín Sala", "Programa inicial"]]);
     // Una tarea de programa tomada y «en atención» también se cierra al guardar, sólo por quien la tomó.
     const t2 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Cambiemos el programa" });

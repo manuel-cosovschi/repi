@@ -9,7 +9,7 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
-import { addIso, assertLibrary, lastTimeByExercise, newVersion, plain, readVersion } from "../training/services";
+import { addIso, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
 import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 
@@ -606,6 +606,10 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     .where(and(eq(gymNote.gymMemberId, m.m.id), isNull(gymNote.deletedAt), or(eq(gymNote.kind, "institutional"), eq(gymNote.authorUserId, actorId)))).orderBy(desc(gymNote.createdAt));
   const tasks = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.gymMemberId, m.m.id), inArray(gymTask.status, [...ACTIVE]))).orderBy(asc(gymTask.createdAt));
   const lastAt = sessions[0]?.endedAt ?? null;
+  // D178: las últimas sesiones con cada serie (peso, repeticiones, RIR), sólo si el socio compartió su entrenamiento.
+  const recent = g ? await db.select().from(workoutSession).where(and(eq(workoutSession.gymMemberId, m.m.id), inArray(workoutSession.status, ["completed", "in_progress", "paused"])))
+    .orderBy(desc(workoutSession.startedAt)).limit(10) : [];
+  const logs = await sessionLogs(recent.map((x) => x.id));
   // D147: lo que busca entrenando, sólo para quien arma su programa y sólo si el socio eligió compartirlo.
   const builds = !!g && gymCan(rolesAt(ctx, m.m.locationId), "program.edit");
   const [pref] = builds ? await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, m.m.userId)) : [];
@@ -613,6 +617,7 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g,
     wishes: builds ? sharedWishes(pref?.wishes as TrainingWishes | null) : null,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
+    log: recent.map((x) => ({ id: x.id, dayName: x.dayName, status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, rpe: x.rpe, note: x.note, exercises: logs.get(x.id) ?? [] })),
     program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
     programTaskId: tasks.find((t) => closesWithProgram(t, actorId))?.id ?? null,
     notes: notes.map((x) => ({ id: x.n.id, kind: x.n.kind, text: x.n.text, author: x.author, mine: x.n.authorUserId === actorId, at: x.n.createdAt })),
