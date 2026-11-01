@@ -1,6 +1,11 @@
 # REPI — Retomar acá
 
-Actualizado: 01/11/2026 (hasta D178), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 01/11/2026 (hasta D179), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Modales que no se cierran al arrastrar (D179) — 01/11/2026
+
+- **Código:** `components/ui/backdrop.ts` (nuevo, `useBackdropClose`); `components/ui/Modal.tsx` y `components/member/Sheet.tsx` lo usan en el fondo.
+- **Pruebas:** navegador local (demo coach, «Series y técnica» de Sentadilla): escribir «100» en el peso y arrastrar desde el campo hasta fuera del modal → sigue abierto con «100»; clic simple en el fondo → se cierra. Typecheck ✓, build ✓, guardas 11 ✓. Sin migraciones.
 
 ## Series de cada alumno para coach y sala (D178) — 01/11/2026
 

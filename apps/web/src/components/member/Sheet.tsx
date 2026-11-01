@@ -3,6 +3,7 @@
 // Accesible: diálogo modal, foco inicial y atrapado, Esc cierra, fondo inerte, foco restaurado.
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useBackdropClose } from "@/components/ui/backdrop";
 import { Ic } from "@/components/ui/Ic";
 import { VideoCamera } from "@phosphor-icons/react";
 import { useScrollLock } from "@/components/ui/scrollLock";
@@ -20,6 +21,7 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
   const close = useRef(onClose);
   close.current = onClose;
   useScrollLock();
+  const backdrop = useBackdropClose(onClose);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const root = ref.current!;
@@ -38,7 +40,7 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
     return () => { document.removeEventListener("keydown", onKey); col?.removeAttribute("inert"); prev?.focus?.(); };
   }, []);
   return createPortal(
-    <div className="sheet-bg" onClick={onClose}>
+    <div className="sheet-bg" {...backdrop}>
       <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <span className="sheet-handle" aria-hidden="true" />
         <div className="sheet-head"><h2>{title}</h2><button type="button" className="linkbtn" style={{ height: 44, fontSize: 14 }} onClick={onClose}>{closeLabel}</button></div>
