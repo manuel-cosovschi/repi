@@ -669,6 +669,16 @@ async function gymPresence(tx: Tx, userId: string, gymMemberId: string, action: 
   return requireGymAction({ userId, orgId: gm.orgId, action, clientAt, preferPassId }, now, tx);
 }
 
+/**
+ * La validación de ingreso es para el programa del gimnasio (modo híbrido: «iniciar y registrar un entrenamiento del programa
+ * del gimnasio»). Las rutinas propias del alumno (D158) y la rutina de hoy de REPI (D153) no son el programa del gym: se
+ * entrenan sin check-in, igual que se ven desde cualquier lugar.
+ */
+async function isSoloSession(tx: Tx, s: typeof workoutSession.$inferSelect) {
+  const [r] = await tx.select({ kind: program.kind }).from(programVersion).innerJoin(program, eq(program.id, programVersion.programId)).where(eq(programVersion.id, s.versionId));
+  return r?.kind === "solo";
+}
+
 const BAD_TIME = () => new AccessError("invalid_time", "La hora del dispositivo no es válida. Revisá la fecha y hora del teléfono.");
 
 /**
@@ -744,7 +754,7 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
     if (existing) { if (existing.userId !== userId) throw NOT_FOUND(); return existing; } // reintento idempotente
     const [openS] = await tx.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"]))).for("update");
     if (openS) throw new AccessError("open_session", `Ya tenés un entrenamiento abierto (${openS.dayName}). Terminalo o seguilo desde Entrenar.`, 409);
-    const presenceCheckinId = act.kind === "gym" ? await gymPresence(tx, userId, act.id, "gym.workout.start", now, now) : null;
+    const presenceCheckinId = null; // rutina propia o de REPI: no es el programa del gym, no pide check-in (ver isSoloSession)
     const rel = act.kind === "coach" ? { coachClientId: act.id } : { gymMemberId: act.id };
     const [pr] = await tx.insert(program).values({ orgId: act.orgId, kind: "solo", ...rel, createdBy: userId }).returning();
     const [v] = await tx.insert(programVersion).values({ programId: pr.id, number: 1, name: dayName, weeks: 1, note: "", createdBy: userId, reason: own ? "Rutina propia del alumno" : "Rutina de hoy armada por REPI", locked: true }).returning();
@@ -834,7 +844,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     const s = await mySession(userId, sessionId, tx, true);
     if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
     await assertRelationActive(tx, s);
-    if (s.gymMemberId) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
+    if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
     let [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     // DATA-5: también un ejercicio de la rutina anterior que ya tiene series en esta sesión (quedó tras «Aplicar ahora»).
     if (!pe && (await tx.select({ id: setLog.id }).from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, p.programExerciseId))).limit(1)).length)
@@ -969,7 +979,7 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     const s = await mySession(userId, sessionId, tx, true);
     if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
     await assertRelationActive(tx, s);
-    if (s.gymMemberId) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, now, s.presenceCheckinId);
+    if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, now, s.presenceCheckinId);
     const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
       .where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");

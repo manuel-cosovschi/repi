@@ -42,10 +42,24 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
   const removeEx = (d: number, e: number) => setDays((ds) => ds.map((x, i) => (i !== d ? x : { ...x, exercises: x.exercises.filter((_, j) => j !== e) })).filter((x) => x.exercises.length));
   const choose = (x: Lib) => { if (picking) setEx(picking.d, picking.e, { exerciseId: x.id, name: x.name, group: x.group }); setPicking(null); };
 
-  const missing = days.reduce((n, d) => n + d.exercises.filter((e) => !e.exerciseId).length, 0);
+  const missingNames = days.flatMap((d) => d.exercises.filter((e) => !e.exerciseId).map((e) => e.written));
+  const missing = missingNames.length;
   const badW = days.some((d) => d.exercises.some((e) => e.w.trim() !== "" && parseWeightIn(e.w, unit) == null));
   const ready = days.length > 0 && !missing && !badW && days.every((d) => d.name.trim().length >= 2 && d.exercises.every((e) => e.reps.trim()));
   const save = async () => {
+    // D180: el botón se puede tocar aunque falte algo (la hoja sólo lo atenúa). Sin este control se mandaba el ejercicio sin
+    // elegir y el servidor respondía «Revisá los datos ingresados», sin decir qué.
+    if (!ready) {
+      const d = days.findIndex((x) => x.exercises.some((e) => !e.exerciseId));
+      if (d >= 0) {
+        const e = days[d].exercises.findIndex((x) => !x.exerciseId);
+        setErr(`Falta elegir «${days[d].exercises[e].written}»: tocá «Elegir o crear» para buscar el más parecido o crearlo, o «Quitar».`);
+        setPicking({ d, e });
+        requestAnimationFrame(() => document.getElementById(`ri-${d}-${e}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      } else if (badW) setErr("Revisá los pesos marcados: van en números (por ejemplo 12,5).");
+      else setErr("Cada día necesita un nombre y las repeticiones de cada ejercicio.");
+      return;
+    }
     setBusy("save"); setErr(null);
     let saved = 0;
     try {
@@ -70,13 +84,13 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
       action={{ label: days.length === 1 ? "Guardar rutina" : `Guardar ${days.length} rutinas`, ready, busy: busy === "save", onSubmit: () => void save() }}>
       {p.source === "ai" && <p className="sheet-sub">La leyó REPI tal como está escrita, sin cambiarla. Revisá series, repeticiones y pesos.</p>}
       {p.notes.map((n, i) => <p key={i} className="sheet-warn">{n}</p>)}
-      {missing > 0 && <p className="sheet-warn" role="status">{missing === 1 ? "Un ejercicio no está" : `${missing} ejercicios no están`} en la biblioteca: elegí el más parecido, crealo o quitalo.</p>}
+      {missing > 0 && <p className="sheet-warn" role="status">{missing === 1 ? `«${missingNames[0]}» no está` : `${missing} ejercicios no están`} en la biblioteca: elegí el más parecido, crealo o quitalo. Están marcados abajo.</p>}
       {days.map((d, di) => (
         <fieldset key={di} className="or-ex">
           <legend>Día {di + 1}</legend>
           <label className="or-field">Nombre<input value={d.name} maxLength={60} onChange={(e) => setDays((ds) => ds.map((x, i) => (i === di ? { ...x, name: e.target.value } : x)))} /></label>
           {d.exercises.map((e, ei) => (
-            <div key={ei} className="ri-ex">
+            <div key={ei} id={`ri-${di}-${ei}`} className="ri-ex">
               <div className="ri-ex-name">
                 {e.name ? <b>{e.name}</b> : <b className="ri-missing">«{e.written}»</b>}
                 {e.name && e.name !== e.written && <small className="mb-muted">escrito «{e.written}»</small>}
