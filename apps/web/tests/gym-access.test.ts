@@ -75,6 +75,32 @@ describe("Gym Access · membresía y política", () => {
     expect(st.gyms[0]).toMatchObject({ enabled: true, mode: "hybrid", startNeedsCheckin: true, membership: "active", pass: null });
   });
 
+  it("D180 · en HÍBRIDO la rutina propia del socio se empieza y se registra sin validar; el programa del gym sigue pidiéndolo", async () => {
+    const w = await gymWorld("Propias");
+    const v = await w.member();
+    const own = await import("@/server/training/own-routines");
+    const r = await own.saveOwnRoutine(v.userId, { name: "Mi pecho", exercises: [{ exerciseId: EX, sets: 3, reps: "12-10-9", weightKg: 20, restSec: null, note: null }] });
+    const sid = randomUUID();
+    const s = await own.startOwnRoutine(v.userId, r.id, sid);
+    expect(s.presenceCheckinId).toBeNull();
+    const sess = await tr.getSession(v.userId, sid);
+    await tr.logSet(v.userId, sid, { id: randomUUID(), programExerciseId: sess.exercises[0].id, setIndex: 0, weightKg: 20, reps: 12, rir: 2 });
+    await tr.sessionAction(v.userId, sid, "finish");
+    expect((await err(startGym(v.userId)))?.code).toBe("presence_required");
+  });
+
+  it("D180 · una rutina importada con más de 12 ejercicios se parte en dos, sin perder ninguno", async () => {
+    const w = await gymWorld("Larga");
+    const v = await w.member();
+    const own = await import("@/server/training/own-routines");
+    const csv = ["Ejercicio,Series,Reps", ...Array.from({ length: 15 }, () => "Remo acceso,3,10")].join("\n");
+    const p = await own.previewRoutineImport(v.userId, { fileName: "r.csv", kind: "text", text: csv });
+    expect(p.days.map((d) => d.exercises.length)).toEqual([12, 3]);
+    expect(p.days.map((d) => d.name)).toEqual(["Mi rutina 1", "Mi rutina 2"]);
+    expect(p.days.flatMap((d) => d.exercises).every((e) => e.exerciseId === EX)).toBe(true);
+    expect(p.notes.join(" ")).toMatch(/15 ejercicios/);
+  });
+
   it("12–13 · OPEN no exige nada; ESTRICTO sólo restringe lo configurado", async () => {
     const o = await gymWorld("Abierto", "open");
     const a = await o.member();

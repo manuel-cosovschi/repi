@@ -136,6 +136,9 @@ const SYSTEM = `Transcribís a datos la rutina de gimnasio que ya tiene una pers
 - Un elemento de days por cada día o sesión de la rutina, en el orden en que aparecen, con su nombre tal como está («Día 1», «Lunes», «Pecho y tríceps»). Si no hay días, uno solo llamado «Mi rutina».
 - Por ejercicio: nombre en español como está escrito (corregí sólo errores evidentes de tipeo), series (entero; si no figura, 3), repeticiones como texto («10», «8-12», «al fallo», «30 s»), peso en kg si figura (libras × 0,4536; si no, null), descanso en segundos si figura (si no, null) y una nota corta si hay una indicación (si no, vacío).
 - «3x10» son 3 series de 10. Una pirámide «12-10-8» va en reps tal cual.
+- Una lista de repeticiones por serie («12;10;9», «12/10/9», «12 10 9») son tantas series como números (acá 3) y las reps van como «12-10-9».
+- Un peso entre paréntesis que no está en kg («7 ladrillos», «placa 5») va en la nota y weight_kg null.
+- Si títulos, fechas o líneas en blanco separan grupos de ejercicios, cada grupo es un día.
 - Si la rutina cambia semana a semana, transcribí la semana que la persona marque como actual o, si no, la primera, y avisalo en notes.
 - Si algo no se lee o es ambiguo, omitilo y explicalo en notes (en español, breve). Nunca digas «IA».`;
 
@@ -159,7 +162,7 @@ export async function previewRoutineImport(userId: string, f: ImportFile) {
       name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weight_kg, restSec: e.rest_sec, note: e.note || null })) }));
     notes = (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 8);
   }
-  const clean = days.map((d, i) => ({
+  const read = days.map((d, i) => ({
     name: d.name.replace(/\s+/g, " ").trim().slice(0, 60) || `Día ${i + 1}`,
     exercises: d.exercises.filter((e) => e.name?.trim()).map((e) => {
       const sets = Math.round(Number(e.sets));
@@ -169,9 +172,17 @@ export async function previewRoutineImport(userId: string, f: ImportFile) {
         weightKg: w != null && w > 0 && w <= 500 ? Math.round(w * 100) / 100 : null, restSec: rest != null && rest >= 0 && rest <= 600 ? rest : null, note: e.note?.trim().slice(0, 120) || null };
     }),
   })).filter((d) => d.exercises.length);
+  // D180: un día con más ejercicios que el tope de una sesión no pierde los que sobran: se parte en «Nombre 1», «Nombre 2»…
+  // (suele pasar cuando las notas no separan los días). La persona revisa, renombra o quita antes de guardar.
+  const clean: typeof read = [];
+  for (const d of read) {
+    const parts = Math.ceil(d.exercises.length / OWN_ROUTINE_EXERCISES_MAX);
+    if (parts === 1) { clean.push(d); continue; }
+    for (let k = 0; k < parts; k++) clean.push({ name: `${d.name.slice(0, 56)} ${k + 1}`, exercises: d.exercises.slice(k * OWN_ROUTINE_EXERCISES_MAX, (k + 1) * OWN_ROUTINE_EXERCISES_MAX) });
+    notes.push(`${d.name} tenía ${d.exercises.length} ejercicios y una rutina lleva hasta ${OWN_ROUTINE_EXERCISES_MAX}: quedó en ${parts} partes. Si eran días distintos, renombralos.`);
+  }
   if (!clean.length) throw new AccessError("empty", "No encontramos ejercicios en ese archivo. Probá con otra foto o cargala a mano.", 422);
   if (clean.length > OWN_ROUTINES_MAX) { clean.length = OWN_ROUTINES_MAX; notes.push(`Se cargan los primeros ${OWN_ROUTINES_MAX} días.`); }
-  for (const d of clean) if (d.exercises.length > OWN_ROUTINE_EXERCISES_MAX) { d.exercises.length = OWN_ROUTINE_EXERCISES_MAX; notes.push(`${d.name}: se cargan los primeros ${OWN_ROUTINE_EXERCISES_MAX} ejercicios.`); }
   const matches = await matchExercises([...new Set(clean.flatMap((d) => d.exercises.map((e) => e.written)))], lib);
   const byId = new Map(lib.map((e) => [e.id, e]));
   await audit(db, { actorUserId: userId, action: "own_routine.import_previewed", resourceType: "own_routine", meta: { source, days: clean.length } });

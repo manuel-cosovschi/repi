@@ -227,30 +227,21 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     await begin(dayId);
   };
   // D153: rutina de hoy sin programa asignado. Se crea en el servidor (necesita conexión, igual que armarla) y se abre como
-  // cualquier entrenamiento. En el gimnasio pide la misma validación de ingreso que un entrenamiento del programa.
+  // cualquier entrenamiento. No es el programa del gimnasio: no pide validar el ingreso (D180).
   const startRoutine = async (r: Routine) => {
     if (openId) { setWorkout(openId); return; }
     if (offlineAt || !navigator.onLine) { flash("Para empezar la rutina de hoy necesitás conexión."); return; }
-    if (t?.relation?.kind === "gym") {
-      const fresh = await loadPresence();
-      const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
-      if (p?.startNeedsCheckin && !p.pass) { flash("Validá tu ingreso al gimnasio y volvé a tocar «Empezar rutina de hoy»."); setSheet({ type: "presence" }); return; }
-    }
     try {
       const s = await api<{ id: string }>("/api/me/solo/routine/start", { body: { id: crypto.randomUUID(), dayName: r.dayName,
         exercises: r.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, reps: e.reps, restSec: e.restSec, weightKg: e.weightKg, note: e.note || null })) } });
       setWorkout(s.id);
     } catch (e) { flash((e as Error).message); }
   };
-  // D158: rutina propia del alumno. Igual que la de REPI: con conexión, validando el ingreso al gym si hace falta.
+  // D158: rutina propia del alumno. Igual que la de REPI: con conexión y sin validar el ingreso al gym (D180: es suya, no
+  // el programa del gimnasio).
   const startOwn = async (routineId: string) => {
     if (openId) { setWorkout(openId); return; }
     if (offlineAt || !navigator.onLine) { flash("Para empezar tu rutina necesitás conexión."); return; }
-    if (t?.relation?.kind === "gym") {
-      const fresh = await loadPresence();
-      const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
-      if (p?.startNeedsCheckin && !p.pass) { flash("Validá tu ingreso al gimnasio y volvé a tocar «Empezar»."); setSheet({ type: "presence" }); return; }
-    }
     try {
       const s = await api<{ id: string }>(`/api/me/routines/${routineId}/start`, { body: { id: crypto.randomUUID() } });
       setWorkout(s.id);
@@ -321,7 +312,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
+              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
               own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} flash={flash} offline={!!offlineAt} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
@@ -485,7 +476,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         <span className="mb-muted" style={{ fontSize: 15 }}>{t.openSession ? "Tenés un entrenamiento en curso." : "Hoy es un gran día para entrenar."}</span>
       </div>
       <RelationPicker t={t} offline={offline} busyOpen={!!t.openSession} onChange={onRelation} flash={flash} />
-      {presence && !offline && <PresenceChip p={presence} onValidate={() => onSheet({ type: "presence" })} />}
+      {presence && !offline && t.program && <PresenceChip p={presence} onValidate={() => onSheet({ type: "presence" })} />}
       {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
           ahí se ve qué pasó con su sincronización y se decide qué hacer con lo guardado en el teléfono. */}
       {t.openSession && !(t.state === "ready" && next) && (
