@@ -48,7 +48,7 @@ test("peso: al abrir queda seleccionado y lo tipeado lo reemplaza; borrar todo n
   await expect(page.getByRole("button", { name: /^47,5 kg\. Tocá para escribir el peso/ })).toBeVisible();
 
   // ± sigue funcionando desde el valor escrito.
-  await page.getByRole("button", { name: /^Más / }).click();
+  await page.getByRole("button", { name: /^Más \d/ }).click();
   await expect(page.getByRole("button", { name: /^50 kg\. Tocá para escribir el peso/ })).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -1,6 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 02/11/2026 (hasta D180), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 03/11/2026 (hasta D182), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Bloque 01/06 · Cargas seguras e integridad (D182) — 03/11/2026
+
+- **Pedido:** master prompt 01/06 (estabilización crítica) sobre las auditorías del 03/11 (Training Intelligence; Temas y métodos avanzados). Rama `fix/repi-p0-training-safety` desde `main` `f912467`; **sin desplegar ni integrar**. PR en borrador.
+- **Código:** `packages/domain/src/load-safety.ts` (nuevo: señales, `checkLoad`, `startWeight`, `reducedLoadHint`, `progressionApplies`), `progression.ts` (`suggestNext` con `lastReps` y `signals`), `units.ts` (`cleanDecimalDraft`), `history-import.ts` (`importCanonical`, `importOverlap`); servidor `server/training/services.ts` (`lastTimeByExercise` con tipo, sensación y reps de esa vez; `trainingSignals`), `ai-coach.ts` y `solo-routine.ts` (validador común), `history-import.ts` (huella en `parsed.hash`, coincidencias, confirmación con candado por persona), `server/gym/access-control.ts` (`selfCheckin`); app `lib/offline/store.ts`, `member/{Workout,MemberApp,Presence,HistoryImport,RoutineImport,OwnRoutines,Solo}.tsx`, `coach/LoadSuggestion.tsx`.
+- **Pruebas:** dominio 191 ✓ (antes 163); web 278 ✓ (antes 262; nuevas `training-safety`, `prefill`, casos D182 en `gym-access` e `history-import`); guardas 11 ✓; typecheck web ✓; build ✓. E2E local (Chromium preinstalado, build de producción contra `repi_dev`, demo): `weight-edit.spec.ts` ✓ móvil y escritorio; «registra una serie» ✓. «Cada pestaña abre sin errores» falla en este entorno por el 503 de `/api/me/solo/ai` sin `OPENAI_API_KEY` (no por este bloque). No probado en iPhone real.
+- **Migraciones:** ninguna. La huella de importación va en el JSON `history_import.parsed` (borradores viejos la calculan al confirmar).
+- **Decisión pendiente del titular:** con el pase vencido a mitad del entrenamiento, el servidor rechaza series nuevas (D127, prueba «vencido no registra series nuevas»). Se evaluó que el ingreso con que empezó la sesión la cubra hasta terminarla (máx. 6 h) pero cambia la política: no se implementó. Recomendación: aceptarlo (es la causa más probable de bloqueos a mitad de sesión con pases de 1–2 h).
+- **PR #2 (D181, sin publicar):** toca Admin y el panel del gym (avisos al activar el control sin pantalla de QR); no se superpone con este bloque salvo `docs/DECISIONS.md` y este archivo (conflicto de texto esperable al integrar). Smart sigue con el control encendido: apagarlo en REPI Admin.
+- **Para 02/06:** `kindAt`, `COMPARABLE_KINDS`, `REDUCED_KINDS`, `carriesLoad`, `startWeight`, `reducedLoadHint` y `progressionApplies` son el punto de enganche del modelo de bloques y etapas; `LocalSet.pend` es el estado «por elegir» que la grilla conectada debe conservar; `set_log` sigue sin tipo de serie (se deduce del plan congelado con `kindAt`).
 
 ## Rutinas propias sin check-in e importación sin errores mudos (D180) — 02/11/2026
 
