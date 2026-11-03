@@ -4,6 +4,7 @@ import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
   weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
   applyLoad, coachSetLoads, suggestNext, type LastSet, workoutAutoClose, WORKOUT_IDLE_CLOSE_MS,
+  progressionApplies, kindAt, GENERAL_PAIN_DAYS, PAIN_LOOKBACK_DAYS, type SafetySignals, exerciseKey,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -13,7 +14,8 @@ import { todaysPick } from "../gym/floor-now";
 import { importedLastSets } from "./history-import";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
-  programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest } = schema;
+  programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest,
+  painReport, injury, checkin } = schema;
 
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 
@@ -511,8 +513,9 @@ export async function trainingStamp(userId: string) {
  * D154: series de la última sesión terminada en que la persona hizo cada ejercicio (base de la progresión sugerida).
  * Con `excludeSessionId`, sin contar la sesión en curso.
  */
+export type LastTime = { at: Date; sets: LastSet[]; reps: string | null };
 export async function lastTimeByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string, scope?: { coachClientId?: string; gymMemberId?: string }) {
-  const out = new Map<string, { at: Date; sets: LastSet[] }>();
+  const out = new Map<string, LastTime>();
   if (!exerciseIds.length) return out;
   const latest = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, at: setLog.completedAt })
     .from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
@@ -523,15 +526,51 @@ export async function lastTimeByExercise(userId: string, exerciseIds: string[], 
       scope?.gymMemberId ? eq(workoutSession.gymMemberId, scope.gymMemberId) : undefined))
     .orderBy(setLog.exerciseId, desc(setLog.completedAt));
   if (!latest.length) return out;
-  const rows = await db.select({ exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, w: setLog.weightKg, r: setLog.reps, rir: setLog.rir }).from(setLog)
+  // D182: con la sensación de cada serie, su tipo según el plan de esa sesión (versión congelada) y las repeticiones indicadas.
+  const rows = await db.select({ exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, idx: setLog.setIndex, w: setLog.weightKg, r: setLog.reps, rir: setLog.rir, feel: setLog.feel,
+    peReps: programExercise.reps, detail: programExercise.detail })
+    .from(setLog).innerJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(inArray(setLog.sessionId, [...new Set(latest.map((l) => l.sessionId))]), inArray(setLog.exerciseId, exerciseIds))).orderBy(asc(setLog.setIndex));
-  for (const l of latest) out.set(l.exerciseId, { at: l.at, sets: rows.filter((x) => x.sessionId === l.sessionId && x.exerciseId === l.exerciseId)
-    .map((x) => ({ weightKg: x.w == null ? null : Number(x.w), reps: x.r, rir: x.rir })) });
+  for (const l of latest) {
+    const mine = rows.filter((x) => x.sessionId === l.sessionId && x.exerciseId === l.exerciseId);
+    out.set(l.exerciseId, { at: l.at, reps: mine[0]?.peReps ?? null, sets: mine.map((x) => ({ weightKg: x.w == null ? null : Number(x.w), reps: x.r, rir: x.rir, feel: x.feel,
+      kind: kindAt(x.detail as ExerciseDetail | null, x.idx) })) });
+  }
   return out;
 }
-/** Sugerencia de hoy para un ejercicio del programa: nada si el profe ya indicó la carga en el plan (manda el profe). */
-const suggestionFor = (e: { reps: string; sets: number; detail?: unknown }, last: { sets: LastSet[] } | undefined) =>
-  last && !coachSetLoads(e.detail as ExerciseDetail | null) ? suggestNext({ reps: e.reps, sets: e.sets, last: last.sets }) : null;
+
+/**
+ * D182: señales de seguridad del propio alumno para sus sugerencias (no se muestran a nadie más). Molestias reportadas por
+ * ejercicio (nombre) en los últimos PAIN_LOOKBACK_DAYS; molestia general reciente o lesión activa/en seguimiento; check-in de hoy.
+ */
+export type Signals = { painOrInjury: boolean; lowReadiness: boolean; painNames: Set<string>; now: Date };
+export async function trainingSignals(userId: string, now = new Date()): Promise<Signals> {
+  const [pains, inj, [ci]] = await Promise.all([
+    db.select({ name: painReport.exerciseName, at: painReport.createdAt }).from(painReport)
+      .where(and(eq(painReport.userId, userId), gte(painReport.createdAt, new Date(now.getTime() - PAIN_LOOKBACK_DAYS * 86_400_000)))),
+    db.select({ id: injury.id }).from(injury).where(and(eq(injury.userId, userId), inArray(injury.status, ["active", "monitoring"]), isNull(injury.deletedAt))).limit(1),
+    db.select().from(checkin).where(and(eq(checkin.userId, userId), eq(checkin.date, localDate(now)))),
+  ]);
+  const general = pains.some((x) => !x.name && x.at.getTime() >= now.getTime() - GENERAL_PAIN_DAYS * 86_400_000);
+  return {
+    painOrInjury: general || inj.length > 0, lowReadiness: !!ci && (ci.energy <= 2 || ci.sleep <= 2),
+    painNames: new Set(pains.filter((x) => x.name).map((x) => exerciseKey(x.name!))), now,
+  };
+}
+
+/**
+ * Sugerencia de hoy para un ejercicio del programa: nada si el profe ya indicó la carga en el plan (manda el profe) ni si el
+ * plan tiene series distintas (top set, back-off, drop, rest-pause, pirámide, AMRAP): una carga única sería incorrecta (D182).
+ */
+const suggestionFor = (e: { name: string; reps: string; sets: number; detail?: unknown }, last: LastTime | undefined, sig?: Signals) => {
+  const detail = e.detail as ExerciseDetail | null;
+  if (!last || coachSetLoads(detail) || !progressionApplies(detail)) return null;
+  const signals: SafetySignals | undefined = sig && {
+    painExercise: sig.painNames.has(exerciseKey(e.name)), painOrInjury: sig.painOrInjury, lowReadiness: sig.lowReadiness,
+    daysSinceLast: Math.floor((sig.now.getTime() - last.at.getTime()) / 86_400_000),
+  };
+  return suggestNext({ reps: e.reps, sets: e.sets, last: last.sets, lastReps: last.reps, signals });
+};
 
 /** D155: propuesta de programa armada por REPI para el coach (plantilla o copia de un cliente). Borrador: no se guarda. */
 export async function coachProgramDraft(actorId: string, orgId: string, brief: Partial<import("./program-ai").ProgramBrief> & { change?: string; current?: ProgramDoc }) {
@@ -600,7 +639,7 @@ export async function myTraining(userId: string, now = new Date()) {
   const [p] = await db.select().from(program).where(eq(program.id, act.assignment.programId));
   const { version, doc } = await readVersion(p.currentVersionId!);
   const exIds = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
-  const [prev, lastTime] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds)]);
+  const [prev, lastTime, sig] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds), trainingSignals(userId, now)]);
   const [lastDone] = await db.select({ dayId: workoutSession.dayId, dayName: workoutSession.dayName }).from(workoutSession)
     .where(and(eq(workoutSession.userId, userId), eq(workoutSession.assignmentId, act.assignment.id), eq(workoutSession.status, "completed")))
     .orderBy(desc(workoutSession.endedAt)).limit(1);
@@ -631,7 +670,7 @@ export async function myTraining(userId: string, now = new Date()) {
         exercises: d.exercises.map((e) => {
           const pv = prev.get(e.exerciseId);
           return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
-            suggest: suggestionFor(e, lastTime.get(e.exerciseId)) };
+            suggest: suggestionFor(e, lastTime.get(e.exerciseId), sig) };
         }),
       })),
     },
@@ -792,7 +831,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
   const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
   const doneIds = [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])];
-  const [prev, lastTime, media] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id),
+  const [prev, lastTime, sig, media] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id), trainingSignals(userId, now),
     sessionOrg(s.versionId).then((orgId) => import("./exercise-media").then((m) => m.mediaFor(orgId, doneIds)))]); // D164: video de cómo se hace
   // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
   const open = s.status === "in_progress" || s.status === "paused";
@@ -809,7 +848,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
       return {
         id: e.id, exerciseId: e.exerciseId, name: e.name, kept: !inDay.has(e.id) || undefined, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: (e.detail as ExerciseDetail | null) ?? null,
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
-        suggest: suggestionFor(e as { reps: string; sets: number; detail: unknown }, lastTime.get(doing(e))), // D154
+        suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig), // D154, D182
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         media: media.get(doing(e)) ?? null,
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,

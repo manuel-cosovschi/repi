@@ -4,7 +4,7 @@
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
-import { WORKOUT_IDLE_PROMPT_MS } from "@repi/domain";
+import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -196,15 +196,18 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
 
   const editCur = (p: Partial<{ w: number; r: number; rir: number | null; feel: string | null }>) => {
     if (!s || !ex || cur < 0) return;
-    void commit({ ...s, sets: { ...s.sets, [setKey(ex.id, cur)]: { ...s.sets[setKey(ex.id, cur)], ...p } } });
+    void commit({ ...s, sets: { ...s.sets, [setKey(ex.id, cur)]: { ...s.sets[setKey(ex.id, cur)], ...p, ...(p.w !== undefined ? { pend: false } : {}) } } });
   };
   const complete = async () => {
     if (!s || !ex || cur < 0 || !curRow) return;
     const k = setKey(ex.id, cur);
     const wasDone = curRow.done;
+    // D182: una serie reducida (aproximación, back-off, drop) sin peso del plan no se completa con un peso que nadie eligió.
+    if (curRow.pend && !wasDone) { flash("Elegí el peso de esta serie antes de completarla."); return; }
     const f = wasDone ? curRow.feel ?? null : feel;
     const sets = { ...s.sets, [k]: { ...curRow, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
-    if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done) sets[kk] = { ...sets[kk], w: curRow.w }; }
+    // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
+    if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
     const more = !wasDone && Array.from({ length: ex.sets }, (_, i) => sets[setKey(ex.id, i)]).some((x) => !x.done);
     let restS = setTarget(ex, cur).restSec ?? ex.restSec; // D134: descanso de esta serie (un drop va sin descanso)
     // D137: en una superserie o circuito se alterna solo (A1 → A2 → … → descanso → A1) sin descansar entre ejercicios.
@@ -312,7 +315,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     };
     const sets = { ...s.sets };
     // Otro ejercicio no tiene la misma carga: las series pendientes arrancan de su último registro (o de 0).
-    if (c?.kind === "substitute") for (let i = 0; i < ex.sets; i++) { const k = setKey(ex.id, i); if (!sets[k].done) sets[k] = { ...sets[k], w: prev?.weightKg ?? 0 }; }
+    if (c?.kind === "substitute") for (let i = 0; i < ex.sets; i++) { const k = setKey(ex.id, i); if (!sets[k].done && !isReducedKind(kindAt(ex.detail, i))) sets[k] = { ...sets[k], w: prev?.weightKg ?? 0 }; }
     const exercises = s.exercises.map((e) => (e.id === ex.id ? nextEx : e));
     setSel(null); setRir(null); setFeel(null); setNoteDraft(null);
     await commit({ ...s, exercises, sets });
@@ -422,8 +425,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
             {rows.map((r, i) => (
               <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
-                aria-label={`Serie ${i + 1}: ${kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
-                <span>{i + 1}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}{ex.detail?.setPlan?.[i] && <small className="set-tg">{setTargetText(setTarget(ex, i))}</small>}</span><span>{String(r.w).replace(".", ",")}</span><span>{r.r}</span>
+                aria-label={`Serie ${i + 1}: ${r.pend && !r.done ? "peso por elegir" : kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
+                <span>{i + 1}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}{ex.detail?.setPlan?.[i] && <small className="set-tg">{setTargetText(setTarget(ex, i))}</small>}</span><span>{r.pend && !r.done ? "—" : String(r.w).replace(".", ",")}</span><span>{r.r}</span>
                 <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
               </button>
             ))}
@@ -477,6 +480,18 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         ) : curRow && (!exComplete || sel != null) ? (
           <>
             {!curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
+            {curRow.pend && !curRow.done && (() => {
+              // D182: referencia del método para confirmar (back-off −15 % del top, drop −20 % de la anterior). Nunca se aplica sola.
+              const hint = reducedLoadHint(ex.detail?.setPlan, cur, rows.map((x) => (x.pend && !x.done ? null : x.w)));
+              return (
+                <div className="wo-suggest" role="note">
+                  <small>{setTarget(ex, cur).label ?? "Serie"} · elegí el peso</small>
+                  {hint ? <><b>Referencia: {kg(hint.weightKg, unit)}</b><span>{hint.why}. Es una aproximación: ajustala si hace falta.</span>
+                    <button type="button" className="ghost sm" onClick={() => editCur({ w: hint.weightKg })}>Usar {kg(hint.weightKg, unit)}</button></>
+                    : <span>Esta serie va con menos carga que la principal. Marcá el peso con − y + o tocá el número para escribirlo.</span>}
+                </div>
+              );
+            })()}
             <div className="steppers">
               <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>

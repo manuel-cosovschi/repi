@@ -3,7 +3,7 @@
 // busca entrenando, su check-in y sus marcas previas. Sin la IA (o si tarda o falla) se arma con reglas: cuerpo completo,
 // un ejercicio por grupo, más o menos según los minutos disponibles. No recibe datos de salud, nombre ni email.
 import { and, eq, isNull, or } from "drizzle-orm";
-import { TRAINING_WISH_GOALS, hasWishes, localDate, type TrainingWishes } from "@repi/domain";
+import { TRAINING_WISH_GOALS, checkLoad, hasWishes, localDate, type TrainingWishes } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
@@ -99,7 +99,8 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
         const e = code.get(x.code);
         if (!e || seen.has(e.id)) return [];
         seen.add(e.id);
-        const wk = x.weightKg != null && x.weightKg >= 0 && x.weightKg <= 500 ? Math.round(x.weightKg * 4) / 4 : null;
+        // D182: la carga de la IA pasa por el validador común; acá la regla es «igual o un poco menos» que la última marca.
+        const wk = checkLoad({ proposedKg: x.weightKg, source: "ai", referenceKg: prev.get(e.id)?.weightKg ?? null, blockIncrease: true }).weightKg;
         return [mk(e, Math.min(Math.max(x.sets, 1), 5), (x.reps || repsFor(w?.goal)).slice(0, 20), wk, (x.note ?? "").slice(0, 120))];
       }).slice(0, 8);
       out = exs.length >= 2

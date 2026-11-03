@@ -4,11 +4,11 @@
 // D138: la persona puede responder («la máquina está ocupada», «no hay», «me molesta») y la IA rearma la rutina con esa
 // información, cambiando sólo por alternativas compatibles de la biblioteca (primero las aprobadas por su profe) o salteando.
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
-import { EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, hasWishes, isChangeReason, localDate, type ExerciseChangeReason } from "@repi/domain";
+import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isChangeReason, localDate, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
-import { dayAlternatives, myTraining } from "./services";
+import { dayAlternatives, lastTimeByExercise, myTraining } from "./services";
 import { myGoals } from "./goals";
 import { mySettings } from "../settings/services";
 
@@ -98,19 +98,33 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
   const out = await aiJson<Out>({ name: "rutina_de_hoy", system: SYSTEM, parts: [{ type: "text", text: JSON.stringify(fullCtx) }], schema: schemaFor(!!follow), fast: true, maxTokens: 900, timeoutMs: 15_000 });
   // Validación: sólo días y ejercicios reales del programa; números en rango.
   const day = t.program.days.find((d) => dKey.get(d.id) === out.dayId) ?? next ?? t.program.days[0];
+  // D182: toda carga de la IA pasa por el validador común (load-safety): manda el plan del profe, después la seguridad, la
+  // última marca real y la regla de progresión; la IA queda dentro de esos límites o se descarta. Nunca dos cargas distintas.
+  const refs = await lastTimeByExercise(userId, [...new Set(day.exercises.map((e) => e.exerciseId))]);
+  const refOf = (exerciseId: string) => {
+    const xs = (refs.get(exerciseId)?.sets ?? []).filter((x) => !x.kind || COMPARABLE_KINDS.includes(x.kind));
+    const top = Math.max(0, ...xs.map((x) => x.weightKg ?? 0));
+    return top > 0 ? top : null;
+  };
   const exs = day.exercises.map((e) => {
     const a = out.exercises.find((x) => x.programExerciseId === eKey.get(e.id));
-    const w = a?.weightKg != null && a.weightKg >= 0 && a.weightKg <= 1000 ? Math.round(a.weightKg * 4) / 4 : null;
+    const detail = e.detail as ExerciseDetail | null;
+    const check = !progressionApplies(detail) || coachSetLoads(detail)
+      ? { weightKg: null, status: "rejected" as const, reasons: coachSetLoads(detail) ? ["Carga indicada por tu profe."] : ["Este ejercicio tiene series distintas: la carga de cada una sale del plan."] }
+      : checkLoad({ proposedKg: a?.weightKg ?? null, source: "ai", referenceKg: refOf(e.exerciseId), rulesKg: e.suggest?.weightKg ?? null,
+        blockIncrease: !!e.suggest?.guards?.length || !!ci && (ci.energy <= 2 || ci.sleep <= 2) });
+    const w = check.weightKg;
     // D138: el cambio sólo vale si es una alternativa real de ese ejercicio; el motivo, el que eligió la persona si lo dijo.
     const opt = a?.swapToOption ? alts?.get(e.id)?.[a.swapToOption - 1] ?? null : null;
     const said = follow?.issues.find((i) => i.programExerciseId === e.id)?.reason;
     const reason: ExerciseChangeReason = said ?? (isChangeReason(a?.reason) ? a.reason : "other");
     const skip = !opt && !!a?.skip && !!alts;
     // Otro ejercicio no lleva la carga del original: sin marca propia, sin peso sugerido (la nota dice empezar liviano).
-    const sw = opt ? (opt.prev?.weightKg != null && w != null ? Math.min(w, Math.round(opt.prev.weightKg * 1.1 * 4) / 4) : null) : w;
+    const sw = opt ? (opt.prev?.weightKg != null && a?.weightKg != null ? checkLoad({ proposedKg: Math.min(a.weightKg, opt.prev.weightKg), source: "ai", referenceKg: opt.prev.weightKg, blockIncrease: true }).weightKg : null) : w;
     return { id: e.id, name: e.name, sets: a && a.sets >= 1 && a.sets <= e.sets ? a.sets : e.sets, reps: (a?.reps || e.reps).slice(0, 20), weightKg: skip ? null : sw, note: (a?.note ?? "").slice(0, 120), prev: e.prev,
+      checks: opt || check.status === "ok" ? [] : check.reasons,
       swap: opt ? { exerciseId: opt.exerciseId, name: opt.name, approved: opt.approved, prev: opt.prev } : null, skip, reason: opt || skip ? reason : null };
   });
-  await audit(db, { actorUserId: userId, action: "adaptive.ai_advice", resourceType: "program_day", resourceId: day.id, meta: { model: aiFastModel(), usesAI: true, followUp: !!follow, changes: exs.filter((e) => e.swap || e.skip).length } });
+  await audit(db, { actorUserId: userId, action: "adaptive.ai_advice", resourceType: "program_day", resourceId: day.id, meta: { model: aiFastModel(), usesAI: true, followUp: !!follow, changes: exs.filter((e) => e.swap || e.skip).length, loadChecks: exs.filter((e) => e.checks.length).length } });
   return { dayId: day.id, dayName: day.name, headline: out.headline.slice(0, 80), summary: out.summary.slice(0, 400), caution: out.caution?.slice(0, 200) ?? null, exercises: exs };
 }
