@@ -211,7 +211,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                 {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} />}
               </div>
             )); })()}
-            {!cur.exercises.length && <div className="empty">Agregá ejercicios desde la biblioteca.</div>}
+            {!cur.exercises.length && <div className="empty" role="note">Este día no tiene ejercicios: hasta que los agregues desde la biblioteca, no aparece para empezar (D185).</div>}
             {issues.length > 0 && (
               <div className="err-box" role="alert">
                 Circuito {issues[0].group}: {issues[0].rounds} vueltas, pero {issues.map((x) => `${x.exercise} tiene ${x.blocks} ${x.blocks === 1 ? "serie" : "series"}`).join(" y ")}. Las vueltas tienen que coincidir para guardar.
