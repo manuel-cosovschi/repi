@@ -426,6 +426,12 @@ export const setLog = pgTable("set_log", {
   rir: integer("rir"),
   feel: text("feel"), // sensación de la serie (pedido 26/10): facil|bien|dificil|limite|molestia|ayuda
   note: text("note"), // nota de la persona sobre esta serie (F-HX-21, D106); la ve su coach en la relación
+  // D183: copia de la prescripción al registrar (serie principal y etapa). Nulos en registros anteriores: se deducen de la
+  // versión congelada con `rowRef` (stages.ts). No reemplazan a `set_index`, que sigue siendo la clave de sincronización.
+  specId: text("spec_id"), // identidad estable de la fila del plan («r0» para planes sin identidad)
+  setKind: text("set_kind"), // tipo: work, warmup, top, backoff, drop, rest_pause, cluster, amrap, failure
+  blockIndex: integer("block_index"), // serie principal (desde 0)
+  stageIndex: integer("stage_index"), // 0 = principal; 1..K = etapa conectada
   completedAt: ts("completed_at").notNull(),
   revision: integer("revision").notNull().default(1),
   updatedAt: now("updated_at"),

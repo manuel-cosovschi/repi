@@ -4,33 +4,43 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   CHALLENGE_DIFFICULTY, EMPTY_STATS, TIER_LABEL, XP, isDifficulty, TROPHIES, TROPHY_TIERS, isFullBody, levelFromXp, localDate, trophySource, trophyState, trophyUnit, weekOf, xpBreakdown, xpOf,
-  type LevelStats,
+  type LevelStats, volumeKg,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { grant } from "./services";
+import { timedPeIds, toLogged } from "../training/services";
 
 const { achievement, workoutSession, setLog, exercise, challenge } = schema;
 
 /** Estadísticas que alimentan el nivel y los trofeos. */
 export async function levelStats(userId: string): Promise<LevelStats> {
-  const rows = await db.select({
-    session: workoutSession.id, at: workoutSession.startedAt, ex: setLog.exerciseId, group: exercise.muscleGroup,
-    top: sql<string | null>`max(nullif(${setLog.weightKg}, '')::numeric)::text`,
-    vol: sql<string>`coalesce(sum(nullif(${setLog.weightKg}, '')::numeric * coalesce(${setLog.reps}, 0)), 0)::text`,
-  }).from(setLog)
+  // D183: el volumen sale de la misma definición que el resumen (sin aproximación, sin series por tiempo ni rondas): antes se
+  // sumaba peso × segundos en las series por tiempo (QA DATA-6) y contaban los calentamientos.
+  const logs = await db.select({ session: workoutSession.id, at: workoutSession.startedAt, ex: setLog.exerciseId, group: exercise.muscleGroup, l: setLog }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
     .innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
     .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed")))
-    .groupBy(workoutSession.id, workoutSession.startedAt, setLog.exerciseId, exercise.muscleGroup)
     .orderBy(workoutSession.startedAt);
+  const plan = await timedPeIds(logs.map((r) => r.l.programExerciseId));
+  type Row = { session: string; at: Date; ex: string; group: string; top: number; vol: number };
+  const grouped = new Map<string, Row>();
+  for (const r of logs) {
+    const k = `${r.session}:${r.ex}`;
+    const g = grouped.get(k) ?? { session: r.session, at: r.at, ex: r.ex, group: r.group, top: 0, vol: 0 };
+    const x = toLogged(r.l, plan);
+    g.vol += volumeKg([x]);
+    if (!x.timed && !x.warmup && !x.rounds && x.weightKg) g.top = Math.max(g.top, x.weightKg);
+    grouped.set(k, g);
+  }
+  const rows = [...grouped.values()];
   const s: LevelStats = { ...EMPTY_STATS };
   const days = new Set<string>(), seen = new Set<string>(), best = new Map<string, number>(), weeks = new Map<string, Set<string>>();
   let kg = 0;
   for (const r of rows) {
     days.add(localDate(r.at));
     seen.add(r.ex);
-    kg += Number(r.vol);
-    const top = r.top == null ? 0 : Number(r.top);
+    kg += r.vol;
+    const top = r.top;
     if (top > 0) {
       const prev = best.get(r.ex);
       if (prev != null && top > prev) s.prs++; // la primera vez marca la referencia, no es récord

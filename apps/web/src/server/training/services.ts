@@ -5,6 +5,7 @@ import {
   weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
   applyLoad, coachSetLoads, suggestNext, type LastSet, workoutAutoClose, WORKOUT_IDLE_CLOSE_MS,
   progressionApplies, kindAt, GENERAL_PAIN_DAYS, PAIN_LOOKBACK_DAYS, type SafetySignals, exerciseKey,
+  rowFlags, rowRef, sessionMetrics, exerciseComplete, type SetKind,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -187,7 +188,9 @@ export async function saveProgram(actorId: string, orgId: string, programId: str
     const [p] = await tx.select().from(program).where(and(eq(program.id, programId), eq(program.orgId, orgId), isNull(program.archivedAt))).for("update");
     if (!p?.currentVersionId) throw NOT_FOUND();
     const cur = await readVersion(p.currentVersionId, tx);
-    if (sameDoc(plain(cur.doc), v.doc)) return { version: cur.version.number, created: false };
+    // D183: lo guardado se normaliza igual que lo nuevo (identidad y bloques de planes anteriores): sin cambios reales, sin versión nueva.
+    const before = validateProgramDoc(plain(cur.doc));
+    if (sameDoc(before.ok ? before.doc : plain(cur.doc), v.doc)) return { version: cur.version.number, created: false };
     if (cur.version.locked) {
       const nv = await newVersion(tx, p.id, cur.version.number + 1, v.doc, actorId);
       await audit(tx, { actorUserId: actorId, orgId, action: "program.versioned", resourceType: "program", resourceId: p.id, meta: { version: nv.number } });
@@ -439,13 +442,25 @@ export async function setClientStatus(actorId: string, orgId: string, coachClien
 }
 
 // ── Alumno ──────────────────────────────────────────────────────────────────
-export const toLogged = (s: typeof setLog.$inferSelect, timed?: ReadonlySet<string>): LoggedSet => ({ exerciseId: s.exerciseId, weightKg: s.weightKg == null ? null : Number(s.weightKg), reps: s.reps, completed: true, at: s.completedAt.toISOString(), timed: timed?.has(s.programExerciseId) || undefined });
-/** Ejercicios del programa con prescripción por tiempo (D148): sus series guardan segundos en `reps` (QA DATA-6). */
-export async function timedPeIds(peIds: Iterable<string>): Promise<Set<string>> {
+/**
+ * Serie registrada → serie para métricas. D183: `timed` puede traer la clasificación por fila (`flags`, de `timedPeIds`):
+ * aproximación, series por tiempo y AMRAP en rondas no suman volumen ni récords (metrics.ts).
+ */
+export const toLogged = (s: typeof setLog.$inferSelect, timed?: PlanIndex): LoggedSet => {
+  const f = timed?.flags?.(s.programExerciseId, s.setIndex);
+  return { exerciseId: s.exerciseId, weightKg: s.weightKg == null ? null : Number(s.weightKg), reps: s.reps, completed: true, at: s.completedAt.toISOString(),
+    timed: (f ? f.timed : timed?.has(s.programExerciseId)) || undefined, warmup: f?.warmup || undefined, rounds: f?.rounds || undefined };
+};
+/** Ejercicios del programa con su plan: `has` = prescripción por tiempo (D148, QA DATA-6); `flags` = qué es cada fila (D183). */
+export type PlanIndex = ReadonlySet<string> & { flags?: (peId: string, setIndex: number) => ReturnType<typeof rowFlags> };
+export async function timedPeIds(peIds: Iterable<string>): Promise<PlanIndex> {
   const ids = [...new Set(peIds)];
   if (!ids.length) return new Set();
-  const rows = await db.select({ id: programExercise.id, reps: programExercise.reps }).from(programExercise).where(inArray(programExercise.id, ids));
-  return new Set(rows.filter((r) => parseReps(r.reps).kind === "time").map((r) => r.id));
+  const rows = await db.select({ id: programExercise.id, reps: programExercise.reps, sets: programExercise.sets, detail: programExercise.detail }).from(programExercise).where(inArray(programExercise.id, ids));
+  const byId = new Map(rows.map((r) => [r.id, { sets: r.sets, reps: r.reps, detail: r.detail as ExerciseDetail | null }]));
+  const out = new Set(rows.filter((r) => parseReps(r.reps).kind === "time").map((r) => r.id)) as Set<string> & { flags?: PlanIndex["flags"] };
+  out.flags = (peId, i) => { const e = byId.get(peId); return e ? rowFlags(e, i) : { kind: "work" as SetKind, block: i, stage: 0, timed: false, warmup: false, rounds: false, durationSec: null }; };
+  return out;
 }
 
 /** Relación de entrenamiento: coach privado o programa institucional del gym. Cada una con sus datos y permisos propios. */
@@ -528,13 +543,13 @@ export async function lastTimeByExercise(userId: string, exerciseIds: string[], 
   if (!latest.length) return out;
   // D182: con la sensación de cada serie, su tipo según el plan de esa sesión (versión congelada) y las repeticiones indicadas.
   const rows = await db.select({ exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, idx: setLog.setIndex, w: setLog.weightKg, r: setLog.reps, rir: setLog.rir, feel: setLog.feel,
-    peReps: programExercise.reps, detail: programExercise.detail })
+    peReps: programExercise.reps, detail: programExercise.detail, setKind: setLog.setKind })
     .from(setLog).innerJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(inArray(setLog.sessionId, [...new Set(latest.map((l) => l.sessionId))]), inArray(setLog.exerciseId, exerciseIds))).orderBy(asc(setLog.setIndex));
   for (const l of latest) {
     const mine = rows.filter((x) => x.sessionId === l.sessionId && x.exerciseId === l.exerciseId);
     out.set(l.exerciseId, { at: l.at, reps: mine[0]?.peReps ?? null, sets: mine.map((x) => ({ weightKg: x.w == null ? null : Number(x.w), reps: x.r, rir: x.rir, feel: x.feel,
-      kind: kindAt(x.detail as ExerciseDetail | null, x.idx) })) });
+      kind: (x.setKind as SetKind | null) ?? kindAt(x.detail as ExerciseDetail | null, x.idx) })) }); // D183: el tipo guardado al registrar, o el de la versión
   }
   return out;
 }
@@ -890,7 +905,10 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
       [pe] = await tx.select().from(programExercise).where(eq(programExercise.id, p.programExerciseId));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     if (!Number.isInteger(p.setIndex) || p.setIndex < 0 || p.setIndex >= pe.sets) throw new AccessError("invalid", "Esa serie no está prescripta.");
-    if (p.reps != null && p.reps > MAX_REPS && parseReps(pe.reps).kind !== "time") throw new AccessError("invalid", "Las repeticiones no son válidas.");
+    // D183: la fila del plan dice si son segundos (serie por tiempo) o un total de un AMRAP por tiempo; si no, el tope es 200.
+    const flags = rowFlags({ sets: pe.sets, reps: pe.reps, detail: pe.detail as ExerciseDetail | null }, p.setIndex);
+    if (p.reps != null && p.reps > MAX_REPS && !flags.timed && !flags.durationSec) throw new AccessError("invalid", "Las repeticiones no son válidas.");
+    const ref = rowRef(pe.detail as ExerciseDetail | null, pe.sets, p.setIndex);
     const [ex] = await tx.select().from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, pe.id), eq(setLog.setIndex, p.setIndex))).for("update");
     const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel, note: ex.note } : null;
     // Sin baseRevision (edición en línea inmediata) se asume la revisión vigente del mismo registro.
@@ -911,7 +929,8 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     const [chg] = d.kind === "insert" ? await tx.select({ sub: sessionExerciseChange.substituteExerciseId }).from(sessionExerciseChange)
       .where(and(eq(sessionExerciseChange.sessionId, sessionId), eq(sessionExerciseChange.programExerciseId, pe.id))) : [];
     const [row] = d.kind === "insert"
-      ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: chg?.sub ?? pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, note, completedAt: at }).returning()
+      ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: chg?.sub ?? pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, note, completedAt: at,
+        specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null }).returning()
       : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, note, revision: ex!.revision + 1, updatedAt: now }).where(eq(setLog.id, ex!.id)).returning();
     await tx.update(workoutSession).set({ updatedAt: now }).where(eq(workoutSession.id, sessionId));
     // Sólo una sensación nueva que pide atención dispara aviso al piso (y sólo en el programa del gym).
@@ -1157,16 +1176,18 @@ export async function sessionFeedback(userId: string, sessionId: string, p: { rp
   return { ok: true };
 }
 
-const isTimed = (e: { reps: string }) => parseReps(e.reps).kind === "time" || undefined;
-
 /** Resumen derivado de series persistidas: nada de valores fijos (C25). */
 export async function sessionSummary(userId: string, sessionId: string) {
   const s = await getSession(userId, sessionId);
   // Un ejercicio salteado cuenta como resuelto (no completo); las series hechas con un reemplazo cuentan para el reemplazo.
-  const exDone = s.exercises.filter((e) => e.logs.length >= e.sets).length;
-  const exSkipped = s.exercises.filter((e) => e.change?.kind === "skip" && e.logs.length < e.sets).length;
-  const setsDone = s.exercises.reduce((a, e) => a + e.logs.length, 0);
-  const setsTotal = s.exercises.reduce((a, e) => a + e.sets, 0);
+  // D183: «completo» = todas sus series principales registradas (una etapa omitida no lo deja incompleto). Las series que se
+  // muestran son las principales; etapas y aproximación van aparte (metrics.ts).
+  const full = (e: (typeof s.exercises)[number]) => exerciseComplete(e as { sets: number; reps: string; detail: ExerciseDetail | null }, (k) => e.logs.some((l) => l.setIndex === k));
+  const exDone = s.exercises.filter(full).length;
+  const exSkipped = s.exercises.filter((e) => e.change?.kind === "skip" && !full(e)).length;
+  const metrics = sessionMetrics(s.exercises.map((e) => ({ ex: e as { sets: number; reps: string; detail: ExerciseDetail | null }, logs: e.logs })));
+  const setsDone = metrics.mainDone + metrics.warmupDone;
+  const setsTotal = metrics.mainPlanned + metrics.warmupPlanned;
   const prs = [];
   for (const e of s.exercises) {
     for (const exId of new Set(e.logs.map((l) => l.exerciseId))) {
@@ -1175,7 +1196,8 @@ export async function sessionSummary(userId: string, sessionId: string) {
         .where(and(eq(workoutSession.userId, userId), eq(setLog.exerciseId, exId), ne(workoutSession.id, s.id), lt(setLog.completedAt, s.startedAt),
           inArray(workoutSession.status, ["completed"])));
       const timedBefore = await timedPeIds(before.map((b) => b.l.programExerciseId));
-      const pr = detectPR(before.map((b) => toLogged(b.l, timedBefore)), mine.map((l) => ({ exerciseId: exId, weightKg: l.weightKg, reps: l.reps, completed: true, timed: isTimed(e) })));
+      const cur = (l: (typeof mine)[number]) => rowFlags(e as { sets: number; reps: string; detail: ExerciseDetail | null }, l.setIndex);
+      const pr = detectPR(before.map((b) => toLogged(b.l, timedBefore)), mine.map((l) => ({ exerciseId: exId, weightKg: l.weightKg, reps: l.reps, completed: true, timed: cur(l).timed || undefined, warmup: cur(l).warmup || undefined, rounds: cur(l).rounds || undefined })));
       if (pr) {
         const prevAt = before.map((b) => b.l).find((l) => Number(l.weightKg) === pr.previous.weightKg && l.reps === pr.previous.reps)?.completedAt ?? null;
         prs.push({ exercise: exId === e.exerciseId ? e.name : e.change?.substitute?.name ?? e.name, ...pr, previousAt: prevAt });
@@ -1183,8 +1205,8 @@ export async function sessionSummary(userId: string, sessionId: string) {
     }
   }
   return {
-    ...s, exDone, exSkipped, exTotal: s.exercises.length, setsDone, setsTotal, prs,
-    volumeKg: volumeKg(s.exercises.flatMap((e) => e.logs.map((l) => ({ exerciseId: l.exerciseId, weightKg: l.weightKg, reps: l.reps, completed: true, timed: isTimed(e) })))),
+    ...s, exDone, exSkipped, exTotal: s.exercises.length, setsDone, setsTotal, prs, metrics,
+    volumeKg: metrics.tonnageKg,
   };
 }
 
@@ -1195,7 +1217,9 @@ export async function myHistory(userId: string) {
   const timed = await timedPeIds(sets.map((x) => x.programExerciseId));
   return sessions.map((s) => {
     const ss = sets.filter((x) => x.sessionId === s.id);
-    return { id: s.id, dayName: s.dayName, endedAt: s.endedAt, durationSec: Math.floor(s.activeMs / 1000), sets: ss.length, volumeKg: volumeKg(ss.map((x) => toLogged(x, timed))), rpe: s.rpe };
+    // D183: «series» = series principales hechas (sin etapas conectadas ni aproximación).
+    const main = ss.filter((x) => { const f = timed.flags?.(x.programExerciseId, x.setIndex); return !f || (f.stage === 0 && !f.warmup); }).length;
+    return { id: s.id, dayName: s.dayName, endedAt: s.endedAt, durationSec: Math.floor(s.activeMs / 1000), sets: main, volumeKg: volumeKg(ss.map((x) => toLogged(x, timed))), rpe: s.rpe };
   });
 }
 
