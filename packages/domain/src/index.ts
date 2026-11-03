@@ -27,3 +27,4 @@ export * from "./stages";
 export * from "./metrics";
 export * from "./execution";
 export * from "./method-detect";
+export * from "./exercise-guess";
