@@ -2,6 +2,13 @@
 
 Actualizado: 03/11/2026 (hasta D184), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+## Arreglo urgente D185 también en esta rama — 03/11/2026
+
+- El arreglo del día sin ejercicios (PR #5 sobre `main`; detalle en su bitácora) está incorporado acá con cherry-pick. También el del descanso que volvía: si la respuesta de la sincronización llegaba justo después de «Saltar descanso», la copia anterior lo volvía a poner (lo encontró `connected-stages` en escritorio).
+- **Pruebas en esta rama:** web 310 ✓ en 53 archivos; E2E 49 ✓ y 1 omitida.
+  - `connected-stages` pasó 8 de 8 repeticiones.
+  - Al repetir la importación se agota el límite de 12 por hora (se guarda en la base). Para repetirla en local, vaciá `app_rate_limit` en `repi_dev`.
+
 ## Cierre del bloque 02/06 · Métodos en todos los orígenes y ejecución entre dispositivos (D184) — 03/11/2026
 
 - **Pedido:** «Cierre definitivo del bloque 02/06» sobre el PR #4. Misma rama `feat/repi-connected-training-methods`; sigue encadenado sobre el PR #3. **Sin desplegar ni integrar; sin tocar producción.** Referencia: `docs/METODOS_Y_ETAPAS.md` (secciones Orígenes, Ejecución, API, 0041 y relleno de 0040).

@@ -153,8 +153,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         if (mine && (!v.done || (mine.done && !v.done)) && (mine.w !== v.w || mine.r !== v.r || mine.done !== v.done)) { kept = true; return [k, mine]; }
         return [k, v];
       }));
-      if (!kept) return fresh;
-      const merged = { ...fresh, sets };
+      // D185: el descanso es sólo de esta pantalla y la sincronización nunca lo cambia. Una copia leída antes de «Saltar
+      // descanso» (la respuesta de la serie llegó justo después) lo volvía a poner y el descanso «volvía».
+      const restMoved = JSON.stringify(cur.rest ?? null) !== JSON.stringify(fresh.rest ?? null);
+      if (!kept && !restMoved) return fresh;
+      const merged = { ...fresh, sets, rest: cur.rest ?? null };
       void putLocal(merged);
       return merged;
     });
