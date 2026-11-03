@@ -195,7 +195,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                 {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} />}
               </div>
             )); })()}
-            {!cur.exercises.length && <div className="empty">Agregá ejercicios desde la biblioteca.</div>}
+            {!cur.exercises.length && <div className="empty" role="note">Este día no tiene ejercicios: hasta que los agregues desde la biblioteca, no aparece para empezar (D185).</div>}
             <label className="field">Indicación para el cliente<textarea className="note" rows={2} value={doc.note} maxLength={1000} onChange={(e) => edit((d) => ({ ...d, note: e.target.value }))} /></label>
           </section>
         ) : (

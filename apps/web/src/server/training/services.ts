@@ -611,7 +611,9 @@ export async function myTraining(userId: string, now = new Date()) {
     const [d] = await db.select({ position: programDay.position }).from(programDay).where(eq(programDay.id, lastDone.dayId));
     lastIdx = d && dayIds[d.position] ? dayIds[d.position] : null;
   }
-  const next = nextDayIndex(dayIds, lastIdx);
+  // D185: la rotación saltea los días sin ejercicios (empezarlos dejaba un entrenamiento vacío abierto).
+  let next = nextDayIndex(dayIds, lastIdx);
+  for (let k = 0; k < doc.days.length && next >= 0 && !doc.days[next].exercises.length; k++) next = (next + 1) % doc.days.length;
   // F-CL-14: programa nuevo o actualizado, con autor. Cada asignación arranca en la versión 1 de su copia: una versión
   // nueva (si ya se entrenó con la anterior) o una edición en el lugar (si todavía no) cuentan como actualización.
   // Margen de 60 s: en asignaciones anteriores la hora de la copia y la de la asignación salían de relojes distintos.
@@ -699,6 +701,9 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
     const [day] = await tx.select({ d: programDay }).from(programDay).innerJoin(programVersion, eq(programVersion.id, programDay.versionId))
       .where(and(eq(programDay.id, p.dayId), eq(programVersion.programId, act.assignment!.programId)));
     if (!day) throw new AccessError("invalid", "Ese día no es parte de tu programa actual.");
+    // D185: un día sin ejercicios no se empieza (quedaba un entrenamiento abierto que la app no podía mostrar).
+    const [{ n: exCount }] = await tx.select({ n: sql<number>`count(*)::int` }).from(programExercise).where(eq(programExercise.dayId, day.d.id));
+    if (!exCount) throw new AccessError("empty_day", `«${day.d.name}» todavía no tiene ejercicios. Avisale a tu coach o elegí otro día.`, 409);
     const [openS] = await tx.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"]))).for("update");
     if (openS) {
       const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(setLog).where(eq(setLog.sessionId, openS.id));
