@@ -11,6 +11,7 @@ import { requireGymAction } from "../gym/access-control";
 import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "./library";
 import { todaysPick } from "../gym/floor-now";
 import { importedLastSets } from "./history-import";
+import { aiOn } from "../ai/openai";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
   programDay, programExercise, programAssignment, workoutSession, setLog, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest } = schema;
@@ -580,6 +581,9 @@ export async function myTraining(userId: string, now = new Date()) {
   const base = {
     userId, firstName: (u?.name ?? "").split(" ")[0], coach: act?.kind === "coach" ? { name: act.name, org: act.place } : null,
     relation, relations, today: localDate(now), week, weightUnit: pref?.weightUnit ?? ("kg" as const),
+    // D184: si la sugerencia de REPI está configurada en este servidor. Sin ella el teléfono no la pide por adelantado (antes
+    // cada apertura de Entrenar terminaba en un 503 esperado) y «No vino el profe» usa las reglas, como siempre.
+    ai: aiOn(),
   };
   const open = await db.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"])));
   const completed = await db.select({ endedAt: workoutSession.endedAt, dayId: workoutSession.dayId, id: workoutSession.id }).from(workoutSession)

@@ -22,3 +22,4 @@ export * from "./wishes";
 export * from "./progression";
 export * from "./routine-import";
 export * from "./levels";
+export * from "./exercise-guess";

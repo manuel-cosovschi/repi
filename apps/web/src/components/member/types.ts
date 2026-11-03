@@ -3,6 +3,7 @@ export type PrevSet = { weightKg: number | null; reps: number | null } | null;
 export type TrainEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; prev: PrevSet; detail?: ExerciseDetail | null; suggest?: Suggestion | null };
 export type Training = {
   userId: string; firstName: string; coach: { name: string; org: string } | null; today: string; week: string[]; weightUnit?: WeightUnit;
+  ai?: boolean; // D184: la sugerencia de REPI está disponible en el servidor
   relation: { id: string; kind: "coach" | "gym"; name: string; org: string; orgId?: string } | null;
   relations: { id: string; kind: "coach" | "gym"; name: string; org: string; hasProgram: boolean }[];
   state: "no_program" | "scheduled" | "ready"; startsOn?: string; openSession: string | null; openSessionDay: string | null;

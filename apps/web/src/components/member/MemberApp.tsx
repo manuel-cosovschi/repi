@@ -596,7 +596,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
-      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} />}
+      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (
