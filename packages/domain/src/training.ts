@@ -1,4 +1,5 @@
 import { validateDetail, type ExerciseDetail } from "./prescription";
+import { MAX_PLAN_ROWS, circuitIssues } from "./stages";
 // Reglas de programación y ejecución de entrenamientos (Etapa 2).
 // Fuentes: REPI Desktop Coach.dc.html (constructor: series, reps, RIR, descanso) y
 // REPI App Alumno v4.dc.html (sesión activa, descanso, resumen). Fórmulas documentadas en docs/DECISIONS.md.
@@ -46,7 +47,10 @@ export const stepReps = (r: number, dir: 1 | -1) => Math.max(0, r + dir);
  * D148: control propio de la serie en curso. Series por tiempo («40 s»): cronómetro con el objetivo; AMRAP o al fallo:
  * contador de repeticiones con un toque. El resultado se guarda igual que siempre (segundos o repeticiones en `reps`).
  */
-export function setControl(t: { kind?: string | null; reps: string }): { mode: "time"; seconds: number } | { mode: "amrap" } | null {
+export function setControl(t: { kind?: string | null; reps: string; durationSec?: number | null; countUnit?: "reps" | "rounds" | null }):
+  { mode: "time"; seconds: number } | { mode: "amrap" } | { mode: "amrap_time"; seconds: number; unit: "reps" | "rounds" } | null {
+  // D183: AMRAP por tiempo: cuenta regresiva con la duración y contador de rondas o repeticiones.
+  if (t.kind === "amrap" && t.durationSec) return { mode: "amrap_time", seconds: t.durationSec, unit: t.countUnit === "reps" ? "reps" : "rounds" };
   const r = parseReps(t.reps);
   if (r.kind === "time") return { mode: "time", seconds: r.seconds };
   if (t.kind === "amrap" || t.kind === "failure" || /amrap|fallo|m[aá]x/i.test(t.reps)) return { mode: "amrap" };
@@ -62,14 +66,18 @@ export function epley1rm(weightKg: number, reps: number): number | null {
   return reps === 1 ? weightKg : Math.round(weightKg * (1 + reps / 30) * 10) / 10;
 }
 
-/** `timed`: serie por tiempo (D148): `reps` son segundos, no cuentan para 1RM ni volumen (QA DATA-6). */
-export type LoggedSet = { exerciseId: string; weightKg: number | null; reps: number | null; completed: boolean; at?: string; timed?: boolean };
+/**
+ * `timed`: serie por tiempo (D148): `reps` son segundos, no cuentan para 1RM ni volumen (QA DATA-6).
+ * D183: `warmup` (aproximación) y `rounds` (AMRAP por tiempo contado en rondas) tampoco cuentan (metrics.ts).
+ */
+export type LoggedSet = { exerciseId: string; weightKg: number | null; reps: number | null; completed: boolean; at?: string; timed?: boolean; warmup?: boolean; rounds?: boolean };
+const counts = (s: LoggedSet) => s.completed && !s.timed && !s.warmup && !s.rounds;
 
 /** Mejor 1RM estimado de un conjunto de series completadas para un ejercicio. */
 export function bestE1rm(sets: LoggedSet[]): { e1rm: number; weightKg: number; reps: number } | null {
   let best: { e1rm: number; weightKg: number; reps: number } | null = null;
   for (const s of sets) {
-    if (!s.completed || s.timed || s.weightKg == null || s.reps == null) continue;
+    if (!counts(s) || s.weightKg == null || s.reps == null) continue;
     const e = epley1rm(s.weightKg, s.reps);
     if (e != null && (!best || e > best.e1rm)) best = { e1rm: e, weightKg: s.weightKg, reps: s.reps };
   }
@@ -87,9 +95,9 @@ export function detectPR(previous: LoggedSet[], current: LoggedSet[]) {
   return { current: cur, previous: prev };
 }
 
-/** Volumen = Σ peso × reps de series completadas con carga (documentado en F-CL-06). */
+/** Volumen (tonelaje) = Σ peso × reps de series completadas con carga (F-CL-06), sin aproximación ni series por tiempo (D183). */
 export const volumeKg = (sets: LoggedSet[]) =>
-  Math.round(sets.reduce((a, s) => a + (s.completed && !s.timed && s.weightKg && s.reps ? s.weightKg * s.reps : 0), 0) * 10) / 10;
+  Math.round(sets.reduce((a, s) => a + (counts(s) && s.weightKg && s.reps ? s.weightKg * s.reps : 0), 0) * 10) / 10;
 
 /** Duración activa: tiempo acumulado + tramo en curso si no está en pausa. */
 export function activeSeconds(activeMs: number, lastResumedAt: Date | string | null, now: Date) {
@@ -170,12 +178,16 @@ export function validateProgramDoc(doc: ProgramDoc): { ok: true; doc: ProgramDoc
       if (!e.exerciseId) return { ok: false, error: `${dn}: ejercicio sin referencia a la biblioteca.` };
       const det = validateDetail(e.detail, e.sets); // con plan serie por serie, las series salen del plan
       if (!det.ok) return { ok: false, error: `${dn} · ${e.name}: ${det.error}` };
-      if (!Number.isInteger(det.sets) || det.sets < 1 || det.sets > PROGRAM_LIMITS.sets) return { ok: false, error: `${dn} · ${e.name}: las series van de 1 a 20.` };
+      // D183: con plan, `sets` son las filas registrables (series principales + etapas, hasta 40); las series principales, hasta 20.
+      if (!Number.isInteger(det.sets) || det.sets < 1 || det.sets > (det.detail?.setPlan ? MAX_PLAN_ROWS : PROGRAM_LIMITS.sets)) return { ok: false, error: `${dn} · ${e.name}: las series van de 1 a 20.` };
       if (!e.reps?.trim()) return { ok: false, error: `${dn} · ${e.name}: indicá las repeticiones.` };
       if (e.rir != null && (!Number.isInteger(e.rir) || e.rir < 0 || e.rir > PROGRAM_LIMITS.rir)) return { ok: false, error: `${dn} · ${e.name}: el RIR va de 0 a 5.` };
       if (!Number.isInteger(e.restSec) || e.restSec < 0 || e.restSec > PROGRAM_LIMITS.restSec) return { ok: false, error: `${dn} · ${e.name}: el descanso va de 0:00 a 15:00.` };
       exercises.push({ exerciseId: e.exerciseId, name: e.name.trim(), sets: det.sets, reps: e.reps.trim(), rir: e.rir ?? null, restSec: e.restSec, note: e.note?.trim() || null, ...(det.detail ? { detail: det.detail } : {}) });
     }
+    // D183: las vueltas de un circuito gobiernan la ejecución: cada ejercicio tiene que tener una serie por vuelta.
+    const bad = circuitIssues(exercises)[0];
+    if (bad) return { ok: false, error: `${dn}: el circuito ${bad.group} tiene ${bad.rounds} ${bad.rounds === 1 ? "vuelta" : "vueltas"}, pero ${bad.exercise} tiene ${bad.blocks} ${bad.blocks === 1 ? "serie" : "series"}. Igualalas en «Series y técnica».` };
     days.push({ name: dn, exercises });
   }
   return { ok: true, doc: { name, weeks: doc.weeks, note: (doc.note ?? "").trim(), days } };
