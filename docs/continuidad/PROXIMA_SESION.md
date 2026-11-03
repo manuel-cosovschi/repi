@@ -1,6 +1,45 @@
 # REPI — Retomar acá
 
-Actualizado: 03/11/2026 (hasta D182), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 03/11/2026 (hasta D183), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Bloque 02/06 · Series principales con etapas conectadas (D183) — 03/11/2026
+
+- **Pedido:** master prompt 02/06 (métodos avanzados, etapas conectadas, métricas). Rama `feat/repi-connected-training-methods` desde `fix/repi-p0-training-safety` `225ec0c` (PR #3); PR encadenado en borrador con base en esa rama. **Sin desplegar ni integrar.** Referencia técnica: `docs/METODOS_Y_ETAPAS.md`.
+- **Decisión vigente del producto:** el control de ingreso presencial queda en pausa. No se tocó su código ni su configuración; con el control apagado (por gimnasio o con `NEXT_PUBLIC_REPI_FEATURES=-gym_access`) el entrenamiento no pide QR ni pase (pruebas en `connected-methods.test.ts`). Smart sigue con el control encendido en producción: apagarlo en REPI Admin o con el interruptor general (requiere redeploy) es una acción pendiente del titular.
+- **Código:**
+  - Dominio:
+    - `stages.ts` (nuevo): `normalizePlan`, `planBlocks`, `rowRef`, `applyMethod`, `comboStep`, `circuitIssues`, `resizeBlocks` y `syncCircuit`.
+    - `metrics.ts` (nuevo).
+    - `prescription.ts`: tipos v2, `validateDetail`, `setTarget` con etapa, y `presetPlan` y `comboNext` delegando en el modelo nuevo.
+    - `training.ts`: volumen sin aproximación ni rondas, `setControl` con AMRAP por tiempo y validación de circuitos.
+  - Servidor:
+    - `training/services.ts`: `logSet` guarda la etapa; `timedPeIds` clasifica cada fila; el resumen y el historial usan `metrics`; la comparación de versiones se normaliza.
+    - `community/levels.ts` y `club.ts`.
+    - `sandbox/services.ts`: la demo trae drops en la última serie de un ejercicio por día.
+  - App:
+    - `coach/ExerciseDetailEditor.tsx`, con su lógica reescrita sobre los componentes actuales.
+    - `coach/ProgramBuilder.tsx` y `gym/Members.tsx` (sincronización de circuitos).
+    - `member/Workout.tsx`, `SetControl.tsx` (AMRAP por tiempo) y `types.ts`.
+    - `lib/offline/store.ts` (`skip`, `iv`, `keepLocalOnly`).
+    - Estilos sólo con tokens.
+- **Migración:** `0040_set_log_stage.sql`: 4 columnas nulas en `set_log`, sin relleno. Aplicada sólo en `repi_test` y `repi_dev` locales; **no en producción**. El relleno histórico es opcional y no se ejecutó.
+- **Pruebas:**
+  - Dominio: 224 ✓ (antes 191; nuevas `stages.test.ts` y `metrics.test.ts`).
+  - App: 290 ✓ (antes 278; nueva `connected-methods.test.ts` con los escenarios A–F, persistencia y permisos, más casos offline en `prefill.test.ts`).
+  - Guardas 11 ✓, typecheck ✓ y build ✓.
+  - E2E local (Chromium, build de producción, demo):
+    - Nuevos `connected-stages.spec.ts` (drop set con una etapa sin conexión, cortar la serie y recargar sin duplicar) y `coach-methods.spec.ts` (aplicar a la última serie con vista previa, deshacer, arrastrar sin cerrar, confirmar al descartar): ✓ en móvil y escritorio.
+    - Suite completa: 40 ✓ y 2 ✗. Las dos fallas son «cada pestaña abre sin errores», por el 503 de `/api/me/solo/ai` sin `OPENAI_API_KEY` (ambiental, igual que en 01/06).
+  - No probado en dispositivos reales.
+- **Hallazgo menor (no resuelto):** en la demo, a 412 px de ancho, la pastilla «Otro perfil» tapa «Saltar descanso». Sólo pasa en la demo.
+- **Límites conocidos:**
+  - Una etapa omitida es local: otro dispositivo la ve pendiente.
+  - El intervalo EMOM empieza con «Empezar el intervalo» y no sobrevive a otro dispositivo.
+  - Las rutinas importadas y las propias no tienen métodos (texto libre como «12-10-9»).
+  - La recomendación por etapa es del bloque 04/06.
+  - El rediseño visual de la sesión es del bloque 05/06.
+  - La adaptación a temas es del bloque 03/06 (componentes nuevos: `.dx-apply`, `.dx-preview`, `.dx-review`, `.dx-stage`, `.setblock`, `.setrow.stage`, `.wo-stage` y el AMRAP por tiempo de `SetControl`).
+- **Próxima acción:** revisar los PR #3 y este en orden (#3 primero). Después, bloque 03/06 (temas).
 
 ## Bloque 01/06 · Cargas seguras e integridad (D182) — 03/11/2026
 
