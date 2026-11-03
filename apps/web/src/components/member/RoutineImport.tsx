@@ -4,7 +4,8 @@
 // cambiar nada. Antes de guardar se revisa: nombres de los días, ejercicios, series, reps y peso, y los ejercicios que no están
 // en la biblioteca se eligen a mano, se crean (D163, sólo para la persona) o se quitan. Después cada día se edita como cualquier rutina propia.
 import { useRef, useState } from "react";
-import { kgTo, parseWeightIn } from "@repi/domain";
+import { cleanDecimalDraft, kgTo, parseWeightIn } from "@repi/domain";
+import { IntInput } from "@/components/ui/IntInput";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 import { readImportFile, type ImportBody } from "./HistoryImport";
@@ -97,10 +98,10 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
                 {!e.name && <small className="mb-muted">No está en la biblioteca</small>}
               </div>
               <div className="or-ex-grid">
-                <label>Series<input inputMode="numeric" value={e.sets} maxLength={2} onChange={(ev) => { const n = Number(ev.target.value.replace(/\D/g, "")); if (n >= 1 && n <= 10) setEx(di, ei, { sets: n }); }} aria-label={`Series de ${e.name ?? e.written}`} /></label>
+                <label>Series<IntInput value={e.sets} min={1} max={10} onChange={(n) => n != null && setEx(di, ei, { sets: n })} aria-label={`Series de ${e.name ?? e.written}`} /></label>
                 <label>Repes<input value={e.reps} maxLength={20} onChange={(ev) => setEx(di, ei, { reps: ev.target.value })} aria-label={`Repeticiones de ${e.name ?? e.written}`} /></label>
                 <label>Peso ({unit})<input inputMode="decimal" value={e.w} maxLength={7} placeholder="—" aria-invalid={e.w.trim() !== "" && parseWeightIn(e.w, unit) == null || undefined}
-                  onChange={(ev) => setEx(di, ei, { w: ev.target.value.replace(/[^\d.,]/g, "") })} aria-label={`Peso de ${e.name ?? e.written} en ${unit}`} /></label>
+                  onChange={(ev) => setEx(di, ei, { w: cleanDecimalDraft(ev.target.value) })} aria-label={`Peso de ${e.name ?? e.written} en ${unit}`} /></label>
               </div>
               {e.note && <small className="mb-muted">{e.note}</small>}
               <div className="or-ex-actions">

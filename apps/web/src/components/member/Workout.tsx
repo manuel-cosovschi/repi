@@ -4,7 +4,7 @@
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
-import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
+import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -650,6 +650,8 @@ function WeightStepper({ exerciseId, unit, w, onChange, flash }: { exerciseId: s
   const pick = (v: number) => { setStep(v); setSteps(false); try { localStorage.setItem(key, String(v)); } catch { /* sin almacenamiento: vale para esta sesión */ } };
   const done = () => {
     if (typing == null) return;
+    // D182: borrar todo y salir del campo no cambia el peso ni muestra un error (no se registra un 0 que nadie escribió).
+    if (!typing.trim()) { setTyping(null); return; }
     const v = parseWeightIn(typing, unit);
     if (v == null) flash(`Peso inválido: hasta 2 decimales, entre 0 y ${unit === "kg" ? "1000 kg" : "2204 lb"}.`);
     else onChange(v);
@@ -662,9 +664,10 @@ function WeightStepper({ exerciseId, unit, w, onChange, flash }: { exerciseId: s
       <button type="button" aria-label={`Menos ${fmt(step)} ${unit}`} onClick={() => onChange(stepWeightIn(w, -1, step, unit))}>−</button>
       <span>
         {typing != null
-          ? <input autoFocus inputMode="decimal" aria-label={`Peso en ${unit}`} value={typing} onChange={(e) => setTyping(e.target.value.replace(/[^\d.,]/g, "").slice(0, 7))}
+          ? <input autoFocus inputMode="decimal" aria-label={`Peso en ${unit}`} value={typing} placeholder={fmt(shown)} onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setTyping(cleanDecimalDraft(e.target.value))}
             onBlur={done} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); done(); } if (e.key === "Escape") setTyping(null); }} />
-          : <button type="button" className="wval" aria-label={`${fmt(shown)} ${unit}. Tocá para escribir el peso`} onClick={() => setTyping(String(shown).replace(".", ","))}><strong>{fmt(shown)}</strong></button>}
+          : <button type="button" className="wval" aria-label={`${fmt(shown)} ${unit}. Tocá para escribir el peso`} onClick={() => setTyping(shown ? String(shown).replace(".", ",") : "")}><strong>{fmt(shown)}</strong></button>}
         <button type="button" className="wsteps" aria-expanded={steps} aria-label={`Paso de ${fmt(step)} ${unit}. Cambiar`} onClick={() => setSteps((x) => !x)}>{unit} · ±{fmt(step)}</button>
       </span>
       <button type="button" aria-label={`Más ${fmt(step)} ${unit}`} onClick={() => onChange(stepWeightIn(w, 1, step, unit))}>+</button>

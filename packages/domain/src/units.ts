@@ -34,3 +34,15 @@ export const parseWeightIn = (s: string, unit: WeightUnit): number | null => {
   const kg = toKg(n, unit);
   return weightOk(kg) ? kg : null;
 };
+
+/**
+ * D182: texto que se está escribiendo en un campo de peso. Deja dígitos y un solo separador decimal (coma o punto), hasta
+ * 2 decimales, y saca los ceros a la izquierda («070» → «70», «00» → «0», «0,5» queda). Vacío queda vacío: nunca agrega un 0.
+ */
+export function cleanDecimalDraft(s: string): string {
+  let t = s.replace(/[^\d.,]/g, "");
+  const i = t.search(/[.,]/);
+  if (i >= 0) t = t.slice(0, i + 1) + t.slice(i + 1).replace(/[.,]/g, "").slice(0, 2);
+  t = t.replace(/^0+(?=\d)/, "");
+  return t.slice(0, 7);
+}

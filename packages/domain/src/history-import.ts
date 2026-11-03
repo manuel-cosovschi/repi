@@ -2,6 +2,7 @@
 // antes de usar la app. Reglas puras: lectura de CSV, validación y resumen. La lectura con IA vive en el servidor y siempre
 // pasa por `normalizeImport` antes de mostrarse o guardarse.
 import { parseCsv } from "./csv";
+import { exerciseKey } from "./exercise-catalog";
 
 export type ImportSet = { day: string; exercise: string; weightKg: number | null; reps: number | null; seconds: number | null };
 export type NormalizedSet = ImportSet & { setIndex: number };
@@ -97,4 +98,30 @@ export function exerciseEvolution(sets: { day: string; exercise: string; weightK
     const best = sorted.reduce((m, s) => (better(s, m) ? s : m));
     return { exercise, sessions: new Set(sorted.map((s) => s.day)).size, first: top(firstDay), best, last: top(lastDay) };
   }).sort((a, b) => b.sessions - a.sessions || a.exercise.localeCompare(b.exercise, "es"));
+}
+
+// ── D182: reimportar no duplica ─────────────────────────────────────────────
+type KeySet = { day: string; exercise: string; weightKg: number | string | null; reps: number | null; seconds: number | null };
+const numKey = (x: number | string | null) => (x == null || x === "" ? "" : String(Number(x)));
+/** Clave de una serie importada para comparar contenido: día, ejercicio (sin tildes ni mayúsculas) y números. */
+export const importKey = (s: KeySet) => `${s.day}|${exerciseKey(s.exercise)}|${numKey(s.weightKg)}|${numKey(s.reps)}|${numKey(s.seconds)}`;
+/** Texto canónico del contenido (independiente del orden de las filas): base de la huella que detecta el mismo archivo. */
+export const importCanonical = (sets: KeySet[]) => sets.map(importKey).sort().join("\n");
+
+/**
+ * Cuánto de lo nuevo ya está en el historial importado antes. Se cuenta por cantidad: si ese día ya había 3 series iguales y
+ * ahora vienen 4, coinciden 3 y la cuarta es nueva (dos series iguales del mismo día son legítimas). `keep`: índices de lo nuevo
+ * que no coincide (para «sólo lo nuevo»). Nunca se borra ni se cambia lo que ya estaba.
+ */
+export function importOverlap(next: KeySet[], existing: KeySet[]) {
+  const left = new Map<string, number>();
+  for (const e of existing) { const k = importKey(e); left.set(k, (left.get(k) ?? 0) + 1); }
+  const keep: number[] = [];
+  const days = new Set<string>();
+  next.forEach((s, i) => {
+    const k = importKey(s);
+    const n = left.get(k) ?? 0;
+    if (n > 0) { left.set(k, n - 1); days.add(s.day); } else keep.push(i);
+  });
+  return { overlap: next.length - keep.length, keep, days: [...days].sort() };
 }

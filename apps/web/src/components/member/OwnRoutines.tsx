@@ -7,7 +7,7 @@
 // días de un programa y «Te toca hoy» marca la siguiente a la última que entrenó; en Inicio aparece igual.
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
-import { EXERCISE_GROUPS, kgTo, parseWeightIn, type WeightUnit } from "@repi/domain";
+import { EXERCISE_GROUPS, cleanDecimalDraft, kgTo, parseWeightIn, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
 import { RoutineImportSheet } from "./RoutineImport";
@@ -116,7 +116,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
             <label>Series<IntInput value={r.sets} min={1} max={10} onChange={(n) => n != null && set(i, { sets: n })} aria-label={`Series de ${r.name}`} /></label>
             <label>{r.kind === "time" ? "Tiempo" : "Repes"}<input value={r.reps} maxLength={20} onChange={(e) => set(i, { reps: e.target.value })} placeholder={defaultReps(r.kind)} aria-label={`${r.kind === "time" ? "Tiempo" : "Repeticiones"} de ${r.name}`} /></label>
             {r.kind !== "time" && <label>Peso ({unit})<input inputMode="decimal" value={r.w} maxLength={7} aria-invalid={r.w.trim() !== "" && parseWeightIn(r.w, unit) == null || undefined}
-              onChange={(e) => set(i, { w: e.target.value.replace(/[^\d.,]/g, "") })} placeholder={r.kind === "bodyweight" ? "—" : "Opcional"} aria-label={`Peso de ${r.name} en ${unit}`} /></label>}
+              onChange={(e) => set(i, { w: cleanDecimalDraft(e.target.value) })} placeholder={r.kind === "bodyweight" ? "—" : "Opcional"} aria-label={`Peso de ${r.name} en ${unit}`} /></label>}
           </div>
           <input className="or-note" value={r.note ?? ""} maxLength={120} onChange={(e) => set(i, { note: e.target.value })} placeholder="Nota (opcional): agarre, pausa, máquina…" aria-label={`Nota de ${r.name}`} />
           <div className="or-ex-actions">
