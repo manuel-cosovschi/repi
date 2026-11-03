@@ -5,8 +5,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
+import { comboStep, exerciseComplete, groupRounds, planBlocks, sessionMetrics } from "@repi/domain";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, delLocal, fromServer, localAction, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
+import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { useUnit } from "./units";
@@ -30,6 +31,7 @@ import { Nudges, type Nudge } from "./Nudges";
 const RING = 207.35;
 type DoneData = {
   id: string; dayName: string; activeMs: number; exDone: number; exSkipped: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
+  stagesDone: number; // D183: etapas conectadas hechas (drops, mini series): se informan aparte de las series
   prs: Summary["prs"]; rows: { name: string; txt: string }[]; rpe: number | null; sessionNote: string | null; local: boolean;
 };
 
@@ -37,14 +39,16 @@ type DoneData = {
 const doneName = (e: { name: string; change?: ExChange | null }) => (e.change?.kind === "substitute" && e.change.substitute ? `${e.change.substitute.name} (en lugar de ${e.name})` : e.name);
 const skipTxt = (c?: ExChange | null) => `Salteado · ${c ? EXERCISE_CHANGE_REASONS[c.reason].toLowerCase() : ""}`;
 
+/** D183: misma cuenta que el servidor (metrics.ts): series principales, etapas aparte, sin aproximación en el volumen. */
 function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
-  const done = Object.entries(s.sets).filter(([, x]) => x.done);
-  const full = (e: LocalEx) => Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]?.done).every(Boolean);
+  const logsOf = (e: LocalEx) => Array.from({ length: e.sets }, (_, i) => ({ i, x: s.sets[setKey(e.id, i)] })).filter((y) => y.x?.done).map((y) => ({ setIndex: y.i, weightKg: y.x.w, reps: y.x.r }));
+  const full = (e: LocalEx) => exerciseComplete(e, (k) => !!s.sets[setKey(e.id, k)]?.done);
+  const m = sessionMetrics(s.exercises.map((e) => ({ ex: e, logs: logsOf(e) })));
   return {
     id: s.id, dayName: s.dayName, activeMs: s.activeMs, local: true, prs: [], rpe: s.rpe, sessionNote: s.sessionNote,
     exDone: s.exercises.filter(full).length, exSkipped: s.exercises.filter((e) => e.change?.kind === "skip" && !full(e)).length,
-    exTotal: s.exercises.length, setsDone: done.length, setsTotal: s.exercises.reduce((a, e) => a + e.sets, 0),
-    volumeKg: volumeKg(done.map(([, x]) => ({ exerciseId: "", weightKg: x.w, reps: x.r, completed: true }))),
+    exTotal: s.exercises.length, setsDone: m.mainDone + m.warmupDone, setsTotal: m.mainPlanned + m.warmupPlanned, stagesDone: m.stagesDone,
+    volumeKg: m.tonnageKg,
     rows: s.exercises.map((e) => {
       const xs = Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]).filter((x) => x?.done);
       const sets = xs.length ? `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w, unit)))].join(" / ")}` : "";
@@ -56,10 +60,11 @@ function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
 function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   return {
     id: x.id, dayName: x.dayName, activeMs: x.activeMs, exDone: x.exDone, exSkipped: x.exSkipped ?? 0, exTotal: x.exTotal, setsDone: x.setsDone, setsTotal: x.setsTotal, volumeKg: x.volumeKg,
+    stagesDone: x.metrics?.stagesDone ?? 0,
     prs: x.prs, rpe: x.rpe, sessionNote: x.sessionNote, local: false,
     rows: x.exercises.filter((e) => e.logs.length || e.change?.kind === "skip").map((e) => {
       const sets = e.logs.length ? `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}` : "";
-      if (e.change?.kind === "skip" && e.logs.length < e.sets) return { name: e.name, txt: sets ? `${sets} · ${skipTxt(e.change)}` : skipTxt(e.change) };
+      if (e.change?.kind === "skip" && !exerciseComplete(e, (k) => e.logs.some((l) => l.setIndex === k))) return { name: e.name, txt: sets ? `${sets} · ${skipTxt(e.change)}` : skipTxt(e.change) };
       return { name: doneName(e), txt: sets };
     }),
   };
@@ -112,7 +117,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     if (!local || (pending === 0 && !local.conflict)) {
       try {
         const srv = await api<Parameters<typeof fromServer>[0] & { outdated?: boolean }>(`/api/me/sessions/${sessionId}`);
-        x = fromServer(srv, local?.rest);
+        x = keepLocalOnly(fromServer(srv, local?.rest), local);
         await putLocal(x);
         setOutdated(!!srv.outdated);
       } catch (e) {
@@ -122,7 +127,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     if (!x) return;
     setS(x);
     if (x.status === "completed" || x.status === "abandoned") { await showSummary(x); return; }
-    const firstOpen = x.exercises.findIndex((e) => e.change?.kind !== "skip" && Array.from({ length: e.sets }, (_, i) => x!.sets[setKey(e.id, i)]).some((y) => !y.done));
+    const firstOpen = x.exercises.findIndex((e) => e.change?.kind !== "skip" && Array.from({ length: e.sets }, (_, i) => x!.sets[setKey(e.id, i)]).some((y) => !rowResolved(y)));
     setExIdx(firstOpen < 0 ? Math.max(0, x.exercises.length - 1) : firstOpen);
   }, [sessionId, showSummary]);
   useEffect(() => { load().catch((e) => setErr((e as Error).message)); }, [load]);
@@ -175,11 +180,16 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   }, [restEnd, restAlert]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => (s && ex ? Array.from({ length: ex.sets }, (_, i) => s.sets[setKey(ex.id, i)]) : []), [s, ex]);
   const labels = useMemo(() => (s ? groupLabels(s.exercises) : []), [s]); // D134: A1, A2…
-  const cur = sel ?? rows.findIndex((r) => !r.done);
+  const cur = sel ?? rows.findIndex((r) => !rowResolved(r));
   const curRow = cur >= 0 ? rows[cur] : null;
+  // D183: series principales (bloques) y etapas conectadas del ejercicio en curso.
+  const blocks = useMemo(() => (ex ? planBlocks(ex.detail, ex.sets) : []), [ex]);
+  const blockOf = (i: number) => blocks.findIndex((b) => b.rows.includes(i));
+  const curT = ex && cur >= 0 ? setTarget(ex, cur) : null;
+  const rowName = (i: number) => { const t = ex ? setTarget(ex, i) : null; return t && t.stage > 0 ? `${t.label} de la serie ${t.block + 1}` : `serie ${blockOf(i) + 1}`; };
   const repsKind = ex ? parseReps(ex.reps).kind : "reps";
   // D148: cronómetro (series por tiempo) o contador (AMRAP, al fallo) para la serie en curso.
-  const ctl = ex && cur >= 0 ? setControl(setTarget(ex, cur)) : null;
+  const ctl = curT ? setControl(curT) : null;
   const elapsed = s ? activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, new Date(now)) : 0;
   const paused = s?.status === "paused";
   const conflicts = s ? Object.entries(s.sets).filter(([, x]) => x.conflict) : [];
@@ -198,6 +208,36 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     if (!s || !ex || cur < 0) return;
     void commit({ ...s, sets: { ...s.sets, [setKey(ex.id, cur)]: { ...s.sets[setKey(ex.id, cur)], ...p, ...(p.w !== undefined ? { pend: false } : {}) } } });
   };
+  /**
+   * Descanso al terminar la fila `i` (D183): si sigue una etapa de la misma serie, la pausa de esa etapa (un drop, 0; un
+   * rest-pause, 20 s); si terminó la serie, el descanso de la serie. En un EMOM, lo que falta para el próximo intervalo.
+   */
+  const restAfter = (x: LocalSession, i: number, sets: LocalSession["sets"]) => {
+    if (!ex) return 0;
+    const b = blocks[blockOf(i)];
+    const nextStage = b?.rows.find((k) => k > i && !rowResolved(sets[setKey(ex.id, k)]));
+    if (nextStage != null) return setTarget(ex, nextStage).restSec ?? 0;
+    const emom = ex.detail?.emomSec;
+    if (emom) { const st = x.iv?.peId === ex.id ? x.iv.start : null; return st ? Math.max(0, Math.round((st + emom * 1000 - Date.now()) / 1000)) : emom; }
+    return setTarget(ex, b?.main ?? i).restSec ?? ex.restSec;
+  };
+  /** Después de resolver la fila `i` (hecha u omitida): descanso, combinación (A1 → A2) y cola de sincronización. */
+  const advance = async (sets: LocalSession["sets"], i: number, wasDone: boolean, enqueueSet: boolean) => {
+    if (!s || !ex) return;
+    const more = Array.from({ length: ex.sets }, (_, k) => sets[setKey(ex.id, k)]).some((y) => !rowResolved(y));
+    let restS = restAfter(s, i, sets);
+    // D137 + D183: en una superserie o circuito se alterna al terminar cada serie con sus etapas, sin descansar entre ejercicios.
+    const flow = !wasDone ? comboStep(s.exercises, (e, k) => rowResolved(sets[setKey(s.exercises[e].id, k)]), exIdx, i) : null;
+    if (flow) restS = flow.endOfRound ? restS : 0;
+    const emom = ex.detail?.emomSec;
+    const iv = emom && !wasDone && blocks[blockOf(i)]?.rows.every((k) => rowResolved(sets[setKey(ex.id, k)])) ? { peId: ex.id, start: Date.now() + restS * 1000 } : s.iv ?? null;
+    // Editar una serie ya hecha no toca el descanso; si no, un descanso viejo no queda tapando una etapa sin pausa (un drop).
+    const next = { ...s, sets, iv, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : null };
+    setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
+    if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); else if (flow.rounds > 1) flash(`Vuelta ${flow.round + 1} de ${flow.rounds}.`); }
+    await commit(next);
+    if (enqueueSet) await enqueue({ key: `set:${s.id}:${setKey(ex.id, i)}`, kind: "set", sid: s.id, peId: ex.id, idx: i });
+  };
   const complete = async () => {
     if (!s || !ex || cur < 0 || !curRow) return;
     const k = setKey(ex.id, cur);
@@ -205,21 +245,24 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     // D182: una serie reducida (aproximación, back-off, drop) sin peso del plan no se completa con un peso que nadie eligió.
     if (curRow.pend && !wasDone) { flash("Elegí el peso de esta serie antes de completarla."); return; }
     const f = wasDone ? curRow.feel ?? null : feel;
-    const sets = { ...s.sets, [k]: { ...curRow, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
+    const { skip: _sk, ...row } = curRow;
+    const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
     // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
-    const more = !wasDone && Array.from({ length: ex.sets }, (_, i) => sets[setKey(ex.id, i)]).some((x) => !x.done);
-    let restS = setTarget(ex, cur).restSec ?? ex.restSec; // D134: descanso de esta serie (un drop va sin descanso)
-    // D137: en una superserie o circuito se alterna solo (A1 → A2 → … → descanso → A1) sin descansar entre ejercicios.
-    const flow = !wasDone ? comboNext(s.exercises, (i, k) => !!sets[setKey(s.exercises[i].id, k)]?.done, exIdx, cur) : null;
-    if (flow) restS = flow.endOfRound ? restS : 0;
-    const next = { ...s, sets, rest: (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : flow ? null : s.rest };
-    setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
-    if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); }
-    await commit(next);
-    await enqueue({ key: `set:${s.id}:${k}`, kind: "set", sid: s.id, peId: ex.id, idx: cur });
+    await advance(sets, cur, wasDone, true);
     if (!wasDone && gym && f && FEEL_ALERTS.includes(f as SetFeel) && !navigator.onLine) flash("Sin conexión: el aviso a sala sale al reconectar (si pasaron menos de 10 minutos).");
-    if (wasDone) flash(`Serie ${cur + 1} actualizada.`);
+    if (wasDone) flash(`${rowName(cur)[0].toUpperCase()}${rowName(cur).slice(1)} actualizada.`);
+  };
+  /** D183: cortar la serie en esta etapa (rest-pause, drop, myo): las etapas que faltan quedan omitidas y no se registran. */
+  const endBlockHere = async () => {
+    if (!s || !ex || cur < 0) return;
+    const b = blocks[blockOf(cur)];
+    const left = b.rows.filter((k) => k >= cur && !s.sets[setKey(ex.id, k)].done);
+    if (!left.length) return;
+    const sets = { ...s.sets };
+    for (const k of left) sets[setKey(ex.id, k)] = { ...sets[setKey(ex.id, k)], skip: true };
+    await advance(sets, left[left.length - 1], false, false);
+    flash(`Serie ${b.index + 1} terminada: ${left.length === 1 ? "1 etapa quedó sin hacer" : `${left.length} etapas quedaron sin hacer`}.`);
   };
   const act = async (action: "pause" | "resume") => {
     if (!s) return;
@@ -232,7 +275,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const finish = async (confirmed = false) => {
     if (!s) return;
     // «Finalizar» está siempre en la cabecera: terminar con series pendientes se confirma (F-06). Lo registrado queda igual.
-    const left = s.exercises.reduce((n, e, i) => n + (skippedAt(i) ? 0 : rowsOf(i).filter((r) => !r.done).length), 0);
+    const left = s.exercises.reduce((n, e, i) => n + (skippedAt(i) ? 0 : mainLeft(i)), 0);
     if (!confirmed && left && anyDone && !window.confirm(`Te ${left === 1 ? "queda 1 serie" : `quedan ${left} series`} sin hacer. ¿Cortar el entrenamiento acá? Lo que registraste queda guardado.`)) return;
     setBusy(true);
     try {
@@ -329,11 +372,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   if (!s || !ex) return <div className="mb-scroll nobar"><p className="mb-muted">Cargando entrenamiento…</p></div>;
 
   const rowsOf = (i: number) => Array.from({ length: s.exercises[i].sets }, (_, j) => s.sets[setKey(s.exercises[i].id, j)]);
+  // D183: series principales que faltan (una etapa omitida o pendiente no cuenta como serie).
+  const mainLeft = (i: number) => planBlocks(s.exercises[i].detail, s.exercises[i].sets).filter((b) => !b.rows.some((k) => rowsOf(i)[k]?.done)).length;
   // Salteado = resuelto para avanzar y finalizar; sus series no hechas no se registran.
   const skippedAt = (i: number) => s.exercises[i].change?.kind === "skip";
-  const resolved = (i: number) => skippedAt(i) || rowsOf(i).every((r) => r.done);
+  const resolved = (i: number) => skippedAt(i) || rowsOf(i).every(rowResolved);
   const exSkipped = skippedAt(exIdx);
-  const exComplete = rows.every((r) => r.done) || exSkipped;
+  const exComplete = rows.every(rowResolved) || exSkipped;
   const nextEx = s.exercises.findIndex((_, i) => i > exIdx && !resolved(i));
   const anyOpen = s.exercises.some((_, i) => !resolved(i));
   const sub = ex.change?.kind === "substitute" ? ex.change.substitute : null;
@@ -346,7 +391,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             : anyDone ? (s.synced ? "Guardado" : "Guardado en el teléfono") : "Sin series todavía";
   const savedInk = sync.kind === "error" || sync.kind === "conflict" || conflicts.length ? "#FCA5A5" : sync.kind === "offline" || sync.kind === "pending" ? "#F59E0B" : "#5DE6D8";
 
-  const pendingSets = s.exercises.reduce((n, _, i) => n + (skippedAt(i) ? 0 : rowsOf(i).filter((r) => !r.done).length), 0);
+  const pendingSets = s.exercises.reduce((n, _, i) => n + (skippedAt(i) ? 0 : mainLeft(i)), 0);
+  const grp = ex.detail?.group ? groupRounds(s.exercises, ex.detail.group) : null;
+  const roundTxt = grp && labels[exIdx] && cur >= 0 ? `${ex.detail?.groupKind === "circuit" ? "Vuelta" : "Ronda"} ${blockOf(cur) + 1} de ${grp.programmed ?? grp.max}` : null;
   const keep = () => { lastAct.current = Date.now(); setStill(null); };
   return (
     <div className="wo" onPointerDownCapture={() => { lastAct.current = Date.now(); }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
@@ -401,6 +448,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           <div className="excard-top">
             <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{labels[exIdx] ? `${labels[exIdx]} · ` : ""}{sub ? sub.name : ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null && !ex.detail?.setPlan ? ` · RIR ${ex.rir}` : ""}</small>
               {ex.detail && <small className="xc-tag">{detailLine(ex.detail, labels[exIdx], s.exercises, exIdx)}</small>}
+              {roundTxt && <small className="xc-tag" aria-live="polite">{roundTxt}</small>}
               {ex.change && <small className="xc-tag">{sub ? `En lugar de ${ex.name}` : "Salteado"} · {EXERCISE_CHANGE_REASONS[ex.change.reason].toLowerCase()}</small>}</div>
             <div className="nav2">
               {!paused && <button type="button" aria-label={`Cambiar ${ex.name} en este entrenamiento`} onClick={() => setChanging(true)}><Ic i={ArrowsClockwise} size={16} /></button>}
@@ -423,12 +471,27 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           )}
           <div className="sets" role="list" aria-label="Series">
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
-            {rows.map((r, i) => (
-              <button type="button" role="listitem" key={i} className="setrow" aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
-                aria-label={`Serie ${i + 1}: ${r.pend && !r.done ? "peso por elegir" : kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : "repeticiones"}${r.done ? ", completada" : ""}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
-                <span>{i + 1}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}{ex.detail?.setPlan?.[i] && <small className="set-tg">{setTargetText(setTarget(ex, i))}</small>}</span><span>{r.pend && !r.done ? "—" : String(r.w).replace(".", ",")}</span><span>{r.r}</span>
-                <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
-              </button>
+            {/* D183: cada serie principal con sus etapas conectadas debajo (drops, mini series, bloques de cluster). */}
+            {blocks.map((b) => (
+              <div key={b.main} className={`setblock${b.stages ? " has-stages" : ""}`} role="presentation">
+                {b.rows.map((i) => {
+                  const r = rows[i];
+                  if (!r) return null;
+                  const t = setTarget(ex, i);
+                  const stage = t.stage > 0;
+                  const state = r.done ? "completada" : r.skip ? "sin hacer" : i === cur ? "en curso" : "pendiente";
+                  return (
+                    <button type="button" role="listitem" key={i} className={`setrow${stage ? " stage" : ""}${r.skip && !r.done ? " skipped" : ""}`} aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
+                      aria-label={`${stage ? `${t.label} de la serie ${b.index + 1}` : `Serie ${b.index + 1}${t.label ? `, ${t.label}` : ""}`}: ${r.pend && !r.done ? "peso por elegir" : kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : t.countUnit === "rounds" ? "rondas" : "repeticiones"}, ${state}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
+                      <span>{stage ? <small className="set-stage" aria-hidden="true">↳ {t.label}</small> : <>{b.index + 1}</>}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}
+                        {!stage && ex.detail?.setPlan?.[i] && <small className="set-tg">{setTargetText(t)}</small>}
+                        {stage && <small className="set-tg">{setTargetText({ ...t, label: null })}</small>}</span>
+                      <span>{r.pend && !r.done ? "—" : String(r.w).replace(".", ",")}</span><span>{r.skip && !r.done ? "—" : r.r}</span>
+                      <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
+                    </button>
+                  );
+                })}
+              </div>
             ))}
           </div>
         </div>
@@ -456,7 +519,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 <button type="button" className="plus30" onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + 30, total: rest.total + 30 } : { ...rest, end: (rest.end ?? Date.now()) + 30_000, total: rest.total + 30 } })}>+30s</button>
               </div>
             </div>
-            <div className="rest-foot"><span>Próxima: serie {cur + 1} · {kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
+            <div className="rest-foot"><span>Próxima: {cur >= 0 ? rowName(cur) : "serie"} · {curRow?.pend ? "peso por elegir" : kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
             {restAlert !== "unsupported" && (
               <div className="rest-alert">
                 {restAlert === "on" ? <>
@@ -479,6 +542,17 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           </>
         ) : curRow && (!exComplete || sel != null) ? (
           <>
+            {curT && curT.stage > 0 && !curRow.done && (
+              <div className="wo-stage" role="note"><b>{curT.label} · serie {curT.block + 1}</b>
+                <span>{curT.kind === "drop" ? "Bajá la carga y seguí sin descanso." : curT.kind === "cluster" ? `Pausa de ${curT.restSec ?? 0} s entre bloques, misma carga.` : `Pausa corta (${curT.restSec ?? 0} s) y seguí con la misma carga.`}</span>
+                <button type="button" className="ghost sm" onClick={() => void endBlockHere()}>Terminar la serie acá</button></div>
+            )}
+            {ex.detail?.emomSec && !curRow.done && (curT?.stage ?? 0) === 0 && (
+              <div className="wo-stage" role="note"><b>EMOM · intervalo {blockOf(cur) + 1} de {blocks.length} · cada {ex.detail.emomSec} s</b>
+                {s.iv?.peId === ex.id && s.iv.start <= now ? <span>Intervalo en curso: {formatClock(Math.max(0, Math.round((s.iv.start + ex.detail.emomSec * 1000 - now) / 1000)))} para el próximo.</span>
+                  : <button type="button" className="ghost sm" onClick={() => commit({ ...s, iv: { peId: ex.id, start: Date.now() } })}>Empezar el intervalo</button>}
+              </div>
+            )}
             {!curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
             {curRow.pend && !curRow.done && (() => {
               // D182: referencia del método para confirmar (back-off −15 % del top, drop −20 % de la anterior). Nunca se aplica sola.
@@ -511,11 +585,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               })}
             </div>
             {gym && (curRow.done ? curRow.feel : feel) && FEEL_ALERTS.includes((curRow.done ? curRow.feel : feel) as SetFeel) && <span className="feel-note">Al completarla avisamos al equipo de sala en turno para que se acerque.</span>}
-            <button type="button" className="cta" onClick={complete}>{curRow.done ? `Guardar serie ${cur + 1}` : `Completar serie ${cur + 1}`}</button>
+            <button type="button" className="cta" onClick={complete}>{curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
           </>
         ) : (
           <>
-            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {rows.length} series</span>
+            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {blocks.length} {blocks.length === 1 ? "serie" : "series"}</span>
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
               : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a la serie pendiente</button>
                 : <button type="button" className="cta" onClick={() => void finish()} aria-busy={busy || undefined}>Completar entrenamiento</button>}
@@ -544,16 +618,16 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           <video className="wo-howto-video" src={ex.media.url} controls playsInline autoPlay muted loop preload="metadata" />
         </Sheet>
       )}
-      {noteOpen && curRow && <SetNoteSheet n={cur + 1} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}
+      {noteOpen && curRow && <SetNoteSheet n={rowName(cur)} done={curRow.done} value={noteDraft ?? ""} onSave={(v) => setNoteDraft(v.trim() ? v.slice(0, 200) : null)} onClose={() => setNoteOpen(false)} />}
     </div>
   );
 }
 
 /** Nota de una serie (F-HX-21): queda con la serie al completarla o guardarla, y la ve el coach de la relación. */
-function SetNoteSheet({ n, done, value, onSave, onClose }: { n: number; done: boolean; value: string; onSave: (v: string) => void; onClose: () => void }) {
+function SetNoteSheet({ n, done, value, onSave, onClose }: { n: string; done: boolean; value: string; onSave: (v: string) => void; onClose: () => void }) {
   const [v, setV] = useState(value);
   return (
-    <Sheet title={`Nota de la serie ${n}`} sub={`Ej.: «agarre cerrado», «molestó la rodilla en la última». Se guarda al ${done ? "guardar" : "completar"} la serie. Hasta 200 caracteres.`} onClose={onClose}
+    <Sheet title={`Nota: ${n}`} sub={`Ej.: «agarre cerrado», «molestó la rodilla en la última». Se guarda al ${done ? "guardar" : "completar"} la serie. Hasta 200 caracteres.`} onClose={onClose}
       text={{ value: v, onChange: (x) => setV(x.slice(0, 200)), placeholder: "Escribí la nota" }}
       action={{ label: v.trim() ? "Listo" : value ? "Borrar nota" : "Cerrar", ready: true, onSubmit: () => { onSave(v); onClose(); } }} />
   );
@@ -596,7 +670,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
         <div className="done-ring" ref={ring}><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" stroke="#1A2433" strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>
           <Ic i={Check} size={34} color="#00D1FF" /></div>
         <h1 tabIndex={-1}>{complete ? `¡${sum.dayName} completo!` : `${sum.dayName} registrado`}</h1>
-        <span className="mb-muted" style={{ fontSize: 15 }}>Cada repetición cuenta. Hoy sumaste {sum.setsDone} {sum.setsDone === 1 ? "serie" : "series"}.</span>
+        <span className="mb-muted" style={{ fontSize: 15 }}>Cada repetición cuenta. Hoy sumaste {sum.setsDone} {sum.setsDone === 1 ? "serie" : "series"}{sum.stagesDone ? ` y ${sum.stagesDone} ${sum.stagesDone === 1 ? "etapa" : "etapas"} (drops, mini series)` : ""}.</span>
       </div>
       {sum.local && <p className="mb-note" role="status">Guardado en el teléfono. Se sincroniza al volver la conexión; los récords se calculan ahí.</p>}
       <div className="stats3">

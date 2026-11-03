@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatClock } from "@repi/domain";
 
-type Ctl = { mode: "time"; seconds: number } | { mode: "amrap" };
+type Ctl = { mode: "time"; seconds: number } | { mode: "amrap" } | { mode: "amrap_time"; seconds: number; unit: "reps" | "rounds" };
 
 function beep() {
   try {
@@ -18,7 +18,41 @@ function beep() {
 }
 
 export function SetControl({ ctl, onSet }: { ctl: Ctl; onSet: (r: number) => void }) {
+  if (ctl.mode === "amrap_time") return <AmrapTimeSet seconds={ctl.seconds} unit={ctl.unit} onSet={onSet} />;
   return ctl.mode === "time" ? <TimeSet target={ctl.seconds} onSet={onSet} /> : <AmrapSet onSet={onSet} />;
+}
+
+/**
+ * D183: AMRAP por tiempo («AMRAP 10 min»): cuenta regresiva con la duración programada (aviso al terminar) y un contador de
+ * rondas o repeticiones. Lo que se guarda es el total contado; la duración sale del plan (no se multiplica por kilos).
+ */
+function AmrapTimeSet({ seconds, unit, onSet }: { seconds: number; unit: "reps" | "rounds"; onSet: (r: number) => void }) {
+  const [since, setSince] = useState<number | null>(null);
+  const [acc, setAcc] = useState(0);
+  const [n, setN] = useState(0);
+  const [, tick] = useState(0);
+  const warned = useRef(false);
+  const elapsed = acc + (since ? (Date.now() - since) / 1000 : 0);
+  const left = Math.max(0, Math.ceil(seconds - elapsed));
+  useEffect(() => { if (since == null) return; const t = setInterval(() => tick((x) => x + 1), 250); return () => clearInterval(t); }, [since]);
+  useEffect(() => { if (since != null && !warned.current && left <= 0) { warned.current = true; setAcc(seconds); setSince(null); navigator.vibrate?.([200, 100, 200]); beep(); } });
+  const put = (v: number) => { const x = Math.max(0, v); setN(x); onSet(x); navigator.vibrate?.(15); };
+  const word = unit === "rounds" ? ["ronda", "rondas"] : ["repetición", "repeticiones"];
+  return (
+    <div className="set-ctl" role="group" aria-label={`AMRAP de ${formatClock(seconds)}: contador de ${word[1]}`}>
+      <div className="set-ctl-clock" aria-live="off"><strong>{formatClock(left)}</strong><small>{left ? `AMRAP ${formatClock(seconds)} · quedan` : "Tiempo cumplido"}</small></div>
+      <div className="set-ctl-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.min(1, elapsed / Math.max(1, seconds))})` }} /></div>
+      <button type="button" className="set-ctl-tap" onClick={() => put(n + 1)} aria-label={`Sumar una ${word[0]}. Van ${n}`}>
+        <strong>{n}</strong><small>{`Tocá al terminar cada ${word[0]}`}</small>
+      </button>
+      <div className="set-ctl-act">
+        {left > 0 && (since == null
+          ? <button type="button" className="cta sm" onClick={() => setSince(Date.now())}>{acc ? "Seguir" : "Empezar"}</button>
+          : <button type="button" className="ghost sm" onClick={() => { setAcc(elapsed); setSince(null); }}>Pausar</button>)}
+        <button type="button" className="ghost sm" disabled={!n} onClick={() => put(n - 1)}>−1</button>
+      </div>
+    </div>
+  );
 }
 
 function TimeSet({ target, onSet }: { target: number; onSet: (r: number) => void }) {

@@ -1,4 +1,4 @@
-import { fmtWeight, type ExerciseChangeReason, type ExerciseDetail, type Suggestion, type WeightUnit } from "@repi/domain";
+import { fmtWeight, mainSets, type WorkMetrics, type ExerciseChangeReason, type ExerciseDetail, type Suggestion, type WeightUnit } from "@repi/domain";
 export type PrevSet = { weightKg: number | null; reps: number | null } | null;
 export type TrainEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; prev: PrevSet; detail?: ExerciseDetail | null; suggest?: Suggestion | null };
 export type Training = {
@@ -20,10 +20,12 @@ export type Session = {
 };
 export type Summary = Session & {
   exDone: number; exSkipped?: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
+  metrics?: WorkMetrics; // D183: series principales, etapas, aproximación, tonelaje y tiempo (metrics.ts)
   prs: { exercise: string; current: { weightKg: number; reps: number; e1rm: number }; previous: { weightKg: number; reps: number; e1rm: number }; previousAt: string | null }[];
 };
 
 /** Peso guardado (kg) en la unidad elegida (F-HX-23). */
 export const kg = (w: number | null, unit: WeightUnit = "kg") => (w == null ? "peso corporal" : fmtWeight(w, unit));
 export const prevTxt = (p: PrevSet, unit: WeightUnit = "kg") => (p ? `${kg(p.weightKg, unit)} x ${p.reps ?? "—"} reps` : "Sin registro previo");
-export const metaTxt = (e: { sets: number; reps: string }) => `${e.sets} ${e.sets === 1 ? "serie" : "series"} · ${e.reps}${/^\d/.test(e.reps) && !/s$/.test(e.reps) ? " repeticiones" : ""}`;
+/** D183: «4 series» son las series principales (un drop set de 4 series con 2 drops no son 6). */
+export const metaTxt = (e: { sets: number; reps: string; detail?: ExerciseDetail | null }) => { const n = mainSets(e.detail, e.sets); return `${n} ${n === 1 ? "serie" : "series"} · ${e.reps}${/^\d/.test(e.reps) && !/s$/.test(e.reps) ? " repeticiones" : ""}`; };

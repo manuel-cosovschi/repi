@@ -1,8 +1,8 @@
 // D182: precarga de pesos al restaurar o abrir una sesión (lib/offline/store.ts › fromServer). Un back-off, un drop o una
 // aproximación sin peso en el plan no heredan la carga del top set ni la sugerencia del ejercicio: quedan por elegir.
 import { describe, expect, it } from "vitest";
-import { emptyDetail, presetPlan, type ExerciseDetail, type Suggestion } from "@repi/domain";
-import { fromServer, setKey } from "@/lib/offline/store";
+import { applyMethod, emptyDetail, presetPlan, type ExerciseDetail, type Suggestion } from "@repi/domain";
+import { fromServer, keepLocalOnly, rowResolved, setKey } from "@/lib/offline/store";
 
 const sug = (weightKg: number, reps = 5): Suggestion => ({ action: "up", weightKg, reps, text: "", why: "" });
 const ex = (id: string, sets: number, detail: ExerciseDetail | null, p: { suggest?: Suggestion | null; logs?: { setIndex: number; weightKg: number; reps: number }[]; defaultWeight?: number | null } = {}) => ({
@@ -29,7 +29,8 @@ describe("D182 · precarga de top set, back-off y drop", () => {
     expect(s.sets[setKey("a", 1)]).toMatchObject({ w: 0, pend: true });
   });
   it("back-off con peso explícito en el plan: se usa ese", () => {
-    const d = { ...tb, setPlan: presetPlan("top_backoff", { sets: 3, reps: "5", weightKg: 100 }) };
+    // D183: la plantilla ya no calcula los back-off; el profe escribe la carga de cada uno.
+    const d = { ...tb, setPlan: presetPlan("top_backoff", { sets: 3, reps: "5", weightKg: 100 })!.map((x, i) => (i ? { ...x, weightKg: 85 } : x)) };
     const s = session([ex("a", 3, d)]);
     expect(s.sets[setKey("a", 0)].w).toBe(100);
     expect(s.sets[setKey("a", 1)]).toMatchObject({ w: 85 });
@@ -43,7 +44,7 @@ describe("D182 · precarga de top set, back-off y drop", () => {
     expect(s.sets[setKey("d", 2)]).toMatchObject({ w: 0, pend: true });
   });
   it("drop set con peso definido en el plan: respeta el plan", () => {
-    const ds = { ...emptyDetail(), technique: "drop_set" as const, setPlan: presetPlan("drop_set", { sets: 1, reps: "10", weightKg: 60 }) };
+    const ds = { ...emptyDetail(), technique: "drop_set" as const, setPlan: presetPlan("drop_set", { sets: 1, reps: "10", weightKg: 60 })!.map((x, i) => (i ? { ...x, weightKg: [0, 48, 36][i] } : x)) };
     const s = session([ex("d", 3, ds)]);
     expect([0, 1, 2].map((i) => s.sets[setKey("d", i)].w)).toEqual([60, 48, 36]);
   });
@@ -51,5 +52,28 @@ describe("D182 · precarga de top set, back-off y drop", () => {
     expect([0, 1, 2].map((i) => session([ex("r", 3, null, { suggest: sug(62.5, 8) })]).sets[setKey("r", i)].w)).toEqual([62.5, 62.5, 62.5]);
     const s = session([ex("r", 3, null, { suggest: sug(62.5, 8), logs: [{ setIndex: 0, weightKg: 60, reps: 8 }] })]);
     expect(s.sets[setKey("r", 1)].w).toBe(60);
+  });
+});
+
+describe("D183 · etapas conectadas en el teléfono (offline)", () => {
+  const drop = (sets: number) => applyMethod(null, { sets, reps: "10", rir: 2 }, "drop_set", [sets - 1], { stages: 2 }).detail;
+  it("restaurar una sesión con drops: las series principales con su carga, los drops por elegir", () => {
+    const s = session([ex("d", 6, drop(4), { logs: [{ setIndex: 0, weightKg: 60, reps: 10 }], defaultWeight: 60 })]);
+    expect([0, 1, 2, 3].map((i) => s.sets[setKey("d", i)].w)).toEqual([60, 60, 60, 60]);
+    expect([4, 5].map((i) => s.sets[setKey("d", i)])).toMatchObject([{ w: 0, pend: true }, { w: 0, pend: true }]);
+  });
+  it("etapas omitidas e intervalo de EMOM se conservan al volver a leer del servidor; lo registrado manda", () => {
+    const local = session([ex("d", 6, drop(4))]);
+    local.sets[setKey("d", 5)] = { ...local.sets[setKey("d", 5)], skip: true };
+    local.sets[setKey("d", 4)] = { ...local.sets[setKey("d", 4)], skip: true };
+    local.iv = { peId: "d", start: 1 };
+    const fresh = session([ex("d", 6, drop(4), { logs: [{ setIndex: 4, weightKg: 45, reps: 8 }] })]);
+    const merged = keepLocalOnly(fresh, local);
+    expect(rowResolved(merged.sets[setKey("d", 5)])).toBe(true);
+    expect(merged.sets[setKey("d", 5)].skip).toBe(true);
+    expect(merged.sets[setKey("d", 4)]).toMatchObject({ done: true, w: 45 }); // registrado en otro dispositivo: no queda omitido
+    expect(merged.sets[setKey("d", 4)].skip).toBeUndefined();
+    expect(merged.iv).toEqual({ peId: "d", start: 1 });
+    expect(rowResolved(merged.sets[setKey("d", 0)])).toBe(false);
   });
 });

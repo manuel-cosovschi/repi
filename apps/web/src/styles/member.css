@@ -805,3 +805,11 @@
 .chd-mid { background: rgba(0, 209, 255, .16); color: #7DE3FF; }
 .chd-hard { background: rgba(249, 115, 22, .18); color: #FDBA74; }
 .sheet .or-field textarea { width: 100%; }
+/* D183: serie principal con etapas conectadas (drops, mini series, bloques de cluster). Sólo tokens existentes (03/06). */
+.setblock.has-stages { border-left: 2px solid var(--light-selection-border); margin: 2px 0; }
+.setrow.stage { height: 38px; font-size: 14px; color: var(--light-muted); }
+.setrow.stage .set-stage { display: block; font-size: 12px; font-weight: 600; color: var(--light-accent-text); white-space: nowrap; }
+.setrow.skipped { opacity: .55; }
+.wo-stage { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--dark-surface); background: var(--dark-surface); font-size: 14px; color: var(--core-white); }
+.wo-stage span { color: var(--dark-muted); line-height: 1.4; }
+.wo-stage .ghost { align-self: flex-start; }

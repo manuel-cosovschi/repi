@@ -5,7 +5,8 @@ import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, startWeight, t
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
-export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null; pend?: boolean;
+// `skip` (D183): etapa conectada (drop, mini serie) que la persona decidió no hacer: queda resuelta y no se registra.
+export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null; pend?: boolean; skip?: boolean;
   // `other`: la versión que NO es la que se ve en pantalla. `appliedIsMine`: si la versión aplicada en el servidor es la de este dispositivo.
   conflict?: { id: string; other: { weightKg: number | null; reps: number | null; rir: number | null }; appliedIsMine: boolean } };
 // F-HX-21 (D106): saltar o reemplazar el ejercicio sólo en esta sesión. `origPrev`: el «anterior» del original, para volver.
@@ -26,8 +27,19 @@ export type LocalSession = {
   // la cola no se borra y se vuelve a intentar sólo ante un evento (volver a la app, reconectar, «Reintentar»).
   rejected?: { message: string; at: string; code?: string };
   rest?: { end: number | null; total: number; left: number; paused: boolean } | null;
+  // D183: EMOM: cuándo empieza el intervalo en curso de ese ejercicio (el descanso completa el intervalo).
+  iv?: { peId: string; start: number } | null;
   updatedAt: string;
 };
+/** D183: una fila está resuelta si se registró o si era una etapa que se decidió no hacer. */
+export const rowResolved = (x: LocalSet | undefined) => !!x && (x.done || !!x.skip);
+/** Al volver a leer la sesión del servidor, se conservan las etapas omitidas en este teléfono (el servidor no las registra). */
+export function keepLocalOnly(fresh: LocalSession, local: LocalSession | undefined): LocalSession {
+  if (!local) return fresh;
+  const sets = { ...fresh.sets };
+  for (const [k, v] of Object.entries(local.sets)) if (v.skip && sets[k] && !sets[k].done) sets[k] = { ...sets[k], skip: true };
+  return { ...fresh, sets, iv: local.iv ?? null };
+}
 export const setKey = (peId: string, i: number) => `${peId}:${i}`;
 
 export async function ensureOwner(userId: string) {
