@@ -2,6 +2,11 @@
 
 Actualizado: 03/11/2026 (hasta D184), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+## Arreglo urgente D186 también en esta rama — 03/11/2026
+
+- El arreglo de «Mi rutina» (PR #5; detalle en su bitácora) está incorporado acá con cherry-pick, sobre el editor con métodos: búsqueda por palabras, parecidos, grupo sugerido y «Guardar» que crea el ejercicio a medio cargar.
+- **Pruebas en esta rama:** dominio 241 ✓, web 310 ✓ y E2E 51 ✓ (1 omitida). Incluye `own-routine-create.spec.ts`.
+
 ## Arreglo urgente D185 también en esta rama — 03/11/2026
 
 - El arreglo del día sin ejercicios (PR #5 sobre `main`; detalle en su bitácora) está incorporado acá con cherry-pick. También el del descanso que volvía: si la respuesta de la sincronización llegaba justo después de «Saltar descanso», la copia anterior lo volvía a poner (lo encontró `connected-stages` en escritorio).
