@@ -1,6 +1,19 @@
 # Métodos avanzados: series principales y etapas conectadas (D183)
 
-Referencia técnica del bloque 02/06. Código: `packages/domain/src/stages.ts`, `metrics.ts`, `prescription.ts`.
+Referencia técnica del bloque 02/06 (D183 y su cierre, D184). Código: `packages/domain/src/stages.ts`, `metrics.ts`, `prescription.ts`, `execution.ts`, `method-detect.ts`.
+
+## Orígenes (D184)
+
+Todos usan el mismo detalle (`ExerciseDetail`), el mismo validador (`validateDetail`), los mismos métodos (`applyMethod`), la misma regla de circuitos (`circuitIssues`) y el mismo editor (`ExerciseDetailEditor`; en la app del alumno con `member`, oscuro y desde abajo). No hay un motor por origen.
+
+| Origen | Dónde se guarda | Cómo llega el método |
+|---|---|---|
+| Programa del coach o de sala | `program_exercise.detail` | Editor del constructor. Los borradores de IA del coach llegan al constructor y se ajustan ahí. |
+| Rutina propia del alumno | `own_routine.exercises[].detail` → al empezar, `program_exercise.detail` de la sesión | «Método y series» en «Mis rutinas». También superserie y circuito. «Duplicar» copia los métodos con sus identidades. |
+| Rutina importada | Igual que la propia, después de revisar | `detectMethod` y `detectGroupLabel` sobre la columna Técnica o Grupo, la nota o «A1/A2» en el nombre. Lo claro se aplica a la vista con «Dejar como nota»; lo ambiguo («drop» suelto, «pirámide», «superserie» sin pareja) se pregunta. El texto original queda en la nota. |
+| Rutina de hoy de REPI | `program_exercise.detail` de la sesión | La IA elige de `none, drop_set, rest_pause, myo_reps, amrap_last`. `aiMethodDetail` lo deja pasar sólo en un ejercicio, nunca en básicos pesados ni con el check-in bajo, y siempre en la última serie. |
+
+Con plan, `sets` son las filas registrables en todos los orígenes; las series principales de una rutina propia son de 1 a 10.
 
 ## Modelo
 
@@ -60,9 +73,20 @@ Las vueltas de un circuito gobiernan la ejecución:
 
 - Las etapas van debajo de su serie («↳ Drop 1»).
 - La pausa antes de una etapa es la de la etapa (un drop, 0). El descanso de la serie corre recién al terminarla.
-- **«Terminar la serie acá»** omite las etapas que faltan:
-  - Se guarda localmente como `skip`. El servidor no las registra.
-  - Al volver a leer la sesión del servidor, `keepLocalOnly` las conserva.
+- **«Terminar la serie acá»** omite las etapas que faltan (D184, en el servidor):
+  - Cada etapa va a `set_skip` por la cola offline (`kind: "skip"`, idempotente por sesión, ejercicio y fila). Nunca a `set_log`: no suma reps, tonelaje, tiempo, récords ni niveles.
+  - Estados en la grilla: pendiente, en curso, completada y sin hacer. Tocar una etapa sin hacer permite completarla (el resultado manda) o «Volver a pendiente».
+  - Entre dispositivos gana el cambio más reciente (`decideSkip`, hora del dispositivo acotada por el servidor). Un resultado registrado siempre gana: la omisión no se aplica y no se muestra. Sólo etapas: una serie principal no se omite así.
+  - También con el entrenamiento terminado, como editar una serie.
+  - Al abrir la sesión, manda el servidor (no hay nada pendiente en la cola). Las omisiones guardadas sólo en el teléfono por una versión anterior se suben.
+- Completar con 0 repeticiones (o 0 s) se bloquea: si no se hizo, es «Terminar la serie acá».
+- **EMOM** (D184): el intervalo en curso es de la sesión (`workout_session.interval_state`):
+  - Se guarda ejercicio, serie, inicio en hora del servidor, duración y estado. El teléfono manda su hora de inicio, de cambio y de envío. El servidor la traduce con la diferencia entre la hora de envío y la suya, aunque el pedido haya esperado en la cola (`toServerMs`).
+  - Cada dispositivo lo traduce a su reloj con la diferencia que observó al leer la sesión (`serverNow`).
+  - Pausar lo interrumpe (en el teléfono y en el servidor) y terminar lo borra. Un intervalo vencido sin registrar la serie, o interrumpido, no se calcula: se ofrece «Volver a empezar el intervalo».
+  - Un inicio de hace más de 6 h o más de un intervalo en el futuro no se guarda.
+  - Requiere conexión sólo para que lo vea otro dispositivo; sin conexión, el teléfono sigue con su reloj y lo sube al reconectar.
+  - No hay tiempo real: otro dispositivo lo ve al abrir o recargar la sesión.
 - En superseries y circuitos, `comboStep` alterna recién al terminar la serie con sus etapas. Muestra «Vuelta k de R».
 - Los pendientes de «Finalizar» cuentan series principales, no etapas.
 
@@ -84,18 +108,31 @@ La usan:
 - La instantánea del Club.
 - Los niveles. Antes, los niveles sumaban kilos × segundos en las series por tiempo.
 
-`volumeKg` y `bestE1rm` excluyen la aproximación y las rondas.
+`volumeKg` y `bestE1rm` excluyen la aproximación y las rondas. `stagesSkipped` (D184) cuenta las etapas omitidas sin registro: se informan y no son resultados.
+
+## API (D184)
+
+`server/training/detail-schema.ts` (zod de las rutas) acepta `id`, `block`, `stage`, `durationSec`, `countUnit`, `review` y `emomSec`, y hasta 40 filas. Antes los descartaba en silencio: guardar desde la app regeneraba identidades, un cluster nuevo volvía a «series separadas» y se perdían el EMOM y la duración del AMRAP. Lo cubre una prueba en `tests/methods-everywhere.test.ts`.
+
+## Migración 0041 y reversión (D184)
+
+- `CREATE TABLE set_skip` (sesión, ejercicio, fila, `spec_id`, `skipped`, `changed_at`; único por sesión, ejercicio y fila) y `ALTER TABLE workout_session ADD COLUMN interval_state jsonb` (nula). No reescribe filas.
+- El código anterior ignora las dos. Reversión: `apps/web/scripts/rollback/0041_set_skip_interval.down.sql`; sólo pierde omisiones e intervalos en curso, nunca resultados.
+- Aplicada sólo en `repi_test` y `repi_dev` locales.
 
 ## Migración 0040 y reversión
 
 - **Expand:** `ALTER TABLE set_log ADD COLUMN spec_id text, set_kind text, block_index integer, stage_index integer`. Son nulas y sin índices ni restricciones. No reescribe filas.
 - **Lectura compatible:** si las columnas son nulas, todo se deduce de la versión congelada (`rowRef`, `rowFlags`).
 - **Escritura nueva:** `logSet` las completa al insertar.
-- **Relleno histórico (opcional, no ejecutado):**
-  - Es determinista desde la versión congelada (`rowRef(detail, sets, set_index)`).
-  - Se corre en tandas y sólo sobre filas con `spec_id is null`.
-  - Verificación: las métricas recalculadas antes y después tienen que dar lo mismo, porque no dependen de las columnas.
-  - No se aplicó en producción.
+- **Relleno histórico: no es necesario antes de producción.** Con las columnas nulas, todo se deduce de la versión congelada (`rowRef`, `rowFlags`) y la app lee igual (prueba en `methods-everywhere.test.ts`). Sirve para consultas y para Training Intelligence 2.0. Procedimiento preparado (D184), `apps/web/scripts/operations/backfill-set-log-stage.ts`:
+  - Por defecto simula. `--apply` escribe por tandas (`--batch`, 500), cada una en una transacción.
+  - Sólo filas con `spec_id is null` (idempotente; se puede cortar y retomar). No toca peso, reps, RIR, fechas, revisión ni `updated_at`.
+  - Ambiguos (clusters anteriores a D183) y filas fuera del plan quedan nulos y se cuentan en el informe.
+  - Antes y después: filas, Σ reps, Σ peso × reps y una huella md5 de (id, peso, reps, RIR, revisión). Si cambian dentro de una tanda, se revierte y se corta.
+  - Registro JSONL de ids rellenados en `~/.repi-secrets/backfills/` y `--rollback=<archivo>` para dejarlos nulos exactamente.
+  - Destinos: `--source=local` (repi_dev), `--source=test` y `--source=hosted`. En la alojada, escribir exige `--confirm=hosted`, y antes hay que hacer un respaldo (`scripts/operations/backup.ts`).
+  - Probado sólo en `repi_test`. **No se ejecutó en producción.**
 - **Reversión:**
   - El código anterior ignora las columnas, así que revertir el código es seguro.
   - Para quitarlas: `ALTER TABLE set_log DROP COLUMN …`. Sólo pierde copias deducibles.

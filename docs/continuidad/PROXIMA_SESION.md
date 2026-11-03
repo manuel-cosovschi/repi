@@ -1,6 +1,49 @@
 # REPI — Retomar acá
 
-Actualizado: 03/11/2026 (hasta D183), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 03/11/2026 (hasta D184), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Cierre del bloque 02/06 · Métodos en todos los orígenes y ejecución entre dispositivos (D184) — 03/11/2026
+
+- **Pedido:** «Cierre definitivo del bloque 02/06» sobre el PR #4. Misma rama `feat/repi-connected-training-methods`; sigue encadenado sobre el PR #3. **Sin desplegar ni integrar; sin tocar producción.** Referencia: `docs/METODOS_Y_ETAPAS.md` (secciones Orígenes, Ejecución, API, 0041 y relleno de 0040).
+- **Corregido:**
+  1. Rutinas propias, importadas, de REPI y duplicadas con los mismos métodos: mismo `ExerciseDetail`, validador y editor del coach (`ExerciseDetailEditor member`). La importación detecta métodos y combinados, aplica lo claro y pregunta lo ambiguo. Se agregó «Duplicar» en «Mis rutinas».
+  2. Etapas omitidas en el servidor (`set_skip`): cola offline, gana el cambio más reciente, un resultado siempre gana, «Volver a pendiente» y corrección con el entrenamiento terminado.
+  3. EMOM persistido (`workout_session.interval_state`): hora del servidor, diferencia de reloj por dispositivo, la pausa lo interrumpe y lo vencido no se calcula.
+  4. La pastilla de la demo tiene su carril (`--demo-lane`) y no tapa «Saltar descanso». La prueba de superposición encontró otro defecto real: el anillo del descanso se quedaba con el toque de «Pausar descanso» (`pointer-events: none`).
+  5. Script de relleno de 0040, por lotes, idempotente, validado y reversible. No hace falta antes de producción.
+  6. El 503 de las E2E: Entrenar pedía por adelantado la sugerencia de la IA aunque el servidor no la tuviera configurada. Ahora `myTraining.ai` dice si está y el teléfono no la pide. Un error real del proveedor con clave sigue fallando las pruebas. No hizo falta un proveedor simulado.
+- **Defectos del bloque 02 encontrados y corregidos:**
+  - `detail-schema.ts` (zod de las rutas) descartaba identidad, bloque, etapa, EMOM y AMRAP por tiempo, y cortaba en 20 filas. Las pruebas de servicios no lo veían.
+  - Un drop «al fallo» se completaba con 0 repeticiones. Ahora completar con 0 se bloquea.
+  - Esc en el editor de técnica, abierto sobre una hoja, cerraba también la hoja.
+- **Migración:** `0041_set_skip_interval.sql`: tabla nueva y una columna nula. Reversión en `apps/web/scripts/rollback/0041_set_skip_interval.down.sql`. Aplicada sólo en `repi_test` y `repi_dev` locales; **no en producción**. El relleno de 0040 se probó sólo en `repi_test`.
+- **Archivos:**
+  - Dominio:
+    - Nuevos: `execution.ts` (`decideSkip`, `intervalView`, `acceptInterval`, `toServerMs`) y `method-detect.ts` (`detectMethod`, `detectGroupLabel`, `methodDetail`).
+    - `metrics.ts` (`stagesSkipped`) y `routine-import.ts` (columnas Técnica y Grupo).
+  - Servidor:
+    - `services.ts`: `setStageSkip`, `setSessionInterval`, `getSession` con `skips`, `interval` y `serverNow`, `startSoloRoutine` con `detail`, y la pausa, la versión nueva y el cierre automático también actualizan el intervalo.
+    - `own-routines.ts`, `solo-routine.ts` (`aiMethodDetail`) y `detail-schema.ts`.
+    - Rutas `sessions/[id]/skips`, `sessions/[id]/interval` y `routines/[id]/duplicate`.
+  - App:
+    - `OwnRoutines.tsx`, `RoutineImport.tsx`, `Workout.tsx`, `Solo.tsx`, `MemberApp.tsx` y `Sheet.tsx`.
+    - `lib/offline/{store,queue}.ts` (ítems `skip` e `interval`).
+    - `ui/Modal.tsx` (`className`).
+    - `styles/method-editor.css` (nuevo: `.dx-*` sale de `coach.css`; `.dx-host` cambia tokens) y `globals.css`/`member.css` (carril de la demo y anillo).
+  - Script: `scripts/operations/backfill-set-log-stage.ts`.
+- **Pruebas** (locales; Chromium emulando teléfonos, **no dispositivos físicos**):
+  - Dominio: 238 ✓; typecheck limpio (se corrigió el error que venía de antes en `prescription.test.ts`).
+  - App: 308 ✓ en 52 archivos. Nueva `methods-everywhere.test.ts` con los puntos 1–9 y 11–12 del pedido, más permisos y la regresión de la API.
+  - Guardas 11 ✓, typecheck ✓ y build ✓.
+  - E2E: 49 ✓ y 1 omitida (sólo móvil), 0 ✗. Nuevas `mobile-layout.spec.ts` (superposiciones de 320 a 430 px, rutina propia con drop set, importación con método claro y ambiguo) y `emom-sync.spec.ts`. `connected-stages.spec.ts` ahora prueba otro dispositivo y «Saltar descanso».
+- **Límites que quedan:**
+  - Otro dispositivo ve omisiones e intervalo al abrir o recargar la sesión (no hay tiempo real).
+  - El coach todavía no ve las etapas omitidas en el detalle de la sesión: ve los resultados.
+  - La importación por foto o PDF depende de la IA (sin clave, sólo planilla y texto con columnas).
+  - Sin prueba en iPhone ni Android reales.
+  - El editor del coach en el alumno es una adaptación con tokens: el rediseño es del bloque 05/06.
+- **Para 03/06 (Light/Dark):** `method-editor.css` muestra el mecanismo, que es redefinir tokens en un contenedor (`.dx-host`). Componentes nuevos para adaptar: `.dx-host`, `.ri-method`, `.or-tech`, `.wo-stage` (omitida y EMOM) y `.setrow.skipped`.
+- **Próxima acción:** revisar el PR #3 y después el #4. El titular decide si se corre el relleno de 0040 en producción (no hace falta) y cuándo aplicar 0040 y 0041 al desplegar.
 
 ## Bloque 02/06 · Series principales con etapas conectadas (D183) — 03/11/2026
 
