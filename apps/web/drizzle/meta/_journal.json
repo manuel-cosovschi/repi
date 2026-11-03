@@ -288,6 +288,13 @@
       "when": 1793724334984,
       "tag": "0040_set_log_stage",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793741232959,
+      "tag": "0041_set_skip_interval",
+      "breakpoints": true
     }
   ]
 }

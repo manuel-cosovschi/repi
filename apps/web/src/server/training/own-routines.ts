@@ -3,7 +3,7 @@
 // como la de D153: registra pesos, repeticiones, RIR, sensación y notas por serie, y el esfuerzo y la nota de la sesión.
 // Las rutinas son sólo del alumno; lo que entrena queda en su historial como cualquier sesión.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { parseRoutineCsv, type ImportedRoutineDay } from "@repi/domain";
+import { circuitIssues, detectGroupLabel, detectGroupWord, detectMethod, detectedLabel, mainSets, parseRoutineCsv, validateDetail, type DetectedMethod, type ExerciseDetail, type ImportedRoutineDay } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiOn, type AiPart } from "../ai/openai";
@@ -15,7 +15,9 @@ const { ownRoutine, exercise } = schema;
 export const OWN_ROUTINES_MAX = 30;
 export const OWN_ROUTINE_EXERCISES_MAX = 12; // el mismo tope que la sesión sin programa (D153)
 
-export type OwnRoutineEx = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null };
+// D184: `detail` (opcional) es el mismo ExerciseDetail del programa del coach: técnica, plan con etapas conectadas, superserie o
+// circuito. Con plan, `sets` son las filas registrables (series + etapas, como program_exercise.sets).
+export type OwnRoutineEx = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null; detail?: ExerciseDetail | null };
 type Input = { id?: string | null; name: string; exercises: OwnRoutineEx[] };
 
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos esa rutina.", 404);
@@ -46,14 +48,32 @@ function clean(p: Input): Input {
   if (!p.exercises.length) throw new AccessError("invalid", "Agregá al menos un ejercicio.");
   if (p.exercises.length > OWN_ROUTINE_EXERCISES_MAX) throw new AccessError("invalid", `Una rutina puede tener hasta ${OWN_ROUTINE_EXERCISES_MAX} ejercicios.`);
   const exercises = p.exercises.map((e) => {
-    if (!Number.isInteger(e.sets) || e.sets < 1 || e.sets > 10) throw new AccessError("invalid", "Cada ejercicio va con 1 a 10 series.");
     const reps = e.reps.trim();
     if (!reps || reps.length > 20) throw new AccessError("invalid", "Revisá las repeticiones (por ejemplo «10» o «8-12»).");
     if (e.weightKg != null && (!Number.isFinite(e.weightKg) || e.weightKg < 0 || e.weightKg > 500)) throw new AccessError("invalid", "El peso va de 0 a 500 kg.");
     const restSec = e.restSec != null && Number.isInteger(e.restSec) && e.restSec >= 0 && e.restSec <= 600 ? e.restSec : null;
-    return { exerciseId: e.exerciseId, sets: e.sets, reps, weightKg: e.weightKg ? Math.round(e.weightKg * 100) / 100 : null, restSec, note: e.note?.trim().slice(0, 120) || null };
+    const { detail, sets } = ownDetail(e);
+    return { exerciseId: e.exerciseId, sets, reps, weightKg: e.weightKg ? Math.round(e.weightKg * 100) / 100 : null, restSec, note: e.note?.trim().slice(0, 120) || null, ...(detail ? { detail } : {}) };
   });
   return { id: p.id, name, exercises };
+}
+
+/**
+ * D184: el mismo validador que el programa del coach (validateDetail): series principales de 1 a 10, hasta 40 filas con sus
+ * etapas. Sin plan, «N series × reps» como siempre.
+ */
+export function ownDetail(e: { sets: number; detail?: ExerciseDetail | null }): { detail: ExerciseDetail | null; sets: number } {
+  const v = validateDetail(e.detail ?? null, e.sets);
+  if (!v.ok) throw new AccessError("invalid", v.error);
+  const main = mainSets(v.detail, v.sets);
+  if (!Number.isInteger(v.sets) || v.sets < 1 || main < 1 || main > 10) throw new AccessError("invalid", "Cada ejercicio va con 1 a 10 series.");
+  return { detail: v.detail, sets: v.sets };
+}
+
+/** D184: en una superserie o circuito las vueltas gobiernan: cada ejercicio con una serie por vuelta (como en el programa). */
+function assertCircuits(exs: { name: string; sets: number; reps: string; detail?: ExerciseDetail | null }[]) {
+  const bad = circuitIssues(exs)[0];
+  if (bad) throw new AccessError("invalid", `El circuito ${bad.group} tiene ${bad.rounds} ${bad.rounds === 1 ? "vuelta" : "vueltas"}, pero ${bad.exercise} tiene ${bad.blocks} ${bad.blocks === 1 ? "serie" : "series"}. Igualalas en «Series y técnica».`);
 }
 
 /**
@@ -72,7 +92,7 @@ export async function listOwnRoutines(userId: string) {
   const byId = new Map(lib.map((e) => [e.id, e]));
   return rows.map((r, i) => ({
     id: r.id, name: r.name, updatedAt: r.updatedAt, lastUsedAt: r.lastUsedAt, next: i === nextIdx,
-    exercises: r.exercises.map((e) => {
+    exercises: (r.exercises as OwnRoutineEx[]).map((e) => {
       const x = byId.get(e.exerciseId);
       const pv = prev.get(e.exerciseId);
       return { ...e, name: x?.name ?? "Ejercicio que ya no está", group: x?.group ?? "", kind: x?.kind ?? "load_reps", prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null };
@@ -85,21 +105,29 @@ export async function saveOwnRoutine(userId: string, p: Input) {
   const c = clean(p);
   await ensureExerciseCatalog();
   const ids = [...new Set(c.exercises.map((e) => e.exerciseId))];
-  const lib = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId, userId)));
+  const lib = await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId, userId)));
   if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
+  assertCircuits(c.exercises.map((e) => ({ ...e, name: lib.find((x) => x.id === e.exerciseId)!.name })));
   const now = new Date();
   if (c.id) {
     const [r] = await db.update(ownRoutine).set({ name: c.name, exercises: c.exercises, updatedAt: now })
       .where(and(eq(ownRoutine.id, c.id), eq(ownRoutine.userId, userId))).returning();
     if (!r) throw NOT_FOUND();
-    await audit(db, { actorUserId: userId, action: "own_routine.updated", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length } });
+    await audit(db, { actorUserId: userId, action: "own_routine.updated", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length, methods: c.exercises.filter((e) => e.detail).length } });
     return { id: r.id };
   }
   const mine = await db.select({ id: ownRoutine.id }).from(ownRoutine).where(eq(ownRoutine.userId, userId));
   if (mine.length >= OWN_ROUTINES_MAX) throw new AccessError("invalid", `Podés guardar hasta ${OWN_ROUTINES_MAX} rutinas. Borrá alguna que ya no uses.`);
   const [r] = await db.insert(ownRoutine).values({ userId, name: c.name, exercises: c.exercises, createdAt: now, updatedAt: now }).returning();
-  await audit(db, { actorUserId: userId, action: "own_routine.created", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length } });
+  await audit(db, { actorUserId: userId, action: "own_routine.created", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length, methods: c.exercises.filter((e) => e.detail).length } });
   return { id: r.id };
+}
+
+/** D184: duplicar una rutina propia (con sus métodos y etapas, que conservan su identidad dentro de la copia). */
+export async function duplicateOwnRoutine(userId: string, id: string) {
+  const [r] = await db.select().from(ownRoutine).where(and(eq(ownRoutine.id, id), eq(ownRoutine.userId, userId)));
+  if (!r) throw NOT_FOUND();
+  return saveOwnRoutine(userId, { name: `${r.name} (copia)`.slice(0, 60), exercises: r.exercises as OwnRoutineEx[] });
 }
 
 export async function deleteOwnRoutine(userId: string, id: string) {
@@ -113,7 +141,7 @@ export async function deleteOwnRoutine(userId: string, id: string) {
 export async function startOwnRoutine(userId: string, routineId: string, sessionId: string, now = new Date()) {
   const [r] = await db.select().from(ownRoutine).where(and(eq(ownRoutine.id, routineId), eq(ownRoutine.userId, userId)));
   if (!r) throw NOT_FOUND();
-  const s = await startSoloRoutine(userId, { id: sessionId, dayName: r.name, source: "own", exercises: r.exercises }, now);
+  const s = await startSoloRoutine(userId, { id: sessionId, dayName: r.name, source: "own", exercises: r.exercises as OwnRoutineEx[] }, now);
   await db.update(ownRoutine).set({ lastUsedAt: now }).where(eq(ownRoutine.id, r.id));
   return s;
 }
@@ -124,14 +152,15 @@ const AI_SCHEMA = {
   properties: {
     days: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "exercises"], properties: {
       name: { type: "string" },
-      exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "sets", "reps", "weight_kg", "rest_sec", "note"], properties: {
+      exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "sets", "reps", "weight_kg", "rest_sec", "note", "technique", "group"], properties: {
         name: { type: "string" }, sets: { type: "integer" }, reps: { type: "string" }, weight_kg: { type: ["number", "null"] }, rest_sec: { type: ["integer", "null"] }, note: { type: "string" },
+        technique: { type: "string" }, group: { type: "string" },
       } } },
     } } },
     notes: { type: "array", items: { type: "string" } },
   },
 };
-type AiOut = { days: { name: string; exercises: { name: string; sets: number; reps: string; weight_kg: number | null; rest_sec: number | null; note: string }[] }[]; notes: string[] };
+type AiOut = { days: { name: string; exercises: { name: string; sets: number; reps: string; weight_kg: number | null; rest_sec: number | null; note: string; technique?: string; group?: string }[] }[]; notes: string[] };
 const SYSTEM = `Transcribís a datos la rutina de gimnasio que ya tiene una persona (foto, captura, PDF o texto). NO la diseñes, no la mejores ni agregues nada: copiá lo que está escrito.
 - Un elemento de days por cada día o sesión de la rutina, en el orden en que aparecen, con su nombre tal como está («Día 1», «Lunes», «Pecho y tríceps»). Si no hay días, uno solo llamado «Mi rutina».
 - Por ejercicio: nombre en español como está escrito (corregí sólo errores evidentes de tipeo), series (entero; si no figura, 3), repeticiones como texto («10», «8-12», «al fallo», «30 s»), peso en kg si figura (libras × 0,4536; si no, null), descanso en segundos si figura (si no, null) y una nota corta si hay una indicación (si no, vacío).
@@ -140,6 +169,8 @@ const SYSTEM = `Transcribís a datos la rutina de gimnasio que ya tiene una pers
 - Un peso entre paréntesis que no está en kg («7 ladrillos», «placa 5») va en la nota y weight_kg null.
 - Si títulos, fechas o líneas en blanco separan grupos de ejercicios, cada grupo es un día.
 - Si la rutina cambia semana a semana, transcribí la semana que la persona marque como actual o, si no, la primera, y avisalo en notes.
+- technique: si junto al ejercicio figura un método o técnica («drop set», «rest-pause», «myo reps», «cluster», «AMRAP 10 min», «EMOM», «top set + back-off», «pirámide», «superserie con…»), copiá ese texto tal cual, con a qué series se refiere si lo dice («drop set en la última»). Si no figura, vacío. No lo apliques ni cambies series o repeticiones por eso.
+- group: si los ejercicios están marcados como combinados («A1», «A2», «B1»…), la marca tal cual («A1»). Si no, vacío. Sacá esa marca del nombre del ejercicio.
 - Si algo no se lee o es ambiguo, omitilo y explicalo en notes (en español, breve). Nunca digas «IA».`;
 
 /** Vista previa: días y ejercicios leídos, emparejados con la biblioteca. No guarda nada: la persona revisa y guarda. */
@@ -159,7 +190,7 @@ export async function previewRoutineImport(userId: string, f: ImportFile) {
     else parts.push({ type: "file", file: { filename: f.fileName.slice(0, 120) || "rutina.pdf", file_data: f.dataUrl! } });
     const out = await aiJson<AiOut>({ name: "rutina_propia", system: SYSTEM, parts, schema: AI_SCHEMA, maxTokens: 8000 });
     days = (out.days ?? []).map((d) => ({ name: d.name, exercises: (d.exercises ?? []).map((e) => ({
-      name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weight_kg, restSec: e.rest_sec, note: e.note || null })) }));
+      name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weight_kg, restSec: e.rest_sec, note: e.note || null, technique: e.technique || null, group: e.group || null })) }));
     notes = (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 8);
   }
   const read = days.map((d, i) => ({
@@ -168,8 +199,20 @@ export async function previewRoutineImport(userId: string, f: ImportFile) {
       const sets = Math.round(Number(e.sets));
       const w = e.weightKg == null ? null : Number(e.weightKg);
       const rest = e.restSec == null ? null : Math.round(Number(e.restSec));
-      return { written: e.name.replace(/\s+/g, " ").trim().slice(0, 80), sets: sets >= 1 && sets <= 10 ? sets : 3, reps: String(e.reps ?? "").trim().slice(0, 20) || "10",
-        weightKg: w != null && w > 0 && w <= 500 ? Math.round(w * 100) / 100 : null, restSec: rest != null && rest >= 0 && rest <= 600 ? rest : null, note: e.note?.trim().slice(0, 120) || null };
+      // D184: «A1. Press banca» → combinado A, orden 1, y el nombre sin la marca para buscarlo en la biblioteca.
+      const nameRaw = e.name.replace(/\s+/g, " ").trim();
+      const label = detectGroupLabel(e.group, nameRaw);
+      const written = (label && !e.group ? nameRaw.slice(label.matched.length) : nameRaw).trim().slice(0, 80) || nameRaw.slice(0, 80);
+      const technique = e.technique?.trim().slice(0, 80) || null;
+      const note = e.note?.trim().slice(0, 120) || null;
+      const method = detectMethod(technique, note);
+      return { written, sets: sets >= 1 && sets <= 10 ? sets : 3, reps: String(e.reps ?? "").trim().slice(0, 20) || "10",
+        weightKg: w != null && w > 0 && w <= 500 ? Math.round(w * 100) / 100 : null, restSec: rest != null && rest >= 0 && rest <= 600 ? rest : null,
+        // El texto del método nunca se pierde: si no está en la nota, se suma a la nota (la persona decide si se aplica).
+        note: technique && !(note ?? "").toLowerCase().includes(technique.toLowerCase()) ? [note, technique].filter(Boolean).join(" · ").slice(0, 120) : note,
+        method: method ? { ...method, label: detectedLabel(method) } : null as (DetectedMethod & { label: string }) | null,
+        groupLabel: label ? { letter: label.letter, order: label.order } : null,
+        groupWord: label ? null : detectGroupWord(technique, note, e.group) };
     }),
   })).filter((d) => d.exercises.length);
   // D180: un día con más ejercicios que el tope de una sesión no pierde los que sobran: se parte en «Nombre 1», «Nombre 2»…

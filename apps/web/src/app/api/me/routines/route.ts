@@ -2,10 +2,12 @@
 import { z } from "zod";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";
 import { listOwnRoutines, saveOwnRoutine } from "@/server/training/own-routines";
+import { DetailZ } from "@/server/training/detail-schema";
 
 const Ex = z.object({
   exerciseId: z.string().max(64), sets: z.number().int(), reps: z.string().max(20),
   weightKg: z.number().nullable(), restSec: z.number().int().nullable(), note: z.string().max(200).nullable(),
+  detail: DetailZ, // D184: técnica, etapas conectadas, superserie o circuito (mismo detalle que el programa del coach)
 });
 const B = z.object({ id: z.string().max(64).nullable().optional(), name: z.string().max(80), exercises: z.array(Ex).max(20) });
 
