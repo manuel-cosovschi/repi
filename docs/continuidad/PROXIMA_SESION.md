@@ -1,6 +1,23 @@
 # REPI — Retomar acá
 
-Actualizado: 02/11/2026 (hasta D185), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 02/11/2026 (hasta D186), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Arreglo urgente · Ejercicio nuevo en «Mi rutina» en un solo paso (D186) — 03/11/2026
+
+- **Reporte (titular, con captura de producción):**
+  - Al armar una rutina a mano con un ejercicio que no estaba («Remo en smith»), había que tocar «Crear y agregar» y después «Guardar».
+  - Sin el grupo muscular elegido, «Crear y agregar» quedaba apagado sin explicar por qué.
+  - Si se tocaba sólo «Guardar», la rutina se guardaba sin ese ejercicio.
+- **Arreglo (misma rama y PR #5):**
+  - `packages/domain/src/exercise-guess.ts` (nuevo): sugerencia de grupo y forma de registro por el nombre, y búsqueda por palabras.
+  - `member/OwnRoutines.tsx`: parecidos cuando no hay coincidencia, grupo y tipo sugeridos y cambiables, «Crear y agregar» que dice qué falta, y «Guardar rutina» que crea y agrega lo que está a medio cargar.
+  - También el flag `myTraining.ai` de D184: Entrenar no pide la sugerencia de la IA cuando el servidor no la tiene.
+- **Pruebas:**
+  - Dominio 166 ✓ (nueva `exercise-guess.test.ts`).
+  - Web 264 ✓ en 49 archivos, guardas 11 ✓, typecheck ✓ y build ✓.
+  - E2E de la rama completa: 38 ✓ y 0 ✗. Nueva `own-routine-create.spec.ts`: el caso de la captura con un solo «Guardar» y el aviso de grupo faltante.
+  - Para correr las E2E en local se purgaron las demos viejas de `repi_dev` (tope de demos abiertas).
+  - No probado en un teléfono real.
 
 ## Arreglo urgente · Día sin ejercicios traba «Cargando entrenamiento…» (D185) — 03/11/2026
 
