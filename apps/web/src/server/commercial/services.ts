@@ -170,8 +170,14 @@ export async function contractDetail(actorId: string, contractId: string, period
   const prev = previewPeriod(terms.map(asTerm), pr);
   const latestQ = terms.filter((t) => t.kind === "quantity").at(-1);
   const [ap] = await db.select({ enabled: schema.gymAccessPolicy.enabled, mode: schema.gymAccessPolicy.mode }).from(schema.gymAccessPolicy).where(eq(schema.gymAccessPolicy.orgId, c.orgId));
+  // D180: antes de activar (o con el control ya activo) se ve si el gimnasio puede usarlo: pantallas de QR en recepción e
+  // ingresos validados en los últimos 7 días. Sin pantallas, ningún socio valida solo.
+  const [{ displays }] = await db.select({ displays: sql<number>`count(*)::int` }).from(schema.gymAccessDisplay)
+    .where(and(eq(schema.gymAccessDisplay.orgId, c.orgId), eq(schema.gymAccessDisplay.purpose, "access"), sql`${schema.gymAccessDisplay.revokedAt} is null`));
+  const [{ checkins7d }] = await db.select({ checkins7d: sql<number>`count(*)::int` }).from(schema.gymCheckin)
+    .where(and(eq(schema.gymCheckin.orgId, c.orgId), eq(schema.gymCheckin.result, "ok"), gte(schema.gymCheckin.createdAt, new Date(Date.now() - 7 * 86_400_000))));
   return {
-    accessControl: { enabled: ap?.enabled ?? false, mode: ap?.mode ?? null },
+    accessControl: { enabled: ap?.enabled ?? false, mode: ap?.mode ?? null, displays, checkins7d },
     contract: c, org: o, enabledAccesses: enabled, overAgreed: overAgreed(prev.quantity?.value ?? null, enabled),
     quantityAgeDays: latestQ ? Math.floor((Date.now() - latestQ.createdAt.getTime()) / 86_400_000) : null,
     terms: terms.map((t) => ({ ...t, author: authors.get(t.createdBy) ?? "", display: t.kind === "unit_price" ? fmtMoney(t.value, (t.currency ?? c.currency) as Currency) : String(t.value) })),

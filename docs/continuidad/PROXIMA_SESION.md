@@ -1,6 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 02/11/2026 (hasta D180), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 03/11/2026 (hasta D181), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Control de acceso explicado antes de encenderlo (D181) — 03/11/2026
+
+- **Pedido (titular):** «Apagalo y explicá lo que significa en esa sección para que no lo prendan sin cuidado».
+- **Código:** `components/admin/AdminApp.tsx` (tarjeta «Control de acceso · ingreso validado»: qué significa, qué no cambia, qué hace falta antes, estado con pantallas de QR e ingresos de 7 días, aviso si no hay pantalla, confirmación al activar); `server/commercial/services.ts` (`contractDetail.accessControl.displays` y `checkins7d`); `components/gym/AccessControl.tsx` (aviso al gimnasio si exige ingreso sin pantalla de QR, con «Crear pantalla»); `packages/domain/src/gym-access.ts` (texto del modo híbrido); `components/admin/AdminGuide.tsx`.
+- **Pruebas:** typecheck ✓, dominio 163 ✓, suite web de entrenamiento y acceso ✓.
+- **No publicado:** queda en la rama `claude/access-control-explicacion` (PR en borrador). Durante la auditoría de Training Intelligence no se despliega; integrar cuando el titular lo autorice.
+- **Pendiente del titular:** Smart sigue con el control encendido (la conexión a Supabase es sólo lectura). Apagarlo en REPI Admin → Smart Center Gym → «Control de acceso · ingreso validado» → «Desactivar».
+- **Auditoría de Training Intelligence (03/11):** sólo lectura; informe entregado en el chat (motor de progresión, matriz de 30 capacidades, roadmap P0–P3). Próxima acción: decisiones del titular (tope de 12 ejercicios, historial importado en récords, tabla `training_target`) y después P0.1–P0.4.
 
 ## Rutinas propias sin check-in e importación sin errores mudos (D180) — 02/11/2026
 
