@@ -8,7 +8,7 @@ import { Sheet } from "./Sheet";
 
 export type GymPresence = {
   orgId: string; gym: string; location: string; membership: string; membershipLabel: string; accessUntil: string | null;
-  enabled: boolean; mode: string; startNeedsCheckin: boolean; geoMode: "off" | "optional" | "required";
+  enabled: boolean; mode: string; startNeedsCheckin: boolean; geoMode: "off" | "optional" | "required"; selfCheckin?: boolean;
   pass: { id: string; location: string; method: CheckinMethod; issuedAt: string; expiresAt: string } | null;
 };
 type CheckinResult = { ok: true; duplicate: boolean; gym: string; pass: NonNullable<GymPresence["pass"]> } | { ok: false; reason: string; message: string };
@@ -140,8 +140,14 @@ export function PresenceSheet({ orgId, onClose, onValidated, flash, demo }: {
       {g && g.membership !== "active" && <p className="sheet-warn" role="alert">Tu membresía en {g.gym} está {g.membershipLabel.toLowerCase()}. Consultá en recepción.</p>}
       {msg && <p className="sheet-warn" role="alert">{msg}</p>}
       {g?.geoMode && g.geoMode !== "off" && <p className="sheet-sub">Este gimnasio también usa la ubicación del teléfono, una sola vez, al validar. No se guarda dónde estás: sólo si estabas cerca de la sede.</p>}
-      <button type="button" className="cta" onClick={() => { setMsg(null); setView("scan"); }} aria-busy={busy || undefined}>Escanear QR del gimnasio</button>
-      <button type="button" className="ghost" onClick={() => setView("desk")}>Solicitar ayuda en recepción</button>
+      {g?.selfCheckin === false ? <>
+        {/* D182: sin pantalla de QR en el gimnasio no hay nada que escanear: el camino es que el equipo valide el ingreso. */}
+        <p className="sheet-sub" role="note">{g.gym} todavía no tiene la pantalla de QR en recepción. Pedile a recepción o al profe de sala que valide tu ingreso desde REPI. Tus rutinas propias las podés entrenar sin validar.</p>
+        <button type="button" className="cta" onClick={() => setView("desk")}>Pedir que validen mi ingreso</button>
+      </> : <>
+        <button type="button" className="cta" onClick={() => { setMsg(null); setView("scan"); }} aria-busy={busy || undefined}>Escanear QR del gimnasio</button>
+        <button type="button" className="ghost" onClick={() => setView("desk")}>Solicitar ayuda en recepción</button>
+      </>}
       {demo && (
         <div className="pr-demo">
           <small>Demo · sin otra pantalla a mano: el servidor genera el QR real de la sede, igual que la tablet de recepción.</small>
@@ -157,10 +163,11 @@ export function PresenceSheet({ orgId, onClose, onValidated, flash, demo }: {
 export function PresenceChip({ p, onValidate }: { p: GymPresence; onValidate: () => void }) {
   if (!p.enabled || !p.startNeedsCheckin) return null;
   if (p.membership !== "active") return <div className="pr-chip bad"><b>Membresía {p.membershipLabel.toLowerCase()}</b><small>{p.gym}: consultá en recepción.</small></div>;
-  if (p.pass) return <div className="pr-chip ok"><b>Acceso presencial habilitado</b><small>{p.pass.location} · hasta las {hm(p.pass.expiresAt)} · {CHECKIN_METHOD_LABEL[p.pass.method]}</small></div>;
+  // D182: un ingreso que venció con la app abierta ya no habilita (antes el chip seguía diciendo «habilitado»).
+  if (p.pass && new Date(p.pass.expiresAt) > new Date()) return <div className="pr-chip ok"><b>Acceso presencial habilitado</b><small>{p.pass.location} · hasta las {hm(p.pass.expiresAt)} · {CHECKIN_METHOD_LABEL[p.pass.method]}</small></div>;
   return (
     <button type="button" className="pr-chip" onClick={onValidate}>
-      <b>Check-in requerido para entrenar en {p.gym}</b><small>Tu rutina la ves igual. Para iniciar el entrenamiento presencial, validá tu ingreso.</small><em>Validar</em>
+      <b>Check-in requerido para entrenar en {p.gym}</b><small>{p.selfCheckin === false ? "Tus rutinas propias las entrenás igual. Para el programa del gimnasio, el equipo valida tu ingreso." : "Tu rutina la ves igual. Para iniciar el entrenamiento presencial, validá tu ingreso."}</small><em>Validar</em>
     </button>
   );
 }

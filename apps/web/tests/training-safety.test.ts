@@ -40,16 +40,16 @@ async function member(days: Day[]) {
   await tr.assignProgram(coach.id, org.id, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
   return u.id;
 }
+const program = async (user: string) => { const t = await tr.myTraining(user); if (t.state !== "ready") throw new Error(`sin programa: ${t.state}`); return t.program; };
 /** Hace el día `dayIdx` con esas series (peso, reps y opcionales) y lo termina. */
 async function train(user: string, dayIdx: number, sets: { w: number; r: number; rir?: number | null; feel?: string | null }[]) {
-  const t = await tr.myTraining(user);
   const sid = randomUUID();
-  await tr.startSession(user, { id: sid, dayId: t.program!.days[dayIdx].id });
+  await tr.startSession(user, { id: sid, dayId: (await program(user)).days[dayIdx].id });
   const pe = (await tr.getSession(user, sid)).exercises[0];
   for (const [i, x] of sets.entries()) await tr.logSet(user, sid, { id: randomUUID(), programExerciseId: pe.id, setIndex: i, weightKg: x.w, reps: x.r, rir: x.rir ?? null, feel: x.feel ?? null });
   await tr.sessionAction(user, sid, "finish");
 }
-const todays = async (user: string, dayIdx: number) => (await tr.myTraining(user)).program!.days[dayIdx].exercises[0].suggest;
+const todays = async (user: string, dayIdx: number) => (await program(user)).days[dayIdx].exercises[0].suggest;
 
 describe("D182 · sugerencia de hoy con comparables y seguridad", () => {
   it("cambio de rutina: 100 kg × 5 en un día de 5 reps → en el de 10-12 estima 75 kg (no 90)", async () => {

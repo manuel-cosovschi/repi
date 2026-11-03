@@ -220,6 +220,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       } else {
         const fresh = await loadPresence();
         const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
+        // D182: membresía inactiva no es «falta validar el ingreso»: se dice eso y no se abre la hoja de validación.
+        if (p?.startNeedsCheckin && p.membership !== "active") { flash(`Tu membresía en ${p.gym} está ${p.membershipLabel.toLowerCase()}. Consultá en recepción.`); return; }
         if (p?.startNeedsCheckin && !p.pass) { setSheet({ type: "presence", dayId }); return; }
       }
     }
