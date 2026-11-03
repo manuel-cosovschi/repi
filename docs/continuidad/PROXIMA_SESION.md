@@ -20,6 +20,7 @@ Actualizado: 02/11/2026 (hasta D185), sobre la release candidata rc-2026.10.27 (
   - Suite web 264 ✓ en 49 archivos y dominio 163 ✓. Typecheck ✓ y build ✓.
   - Verificado en Chromium móvil contra el build local: un día vaciado en `repi_dev` (demo) muestra el aviso y «Cortar» deja la sesión descartada.
   - Sin migraciones y sin tocar datos de producción.
+- **También:** «Saltar descanso» podía volver atrás si la respuesta de la sincronización llegaba justo después (la copia anterior lo reponía). Ahora el descanso de la pantalla se conserva.
 - **Pendiente:** autorización del titular para integrar y desplegar. Javier, después del despliegue: «Continuar» → «Cortar este entrenamiento» → empezar el programa nuevo.
 
 ## Rutinas propias sin check-in e importación sin errores mudos (D180) — 02/11/2026
