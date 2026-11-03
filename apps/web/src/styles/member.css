@@ -2,8 +2,8 @@
    Sin carcasa de teléfono: usa el viewport y las safe areas; en pantallas anchas, columna de 480 px. */
 .mb { min-height: 100dvh; background: var(--dark-bg); color: var(--dark-ink); display: flex; justify-content: center; }
 .mb-col { width: 100%; max-width: 480px; position: relative; min-height: 100dvh; display: flex; flex-direction: column; }
-.mb-scroll { flex: 1; padding: max(24px, calc(var(--safe-top) + 16px)) 20px calc(108px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 22px; }
-.mb-scroll.nobar { padding-bottom: max(34px, env(safe-area-inset-bottom)); }
+.mb-scroll { flex: 1; padding: max(24px, calc(var(--safe-top) + 16px)) 20px calc(108px + env(safe-area-inset-bottom) + var(--demo-lane, 0px)); display: flex; flex-direction: column; gap: 22px; }
+.mb-scroll.nobar { padding-bottom: calc(max(34px, env(safe-area-inset-bottom)) + var(--demo-lane, 0px)); }
 .mb h1 { margin: 0; font: 700 38px/1.02 var(--font-display); text-transform: uppercase; letter-spacing: -.015em; text-wrap: balance; overflow-wrap: anywhere; }
 @media (max-width: 359px) { .mb h1 { font-size: 34px; } }
 .mb h2 { margin: 0; font-size: 18px; font-weight: 600; }
@@ -105,7 +105,7 @@
 .ck { width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; border: 1.5px solid #CBD5E1; }
 .ck.on { background: var(--core-cyan); border-color: var(--core-cyan); }
 .coach-tip { display: flex; gap: 10px; align-items: flex-start; padding: 0 4px; font-size: 13px; color: var(--dark-muted); line-height: 1.45; }
-.dock { flex: none; position: sticky; bottom: 0; background: var(--dark-bg); border-top: 1px solid var(--dark-surface); padding: 16px 20px max(34px, env(safe-area-inset-bottom)); min-height: 178px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.dock { flex: none; position: sticky; bottom: 0; background: var(--dark-bg); border-top: 1px solid var(--dark-surface); padding: 16px 20px calc(max(34px, env(safe-area-inset-bottom)) + var(--demo-lane, 0px)); min-height: 178px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
 .steppers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stepper { background: var(--dark-surface); border-radius: 14px; padding: 8px; display: flex; align-items: center; justify-content: space-between; }
 .stepper button { width: 44px; height: 44px; border-radius: 10px; border: 0; background: var(--dark-border); color: var(--dark-ink); font-size: 22px; cursor: pointer; }
@@ -136,8 +136,10 @@
 .rest > div:first-child { display: flex; flex-direction: column; gap: 2px; }
 .rest strong { font-size: 40px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
 .ring { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
-.ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
-.ring button { width: 56px; height: 56px; border-radius: 28px; border: 0; background: var(--core-white); display: grid; place-items: center; cursor: pointer; }
+/* D184: el anillo va debajo del botón y no recibe toques (antes, posicionado encima, se quedaba con el toque de «Pausar
+   descanso»: lo encontró la prueba de superposición en móvil). */
+.ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); pointer-events: none; }
+.ring button { position: relative; width: 56px; height: 56px; border-radius: 28px; border: 0; background: var(--core-white); display: grid; place-items: center; cursor: pointer; }
 .plus30 { height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--dark-border); background: var(--dark-surface); color: var(--dark-ink); font: 600 14px var(--font-ui); cursor: pointer; }
 .rest-foot { display: flex; justify-content: space-between; font-size: 13px; color: var(--dark-muted); }
 
@@ -642,6 +644,13 @@
 .or-ex-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dark-muted); }
 .or-ex-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .or-ex-actions .linkbtn { height: 40px; min-width: 40px; }
+/* D184: método del ejercicio en «Mis rutinas» y en la revisión de una rutina importada. */
+.or-tech { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.or-tech small { flex: 1 1 160px; font-size: 13px; }
+.or-method { display: block; font-size: 12px; }
+.ri-method { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--dark-border); background: var(--dark-surface-2); font-size: 14px; }
+.ri-method[data-ask="1"] { border-color: var(--semantic-chip-warn-ink, #F59E0B); }
+.ri-method > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .or-pick { display: flex; flex-direction: column; gap: 10px; }
 .or-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
 .or-results button { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--dark-border); background: var(--dark-surface); color: var(--dark-ink); font: 500 15px var(--font-ui); cursor: pointer; }

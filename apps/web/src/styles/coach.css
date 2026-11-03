@@ -231,14 +231,6 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 .ag p { margin: 0; font-size: 14px; line-height: 1.5; }
 
 /* D134: editor de series y técnica. */
-.dx { display: flex; flex-direction: column; gap: 14px; }
-.dx-sec { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--light-divider); }
-.dx-sec > b { font-size: 15px; }
-.dx-set { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--light-divider); border-radius: 12px; background: var(--light-surface); }
-.dx-set-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.dx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
-.dx-grid .field input { height: 38px; }
-.dx-note { grid-column: 1 / -1; }
 /* D134: fila del constructor con rótulos visibles en el celular (antes eran números sin nombre). */
 .exrow .c-lbl { display: none; font-size: 11px; font-weight: 600; color: var(--light-muted); }
 .ex-sum { flex: 1 1 100%; font-size: 12px; color: var(--light-muted); padding-left: 26px; }
@@ -335,13 +327,3 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 .slog-n { flex: 0 0 20px; height: 20px; border-radius: 50%; background: var(--semantic-chip-mute-bg); color: var(--semantic-chip-mute-ink); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
 .slog-v { font-weight: 600; font-variant-numeric: tabular-nums; }
 .slog-note { flex-basis: 100%; padding-left: 28px; color: #334155; }
-/* D183: series principales con etapas conectadas y aplicación de métodos no destructiva. Sólo tokens (listo para 03/06). */
-.dx-block { gap: 10px; }
-.dx-stage { margin-left: 14px; padding: 8px 0 0 12px; border-left: 2px solid var(--light-selection-border); display: flex; flex-direction: column; gap: 8px; }
-.dx-add-stage { align-self: flex-start; margin-left: 14px; }
-.dx-apply { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--light-selection-border); border-radius: 12px; background: var(--light-selection-bg); }
-.dx-apply-row { display: flex; flex-direction: column; gap: 6px; }
-.dx-lbl { font-size: 13px; font-weight: 600; color: var(--light-ink); }
-.dx-preview { display: flex; flex-direction: column; gap: 4px; }
-.dx-preview ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--light-ink); }
-.dx-review { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--semantic-chip-warn-bg); color: var(--semantic-chip-warn-ink); font-size: 14px; }

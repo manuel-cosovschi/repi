@@ -62,18 +62,36 @@ describe("D183 · etapas conectadas en el teléfono (offline)", () => {
     expect([0, 1, 2, 3].map((i) => s.sets[setKey("d", i)].w)).toEqual([60, 60, 60, 60]);
     expect([4, 5].map((i) => s.sets[setKey("d", i)])).toMatchObject([{ w: 0, pend: true }, { w: 0, pend: true }]);
   });
-  it("etapas omitidas e intervalo de EMOM se conservan al volver a leer del servidor; lo registrado manda", () => {
+  it("D184: las omisiones vienen del servidor (de cualquier dispositivo); una deshecha en otro no vuelve; lo registrado manda", () => {
+    const skips = [{ setIndex: 5, skipped: true, changedAt: "2026-11-03T10:00:00.000Z" }, { setIndex: 4, skipped: true, changedAt: "2026-11-03T10:00:00.000Z" }];
+    const fresh = session([{ ...ex("d", 6, drop(4), { logs: [{ setIndex: 4, weightKg: 45, reps: 8 }] }), skips } as ReturnType<typeof ex>]);
+    expect(fresh.sets[setKey("d", 5)]).toMatchObject({ skip: true, done: false });
+    expect(rowResolved(fresh.sets[setKey("d", 5)])).toBe(true);
+    expect(fresh.sets[setKey("d", 4)]).toMatchObject({ done: true, w: 45 }); // registrado: no queda omitido
+    expect(fresh.sets[setKey("d", 4)].skip).toBeUndefined();
+    // Otro dispositivo la deshizo (skipped=false): manda el servidor aunque este teléfono la tuviera omitida.
+    const undone = session([{ ...ex("d", 6, drop(4)), skips: [{ setIndex: 5, skipped: false, changedAt: "2026-11-03T10:05:00.000Z" }] } as ReturnType<typeof ex>]);
+    const local = session([ex("d", 6, drop(4))]);
+    local.sets[setKey("d", 5)] = { ...local.sets[setKey("d", 5)], skip: true, skipAt: "2026-11-03T10:00:00.000Z" };
+    const merged = keepLocalOnly(undone, local, new Set([setKey("d", 5)]));
+    expect(merged.session.sets[setKey("d", 5)].skip).toBe(false);
+    expect(merged.upload).toEqual([]);
+    expect(rowResolved(merged.session.sets[setKey("d", 0)])).toBe(false);
+  });
+  it("D184: una omisión guardada sólo en el teléfono (versión anterior) se conserva y se marca para subir", () => {
     const local = session([ex("d", 6, drop(4))]);
     local.sets[setKey("d", 5)] = { ...local.sets[setKey("d", 5)], skip: true };
-    local.sets[setKey("d", 4)] = { ...local.sets[setKey("d", 4)], skip: true };
-    local.iv = { peId: "d", start: 1 };
-    const fresh = session([ex("d", 6, drop(4), { logs: [{ setIndex: 4, weightKg: 45, reps: 8 }] })]);
-    const merged = keepLocalOnly(fresh, local);
-    expect(rowResolved(merged.sets[setKey("d", 5)])).toBe(true);
-    expect(merged.sets[setKey("d", 5)].skip).toBe(true);
-    expect(merged.sets[setKey("d", 4)]).toMatchObject({ done: true, w: 45 }); // registrado en otro dispositivo: no queda omitido
-    expect(merged.sets[setKey("d", 4)].skip).toBeUndefined();
-    expect(merged.iv).toEqual({ peId: "d", start: 1 });
-    expect(rowResolved(merged.sets[setKey("d", 0)])).toBe(false);
+    const merged = keepLocalOnly(session([ex("d", 6, drop(4))]), local, new Set());
+    expect(merged.session.sets[setKey("d", 5)].skip).toBe(true);
+    expect(merged.upload).toEqual([setKey("d", 5)]);
+  });
+  it("D184: el intervalo EMOM del servidor se traduce al reloj del teléfono", () => {
+    const serverNow = new Date(Date.now() + 30_000).toISOString(); // el servidor va 30 s adelante de este teléfono
+    const startedAt = new Date(Date.parse(serverNow) - 20_000).toISOString(); // empezó hace 20 s (hora del servidor)
+    const s = fromServer({ id: "s1", dayName: "Día", status: "in_progress", note: "", rpe: null, sessionNote: null, startedAt: new Date().toISOString(), endedAt: null,
+      activeMs: 0, lastResumedAt: null, revision: 1, exercises: [ex("d", 3, null)], serverNow,
+      interval: { peId: "d", block: 1, startedAt, emomSec: 60, status: "running", at: startedAt } });
+    expect(s.iv).toMatchObject({ peId: "d", block: 1, emomSec: 60, status: "running" });
+    expect(Math.abs(Date.now() - 20_000 - s.iv!.start)).toBeLessThan(1500);
   });
 });

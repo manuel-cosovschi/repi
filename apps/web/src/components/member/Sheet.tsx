@@ -28,6 +28,9 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
     const focusables = () => [...root.querySelectorAll<HTMLElement>("button,[href],input,textarea,[tabindex]:not([tabindex='-1'])")].filter((el) => !el.hasAttribute("disabled"));
     root.focus();
     const onKey = (e: KeyboardEvent) => {
+      // D184: con un diálogo encima (el editor de técnica), sólo responde el que tiene el foco.
+      const a = document.activeElement;
+      if (document.querySelector(".modal-bg") || (a && a !== document.body && !root.contains(a))) return;
       if (e.key === "Escape") { e.preventDefault(); close.current(); return; }
       if (e.key !== "Tab") return;
       const f = focusables(); if (!f.length) return;

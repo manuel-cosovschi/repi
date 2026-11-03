@@ -5,9 +5,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
-import { comboStep, exerciseComplete, groupRounds, planBlocks, sessionMetrics } from "@repi/domain";
+import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics } from "@repi/domain";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalSession } from "@/lib/offline/store";
+import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { useUnit } from "./units";
@@ -32,6 +32,7 @@ const RING = 207.35;
 type DoneData = {
   id: string; dayName: string; activeMs: number; exDone: number; exSkipped: number; exTotal: number; setsDone: number; setsTotal: number; volumeKg: number;
   stagesDone: number; // D183: etapas conectadas hechas (drops, mini series): se informan aparte de las series
+  stagesSkipped: number; // D184: etapas que quedaron sin hacer («Terminar la serie acá»): no son resultados
   prs: Summary["prs"]; rows: { name: string; txt: string }[]; rpe: number | null; sessionNote: string | null; local: boolean;
 };
 
@@ -43,11 +44,12 @@ const skipTxt = (c?: ExChange | null) => `Salteado · ${c ? EXERCISE_CHANGE_REAS
 function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
   const logsOf = (e: LocalEx) => Array.from({ length: e.sets }, (_, i) => ({ i, x: s.sets[setKey(e.id, i)] })).filter((y) => y.x?.done).map((y) => ({ setIndex: y.i, weightKg: y.x.w, reps: y.x.r }));
   const full = (e: LocalEx) => exerciseComplete(e, (k) => !!s.sets[setKey(e.id, k)]?.done);
-  const m = sessionMetrics(s.exercises.map((e) => ({ ex: e, logs: logsOf(e) })));
+  const skippedOf = (e: LocalEx) => Array.from({ length: e.sets }, (_, i) => i).filter((i) => s.sets[setKey(e.id, i)]?.skip && !s.sets[setKey(e.id, i)]?.done);
+  const m = sessionMetrics(s.exercises.map((e) => ({ ex: e, logs: logsOf(e), skipped: skippedOf(e) })));
   return {
     id: s.id, dayName: s.dayName, activeMs: s.activeMs, local: true, prs: [], rpe: s.rpe, sessionNote: s.sessionNote,
     exDone: s.exercises.filter(full).length, exSkipped: s.exercises.filter((e) => e.change?.kind === "skip" && !full(e)).length,
-    exTotal: s.exercises.length, setsDone: m.mainDone + m.warmupDone, setsTotal: m.mainPlanned + m.warmupPlanned, stagesDone: m.stagesDone,
+    exTotal: s.exercises.length, setsDone: m.mainDone + m.warmupDone, setsTotal: m.mainPlanned + m.warmupPlanned, stagesDone: m.stagesDone, stagesSkipped: m.stagesSkipped,
     volumeKg: m.tonnageKg,
     rows: s.exercises.map((e) => {
       const xs = Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]).filter((x) => x?.done);
@@ -60,7 +62,7 @@ function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
 function serverSummary(x: Summary, unit: WeightUnit): DoneData {
   return {
     id: x.id, dayName: x.dayName, activeMs: x.activeMs, exDone: x.exDone, exSkipped: x.exSkipped ?? 0, exTotal: x.exTotal, setsDone: x.setsDone, setsTotal: x.setsTotal, volumeKg: x.volumeKg,
-    stagesDone: x.metrics?.stagesDone ?? 0,
+    stagesDone: x.metrics?.stagesDone ?? 0, stagesSkipped: x.metrics?.stagesSkipped ?? 0,
     prs: x.prs, rpe: x.rpe, sessionNote: x.sessionNote, local: false,
     rows: x.exercises.filter((e) => e.logs.length || e.change?.kind === "skip").map((e) => {
       const sets = e.logs.length ? `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}` : "";
@@ -117,8 +119,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     if (!local || (pending === 0 && !local.conflict)) {
       try {
         const srv = await api<Parameters<typeof fromServer>[0] & { outdated?: boolean }>(`/api/me/sessions/${sessionId}`);
-        x = keepLocalOnly(fromServer(srv, local?.rest), local);
+        // D184: las omisiones y el intervalo EMOM vienen del servidor (también los de otro dispositivo). Sólo se suben las
+        // omisiones que este teléfono tenía guardadas de antes y el servidor no conoce.
+        const known = new Set(srv.exercises.flatMap((e) => ((e as { skips?: { setIndex: number }[] }).skips ?? []).map((k) => setKey(e.id, k.setIndex))));
+        const kept = keepLocalOnly(fromServer(srv, local?.rest), local, known);
+        x = kept.session;
         await putLocal(x);
+        for (const k of kept.upload) { const [peId, idx] = k.split(":"); await enqueue({ key: `skip:${x.id}:${k}`, kind: "skip", sid: x.id, peId, idx: Number(idx) }); }
         setOutdated(!!srv.outdated);
       } catch (e) {
         if (!local) { setErr((e as Error).message || "Sin conexión y sin datos de este entrenamiento en el teléfono."); return; }
@@ -218,7 +225,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const nextStage = b?.rows.find((k) => k > i && !rowResolved(sets[setKey(ex.id, k)]));
     if (nextStage != null) return setTarget(ex, nextStage).restSec ?? 0;
     const emom = ex.detail?.emomSec;
-    if (emom) { const st = x.iv?.peId === ex.id ? x.iv.start : null; return st ? Math.max(0, Math.round((st + emom * 1000 - Date.now()) / 1000)) : emom; }
+    if (emom) { const st = x.iv?.peId === ex.id && x.iv.status === "running" ? x.iv.start : null; return st ? Math.max(0, Math.round((st + emom * 1000 - Date.now()) / 1000)) : emom; }
     return setTarget(ex, b?.main ?? i).restSec ?? ex.restSec;
   };
   /** Después de resolver la fila `i` (hecha u omitida): descanso, combinación (A1 → A2) y cola de sincronización. */
@@ -230,13 +237,31 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const flow = !wasDone ? comboStep(s.exercises, (e, k) => rowResolved(sets[setKey(s.exercises[e].id, k)]), exIdx, i) : null;
     if (flow) restS = flow.endOfRound ? restS : 0;
     const emom = ex.detail?.emomSec;
-    const iv = emom && !wasDone && blocks[blockOf(i)]?.rows.every((k) => rowResolved(sets[setKey(ex.id, k)])) ? { peId: ex.id, start: Date.now() + restS * 1000 } : s.iv ?? null;
+    // D184: al terminar una serie de un EMOM, el intervalo siguiente empieza cuando termina el actual (se sincroniza).
+    const bi = blockOf(i);
+    const ivChange = !!emom && !wasDone && !!blocks[bi]?.rows.every((k) => rowResolved(sets[setKey(ex.id, k)]));
+    const iv: LocalInterval | null = ivChange ? (bi + 1 < blocks.length ? { peId: ex.id, block: bi + 1, start: Date.now() + restS * 1000, emomSec: emom!, status: "running" } : null) : s.iv ?? null;
     // Editar una serie ya hecha no toca el descanso; si no, un descanso viejo no queda tapando una etapa sin pausa (un drop).
-    const next = { ...s, sets, iv, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : null };
+    const next = { ...s, sets, iv, ivAt: ivChange ? new Date().toISOString() : s.ivAt ?? null, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : null };
     setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
     if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); else if (flow.rounds > 1) flash(`Vuelta ${flow.round + 1} de ${flow.rounds}.`); }
     await commit(next);
     if (enqueueSet) await enqueue({ key: `set:${s.id}:${setKey(ex.id, i)}`, kind: "set", sid: s.id, peId: ex.id, idx: i });
+    if (ivChange) await enqueue({ key: `interval:${s.id}`, kind: "interval", sid: s.id });
+  };
+  /** D184: empezar el intervalo EMOM de la serie en curso (también para volver a empezarlo si venció o se interrumpió). */
+  const startInterval = async () => {
+    if (!s || !ex?.detail?.emomSec || cur < 0) return;
+    await commit({ ...s, iv: { peId: ex.id, block: blockOf(cur), start: Date.now(), emomSec: ex.detail.emomSec, status: "running" }, ivAt: new Date().toISOString() });
+    await enqueue({ key: `interval:${s.id}`, kind: "interval", sid: s.id });
+  };
+  /** D184: una etapa omitida vuelve a quedar pendiente (corrección); en todos los dispositivos al sincronizar. */
+  const unskip = async (i: number) => {
+    if (!s || !ex) return;
+    const k = setKey(ex.id, i);
+    await commit({ ...s, sets: { ...s.sets, [k]: { ...s.sets[k], skip: false, skipAt: new Date().toISOString() } } });
+    await enqueue({ key: `skip:${s.id}:${k}`, kind: "skip", sid: s.id, peId: ex.id, idx: i });
+    flash(`${rowName(i)[0].toUpperCase()}${rowName(i).slice(1)} vuelve a estar pendiente.`);
   };
   const complete = async () => {
     if (!s || !ex || cur < 0 || !curRow) return;
@@ -244,6 +269,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const wasDone = curRow.done;
     // D182: una serie reducida (aproximación, back-off, drop) sin peso del plan no se completa con un peso que nadie eligió.
     if (curRow.pend && !wasDone) { flash("Elegí el peso de esta serie antes de completarla."); return; }
+    // D184: 0 repeticiones (o 0 s) no es una serie hecha: un drop «al fallo» empieza en 0 y se completaba así, como si se
+    // hubiera hecho. Si no se hizo, es «Terminar la serie acá» (queda omitida, no como resultado).
+    if (!wasDone && curRow.r <= 0) { flash(curT && curT.stage > 0 ? "Marcá cuántas repeticiones hiciste, o «Terminar la serie acá» si no la hiciste." : `Marcá ${repsKind === "time" ? "los segundos" : "las repeticiones"} que hiciste antes de completarla.`); return; }
     const f = wasDone ? curRow.feel ?? null : feel;
     const { skip: _sk, ...row } = curRow;
     const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
@@ -260,15 +288,19 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const left = b.rows.filter((k) => k >= cur && !s.sets[setKey(ex.id, k)].done);
     if (!left.length) return;
     const sets = { ...s.sets };
-    for (const k of left) sets[setKey(ex.id, k)] = { ...sets[setKey(ex.id, k)], skip: true };
+    const at = new Date().toISOString();
+    for (const k of left) sets[setKey(ex.id, k)] = { ...sets[setKey(ex.id, k)], skip: true, skipAt: at };
     await advance(sets, left[left.length - 1], false, false);
+    // D184: la omisión se guarda en el servidor (offline, por la cola): los otros dispositivos la ven y no es un resultado.
+    for (const k of left) await enqueue({ key: `skip:${s.id}:${setKey(ex.id, k)}`, kind: "skip", sid: s.id, peId: ex.id, idx: k });
     flash(`Serie ${b.index + 1} terminada: ${left.length === 1 ? "1 etapa quedó sin hacer" : `${left.length} etapas quedaron sin hacer`}.`);
   };
   const act = async (action: "pause" | "resume") => {
     if (!s) return;
     const n = localAction(s, action);
     if (!n) return;
-    await commit(n);
+    // D184: pausar interrumpe el intervalo EMOM en curso (lo mismo hace el servidor al recibir la pausa).
+    await commit(action === "pause" && n.iv?.status === "running" ? { ...n, iv: { ...n.iv, status: "interrupted" }, ivAt: new Date().toISOString() } : n);
     await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action, at: new Date().toISOString() });
     if (action === "pause") flash("Entrenamiento en pausa. El reloj se detuvo.");
   };
@@ -547,12 +579,26 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 <span>{curT.kind === "drop" ? "Bajá la carga y seguí sin descanso." : curT.kind === "cluster" ? `Pausa de ${curT.restSec ?? 0} s entre bloques, misma carga.` : `Pausa corta (${curT.restSec ?? 0} s) y seguí con la misma carga.`}</span>
                 <button type="button" className="ghost sm" onClick={() => void endBlockHere()}>Terminar la serie acá</button></div>
             )}
-            {ex.detail?.emomSec && !curRow.done && (curT?.stage ?? 0) === 0 && (
-              <div className="wo-stage" role="note"><b>EMOM · intervalo {blockOf(cur) + 1} de {blocks.length} · cada {ex.detail.emomSec} s</b>
-                {s.iv?.peId === ex.id && s.iv.start <= now ? <span>Intervalo en curso: {formatClock(Math.max(0, Math.round((s.iv.start + ex.detail.emomSec * 1000 - now) / 1000)))} para el próximo.</span>
-                  : <button type="button" className="ghost sm" onClick={() => commit({ ...s, iv: { peId: ex.id, start: Date.now() } })}>Empezar el intervalo</button>}
-              </div>
+            {curRow.skip && !curRow.done && (
+              <div className="wo-stage" role="note"><b>{rowName(cur)[0].toUpperCase()}{rowName(cur).slice(1)}: sin hacer</b>
+                <span>Quedó sin hacer al terminar la serie antes. Si la hiciste, completala; si no, dejala así.</span>
+                <button type="button" className="ghost sm" onClick={() => void unskip(cur)}>Volver a pendiente</button></div>
             )}
+            {ex.detail?.emomSec && !curRow.done && (curT?.stage ?? 0) === 0 && (() => {
+              // D184: el intervalo viene del servidor si se empezó en otro dispositivo. Si venció sin registrar la serie o se
+              // pausó el entrenamiento, no se calcula en qué momento estaría: se vuelve a empezar.
+              const iv = s.iv?.peId === ex.id && s.iv.block === blockOf(cur) ? s.iv : null;
+              const v = iv ? intervalView({ peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status, at: "" }, now) : null;
+              return (
+                <div className="wo-stage" role="note"><b>EMOM · intervalo {blockOf(cur) + 1} de {blocks.length} · cada {ex.detail.emomSec} s</b>
+                  {v?.phase === "running" ? <span role="timer" aria-live="off">Intervalo en curso: {formatClock(v.leftSec)} para el próximo.</span>
+                    : v?.phase === "upcoming" ? <span role="timer" aria-live="off">El intervalo {blockOf(cur) + 1} empieza en {formatClock(v.leftSec)}.</span>
+                      : <>{v?.phase === "expired" && <span>El intervalo terminó sin registrar la serie.</span>}
+                        {v?.phase === "interrupted" && <span>El intervalo se interrumpió con la pausa.</span>}
+                        <button type="button" className="ghost sm" onClick={() => void startInterval()}>{v ? "Volver a empezar el intervalo" : "Empezar el intervalo"}</button></>}
+                </div>
+              );
+            })()}
             {!curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
             {curRow.pend && !curRow.done && (() => {
               // D182: referencia del método para confirmar (back-off −15 % del top, drop −20 % de la anterior). Nunca se aplica sola.
@@ -670,7 +716,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
         <div className="done-ring" ref={ring}><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" stroke="#1A2433" strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>
           <Ic i={Check} size={34} color="#00D1FF" /></div>
         <h1 tabIndex={-1}>{complete ? `¡${sum.dayName} completo!` : `${sum.dayName} registrado`}</h1>
-        <span className="mb-muted" style={{ fontSize: 15 }}>Cada repetición cuenta. Hoy sumaste {sum.setsDone} {sum.setsDone === 1 ? "serie" : "series"}{sum.stagesDone ? ` y ${sum.stagesDone} ${sum.stagesDone === 1 ? "etapa" : "etapas"} (drops, mini series)` : ""}.</span>
+        <span className="mb-muted" style={{ fontSize: 15 }}>Cada repetición cuenta. Hoy sumaste {sum.setsDone} {sum.setsDone === 1 ? "serie" : "series"}{sum.stagesDone ? ` y ${sum.stagesDone} ${sum.stagesDone === 1 ? "etapa" : "etapas"} (drops, mini series)` : ""}.{sum.stagesSkipped ? ` ${sum.stagesSkipped === 1 ? "1 etapa quedó" : `${sum.stagesSkipped} etapas quedaron`} sin hacer.` : ""}</span>
       </div>
       {sum.local && <p className="mb-note" role="status">Guardado en el teléfono. Se sincroniza al volver la conexión; los récords se calculan ahí.</p>}
       <div className="stats3">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CoachApp } from "@/components/coach/CoachApp";
 import { requireOrgMember } from "@/server/access/guard";
 import "@/styles/coach.css";
+import "@/styles/method-editor.css";
 import "@/styles/gym.css";
 
 export const metadata: Metadata = { title: "REPI Coach" };

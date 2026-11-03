@@ -45,7 +45,8 @@ const newStage = (kind: SetKind, main: PlanRow): PlanRow => ({
   restSec: kind === "drop" ? 0 : 20, note: null, id: newSpecId(), block: main.block, stage: 1,
 });
 
-export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p: { detail: ExerciseDetail | null; sets: number }) => void; onClose: () => void }) {
+/** D184: el mismo editor en la app del alumno (`member`: modal oscuro desde abajo, con los tokens del alumno). */
+export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e: Ex; onSave: (p: { detail: ExerciseDetail | null; sets: number }) => void; onClose: () => void; member?: boolean }) {
   const initial = useMemo(() => {
     const d = e.detail ?? emptyDetail();
     return d.setPlan ? { ...d, setPlan: normalizePlan(d.setPlan).rows } : d;
@@ -122,12 +123,12 @@ export function ExerciseDetailEditor({ e, onSave, onClose }: { e: Ex; onSave: (p
     if (!r.ok) return setErr(r.error);
     onSave({ detail: r.detail, sets: r.sets });
   };
-  const sel = { height: 38, borderRadius: 9, border: "1px solid var(--light-border-strong)", padding: "0 8px", font: "500 14px var(--font-ui)", background: "var(--light-surface)", width: "100%" } as const;
+  const sel = { minHeight: 38, borderRadius: 9, border: "1px solid var(--light-border-strong)", padding: "0 8px", font: "500 14px var(--font-ui)", background: "var(--light-surface)", color: "var(--light-ink)", width: "100%" } as const;
   const target = (i: number) => setTargetText(setTarget({ ...e, detail: d }, i));
   let rowIdx = -1;
 
   return (
-    <Modal label={`Series y técnica · ${e.name}`} onClose={close} wide>
+    <Modal label={`Series y técnica · ${e.name}`} onClose={close} wide className={member ? "dx-host" : undefined}>
       <div className="dx">
         <div className="mhead"><h2>{e.name} · series y técnica</h2><button type="button" className="x" aria-label="Cerrar" onClick={close}>×</button></div>
 

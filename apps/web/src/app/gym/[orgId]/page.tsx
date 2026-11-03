@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GymApp } from "@/components/gym/GymApp";
 import { requireOrgMember } from "@/server/access/guard";
 import "@/styles/coach.css";
+import "@/styles/method-editor.css";
 import "@/styles/gym.css";
 import "@/styles/gym-access.css";
 

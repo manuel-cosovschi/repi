@@ -5,7 +5,8 @@ import { useBackdropClose } from "./backdrop";
 import { useScrollLock } from "./scrollLock";
 
 // Modal accesible: foco inicial, trap con Tab, Esc y clic de fondo cierran, foco restaurado al cerrar.
-export function Modal({ label, onClose, children, wide }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+// D184: `className` en el fondo (p. ej. «dx-host», el editor de técnica con los tokens de la app del alumno).
+export function Modal({ label, onClose, children, wide, className }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -34,7 +35,7 @@ export function Modal({ label, onClose, children, wide }: { label: string; onClo
   // Portal fuera de <main> para poder marcar el fondo como inerte.
   const backdrop = useBackdropClose(onClose);
   return createPortal(
-    <div className="modal-bg" {...backdrop}>
+    <div className={className ? `modal-bg ${className}` : "modal-bg"} {...backdrop}>
       <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} style={wide ? { maxWidth: 760 } : undefined} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
