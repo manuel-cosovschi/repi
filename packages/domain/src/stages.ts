@@ -188,7 +188,7 @@ export function applyMethod(detail: ExerciseDetail | null | undefined, base: Bas
         const old = b.slice(1).filter((r) => r.kind === "drop");
         if (b.length - 1 > old.length) changes.push(`${name(bi)}: las etapas que no eran drops se reemplazan.`);
         const fresh = Array.from({ length: k }, (_, j) => old[j] ?? { ...blankRow({ kind: "drop", reps: "al fallo", restSec: 0 }), id: newSpecId(), block: bi, stage: j + 1 });
-        if (k !== old.length) changes.push(`${name(bi)}: ${k} ${k === 1 ? "drop conectado" : "drops conectados"}${old.length ? ` (antes ${old.length})` : ""}. La carga de cada drop la elige el alumno con una referencia, salvo que la indiques.`);
+        if (k !== old.length) changes.push(`${name(bi)}: ${k} ${k === 1 ? "drop conectado" : "drops conectados"}${old.length ? ` (antes ${old.length})` : ""}. La carga de cada drop se elige al entrenar, con una referencia, salvo que la indiques.`);
         return [main, ...fresh];
       }
       case "rest_pause": case "myo_reps": {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comboNext, emptyDetail, groupLabels, presetPlan, setTarget, setTargetText, straightRow, uniformPlan, validateDetail } from "./prescription";
+import { comboNext, emptyDetail, groupLabels, presetPlan, setTarget, setTargetText, straightRow, uniformPlan, validateDetail, type ExerciseDetail } from "./prescription";
 import { validateProgramDoc } from "./training";
 
 describe("prescripción avanzada", () => {
@@ -19,7 +19,7 @@ describe("prescripción avanzada", () => {
     expect(v.ok && v.detail?.technique).toBe("straight");
     expect(v.ok && setTarget({ sets: 3, reps: "8-10", rir: 2, restSec: 90, detail: v.detail }, 2).weightKg).toBe(60);
     // Lo que se cambia en la fila (series, reps, RIR) se copia a todas las series.
-    const row = straightRow({ ...emptyDetail(), setPlan: sp }, { sets: 4, reps: "6-8" });
+    const row = straightRow({ ...emptyDetail(), setPlan: sp }, { sets: 4, reps: "6-8" }) as { sets: number; detail?: ExerciseDetail | null };
     expect(row.sets).toBe(4);
     expect(row.detail?.setPlan).toHaveLength(4);
     expect(row.detail?.setPlan?.[3]).toMatchObject({ reps: "6-8", weightKg: 60, rir: 2 });

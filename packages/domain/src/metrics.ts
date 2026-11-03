@@ -7,6 +7,8 @@
 //  · Series principales hechas: de esas, las que tienen al menos una fila registrada (omitir un drop no «pierde» la serie).
 //  · Aproximación: bloques de calentamiento; se informan aparte y no suman a reps, tonelaje ni récords.
 //  · Etapas: drops, mini series y bloques de cluster conectados (programadas y hechas, aparte de las series).
+//  · Etapas omitidas (D184): las que la persona cortó con «Terminar la serie acá». No son resultados: no suman reps, tonelaje,
+//    tiempo ni récords; una etapa con registro nunca cuenta como omitida.
 //  · Repeticiones: Σ reps de las filas hechas, sin aproximación, sin series por tiempo y sin AMRAP contado en rondas.
 //  · Tonelaje (volumen de carga): Σ peso × reps de esas mismas filas (incluye etapas: son kilos levantados de verdad).
 //    En ejercicios unilaterales las reps son por lado y no se duplican.
@@ -32,22 +34,27 @@ export function rowFlags(e: Ex, i: number): RowFlags {
 }
 
 export type WorkMetrics = {
-  mainPlanned: number; mainDone: number; warmupPlanned: number; warmupDone: number; stagesPlanned: number; stagesDone: number;
+  mainPlanned: number; mainDone: number; warmupPlanned: number; warmupDone: number; stagesPlanned: number; stagesDone: number; stagesSkipped: number;
   rowsDone: number; reps: number; tonnageKg: number; timeSec: number; rounds: number;
 };
-export const EMPTY_METRICS: WorkMetrics = { mainPlanned: 0, mainDone: 0, warmupPlanned: 0, warmupDone: 0, stagesPlanned: 0, stagesDone: 0, rowsDone: 0, reps: 0, tonnageKg: 0, timeSec: 0, rounds: 0 };
+export const EMPTY_METRICS: WorkMetrics = { mainPlanned: 0, mainDone: 0, warmupPlanned: 0, warmupDone: 0, stagesPlanned: 0, stagesDone: 0, stagesSkipped: 0, rowsDone: 0, reps: 0, tonnageKg: 0, timeSec: 0, rounds: 0 };
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
-/** Métricas de un ejercicio con las filas registradas (`setIndex`, peso y reps o segundos o rondas). */
-export function exerciseMetrics(e: Ex, logs: { setIndex: number; weightKg: number | null; reps: number | null }[]): WorkMetrics {
+/**
+ * Métricas de un ejercicio con las filas registradas (`setIndex`, peso y reps o segundos o rondas). `skipped`: filas de etapas
+ * omitidas (D184); sólo cuentan como omitidas, y sólo si no tienen registro.
+ */
+export function exerciseMetrics(e: Ex, logs: { setIndex: number; weightKg: number | null; reps: number | null }[], skipped: readonly number[] = []): WorkMetrics {
   const m = { ...EMPTY_METRICS };
   const done = new Map(logs.map((l) => [l.setIndex, l]));
+  const skip = new Set(skipped);
   for (const b of planBlocks(e.detail, e.sets)) {
     const warm = b.kind === "warmup";
     const any = b.rows.some((k) => done.has(k));
     if (warm) { m.warmupPlanned++; if (any) m.warmupDone++; } else { m.mainPlanned++; if (any) m.mainDone++; }
     m.stagesPlanned += b.stages;
     m.stagesDone += b.rows.slice(1).filter((k) => done.has(k)).length;
+    m.stagesSkipped += b.rows.slice(1).filter((k) => skip.has(k) && !done.has(k)).length;
   }
   for (const l of logs) {
     const f = rowFlags(e, l.setIndex);
@@ -70,8 +77,8 @@ export function addMetrics(a: WorkMetrics, b: WorkMetrics): WorkMetrics {
 }
 
 /** Métricas de una sesión: suma de sus ejercicios. */
-export const sessionMetrics = (exs: { ex: Ex; logs: { setIndex: number; weightKg: number | null; reps: number | null }[] }[]) =>
-  exs.reduce((acc, x) => addMetrics(acc, exerciseMetrics(x.ex, x.logs)), { ...EMPTY_METRICS });
+export const sessionMetrics = (exs: { ex: Ex; logs: { setIndex: number; weightKg: number | null; reps: number | null }[]; skipped?: readonly number[] }[]) =>
+  exs.reduce((acc, x) => addMetrics(acc, exerciseMetrics(x.ex, x.logs, x.skipped)), { ...EMPTY_METRICS });
 
 /** Un ejercicio está completo cuando todas sus series principales tienen registro (las etapas omitidas no lo impiden). */
 export const exerciseComplete = (e: Ex, done: (k: number) => boolean) =>

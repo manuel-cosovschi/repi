@@ -25,3 +25,5 @@ export * from "./routine-import";
 export * from "./levels";
 export * from "./stages";
 export * from "./metrics";
+export * from "./execution";
+export * from "./method-detect";
