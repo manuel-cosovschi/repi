@@ -101,6 +101,11 @@ export function AccessControlScreen({ shell }: { shell: Shell }) {
       {enabled === false && (
         <div className="banner"><span><b>El control de acceso no está activo en este gimnasio.</b> Se activa por gimnasio, desde REPI, cuando lo acuerdan. Mientras tanto los socios entrenan como siempre y podés dejar lista la política, las sedes y las pantallas.</span></div>
       )}
+      {/* D180: activo sin pantalla de QR = ningún socio valida solo y el programa del gimnasio queda bloqueado para todos. */}
+      {enabled && set.data && set.data.policy.mode !== "open" && set.data.displays.length === 0 && (
+        <div className="gy-warn" role="alert"><span><b>Tus socios no pueden validar su ingreso solos.</b> El control de acceso está activo y no hay ninguna pantalla de QR en recepción: hasta validar, nadie puede empezar el entrenamiento del programa del gimnasio. Creá una en «Pantallas y sedes» y abrila en la tablet de recepción, validá a cada socio en «Validar a mano», o pasá la política a «Abierto» mientras tanto. Sus rutinas propias, historial y progreso siguen funcionando.</span>
+          {tab !== "displays" && <button type="button" className="btn sm" onClick={() => setTab("displays")}>Crear pantalla</button>}</div>
+      )}
       {tab === "panel" && <AccessPanel shell={shell} r={rep.data} loc={loc} setLoc={setLoc} days={days} setDays={setDays} reload={rep.reload} owner={owner} />}
       {tab === "policy" && set.data && <PolicyForm shell={shell} s={set.data} onSaved={() => { void set.reload(); void rep.reload(); }} />}
       {tab === "displays" && set.data && <DisplaysAndSites shell={shell} s={set.data} reload={set.reload} />}

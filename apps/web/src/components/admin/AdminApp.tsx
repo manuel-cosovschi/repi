@@ -24,7 +24,7 @@ type Term = { id: string; kind: "quantity" | "unit_price"; version: number; valu
 type Detail = {
   contract: { id: string; orgId: string; kind: "gym" | "coach"; legalName: string | null; responsibleName: string; responsibleEmail: string; currency: Currency; scope: string; scopeNote: string | null; quantityDefinition: string | null;
     status: "draft" | "accepted" | "enabled" | "suspended" | "ended"; termsVersion: string | null; acceptedRef: string | null; acceptedAt: string | null; enabledAt: string | null; trialUntil: string | null };
-  org: { name: string; commercialStatus: string; connectEnabled?: boolean }; accessControl?: { enabled: boolean; mode: string | null }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
+  org: { name: string; commercialStatus: string; connectEnabled?: boolean }; accessControl?: { enabled: boolean; mode: string | null; displays?: number; checkins7d?: number }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
   preview: { ok: boolean; reason?: string; subtotalTxt?: string; note?: string | null; period: { start: string; end: string }; changes: { kind: string; version: number; effectiveFrom: string }[];
     lines?: { concept: string; quantity: number; unitMinor: number; totalMinor: number }[]; currency?: Currency };
   invitations: { id: string; email: string | null; status: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null; expiresAt: string; createdAt: string }[];
@@ -617,11 +617,21 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
               onClick={() => {
                 const on = !v.accessControl?.enabled;
                 if (!on && !confirm("¿Desactivar el control de acceso? Se revocan los ingresos vigentes y los socios vuelven a entrenar sin validar.")) return;
+                // D180: activarlo bloquea el programa del gimnasio hasta que cada socio valide su ingreso. Sin pantalla de QR nadie
+                // puede validar solo (le pasó a Smart: sus socios no podían entrenar). Se confirma sabiendo eso.
+                if (on && !confirm(`¿Activar el control de acceso en ${v.org.name}?\n\nDesde ahora, cada socio que entrene el programa del gimnasio tiene que validar su ingreso EN CADA VISITA (QR de recepción o el equipo a mano). Hasta validar, no puede empezar ese entrenamiento.\n\n${(v.accessControl?.displays ?? 0) === 0 ? "ATENCIÓN: este gimnasio no tiene ninguna pantalla de QR en recepción. Si lo activás ahora, ningún socio puede validar solo y todos dependen de que el equipo los valide uno por uno.\n\n" : ""}Activalo sólo si el gimnasio lo pidió, ya avisó a sus socios y tiene la pantalla de QR andando.`)) return;
                 act("access", `${base}/access`, { on }, on ? "Control de acceso activado. El gimnasio elige el modo en «Acceso y presencia»." : "Control de acceso desactivado. Ingresos vigentes revocados.");
               }}>
               {v.accessControl?.enabled ? "Desactivar" : "Activar"}</button>
           </div>
-          <small className="muted">Activa el QR dinámico de ingreso, las pantallas de recepción y «Acceso y presencia» para el dueño. En modo híbrido (por defecto) los socios ven rutina e historial desde cualquier lugar y validan el ingreso para iniciar el entrenamiento del gimnasio. Antes de usar la ubicación del teléfono, revisión legal (Ley 25.326). No afecta Repi Coach ni otros gimnasios.</small>
+          <div className="muted" style={{ fontSize: 14, display: "grid", gap: 6 }}>
+            <span><b>Qué significa activarlo:</b> los socios que entrenan el <b>programa del gimnasio</b> tienen que validar su ingreso <b>en cada visita</b> para empezar y registrar ese entrenamiento: escanean el QR de la pantalla de recepción o los valida el equipo a mano. Hasta validar, ven su rutina pero no pueden entrenarla.</span>
+            <span><b>Qué no cambia:</b> rutina, historial y progreso se ven desde cualquier lugar, y sus rutinas propias y la «rutina de hoy» de REPI se entrenan sin validar.</span>
+            <span><b>Antes de activarlo:</b> que el gimnasio lo haya pedido, que haya avisado a sus socios y que tenga <b>al menos una pantalla de QR</b> en recepción (el dueño la crea en «Acceso y presencia › Pantallas»). Si no, nadie valida solo y el equipo tiene que validar a cada socio uno por uno.</span>
+            <span><b>Estado:</b> {(v.accessControl?.displays ?? 0) === 1 ? "1 pantalla de QR" : `${v.accessControl?.displays ?? 0} pantallas de QR`} · {v.accessControl?.checkins7d ?? 0} ingresos validados en los últimos 7 días.</span>
+            {(v.accessControl?.displays ?? 0) === 0 && <span className="chip warn" role={v.accessControl?.enabled ? "alert" : undefined} style={{ justifySelf: "start" }}>{v.accessControl?.enabled ? "Activo sin pantalla de QR: los socios no pueden validar solos" : "Sin pantalla de QR: todavía no está listo para activarse"}</span>}
+            <span>Desactivarlo revoca los ingresos vigentes y los socios vuelven a entrenar sin validar; no borra el historial. Antes de usar la ubicación del teléfono, revisión legal (Ley 25.326). No afecta Repi Coach ni otros gimnasios.</span>
+          </div>
         </section>
       )}
 

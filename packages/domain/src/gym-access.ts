@@ -19,7 +19,7 @@ export function membershipState(status: string, accessUntil: string | null | und
 export type AccessMode = "open" | "hybrid" | "strict";
 export const ACCESS_MODES: Record<AccessMode, { label: string; what: string }> = {
   open: { label: "Abierto", what: "No pide validar el ingreso. Todo lo que incluye la membresía se usa desde cualquier lugar." },
-  hybrid: { label: "Híbrido (recomendado)", what: "Rutina, historial, progreso e indicaciones desde cualquier lugar. Para iniciar y registrar un entrenamiento del programa del gimnasio hay que validar el ingreso." },
+  hybrid: { label: "Híbrido (recomendado)", what: "Rutina, historial, progreso, indicaciones y rutinas propias del socio desde cualquier lugar. Para iniciar y registrar un entrenamiento del programa del gimnasio hay que validar el ingreso en cada visita: hace falta una pantalla de QR en recepción o que el equipo valide a mano." },
   strict: { label: "Estricto", what: "Como híbrido, y además exige validar el ingreso para las funciones presenciales que elijas. Revisalo con tu contrato y con tus socios antes de activarlo." },
 };
 /** Acciones protegibles. Leer rutina, historial, progreso, privacidad, soporte y exportar datos nunca se protegen. */
