@@ -2,28 +2,48 @@
 
 Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Respaldos de producción en GitHub (D190) — 04/11/2026 · EN MAIN, FALTA LA PUESTA EN MARCHA DEL TITULAR
+## Bloque 03/06 publicado y respaldos activos (D188 + D190) — 04/11/2026 · COMPLETO
 
-- **Publicado:**
-  - PR #9: workflow, scripts y documentación.
-  - PR #10: pedido por issue «Respaldo: …» del dueño, porque la integración no puede usar `workflow_dispatch` (403).
-  - PR #8 (D189): también publicado. Producción en `f48b6bd`.
-- **Producción:**
-  - Rol `repi_backup` (sólo lectura, sin contraseña, 98 tablas legibles, 0 escribibles).
-  - Edge Function `repi-storage` v3: rama OIDC de sólo `sign_read` para `backup.yml` en main; el camino de la app no cambió.
-- **Probado en GitHub:**
-  - Autoprueba en PR: cadena completa con release borrador real, recuperación documentada y rechazos.
-  - Pedido por issue (#11) sin configuración: se detuvo en «Configuración», comentó y abrió la alerta **#12** (queda abierta hasta el primer éxito).
-- **Falta (titular, `docs/RESPALDOS.md` → Puesta en marcha):**
-  1. Clave age privada guardada fuera de GitHub.
-  2. Variable `REPI_BACKUP_AGE_RECIPIENTS`.
-  3. `alter role repi_backup with password …` en Supabase.
-  4. Secreto `REPI_BACKUP_DATABASE_URL`.
-- **Después:**
-  1. Issue «Respaldo: antes de la migración 0042».
-  2. Si se cierra en verde: aplicar `hosted-0042.sql`, verificar integridad, integrar el PR #7 (ya conciliado con main, `ce4381a`) y verificar Claro/Oscuro/Automático en producción.
-  3. El cronograma diario se habilita solo con el primer respaldo verificado.
-- **Regla:** antes de cualquier migración productiva, respaldo verificado en GitHub; si falla, no se migra.
+**Producción:** `511f823` (repiclub.com `/api/version`). Hay 43 migraciones en la base y 43 en el código.
+
+### Respaldos (D190) — operativos, sin secretos guardados
+- **Cómo corre:** `.github/workflows/backup.yml`, a diario a las 03:17 de Buenos Aires, o con un issue «Respaldo: …» abierto por el dueño. `workflow_dispatch` también existe, pero la integración recibe 403.
+- **Credenciales:**
+  - Base: Edge Function `repi-backup-credentials`. Con el token OIDC del job, fija para `repi_backup` (sólo lectura) una contraseña que vence en 2 h y la revoca al terminar.
+  - Storage: `repi-storage` v4, que sólo firma lecturas para ese token.
+  - No hay Secrets ni Variables en GitHub.
+- **Claves age:**
+  - Pública: `apps/web/scripts/operations/backup-recipients.txt`.
+  - Privada: en el Google Drive del titular, carpeta «REPI — Recuperación de respaldos» (`repi-respaldos.age 2.key`, sólo el dueño tiene acceso). La guardó el titular desde el archivo que le envió Claude; Claude no la leyó.
+- **Primer respaldo real:** [`backup-20261104-140210-41843251047`](https://github.com/manuel-cosovschi/repi/releases/tag/backup-20261104-140210-41843251047).
+  - Contenido: 98 tablas, 2375 filas, 42 migraciones (antes de 0042) y 1 archivo de Storage.
+  - Restaurado en el runner, sin huérfanos en las 256 FK.
+  - Abierto con la clave del titular, con todos los hashes iguales al manifiesto.
+  - La credencial temporal quedó vencida.
+- **Alertas:** probadas con el issue #11 y la alerta #12. El éxito del issue #15 cerró la alerta.
+- **Pendiente:** confirmar la primera ejecución diaria del cronograma (05/11 a las 06:17 UTC). Hay un recordatorio de la sesión.
+
+### Migración 0042 — aplicada el 04/11 a las 14:04 UTC
+- **Cómo:** `hosted-0042.sql`, en una transacción como `repi_app`.
+- **Integridad:**
+  - 98 tablas y 2375 filas, iguales antes y después.
+  - Huellas de `set_log`, `workout_session`, `program_exercise`, `own_routine` y de las columnas previas de `user_pref` sin cambios.
+  - 0 restricciones sin validar.
+  - Smart sigue con el control presencial apagado.
+
+### PR #7 (D188) — publicado
+- **Prueba en producción:** con la demo guiada (sandbox), 28/28 comprobaciones.
+  - Claro, Oscuro y Automático con dispositivo claro y oscuro, guardado en la cuenta.
+  - 401 sin sesión y 400 con campos de más o un tema inválido.
+  - Pestañas del alumno y entrenamiento sin reinicio al cambiar de tema.
+  - Un alumno no entra a Admin.
+  - Coach y Dueño en ambos temas, con 7 secciones cada uno.
+  - Sin errores de página ni de Vercel.
+- **Datos reales:** sin cambios. Excluyendo las 3 demos de la prueba, las huellas de series y sesiones son idénticas a las de antes.
+
+### Próximo
+- **Training Intelligence 2.0 (bloque 04/06):** lo desarrolla otra sesión en su propia rama. main está al día y sin PR abiertos de este trabajo.
+- **Antes de cualquier migración nueva:** issue «Respaldo: antes de la migración 00NN» y seguir sólo si se cierra en verde.
 
 ## Arreglo urgente · Solicitud de socio pendiente que encerraba al equipo (D189) — 04/11/2026
 
@@ -38,7 +58,7 @@ Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados),
 
 Actualizado: 04/11/2026 (hasta D188; bloques 01/06 y 02/06 publicados; 03/06 en PR sin publicar), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Bloque 03/06 · Tema global Claro / Oscuro / Automático (D188) — 04/11/2026 · EN PR, SIN PUBLICAR
+## Bloque 03/06 · Tema global Claro / Oscuro / Automático (D188) — 04/11/2026 · PUBLICADO (ver arriba)
 
 - **Rama:** `feat/repi-global-theme-system`, sacada de `main` en `6cc299f` (= producción). PR borrador independiente. **No se integra a `main` sin autorización**, porque integrar despliega en vivo.
 - **Qué hace:** cada cuenta elige Claro («Premium Cream»), Oscuro («Premium Performance») o Automático (por defecto). Es la misma preferencia en Alumno, Coach, Gym, Admin y Mi cuenta, y en todos sus dispositivos. Arquitectura, tokens, sincronización y política de transición en **`docs/TEMA_GLOBAL.md`**.
