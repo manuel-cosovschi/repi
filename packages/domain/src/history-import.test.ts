@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exerciseEvolution, normalizeImport, parseDay, parseHistoryCsv } from "./history-import";
+import { exerciseEvolution, importCanonical, importOverlap, normalizeImport, parseDay, parseHistoryCsv } from "./history-import";
 
 describe("historial anterior · lectura", () => {
   it("fechas en formatos comunes", () => {
@@ -39,5 +39,19 @@ describe("historial anterior · validación y evolución", () => {
       { day: "2024-03-01", exercise: "Sentadilla", weightKg: 65, reps: 8, seconds: null },
     ]);
     expect(ev[0]).toMatchObject({ exercise: "Sentadilla", sessions: 3, first: { weightKg: 50 }, best: { weightKg: 70 }, last: { weightKg: 65 } });
+  });
+});
+
+describe("D182 · reimportar no duplica", () => {
+  const a = { day: "2024-01-05", exercise: "Sentadilla", weightKg: 60, reps: 10, seconds: null };
+  it("mismo contenido en otro orden o con otra escritura del nombre: misma huella", () => {
+    expect(importCanonical([a, { ...a, reps: 8 }])).toBe(importCanonical([{ ...a, reps: 8, exercise: "sentadilla" }, { ...a, weightKg: "60" as unknown as number }]));
+    expect(importCanonical([a])).not.toBe(importCanonical([{ ...a, weightKg: 62.5 }]));
+  });
+  it("coincidencia por cantidad: series iguales legítimas del mismo día no se pierden", () => {
+    const r = importOverlap([a, a, a, a], [a, a, a]);
+    expect(r).toMatchObject({ overlap: 3, keep: [3], days: ["2024-01-05"] });
+    expect(importOverlap([a, { ...a, day: "2024-01-06" }], [a])).toMatchObject({ overlap: 1, keep: [1] });
+    expect(importOverlap([a], [])).toMatchObject({ overlap: 0, keep: [0], days: [] });
   });
 });

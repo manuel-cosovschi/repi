@@ -20,6 +20,7 @@ export * from "./history-import";
 export * from "./prescription";
 export * from "./wishes";
 export * from "./progression";
+export * from "./load-safety";
 export * from "./routine-import";
 export * from "./levels";
 export * from "./exercise-guess";

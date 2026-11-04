@@ -48,6 +48,43 @@ describe("historial anterior", () => {
     expect(await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.importId, p.id))).toHaveLength(0);
   });
 
+  it("D182 · importar el mismo archivo otra vez no duplica; uno parcialmente igual pide elegir; series iguales legítimas se conservan", async () => {
+    await ensureExerciseCatalog();
+    const u = await verified();
+    const entries = async () => (await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.userId, u))).length;
+    const csv = "Fecha,Ejercicio,Series,Reps,Peso\n05/01/2024,Sentadilla,3,10,60\n12/01/2024,Sentadilla,2,8,70\n";
+    const a = await hi.previewHistoryImport(u, { fileName: "planilla.csv", kind: "text", text: csv });
+    expect(a).toMatchObject({ duplicateOf: null, overlap: { sets: 0 } });
+    await hi.confirmHistoryImport(u, a.id);
+    expect(await entries()).toBe(5);
+    // El mismo archivo (otro orden de filas, otra escritura del nombre): se detecta en la vista previa y al confirmar no suma nada.
+    const same = await hi.previewHistoryImport(u, { fileName: "copia.csv", kind: "text", text: "Fecha,Ejercicio,Series,Reps,Peso\n12/01/2024,sentadilla,2,8,70\n05/01/2024,SENTADILLA,3,10,60\n" });
+    expect(same.duplicateOf).toMatchObject({ fileName: "planilla.csv" });
+    expect(await hi.confirmHistoryImport(u, same.id)).toMatchObject({ sets: 0, duplicate: true });
+    expect(await hi.confirmHistoryImport(u, same.id).catch((e) => e.code)).toBe("closed"); // reintento: ya descartado, sin efectos
+    expect(await entries()).toBe(5);
+    // Parcialmente igual: sin elegir no se carga; «sólo lo nuevo» suma lo que falta; las series que ya estaban no se tocan.
+    const part = await hi.previewHistoryImport(u, { fileName: "nueva.csv", kind: "text", text: "Fecha,Ejercicio,Series,Reps,Peso\n12/01/2024,Sentadilla,3,8,70\n19/01/2024,Sentadilla,3,8,72.5\n" });
+    expect(part.overlap).toMatchObject({ sets: 2, days: 1 });
+    expect(await hi.confirmHistoryImport(u, part.id).catch((e) => e.code)).toBe("overlap");
+    expect(await entries()).toBe(5);
+    expect(await hi.confirmHistoryImport(u, part.id, "new_only")).toMatchObject({ sets: 4, skipped: 2 });
+    expect(await entries()).toBe(9); // 12/01: ahora 3 series de 70 × 8 (la tercera es nueva); 19/01: 3 series
+    expect(await hi.confirmHistoryImport(u, part.id, "new_only")).toMatchObject({ ok: true }); // reintento idempotente
+    expect(await entries()).toBe(9);
+    // «Todo igual»: dos sesiones con los mismos números son posibles y se respetan si la persona lo elige.
+    const again = await hi.previewHistoryImport(u, { fileName: "otra.csv", kind: "text", text: "Fecha,Ejercicio,Series,Reps,Peso\n19/01/2024,Sentadilla,1,8,72.5\n26/01/2024,Sentadilla,1,6,75\n" });
+    await hi.confirmHistoryImport(u, again.id, "all");
+    expect(await entries()).toBe(11);
+  });
+  it("D182 · dos archivos iguales confirmados a la vez: se carga uno solo", async () => {
+    await ensureExerciseCatalog();
+    const u = await verified();
+    const csv = "Fecha,Ejercicio,Series,Reps,Peso\n03/02/2024,Press de banca,3,8,50\n";
+    const [x, y] = [await hi.previewHistoryImport(u, { fileName: "a.csv", kind: "text", text: csv }), await hi.previewHistoryImport(u, { fileName: "b.csv", kind: "text", text: csv })];
+    await Promise.all([hi.confirmHistoryImport(u, x.id), hi.confirmHistoryImport(u, y.id)]);
+    expect(await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.userId, u))).toHaveLength(3);
+  });
   it("sin IA disponible, lo que no es planilla se explica; vacío o formato raro se rechaza", async () => {
     const u = await verified();
     expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "lunes sentadilla 3x10 60" })))?.code).toBe("ai_unavailable");

@@ -3,7 +3,7 @@
 // Diferencia documentada (D30): los días del programa no tienen día de semana fijo; se elige el día y se sugiere
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { TECHNIQUES, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
+import { TECHNIQUES, kindAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
@@ -220,6 +220,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       } else {
         const fresh = await loadPresence();
         const p = fresh?.gyms.find((x) => x.orgId === t.relation!.orgId);
+        // D182: membresía inactiva no es «falta validar el ingreso»: se dice eso y no se abre la hoja de validación.
+        if (p?.startNeedsCheckin && p.membership !== "active") { flash(`Tu membresía en ${p.gym} está ${p.membershipLabel.toLowerCase()}. Consultá en recepción.`); return; }
         if (p?.startNeedsCheckin && !p.pass) { setSheet({ type: "presence", dayId }); return; }
       }
     }
@@ -261,12 +263,14 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     for (const e of d.exercises) for (let i = 0; i < e.sets; i++) {
       // D134: el plan serie por serie fija peso o repeticiones de esa serie (top set, back-off, drop).
       const plan = e.detail?.setPlan?.[i];
-      const a = aiOf(e.id); // D138: sin plan por serie, el peso y las reps sugeridos por la IA para hoy
+      const a = aiOf(e.id); // D138: sin plan por serie, el peso y las reps sugeridos por la IA para hoy (ya validados, D182)
       // D154: sin plan del profe ni sugerencia del día, la progresión de REPI según la última vez en ese ejercicio.
       const sg = a?.swap || a?.skip ? null : e.suggest ?? null;
       const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? (sg ? String(sg.reps) : e.reps));
-      const w = plan?.weightKg ?? a?.weightKg ?? (a?.swap ? a.swap.prev?.weightKg : sg?.weightKg ?? e.prev?.weightKg) ?? 0;
-      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w, r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
+      // D182: una serie reducida (aproximación, back-off, drop) sin peso en el plan queda por elegir: nunca hereda el del top set.
+      const st = startWeight({ kind: kindAt(e.detail, i), planKg: plan?.weightKg, suggestKg: a?.swap ? null : a?.weightKg ?? sg?.weightKg,
+        carriedKg: a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg });
+      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}), r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {
       id: crypto.randomUUID(), dayId: d.id, dayName: d.name, note: t.program!.note, startedAt: nowIso, status: "in_progress", activeMs: 0, lastResumedAt: nowIso,
@@ -276,6 +280,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null };
         if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name } } };
         if (a?.skip) return { ...base, change: { kind: "skip" as const, reason: a.reason ?? "other", substitute: null } };
+        // D182: con la sugerencia de hoy aceptada, la tarjeta muestra esa carga (ya validada contra la regla): nunca dos cargas distintas.
+        if (a && a.weightKg != null) return { ...base, suggest: { action: "hold" as const, weightKg: a.weightKg, reps: Number(/^(\d+)/.exec(a.reps)?.[1] ?? e.suggest?.reps ?? 0), text: "",
+          why: [a.note, ...(a.checks ?? [])].filter(Boolean).join(" ") || "Carga de hoy ajustada por REPI con tu última vez." } };
         return base;
       }),
     };

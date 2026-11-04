@@ -101,6 +101,23 @@ describe("Gym Access · membresía y política", () => {
     expect(p.notes.join(" ")).toMatch(/15 ejercicios/);
   });
 
+  it("D182 · sin pantalla de QR el socio no puede validar solo: la app lo sabe; con pantalla, puede; la membresía vencida no es «falta validar»", async () => {
+    const w = await gymWorld();
+    const v = await w.member();
+    const g0 = (await ac.myPresence(v.userId)).gyms[0];
+    expect(g0).toMatchObject({ startNeedsCheckin: true, selfCheckin: false, membership: "active", pass: null });
+    await ac.createDisplay(w.owner, w.org, w.A, "Tablet recepción");
+    expect((await ac.myPresence(v.userId)).gyms[0].selfCheckin).toBe(true);
+    // El equipo valida a mano (la salida cuando no hay QR): se habilita el programa del gym.
+    await ac.staffCheckin(w.recep, w.org, { gymMemberId: v.memberId, locationId: w.A });
+    expect((await ac.myPresence(v.userId)).gyms[0].pass).not.toBeNull();
+    await startGym(v.userId);
+    // Membresía vencida: el servidor responde por la membresía, no por el ingreso.
+    const x = await w.member();
+    await db.update(schema.gymMember).set({ accessUntil: "2020-01-01" }).where(eq(schema.gymMember.id, x.memberId));
+    expect((await ac.myPresence(x.userId)).gyms[0].membership).not.toBe("active");
+    expect((await err(startGym(x.userId)))?.code).toBe("relation_inactive");
+  });
   it("12–13 · OPEN no exige nada; ESTRICTO sólo restringe lo configurado", async () => {
     const o = await gymWorld("Abierto", "open");
     const a = await o.member();

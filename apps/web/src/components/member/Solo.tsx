@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 
 type Prev = { weightKg: number | null; reps: number | null } | null;
-export type AdviceEx = { id: string; name: string; sets: number; reps: string; weightKg: number | null; note: string; prev?: Prev;
+export type AdviceEx = { id: string; name: string; sets: number; reps: string; weightKg: number | null; note: string; prev?: Prev; checks?: string[];
   swap: { exerciseId: string; name: string; approved: boolean; prev: Prev } | null; skip: boolean; reason: ExerciseChangeReason | null };
 export type Advice = { dayId: string; dayName: string; headline: string; summary: string; caution: string | null; exercises: AdviceEx[] };
 type Turn = { role: "user" | "assistant"; text: string };

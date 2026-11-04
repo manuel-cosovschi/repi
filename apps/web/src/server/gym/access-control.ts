@@ -314,7 +314,10 @@ export async function myPresence(userId: string, now = new Date()) {
       .where(and(eq(gymCheckin.userId, userId), eq(gymCheckin.orgId, r.m.orgId), eq(gymCheckin.result, "ok"), isNull(gymCheckin.revokedAt), gt(gymCheckin.expiresAt, now)))
       .orderBy(desc(gymCheckin.expiresAt)).limit(1);
     const st = membershipState(r.m.status, r.m.accessUntil, localDate(now));
-    out.push({
+    // D182: sin una pantalla de QR activa el socio no puede validar solo: la app lo dice y ofrece la validación del equipo.
+    const [{ displays }] = await db.select({ displays: sql<number>`count(*)::int` }).from(gymAccessDisplay)
+      .where(and(eq(gymAccessDisplay.orgId, r.m.orgId), eq(gymAccessDisplay.purpose, "access"), isNull(gymAccessDisplay.revokedAt)));
+    out.push({ selfCheckin: displays > 0,
       orgId: r.m.orgId, gym: r.org, location: r.loc, membership: st, membershipLabel: MEMBERSHIP_LABEL[st], accessUntil: r.m.accessUntil,
       enabled: pol.enabled, mode: pol.mode, startNeedsCheckin: actionNeedsPresence(pol, "gym.workout.start"), geoMode: pol.geoMode,
       pass: pass ? passOut(pass.c, pass.loc) : null,

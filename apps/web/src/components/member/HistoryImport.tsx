@@ -10,6 +10,7 @@ type Preview = {
   id: string; source: "csv" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
   exercises: { name: string; matched: string | null; sets: number }[]; sample: { day: string; items: { exercise: string; weightKg: number | null; reps: number | null; seconds: number | null }[] }[];
   notes: string[]; dropped: number; capped: boolean;
+  duplicateOf?: { fileName: string | null; confirmedAt: string | null } | null; overlap?: { sets: number; days: number; from: string | null; to: string | null };
 };
 type Mark = { day: string; weightKg: number | null; reps: number | null; seconds: number | null };
 type Mine = { imports: { id: string; fileName: string | null; sessions: number; sets: number; fromDay: string | null; toDay: string | null }[]; evolution: { exercise: string; sessions: number; first: Mark; best: Mark; last: Mark }[] };
@@ -100,17 +101,25 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
     const b = await readImportFile(f);
     if (typeof b === "string") setErr(b); else void send(b);
   };
-  const confirmIt = async () => {
+  // D182: el mismo archivo ya cargado no se vuelve a cargar; si parte coincide con lo importado antes, se elige qué cargar.
+  const confirmIt = async (mode?: "all" | "new_only") => {
     if (!p) return;
     setBusy("save");
-    try { await api(`/api/me/history-import/${p.id}/confirm`, { body: {} }); flash(`Listo: ${p.summary.sessions} días de historial sumados a tu progreso.`); onDone(); }
-    catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+    try {
+      const r = await api<{ sets: number; duplicate?: boolean; skipped?: number }>(`/api/me/history-import/${p.id}/confirm`, { body: mode ? { mode } : {} });
+      flash(r.duplicate ? "Ese historial ya estaba cargado: no se sumó otra vez." : r.skipped ? `Listo: ${r.sets} series nuevas sumadas; ${r.skipped} ya estaban.` : `Listo: ${p.summary.sessions} días de historial sumados a tu progreso.`);
+      onDone();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   };
+  const ov = p?.overlap && p.overlap.sets > 0 && !p.duplicateOf ? p.overlap : null;
   const discard = async () => { if (p) await api(`/api/me/history-import/${p.id}/remove`, { body: {} }).catch(() => {}); setP(null); };
 
   if (p) return (
     <Sheet title="Revisá lo que leímos" sub={`${p.summary.sessions} días de entrenamiento, ${p.summary.exercises} ejercicios y ${p.summary.sets} series, del ${d(p.summary.from)} al ${d(p.summary.to)}.`} closeLabel="Cancelar" onClose={() => { void discard(); onClose(); }}
-      action={{ label: "Cargar a mi progreso", ready: true, busy: busy === "save", onSubmit: () => void confirmIt() }}>
+      action={{ label: p.duplicateOf ? "Listo" : ov ? "Cargar sólo lo nuevo" : "Cargar a mi progreso", ready: true, busy: busy === "save", onSubmit: () => void confirmIt(ov ? "new_only" : undefined) }}>
+      {p.duplicateOf && <p className="sheet-warn" role="alert">Este historial ya lo cargaste{p.duplicateOf.fileName ? ` («${p.duplicateOf.fileName}»)` : ""}. No se va a sumar dos veces.</p>}
+      {ov && <p className="sheet-warn" role="alert">{ov.sets} de estas series ya están en tu historial importado ({ov.days === 1 ? `el ${d(ov.from)}` : `${ov.days} días, del ${d(ov.from)} al ${d(ov.to)}`}). «Cargar sólo lo nuevo» suma lo que falta sin repetir.
+        {" "}<button type="button" className="linkbtn" onClick={() => void confirmIt("all")}>Cargar todo igual</button></p>}
       {p.source === "ai" && <p className="sheet-sub">Lo leyó REPI automáticamente: revisá que los pesos y las fechas estén bien antes de cargarlo.</p>}
       {(p.dropped > 0 || p.capped) && <p className="sheet-warn">{p.dropped > 0 ? `${p.dropped} filas no tenían fecha, ejercicio o números válidos y no se cargan. ` : ""}{p.capped ? "Se cargan las primeras 5000 series." : ""}</p>}
       {p.notes.map((n, i) => <p key={i} className="sheet-warn">{n}</p>)}

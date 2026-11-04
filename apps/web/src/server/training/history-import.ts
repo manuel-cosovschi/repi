@@ -1,8 +1,9 @@
 // Historial anterior a REPI (D132). La persona sube una planilla, texto, foto o PDF; una planilla con columnas reconocibles se
 // lee sin IA y el resto lo lee OpenAI. Todo pasa por `normalizeImport`, se muestra como vista previa y sólo se guarda cuando la
 // persona confirma. El archivo no se guarda. Lo importado aparece en Progreso («Antes de REPI») y sugiere pesos iniciales.
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
-import { exerciseEvolution, exerciseKey, localDate, normalizeImport, parseHistoryCsv, type ImportSet, type NormalizedSet } from "@repi/domain";
+import { createHash } from "node:crypto";
+import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, normalizeImport, parseHistoryCsv, type ImportSet, type NormalizedSet } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiModel, aiOn, type AiPart } from "../ai/openai";
@@ -11,7 +12,21 @@ import { catalogOnly, ensureExerciseCatalog } from "./library";
 const { historyImport, historyEntry, exercise, coachClient, gymMember } = schema;
 
 export type ImportFile = { fileName: string; kind: "text" | "image" | "pdf"; text?: string; dataUrl?: string };
-type Parsed = { sets: NormalizedSet[]; matches: Record<string, { id: string; name: string } | null>; notes: string[]; dropped: number; capped: boolean };
+type Parsed = { sets: NormalizedSet[]; matches: Record<string, { id: string; name: string } | null>; notes: string[]; dropped: number; capped: boolean; hash?: string };
+
+// D182: lo que se guardaría (con el nombre de la biblioteca si coincidió), su huella y lo que ya está en el historial importado.
+const toStored = (p: Parsed) => p.sets.map((s) => ({ day: s.day, exercise: p.matches[s.exercise]?.name ?? s.exercise, weightKg: s.weightKg, reps: s.reps, seconds: s.seconds }));
+const fingerprint = (p: Parsed) => createHash("sha256").update(importCanonical(toStored(p))).digest("hex");
+async function priorImport(userId: string, hash: string, exceptId?: string, tx: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db) {
+  const [r] = await tx.select({ id: historyImport.id, fileName: historyImport.fileName, confirmedAt: historyImport.confirmedAt }).from(historyImport)
+    .where(and(eq(historyImport.userId, userId), eq(historyImport.status, "confirmed"), sql`${historyImport.parsed}->>'hash' = ${hash}`, exceptId ? ne(historyImport.id, exceptId) : undefined)).limit(1);
+  return r ?? null;
+}
+async function overlapOf(userId: string, p: Parsed, tx: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db) {
+  const existing = await tx.select({ day: historyEntry.day, exercise: historyEntry.exerciseName, weightKg: historyEntry.weightKg, reps: historyEntry.reps, seconds: historyEntry.seconds })
+    .from(historyEntry).where(eq(historyEntry.userId, userId));
+  return importOverlap(toStored(p), existing);
+}
 
 const AI_SCHEMA = {
   type: "object", additionalProperties: false, required: ["sessions", "notes"],
@@ -113,11 +128,14 @@ export async function previewHistoryImport(userId: string, f: ImportFile, now = 
   const names = [...new Set(n.sets.map((s) => s.exercise))];
   const matches = await matchExercises(names, await libraryFor(userId));
   const parsed: Parsed = { sets: n.sets, matches, notes, dropped: n.dropped, capped: n.capped };
+  parsed.hash = fingerprint(parsed);
   const [row] = await db.insert(historyImport).values({
     userId, source, fileName: f.fileName.slice(0, 200), parsed, sessions: n.summary.sessions, sets: n.summary.sets, fromDay: n.summary.from, toDay: n.summary.to, model: source === "ai" ? aiModel() : null,
   }).returning();
   await audit(db, { actorUserId: userId, action: "history_import.previewed", resourceType: "history_import", resourceId: row.id, meta: { source, sets: n.summary.sets } });
-  return previewOut(row.id, source, parsed, n.summary);
+  const [dup, ov] = await Promise.all([priorImport(userId, parsed.hash), overlapOf(userId, parsed)]);
+  return { ...previewOut(row.id, source, parsed, n.summary), duplicateOf: dup ? { fileName: dup.fileName, confirmedAt: dup.confirmedAt } : null,
+    overlap: { sets: ov.overlap, days: ov.days.length, from: ov.days[0] ?? null, to: ov.days.at(-1) ?? null } };
 }
 
 function previewOut(id: string, source: "csv" | "ai", p: Parsed, summary: ReturnType<typeof normalizeImport>["summary"]) {
@@ -134,23 +152,45 @@ async function mine(userId: string, id: string) {
   return r;
 }
 
-export async function confirmHistoryImport(userId: string, id: string) {
+/**
+ * Confirma una vista previa. D182: idempotente también entre archivos. El mismo contenido ya importado no se vuelve a cargar
+ * (el borrador se descarta y se informa). Si parte coincide con lo importado antes, hay que elegir: `mode: "new_only"` carga sólo
+ * lo que no estaba; `"all"` carga todo (dos series iguales pueden ser legítimas). Nada de lo ya guardado se borra ni se cambia.
+ */
+export async function confirmHistoryImport(userId: string, id: string, mode?: "all" | "new_only") {
   const r = await mine(userId, id);
   if (r.status === "confirmed") return { ok: true, sets: r.sets };
   if (r.status !== "draft") throw new AccessError("closed", "Esa importación se descartó. Subí el archivo de nuevo.", 409);
   const p = r.parsed as Parsed;
-  await db.transaction(async (tx) => {
+  const hash = p.hash ?? fingerprint(p); // borradores anteriores a D182 no traen la huella
+  const res = await db.transaction(async (tx) => {
+    // Una persona confirma de a una importación por vez (dos archivos iguales a la vez no se cargan dos veces).
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`history-import:${userId}`}))`);
+    const [cur] = await tx.select({ status: historyImport.status }).from(historyImport).where(eq(historyImport.id, r.id));
+    if (cur?.status === "confirmed") return { ok: true, sets: r.sets };
+    if (cur?.status !== "draft") throw new AccessError("closed", "Esa importación se descartó. Subí el archivo de nuevo.", 409);
+    const dup = await priorImport(userId, hash, r.id, tx);
+    if (dup) {
+      await tx.update(historyImport).set({ status: "discarded", parsed: { ...p, sets: [], hash } }).where(eq(historyImport.id, r.id));
+      await audit(tx, { actorUserId: userId, action: "history_import.duplicate", resourceType: "history_import", resourceId: r.id, meta: { duplicateOf: dup.id } });
+      return { ok: true, sets: 0, duplicate: true };
+    }
+    const ov = await overlapOf(userId, p, tx);
+    if (ov.overlap > 0 && !mode) throw new AccessError("overlap", `${ov.overlap} de estas series ya están en tu historial importado. Elegí si cargás sólo lo nuevo o todo.`, 409);
+    const keep = mode === "new_only" ? new Set(ov.keep) : null;
     // DATA-3 (QA 29/10): pasar a «confirmada» primero y sólo si seguía en borrador. Un doble toque o un reintento espera a
     // la otra transacción y no encuentra el borrador: no duplica el historial ni pisa un descarte simultáneo.
-    const [claimed] = await tx.update(historyImport).set({ status: "confirmed", confirmedAt: new Date() })
+    const [claimed] = await tx.update(historyImport).set({ status: "confirmed", confirmedAt: new Date(), parsed: { ...p, hash } })
       .where(and(eq(historyImport.id, r.id), eq(historyImport.status, "draft"))).returning({ id: historyImport.id });
-    if (!claimed) return;
-    const rows = p.sets.map((s) => ({ importId: r.id, userId, day: s.day, exerciseId: p.matches[s.exercise]?.id ?? null, exerciseName: p.matches[s.exercise]?.name ?? s.exercise, setIndex: s.setIndex,
+    if (!claimed) return { ok: true, sets: r.sets };
+    const rows = p.sets.filter((_, i) => !keep || keep.has(i)).map((s) => ({ importId: r.id, userId, day: s.day, exerciseId: p.matches[s.exercise]?.id ?? null, exerciseName: p.matches[s.exercise]?.name ?? s.exercise, setIndex: s.setIndex,
       weightKg: s.weightKg == null ? null : String(s.weightKg), reps: s.reps, seconds: s.seconds }));
     for (let i = 0; i < rows.length; i += 500) await tx.insert(historyEntry).values(rows.slice(i, i + 500));
-    await audit(tx, { actorUserId: userId, action: "history_import.confirmed", resourceType: "history_import", resourceId: r.id, meta: { sets: rows.length } });
+    if (keep) await tx.update(historyImport).set({ sets: rows.length, sessions: new Set(rows.map((x) => x.day)).size }).where(eq(historyImport.id, r.id));
+    await audit(tx, { actorUserId: userId, action: "history_import.confirmed", resourceType: "history_import", resourceId: r.id, meta: { sets: rows.length, overlap: ov.overlap, mode: mode ?? null } });
+    return { ok: true, sets: rows.length, skipped: p.sets.length - rows.length };
   });
-  return { ok: true, sets: p.sets.length };
+  return res;
 }
 
 /** Descartar un borrador o quitar una importación ya cargada (borra sus series; lo registrado en REPI no se toca). */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtWeight, kgTo, parseWeightIn, stepWeightIn, toKg, volumeIn } from "./units";
+import { cleanDecimalDraft, fmtWeight, kgTo, parseWeightIn, stepWeightIn, toKg, volumeIn } from "./units";
 
 describe("unidad de peso (F-HX-23)", () => {
   it("kg queda igual; lb redondea a 0,1 y vuelve al mismo valor mostrado", () => {
@@ -24,5 +24,24 @@ describe("unidad de peso (F-HX-23)", () => {
     expect(parseWeightIn("2300", "lb")).toBeNull(); // > 1000 kg
     expect(parseWeightIn("1,234", "lb")).toBeNull();
     expect(parseWeightIn("", "lb")).toBeNull();
+  });
+});
+
+describe("D182 · edición del peso sin ceros agregados", () => {
+  it("borrar todo queda vacío; reemplazar escribe lo nuevo; sin ceros a la izquierda", () => {
+    expect(cleanDecimalDraft("")).toBe("");
+    expect(cleanDecimalDraft("070")).toBe("70");
+    expect(cleanDecimalDraft("00")).toBe("0");
+    expect(cleanDecimalDraft("0")).toBe("0");
+    expect(cleanDecimalDraft("0,5")).toBe("0,5");
+  });
+  it("coma o punto, un solo separador y hasta 2 decimales; pegar texto con unidad", () => {
+    expect(cleanDecimalDraft("42,5")).toBe("42,5");
+    expect(cleanDecimalDraft("42.75")).toBe("42.75");
+    expect(cleanDecimalDraft("42,555")).toBe("42,55");
+    expect(cleanDecimalDraft("4,2,5")).toBe("4,25");
+    expect(cleanDecimalDraft(" 62,5 kg")).toBe("62,5");
+    expect(parseWeightIn(cleanDecimalDraft("070"), "kg")).toBe(70);
+    expect(parseWeightIn(cleanDecimalDraft(""), "kg")).toBeNull();
   });
 });
