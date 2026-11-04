@@ -458,6 +458,75 @@ export const setSkip = pgTable("set_skip", {
   updatedAt: now("updated_at"),
 }, (t) => [uniqueIndex("set_skip_unique").on(t.sessionId, t.programExerciseId, t.setIndex)]);
 
+// D191 · Training Intelligence 2.0: objetivo que REPI emitió para una fila (serie o etapa) de una sesión. Es un objeto aparte
+// de la programación del profe (program_exercise.detail) y del resultado real (set_log): nunca se pisan entre sí. Un objetivo
+// emitido no se reescribe: si cambia durante la sesión, el anterior queda `superseded_at` y se inserta otro con `seq` + 1. Hay a
+// lo sumo uno vigente por fila (índice parcial). `algo_version` dice con qué reglas se calculó; cambiar el algoritmo no toca
+// objetivos ya emitidos. `decision` se fija al registrar la serie (accepted/modified) o al cerrar la sesión (not_done).
+export const trainingTarget = pgTable("training_target", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  sessionId: text("session_id").notNull().references(() => workoutSession.id, { onDelete: "cascade" }),
+  // Cascada a propósito: un objetivo es derivado del plan. Si la fila del plan, la versión o el ejercicio desaparecen (edición en
+  // el lugar de una versión sin sesiones, ejercicio propio borrado), el objetivo no tiene sentido y no debe bloquear ese flujo.
+  // Los resultados reales siguen protegidos por las claves de set_log.
+  programExerciseId: text("program_exercise_id").notNull().references(() => programExercise.id, { onDelete: "cascade" }),
+  exerciseId: text("exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }), // el que realmente se hace (reemplazo incluido)
+  versionId: text("version_id").notNull().references(() => programVersion.id, { onDelete: "cascade" }), // versión congelada de la sesión
+  setIndex: integer("set_index").notNull(),
+  specId: text("spec_id"),
+  setKind: text("set_kind").notNull(),
+  blockIndex: integer("block_index").notNull(),
+  stageIndex: integer("stage_index").notNull(),
+  seq: integer("seq").notNull().default(1),
+  status: text("status", { enum: ["ready", "no_data", "limited", "coach", "not_applicable"] }).notNull(),
+  action: text("action").notNull(),
+  source: text("source", { enum: ["rules", "coach"] }).notNull(),
+  quality: text("quality", { enum: ["high", "medium", "low", "none"] }).notNull(),
+  weightKg: text("weight_kg"), // decimal como texto, igual que set_log
+  repsMin: integer("reps_min"),
+  repsMax: integer("reps_max"),
+  repsTarget: integer("reps_target"),
+  rirTarget: integer("rir_target"),
+  rpeTarget: doublePrecision("rpe_target"),
+  restSec: integer("rest_sec"),
+  restSuggestSec: integer("rest_suggest_sec"),
+  pending: boolean("pending").notNull().default(false),
+  // Explicación y trazabilidad: motivos (códigos), protecciones aplicadas, texto mostrado, revisión frente al plan del profe y
+  // los registros históricos usados (ids de set_log y valores). Sin datos de salud en texto libre.
+  detail: jsonb("detail").$type<{ reasons: string[]; guards: string[]; text: string; why: string; review: string | null; prev: unknown; refs: unknown[]; coach: unknown }>().notNull(),
+  algoVersion: text("algo_version").notNull(),
+  decision: text("decision", { enum: ["accepted", "modified", "not_done"] }),
+  setLogId: text("set_log_id"),
+  createdAt: now("created_at"),
+  decidedAt: ts("decided_at"),
+  supersededAt: ts("superseded_at"),
+}, (t) => [
+  uniqueIndex("training_target_seq_unique").on(t.sessionId, t.programExerciseId, t.setIndex, t.seq),
+  uniqueIndex("training_target_current_unique").on(t.sessionId, t.programExerciseId, t.setIndex).where(sql`superseded_at is null`),
+  index("training_target_user_idx").on(t.userId, t.createdAt),
+]);
+
+// D191: propuesta de Training Intelligence para la próxima programación de un alumno de coach (subir carga, revisar,
+// considerar una descarga). Nunca cambia el programa: el coach la revisa y decide (aceptar, modificar, rechazar, mantener).
+// Una abierta por relación, ejercicio y tipo; al decidir, queda con quién, cuándo y su nota.
+export const trainingProposal = pgTable("training_proposal", {
+  id: id(),
+  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
+  exerciseId: text("exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["load", "reps", "hold", "review", "deload", "rest"] }).notNull(),
+  payload: jsonb("payload").$type<{ text: string; weightKg: number | null; reps: number | null; basis: string; trend: string; sessions: number }>().notNull(),
+  algoVersion: text("algo_version").notNull(),
+  status: text("status", { enum: ["open", "accepted", "modified", "rejected", "kept"] }).notNull().default("open"),
+  decidedBy: text("decided_by").references(() => user.id, { onDelete: "set null" }),
+  decidedAt: ts("decided_at"),
+  note: text("note"),
+  createdAt: now("created_at"),
+}, (t) => [
+  uniqueIndex("training_proposal_open_unique").on(t.coachClientId, t.exerciseId, t.kind).where(sql`status = 'open'`),
+  index("training_proposal_rel_idx").on(t.coachClientId, t.createdAt),
+]);
+
 // D132: historial anterior a REPI cargado desde un archivo. Borrador hasta que la persona lo confirma; no se guarda el archivo.
 export const historyImport = pgTable("history_import", {
   id: id(),

@@ -302,6 +302,13 @@
       "when": 1793761258016,
       "tag": "0042_user_pref_theme",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793801294064,
+      "tag": "0043_training_intelligence",
+      "breakpoints": true
     }
   ]
 }

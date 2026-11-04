@@ -856,6 +856,20 @@ function withFirstLoad(d: ExerciseDetail, kg: number | null): ExerciseDetail {
   return { ...d, setPlan: d.setPlan.map((r) => ((r.stage ?? 0) === 0 && r.weightKg == null && (r.kind === "work" || r.kind === "amrap" || r.kind === "failure" || r.kind === "top") ? { ...r, weightKg: kg } : r)) };
 }
 
+/** D191: objetivos vigentes (y los que falten, en una sesión abierta) y la tendencia de cada ejercicio. */
+async function sessionIntel(userId: string, s: typeof workoutSession.$inferSelect, exs: (typeof programExercise.$inferSelect)[], logs: { programExerciseId: string; setIndex: number }[], now: Date) {
+  const ti = await import("./intelligence");
+  const sx = await ti.sessionExercises(s.id, exs, logs);
+  const { targets, history } = await ti.ensureTargets(userId, s, sx, now);
+  const outlook = new Map<string, import("./intelligence").Outlook>();
+  if (s.status === "in_progress" || s.status === "paused") {
+    const hist = history && sx.every((e) => e.skipped || history.has(e.doing)) ? history : await ti.historyRows(userId, sx.map((e) => e.doing), { excludeSessionId: s.id, now });
+    const owned = !(await isSoloSession(db as unknown as Tx, s));
+    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned));
+  }
+  return { targets, outlook };
+}
+
 export async function getSession(userId: string, sessionId: string, now = new Date()) {
   const s = await mySession(userId, sessionId);
   const dayExs = await db.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
@@ -879,6 +893,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const open = s.status === "in_progress" || s.status === "paused";
   const [cur] = open ? await db.select({ v: program.currentVersionId }).from(programAssignment).innerJoin(program, eq(program.id, programAssignment.programId))
     .where(and(eq(programAssignment.id, s.assignmentId), eq(programAssignment.status, "active"))) : [];
+  const intel = await sessionIntel(userId, s, exs, logs, now).catch(() => null); // D191: nunca impide abrir el entrenamiento
   return {
     id: s.id, dayId: s.dayId, dayName: s.dayName, status: s.status, note: v?.note ?? "", rpe: s.rpe, sessionNote: s.note, outdated: !!cur?.v && cur.v !== s.versionId,
     startedAt: s.startedAt, endedAt: s.endedAt, activeMs: s.activeMs, lastResumedAt: s.lastResumedAt,
@@ -896,6 +911,8 @@ export async function getSession(userId: string, sessionId: string, now = new Da
         suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig), // D154, D182
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         media: media.get(doing(e)) ?? null,
+        // D191: objetivo de REPI por fila (serie o etapa) y tendencia del ejercicio. Separado del plan y de lo registrado.
+        targets: intel?.targets.get(e.id) ?? [], outlook: intel?.outlook.get(e.id) ?? null,
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
         logs: logs.filter((l) => l.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)
           .map((l) => ({ id: l.id, setIndex: l.setIndex, exerciseId: l.exerciseId, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, completedAt: l.completedAt, revision: l.revision })),
@@ -973,7 +990,11 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     return { ...setOut(row), status: "ok" as const, raise };
   });
   // Aviso al piso después de confirmar la serie: la serie nunca depende del push. Import diferido (evita ciclo).
-  const { raise, ...out } = res;
+  const { raise, ...base } = res;
+  // D191: Training Intelligence después de confirmar la serie: fija la decisión del objetivo y, si corresponde, ajusta los de
+  // las filas siguientes (sólo mantener o bajar). Una falla acá nunca afecta el registro.
+  const intel = base.status === "ok" ? await import("./intelligence").then((m) => m.afterSetLogged(userId, sessionId, p.programExerciseId, p.setIndex, now)).catch(() => null) : null;
+  const out = { ...base, intel };
   if (!raise) return { ...out, alert: null };
   const { raiseFloorAlert } = await import("../gym/alerts");
   return { ...out, alert: await raiseFloorAlert(raise, now).catch(() => null) };
@@ -1235,6 +1256,8 @@ export async function sessionAction(userId: string, sessionId: string, action: "
     return { status: next.status, revision: s.revision + 1 };
   });
   // Logros de entrenamiento (F-GC-05) después de confirmar la sesión. Import diferido: evita un ciclo de módulos.
+  // D191: objetivos de filas que no se hicieron quedan «no hecho» (nunca se borran ni se recalculan).
+  if (r.status === "completed" || r.status === "abandoned") await import("./intelligence").then((m) => m.closeTargets(sessionId, now)).catch(() => null);
   if (r.status === "completed") {
     const { awardTrainingAchievements } = await import("../community/services");
     return { ...r, achievements: await awardTrainingAchievements(userId, now).catch(() => []) };
