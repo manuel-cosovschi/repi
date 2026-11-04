@@ -19,6 +19,9 @@ body {
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--ui-link); text-decoration: none; }
 a:hover { color: var(--ui-link-hover); }
+/* D188 (WCAG 1.4.1): un enlace dentro de un texto no se distingue sólo por el color; los que tienen estilo propio
+   (botones, pestañas, tarjetas) llevan clase y no cambian. */
+:where(p, li, small, dd, td) a:not([class]) { text-decoration: underline; text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 ::placeholder { color: var(--ui-placeholder); opacity: 1; }
 /* Títulos destacados G · Atlética: Barlow Condensed 700 en mayúsculas visuales (el texto del DOM no cambia).

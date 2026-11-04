@@ -55,7 +55,7 @@ packages/domain/src/tokens.ts ── pnpm tokens ──▶ apps/web/src/styles/t
 ## Política de transición
 
 - El valor por defecto es **Automático**, como pidió el titular. Las cuentas existentes reciben `system` (default de la columna, sin backfill).
-- Quien hoy usa el alumno con el teléfono en modo claro lo va a ver claro. Por eso cada pantalla se auditó en ambos temas antes de cambiar el valor por defecto. La matriz E2E `e2e/theme-visual.spec.ts` cubre Claro, Oscuro y Automático con el dispositivo claro y oscuro, en anchos de 320 a 1366 y con los roles Alumno, Coach, Dueño y Piso. Admin comparte la estructura del panel de Coach y Gym y queda pendiente en navegador.
+- Quien hoy usa el alumno con el teléfono en modo claro lo va a ver claro. Por eso cada pantalla se auditó en ambos temas antes de cambiar el valor por defecto. La matriz E2E `e2e/theme-visual.spec.ts` cubre Claro, Oscuro y Automático con el dispositivo claro y oscuro, en anchos de 320 a 1366 y con los roles Alumno, Coach, Dueño y Piso. Admin se cubre en `e2e/theme-admin.spec.ts`, con un Admin de prueba local creado por el flujo legítimo: registro, email verificado, dos pasos y ticket de `scripts/first-admin.ts`. Se corre con `E2E_ADMIN_STATE`.
 - Si hiciera falta volver atrás sin tocar datos, se puede cambiar el default del script a `dark` en el cliente, porque `system` sigue siendo un valor válido.
 
 ## Logo
@@ -69,6 +69,7 @@ El wordmark aprobado es blanco con alfa (`07_DESIGN_SYSTEM`: «logotipo repi bla
   - `accent`, `control-border` y `focus` ≥ 3:1.
   - Texto sobre primaria, selección, inverso, barra lateral y chips ≥ 4,5:1.
 - El cian `#00D1FF` queda como relleno de CTA con texto navy, no como texto sobre crema. Como texto se usan `--ui-link`: `#006F8E` en Claro y cian en Oscuro.
+- Los enlaces dentro de un texto van subrayados, no sólo coloreados (WCAG 1.4.1).
 - El selector usa radios nativos dentro de un `fieldset`. Funciona con flechas, lector de pantalla y táctil. Marca la opción elegida con tilde además del color.
 
 ## Rendimiento

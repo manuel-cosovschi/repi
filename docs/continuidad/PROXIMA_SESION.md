@@ -25,7 +25,12 @@ Actualizado: 04/11/2026 (hasta D188; bloques 01/06 y 02/06 publicados; 03/06 en 
   - Typecheck y build: OK.
   - E2E locales: `theme.spec.ts` 16/16 (móvil y escritorio) y `theme-visual.spec.ts` 18/18 (4 roles × 4 temas × 320–1366, axe WCAG 2.2 AA).
   - No hay lint configurado en el repositorio.
-- **No probado:** iPhone o Android físicos; PWA instalada real (`display-mode: standalone` no se emula); panel Admin en navegador (no hay demo de Admin; comparte la estructura y los estilos de Coach y Gym).
+- **Revisión final (04/11):**
+  - Admin en los 4 temas: `e2e/theme-admin.spec.ts` 6/6, con un Admin de prueba local de `repi_dev` creado por el flujo legítimo. Se corre con `E2E_ADMIN_STATE`.
+  - Corrección: los enlaces dentro de un texto ahora van subrayados (WCAG 1.4.1). axe lo detectó en la guía de Admin.
+  - App instalada en iPhone verificada en Chromium: zona segura emulada de 47 pt y reglas `display-mode: standalone` aplicadas a mano, porque Chromium no emula ese medio. En Claro, la franja navy de 47 px va detrás de la hora; el contenido arranca debajo del difuminado.
+  - Regresión E2E completa: 85 pasan y 0 fallan.
+- **No probado:** iPhone o Android físicos, ni Safari real.
 - **Smart Center:** el control presencial sigue en pausa. Este bloque no toca accesos, roles, permisos ni datos.
 - **Próxima acción:**
   1. El titular revisa el PR y las capturas.
