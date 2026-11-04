@@ -43,8 +43,9 @@ export function TemplateRollout({ orgId, templateId, ready, onClose, onDone }: {
     return () => { live = false; };
   }, [orgId, templateId, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const chosen = useMemo(() => (pv?.students ?? []).filter((s) => pick[s.programId] && !s.upToDate), [pv, pick]);
-  const nothing = chosen.every((s) => !sel[s.programId]?.size);
+  // Un alumno sin ningún cambio marcado no se envía (sus cambios pendientes siguen para la próxima vez).
+  const chosen = useMemo(() => (pv?.students ?? []).filter((s) => pick[s.programId] && !s.upToDate && sel[s.programId]?.size), [pv, pick, sel]);
+  const nothing = !chosen.length;
   const toggle = (pid: string, key: string, on: boolean) => setSel((m) => { const n = new Set(m[pid]); if (on) n.add(key); else n.delete(key); return { ...m, [pid]: n }; });
   const confirm = async () => {
     if (!pv) return;

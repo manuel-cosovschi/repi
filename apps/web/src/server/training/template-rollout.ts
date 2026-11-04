@@ -111,8 +111,10 @@ export async function applyTemplateRollout(actorId: string, orgId: string, templ
         const nv = await newVersion(tx, c.p.id, x.cur.version.number + 1, v.doc, actorId, `Actualización desde la plantilla «${template.name}» (versión ${tv.version.number})`.slice(0, 200));
         version = nv.number;
       }
-      // La versión de la plantilla queda como base de la próxima comparación (y congelada, para que no cambie debajo).
-      await tx.update(program).set({ sourceVersionId: tv.version.id }).where(eq(program.id, c.p.id));
+      // La versión de la plantilla queda como base de la próxima comparación (y congelada, para que no cambie debajo). Lo que
+      // el profe dejó sin marcar pasa a ser una decisión (lo del alumno). Sin nada elegido no cambia nada: los cambios
+      // pendientes siguen apareciendo en la próxima comparación.
+      if (apply.length) await tx.update(program).set({ sourceVersionId: tv.version.id }).where(eq(program.id, c.p.id));
       await audit(tx, { actorUserId: actorId, orgId, action: "program.versioned", resourceType: "program", resourceId: c.p.id, meta: { version, source: "template_rollout", template: templateId, applied: apply.length, conflictsTaken: x.plan.changes.filter((ch) => ch.conflict && apply.includes(ch.key)).length } });
       results.push({ programId: c.p.id, version, applied: apply.length });
     }

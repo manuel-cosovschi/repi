@@ -130,6 +130,12 @@ describe("D194 · actualizar programas de alumnos desde la plantilla", () => {
     await expect(ro.applyTemplateRollout(w.coach, w.org, w.tpl, { requestId: rid(), template: pv.template.fingerprint, targets: [{ programId: carla.programId, fingerprint: carla.fingerprint, apply: carla.changes.map((c) => c.key) }] }))
       .rejects.toMatchObject({ code: "conflict", status: 409 });
     expect((await hackOf(w.carla.user)).detail ?? null).toBeNull();
+    // Sin nada elegido no cambia nada: ni versión nueva ni base (lo pendiente sigue apareciendo).
+    pv = await ro.templateRolloutPreview(w.coach, w.org, w.tpl);
+    const c1 = pv.students.find((s) => s.name === "Carla TRO")!;
+    const r0 = await ro.applyTemplateRollout(w.coach, w.org, w.tpl, { requestId: rid(), template: pv.template.fingerprint, targets: [{ programId: c1.programId, fingerprint: c1.fingerprint, apply: [] }] });
+    expect(r0.results).toEqual([{ programId: c1.programId, version: null, applied: 0 }]);
+    expect((await ro.templateRolloutPreview(w.coach, w.org, w.tpl)).students.find((s) => s.name === "Carla TRO")!.changes.length).toBe(c1.changes.length);
     // Un cambio que no está en la comparación vigente se rechaza.
     pv = await ro.templateRolloutPreview(w.coach, w.org, w.tpl);
     const c2 = pv.students.find((s) => s.name === "Carla TRO")!;
