@@ -177,7 +177,7 @@ Un ejercicio se identifica por ejercicio de la biblioteca y ocurrencia dentro de
 - Solo agrega una tabla. El código actual de producción no la lee.
 - Preparación: `scripts/operations/hosted-0044.sql`, `scripts/rollback/0044_set_types.down.sql` y el ensayo `scripts/operations/verify-0044.sh`.
 - Además activa RLS en `training_target` y `training_proposal`, que 0043 creó sin RLS. Lo verifiqué en producción con una consulta de solo lectura: `anon` y `authenticated` no tienen permisos sobre ellas, así que no hubo exposición.
-- **No aplicada en producción.** Antes de aplicarla: correr el workflow «Respaldo» en verde (docs/RESPALDOS.md).
+- **Aplicada en producción el 04/11/2026 (~23:44 UTC)**, tras el respaldo verificado `backup-20261104-234215-41935448423`. Detalle en `docs/continuidad/PROXIMA_SESION.md`.
 - Ensayo (04/11) en una copia descartable de `repi_dev`:
   - Se aplica con un registro de migración y activa RLS en las tres tablas.
   - Un segundo intento falla entero, sin cambios.

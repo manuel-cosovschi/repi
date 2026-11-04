@@ -6,7 +6,8 @@
 -- Sólo crea una tabla nueva: no modifica ni borra filas existentes (programas, sesiones, set_log e historial quedan iguales).
 -- Además activa RLS en training_target y training_proposal (0043 las creó sin RLS; `anon` y `authenticated` no tienen
 -- permisos sobre ellas, así que no hubo exposición, pero D68 pide RLS en todas las tablas). Es idempotente.
--- NO APLICADO. Ensayado en una base descartable con scripts/operations/verify-0044.sh.
+-- APLICADO en producción el 04/11/2026 (~23:44 UTC), tras el respaldo backup-20261104-234215-41935448423. Ensayado antes en
+-- una base descartable con scripts/operations/verify-0044.sh. No volver a correrlo (falla entero sin cambios: la tabla ya existe).
 -- Generado desde drizzle/0044_set_types.sql (sha256 ca3d81a89f7f6dd43ef7bb0821250b0cccc85202c8134eed62d8e9f181694920).
 begin;
 grant repi_app to postgres with inherit false, set true granted by postgres;
