@@ -3,7 +3,8 @@
 -- y no queda nada a medias. Mismo manejo de roles que hosted-0042.sql (D187/D188).
 -- PRERREQUISITOS: workflow «Respaldo» en verde y reciente (docs/RESPALDOS.md), 0042 aplicada (ya en producción) y la
 -- comprobación previa de docs/TRAINING_INTELLIGENCE_2.md §Publicación. Sólo crea dos tablas nuevas: no modifica ni borra
--- filas existentes (set_log, workout_session, programas e historial quedan iguales). Preparado; NO ejecutado.
+-- filas existentes (set_log, workout_session, programas e historial quedan iguales).
+-- APLICADO en producción el 04/11/2026 (~18:17 UTC), tras el respaldo verificado backup-20261104-181026-41884040972.
 -- Generado desde drizzle/0043_training_intelligence.sql (sha256 7c551dc627ce7d15b8ed7d068bdaa4f4e4801c51de6790077127d57d9a92bc84).
 begin;
 grant repi_app to postgres with inherit false, set true granted by postgres;

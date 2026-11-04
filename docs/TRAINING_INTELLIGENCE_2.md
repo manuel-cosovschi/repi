@@ -342,7 +342,20 @@ Puede reutilizar sin tocar el motor:
 
 El rediseño puede cambiar la presentación (sesión, descanso, ficha) consumiendo los mismos contratos.
 
-## 14. Publicación de 0043 (preparada, NO aplicada)
+## 14. Publicación de 0043 (aplicada en producción el 04/11/2026)
+
+**Aplicación real (04/11/2026, ~18:17 UTC):**
+
+- **Respaldo previo:** `backup-20261104-181026-41884040972`, verificado por el workflow (issue #18). Contiene 98 tablas, 3704 filas y 43 migraciones.
+- **Antes:** producción en 0042, con los 43 hashes y fechas idénticos a los archivos del repositorio.
+- **Aplicación:** `hosted-0043.sql` en una transacción, sin errores.
+- **Después:**
+  - 44 migraciones, con el hash `7c551dc6…`.
+  - Dos tablas nuevas con dueño `repi_app`, 12 restricciones y 9 índices.
+  - 0 restricciones sin validar en `public`.
+- **Huellas iguales:** `set_log` (527), `workout_session` (46), `program_version` (66), `history_entry` y `consent_grant`.
+- **`program_exercise`:** cambió entre las dos huellas por la edición de un coach real (auditada a las 18:13–18:15). Ninguna fila tiene el `xmin` de la transacción de la migración: la migración no escribió filas existentes.
+- **Roles:** el permiso temporal de `postgres` sobre `repi_app` quedó revocado. Queda sólo la membresía preexistente de Supabase (sin `inherit` ni `set`).
 
 **Qué hace:**
 
