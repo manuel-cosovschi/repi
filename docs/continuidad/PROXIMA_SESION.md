@@ -1,34 +1,44 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D191 en ramas; 03/06 publicado; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
-## Bloque 04/06 · Training Intelligence 2.0 (D191) — 04/11/2026 · EN PR, SIN PUBLICAR
+## Bloque 04/06 · Training Intelligence 2.0 (D191 + cierre) — 04/11/2026 · EN PR #17, SIN PUBLICAR
 
-- **Rama:** `feat/repi-training-intelligence-2`, sacada de `feat/repi-global-theme-system` (PR #7, todavía abierto) en `ce4381a`. PR borrador encadenado con base en la rama del PR #7. **No integrar** antes que el PR #7.
-- **Qué hace:** objetivo de REPI por serie y por etapa (Anterior → REPI → Real en el entrenamiento), persistido y versionado. Ajuste después de cada serie que sólo mantiene o baja, también sin conexión. Tendencias y propuestas para la próxima sesión. Sección Training Intelligence en la ficha del coach (Rendimiento), con Aceptar / Mantener / Rechazar, sin cambiar la rutina. Detalle en **`docs/TRAINING_INTELLIGENCE_2.md`**.
-- **Archivos clave:**
-  - Dominio: `packages/domain/src/intelligence.ts` (+ test).
-  - Servidor: `apps/web/src/server/training/intelligence.ts`; ganchos en `services.ts` (`getSession`, `logSet`, `sessionAction`) y `ai-coach.ts` (tendencia para la IA).
-  - Rutas: `api/coach/[orgId]/clients/[relId]/intelligence` y `api/coach/[orgId]/proposals/[id]`.
-  - UI: `components/member/TargetCard.tsx`, `Workout.tsx`, `lib/offline/store.ts`, `components/coach/CoachIntelligence.tsx`, `member.css` (`.ti-*`, sólo `--ui-*`).
-- **Migración 0043** (`0043_training_intelligence.sql`):
-  - Crea `training_target` y `training_proposal`. Es aditiva y sin relleno.
+- **Rama:** `feat/repi-training-intelligence-2`. `main` integrada por merge, sin force push. PR #17 en borrador, **con base `main`**.
+- **Qué hace:**
+  - Objetivo de REPI por serie y etapa (Anterior → REPI → Real), persistido y versionado.
+  - Ajuste después de cada serie que sólo mantiene o baja, también sin conexión.
+  - Tendencia y propuestas para quien programa: el coach, o la sala de la sede con consentimiento.
+  - Detalle en `docs/TRAINING_INTELLIGENCE_2.md`.
+- **Cierre (este paso):**
+  - Acceso de sala: `program.edit` en la sede y `attendance_training`. Dueño, gerencia y recepción: 403.
+  - «Aceptar (sin aplicar)» y «Revisar en el editor» (editor existente; sólo el borrador cambia si se aplica).
+  - kg/lb en todas las explicaciones.
+  - Saltos de carga por equipo en `detail.load`.
+  - 0043 regenerada con `training_proposal.gym_member_id`.
+- **Archivos nuevos o tocados:**
+  - Dominio: `units.ts` (`localizeWeights`), `prescription.ts` (`EQUIPMENT`, `LoadSetup`, `loadIncrement`), `intelligence.ts`.
+  - Servidor: `server/training/intelligence.ts` (`relationIntelligence`, `recordDecision`), `server/gym/services.ts` (`memberIntelligence`, `decideMemberProposal`), ruta `api/gym/[orgId]/[...path]`.
+  - UI: `CoachIntelligence.tsx`, `ProposalDraft.tsx`, `ProgramBuilder.tsx`, `gym/Members.tsx`, `ExerciseDetailEditor.tsx`, `TargetCard.tsx`, `Workout.tsx`, `Solo.tsx`, `HistoryImport.tsx`, `Gym.tsx`.
+  - Tests: `tests/training-intelligence-hardening.test.ts`, `e2e/training-intelligence-roles.spec.ts`.
+- **Migración 0043:**
   - Aplicada **sólo** en `repi_dev` y `repi_test` locales. **No en producción.**
-  - Reversión en `scripts/rollback/0043_training_intelligence.down.sql`. SQL transaccional para Supabase en `scripts/operations/hosted-0043.sql`, **sin ejecutar**.
-  - Orden: «Respaldo» en verde → 0042 → PR #7 → 0043 → este PR.
-  - Sin 0043, el código sigue entrenando sin objetivos (falla aislada).
+  - `hosted-0043.sql` (sha256 `7c551dc6…`) generado del archivo, transaccional y con comprobación interna.
+  - Reversión transaccional en `scripts/rollback/0043_training_intelligence.down.sql`.
+  - Ensayo `scripts/operations/verify-0043.sh`: aplica, reintenta (falla entero), revierte y reaplica sin cambiar la huella del historial.
 - **Pruebas:**
-  - Dominio: 315 (+41). App: 325 (+11), en `repi_test` descartable. Guardas: 22/22. Typecheck y build: OK.
-  - E2E `training-intelligence.spec.ts`: 2/2 (móvil y escritorio).
-  - E2E completa: 89 pasan, 0 fallan, 27 omitidas (las mismas del PR #7: matriz visual sólo en móvil, Admin sin `E2E_ADMIN_STATE` y una de móvil). Corrió en Chromium preinstalado, contra una build local y `repi_dev` descartable.
-  - Una regresión encontrada y corregida: «Usar» cargaba reps en un drop «al fallo».
+  - Dominio 321. App 340 (en `repi_test` descartable). Guardas 24/24. Typecheck y build OK.
+  - E2E completa: 95 pasan, 0 fallan, 27 omitidas (las mismas de antes). Chromium con emulación de móvil y escritorio.
+  - Suite de `main` sobre el esquema nuevo: 314/314.
 - **No verificado:** dispositivos físicos, Safari, iPhone instalado ni producción.
-- **Rendimiento medido** (local, 720 filas de historia): `getSession` 44 ms la primera vez y 24 ms repetida; `logSet` + ajuste 12 ms; 8 aperturas simultáneas 128 ms.
-- **Decisiones del titular pendientes** (no bloquean):
-  1. Si el gimnasio (piso o personal) tendrá una vista de Training Intelligence y con qué permiso.
-  2. Si se cargan los saltos de peso por equipo o gimnasio. El motor ya los acepta.
-- **Próximo:** cuando se integre el PR #7, reconciliar la base de este PR con `main` (merge, sin force push). Después, revisión y publicación con su propio respaldo.
+- **Próximo (decisión del titular):** para publicar,
+  1. Correr «Respaldo» y esperar que termine en verde.
+  2. Ejecutar `hosted-0043.sql`.
+  3. Verificar 44 migraciones y el hash.
+  4. Integrar el PR #17.
+
+  Procedimiento completo en `docs/TRAINING_INTELLIGENCE_2.md` §14. Pendiente para el 05/06: catálogo de equipos por sede (§8 quater).
 
 ## Bloque 03/06 publicado y respaldos activos (D188 + D190) — 04/11/2026 · COMPLETO
 

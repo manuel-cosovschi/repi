@@ -165,16 +165,18 @@ Integridad:
 
 ### `training_proposal`
 
-- Una propuesta abierta por relación de coach, ejercicio y tipo.
-- La decisión guarda estado (`accepted` / `modified` / `rejected` / `kept`), quién, cuándo y nota. Queda auditada.
-- No cambia la rutina.
+- **Relación:** exactamente una de `coach_client_id` (coach privado) o `gym_member_id` (equipo de sala de la sede), con la restricción `training_proposal_one_relation`, como `program_assignment`.
+- Una propuesta abierta por relación, ejercicio y tipo (dos índices únicos parciales, uno por relación).
+- La decisión guarda estado (`accepted` / `modified` / `rejected` / `kept`), quién, cuándo y nota. Queda auditada (`training_proposal.<estado>`). Una decisión no se pisa.
+- Una propuesta decidida se sigue mostrando con su estado hasta que haya una sesión registrada nueva; recién entonces puede abrirse otra.
+- **No cambia la rutina.** Para aplicarla, ver §8 bis.
 
 ### Archivos
 
 - Migración: `apps/web/drizzle/0043_training_intelligence.sql`, aditiva y sin relleno.
 - Reversión: `apps/web/scripts/rollback/0043_training_intelligence.down.sql`. El código anterior ignora las tablas, así que revertir el código no la requiere.
 - Supabase: `apps/web/scripts/operations/hosted-0043.sql`, transaccional y **sin ejecutar**.
-- Orden de publicación: workflow «Respaldo» en verde → 0042 (PR #7) → 0043 → integrar.
+- Ensayo: `apps/web/scripts/operations/verify-0043.sh` (ver §14).
 - Si el código se publicara sin 0043, `getSession` y `logSet` siguen funcionando sin objetivos: la falla queda aislada.
 
 ## 7. Offline
@@ -192,8 +194,58 @@ Integridad:
   - `GET /api/coach/:org/clients/:rel/intelligence` exige `coach_owner` activo de esa organización y el permiso `training` del alumno.
   - Sólo ve sesiones entrenadas con ese coach. No ve historial importado, molestias, lesiones ni check-ins.
   - `POST /api/coach/:org/proposals/:id` verifica que la propuesta sea de su organización.
-- **Gym (dueño, gerente, piso):** sin acceso a esta vista. Un dueño no obtiene datos de entrenamiento por administrar.
+- **Equipo de sala (D191, cierre):**
+  - `GET /api/gym/:org/members/:id/intelligence` y `POST /api/gym/:org/intel-proposals/:id` (`memberIntelligence`, `decideMemberProposal`).
+  - Exige la capacidad `program.edit` **en la sede del socio** (entrenador de sala y coordinación: quienes arman su programa institucional) y el consentimiento `attendance_training` activo del socio. Sin consentimiento o revocado: 403 `consent_required`.
+  - Dueño, gerencia y recepción: 403. No obtienen datos individuales por administrar. Un dueño que además tiene rol de sala en esa sede entra por ese rol.
+  - Otra sede u otro gimnasio: 404 (no revela si existe).
+  - Sólo lo entrenado con esa sede (`workout_session.gym_member_id`). Nunca el historial importado, la app privada, su coach ni datos de salud. La sensación por serie ya la ve la sala desde D178.
+  - Mismo núcleo que la vista del coach (`relationIntelligence`): no hay una segunda lógica.
+- **Personal trainer:** el modelo no tiene un rol aparte. Un personal trainer vinculado al gimnasio entra como entrenador de sala de la sede (programa institucional) o con su propia organización de coach y el permiso `training` del alumno. No se inventó un rol nuevo.
 - **IA:** recibe la tendencia ya calculada, sin nombre, email ni datos de salud. No hay una llamada nueva a ningún modelo.
+
+## 8 bis. De la propuesta al programa
+
+1. En la ficha, «Aceptar (sin aplicar)», «Mantener programación» y «Rechazar» sólo registran la decisión. El texto lo dice: la rutina no cambia.
+2. **«Revisar en el editor»** lleva la propuesta al editor que ya existe:
+   - Coach: el constructor de programas, con el programa del cliente.
+   - Sala: «Editar programa» del socio.
+   - Viaja en `sessionStorage` (`components/coach/ProposalDraft.tsx`). No hay un segundo editor.
+3. Arriba del editor aparece la propuesta. «Aplicar X kg al borrador» cambia sólo ese borrador:
+   - Usa `applyLoad`, en las series de trabajo iguales del ejercicio.
+   - Con top set, drops o pirámide, pide ajustarla en «Series y técnica».
+4. Guardar sigue el flujo normal:
+   - Coach: autoguardado con versión nueva si la vigente estaba usada.
+   - Sala: «Guardar revisión» con motivo.
+   - En los dos casos: permiso, autoría y auditoría de siempre.
+5. Al aplicar, la propuesta se marca aceptada (si seguía abierta). Las sesiones registradas, los `set_log` y las versiones anteriores no cambian (probado).
+
+## 8 ter. Unidades (kg / lb)
+
+- Todo se calcula y se guarda en kg: objetivos, explicaciones (`why`, `review`, textos de ajuste y propuestas) y registros. Cambiar la unidad no recalcula ni reescribe nada (probado en servidor y E2E).
+- Al mostrar, `localizeWeights(texto, unidad)` pasa cada «N kg» a la unidad elegida. Es sólo presentación: un texto ya en lb no tiene «kg» que convertir, así que no hay doble conversión.
+- Cargar en lb exactamente lo que se ve (1 decimal) vuelve a kg con hasta ~0,03 kg de diferencia. Eso cuenta como «lo propuesto» (`decisionFor`). Lo registrado queda tal cual se cargó.
+- También respetan la unidad: «Serie anterior», «REPI sugiere», «No vino el profe», «Antes de REPI» y el ranking de levantamientos.
+- La ficha del coach y la de Gym siguen en kg, como el resto de esos paneles.
+
+## 8 quater. Saltos de carga por equipo
+
+- **Dónde se configura:** en «Series y técnica» de cada ejercicio del programa, sección «Equipo y saltos de carga». Se guarda en `detail.load`: `{ equipment, incrementKg, perSide? }`.
+- **Quién lo configura:** quien puede editar ese programa (coach, sala con `program.edit`, o la persona en su rutina propia). Queda versionado como cualquier cambio. No hay migración nueva.
+- **Equipos:** mancuernas, barra con discos, máquina de discos, máquina de placas, polea, pesa rusa y otro. «Por lado» sólo aplica a barra y máquina de discos; el salto total es el doble.
+- **Uso en el motor:** `recommendExercise` y `adjustAfterSet` usan `loadIncrement(detail)` por defecto:
+  - Para subir, el salto real.
+  - Para bajar o estimar, el múltiplo armable hacia abajo.
+  - Drops y back-off sin historia, también.
+  - Un ejercicio sustituto en la sesión se trata como salto desconocido, porque es otro equipo.
+- **Salto desconocido:** se usa la regla conservadora de siempre (D182) y el objetivo lleva `increment_unknown`. La tarjeta dice: «Carga de referencia: ajustala a los discos o mancuernas que tengas».
+- **No es un inventario:** no dice qué discos o mancuernas hay.
+- **Integración para el 05/06:** un catálogo de equipos por sede (por ejemplo `gym_equipment`: sede, tipo, salto mínimo, por lado) puede alimentar el mismo `increment`. Orden de prioridad:
+  1. Detalle del ejercicio.
+  2. Equipo de la sede para ese ejercicio.
+  3. Desconocido.
+
+  El motor no cambia: sólo quién resuelve el número.
 
 ## 9. IA generativa
 
@@ -220,10 +272,35 @@ Integridad:
 
 | Pruebas | Resultado |
 |---|---|
-| Dominio | 315 (41 nuevas en `intelligence.test.ts`, secciones A–D, casos especiales 1–4 y 8, sesión, tendencias y porcentajes) |
-| App | 325 (11 nuevas en `training-intelligence.test.ts`: persistencia E, métodos, profe, fatiga, alumno nuevo, coach y permisos, benchmark) |
-| Guardas | 22/22 |
-| E2E | `e2e/training-intelligence.spec.ts`, móvil y escritorio: escenarios B, D parcial, F, G y H |
+| Dominio | 321 (47 en `intelligence.test.ts` y 3 de `localizeWeights` en `units.test.ts`) |
+| App | 340 (11 en `training-intelligence.test.ts` y 15 en `training-intelligence-hardening.test.ts`, contra la base descartable `repi_test`) |
+| Guardas | 24/24 |
+| E2E | `training-intelligence.spec.ts` y `training-intelligence-roles.spec.ts`, en Chromium con emulación de móvil (Pixel 7) y escritorio. Suite completa: 95 pasan, 0 fallan, 27 omitidas (las mismas de antes) |
+| Código anterior + esquema nuevo | La suite de `main` (314) pasa sobre una base con la 0043 nueva aplicada |
+
+Cobertura del cierre (pruebas de servidor sobre base real, no simulaciones):
+
+- Coach independiente consulta, y otro coach no.
+- Sala de la sede con consentimiento: sí. Sin consentimiento o revocado: 403.
+- Otra sede u otro gimnasio: 404.
+- Dueño, gerencia y recepción: 403. Dueño con rol de sala: sí.
+- Propuestas cruzadas coach ↔ sede: 404.
+- Propuestas aceptadas, mantenidas y rechazadas: auditadas y sin cambiar la rutina.
+- Aplicación por la programación: versión nueva y `set_log` intactos; la próxima sesión sigue la carga del profe.
+- Alumno en lb y cambio kg → lb a mitad de la sesión, con decimales (61,25 y 63,75).
+- Equipo: mancuernas de 2 kg, barra de 1,25 kg por lado, sin configurar.
+- Molestia durante la serie.
+- Drop, top set + back-off y rest-pause.
+- Historial importado (calidad baja, nunca en la vista del coach ni de la sede) y datos insuficientes.
+
+E2E del cierre, en móvil y escritorio:
+
+- Coach: propuestas en las tres decisiones, «Revisar en el editor» → «Aplicar» → versión nueva.
+- Sala con turno ve la sección; el dueño no la ve ni en la API.
+- Alumno en lb: tarjeta sin «kg», molestia que frena la subida, cambio a kg en medio de la sesión sin tocar los objetivos.
+- Lo de antes: sin conexión y reconexión, y cambio de tema durante el descanso.
+
+**No probado en dispositivos físicos** (iPhone ni Android) ni en Safari: sólo emulación en Chromium.
 
 Tiempos medidos en este contenedor (PostgreSQL 16 local), con 30 sesiones de historia, 6 ejercicios × 4 series (720 filas):
 
@@ -245,16 +322,13 @@ Optimizaciones:
 
 ## 12. Limitaciones
 
-- **Saltos del equipo:** el motor los acepta (`increment`) y está probado, pero no hay todavía un dato persistido por gimnasio o equipo: se usa el paso del producto y la carga es editable.
-- **Unidades:** la tarjeta muestra la unidad de la persona. Los textos explicativos (`why`) dicen «kg».
+- **Saltos del equipo:** se configuran por ejercicio del programa. No hay un catálogo de equipos por sede: queda para el 05/06 (§8 quater).
+- **Unidades en paneles de coach y Gym:** siguen en kg, como el resto de esos paneles.
 - **Objetivos del alumno:** no ajustan reglas (no se inventan objetivos). La prescripción manda.
 - **Volumen por grupo muscular:** no se usa para recomendar, porque la clasificación es libre.
-- **Gimnasio:** sin vista de Training Intelligence para entrenador de piso o personal del gym. Queda para el 05/06, con su modelo de permisos.
 - **Propuestas abiertas:** si cambia el tipo calculado, la anterior queda abierta pero no se muestra.
-- **Escenarios no verificados de punta a punta:**
-  - Escenario C en el navegador: el coach programa y ve la ficha. Está cubierto por pruebas de servidor.
-  - Escenario E en el navegador: está cubierto por pruebas de servidor.
-- **Dispositivos:** no se probó en dispositivos físicos ni en Safari.
+- **Demo:** el coach de la demo no tiene historia suficiente para propuestas. La E2E agrega cuatro sesiones ficticias a su propia demo, sólo en `repi_dev` local y sólo si la organización es demo.
+- **Dispositivos:** no se probó en dispositivos físicos ni en Safari; sólo emulación en Chromium.
 
 ## 13. Para el bloque 05/06
 
@@ -262,7 +336,41 @@ Puede reutilizar sin tocar el motor:
 
 - `RowTarget`, `targets` y `outlook` por ejercicio en `getSession`.
 - `adjustAfterSet` y `topEvent`.
-- `clientIntelligence` y `decideProposal`.
-- `TargetCard` y el CSS `.ti-*`.
+- `clientIntelligence`, `memberIntelligence`, `relationIntelligence`, `decideProposal` y `recordDecision`.
+- `TargetCard`, `IntelSection`, `ProposalBanner` y el CSS `.ti-*`.
+- `detail.load` y `loadIncrement` para un catálogo de equipos.
 
 El rediseño puede cambiar la presentación (sesión, descanso, ficha) consumiendo los mismos contratos.
+
+## 14. Publicación de 0043 (preparada, NO aplicada)
+
+**Qué hace:**
+
+- Crea `training_target` y `training_proposal`, con sus claves foráneas e índices. Nada más.
+- No modifica ni borra filas existentes.
+- Las claves en cascada hacia el plan y la sesión sólo afectan a filas nuevas de estas tablas, nunca a `set_log`.
+
+**Compatibilidad (probada):**
+
+- **Código anterior con el esquema nuevo:** la suite de `main`, 314 tests, pasa con 0043 aplicada. El código anterior no lee estas tablas.
+- **Código nuevo con el esquema nuevo:** 340 tests de app y 95 E2E.
+- **Código nuevo sin 0043:** el entrenamiento funciona sin objetivos (falla aislada en `getSession` y `logSet`).
+
+**Ensayo local** (`bash apps/web/scripts/operations/verify-0043.sh`, base descartable `repi_verify_0043` copiada de `repi_dev`, con los roles de producción):
+
+1. Huella del historial antes: filas y md5 de `set_log`, `workout_session`, `program_version` e `history_entry`.
+2. Aplica `hosted-0043.sql`: dos tablas, dueño `repi_app`, el hash registrado y la huella igual.
+3. Un segundo intento falla entero, sin registro duplicado.
+4. La reversión deja la huella igual, 43 migraciones y ninguna tabla nueva.
+5. La reaplicación queda OK.
+6. El migrador de la app (`scripts/migrate.ts`) la ve como ya aplicada.
+
+**Procedimiento en producción** (lo ejecuta el titular, cuando decida publicar; este PR no lo hace):
+
+1. Correr el workflow **«Respaldo»** (docs/RESPALDOS.md) y continuar sólo si termina en verde, con un respaldo **reciente** verificado.
+2. Confirmar que producción está en 0042 (43 registros en `drizzle.__drizzle_migrations`) y sin las tablas de 0043.
+3. Ejecutar `apps/web/scripts/operations/hosted-0043.sql`. Es una sola transacción, con `lock_timeout` de 5 s y una comprobación interna; si algo falla, no queda nada.
+4. Verificar: 44 registros, el hash `7c551dc6…` y las dos tablas con dueño `repi_app`.
+5. Recién entonces integrar este PR (despliega el código).
+6. Si hiciera falta volver atrás: revertir el código alcanza, porque el anterior ignora las tablas. Sólo si se abandona el bloque, correr `scripts/rollback/0043_training_intelligence.down.sql` (transaccional).
+

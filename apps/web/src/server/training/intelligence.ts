@@ -243,10 +243,17 @@ export async function relationIntelligence(rel: IntelRel, now = new Date()) {
     if (o?.proposal && (o.proposal.requiresCoach || o.proposal.kind === "load" || o.proposal.kind === "review" || o.proposal.kind === "deload")) {
       const pl = { text: o.proposal.text, weightKg: o.proposal.weightKg, reps: o.proposal.reps, basis: o.proposal.basis, trend: o.trend.kind, sessions: o.trend.sessions };
       const relVals = rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id };
-      await db.insert(trainingProposal).values({ ...relVals, exerciseId: e.exerciseId, kind: o.proposal.kind, payload: pl, algoVersion: TI_VERSION })
-        .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`), set: { payload: pl, algoVersion: TI_VERSION } });
-      const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open")));
-      if (row) proposal = { id: row.id, status: row.status, ...o.proposal };
+      // Ya decidida y sin sesiones nuevas desde entonces: se muestra la decisión (no se vuelve a proponer lo mismo).
+      const [lastP] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind)))
+        .orderBy(sql`${trainingProposal.createdAt} desc`).limit(1);
+      if (lastP && lastP.status !== "open" && lastP.decidedAt && rows[0] && lastP.decidedAt.getTime() >= Date.parse(rows[0].at)) {
+        proposal = { id: lastP.id, status: lastP.status, ...o.proposal };
+      } else {
+        await db.insert(trainingProposal).values({ ...relVals, exerciseId: e.exerciseId, kind: o.proposal.kind, payload: pl, algoVersion: TI_VERSION })
+          .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`), set: { payload: pl, algoVersion: TI_VERSION } });
+        const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open")));
+        if (row) proposal = { id: row.id, status: row.status, ...o.proposal };
+      }
     }
     out.push({
       exerciseId: e.exerciseId, name: e.name, prescribed: `${e.sets} × ${e.reps}`,

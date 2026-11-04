@@ -150,8 +150,12 @@ describe("Propuestas: decidir no cambia la rutina; aplicar es editar y guardar c
     const before = await db.select().from(programVersion).where(eq(programVersion.programId, v.programId!));
     const p1 = v.exercises[0].proposal!;
     expect(await ti.decideProposal(c.coach, c.org, p1.id, { status: "kept" })).toMatchObject({ status: "kept" });
-    // Decidida la anterior, la próxima lectura abre una nueva (una abierta por ejercicio y tipo).
+    // Decidida y sin sesiones nuevas: se muestra la decisión, no se vuelve a proponer lo mismo.
+    expect((await ti.clientIntelligence(c.coach, c.org, c.rel)).exercises[0].proposal).toMatchObject({ id: p1.id, status: "kept" });
+    // Con una sesión nueva, una propuesta nueva (una abierta por ejercicio y tipo).
+    await train(c.user, [[{ w: 65, r: 10 }, { w: 65, r: 10 }, { w: 65, r: 10 }]]);
     const p2 = (await ti.clientIntelligence(c.coach, c.org, c.rel)).exercises[0].proposal!;
+    expect(p2).toMatchObject({ status: "open", weightKg: 67.5 });
     expect(p2.id).not.toBe(p1.id);
     expect(await ti.decideProposal(c.coach, c.org, p2.id, { status: "accepted" })).toMatchObject({ status: "accepted" });
     expect(await ti.decideProposal(c.coach, c.org, p2.id, { status: "rejected" })).toMatchObject({ status: "accepted" }); // una decisión no se pisa

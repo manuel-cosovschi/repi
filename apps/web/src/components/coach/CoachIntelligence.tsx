@@ -17,6 +17,7 @@ type Ex = {
 };
 type View = { formula: string; exercises: Ex[]; adherence: { sessions28d: number } | null; programId: string | null };
 const CONF: Record<Trend["confidence"], string> = { none: "datos insuficientes", possible: "tendencia posible", consistent: "tendencia consistente" };
+const DECIDED: Record<string, string> = { accepted: "Aceptada: todavía no se aplicó a la rutina", modified: "Aceptada con cambios", kept: "Se mantuvo la programación", rejected: "Rechazada" };
 const KIND: Record<string, string> = { load: "Carga", reps: "Repeticiones", hold: "Mantener", review: "Revisar", deload: "Posible descarga", rest: "Descanso" };
 // La ficha del coach y la de Gym muestran todo en kg (como el resto de esos paneles); la unidad del alumno es de su app.
 const kg = (n: number | null) => (n == null ? "" : `${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })} kg`);
@@ -62,11 +63,14 @@ export function IntelSection({ load, decideUrl, relId, kind, who = "con vos", on
                     <div className="ti-proposal" style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", borderRadius: 10, background: "var(--ui-surface-2)", border: "1px solid var(--ui-divider)" }}>
                       <span><span className="chip info">{KIND[p.kind] ?? "Propuesta"}</span> {p.text}</span>
                       <small className="muted">{p.basis} Decidir no cambia la rutina: aceptar sólo registra tu decisión. Para aplicarla, revisala en el editor y guardá el programa.</small>
+                      {p.status !== "open" && <small><span className="chip mute">{DECIDED[p.status] ?? p.status}</span> Vuelve a proponerse con la próxima sesión registrada.</small>}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {onReview && programId && <button type="button" className="btn sm pri" onClick={() => onReview({ kind, relId, programId, proposalId: p.id, exerciseId: e.exerciseId, name: e.name, text: p.text, weightKg: p.weightKg })}>Revisar en el editor</button>}
+                        {onReview && programId && (p.status === "open" || p.status === "accepted") && <button type="button" className="btn sm pri" onClick={() => onReview({ kind, relId, programId, proposalId: p.id, exerciseId: e.exerciseId, name: e.name, text: p.text, weightKg: p.weightKg })}>Revisar en el editor</button>}
+                        {p.status === "open" && <>
                         <button type="button" className="btn sm" disabled={busy === p.id} onClick={() => void decide(p.id, "accepted")}>Aceptar (sin aplicar)</button>
                         <button type="button" className="btn sm" disabled={busy === p.id} onClick={() => void decide(p.id, "kept")}>Mantener programación</button>
                         <button type="button" className="btn sm" disabled={busy === p.id} onClick={() => void decide(p.id, "rejected")}>Rechazar</button>
+                        </>}
                       </div>
                     </div>
                   )}
