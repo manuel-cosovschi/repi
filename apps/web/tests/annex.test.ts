@@ -208,6 +208,32 @@ describe("cantidad, precio y facturación (criterios 5–9)", () => {
 });
 
 describe("acceso del socio por QR (criterios 10–19)", () => {
+  // D189: reporte del titular (04/11/2026). Admin y entrenador de piso pidió ser socio de su mismo gimnasio y la pantalla
+  // de espera no le dejaba volver a sus otros espacios. La solicitud pendiente no le quita ningún espacio, nadie se aprueba
+  // a sí mismo y la aprueba otra persona del equipo con autoridad en la sede; una solicitud vencida deja de contar.
+  it("D189: el equipo que pide ser socio conserva sus espacios; no se autoaprueba; la aprueba otra persona; la vencida no cuenta", async () => {
+    const w = await world();
+    const slug = await slugFor(w.owner, w.org, w.A);
+    const before = (await acc.listWorkspaces(w.tA)).map((x) => x.href);
+    expect(before).toContain(`/gym/${w.org}`);
+    const r = await join.requestAccess(w.tA, slug, { terms: true });
+    expect(r.state).toBe("created");
+    const id = "request" in r ? r.request!.id : "";
+    expect((await acc.memberOnboardingState(w.tA)).step).toBe("memberPending");
+    expect((await acc.listWorkspaces(w.tA)).map((x) => x.href)).toEqual(before);
+    await gym.startShift(w.tA, w.org, w.A);
+    expect(await code(join.decideJoin(w.tA, w.org, id, { approve: true, method: "conocimiento_directo" }))).toBe("self");
+    expect(await code(join.decideJoin(w.manager, w.org, id, { approve: true, method: "conocimiento_directo" }))).toBe("ok");
+    expect((await acc.memberOnboardingState(w.tA)).step).toBe("consentGym");
+
+    const otro = await verified("Socio Vencido");
+    const r2 = await join.requestAccess(otro, slug, { terms: true });
+    const id2 = "request" in r2 ? r2.request!.id : "";
+    expect((await acc.memberOnboardingState(otro)).step).toBe("memberPending");
+    await db.update(schema.membershipRequest).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(schema.membershipRequest.id, id2));
+    expect((await acc.memberOnboardingState(otro)).step).toBeNull();
+  });
+
   it("QR → solicitud pendiente → piso sin turno no decide; con turno en la sede sí, con método; decisión única", async () => {
     const w = await world();
     const slug = await slugFor(w.owner, w.org, w.A);
