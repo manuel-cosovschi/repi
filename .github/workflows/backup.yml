@@ -3,11 +3,12 @@
 #     por el dueño del repositorio (así Claude Code lo pide antes de migrar). Obligatorio antes de cada migración productiva.
 #   - Contenido: PostgreSQL de Supabase (todas las tablas de public), registro de migraciones, archivos de Storage y
 #     manifest.json con el SHA-256 de cada archivo.
-#   - Sólo lectura: rol repi_backup (READ ONLY) y Storage con el token OIDC del job (sin secreto de Storage en GitHub).
+#   - Sólo lectura y sin secretos guardados: rol repi_backup (READ ONLY) con una contraseña temporal que entrega la Edge
+#     Function repi-backup-credentials al token OIDC de este job, y Storage con el mismo tipo de token.
 #   - Se cifra con age para la clave pública del titular (la privada está FUERA de GitHub) y una clave efímera del job.
 #     Con la efímera, el job descifra el archivo YA CIFRADO, recalcula los hashes y lo restaura en un PostgreSQL
 #     descartable del runner (filas, claves foráneas y restricciones). Recién entonces se publica.
-#   - Nada sin cifrar sale del runner: no hay artefactos ni caché de datos, y nada entra al historial de Git.
+#   - Nada sin cifrar sale del runner: el único artefacto es el archivo CIFRADO (1 día) y nada entra al historial de Git.
 #   - Retención: último de cada uno de 30 días + primero de cada uno de 4 meses; el último válido nunca se borra.
 #   - Si falla, abre (o comenta) un issue «Respaldo de producción fallido»; el siguiente éxito lo cierra.
 # En un PR que toca el respaldo corre la AUTOPRUEBA: la misma cadena sobre una base de demostración del runner, con
@@ -32,6 +33,7 @@ on:
       - apps/web/scripts/operations/**
       - apps/web/tests/operations/**
       - supabase/functions/repi-storage/**
+      - supabase/functions/repi-backup-credentials/**
 
 permissions: {}
 
@@ -63,8 +65,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
         run: |
-          if [ "$EVENT" != "schedule" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           N="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and (.tag_name | test("^backup-[0-9]{8}-[0-9]{6}-[0-9]+$")) and ((.body // "") | contains("<!-- repi-backup:verified -->"))) | .tag_name' | grep -c . || true)"
+          echo "Respaldos verificados publicados: ${N:-0}. Cronograma diario: $([ "${N:-0}" -gt 0 ] && echo habilitado || echo 'en espera del primero')." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$EVENT" != "schedule" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "${N:-0}" -gt 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; echo "::notice::Todavía no hay un respaldo manual verificado: el cronograma espera a la primera ejecución manual exitosa."; fi
 
   respaldo:
@@ -75,7 +78,7 @@ jobs:
     timeout-minutes: 40
     permissions:
       contents: write   # crear el release y subir el archivo cifrado
-      id-token: write   # token OIDC para leer Storage (sólo lectura firmada)
+      id-token: write   # token OIDC: lectura firmada de Storage y credencial temporal de la base
     outputs:
       tag: ${{ steps.publicar.outputs.tag }}
     steps:
@@ -84,15 +87,29 @@ jobs:
           persist-credentials: false
       - name: Configuración
         env:
-          DB: ${{ secrets.REPI_BACKUP_DATABASE_URL }}
           RECIPIENTS: ${{ vars.REPI_BACKUP_AGE_RECIPIENTS }}
         run: |
-          [ -n "$DB" ] || { echo "::error::Falta el secreto REPI_BACKUP_DATABASE_URL (ver docs/RESPALDOS.md, Puesta en marcha)."; exit 1; }
-          [ -n "$RECIPIENTS" ] || { echo "::error::Falta la variable REPI_BACKUP_AGE_RECIPIENTS con la clave pública age del titular."; exit 1; }
-          case "$DB" in *pooler.supabase.com*|*supabase.co*) ;; *) echo "::error::REPI_BACKUP_DATABASE_URL no apunta a Supabase."; exit 1 ;; esac
-          case "$DB" in *repi_backup*) ;; *) echo "::error::REPI_BACKUP_DATABASE_URL debe usar el rol de sólo lectura repi_backup."; exit 1 ;; esac
           mkdir -m 700 -p "$RUNNER_TEMP/respaldo"
-          printf '%s\n' "$RECIPIENTS" | tr ', ' '\n\n' | sed '/^$/d' > "$RUNNER_TEMP/respaldo/destinatarios.txt"
+          # Clave pública del titular: la variable si existe; si no, la del repositorio (es pública por diseño).
+          if [ -n "$RECIPIENTS" ]; then printf '%s\n' "$RECIPIENTS" | tr ', ' '\n\n'; else cat apps/web/scripts/operations/backup-recipients.txt; fi \
+            | sed 's/#.*//; /^[[:space:]]*$/d' > "$RUNNER_TEMP/respaldo/destinatarios.txt"
+          [ -s "$RUNNER_TEMP/respaldo/destinatarios.txt" ] || { echo "::error::No hay clave pública age del titular."; exit 1; }
+      - name: Credencial temporal de sólo lectura
+        env:
+          DB: ${{ secrets.REPI_BACKUP_DATABASE_URL }}
+          FN: https://qiamewdridgdvsyysmog.supabase.co/functions/v1/repi-backup-credentials
+        run: |
+          # Sin secretos guardados: la Edge Function verifica el token OIDC de este job (backup.yml en main) y fija una
+          # contraseña aleatoria para repi_backup que vence en 2 h; al final del job se revoca. Nada se imprime.
+          F="$RUNNER_TEMP/respaldo/db-url"
+          if [ -n "$DB" ]; then echo "::add-mask::$DB"; printf '%s' "$DB" > "$F"; echo "Credencial: secreto del repositorio."; exit 0; fi
+          T="$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=repi-backup-db" | jq -r .value)"
+          echo "::add-mask::$T"
+          P="$(curl -sSf -X POST -H "x-repi-github-oidc: $T" "$FN?op=issue" | jq -r .password)" || { echo "::error::La Edge Function no entregó la credencial."; exit 1; }
+          [ -n "$P" ] && [ "$P" != "null" ] || { echo "::error::La Edge Function no entregó la credencial."; exit 1; }
+          echo "::add-mask::$P"
+          printf 'postgresql://repi_backup.qiamewdridgdvsyysmog:%s@aws-1-sa-east-1.pooler.supabase.com:5432/postgres' "$P" > "$F"
+          echo "Credencial temporal emitida (vence en 2 h; se revoca al terminar)."
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -106,10 +123,15 @@ jobs:
           sudo -u postgres psql -qc "create role repi login superuser password 'repi-ci-only'"
           sudo -u postgres createdb -O repi repi_restore_check
       - name: Respaldo (sólo lectura)
-        env:
-          REPI_BACKUP_DATABASE_URL: ${{ secrets.REPI_BACKUP_DATABASE_URL }}
         run: |
           mkdir -m 700 -p "$RUNNER_TEMP/respaldo/plano"
+          export REPI_BACKUP_DATABASE_URL="$(cat "$RUNNER_TEMP/respaldo/db-url")"
+          # El pooler puede tardar unos segundos en aceptar la contraseña recién fijada.
+          for i in $(seq 1 12); do
+            (cd apps/web && node --input-type=module -e 'import p from "postgres"; const s = p(process.env.REPI_BACKUP_DATABASE_URL, { max: 1, prepare: false, connect_timeout: 10 }); try { await s`select 1`; } finally { await s.end(); }' 2>/dev/null) && break
+            [ "$i" = 12 ] && { echo "::error::No se pudo conectar con el rol de sólo lectura."; exit 1; }
+            sleep 10
+          done
           pnpm --filter @repi/web ops:backup --source=hosted --storage --storage-auth=github-oidc --out="$RUNNER_TEMP/respaldo/plano"
       - name: Cifrado, descifrado de prueba y restauración verificada
         working-directory: apps/web
@@ -153,6 +175,14 @@ jobs:
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=false >/dev/null
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           { echo "### Respaldo verificado y publicado"; echo; echo "- Release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"; sed -n '/^- Contenido/,/^- Verificado/p' "$R/notas.md"; } >> "$GITHUB_STEP_SUMMARY"
+      # Sólo el archivo CIFRADO, 1 día: permite comprobar desde afuera que la clave del titular lo abre.
+      - name: Copia cifrada para la prueba de la clave del titular
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-cifrado-${{ github.run_id }}
+          path: ${{ runner.temp }}/respaldo/cifrado/*.tar.gz.age*
+          retention-days: 1
+          if-no-files-found: error
       - name: Retención
         env:
           GH_TOKEN: ${{ github.token }}
@@ -160,6 +190,16 @@ jobs:
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | {tag: .tag_name, createdAt: .created_at, draft, body}' > "$RUNNER_TEMP/releases.jsonl"
           pnpm -s --filter @repi/web ops:retention < "$RUNNER_TEMP/releases.jsonl" > "$RUNNER_TEMP/borrar.txt"
           while read -r T; do [ -n "$T" ] && gh release delete "$T" -R "$GITHUB_REPOSITORY" --cleanup-tag -y && echo "Eliminado por retención: $T"; done < "$RUNNER_TEMP/borrar.txt"
+      - name: Revocar la credencial temporal
+        if: always()
+        env:
+          DB: ${{ secrets.REPI_BACKUP_DATABASE_URL }}
+          FN: https://qiamewdridgdvsyysmog.supabase.co/functions/v1/repi-backup-credentials
+        run: |
+          [ -n "$DB" ] && exit 0
+          T="$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=repi-backup-db" | jq -r .value)" || exit 0
+          echo "::add-mask::$T"
+          curl -sSf -X POST -H "x-repi-github-oidc: $T" "$FN?op=revoke" >/dev/null && echo "Credencial revocada." || echo "::warning::No se pudo revocar; vence sola en 2 h."
       - name: Limpieza
         if: always()
         run: rm -rf "$RUNNER_TEMP/respaldo"
@@ -212,6 +252,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write   # release borrador de prueba, se borra al terminar
+      id-token: write   # para comprobar que las Edge Functions RECHAZAN el token de un PR
     env:
       DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_dev
       BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-00
@@ -230,6 +271,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Guardas (retención y token de Storage)
         run: pnpm --filter @repi/web test:guards
+      - name: Las Edge Functions rechazan el token de un PR
+        run: |
+          for pair in "repi-backup-db repi-backup-credentials?op=issue" "repi-storage-backup repi-storage?op=sign_read&key=x"; do
+            set -- $pair
+            T="$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$1" | jq -r .value)"
+            echo "::add-mask::$T"
+            C="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "x-repi-github-oidc: $T" "https://qiamewdridgdvsyysmog.supabase.co/functions/v1/$2")"
+            [ "$C" = 404 ] || { echo "::error::$2 respondió $C a un token de PR (se esperaba 404)."; exit 1; }
+            echo "Rechazado como corresponde: $2 con token de PR"
+          done
       - name: Base de demostración, PostgreSQL descartable y age
         working-directory: apps/web
         run: |

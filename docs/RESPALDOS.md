@@ -7,7 +7,7 @@ Los respaldos de producción se hacen y se prueban en GitHub Actions y se guarda
 | Workflow | `.github/workflows/backup.yml` («Respaldo»): diario a las 03:17 (Buenos Aires), manual con «Run workflow» o a pedido con un issue «Respaldo: <motivo>» abierto por el dueño del repositorio |
 | Dónde quedan | Releases con etiqueta `backup-AAAAMMDD-HHMMSS-<ejecución>`: un archivo `repi-backup-….tar.gz.age` y su `.sha256` |
 | Contenido | Todas las tablas de `public` (COPY en un único instante, `REPEATABLE READ READ ONLY`), `drizzle.__drizzle_migrations`, los archivos de Storage (`media_object`) y `manifest.json` con el SHA-256 de cada archivo |
-| Cifrado | [age](https://age-encryption.org) (X25519 + ChaCha20-Poly1305, autenticado). La clave pública del titular está en la variable `REPI_BACKUP_AGE_RECIPIENTS`; la **privada nunca entra a GitHub** |
+| Cifrado | [age](https://age-encryption.org) (X25519 + ChaCha20-Poly1305, autenticado). La clave pública del titular está en `apps/web/scripts/operations/backup-recipients.txt` (o en la variable `REPI_BACKUP_AGE_RECIPIENTS`, si existe); la **privada nunca entra a GitHub**: está en el Google Drive del titular, carpeta «REPI — Recuperación de respaldos» |
 | Retención | El último de cada uno de los 30 días más recientes con respaldo, más el primero de cada uno de los 4 meses más recientes. El último válido no se borra nunca |
 | Alerta | Si falla o se corta, el workflow abre o comenta el issue «Respaldo de producción fallido», asignado al titular (GitHub avisa por correo y en la app). El siguiente éxito lo cierra |
 
@@ -15,6 +15,10 @@ Los respaldos de producción se hacen y se prueban en GitHub Actions y se guarda
 
 1. **Lee** producción con el rol `repi_backup`:
    - `default_transaction_read_only`, sin escritura en ninguna tabla, `BYPASSRLS` para ver todas las filas y como máximo 3 conexiones (`apps/web/scripts/operations/hosted-backup-role.sql`).
+   - **Sin contraseñas guardadas.** El job pide a la Edge Function `repi-backup-credentials` una contraseña para `repi_backup`, presentando su token OIDC (audiencia `repi-backup-db`).
+     - La función sólo responde al workflow `backup.yml` en `main`.
+     - Fija una contraseña aleatoria nueva que vence en 2 h. Al terminar, el job la revoca: queda otra que nadie conoce, ya vencida.
+     - El usuario de la app (`repi_app`) no se toca.
    - Storage se lee con el **token OIDC del job**. La Edge Function `repi-storage` sólo firma lecturas, y sólo para este workflow en `main` (`schedule` o `workflow_dispatch`, ver `supabase/functions/repi-storage/github-oidc.ts`). No hay secreto de Storage en GitHub.
 2. `backup.ts` escribe el respaldo en el disco temporal del runner y el manifiesto al final (un respaldo cortado no queda «complete»).
 3. **Cifra** (`backup-ci.sh pack`) para la clave del titular y para una clave **efímera** creada en ese job. Borra la copia sin cifrar.
@@ -29,7 +33,7 @@ Los respaldos de producción se hacen y se prueban en GitHub Actions y se guarda
    - Borra los releases de respaldo que quedan fuera de la regla y los borradores de más de 24 h (subidas cortadas).
    - No toca releases que no sean de respaldo.
 
-Nada sin cifrar sale del runner: no hay artefactos, caché de datos ni commits. Las etiquetas apuntan a commits existentes y no agregan archivos al historial.
+Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único artefacto es el archivo **cifrado**, que dura 1 día y sirve para comprobar desde afuera que la clave del titular lo abre. Las etiquetas apuntan a commits existentes y no agregan archivos al historial.
 
 **La automatización se habilita sola:** el cronograma no hace nada mientras no exista un respaldo verificado publicado. La primera ejecución manual exitosa, con los secretos reales, es la prueba completa que lo habilita.
 
@@ -38,32 +42,24 @@ Nada sin cifrar sale del runner: no hay artefactos, caché de datos ni commits. 
 - Sube y baja un release borrador (después se borra).
 - Ejecuta el procedimiento de recuperación de abajo y comprueba que una clave ajena o un archivo alterado se rechazan.
 
-## Puesta en marcha (una sola vez, titular)
+## Puesta en marcha (hecha el 04/11/2026)
 
-Hay que hacerla en una computadora de confianza. Ninguno de estos valores se pega en el chat ni en el repositorio.
+No hay secretos ni variables que cargar en GitHub:
+- La clave pública está en el repositorio.
+- La contraseña de la base es temporal y la entrega la Edge Function al token OIDC del job.
+- `REPI_BACKUP_DATABASE_URL` y `REPI_BACKUP_AGE_RECIPIENTS` siguen funcionando si alguna vez se cargan, y tienen prioridad.
 
-1. **Clave de recuperación** (privada, fuera de GitHub):
-   - `brew install age`
-   - `age-keygen -o repi-respaldos.age.key`. Muestra `Public key: age1…`.
-   - Guardá el **contenido completo** del archivo `repi-respaldos.age.key` en tu gestor de contraseñas, más una segunda copia fuera de línea: impresa, o en el SSD en una carpeta **distinta** de `Backups/`.
-   - Sin esta clave, los respaldos no se pueden abrir: nadie puede recuperarla, tampoco GitHub ni Claude.
-2. **Clave pública en GitHub:**
-   - Repositorio → Settings → Secrets and variables → Actions → **Variables** → New repository variable.
-   - Nombre: `REPI_BACKUP_AGE_RECIPIENTS`. Valor: la línea `age1…`.
-   - Se pueden poner varias claves separadas por coma, por ejemplo una de reserva.
-3. **Contraseña del rol de sólo lectura:**
-   - `openssl rand -hex 24`
-   - En Supabase → SQL Editor: `alter role repi_backup with password '<esa contraseña>';`
-4. **Conexión en GitHub:**
-   - Settings → Secrets and variables → Actions → **Secrets** → New repository secret.
-   - Nombre: `REPI_BACKUP_DATABASE_URL`.
-   - Valor: `postgresql://repi_backup.qiamewdridgdvsyysmog:<contraseña>@aws-1-sa-east-1.pooler.supabase.com:5432/postgres`
-5. **Primera ejecución:** Actions → Respaldo → Run workflow (motivo: «primera prueba»). Si termina en verde, el respaldo está publicado y verificado, y el cronograma diario queda habilitado.
-6. **Prueba de tu clave**, recomendada una vez y después cada tanto. Desde el clon del repositorio, en `apps/web`:
-   ```bash
-   ./scripts/operations/restore-from-release.sh último ~/ruta/repi-respaldos.age.key --sin-base
-   ```
-   Tiene que terminar en «Respaldo íntegro: … base SHA-256 …», con el mismo hash que figura en las notas del release.
+**Clave privada:** `repi-respaldos.age.key`, en el Google Drive del titular (carpeta «REPI — Recuperación de respaldos», sin compartir).
+- Sin esa clave los respaldos no se pueden abrir: nadie puede recuperarla, tampoco GitHub ni Claude.
+- Se recomienda una segunda copia fuera de línea: impresa, o en el SSD en una carpeta distinta de `Backups/`.
+
+**Comprobar la clave** cada tanto, desde `apps/web`:
+
+```bash
+./scripts/operations/restore-from-release.sh último ~/ruta/repi-respaldos.age.key --sin-base
+```
+
+Tiene que terminar en «Respaldo íntegro», con el mismo hash de base que figura en las notas del release.
 
 ## Antes de cada migración productiva
 
@@ -116,15 +112,19 @@ Para el paso 4 hace falta una variante del script con destino explícito. Se pre
 
 ## Seguridad y límites
 
-- **Secretos en GitHub:** sólo `REPI_BACKUP_DATABASE_URL`, de un rol de sólo lectura. La variable `REPI_BACKUP_AGE_RECIPIENTS` es pública por naturaleza. Storage no necesita ningún secreto.
+- **Secretos en GitHub:** ninguno.
+  - La base usa una contraseña temporal por ejecución, de un rol de sólo lectura, emitida por `repi-backup-credentials`.
+  - Storage usa el token OIDC.
+  - La clave pública es pública por naturaleza.
 - **Quién lee los secretos:** sólo el job de respaldo. El job de PR no los recibe y la autoprueba usa datos de demostración.
 - **Logs:** nombres de tabla, cantidades y hashes. Las URL de conexión se ocultan en los errores y GitHub enmascara los secretos.
 - **Rotar la clave age:**
-  1. Agregar la clave nueva a `REPI_BACKUP_AGE_RECIPIENTS`.
+  1. Agregar la clave nueva a `backup-recipients.txt`.
   2. Esperar un respaldo.
   3. Quitar la vieja.
   4. Los respaldos anteriores siguen abriéndose con la clave vieja: no la borres hasta que venzan por retención (unos 4 meses).
 - **Revocar el acceso:**
+  - Borrar la Edge Function `repi-backup-credentials`. Sin ella, el job no obtiene contraseña.
   - `alter role repi_backup nologin;` o cambiar la contraseña.
   - Quitar el bloque OIDC de la Edge Function corta la lectura de Storage.
 - **Tamaño:** hoy unos 2–3 MB cifrados (26 MB de base, un archivo de Storage). GitHub admite archivos de hasta 2 GB por release; los releases no consumen minutos ni el almacenamiento de Actions.
