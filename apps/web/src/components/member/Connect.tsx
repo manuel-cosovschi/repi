@@ -17,7 +17,7 @@ type Detail = {
   feedback: string | null; canFeedback: boolean; timeline: { at: string; text: string; note?: string | null }[];
 };
 
-const TONE: Record<string, string> = { pendiente: "#94A3B8", asignada: "#00D1FF", transferida: "#00D1FF", en_atencion: "#5DE6D8", seguimiento: "#F59E0B", resuelta: "#10B981", cancelada: "#64748B" };
+const TONE: Record<string, string> = { pendiente: "var(--ui-faint)", asignada: "var(--ui-accent)", transferida: "var(--ui-accent)", en_atencion: "var(--ui-accent-2)", seguimiento: "var(--ui-warning)", resuelta: "var(--ui-success)", cancelada: "var(--ui-faint)" };
 const hm = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 const ACTIVE = ["pendiente", "asignada", "transferida", "en_atencion", "seguimiento"];
 
@@ -73,7 +73,7 @@ export function ConnectCard({ onOpen, refresh }: { onOpen: (id?: string) => void
   const top = news[0] ?? active[0];
   return (
     <button type="button" className="hbanner cx-card" onClick={() => onOpen(news[0]?.id)}>
-      <span style={{ width: 8, height: 8, borderRadius: 4, background: TONE[top.state] ?? "#00D1FF", flex: "none" }} />
+      <span style={{ width: 8, height: 8, borderRadius: 4, background: TONE[top.state] ?? "var(--ui-accent)", flex: "none" }} />
       <span><b>{news.length ? (top.state === "resuelta" ? "Tu pedido fue resuelto" : "Tu pedido se cerró") : active.length === 1 ? `Tu pedido: ${top.stateLabel.toLowerCase()}` : `${active.length} pedidos en curso`}</b>
         <small>{top.label}{top.exercise ? ` · ${top.exercise}` : ""}{top.assignee && top.state !== "pendiente" ? ` · ${top.assignee}` : ""}</small></span>
       <em>Ver</em>
@@ -102,7 +102,7 @@ export function ConnectPanelSheet({ initialId, onClose, flash, onNew }: { initia
         {d && <>
           <ol className="cx-time" aria-label="Historial del pedido">
             {d.timeline.map((x, i) => (
-              <li key={i}><span className="cx-dot" style={{ background: i === d.timeline.length - 1 ? TONE[d.state] ?? "#00D1FF" : "#334155" }} />
+              <li key={i}><span className="cx-dot" style={{ background: i === d.timeline.length - 1 ? TONE[d.state] ?? "var(--ui-accent)" : "var(--ui-border-strong)" }} />
                 <span><b>{x.text}</b><small>{hm(x.at)}</small>{x.note && <q>{x.note}</q>}</span></li>
             ))}
           </ol>
@@ -134,7 +134,7 @@ export function ConnectPanelSheet({ initialId, onClose, flash, onNew }: { initia
       <ul className="cx-list">
         {reqs.map((r) => (
           <li key={r.id}><button type="button" onClick={() => setOpen(r.id)}>
-            <span className="cx-dot" style={{ background: TONE[r.state] ?? "#00D1FF" }} />
+            <span className="cx-dot" style={{ background: TONE[r.state] ?? "var(--ui-accent)" }} />
             <span><b>{r.label}{r.exercise ? ` · ${r.exercise}` : ""}</b>
               <small>{r.stateLabel}{r.assignee && !["pendiente", "transferida"].includes(r.state) ? ` · ${r.assignee}` : ""} · {hm(r.createdAt)}</small></span>
             {r.unseen && <i className="cx-new">Nuevo</i>}

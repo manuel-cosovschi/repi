@@ -52,7 +52,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
         <div className="dashed-card">
           <strong>¿Tenés tu propia rutina?</strong>
           <span>Cargala acá y registrá en cada entrenamiento pesos, repeticiones, intensidad y tus notas. Es tuya: la usás cuando quieras, con o sin programa de tu profe.</span>
-          <button type="button" className="cta sm" onClick={() => open("new")}><Ic i={Plus} size={16} color="#0B0F14" /> Cargarla a mano</button>
+          <button type="button" className="cta sm" onClick={() => open("new")}><Ic i={Plus} size={16} color="var(--ui-on-primary)" /> Cargarla a mano</button>
           <button type="button" className="ghost sm" onClick={upload}>Subir foto, captura o archivo</button>
         </div>
       )}
@@ -65,7 +65,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
           ))}</ul>
           <div className="or-actions">
             <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
-              <Ic i={Play} size={16} weight="fill" color="#0B0F14" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
+              <Ic i={Play} size={16} weight="fill" color="var(--ui-on-primary)" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
             </button>
             <button type="button" className="ghost sm" onClick={() => open(r)}>Editar</button>
             <button type="button" className="ghost sm" disabled={offline} onClick={async () => {
@@ -281,7 +281,7 @@ export function NextOwnRoutine({ offline, busyOpen, onStart, fallback }: { offli
         <small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
       <div className="or-actions">
         <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
-          <Ic i={Play} size={16} weight="fill" color="#0B0F14" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
+          <Ic i={Play} size={16} weight="fill" color="var(--ui-on-primary)" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
         </button>
       </div>
     </div>

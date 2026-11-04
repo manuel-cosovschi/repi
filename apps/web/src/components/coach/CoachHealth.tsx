@@ -28,7 +28,7 @@ function LockCard({ orgId, relId, item, first, status, retryAt, onRequested, fla
   const canAsk = (status === "none" || status === "denied" || status === "expired") && !retryAt; // D38: 7 días tras un rechazo
   return (
     <section className="card lock" style={{ flexDirection: "row" }}>
-      <Ic i={Lock} size={22} color="#5B6B80" />
+      <Ic i={Lock} size={22} color="var(--ui-muted)" />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2>{label}: no compartido</h2>
         <span className="muted" style={{ fontSize: 14 }}>Sin acceso hasta que {first} lo habilite. {ACCESS_ITEMS[item].reason}</span>
@@ -79,7 +79,7 @@ export function SensitiveTab({ orgId, relId, name, item, flash }: { orgId: strin
           <h2>Molestias reportadas{!h.granted ? " · compartidas una a una" : ""}</h2>
           {h.pains.length > 0 && (
             <div className="bars10" role="img" aria-label={`Intensidad de las últimas molestias: ${h.pains.slice(0, 10).map((p) => `${p.zone} ${p.level}`).join(", ")}`}>
-              {h.pains.slice(0, 10).reverse().map((p) => <div key={p.id}><i style={{ height: `${Math.max(4, p.level * 10)}%`, background: p.level >= 4 ? "#F59E0B" : "#5DE6D8" }} /><span>{p.level}</span></div>)}
+              {h.pains.slice(0, 10).reverse().map((p) => <div key={p.id}><i style={{ height: `${Math.max(4, p.level * 10)}%`, background: p.level >= 4 ? "var(--ui-warning)" : "var(--ui-accent-2)" }} /><span>{p.level}</span></div>)}
             </div>
           )}
           {h.pains.map((p) => (

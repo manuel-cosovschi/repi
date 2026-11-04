@@ -100,7 +100,7 @@ export function Conversation({ id, title, extra, onChanged, dark }: { id: string
         <form className="chat-compose" onSubmit={(e) => { e.preventDefault(); if (online && !over) void send(draft); }}>
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={1} aria-label="Mensaje" placeholder={online ? `Escribile ${/^el /.test(title) ? `al ${title.slice(3)}` : /^la /.test(title) ? `a ${title}` : `a ${title.split(" ")[0]}`}…` : "Sin conexión: no se pueden enviar mensajes"} disabled={!online}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (online && !over) void send(draft); } }} maxLength={MESSAGE_MAX + 200} />
-          <button type="submit" aria-label="Enviar" disabled={!online || !draft.trim() || over}><Ic i={PaperPlaneRight} size={18} color="#0B0F14" /></button>
+          <button type="submit" aria-label="Enviar" disabled={!online || !draft.trim() || over}><Ic i={PaperPlaneRight} size={18} color="var(--ui-on-primary)" /></button>
         </form>
       )}
       {over && <small className="err-box">Hasta {MESSAGE_MAX} caracteres.</small>}

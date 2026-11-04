@@ -73,7 +73,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
       ) : (
         <div className="split">
           <div className="list-pane">
-            <label className="search"><Ic i={MagnifyingGlass} size={16} color="#5B6B80" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente" /></label>
+            <label className="search"><Ic i={MagnifyingGlass} size={16} color="var(--ui-muted)" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente" /></label>
             <div className="pills">{FILTERS.map(([k, l]) => <button type="button" key={k} className="pill" aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}</div>
             <div className="sorts">Ordenar: {SORTS.map(([k, l]) => <button type="button" key={k} aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>)}</div>
             {list.map((c) => (
@@ -153,7 +153,7 @@ function Sessions({ det }: { det: Detail }) {
       {!det.sessions.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span> : (
         <SessionLog sessions={det.sessions}
           line={(s) => `${formatClock(s.durationSec)} · ${s.sets} series · ${nf(s.volumeKg)} kg`}
-          extra={(s) => s.changes?.map((c) => <span key={c.exercise} style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>{c.kind === "skip" ? `Salteó ${c.exercise}` : `Hizo ${c.substitute} en lugar de ${c.exercise}`} · {EXERCISE_CHANGE_REASONS[c.reason].toLowerCase()}</span>)} />
+          extra={(s) => s.changes?.map((c) => <span key={c.exercise} style={{ flexBasis: "100%", fontSize: 13, color: "var(--ui-text-2)" }}>{c.kind === "skip" ? `Salteó ${c.exercise}` : `Hizo ${c.substitute} en lugar de ${c.exercise}`} · {EXERCISE_CHANGE_REASONS[c.reason].toLowerCase()}</span>)} />
       )}
     </section>
   );

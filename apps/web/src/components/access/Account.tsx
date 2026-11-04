@@ -2,6 +2,7 @@
 // Mi cuenta (D119). La verificación en dos pasos es optativa: se activa con el mismo paso de /acceso (contraseña → app de
 // códigos → códigos de respaldo) y se quita confirmando la contraseña. REPI no la exige a ningún rol.
 import { useState } from "react";
+import { ThemePicker } from "@/components/theme/ThemePicker";
 import { ArrowLeft, ShieldCheck } from "@phosphor-icons/react";
 import { authClient } from "@/lib/auth-client";
 import { Ic } from "@/components/ui/Ic";
@@ -51,6 +52,9 @@ export function Account({ name, email, twoFactor, from }: { name: string; email:
           </small>
         </span>
       </section>
+
+      {/* D188: la apariencia es de la cuenta: la misma en Alumno, Coach, Gym y Admin. */}
+      <section className="ac-info" style={{ display: "block" }} aria-label="Apariencia"><ThemePicker /></section>
 
       {done && <p role="status" className="ac-sub" style={{ margin: 0 }}>{done}</p>}
 

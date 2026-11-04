@@ -35,9 +35,9 @@ export function NewExercise({ url, query, known, disabled, onCreated, flash }: {
       onCreated(e); setOpen(false); setName(""); setGroup("");
     } catch (err) { flash((err as Error).message); } finally { setBusy(false); }
   };
-  const sel = { height: 38, borderRadius: 10, border: "1px solid #C9D2DD", padding: "0 10px", font: "500 14px var(--font-ui)", background: "#fff" } as const;
+  const sel = { height: 38, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "500 14px var(--font-ui)", background: "var(--ui-input-bg)" } as const;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 12, background: "#F4FBFD", border: "1px solid #CDEFF7" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 12, background: "var(--ui-selection-bg)", border: "1px solid var(--ui-selection-border)" }}>
       <b style={{ fontSize: 13 }}>Ejercicio propio</b>
       <label className="field">Nombre<input value={name} maxLength={60} autoFocus onChange={(e) => setName(e.target.value)} placeholder="Ej.: Remo gorila" /></label>
       <label className="field">Grupo muscular

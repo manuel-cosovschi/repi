@@ -38,7 +38,7 @@ function useImage(orgId: string, flash: (t: string) => void) {
 function LocField({ com, value, onChange }: { com: Com; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">Dónde se publica
-      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid #C9D2DD", padding: "0 10px", font: "400 14px var(--font-ui)" }}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "400 14px var(--font-ui)" }}>
         {com.allLocations && <option value="">Todas las sedes</option>}
         {com.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
@@ -136,7 +136,7 @@ function Challenges({ shell, com, reload }: { shell: Shell; com: Com; reload: ()
         <label className="field">Nombre<input value={d.title} maxLength={80} placeholder="Dominadas máximas" onChange={(e) => setD({ ...d, title: e.target.value })} /></label>
         <label className="field">Reglas: cómo debe verse el intento (en video o frente a un profe)<textarea className="note" rows={2} value={d.rule} maxLength={400} onChange={(e) => setD({ ...d, rule: e.target.value })} /></label>
         <div className="pills" role="group" aria-label="Se mide en">{(Object.keys(CHALLENGE_UNITS) as ChallengeUnit[]).map((u) => <button key={u} type="button" className="pill" aria-pressed={d.unit === u} onClick={() => setD({ ...d, unit: u })}>{CHALLENGE_UNITS[u]}</button>)}</div>
-        {d.unit === "seg" && <label className="mrow" style={{ border: "1px solid #E2E8F0" }}><input type="checkbox" checked={d.lower} onChange={(e) => setD({ ...d, lower: e.target.checked })} /><span style={{ fontSize: 14 }}>Gana el menor tiempo (por ejemplo, remo 500 m)</span></label>}
+        {d.unit === "seg" && <label className="mrow" style={{ border: "1px solid var(--ui-border)" }}><input type="checkbox" checked={d.lower} onChange={(e) => setD({ ...d, lower: e.target.checked })} /><span style={{ fontSize: 14 }}>Gana el menor tiempo (por ejemplo, remo 500 m)</span></label>}
         {d.unit !== "seg" && (
           <label className="field">Ejercicio que mide (opcional)
             <select value={d.ex} onChange={(e) => setD({ ...d, ex: e.target.value })}>
@@ -208,7 +208,7 @@ function Shop({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
               <label className="field" style={{ flex: "1 1 120px" }}>Precio ARS<input inputMode="numeric" value={d.price} onChange={(e) => setD({ ...d, price: e.target.value.replace(/\D/g, "") })} /></label>
               <label className="field" style={{ flex: "2 1 160px" }}>Promo (opcional)<input value={d.promo} maxLength={40} onChange={(e) => setD({ ...d, promo: e.target.value })} /></label>
             </div>
-            <label className="mrow" style={{ border: "1px solid #E2E8F0" }}><input type="checkbox" checked={d.highlighted} onChange={(e) => setD({ ...d, highlighted: e.target.checked })} /><span style={{ fontSize: 14 }}>Destacar en la app</span></label>
+            <label className="mrow" style={{ border: "1px solid var(--ui-border)" }}><input type="checkbox" checked={d.highlighted} onChange={(e) => setD({ ...d, highlighted: e.target.checked })} /><span style={{ fontSize: 14 }}>Destacar en la app</span></label>
             <LocField com={com} value={d.loc} onChange={(v) => setD({ ...d, loc: v })} />
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <button type="button" className="btn sm" aria-busy={im.busy || undefined} onClick={() => fileRef.current?.click()}>{im.img ? "Foto lista ✓" : "Agregar foto"}</button>
@@ -232,7 +232,7 @@ function Shop({ shell, com, reload }: { shell: Shell; com: Com; reload: () => vo
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {i.imageId ? <img src={`/api/media/${i.imageId}`} alt="" style={{ width: "100%", height: 100, objectFit: "cover" }} /> : <div className="gy-noimg" style={{ height: 70 }}>foto producto</div>}
               <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="lbl-up">{i.category}</span><b style={{ fontSize: 14 }}>{i.name}</b><span style={{ fontWeight: 600, color: "#006B88" }}>{ars(i.priceArs)}</span>
+                <span className="lbl-up">{i.category}</span><b style={{ fontSize: 14 }}>{i.name}</b><span style={{ fontWeight: 600, color: "var(--ui-link)" }}>{ars(i.priceArs)}</span>
                 {i.promo && <span className="chip info" style={{ alignSelf: "flex-start" }}>{i.promo}</span>}
                 <span className="muted">{i.sede}</span>
                 <label style={{ fontSize: 12, display: "flex", gap: 6 }}><input type="checkbox" checked={i.available} onChange={(e) => patch(i, { available: e.target.checked })} />Disponible</label>
@@ -338,7 +338,7 @@ export function ValidationsScreen({ shell }: { shell: Shell }) {
                   <b>Validación en sala</b>
                   <span>Sin video. Mirá el intento completo de {a.member} y anotá la marca que logró. Hace falta tener el turno iniciado en su sede.</span>
                 </div>
-              ) : <video src={`/api/media/${a.videoId}`} controls preload="metadata" playsInline style={{ flex: "1 1 300px", maxWidth: 420, maxHeight: 320, borderRadius: 12, background: "#0B0F14" }} aria-label={`Video del intento de ${a.member}`} />}
+              ) : <video src={`/api/media/${a.videoId}`} controls preload="metadata" playsInline style={{ flex: "1 1 300px", maxWidth: 420, maxHeight: 320, borderRadius: 12, background: "var(--ui-border)" }} aria-label={`Video del intento de ${a.member}`} />}
               <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><b style={{ fontSize: 16 }}>{a.member} · {a.challenge}</b><span className="muted">{when(a.at)}</span></div>
                 <div style={{ display: "flex", gap: 10 }}>
@@ -395,7 +395,7 @@ export function DeskCard({ shell }: { shell: Shell }) {
         <button type="button" className="btn pri" aria-busy={busy === "v" || undefined} onClick={() => token.trim() ? verify() : shell.flash("Pegá o escaneá el código del carnet.")}>Verificar</button>
       </div>
       {card && (
-        <div style={{ border: "1px solid #E2E8F0", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ border: "1px solid var(--ui-border)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
             <span><b style={{ fontSize: 16 }}>{card.name}</b><br /><small className="muted">{card.location}{card.otherLocation ? " · otra sede" : ""} · última visita {card.lastVisit ? when(card.lastVisit) : "—"}</small></span>
             <span className={`chip ${card.active ? "ok" : "bad"}`}>{card.active ? "Socio activo" : "Inactivo"}</span>
@@ -403,7 +403,7 @@ export function DeskCard({ shell }: { shell: Shell }) {
           {card.active && loc && <button type="button" className="btn" style={{ alignSelf: "flex-start" }} aria-busy={busy === "in" || undefined}
             onClick={() => run("in", () => api<{ duplicate: boolean }>(`/api/gym/${shell.orgId}/desk/checkin`, { body: { token, loc } }), (r) => (r as { duplicate: boolean }).duplicate ? "Ya tenía un ingreso registrado en las últimas 2 horas." : `Ingreso de ${card.name.split(" ")[0]} registrado.`)}>Registrar ingreso</button>}
           {card.prizes.map((p) => (
-            <div key={p.id} className="trow"><span style={{ flex: 1 }}><b>{p.description}</b> · {p.challenge} <span style={{ font: "600 12px var(--font-mono)", color: "#006B88" }}>{p.code}</span></span>
+            <div key={p.id} className="trow"><span style={{ flex: 1 }}><b>{p.description}</b> · {p.challenge} <span style={{ font: "600 12px var(--font-mono)", color: "var(--ui-link)" }}>{p.code}</span></span>
               <button type="button" className="btn sm pri" onClick={() => run(p.id, () => api(`/api/gym/${shell.orgId}/desk/prizes/${p.id}`, { body: {} }), "Premio entregado. El socio recibe el aviso.").then(() => setCard({ ...card, prizes: card.prizes.filter((x) => x.id !== p.id) }))}>Entregar</button></div>
           ))}
           {!card.prizes.length && <span className="muted">Sin premios para retirar.</span>}

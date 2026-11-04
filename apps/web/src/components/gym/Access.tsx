@@ -224,7 +224,7 @@ function UntilCell({ shell, a, onSaved }: { shell: Shell; a: Access; onSaved: ()
   return (
     <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
       <input type="date" aria-label={`Vigente hasta · ${a.name}`} value={v} onChange={(e) => setV(e.target.value)}
-        style={{ height: 34, borderRadius: 8, border: "1px solid #C9D2DD", padding: "0 8px", font: "500 13px var(--font-ui)" }} />
+        style={{ height: 34, borderRadius: 8, border: "1px solid var(--ui-control-border)", padding: "0 8px", font: "500 13px var(--font-ui)" }} />
       {v !== (a.accessUntil ?? "") && <button type="button" className="btn sm pri" aria-busy={busy === `u-${a.id}` || undefined} onClick={() => void save(v || null)}>Guardar</button>}
       {a.accessUntil && v === a.accessUntil && <button type="button" className="btn sm" onClick={() => { setV(""); void save(null); }}>Sin vencimiento</button>}
       {expired && <span className="chip warn">Vencida</span>}
@@ -257,7 +257,7 @@ export function JoinQrCard({ shell }: { shell: Shell }) {
           <div key={l.location.id} className="gy-task" style={{ flexDirection: "column", alignItems: "stretch" }}>
             <b>{l.location.name}</b>
             {l.active && origin ? <>
-              <div aria-label={`QR de ${l.location.name}`} role="img" style={{ width: 168, height: 168, alignSelf: "center", background: "#fff", padding: 6, borderRadius: 10 }}
+              <div aria-label={`QR de ${l.location.name}`} role="img" style={{ width: 168, height: 168, alignSelf: "center", background: "var(--ui-input-bg)", padding: 6, borderRadius: 10 }}
                 dangerouslySetInnerHTML={{ __html: renderSVG(url(l.active.slug), { border: 1 }) }} />
               <small className="muted" style={{ wordBreak: "break-all" }}>{url(l.active.slug)}</small>
               <small className="muted">Generado {fmt(l.active.createdAt)}</small>
@@ -291,7 +291,7 @@ export function FloorAlertsCard({ shell, loc, highlight }: { shell: Shell; loc: 
     <section className="card" aria-label="Socios que piden atención" aria-live="polite">
       <h2 style={{ margin: 0, fontSize: 18 }}>En sala ahora {open.length > 0 && <span className="chip warn">{open.length}</span>}</h2>
       {!d.data ? <p className="muted">Cargando…</p> : !d.data.length ? <div className="empty">Nadie pidió atención en la última hora.</div> : d.data.map((a) => (
-        <div key={a.id} className="gy-task" style={a.id === highlight ? { borderColor: "var(--core-cyan)" } : undefined}>
+        <div key={a.id} className="gy-task" style={a.id === highlight ? { borderColor: "var(--ui-accent)" } : undefined}>
           <span style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 2 }}>
             <b>{a.member} · {a.exercise}</b>
             <small className="muted">{a.set ? `Serie ${a.set.n}${a.set.weightKg != null ? ` · ${a.set.weightKg.toLocaleString("es-AR")} kg` : ""}${a.set.reps != null ? ` × ${a.set.reps}` : ""} · ` : ""}{when(a.createdAt)}</small>

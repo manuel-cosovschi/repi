@@ -123,7 +123,7 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
     if (!r.ok) return setErr(r.error);
     onSave({ detail: r.detail, sets: r.sets });
   };
-  const sel = { minHeight: 38, borderRadius: 9, border: "1px solid var(--light-border-strong)", padding: "0 8px", font: "500 14px var(--font-ui)", background: "var(--light-surface)", color: "var(--light-ink)", width: "100%" } as const;
+  const sel = { minHeight: 38, borderRadius: 9, border: "1px solid var(--ui-control-border)", padding: "0 8px", font: "500 14px var(--font-ui)", background: "var(--ui-input-bg)", color: "var(--ui-text)", width: "100%" } as const;
   const target = (i: number) => setTargetText(setTarget({ ...e, detail: d }, i));
   let rowIdx = -1;
 

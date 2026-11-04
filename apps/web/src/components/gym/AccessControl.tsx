@@ -142,7 +142,7 @@ function AccessPanel({ shell, r, loc, setLoc, days, setDays, reload, owner }: {
             </section>
             <section className="card"><h2>Motivos de rechazo</h2>
               {!r.denials.length ? <div className="empty">Sin rechazos en el período.</div>
-                : r.denials.map((d) => <HBar key={d.reason} label={d.label} n={d.n} max={Math.max(1, r.denials[0].n)} color="#F59E0B" />)}
+                : r.denials.map((d) => <HBar key={d.reason} label={d.label} n={d.n} max={Math.max(1, r.denials[0].n)} color="var(--ui-warning)" />)}
             </section>
           </div>
           <section className="card"><h2>Ingresos vigentes ({r.active.length})</h2>
@@ -199,7 +199,7 @@ function PolicyForm({ shell, s, onSaved }: { shell: Shell; s: Settings; onSaved:
           <label className="field" style={{ flex: "1 1 200px" }}>El QR se renueva cada (segundos)
             <IntInput min={QR_TTL_RANGE[0]} max={QR_TTL_RANGE[1]} disabled={ro} value={p.qrTtlSec} onChange={(n) => n != null && setP({ ...p, qrTtlSec: n })} /></label>
           <label className="field" style={{ flex: "1 1 200px" }}>El ingreso vale (horas)
-            <select disabled={ro} value={p.passHours} onChange={(e) => setP({ ...p, passHours: Number(e.target.value) })} style={{ height: 42, borderRadius: 10, border: "1px solid #C9D2DD", padding: "0 10px" }}>
+            <select disabled={ro} value={p.passHours} onChange={(e) => setP({ ...p, passHours: Number(e.target.value) })} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px" }}>
               {Array.from({ length: PASS_HOURS_RANGE[1] - PASS_HOURS_RANGE[0] + 1 }, (_, i) => PASS_HOURS_RANGE[0] + i).map((h) => <option key={h} value={h}>{h} {h === 1 ? "hora" : "horas"}</option>)}
             </select></label>
         </div>
@@ -243,7 +243,7 @@ function DisplaysAndSites({ shell, s, reload }: { shell: Shell; s: Settings; rel
         )}
         <div className="crow" style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label className="field" style={{ flex: "1 1 180px" }}>Sede
-            <select value={newLoc} onChange={(e) => setNewLoc(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid #C9D2DD", padding: "0 10px" }}>
+            <select value={newLoc} onChange={(e) => setNewLoc(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px" }}>
               {s.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select></label>
           <label className="field" style={{ flex: "1 1 200px" }}>Nombre<input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} /></label>
@@ -280,7 +280,7 @@ function SiteGeo({ shell, l, onSaved }: { shell: Shell; l: Settings["locations"]
     clear ? "Ubicación de la sede borrada." : "Ubicación de la sede guardada.").then((x) => { if (x) { if (clear) { setLat(""); setLng(""); } onSaved(); } });
   const valid = lat !== "" && lng !== "" && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && Number(r) >= 50 && Number(r) <= 1000;
   return (
-    <div className="crow" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end", borderTop: "1px solid #EEF2F6", paddingTop: 10 }}>
+    <div className="crow" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end", borderTop: "1px solid var(--ui-divider)", paddingTop: 10 }}>
       <b style={{ flex: "1 1 100%" }}>{l.name} {l.lat != null ? <span className="chip ok">Cargada</span> : <span className="chip mute">Sin ubicación</span>}</b>
       <label className="field" style={{ flex: "1 1 120px" }}>Latitud<input inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-34.5889" /></label>
       <label className="field" style={{ flex: "1 1 120px" }}>Longitud<input inputMode="decimal" value={lng} onChange={(e) => setLng(e.target.value)} placeholder="-58.4108" /></label>

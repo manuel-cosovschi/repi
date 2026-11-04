@@ -43,10 +43,10 @@ export function Nudges({ go, flash, only, exclude, max = 2, refresh = 0, title =
   };
   return (
     <section className="ndg" aria-label={title}>
-      <h2><Ic i={Lightning} size={16} weight="fill" color="#00D1FF" />{title}</h2>
+      <h2><Ic i={Lightning} size={16} weight="fill" color="var(--ui-accent)" />{title}</h2>
       {shown.map((n) => (
         <div key={n.id} className={`ndg-card ndg-${n.action}`}>
-          <span className="ndg-ic" aria-hidden="true"><Ic i={ICON[n.action]} size={22} weight="fill" color="#00D1FF" /></span>
+          <span className="ndg-ic" aria-hidden="true"><Ic i={ICON[n.action]} size={22} weight="fill" color="var(--ui-accent)" /></span>
           <span className="ndg-txt"><b>{n.title}</b><small>{n.body}</small>
             <button type="button" className="cta sm ndg-cta" aria-busy={busy === n.id || undefined} disabled={busy === n.id} onClick={() => void act(n)}>{n.cta}</button>
           </span>

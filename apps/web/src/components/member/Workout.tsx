@@ -453,7 +453,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         : sync.kind === "error" ? "Error al guardar"
           : sync.kind === "conflict" || conflicts.length ? "Conflicto por resolver"
             : anyDone ? (s.synced ? "Guardado" : "Guardado en el teléfono") : "Sin series todavía";
-  const savedInk = sync.kind === "error" || sync.kind === "conflict" || conflicts.length ? "#FCA5A5" : sync.kind === "offline" || sync.kind === "pending" ? "#F59E0B" : "#5DE6D8";
+  const savedInk = sync.kind === "error" || sync.kind === "conflict" || conflicts.length ? "var(--ui-error-text)" : sync.kind === "offline" || sync.kind === "pending" ? "var(--ui-warning-text)" : "var(--ui-accent-2)";
 
   const pendingSets = s.exercises.reduce((n, _, i) => n + (skippedAt(i) ? 0 : mainLeft(i)), 0);
   const grp = ex.detail?.group ? groupRounds(s.exercises, ex.detail.group) : null;
@@ -463,7 +463,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     <div className="wo" onPointerDownCapture={() => { lastAct.current = Date.now(); }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
       <div className="wo-body">
         <div className="wo-head">
-          <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => (s.rejected ? onExit("train") : setStill("leave"))}><Ic i={ArrowLeft} size={22} color="#F8FAFC" /></button>
+          <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => (s.rejected ? onExit("train") : setStill("leave"))}><Ic i={ArrowLeft} size={22} color="var(--ui-text)" /></button>
           <div>
             <strong>{s.dayName}</strong>
             <small><span aria-label={`Duración ${formatClock(elapsed)}`}>{formatClock(elapsed)}</span> · <span role="status" style={{ color: savedInk }}>{savedTxt}</span> · <button type="button" className="linkbtn tgt" onClick={() => act(paused ? "resume" : "pause")}>{paused ? "Reanudar" : "Pausar"}</button></small>
@@ -547,11 +547,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                   return (
                     <button type="button" role="listitem" key={i} className={`setrow${stage ? " stage" : ""}${r.skip && !r.done ? " skipped" : ""}`} aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
                       aria-label={`${stage ? `${t.label} de la serie ${b.index + 1}` : `Serie ${b.index + 1}${t.label ? `, ${t.label}` : ""}`}: ${r.pend && !r.done ? "peso por elegir" : kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : t.countUnit === "rounds" ? "rondas" : "repeticiones"}, ${state}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
-                      <span>{stage ? <small className="set-stage" aria-hidden="true">↳ {t.label}</small> : <>{b.index + 1}</>}{r.note && <Ic i={NotePencil} size={11} color="#94A3B8" style={{ marginLeft: 3 }} />}
+                      <span>{stage ? <small className="set-stage" aria-hidden="true">↳ {t.label}</small> : <>{b.index + 1}</>}{r.note && <Ic i={NotePencil} size={11} color="var(--ui-muted)" style={{ marginLeft: 3 }} />}
                         {!stage && ex.detail?.setPlan?.[i] && <small className="set-tg">{setTargetText(t)}</small>}
                         {stage && <small className="set-tg">{setTargetText({ ...t, label: null })}</small>}</span>
                       <span>{r.pend && !r.done ? "—" : String(r.w).replace(".", ",")}</span><span>{r.skip && !r.done ? "—" : r.r}</span>
-                      <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="#fff" />}</span>
+                      <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="var(--ui-on-primary)" />}</span>
                     </button>
                   );
                 })}
@@ -560,7 +560,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           </div>
         </div>
         {(ex.note || s.note) && (
-          <div className="coach-tip"><Ic i={ChatCircleText} size={16} color="#94A3B8" style={{ marginTop: 2 }} /><span>{ex.note || s.note}</span></div>
+          <div className="coach-tip"><Ic i={ChatCircleText} size={16} color="var(--ui-muted)" style={{ marginTop: 2 }} /><span>{ex.note || s.note}</span></div>
         )}
       </div>
       <div className="dock">
@@ -575,9 +575,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               <div><span className="mb-muted" style={{ fontSize: 14 }}>Descanso</span><strong role="timer" aria-live="off">{formatClock(left)}</strong></div>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <div className="ring">
-                  <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="33" fill="none" stroke="#1A2433" strokeWidth="4" /><circle cx="36" cy="36" r="33" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - left / rest.total)} style={{ transition: "stroke-dashoffset 250ms linear" }} /></svg>
+                  <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="33" fill="none" style={{ stroke: "var(--ui-chart-track)" }} strokeWidth="4" /><circle cx="36" cy="36" r="33" fill="none" strokeWidth="4" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - left / rest.total)} style={{ stroke: "var(--ui-accent)", transition: "stroke-dashoffset 250ms linear" }} /></svg>
                   <button type="button" aria-label={rest.paused ? "Reanudar descanso" : "Pausar descanso"} onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, paused: false, end: Date.now() + rest.left * 1000 } : { ...rest, paused: true, left, end: null } })}>
-                    {rest.paused ? <Ic i={Play} size={20} weight="fill" color="#0B0F14" /> : <Ic i={Pause} size={20} weight="fill" color="#0B0F14" />}
+                    {rest.paused ? <Ic i={Play} size={20} weight="fill" color="var(--ui-page)" /> : <Ic i={Pause} size={20} weight="fill" color="var(--ui-page)" />}
                   </button>
                 </div>
                 <button type="button" className="plus30" onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + 30, total: rest.total + 30 } : { ...rest, end: (rest.end ?? Date.now()) + 30_000, total: rest.total + 30 } })}>+30s</button>
@@ -745,8 +745,8 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
     <div className="mb-scroll nobar done" data-cel={cel ?? undefined} style={{ paddingTop: "max(60px, calc(var(--safe-top) + 16px))" }}>
       {burst && <Confetti seed={seedOf(sum.id)} origin={() => { const r = ring.current?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; }} onDone={() => setBurst(false)} />}
       <div className="done-hero">
-        <div className="done-ring" ref={ring}><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" stroke="#1A2433" strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" stroke="#00D1FF" strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>
-          <Ic i={Check} size={34} color="#00D1FF" /></div>
+        <div className="done-ring" ref={ring}><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" fill="none" style={{ stroke: "var(--ui-chart-track)" }} strokeWidth="4" /><circle className="arc" cx="48" cy="48" r="44" fill="none" style={{ stroke: "var(--ui-accent)" }} strokeWidth="4" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - sum.setsDone / Math.max(1, sum.setsTotal)} /></svg>
+          <Ic i={Check} size={34} color="var(--ui-accent)" /></div>
         <h1 tabIndex={-1}>{complete ? `¡${sum.dayName} completo!` : `${sum.dayName} registrado`}</h1>
         <span className="mb-muted" style={{ fontSize: 15 }}>Cada repetición cuenta. Hoy sumaste {sum.setsDone} {sum.setsDone === 1 ? "serie" : "series"}{sum.stagesDone ? ` y ${sum.stagesDone} ${sum.stagesDone === 1 ? "etapa" : "etapas"} (drops, mini series)` : ""}.{sum.stagesSkipped ? ` ${sum.stagesSkipped === 1 ? "1 etapa quedó" : `${sum.stagesSkipped} etapas quedaron`} sin hacer.` : ""}</span>
       </div>
@@ -758,7 +758,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
       </div>
       {pr && (
         <div className="pr" data-reveal={cel ? "1" : undefined}>
-          <Ic i={Trophy} size={34} color="#F59E0B" />
+          <Ic i={Trophy} size={34} color="var(--ui-warning)" />
           <div><small>Nuevo récord personal · 1RM estimado</small><strong>{pr.exercise} · {kg(pr.current.weightKg, unit)} × {pr.current.reps}</strong>
             <span>Anterior: {kg(pr.previous.weightKg, unit)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {kgTo(pr.previous.e1rm, unit).toLocaleString("es-AR")} → {kgTo(pr.current.e1rm, unit).toLocaleString("es-AR")} {unit}</span></div>
         </div>
@@ -779,8 +779,8 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
             <textarea rows={2} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} placeholder={`Nota para ${coachFirst} (opcional)`} aria-label="Nota de la sesión" />
             <div style={{ display: "flex", gap: 8 }}><button type="button" className="cta" style={{ height: 44, fontSize: 15, flex: 1 }} onClick={send}>Enviar {coachFirst.startsWith("el ") ? `al ${coachFirst.slice(3)}` : `a ${coachFirst}`}</button><button type="button" className="ghost sm" style={{ height: 44 }} onClick={() => setPain(true)}>Reportar molestia</button></div>
           </>
-        ) : sent === "local" ? <span style={{ fontSize: 14, color: "#F59E0B" }}>Guardado en el teléfono · le llega {coachFirst.startsWith("el ") ? `al ${coachFirst.slice(3)}` : `a ${coachFirst}`} al volver la conexión.</span>
-          : <span style={{ fontSize: 14, color: "#5DE6D8" }}>Enviado ✓ {coachFirst} lo ve en tu ficha.</span>}
+        ) : sent === "local" ? <span style={{ fontSize: 14, color: "var(--ui-warning-text)" }}>Guardado en el teléfono · le llega {coachFirst.startsWith("el ") ? `al ${coachFirst.slice(3)}` : `a ${coachFirst}`} al volver la conexión.</span>
+          : <span style={{ fontSize: 14, color: "var(--ui-accent-2)" }}>Enviado ✓ {coachFirst} lo ve en tu ficha.</span>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <button type="button" className="cta" onClick={() => onExit("prog")}>Ver mi progreso</button>

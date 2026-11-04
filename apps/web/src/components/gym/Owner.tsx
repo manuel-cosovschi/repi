@@ -55,7 +55,7 @@ export function ReviewsScreen({ shell }: { shell: Shell }) {
               <h2>Reseñas publicadas</h2>
               {a.data.reviews.map((r) => (
                 <div key={r.id} className="trow" style={{ alignItems: "flex-start" }}>
-                  <span style={{ color: "#007EA0", flex: "0 0 80px" }}>{stars(r.stars)}</span>
+                  <span style={{ color: "var(--ui-link)", flex: "0 0 80px" }}>{stars(r.stars)}</span>
                   <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>{r.text ?? <i className="muted">Sin comentario</i>}<small className="muted">{r.member} → {r.trainer} · {r.kind} · {REVIEW_DIMS.map((d, i) => `${d} ${r.dims[i] ?? "—"}`).join(" · ")}</small>{r.response && <small>Respuesta: {r.response}</small>}</span>
                   <span className="muted">{fmt(r.at)}</span>
                 </div>
@@ -104,8 +104,8 @@ function CaseModal({ shell, id, onClose }: { shell: Shell; id: string; onClose: 
       {x && (
         <>
           <span className="muted">{x.type === "attribution" ? "Disputa de atribución" : "Reporte de reseña"} · {x.reason} · por {x.by}{x.detail ? ` — “${x.detail}”` : ""}</span>
-          {x.review && <div style={{ background: "#F4FBFD", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 4 }}><span style={{ color: "#007EA0" }}>{stars(x.review.stars)}</span><span>{x.review.text ?? <i>Sin comentario</i>}</span><small className="muted">{x.review.member} · {x.review.kind} · {fmt(x.review.at)}</small></div>}
-          {x.task && <div style={{ background: "#F4FBFD", borderRadius: 12, padding: 12 }}>{x.task.ref} · {x.task.label} · completada {when(x.task.completedAt)}</div>}
+          {x.review && <div style={{ background: "var(--ui-selection-bg)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 4 }}><span style={{ color: "var(--ui-link)" }}>{stars(x.review.stars)}</span><span>{x.review.text ?? <i>Sin comentario</i>}</span><small className="muted">{x.review.member} · {x.review.kind} · {fmt(x.review.at)}</small></div>}
+          {x.task && <div style={{ background: "var(--ui-selection-bg)", borderRadius: 12, padding: 12 }}>{x.task.ref} · {x.task.label} · completada {when(x.task.completedAt)}</div>}
           <span className="muted">El staff no edita el texto del socio: sólo se mantiene, se retira o se le pide editar.</span>
           <h2 style={{ fontSize: 14 }}>Historial</h2>
           {x.log.map((l, i) => <div key={i} className="trow" style={{ padding: "6px 4px" }}><span className="muted" style={{ flex: "0 0 110px" }}>{when(l.at)}</span><span>{l.text}</span></div>)}
@@ -225,7 +225,7 @@ export function ConfigScreen({ shell }: { shell: Shell }) {
           </section>
           <section className="card">
             <h2>Políticas de reseñas</h2>
-            <label className="mrow" style={{ border: "1px solid #E2E8F0" }}>
+            <label className="mrow" style={{ border: "1px solid var(--ui-border)" }}>
               <input type="checkbox" checked={c.data.org.reviewResponses} onChange={(e) => toggle(e.target.checked)} />
               <span><b style={{ fontSize: 14 }}>Los entrenadores pueden responder reseñas</b><small className="muted">Una respuesta por reseña; la ven el socio y la gerencia.</small></span>
             </label>

@@ -90,7 +90,7 @@ export function SessionLog<T extends LoggedSession>({ sessions, line, extra }: {
             <span style={{ flex: "0 0 auto" }}>{s.status === "completed" ? (line ? line(s) : summary(s)) : <span className="chip info">En curso</span>}</span>
             {s.rpe != null && <span className="chip mute">RPE {s.rpe}</span>}
             <button type="button" className="slog-toggle" aria-expanded={on} onClick={() => flip(s.id)}>{on ? "Ocultar series" : "Ver series"}</button>
-            {s.note && <span style={{ flexBasis: "100%", fontSize: 13, color: "#334155" }}>“{s.note}”</span>}
+            {s.note && <span style={{ flexBasis: "100%", fontSize: 13, color: "var(--ui-text-2)" }}>“{s.note}”</span>}
             {extra?.(s)}
             {on && <LoggedSets sessions={sessions} i={i} />}
           </div>

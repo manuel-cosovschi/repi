@@ -31,7 +31,7 @@ export function Ideas({ offline, flash }: { offline: boolean; flash: (m: string)
   const replies = mine.filter((x) => x.resolution).length;
   if (!open) return (
     <button type="button" className="hbanner ideas-open" aria-expanded={false} aria-controls="ideas-form" onClick={() => setOpen(true)}>
-      <Ic i={Lightbulb} size={22} color="#5DE6D8" />
+      <Ic i={Lightbulb} size={22} color="var(--ui-accent-2)" />
       <span><b>Sugerí una mejora para REPI</b><small>{replies ? `Tenés ${replies === 1 ? "una respuesta" : `${replies} respuestas`} del equipo de REPI` : "¿Qué te gustaría que la app haga mejor?"}</small></span><em>Escribir</em>
     </button>
   );

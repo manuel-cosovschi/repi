@@ -3,6 +3,7 @@
 // con versiones, vista previa del período, cierre simulado e invitación de bienvenida al responsable.
 // No hay cobros reales: ciclo, prorrateo, mora y proveedor de pagos siguen pendientes (§12).
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -61,7 +62,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
 
   return (
     <div className="co" data-drawer={drawer ? "1" : "0"}>
-      <aside className="co-side" aria-label="Navegación">
+      <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
           {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["guide", "Guía"]] as const).map(([k, l]) => (
@@ -76,12 +77,14 @@ export function AdminApp({ me }: { me: { name: string } }) {
           <span className="av">{initials(me.name)}</span>
           <span><b>{me.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button> · <a href="/cuenta?desde=/admin" style={{ color: "inherit" }}>Mi cuenta</a> · <a href="/ayuda?desde=/admin" style={{ color: "inherit" }}>Ayuda</a></small></span>
         </div>
+        {/* D188: apariencia personal (no del gimnasio): la misma en todos los espacios. */}
+        <div className="co-theme"><ThemePicker compact /></div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
-        <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
-          <Wordmark width={50} /><span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>REPI Admin</span></div>
+        <div className="co-topbar ui-dark">
+          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="var(--ui-text)" /></button>
+          <Wordmark width={50} /><span style={{ marginLeft: "auto", fontSize: 13, color: "var(--ui-muted)" }}>REPI Admin</span></div>
         <div className="co-content" key={`${screen}-${sel ?? ""}`} data-section={screen}>
           {list.err && <p role="alert" className="err-box">{list.err}</p>}
           {screen === "clients" && !sel && (

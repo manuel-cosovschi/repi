@@ -332,13 +332,13 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       social: true,
       extra: !resume ? (
         <button type="button" className="ac-opt" onClick={() => { window.location.href = "/demo"; }}>
-          <span className="ac-opt-ic" aria-hidden="true"><Ic i={Play} size={22} color="#00D1FF" /></span>
+          <span className="ac-opt-ic" aria-hidden="true"><Ic i={Play} size={22} color="var(--ui-accent)" /></span>
           <span><strong>Probá REPI sin cuenta</strong><small>Demo guiada para dueños, entrenadores, alumnos y personal trainers.</small></span>
           <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
         </button>
       ) : resume ? (
         <button type="button" className="ac-opt" onClick={() => { window.location.href = entryHref(resume); }}>
-          <span className="ac-opt-ic" aria-hidden="true"><Ic i={resume.k === "join" ? QrCode : EnvelopeSimple} size={22} color="#00D1FF" /></span>
+          <span className="ac-opt-ic" aria-hidden="true"><Ic i={resume.k === "join" ? QrCode : EnvelopeSimple} size={22} color="var(--ui-accent)" /></span>
           <span><strong>Retomá tu alta</strong><small>{resume.label ?? (resume.k === "join" ? "Tu pedido de acceso al gimnasio" : resume.k === "code" ? "Tu invitación" : "La bienvenida de tu espacio")}</small></span>
           <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
         </button>
@@ -737,7 +737,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         {v.info && <div className="ac-info"><span className="ac-ini" aria-hidden="true">{v.info.ini}</span><span><strong>{v.info.t}</strong>{v.info.d && <small>{v.info.d}</small>}</span></div>}
         {v.options?.map((o) => (
           <button type="button" key={o.t} className="ac-opt" onClick={o.go}>
-            <span className="ac-opt-ic" aria-hidden="true"><Ic i={o.icon} size={22} color="#00D1FF" /></span>
+            <span className="ac-opt-ic" aria-hidden="true"><Ic i={o.icon} size={22} color="var(--ui-accent)" /></span>
             <span><strong>{o.t}</strong><small>{o.d}</small></span>
             <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
           </button>

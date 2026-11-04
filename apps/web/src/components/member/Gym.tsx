@@ -61,9 +61,9 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
   return (
     <div className={rv.leaving ? "m03-in" : undefined} style={{ display: "flex", flexDirection: "column", gap: 22, position: "relative" }}>
       {rv.leaving && <Ambient label="Cargando tu gym" leaving />}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={{ fontSize: 13, color: "#5DE6D8", fontWeight: 600 }}>{h.org.name} · {h.location.name}</span><h1 tabIndex={-1}>Tu gym</h1></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={{ fontSize: 13, color: "var(--ui-accent-2)", fontWeight: 600 }}>{h.org.name} · {h.location.name}</span><h1 tabIndex={-1}>Tu gym</h1></div>
       <button type="button" className="hbanner" onClick={() => setCard(true)}>
-        <Ic i={QrCode} size={28} color="#00D1FF" />
+        <Ic i={QrCode} size={28} color="var(--ui-accent)" />
         <span><b style={{ fontSize: 15 }}>Mi carnet</b><small>{h.readyPrizes ? "Tenés premios para retirar" : "QR para recepción, premios y descuentos"}</small></span>
         {h.readyPrizes > 0 && <span className="pill-cyan">{h.readyPrizes} premio{h.readyPrizes === 1 ? "" : "s"}</span>}
       </button>
@@ -76,7 +76,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
             <div className="floor-now"><span className="mb-muted" style={{ fontSize: 13 }}>En sala ahora</span>
               <div>{h.onFloor.map((n, i) => <span key={i} className="floor-chip"><i aria-hidden="true">{n[0]}</i>{n}<b aria-hidden="true" /></span>)}</div></div>
           )}
-          {h.notices.slice(0, 3).map((n) => <div key={n.id} className="hbanner" style={{ cursor: "default" }}><span style={{ width: 8, height: 8, borderRadius: 4, background: n.kind === "attempt_rejected" ? "#EF4444" : "#00D1FF", flex: "none" }} /><span><b>{n.title}</b><small>{n.body}</small></span></div>)}
+          {h.notices.slice(0, 3).map((n) => <div key={n.id} className="hbanner" style={{ cursor: "default" }}><span style={{ width: 8, height: 8, borderRadius: 4, background: n.kind === "attempt_rejected" ? "var(--ui-error)" : "var(--ui-accent)", flex: "none" }} /><span><b>{n.title}</b><small>{n.body}</small></span></div>)}
           {!h.posts.length && <div className="dashed-card" style={{ textAlign: "center" }}><span>{h.org.name} todavía no publicó novedades.</span></div>}
           <Carousel items={h.posts} label={`Novedades de ${h.org.name}`} resetKey={`${h.org.id}:${h.location.id}`} render={(p) => (
             <article className="gpost">
@@ -97,13 +97,13 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
           {!h.minorRestricted && <Nudges only={["challenge"]} exclude="new:" max={2} title="Para vos" flash={flash} go={(n) => { const c = h.challenges.find((x) => x.id === n.challengeId); if (c) setUp(c); }} />}
           {!h.minorRestricted && (
             <button type="button" className="hbanner" onClick={() => setPropose(true)}>
-              <Ic i={Lightbulb} size={24} color="#00D1FF" />
+              <Ic i={Lightbulb} size={24} color="var(--ui-accent)" />
               <span><b>Proponer un desafío</b><small>Si un profe lo aprueba, lo ve toda la sede y validarlo suma puntos a tu nivel.</small></span>
             </button>
           )}
           {h.proposals.map((p) => (
             <div key={p.id} className="hbanner" style={{ cursor: "default" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 4, background: p.status === "rejected" ? "#EF4444" : "#F59E0B", flex: "none" }} />
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: p.status === "rejected" ? "var(--ui-error)" : "var(--ui-warning)", flex: "none" }} />
               <span><b>{p.title}</b><small>{p.status === "proposed" ? "Tu propuesta: esperando que un profe la revise" : `No se publicó${p.note ? ` · ${p.note}` : ""}`}</small></span>
             </div>
           ))}
@@ -122,15 +122,15 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
                   <div><small>{c.status === "closed" ? "Récord final" : "Récord del gym"}</small><strong>{c.record}</strong><small>{c.holder ? `de ${c.holder}` : "Esperando el primer intento"}</small></div>
                   <div><small>Premio</small><span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{c.prize}</span><small>{c.status === "closed" ? "Terminó" : "Hasta"} el {dayEs(c.endsOn)}</small></div>
                 </div>
-                {st === "rejected" && c.last?.reason && <span style={{ fontSize: 12, color: "#FCA5A5" }}>Motivo: {c.last.reason}</span>}
+                {st === "rejected" && c.last?.reason && <span style={{ fontSize: 12, color: "var(--ui-error-text)" }}>Motivo: {c.last.reason}</span>}
                 {st === "pending" && c.last?.method === "in_person" && <span className="mb-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>Validación en sala: avisale a un profe y hacé el intento frente al profe, que anota la marca.</span>}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                  <span className="mb-muted">Tu mejor marca: <strong style={{ color: "#F8FAFC" }}>{c.myBest ?? "sin intentos validados"}</strong></span>
+                  <span className="mb-muted">Tu mejor marca: <strong style={{ color: "var(--ui-text)" }}>{c.myBest ?? "sin intentos validados"}</strong></span>
                   <button type="button" className="linkbtn" style={{ height: 32 }} onClick={() => setRank(c)}>Ver ranking</button>
                 </div>
                 {c.status === "active" && st !== "pending" && !h.minorRestricted && (
                   <button type="button" className="cta" style={{ height: 46, fontSize: 15 }} onClick={() => setUp(c)}>
-                    <Ic i={VideoCamera} size={18} color="#0B0F14" />
+                    <Ic i={VideoCamera} size={18} color="var(--ui-on-primary)" />
                     {st === "rejected" ? "Intentar de nuevo" : st === "approved" ? "Superar mi marca" : "Subir intento"}
                   </button>
                 )}
@@ -168,11 +168,11 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
 function Sticker({ on, size = 60 }: { on: boolean; size?: number }) {
   const k = size / 60;
   return (
-    <span className="sticker" style={{ width: size + 6, height: size + 6, background: on ? "conic-gradient(#00D1FF,#5DE6D8,#00D1FF)" : "#2D3B4F" }} aria-hidden="true">
+    <span className="sticker" style={{ width: size + 6, height: size + 6, background: on ? "conic-gradient(var(--ui-primary),var(--ui-accent-2),var(--ui-primary))" : "var(--ui-border)" }} aria-hidden="true">
       <span style={{ width: size, height: size }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/icon_r.png" alt="" style={{ left: 16.6 * k, top: 16.4 * k, width: 18.4 * k, height: 28.9 * k, filter: on ? "none" : "grayscale(1) brightness(.6)" }} />
-        <i style={{ left: 34.5 * k, top: 14.6 * k, width: 8.9 * k, height: 8.9 * k, background: on ? "#00D1FF" : "#2D3B4F" }} />
+        <i style={{ left: 34.5 * k, top: 14.6 * k, width: 8.9 * k, height: 8.9 * k, background: on ? "var(--ui-accent)" : "var(--ui-border)" }} />
       </span>
     </span>
   );
@@ -207,9 +207,9 @@ function Award({ n, onClose }: { n: Home["notices"][number]; onClose: () => void
     <div className="award-bg" role="dialog" aria-modal="true" aria-label={n.title} onClick={onClose}>
       <div className="award" onClick={(e) => e.stopPropagation()}>
         <Sticker on size={110} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#5DE6D8" }}>{record ? "Nuevo récord del gym" : "Marca validada"}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ui-accent-2)" }}>{record ? "Nuevo récord del gym" : "Marca validada"}</span>
         <span style={{ fontSize: 24, fontWeight: 600 }}>{record ? "¡Récord validado!" : "¡Intento validado!"}</span>
-        <span style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 1.5 }}>{n.title.replace(/^.*· /, "")}: {n.body}</span>
+        <span style={{ fontSize: 14, color: "var(--ui-text-2)", lineHeight: 1.5 }}>{n.title.replace(/^.*· /, "")}: {n.body}</span>
         <button type="button" className="cta" onClick={onClose} autoFocus>Ver mis logros</button>
       </div>
     </div>
@@ -261,7 +261,7 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
     <Sheet title={c.title} closeLabel="Cerrar" onClose={() => (pct !== null && !sent ? undefined : onClose(sent))}>
       {sent ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", textAlign: "center", padding: "20px 0" }}>
-          <span className="okdot" aria-hidden="true"><Ic i={Check} size={26} color="#00D1FF" /></span>
+          <span className="okdot" aria-hidden="true"><Ic i={Check} size={26} color="var(--ui-accent)" /></span>
           <span style={{ fontSize: 20, fontWeight: 600 }}>{inPerson ? "Pedido de validación en sala" : "Enviado para validar"}</span>
           <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>{inPerson ? "Avisale a un profe de sala y hacé el intento frente al profe. Lo ve en «Validaciones», anota la marca que vio y te llega el aviso." : "El equipo revisa el video. Te avisamos cuando lo validen."}</span>
           <button type="button" className="ghost" style={{ height: 46, padding: "0 22px" }} onClick={() => onClose(true)}>Listo</button>
@@ -273,7 +273,7 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
         </div>
       ) : (
         <>
-          <p className="mb-note"><strong style={{ color: "#F8FAFC" }}>Regla:</strong> {c.rule}</p>
+          <p className="mb-note"><strong style={{ color: "var(--ui-text)" }}>Regla:</strong> {c.rule}</p>
           <fieldset className="sheet-group"><legend>Cómo se valida</legend>
             <div>
               <button type="button" aria-pressed={!inPerson} onClick={() => { setInPerson(false); setOk(false); }}>Con video</button>
@@ -284,13 +284,13 @@ function AttemptSheet({ c, orgId, flash, onClose }: { c: Home["challenges"][numb
             <p className="mb-muted" style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>Sin video: hacés el intento frente a un profe de sala con turno, que lo mira, anota la marca que logres y lo valida desde su panel.</p>
           ) : !file ? (
             <label className="sheet-video" style={{ height: 150, flexDirection: "column" }}>
-              <Ic i={VideoCamera} size={30} color="#00D1FF" />
+              <Ic i={VideoCamera} size={30} color="var(--ui-accent)" />
               <span style={{ fontSize: 15, fontWeight: 600 }}>Grabar o elegir video</span><small className="mb-muted">Que se vea el intento completo, de principio a fin</small>
               <input type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
             </label>
           ) : (
             <>
-              <video src={url ?? undefined} controls playsInline style={{ width: "100%", maxHeight: 240, borderRadius: 14, background: "#000" }} aria-label="Vista previa del intento" />
+              <video src={url ?? undefined} controls playsInline style={{ width: "100%", maxHeight: 240, borderRadius: 14, background: "var(--ui-media-bg)" }} aria-label="Vista previa del intento" />
               <label className="linkbtn" style={{ alignSelf: "flex-start", position: "relative" }}>Cambiar video<input type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" onChange={(e) => pick(e.target.files?.[0] ?? null)} style={{ position: "absolute", inset: 0, opacity: 0 }} /></label>
             </>
           )}
@@ -340,13 +340,13 @@ function CardSheet({ onClose }: { onClose: () => void }) {
       {c && (
         <>
           <div className="carnet">
-            <span style={{ fontSize: 13, color: "#5B6B80" }}>{c.place}</span>
+            <span style={{ fontSize: 13, color: "var(--ui-muted)" }}>{c.place}</span>
             <span className="qr" role="img" aria-label="Código QR del carnet" dangerouslySetInnerHTML={{ __html: svg }} />
             <span style={{ fontSize: 18, fontWeight: 600 }}>{c.name}</span>
-            {c.memberNumber && <span style={{ font: "500 13px var(--font-mono)", color: "#5B6B80" }}>Socio N.º {c.memberNumber}</span>}
-            <span style={{ fontSize: 11, color: "#5B6B80" }}>El código cambia cada {c.ttlMin} minutos y no contiene tus datos.</span>
+            {c.memberNumber && <span style={{ font: "500 13px var(--font-mono)", color: "var(--ui-muted)" }}>Socio N.º {c.memberNumber}</span>}
+            <span style={{ fontSize: 11, color: "var(--ui-muted)" }}>El código cambia cada {c.ttlMin} minutos y no contiene tus datos.</span>
           </div>
-          {c.prizes.map((p) => <div key={p.id} className="prize"><span><b>{p.description}</b><small>{p.challenge} · {p.status === "delivered" ? "Entregado" : "Para retirar"}</small></span><em style={{ color: p.status === "delivered" ? "#94A3B8" : "#00D1FF" }}>{p.code}</em></div>)}
+          {c.prizes.map((p) => <div key={p.id} className="prize"><span><b>{p.description}</b><small>{p.challenge} · {p.status === "delivered" ? "Entregado" : "Para retirar"}</small></span><em style={{ color: p.status === "delivered" ? "var(--ui-muted)" : "var(--ui-link)" }}>{p.code}</em></div>)}
         </>
       )}
     </Sheet>
@@ -505,7 +505,7 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
         <article key={p.id} className="club-post">
           <div className="club-head"><button type="button" className="club-author" onClick={() => setProfile(p.authorId)}><Avatar id={p.avatarId} name={p.author} size={32} />{p.author}</button><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(p.at))}</small>
             <button type="button" className="linkbtn" aria-label="Más opciones" onClick={() => setMore(p)}>···</button></div>
-          {p.hidden && <small style={{ color: "#FCD38A" }}>Oculto por reportes: lo revisa el gym.</small>}
+          {p.hidden && <small style={{ color: "var(--ui-warning-text)" }}>Oculto por reportes: lo revisa el gym.</small>}
           {p.achievement && <div className="club-ach"><Sticker on size={36} /><span><b>{p.achievement.title}</b><small>{p.achievement.detail}</small></span></div>}
           {p.payload?.type === "progress" && <div className="club-ach club-prog"><span><b>{p.payload.exercise}</b><small>{kgTo(p.payload.points[0].kg, unit).toLocaleString("es-AR")} → {fmtWeight(p.payload.points.at(-1)!.kg, unit)}{p.payload.deltaKg > 0 ? ` · +${fmtWeight(p.payload.deltaKg, unit)}` : ""} en {p.payload.points.length} entrenamientos</small></span><Spark points={p.payload.points} small /></div>}
           {p.payload?.type === "session" && <div className="club-ach"><span><b>Entrenamiento completo · {p.payload.dayName}</b><small>{p.payload.minutes} min · {p.payload.sets} series · {volumeIn(p.payload.volumeKg, unit).toLocaleString("es-AR")} {unit} de volumen</small><small>{p.payload.exercises.join(" · ")}</small></span></div>}
@@ -651,8 +651,8 @@ function Spark({ points, small }: { points: Pt[]; small?: boolean }) {
   const label = `Evolución: ${points.map((p) => `${fmtWeight(p.kg, unit)} × ${p.reps}`).join(", ")}`;
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} style={{ flex: "none" }}>
-      <polyline fill="none" stroke="#00D1FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" points={xy.map(([x, y]) => `${x},${y}`).join(" ")} />
-      {xy.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === xy.length - 1 ? 3.5 : 2} fill={i === xy.length - 1 ? "#00D1FF" : "#5B6B80"} />)}
+      <polyline fill="none" style={{ stroke: "var(--ui-accent)" }} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" points={xy.map(([x, y]) => `${x},${y}`).join(" ")} />
+      {xy.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === xy.length - 1 ? 3.5 : 2} style={{ fill: i === xy.length - 1 ? "var(--ui-accent)" : "var(--ui-muted)" }} />)}
     </svg>
   );
 }

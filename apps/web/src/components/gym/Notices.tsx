@@ -24,7 +24,7 @@ export function NoticesScreen({ shell }: { shell: Shell }) {
         <section className="card" style={{ gap: 0 }}>
           {items.map((n) => (
             <button key={n.id} type="button" className="gy-notice" data-unread={!n.read && !n.resolved ? "1" : undefined} onClick={() => open(n)}>
-              <span className="dot" style={{ background: n.resolved ? "#CBD5E1" : n.kind === "floor_alert" ? "#F59E0B" : "#00D1FF" }} aria-hidden="true" />
+              <span className="dot" style={{ background: n.resolved ? "var(--ui-faint)" : n.kind === "floor_alert" ? "var(--ui-warning)" : "var(--ui-accent)" }} aria-hidden="true" />
               <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                 <b>{n.title}{!n.read && !n.resolved && <span className="sr-only"> · sin leer</span>}</b><small className="muted">{n.body}</small>
               </span>

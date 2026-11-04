@@ -34,20 +34,20 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
   const incoming = q.data?.mine.filter((t) => t.status === "pending_acceptance") ?? [];
   const prev = q.data?.mine.filter((t) => t.status === "open") ?? [];
   const status = !v ? "" : v.status === "on" ? `En turno desde ${fmt(v.startedAt, { hour: "2-digit", minute: "2-digit" })}` : v.status === "ended" ? "Turno cerrado" : v.status === "elsewhere" ? "Tenés un turno iniciado en otra sede" : "Sin iniciar";
-  const dot = !v ? "#94A3B8" : v.status === "on" ? "#10B981" : v.status === "ended" ? "#5DE6D8" : "#94A3B8";
+  const dot = !v ? "var(--ui-faint)" : v.status === "on" ? "var(--ui-success-text)" : v.status === "ended" ? "var(--ui-accent-2)" : "var(--ui-muted)";
   return (
     <>
       <Head kicker={`${shell.ctx.org.name}${v ? ` · ${v.location.name}` : ""} · ${today()}`} title={`Hola, ${first}`} />
       {(s.err || q.err) && <p role="alert" className="err-box">{s.err ?? q.err}</p>}
       {v && (
-        <div className="gy-hero">
+        <div className="gy-hero ui-dark">
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 13, color: "#94A3B8" }}>Tu turno de hoy</span>
+            <span style={{ fontSize: 13, color: "var(--ui-muted)" }}>Tu turno de hoy</span>
             <span style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-.01em" }}>{v.plan ? `${v.plan.from} – ${v.plan.to}` : v.hours ? `${v.hours.from} – ${v.hours.to}` : "Sin turno planificado"}</span>
-            <span style={{ fontSize: 14, color: "#CBD5E1", display: "flex", gap: 8, alignItems: "center" }}><span className="dot" style={{ background: dot }} />{status}{v.plan ? ` · ${v.plan.label}` : ""}</span>
-            {v.auto && v.autoEndsAt && <span style={{ fontSize: 13, color: "#5DE6D8" }}>Se abrió solo por tu horario y se cierra a las {fmt(v.autoEndsAt, { hour: "2-digit", minute: "2-digit" })}.</span>}
-            <span style={{ fontSize: 13, color: "#94A3B8" }}>{v.hours ? `Tu horario: ${v.hours.text}` : "Sin horario cargado: el turno se inicia a mano."} <button type="button" className="linkbtn" style={{ color: "#5DE6D8", background: "none", border: 0, padding: 0, height: "auto", font: "inherit", fontWeight: 600, cursor: "pointer" }} onClick={() => setEditHours(true)}>{v.hours ? "Cambiar" : "Cargar horario"}</button></span>
-            {v.afterHoursAccess && <span style={{ fontSize: 12, color: "#5DE6D8" }}>Gerencia te habilitó trabajo fuera de turno: lo que completes así queda marcado.</span>}
+            <span style={{ fontSize: 14, color: "var(--ui-text-2)", display: "flex", gap: 8, alignItems: "center" }}><span className="dot" style={{ background: dot }} />{status}{v.plan ? ` · ${v.plan.label}` : ""}</span>
+            {v.auto && v.autoEndsAt && <span style={{ fontSize: 13, color: "var(--ui-accent-2)" }}>Se abrió solo por tu horario y se cierra a las {fmt(v.autoEndsAt, { hour: "2-digit", minute: "2-digit" })}.</span>}
+            <span style={{ fontSize: 13, color: "var(--ui-muted)" }}>{v.hours ? `Tu horario: ${v.hours.text}` : "Sin horario cargado: el turno se inicia a mano."} <button type="button" className="linkbtn" style={{ color: "var(--ui-accent-2)", background: "none", border: 0, padding: 0, height: "auto", font: "inherit", fontWeight: 600, cursor: "pointer" }} onClick={() => setEditHours(true)}>{v.hours ? "Cambiar" : "Cargar horario"}</button></span>
+            {v.afterHoursAccess && <span style={{ fontSize: 12, color: "var(--ui-accent-2)" }}>Gerencia te habilitó trabajo fuera de turno: lo que completes así queda marcado.</span>}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {(v.status === "off" || v.status === "ended") && <button type="button" className="btn pri" style={{ height: 48 }} aria-busy={busy === "start" || undefined} onClick={start}>{v.status === "ended" ? "Iniciar otro turno" : "Iniciar turno"}</button>}
@@ -74,7 +74,7 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
           {incoming.map((t) => (
             <div key={t.id} className="gy-incoming">
               <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 12, color: "#006B88", fontWeight: 600 }}>{t.handoffFrom ? `Traspaso de ${t.handoffFrom.name}` : "Traspaso"} · {t.ref}</span>
+                <span style={{ fontSize: 12, color: "var(--ui-link)", fontWeight: 600 }}>{t.handoffFrom ? `Traspaso de ${t.handoffFrom.name}` : "Traspaso"} · {t.ref}</span>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{t.member ?? "Sin socio"} · {TASK_CATEGORY[t.category]}</span>
                 <span className="muted" style={{ fontSize: 13 }}>{t.summary}</span>
               </div>
@@ -87,7 +87,7 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
           {!prev.length && <span className="muted" style={{ fontSize: 14 }}>No tenés tareas abiertas.</span>}
           {prev.map((t) => (
             <div key={t.id} className="todo">
-              <span className="dot" style={{ background: t.overdue ? "#F59E0B" : "#00D1FF" }} />
+              <span className="dot" style={{ background: t.overdue ? "var(--ui-warning)" : "var(--ui-accent)" }} />
               <span><b>{t.member ?? "Sin socio"}</b><small>{TASK_CATEGORY[t.category]} · {SOURCE[t.source] ?? t.source}{t.overdue ? " · vencida" : ""}</small></span>
               {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir socio</button>}
             </div>
@@ -105,14 +105,14 @@ export function TaskCard({ t, children }: { t: Task; children?: React.ReactNode 
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <span className="chip info">{TASK_CATEGORY[t.category]}</span>
           <span className={`chip ${PRI_CHIP[t.priority]}`}>{TASK_PRIORITY[t.priority]}</span>
-          <span style={{ font: "500 11px var(--font-mono)", color: "#5B6B80" }}>{t.ref}</span>
+          <span style={{ font: "500 11px var(--font-mono)", color: "var(--ui-muted)" }}>{t.ref}</span>
           {t.status === "pending_acceptance" && <span className="chip info">Traspaso pendiente</span>}
           {t.overdue && <span className="chip warn">Vencida</span>}
           {t.completedOffShift && <span className="chip mute">Fuera de turno</span>}
         </div>
         <span style={{ fontSize: 15, fontWeight: 600 }}>{t.member ?? "Sin socio asociado"}</span>
         {t.summary && <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>{t.summary}</span>}
-        {t.videoId && <video src={`/api/media/${t.videoId}`} controls preload="metadata" style={{ width: "100%", maxWidth: 360, maxHeight: 220, borderRadius: 10, background: "#0B0F14" }} aria-label={`Video adjunto a ${t.ref}`} />}
+        {t.videoId && <video src={`/api/media/${t.videoId}`} controls preload="metadata" style={{ width: "100%", maxWidth: 360, maxHeight: 220, borderRadius: 10, background: "var(--ui-border)" }} aria-label={`Video adjunto a ${t.ref}`} />}
       </div>
       <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
         <span className="muted">{t.handoffFrom ? `Traspaso de ${t.handoffFrom.name}` : SOURCE[t.source] ?? t.source}</span>
@@ -225,8 +225,8 @@ export function HandoffScreen({ shell }: { shell: Shell }) {
             <h2>Pendientes a traspasar</h2>
             {!h.data.tasks.length && <span className="muted" style={{ fontSize: 14 }}>No tenés tareas abiertas. Podés cerrar el turno.</span>}
             {h.data.tasks.map((t) => (
-              <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid #EEF2F6", padding: "10px 0" }}>
-                <input type="checkbox" checked={!off[t.id]} onChange={() => setOff((x) => ({ ...x, [t.id]: !x[t.id] }))} aria-label={`Traspasar ${t.ref}`} style={{ width: 20, height: 20, accentColor: "#00D1FF", marginTop: 2 }} />
+              <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid var(--ui-divider)", padding: "10px 0" }}>
+                <input type="checkbox" checked={!off[t.id]} onChange={() => setOff((x) => ({ ...x, [t.id]: !x[t.id] }))} aria-label={`Traspasar ${t.ref}`} style={{ width: 20, height: 20, accentColor: "var(--ui-accent)", marginTop: 2 }} />
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 600 }}>{t.member ?? "Sin socio"} · {TASK_CATEGORY[t.category]} <span className="muted">{t.ref}</span></span>
                   <textarea className="note" rows={2} value={sums[t.id] ?? t.summary ?? ""} disabled={!!off[t.id]} onChange={(e) => setSums((x) => ({ ...x, [t.id]: e.target.value }))} aria-label={`Resumen de ${t.ref}`} maxLength={500} />
@@ -239,7 +239,7 @@ export function HandoffScreen({ shell }: { shell: Shell }) {
             <h2>¿A quién se lo pasás?</h2>
             {[...h.data.targets.map((x) => ({ id: x.id, label: x.name, sub: x.next ? `Próximo turno: ${x.next.label} ${x.next.from}–${x.next.to} · ${x.next.date.split("-").reverse().slice(0, 2).join("/")}` : "Sin turno planificado" })),
               { id: "pool", label: "Cola compartida", sub: "La toma quien esté en turno" }].map((o) => (
-              <label key={o.id} className="mrow" style={{ border: `1px solid ${to === o.id ? "#00D1FF" : "#E2E8F0"}` }}>
+              <label key={o.id} className="mrow" style={{ border: `1px solid ${to === o.id ? "var(--ui-accent)" : "var(--ui-muted)"}` }}>
                 <input type="radio" name="to" checked={to === o.id} onChange={() => setTo(o.id)} />
                 <span><b style={{ fontSize: 14 }}>{o.label}</b><small className="muted">{o.sub}</small></span>
               </label>

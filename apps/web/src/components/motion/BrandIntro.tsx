@@ -166,9 +166,9 @@ export function BrandIntro({ abort = false }: { abort?: boolean }) {
     return () => { window.clearTimeout(done); anims.current.forEach((a) => a.cancel()); };
   }, [mode]);
 
-  if (gone || !mode) return gone ? null : <div className="bi" aria-hidden="true" />;
+  if (gone || !mode) return gone ? null : <div className="bi ui-dark" aria-hidden="true" />;
   return (
-    <div ref={root} className="bi" role="presentation" onClick={() => mode === "full" && leave()}>
+    <div ref={root} className="bi ui-dark" role="presentation" onClick={() => mode === "full" && leave()}>
       <div className="bi-glow" />
       <div className="bi-stage" aria-hidden="true">
         <div className="bi-icon"><div className="bi-tile"><img src="/brand/intro/icon_tile_empty.png" alt="" /></div><div className="bi-r"><img src="/brand/intro/icon_r_white_alpha.png" alt="" /></div></div>
