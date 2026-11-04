@@ -3,10 +3,14 @@
 // exactamente del workflow de respaldo de este repositorio, en main, por el cronograma, una ejecución manual o un pedido por issue
 // (el workflow sólo acepta issues abiertos por el dueño).
 // Ese token sólo habilita `sign_read` (lectura firmada por 60 s): nunca subir, reemplazar ni borrar.
-// Módulo puro (sólo WebCrypto): lo usan la Edge Function (Deno) y las pruebas (Node).
+// D190: la misma verificación, con otra audiencia (`repi-backup-db`), entrega la contraseña temporal del rol de sólo
+// lectura repi_backup (Edge Function repi-backup-credentials). Un token de una audiencia no sirve para la otra.
+// Módulo puro (sólo WebCrypto): lo usan las dos Edge Functions (Deno) y las pruebas (Node). La copia de
+// repi-backup-credentials/ es idéntica a la de repi-storage/ (lo comprueba tests/operations/github-oidc.check.ts).
 
 export const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 export const BACKUP_AUDIENCE = "repi-storage-backup";
+export const DB_AUDIENCE = "repi-backup-db";
 export const BACKUP_POLICY = {
   repository: "manuel-cosovschi/repi",
   repositoryOwnerId: "106606403",
@@ -49,11 +53,11 @@ export async function verifyGithubToken(token: string, jwks: Jwk[], now = Date.n
   }
 }
 
-/** Sólo el workflow de respaldo, en main, de este repositorio y con la audiencia de Storage. */
-export function isBackupWorkflow(claims: Claims | null): boolean {
+/** Sólo el workflow de respaldo, en main, de este repositorio y con la audiencia indicada (Storage por defecto). */
+export function isBackupWorkflow(claims: Claims | null, audience: string = BACKUP_AUDIENCE): boolean {
   if (!claims) return false;
   const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  return aud.length === 1 && aud[0] === BACKUP_AUDIENCE
+  return aud.length === 1 && aud[0] === audience
     && claims.repository === BACKUP_POLICY.repository
     && String(claims.repository_owner_id) === BACKUP_POLICY.repositoryOwnerId
     && claims.ref === BACKUP_POLICY.ref
