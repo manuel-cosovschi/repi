@@ -1,9 +1,54 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D191 en ramas; 03/06 publicado; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D191; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
-## Bloque 04/06 · Training Intelligence 2.0 (D191 + cierre) — 04/11/2026 · EN PR #17, SIN PUBLICAR
+## Bloque 04/06 publicado: Training Intelligence 2.0 (D191) — 04/11/2026 · COMPLETO
+
+**Producción:** `e1830a34ab32` (repiclub.com `/api/version`), desde las 18:25 UTC. Hay 44 migraciones en la base y 44 en el código.
+
+### Publicación
+1. **CI:** verde en `d9e9287` (corrida 138) y en `efc0e1a`, el último commit del PR (corrida 139).
+2. **Respaldo previo:** issue #18 → workflow «Respaldo» corrida 11, en verde.
+   - Release `backup-20261104-181026-41884040972`, publicado y verificado.
+   - Contenido: 98 tablas, 3704 filas y 43 migraciones.
+   - El workflow lo descifró, comprobó los hashes, lo restauró en un PostgreSQL descartable y verificó 256 claves foráneas sin huérfanos.
+3. **0043 aplicada** (~18:17 UTC) con `hosted-0043.sql`, en una transacción como `repi_app`.
+   - Antes: los 43 hashes y fechas de producción eran iguales a los archivos del repositorio.
+   - Después: 44 migraciones con el hash `7c551dc6…`, dos tablas de `repi_app`, 12 restricciones y 9 índices, y 0 restricciones sin validar en `public`.
+   - Huellas iguales: `set_log`, `workout_session`, `program_version`, `history_entry` y `consent_grant`.
+   - `program_exercise` cambió por la edición de un coach real, anterior a la migración (auditada a las 18:13–18:15). Ninguna fila tiene el `xmin` de la migración.
+   - El permiso temporal de `postgres` sobre `repi_app` quedó revocado.
+4. **PR #17 integrado** (squash) como `e1830a3`. Vercel `dpl_38ofi55a4BZfrr8y51a7tAV2Epow` READY.
+
+### Verificación en producción (demo guiada, emulación de Pixel 7 en Chromium)
+- **Alumno:**
+  - Tarjeta Anterior → REPI recomienda → Real («53 kg × 9 · RIR 2» → «53 kg × 8» → «Por registrar»).
+  - Objetivos persistidos (`ti2.1`).
+  - Drops 6,5 y 5 kg debajo de su serie y pendientes de confirmar.
+  - «Usar», serie al límite y mensaje en el descanso con «Sumar 30 s».
+  - Sin conexión: 2 registros sin duplicados.
+  - kg → lb a mitad de la sesión: objetivos iguales; tarjeta y explicación en lb («116,8 lb»), sin «kg».
+  - Molestia: mensaje de seguridad y nada sube.
+- **Top set + back-off** (rutina propia, dos sesiones): primero `no_data`; después top 105 y back-off 85 con su propia historia, pendiente de confirmar.
+- **Sala con turno:** ve la sección del socio que comparte (200).
+- **Dueño:** 403 en la API, 404 al decidir, y sin sección.
+- **Coach:**
+  - Con cuatro sesiones ficticias sembradas sólo en su demo (`is_demo`), propuestas de carga en tres ejercicios.
+  - «Mantener», «Rechazar» y «Aceptar (sin aplicar)» no cambian la rutina.
+  - «Revisar en el editor» → «Aplicar 112,5 kg al borrador» → versión 1 → 2, con las sesiones iguales.
+  - Un cliente ajeno da 404.
+- **Datos reales intactos:** fuera de las demos, 151 series, 18 sesiones y 45 versiones con la misma huella antes y después. Los 46 objetivos y las 3 propuestas creados son de demos.
+- **Errores:** ninguno en la página; Vercel sin errores ni advertencias desde el despliegue.
+- **Si la inteligencia falla, se entrena igual:** probado en el servidor (`training-intelligence-hardening.test.ts`, sin la tabla de objetivos). No se forzó una falla en producción.
+- **No probado:** iPhone ni Android físicos, ni Safari.
+
+### Próximo
+- El cambio del editor piramidal pedido por Urko va en un PR propio. No está incluido acá.
+- Para el 05/06: catálogo de equipos por sede (`docs/TRAINING_INTELLIGENCE_2.md` §8 quater).
+- Antes de cualquier migración nueva: issue «Respaldo: antes de la migración 0044» y seguir sólo si se cierra en verde.
+
+## Bloque 04/06 · Training Intelligence 2.0 (D191 + cierre) — 04/11/2026 · PUBLICADO (ver arriba)
 
 - **Rama:** `feat/repi-training-intelligence-2`. `main` integrada por merge, sin force push. PR #17 en borrador, **con base `main`**.
 - **Qué hace:**
