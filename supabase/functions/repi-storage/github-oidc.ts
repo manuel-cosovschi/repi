@@ -1,6 +1,7 @@
 // D190: el respaldo diario de GitHub Actions lee los archivos privados sin guardar ningún secreto de Storage en GitHub.
 // El job presenta un token OIDC firmado por GitHub; acá se verifica la firma (RS256, claves públicas de GitHub) y que venga
-// exactamente del workflow de respaldo de este repositorio, en main, por el cronograma o una ejecución manual.
+// exactamente del workflow de respaldo de este repositorio, en main, por el cronograma, una ejecución manual o un pedido por issue
+// (el workflow sólo acepta issues abiertos por el dueño).
 // Ese token sólo habilita `sign_read` (lectura firmada por 60 s): nunca subir, reemplazar ni borrar.
 // Módulo puro (sólo WebCrypto): lo usan la Edge Function (Deno) y las pruebas (Node).
 
@@ -11,7 +12,7 @@ export const BACKUP_POLICY = {
   repositoryOwnerId: "106606403",
   workflowRef: "manuel-cosovschi/repi/.github/workflows/backup.yml@refs/heads/main",
   ref: "refs/heads/main",
-  events: ["schedule", "workflow_dispatch"],
+  events: ["schedule", "workflow_dispatch", "issues"],
 } as const;
 
 export type Jwk = { kty: string; kid?: string; n?: string; e?: string; alg?: string; use?: string };

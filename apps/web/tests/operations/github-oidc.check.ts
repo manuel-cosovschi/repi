@@ -22,7 +22,7 @@ test("acepta sólo un token firmado por GitHub, vigente, del workflow de respald
   const { priv, jwk } = await keypair("k1");
   const claims = await verifyGithubToken(await sign(priv, "k1", good), [jwk], NOW);
   assert.equal(isBackupWorkflow(claims), true);
-  assert.equal(isBackupWorkflow(await verifyGithubToken(await sign(priv, "k1", { ...good, event_name: "workflow_dispatch" }), [jwk], NOW)), true);
+  for (const event_name of ["workflow_dispatch", "issues"]) assert.equal(isBackupWorkflow(await verifyGithubToken(await sign(priv, "k1", { ...good, event_name }), [jwk], NOW)), true, event_name);
 });
 
 test("rechaza firma ajena, clave desconocida, vencido, otro emisor y algoritmo distinto", async () => {
@@ -40,7 +40,7 @@ test("rechaza firma ajena, clave desconocida, vencido, otro emisor y algoritmo d
 });
 
 test("rechaza otra rama, PR, otro workflow, otro repositorio u otra audiencia", async () => {
-  for (const change of [{ ref: "refs/heads/feature" }, { ref: "refs/pull/9/merge", event_name: "pull_request" }, { event_name: "push" },
+  for (const change of [{ ref: "refs/heads/feature" }, { ref: "refs/pull/9/merge", event_name: "pull_request" }, { event_name: "push" }, { event_name: "issue_comment" }, { event_name: "pull_request_target" },
     { workflow_ref: "manuel-cosovschi/repi/.github/workflows/ci.yml@refs/heads/main" },
     { workflow_ref: "manuel-cosovschi/repi/.github/workflows/backup.yml@refs/heads/feature" },
     { repository: "otro/repi" }, { repository_owner_id: "1" }, { aud: "otra" }, { aud: [BACKUP_AUDIENCE, "otra"] }]) {

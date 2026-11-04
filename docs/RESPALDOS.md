@@ -4,7 +4,7 @@ Los respaldos de producción se hacen y se prueban en GitHub Actions y se guarda
 
 | | |
 |---|---|
-| Workflow | `.github/workflows/backup.yml` («Respaldo»): diario a las 03:17 (Buenos Aires) y manual con «Run workflow» |
+| Workflow | `.github/workflows/backup.yml` («Respaldo»): diario a las 03:17 (Buenos Aires), manual con «Run workflow» o a pedido con un issue «Respaldo: <motivo>» abierto por el dueño del repositorio |
 | Dónde quedan | Releases con etiqueta `backup-AAAAMMDD-HHMMSS-<ejecución>`: un archivo `repi-backup-….tar.gz.age` y su `.sha256` |
 | Contenido | Todas las tablas de `public` (COPY en un único instante, `REPEATABLE READ READ ONLY`), `drizzle.__drizzle_migrations`, los archivos de Storage (`media_object`) y `manifest.json` con el SHA-256 de cada archivo |
 | Cifrado | [age](https://age-encryption.org) (X25519 + ChaCha20-Poly1305, autenticado). La clave pública del titular está en la variable `REPI_BACKUP_AGE_RECIPIENTS`; la **privada nunca entra a GitHub** |
@@ -67,11 +67,13 @@ Hay que hacerla en una computadora de confianza. Ninguno de estos valores se peg
 
 ## Antes de cada migración productiva
 
-1. Actions → Respaldo → **Run workflow** con el motivo, por ejemplo «antes de la migración 0043».
-2. Esperar a que termine **en verde**. Si falla, no se migra.
+1. Pedir el respaldo de una de estas dos formas:
+   - Actions → Respaldo → **Run workflow**, con el motivo.
+   - Un issue titulado **«Respaldo: antes de la migración 0043»**. Así lo pide Claude Code, que actúa con la cuenta del titular. El workflow sólo acepta issues del dueño del repositorio que empiezan con «Respaldo:».
+2. Esperar a que termine **en verde**:
+   - Si lo pediste por issue, el workflow lo cierra con el enlace al release verificado.
+   - Si falla, lo comenta en el issue y abre la alerta. En ese caso **no se migra**.
 3. Anotar la etiqueta del release en la bitácora de la migración.
-
-Claude Code puede dispararlo y verificarlo solo, desde la herramienta de GitHub Actions.
 
 ## Recuperación
 
