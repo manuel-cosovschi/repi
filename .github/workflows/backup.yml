@@ -1,0 +1,284 @@
+# D190: respaldo de producción verificado y cifrado en GitHub Releases. Procedimiento y recuperación: docs/RESPALDOS.md.
+#   - Diario (03:17 Buenos Aires), manual («Run workflow») o a pedido con un issue titulado «Respaldo: <motivo>» abierto
+#     por el dueño del repositorio (así Claude Code lo pide antes de migrar). Obligatorio antes de cada migración productiva.
+#   - Contenido: PostgreSQL de Supabase (todas las tablas de public), registro de migraciones, archivos de Storage y
+#     manifest.json con el SHA-256 de cada archivo.
+#   - Sólo lectura: rol repi_backup (READ ONLY) y Storage con el token OIDC del job (sin secreto de Storage en GitHub).
+#   - Se cifra con age para la clave pública del titular (la privada está FUERA de GitHub) y una clave efímera del job.
+#     Con la efímera, el job descifra el archivo YA CIFRADO, recalcula los hashes y lo restaura en un PostgreSQL
+#     descartable del runner (filas, claves foráneas y restricciones). Recién entonces se publica.
+#   - Nada sin cifrar sale del runner: no hay artefactos ni caché de datos, y nada entra al historial de Git.
+#   - Retención: último de cada uno de 30 días + primero de cada uno de 4 meses; el último válido nunca se borra.
+#   - Si falla, abre (o comenta) un issue «Respaldo de producción fallido»; el siguiente éxito lo cierra.
+# En un PR que toca el respaldo corre la AUTOPRUEBA: la misma cadena sobre una base de demostración del runner, con
+# claves de prueba, incluida la subida y la descarga de un release borrador que se borra al terminar.
+name: Respaldo
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: "Motivo (p. ej. «antes de la migración 0042»)"
+        required: false
+        default: "manual"
+        type: string
+  issues:
+    types: [opened]
+  pull_request:
+    paths:
+      - .github/workflows/backup.yml
+      - apps/web/scripts/operations/**
+      - apps/web/tests/operations/**
+      - supabase/functions/repi-storage/**
+
+permissions: {}
+
+concurrency:
+  group: respaldo-${{ github.event_name == 'pull_request' && github.ref || 'produccion' }}
+  cancel-in-progress: false
+
+env:
+  RESTORE_DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_restore_check
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  # La automatización diaria se habilita sola recién cuando existe un primer respaldo manual verificado y publicado
+  # (prueba completa con los secretos reales). Hasta entonces, el cronograma no hace nada ni abre avisos.
+  habilitado:
+    name: Automatización habilitada
+    # Un issue sólo pide respaldo si lo abre el dueño y su título empieza con «Respaldo:»; cualquier otro issue no hace nada.
+    if: >-
+      github.event_name != 'pull_request' && (github.event_name != 'issues' ||
+      (github.event.issue.author_association == 'OWNER' && startsWith(github.event.issue.title, 'Respaldo:')))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      ok: ${{ steps.c.outputs.ok }}
+    steps:
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          N="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and (.tag_name | test("^backup-[0-9]{8}-[0-9]{6}-[0-9]+$")) and ((.body // "") | contains("<!-- repi-backup:verified -->"))) | .tag_name' | grep -c . || true)"
+          if [ "${N:-0}" -gt 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; echo "::notice::Todavía no hay un respaldo manual verificado: el cronograma espera a la primera ejecución manual exitosa."; fi
+
+  respaldo:
+    name: Respaldo de producción
+    needs: habilitado
+    if: needs.habilitado.outputs.ok == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: write   # crear el release y subir el archivo cifrado
+      id-token: write   # token OIDC para leer Storage (sólo lectura firmada)
+    outputs:
+      tag: ${{ steps.publicar.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Configuración
+        env:
+          DB: ${{ secrets.REPI_BACKUP_DATABASE_URL }}
+          RECIPIENTS: ${{ vars.REPI_BACKUP_AGE_RECIPIENTS }}
+        run: |
+          [ -n "$DB" ] || { echo "::error::Falta el secreto REPI_BACKUP_DATABASE_URL (ver docs/RESPALDOS.md, Puesta en marcha)."; exit 1; }
+          [ -n "$RECIPIENTS" ] || { echo "::error::Falta la variable REPI_BACKUP_AGE_RECIPIENTS con la clave pública age del titular."; exit 1; }
+          case "$DB" in *pooler.supabase.com*|*supabase.co*) ;; *) echo "::error::REPI_BACKUP_DATABASE_URL no apunta a Supabase."; exit 1 ;; esac
+          case "$DB" in *repi_backup*) ;; *) echo "::error::REPI_BACKUP_DATABASE_URL debe usar el rol de sólo lectura repi_backup."; exit 1 ;; esac
+          mkdir -m 700 -p "$RUNNER_TEMP/respaldo"
+          printf '%s\n' "$RECIPIENTS" | tr ', ' '\n\n' | sed '/^$/d' > "$RUNNER_TEMP/respaldo/destinatarios.txt"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: PostgreSQL descartable y age
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq age >/dev/null
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -qc "create role repi login superuser password 'repi-ci-only'"
+          sudo -u postgres createdb -O repi repi_restore_check
+      - name: Respaldo (sólo lectura)
+        env:
+          REPI_BACKUP_DATABASE_URL: ${{ secrets.REPI_BACKUP_DATABASE_URL }}
+        run: |
+          mkdir -m 700 -p "$RUNNER_TEMP/respaldo/plano"
+          pnpm --filter @repi/web ops:backup --source=hosted --storage --storage-auth=github-oidc --out="$RUNNER_TEMP/respaldo/plano"
+      - name: Cifrado, descifrado de prueba y restauración verificada
+        working-directory: apps/web
+        run: |
+          R="$RUNNER_TEMP/respaldo"
+          SRC="$(ls -d "$R"/plano/*-hosted)"
+          ./scripts/operations/backup-ci.sh pack "$SRC" "$R/cifrado" "$R/destinatarios.txt"
+          # Lo único que queda sin cifrar se borra antes de probar el archivo cifrado.
+          rm -rf "$R/plano"
+          ./scripts/operations/backup-ci.sh verify "$(ls "$R"/cifrado/*.tar.gz.age)" "$R/cifrado/.ephemeral.key" "$R/prueba" "$R/informe.json"
+          rm -rf "$R/prueba" "$R/cifrado/.ephemeral.key"
+      - name: Publicación en GitHub Releases
+        id: publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOTIVO: ${{ github.event_name == 'schedule' && 'diario' || github.event_name == 'issues' && github.event.issue.title || inputs.motivo }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          R="$RUNNER_TEMP/respaldo"
+          F="$(ls "$R"/cifrado/*.tar.gz.age)"
+          TAG="backup-$(date -u +%Y%m%d-%H%M%S)-${GITHUB_RUN_ID}"
+          node -e '
+            const r = require(process.argv[1]), fs = require("fs");
+            const [file, sha] = fs.readFileSync(process.argv[2] + ".sha256", "utf8").trim().split(/\s+/).reverse();
+            const motivo = String(process.env.MOTIVO || "manual").replace(/[^\p{L}\p{N} .,:()#\/-]/gu, "").slice(0, 120);
+            const keys = fs.readFileSync(process.argv[3], "utf8").trim().split("\n");
+            fs.writeFileSync(process.argv[4], [
+              `Respaldo de producción de REPI (${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC).`, "",
+              `- Motivo: ${motivo}`, `- Ejecución: ${process.env.RUN_URL}`, `- Código: ${process.env.GITHUB_SHA}`,
+              `- Contenido: PostgreSQL (${r.tables} tablas, ${r.rows} filas), registro de ${r.migrations} migraciones, ${r.storageFiles} archivos de Storage (${r.storageBytes} bytes) y manifest.json con SHA-256 de cada archivo.`,
+              `- Base: SHA-256 \`${r.databaseSha256}\` (${r.databaseBytes} bytes).`,
+              `- Archivo cifrado: \`${file}\` (${fs.statSync(process.argv[2]).size} bytes), SHA-256 \`${sha}\`.`,
+              `- Cifrado con age para: ${keys.map((k) => "`" + k + "`").join(", ")}. La clave privada está fuera de GitHub.`,
+              `- Verificado: descifrado del archivo publicado, hashes del manifiesto, restauración en PostgreSQL descartable, ${r.foreignKeys} claves foráneas sin huérfanos y ${r.invalidConstraints} restricciones sin validar.`,
+              "", "Recuperación: docs/RESPALDOS.md. Nunca se restaura sobre producción.", "", "<!-- repi-backup:verified -->", ""].join("\n"));
+          ' "$R/informe.json" "$F" "$R/destinatarios.txt" "$R/notas.md"
+          # Borrador primero: hasta que la descarga coincide byte a byte no cuenta como respaldo válido.
+          ID="$(apps/web/scripts/operations/backup-ci.sh release-draft "$TAG" "Respaldo $(date -u +%Y-%m-%d) · $TAG" "$R/notas.md" "$GITHUB_SHA" "$F" "$F.sha256")"
+          apps/web/scripts/operations/backup-ci.sh release-download "$ID" "$R/descarga"
+          cmp "$F" "$R/descarga/$(basename "$F")" && cmp "$F.sha256" "$R/descarga/$(basename "$F").sha256" || { echo "::error::La descarga del release no coincide con lo subido."; exit 1; }
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=false >/dev/null
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          { echo "### Respaldo verificado y publicado"; echo; echo "- Release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"; sed -n '/^- Contenido/,/^- Verificado/p' "$R/notas.md"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retención
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | {tag: .tag_name, createdAt: .created_at, draft, body}' > "$RUNNER_TEMP/releases.jsonl"
+          pnpm -s --filter @repi/web ops:retention < "$RUNNER_TEMP/releases.jsonl" > "$RUNNER_TEMP/borrar.txt"
+          while read -r T; do [ -n "$T" ] && gh release delete "$T" -R "$GITHUB_REPOSITORY" --cleanup-tag -y && echo "Eliminado por retención: $T"; done < "$RUNNER_TEMP/borrar.txt"
+      - name: Limpieza
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/respaldo"
+
+  aviso:
+    name: Aviso
+    needs: [habilitado, respaldo]
+    if: always() && github.event_name != 'pull_request' && needs.habilitado.result != 'skipped'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - name: Respuesta al pedido
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUM: ${{ github.event.issue.number }}
+          RESULT: ${{ needs.habilitado.result == 'failure' && 'failure' || needs.respaldo.result }}
+          TAG: ${{ needs.respaldo.outputs.tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          FOOT=$'\n\n---\n_Aviso automático del workflow Respaldo (docs/RESPALDOS.md)._'
+          if [ "$RESULT" = "success" ]; then
+            gh issue close "$NUM" -R "$GITHUB_REPOSITORY" -c "Respaldo verificado y publicado: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG (ejecución: $RUN_URL).$FOOT"
+          else
+            gh issue comment "$NUM" -R "$GITHUB_REPOSITORY" -b "El respaldo terminó en «$RESULT»: $RUN_URL. **No se migra.**$FOOT"
+          fi
+      - name: Alerta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.habilitado.result == 'failure' && 'failure' || needs.respaldo.result }}
+          TAG: ${{ needs.respaldo.outputs.tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Respaldo de producción fallido"
+          OPEN="$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$TITLE\" and (.pull_request | not)) | .number" | head -1)"
+          FOOT=$'\n\n---\n_Aviso automático del workflow Respaldo (docs/RESPALDOS.md)._'
+          [ "$RESULT" = "skipped" ] && exit 0
+          if [ "$RESULT" = "success" ]; then
+            [ -n "$OPEN" ] && gh issue close "$OPEN" -R "$GITHUB_REPOSITORY" -c "Respaldo verificado otra vez: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG ($RUN_URL).$FOOT"
+            exit 0
+          fi
+          BODY="El respaldo de producción terminó en «$RESULT»: $RUN_URL"$'\n\n'"No se publicó un respaldo nuevo; el último válido sigue en Releases. **No apliques migraciones hasta que un respaldo vuelva a verificarse.**$FOOT"
+          if [ -n "$OPEN" ]; then gh issue comment "$OPEN" -R "$GITHUB_REPOSITORY" -b "$BODY"; else gh issue create -R "$GITHUB_REPOSITORY" -t "$TITLE" -b "$BODY" -a "$GITHUB_REPOSITORY_OWNER"; fi
+
+  autoprueba:
+    name: Autoprueba (sin datos reales)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write   # release borrador de prueba, se borra al terminar
+    env:
+      DATABASE_URL: postgresql://repi:repi-ci-only@localhost:5432/repi_dev
+      BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-00
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      ROSTER_HMAC_SECRET: ci-only-roster
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Guardas (retención y token de Storage)
+        run: pnpm --filter @repi/web test:guards
+      - name: Base de demostración, PostgreSQL descartable y age
+        working-directory: apps/web
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq age >/dev/null
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -qc "create role repi login superuser password 'repi-ci-only'"
+          sudo -u postgres createdb -O repi repi_dev
+          sudo -u postgres createdb -O repi repi_restore_check
+          pnpm exec tsx scripts/migrate.ts
+          pnpm exec tsx scripts/seed-demo.ts > /dev/null
+      - name: Cadena completa con claves de prueba
+        working-directory: apps/web
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          R="$RUNNER_TEMP/auto"; mkdir -m 700 -p "$R/plano" "$R/titular"
+          age-keygen -o "$R/titular/clave.txt" 2>/dev/null; age-keygen -y "$R/titular/clave.txt" > "$R/titular/destinatarios.txt"
+          pnpm -s ops:backup --source=local --out="$R/plano"
+          SRC="$(ls -d "$R"/plano/*-local)"
+          ./scripts/operations/backup-ci.sh pack "$SRC" "$R/cifrado" "$R/titular/destinatarios.txt"
+          F="$(ls "$R"/cifrado/*.tar.gz.age)"
+          ./scripts/operations/backup-ci.sh verify "$F" "$R/cifrado/.ephemeral.key" "$R/prueba-efimera" "$R/informe.json"
+          cat "$R/informe.json"
+          # Release borrador: subir, bajar y comparar; después, el procedimiento de recuperación con la clave «del titular».
+          TAG="backup-autoprueba-${GITHUB_RUN_ID}"
+          printf 'Borrador temporal de la autoprueba del PR (datos de demostración); se borra al terminar.\n' > "$R/notas.md"
+          ID="$(./scripts/operations/backup-ci.sh release-draft "$TAG" "Autoprueba de respaldo (sin datos reales)" "$R/notas.md" "$GITHUB_SHA" "$F" "$F.sha256")"
+          echo "$ID" > "$R/release-id"
+          ./scripts/operations/backup-ci.sh release-download "$ID" "$R/descarga"
+          cmp "$F" "$R/descarga/$(basename "$F")"
+          REPI_RESTORE_DIR="$R/recuperacion" ./scripts/operations/restore-from-release.sh --archivo "$R/descarga/$(basename "$F")" "$R/titular/clave.txt"
+          # Una clave que no es la del titular no descifra; un archivo alterado tampoco.
+          age-keygen -o "$R/otra.txt" 2>/dev/null
+          rechaza() { if REPI_RESTORE_DIR="$R/rechazo-$1" ./scripts/operations/restore-from-release.sh --archivo "$2" "$3" --sin-base; then echo "::error::Se aceptó $1"; exit 1; fi; echo "Rechazado como corresponde: $1"; }
+          rechaza clave-ajena "$F" "$R/otra.txt"
+          mkdir "$R/alterado"; cp "$F" "$R/alterado/a.tar.gz.age"; cp "$F" "$R/alterado/b.tar.gz.age"; cp "$F.sha256" "$R/alterado/a.tar.gz.age.sha256"
+          for X in a b; do printf '\x00' | dd of="$R/alterado/$X.tar.gz.age" bs=1 seek=4096 conv=notrunc 2>/dev/null; done
+          rechaza alterado-con-sha256 "$R/alterado/a.tar.gz.age" "$R/titular/clave.txt"
+          rechaza alterado-sin-sha256 "$R/alterado/b.tar.gz.age" "$R/titular/clave.txt"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | {tag: .tag_name, createdAt: .created_at, draft, body}' | pnpm -s ops:retention > /dev/null
+          echo "Autoprueba completa."
+      - name: Borrar el release de prueba
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # El de esta ejecución y cualquier borrador de autoprueba que haya quedado de una anterior.
+          { cat "$RUNNER_TEMP/auto/release-id" 2>/dev/null || true
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft and (.tag_name | startswith("backup-autoprueba-"))) | .id' || true
+          } | sort -u | while read -r ID; do [ -n "$ID" ] && gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$ID" && echo "Borrador de prueba borrado: $ID"; done || true
+          rm -rf "$RUNNER_TEMP/auto"
