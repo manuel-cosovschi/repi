@@ -2,6 +2,32 @@
 
 Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+
+## Bloque 04/06 · Training Intelligence 2.0 (D191) — 04/11/2026 · EN PR, SIN PUBLICAR
+
+- **Rama:** `feat/repi-training-intelligence-2`, sacada de `feat/repi-global-theme-system` (PR #7, todavía abierto) en `ce4381a`. PR borrador encadenado con base en la rama del PR #7. **No integrar** antes que el PR #7.
+- **Qué hace:** objetivo de REPI por serie y por etapa (Anterior → REPI → Real en el entrenamiento), persistido y versionado. Ajuste después de cada serie que sólo mantiene o baja, también sin conexión. Tendencias y propuestas para la próxima sesión. Sección Training Intelligence en la ficha del coach (Rendimiento), con Aceptar / Mantener / Rechazar, sin cambiar la rutina. Detalle en **`docs/TRAINING_INTELLIGENCE_2.md`**.
+- **Archivos clave:**
+  - Dominio: `packages/domain/src/intelligence.ts` (+ test).
+  - Servidor: `apps/web/src/server/training/intelligence.ts`; ganchos en `services.ts` (`getSession`, `logSet`, `sessionAction`) y `ai-coach.ts` (tendencia para la IA).
+  - Rutas: `api/coach/[orgId]/clients/[relId]/intelligence` y `api/coach/[orgId]/proposals/[id]`.
+  - UI: `components/member/TargetCard.tsx`, `Workout.tsx`, `lib/offline/store.ts`, `components/coach/CoachIntelligence.tsx`, `member.css` (`.ti-*`, sólo `--ui-*`).
+- **Migración 0043** (`0043_training_intelligence.sql`):
+  - Crea `training_target` y `training_proposal`. Es aditiva y sin relleno.
+  - Aplicada **sólo** en `repi_dev` y `repi_test` locales. **No en producción.**
+  - Reversión en `scripts/rollback/0043_training_intelligence.down.sql`. SQL transaccional para Supabase en `scripts/operations/hosted-0043.sql`, **sin ejecutar**.
+  - Orden: «Respaldo» en verde → 0042 → PR #7 → 0043 → este PR.
+  - Sin 0043, el código sigue entrenando sin objetivos (falla aislada).
+- **Pruebas:**
+  - Dominio: 315 (+41). App: 325 (+11), en `repi_test` descartable. Guardas: 22/22. Typecheck y build: OK.
+  - E2E `training-intelligence.spec.ts`: 2/2 (móvil y escritorio).
+  - Regresión E2E del entrenamiento: ver el informe del PR.
+- **Rendimiento medido** (local, 720 filas de historia): `getSession` 44 ms la primera vez y 24 ms repetida; `logSet` + ajuste 12 ms; 8 aperturas simultáneas 128 ms.
+- **Decisiones del titular pendientes** (no bloquean):
+  1. Si el gimnasio (piso o personal) tendrá una vista de Training Intelligence y con qué permiso.
+  2. Si se cargan los saltos de peso por equipo o gimnasio. El motor ya los acepta.
+- **Próximo:** cuando se integre el PR #7, reconciliar la base de este PR con `main` (merge, sin force push). Después, revisión y publicación con su propio respaldo.
+
 ## Respaldos de producción en GitHub (D190) — 04/11/2026
 
 - **Estado:** implementado en `ops/respaldos-github`. Falta la puesta en marcha del titular (clave age + 2 valores en GitHub + contraseña del rol, ver `docs/RESPALDOS.md`) y la primera ejecución manual. Hasta entonces el cronograma no corre.

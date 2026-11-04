@@ -566,7 +566,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           {curTarget ? (
             <TargetCard t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !!curRow && !curRow.done}
               real={curRow?.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null}
-              onUse={(w, r) => { editCur({ ...(w != null ? { w } : {}), ...(r != null ? { r } : {}) }); flash("Objetivo cargado: ajustalo si hace falta antes de completar."); }} />
+              // «Al fallo», AMRAP o por tiempo: las repeticiones son el resultado, no se precargan (D184); sólo la carga.
+              onUse={(w, r) => { const numeric = !!curT && parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Objetivo cargado: ajustalo si hace falta antes de completar."); }} />
           ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>}
           {!curTarget && ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
             <div className="wo-suggest" role="note">
