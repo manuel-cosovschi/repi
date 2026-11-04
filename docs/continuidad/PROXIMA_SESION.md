@@ -21,7 +21,9 @@ Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados),
 - **Pruebas:**
   - Dominio: 315 (+41). App: 325 (+11), en `repi_test` descartable. Guardas: 22/22. Typecheck y build: OK.
   - E2E `training-intelligence.spec.ts`: 2/2 (móvil y escritorio).
-  - Regresión E2E del entrenamiento: ver el informe del PR.
+  - E2E completa: 89 pasan, 0 fallan, 27 omitidas (las mismas del PR #7: matriz visual sólo en móvil, Admin sin `E2E_ADMIN_STATE` y una de móvil). Corrió en Chromium preinstalado, contra una build local y `repi_dev` descartable.
+  - Una regresión encontrada y corregida: «Usar» cargaba reps en un drop «al fallo».
+- **No verificado:** dispositivos físicos, Safari, iPhone instalado ni producción.
 - **Rendimiento medido** (local, 720 filas de historia): `getSession` 44 ms la primera vez y 24 ms repetida; `logSet` + ajuste 12 ms; 8 aperturas simultáneas 128 ms.
 - **Decisiones del titular pendientes** (no bloquean):
   1. Si el gimnasio (piso o personal) tendrá una vista de Training Intelligence y con qué permiso.
