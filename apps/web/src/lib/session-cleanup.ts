@@ -13,6 +13,8 @@ export async function clearPrivateDeviceData() {
   }
   // Las altas pendientes tienen tokens personales; tampoco se transfieren a otra cuenta.
   sessionStorage.removeItem("repi:first-admin-ticket");
+  // D192: referencias de «Copiar día» (por organización): no quedan para la cuenta siguiente.
+  for (const k of Object.keys(sessionStorage)) if (k.startsWith("repi:day-clip:")) sessionStorage.removeItem(k);
   clearEntry();
   // D188: la apariencia queda en el navegador, pero sin cuenta ni cambio pendiente.
   forgetThemeOwner();

@@ -5,13 +5,20 @@
 // D183: series principales con etapas conectadas (drops, mini series, bloques de cluster). Elegir un método ya no reemplaza
 // la programación: se elige a qué series aplicarlo, se ve qué cambia y se confirma; cada cambio se puede deshacer. Cerrar
 // con cambios sin guardar pregunta antes (y arrastrar para seleccionar texto no cierra el panel, D179).
-import { useMemo, useState, type InputHTMLAttributes } from "react";
+// D192 (pedido de Urko): sin perder esas protecciones, el método se elige y se ajusta en el mismo paso. La vista previa es una
+// tabla con todas las series editables (tipo, repeticiones, peso, RIR, descanso) y una herramienta para distribuir cargas
+// (fijo o porcentaje, siempre a pedido y con vista previa); «Aplicar» lo confirma todo junto y «Deshacer» lo revierte. Los
+// tipos admiten un nombre propio (Load Set o los del profe) sin cambiar cómo funciona la serie.
+import { useEffect, useMemo, useRef, useState, type InputHTMLAttributes } from "react";
 import { Modal } from "@/components/ui/Modal";
 import {
-  DEFAULT_STAGES, EQUIPMENT, GROUP_KIND_LABEL, loadIncrement, GROUP_LETTERS, MAX_BLOCKS, MAX_STAGES, SET_KIND_LABEL, STAGE_KINDS, TECHNIQUES, applyMethod, defaultSelection, emptyDetail, flatten,
-  isStraightPlan, materialize, newSpecId, normalizePlan, presetPlan, setTarget, setTargetText, stageLabel, structureText, uniformPlan, validateDetail,
-  type Equipment, type ExerciseDetail, type GroupKind, type MethodOptions, type PlanRow, type SetKind, type Technique,
+  DEFAULT_STAGES, EQUIPMENT, GROUP_KIND_LABEL, loadIncrement, GROUP_LETTERS, MAX_BLOCKS, MAX_STAGES, TECHNIQUES, applyMethod, defaultSelection, emptyDetail, flatten,
+  isStraightPlan, kgTo, localizeWeights, materialize, newSpecId, normalizePlan, presetPlan, rowKindName, setMainLoads, setTarget, setTargetText, structureText, toKg, uniformPlan, validateDetail,
+  type Equipment, type ExerciseDetail, type GroupKind, type MethodOptions, type PlanRow, type SetKind, type Technique, type WeightUnit,
 } from "@repi/domain";
+import { SetTable, pickPatch, type Structural } from "./SetTable";
+import { LoadDistributor } from "./LoadDistributor";
+import { NewSetTypeForm, SetTypesManager, useSetTypes, type SetTypeRow, type SetTypesApi } from "./SetTypes";
 
 type Ex = { name: string; sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null };
 
@@ -45,41 +52,96 @@ const newStage = (kind: SetKind, main: PlanRow): PlanRow => ({
   restSec: kind === "drop" ? 0 : 20, note: null, id: newSpecId(), block: main.block, stage: 1,
 });
 
-/** D184: el mismo editor en la app del alumno (`member`: modal oscuro desde abajo, con los tokens del alumno). */
-export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e: Ex; onSave: (p: { detail: ExerciseDetail | null; sets: number }) => void; onClose: () => void; member?: boolean }) {
+/** D192: unidad con la que el profe escribe los pesos en el editor (sólo presentación: se guarda en kg). */
+const UNIT_KEY = "repi:editor-unit";
+const readUnit = (): WeightUnit => { try { return localStorage.getItem(UNIT_KEY) === "lb" ? "lb" : "kg"; } catch { return "kg"; } };
+
+type Pending = { m: Technique; sel: number[]; o: MethodOptions; edits: Record<string, Partial<PlanRow>> };
+const EDIT_KEYS: [keyof PlanRow, string][] = [["reps", "repeticiones"], ["weightKg", "peso"], ["rir", "RIR"], ["restSec", "descanso"]];
+const valTxt = (k: keyof PlanRow, v: unknown) => (v == null || v === "" ? "—" : k === "weightKg" ? `${String(v).replace(".", ",")} kg` : k === "restSec" ? `${v} s` : String(v));
+/** Lo que el profe cambió a mano en la vista previa (además de lo que cambia el método), para revisarlo antes de aplicar. */
+function editDiff(before: PlanRow[], after: PlanRow[]) {
+  const out: string[] = [];
+  const blocks = materialize({ ...emptyDetail(), setPlan: after }, { sets: after.length, reps: "", rir: null });
+  blocks.forEach((b, bi) => b.forEach((r, si) => {
+    const o = before.find((x) => x.id === r.id);
+    if (!o) return;
+    const name = si ? `Serie ${bi + 1}, ${rowKindName(r).toLowerCase()} ${si}` : `Serie ${bi + 1}`;
+    if ((o.label ?? null) !== (r.label ?? null) || o.kind !== r.kind) out.push(`${name}: pasa a ${rowKindName(r)}.`);
+    for (const [k, w] of EDIT_KEYS) if ((o[k] ?? null) !== (r[k] ?? null)) out.push(`${name}: ${w} ${valTxt(k, o[k])} → ${valTxt(k, r[k])}.`);
+  }));
+  return out;
+}
+
+/**
+ * D184: el mismo editor en la app del alumno (`member`: modal oscuro desde abajo, con los tokens del alumno).
+ * D192: `types` = biblioteca de tipos propios del profe (coach o sede); sin ella sólo están los tipos de REPI y Load Set.
+ */
+export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types: typesApi = null }: {
+  e: Ex; onSave: (p: { detail: ExerciseDetail | null; sets: number }) => void; onClose: () => void; member?: boolean; types?: SetTypesApi | null;
+}) {
   const initial = useMemo(() => {
     const d = e.detail ?? emptyDetail();
     return d.setPlan ? { ...d, setPlan: normalizePlan(d.setPlan).rows } : d;
   }, [e.detail]);
   const [d, setD] = useState<ExerciseDetail>(initial);
   const [past, setPast] = useState<ExerciseDetail[]>([]);
-  const [ref, setRef] = useState(() => (isStraightPlan(e.detail) && e.detail!.setPlan![0].weightKg != null ? String(e.detail!.setPlan![0].weightKg).replace(".", ",") : ""));
+  const [unit, setUnitState] = useState<WeightUnit>("kg");
+  useEffect(() => setUnitState(readUnit()), []);
+  const setUnit = (u: WeightUnit) => { setUnitState(u); try { localStorage.setItem(UNIT_KEY, u); } catch { /* sin almacenamiento: sólo esta vez */ } };
+  const [ref, setRef] = useState<number | null>(() => (isStraightPlan(e.detail) && e.detail!.setPlan![0].weightKg != null ? e.detail!.setPlan![0].weightKg : null));
   const [err, setErr] = useState<string | null>(null);
-  const [pending, setPending] = useState<{ m: Technique; sel: number[]; o: MethodOptions } | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [dist, setDist] = useState(false); // distribuir cargas (en la tabla o dentro del método elegido)
+  const [newType, setNewType] = useState<{ bi: number; si: number; where: "plan" | "pending" } | null>(null);
+  const [manage, setManage] = useState(false);
+  const types = useSetTypes(member ? null : typesApi);
+  const typeList: SetTypeRow[] = types?.list ?? [];
   const base = { sets: e.sets, reps: e.reps, rir: e.rir };
   const plan = d.setPlan;
   const blocks = plan ? materialize(d, base) : null;
   const nBlocks = blocks?.length ?? e.sets;
   const review = plan ? normalizePlan(plan).review : false;
   const dirty = JSON.stringify(d) !== JSON.stringify(initial);
+  const inc = loadIncrement(d);
 
-  // Cada cambio queda en el historial para deshacerlo.
-  const change = (next: ExerciseDetail) => { setPast((p) => [...p.slice(-30), d]); setD(next); setErr(null); };
-  const undo = () => { const prev = past[past.length - 1]; if (!prev) return; setPast(past.slice(0, -1)); setD(prev); setPending(null); };
-  const setBlocks = (bs: PlanRow[][], technique = d.technique) => change({ ...d, technique, setPlan: flatten(bs) });
-  const close = () => { if (!dirty || window.confirm("Tenés cambios sin guardar en series y técnica. ¿Descartarlos?")) onClose(); };
+  // Cada cambio queda en el historial para deshacerlo. D192: lo que se tipea seguido en un mismo campo («4», «47», «47,5») es
+  // un solo paso de «Deshacer», no uno por tecla.
+  const lastEdit = useRef<{ key: string; at: number } | null>(null);
+  const change = (next: ExerciseDetail, key?: string) => {
+    const now = Date.now(), same = !!key && lastEdit.current?.key === key && now - lastEdit.current.at < 2500;
+    lastEdit.current = key ? { key, at: now } : null;
+    if (!same) setPast((p) => [...p.slice(-30), d]);
+    setD(next); setErr(null);
+  };
+  const undo = () => { const prev = past[past.length - 1]; if (!prev) return; setPast(past.slice(0, -1)); setD(prev); setPending(null); setDist(false); };
+  const setBlocks = (bs: PlanRow[][], technique = d.technique, key?: string) => change({ ...d, technique, setPlan: flatten(bs) }, key);
+  const close = () => { if ((!dirty && !pending) || window.confirm("Tenés cambios sin guardar en series y técnica. ¿Descartarlos?")) onClose(); };
 
   const pick = (m: Technique) => {
+    setDist(false); setNewType(null);
     if (m === "custom") { change({ ...d, technique: "custom", setPlan: plan ?? flatten(materialize(d, base)) }); setPending(null); return; }
-    setPending({ m, sel: PER_SERIES.includes(m) ? defaultSelection(m, nBlocks) : [], o: { stages: DEFAULT_STAGES[m], durationSec: 600, countUnit: "rounds", emomSec: d.emomSec ?? 60 } });
+    setPending({ m, sel: PER_SERIES.includes(m) ? defaultSelection(m, nBlocks) : [], o: { stages: DEFAULT_STAGES[m], durationSec: 600, countUnit: "rounds", emomSec: d.emomSec ?? 60 }, edits: {} });
   };
-  const preview = pending ? applyMethod(d, base, pending.m, pending.sel, pending.o) : null;
+  // El método se calcula una vez por selección y opciones: así lo que el profe edita en la vista previa conserva su fila.
+  const applied = useMemo(() => (pending ? applyMethod(d, base, pending.m, pending.sel, pending.o) : null), // eslint-disable-line react-hooks/exhaustive-deps
+    [d, pending?.m, pending?.sel, pending?.o, e.sets, e.reps, e.rir]);
+  const preview = useMemo(() => {
+    if (!pending || !applied) return null;
+    const rows = (applied.detail.setPlan ?? []).map((r) => ({ ...r, ...(pending.edits[r.id!] ?? {}) })) as PlanRow[];
+    const detail: ExerciseDetail = { ...applied.detail, setPlan: rows.length ? rows : applied.detail.setPlan };
+    return { detail, changes: [...applied.changes, ...editDiff((applied.detail.setPlan ?? []) as PlanRow[], rows)], blocks: materialize(detail, base) };
+  }, [applied, pending?.edits]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editPending = (bi: number, si: number, patch: Partial<PlanRow>) => {
+    if (!pending || !preview) return;
+    const id = preview.blocks[bi]?.[si]?.id;
+    if (id) setPending({ ...pending, edits: { ...pending.edits, [id]: { ...pending.edits[id], ...patch } } });
+  };
   // D173: en series rectas, el peso de referencia es el peso de todas las series (se guarda); vacío, vuelven a ser «N × reps».
-  const changeRef = (v: string) => {
-    setRef(v);
+  const changeRef = (w: number | null) => {
+    setRef(w);
     if (d.technique !== "straight") return;
-    const w = numOrNull(v);
-    if (plan) change({ ...d, setPlan: plan.map((r) => ({ ...r, weightKg: w != null && Number.isFinite(w) ? w : null })) });
+    if (plan) change({ ...d, setPlan: plan.map((r) => ({ ...r, weightKg: w })) });
     else change({ ...d, setPlan: presetPlan("straight", { sets: e.sets, reps: e.reps, rir: e.rir, weightKg: w }) });
   };
   // Cambiar una fila sola vuelve «Personalizada» a una técnica de series rectas; si todas siguen iguales, sigue siendo rectas.
@@ -87,23 +149,33 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
     if (!blocks) return;
     const bs = blocks.map((b, i) => (i !== bi ? b : b.map((r, j) => (j === si ? { ...r, ...patch } : r))));
     const flat = flatten(bs);
-    setBlocks(bs, d.technique === "straight" && !uniformPlan(flat) ? "custom" : d.technique);
+    setBlocks(bs, d.technique === "straight" && !uniformPlan(flat) ? "custom" : d.technique, `${blocks[bi][si]?.id}:${Object.keys(patch).sort().join(",")}`);
   };
-  const addStage = (bi: number) => {
-    if (!blocks) return;
-    const b = blocks[bi];
-    const kind = (b[1]?.kind ?? (b[0].kind === "cluster" ? "cluster" : "drop")) as SetKind;
-    setBlocks(blocks.map((x, i) => (i === bi ? [...x, newStage(kind, x[0])] : x)), d.technique === "straight" ? "custom" : d.technique);
-  };
-  const removeRow = (bi: number, si: number) => {
-    if (!blocks) return;
-    if (si > 0) return setBlocks(blocks.map((b, i) => (i === bi ? b.filter((_, j) => j !== si) : b)));
-    if (blocks.length <= 1) return;
-    if (blocks[bi].length > 1 && !window.confirm(`¿Quitar la serie ${bi + 1} con sus ${blocks[bi].length - 1} etapas?`)) return;
-    setBlocks(blocks.filter((_, i) => i !== bi));
-  };
-  const duplicate = (bi: number) => blocks && blocks.length < MAX_BLOCKS && setBlocks([...blocks.slice(0, bi + 1), blocks[bi].map((r) => ({ ...r, id: newSpecId() })), ...blocks.slice(bi + 1)]);
-  const move = (bi: number, dir: -1 | 1) => { if (!blocks) return; const a = blocks.slice(); [a[bi], a[bi + dir]] = [a[bi + dir], a[bi]]; setBlocks(a); };
+  const toCustom = () => (d.technique === "straight" ? "custom" : d.technique);
+  const structural: Structural | null = blocks ? {
+    canAddBlock: blocks.length < MAX_BLOCKS,
+    canAddStage: (bi) => blocks[bi].length - 1 < MAX_STAGES,
+    addStage: (bi) => {
+      const b = blocks[bi];
+      const kind = (b[1]?.kind ?? (b[0].kind === "cluster" ? "cluster" : "drop")) as SetKind;
+      setBlocks(blocks.map((x, i) => (i === bi ? [...x, newStage(kind, x[0])] : x)), toCustom());
+    },
+    remove: (bi, si) => {
+      if (si > 0) return setBlocks(blocks.map((b, i) => (i === bi ? b.filter((_, j) => j !== si) : b)));
+      if (blocks.length <= 1) return;
+      if (blocks[bi].length > 1 && !window.confirm(`¿Quitar la serie ${bi + 1} con sus ${blocks[bi].length - 1} etapas?`)) return;
+      setBlocks(blocks.filter((_, i) => i !== bi));
+    },
+    duplicate: (bi) => { if (blocks.length < MAX_BLOCKS) setBlocks([...blocks.slice(0, bi + 1), blocks[bi].map((r) => ({ ...r, id: newSpecId() })), ...blocks.slice(bi + 1)]); },
+    // D192: una serie nueva justo después (por ejemplo, el Load Set después del top set): sin carga ni etiqueta heredadas.
+    insertAfter: (bi) => {
+      if (blocks.length >= MAX_BLOCKS) return;
+      const m = blocks[bi][0];
+      const row: PlanRow = { kind: "work", reps: m.reps, weightKg: null, pct1rm: null, rir: m.rir, rpe: null, restSec: m.restSec, note: null, id: newSpecId(), block: bi + 1, stage: 0 };
+      setBlocks([...blocks.slice(0, bi + 1), [row], ...blocks.slice(bi + 1)], toCustom());
+    },
+    move: (bi, dir) => { const a = blocks.slice(); [a[bi], a[bi + dir]] = [a[bi + dir], a[bi]]; setBlocks(a); },
+  } : null;
   const perSet = () => change({ ...d, technique: d.technique === "straight" ? "custom" : d.technique, setPlan: flatten(materialize(d, base)) });
   // Clusters cargados antes de D183: el profe dice cómo se hacían (REPI no lo adivina).
   const resolveReview = (asOne: boolean) => {
@@ -124,13 +196,25 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
     onSave({ detail: r.detail, sets: r.sets });
   };
   const sel = { minHeight: 38, borderRadius: 9, border: "1px solid var(--ui-control-border)", padding: "0 8px", font: "500 14px var(--font-ui)", background: "var(--ui-input-bg)", color: "var(--ui-text)", width: "100%" } as const;
-  const target = (i: number) => setTargetText(setTarget({ ...e, detail: d }, i));
-  let rowIdx = -1;
+  const target = (i: number) => localizeWeights(setTargetText(setTarget({ ...e, detail: d }, i)), unit);
+  const workBlocks = (bs: PlanRow[][]) => bs.map((b, i) => (b[0].kind === "warmup" ? -1 : i)).filter((i) => i >= 0);
+  const typeCreated = (t: SetTypeRow) => {
+    if (!newType) return;
+    const p = { kind: t.kind, label: t.name, typeId: t.id, defaults: t.defaults };
+    if (newType.where === "pending" && preview) { const row = preview.blocks[newType.bi]?.[newType.si]; if (row) editPending(newType.bi, newType.si, pickPatch(row, p)); }
+    else if (blocks) { const row = blocks[newType.bi]?.[newType.si]; if (row) setRow(newType.bi, newType.si, pickPatch(row, p)); }
+    setNewType(null);
+  };
+  const canCreate = !!types?.available && !member;
 
   return (
     <Modal label={`Series y técnica · ${e.name}`} onClose={close} wide className={member ? "dx-host" : undefined}>
       <div className="dx">
-        <div className="mhead"><h2>{e.name} · series y técnica</h2><button type="button" className="x" aria-label="Cerrar" onClick={close}>×</button></div>
+        <div className="mhead"><h2>{e.name} · series y técnica</h2>
+          <span className="dx-unit" role="group" aria-label="Unidad de peso">
+            {(["kg", "lb"] as WeightUnit[]).map((u) => <button key={u} type="button" className="pill" aria-pressed={unit === u} onClick={() => setUnit(u)}>{u}</button>)}
+          </span>
+          <button type="button" className="x" aria-label="Cerrar" onClick={close}>×</button></div>
 
         <section className="dx-sec"><b>Método</b>
           <div className="pills">{(Object.keys(TECHNIQUES) as Technique[]).map((t) => (
@@ -161,24 +245,37 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
                     <option value="rounds">Rondas</option><option value="reps">Repeticiones totales</option></select></label></>}
                 {pending.m === "emom" && <label className="field">Intervalo (s)<NumInput inputMode="numeric" value={pending.o.emomSec ?? null} onChange={(n) => setPending({ ...pending, o: { ...pending.o, emomSec: n ?? undefined } })} placeholder="60" /></label>}
               </div>
+              {/* D192: todas las series del resultado, editables acá mismo (sin confirmar y volver a buscar cada serie). */}
+              <div className="dx-set-h"><span className="dx-lbl">Así quedan las series</span><small className="muted">Las marcadas son las que cambia el método. Podés ajustar pesos, repeticiones, RIR, descanso y tipo antes de aplicar.</small>
+                <button type="button" className="btn sm" style={{ marginLeft: "auto" }} aria-expanded={dist} onClick={() => setDist(!dist)}>Distribuir cargas</button></div>
+              {dist && <LoadDistributor blocks={preview.blocks} unit={unit} incrementKg={inc} initialSel={PER_SERIES.includes(pending.m) && pending.sel.length > 1 ? pending.sel : workBlocks(preview.blocks)}
+                onCancel={() => setDist(false)}
+                onUse={(bs, kg) => { const edits = { ...pending.edits }; bs.forEach((bi, k) => { const id = preview.blocks[bi]?.[0]?.id; if (id) edits[id] = { ...edits[id], weightKg: kg[k] }; }); setPending({ ...pending, edits }); setDist(false); }} />}
+              <SetTable caption={`Vista previa de ${TECHNIQUES[pending.m].label}`} blocks={preview.blocks} unit={unit} exRest={e.restSec} types={typeList} canCreateType={canCreate}
+                onCreateType={(bi, si) => setNewType({ bi, si, where: "pending" })} onRow={editPending} highlight={new Set(PER_SERIES.includes(pending.m) ? pending.sel : [])}
+                changed={new Set(Object.keys(pending.edits))} />
+              {newType?.where === "pending" && types && <NewSetTypeForm types={types} stage={newType.si > 0} onCreated={typeCreated} onCancel={() => setNewType(null)} />}
               <div className="dx-preview" role="status">
                 <span className="dx-lbl">Qué cambia</span>
-                {preview.changes.length ? <ul>{preview.changes.map((c, i) => <li key={i}>{c}</li>)}</ul> : <span className="muted">{PER_SERIES.includes(pending.m) && !pending.sel.length ? "Elegí al menos una serie." : "La programación queda igual; cambia sólo el método."}</span>}
-                <small className="muted">Resultado: {structureText(preview.detail, preview.detail.setPlan?.length ?? e.sets)}. Las series que no elegiste no cambian.</small>
+                {preview.changes.length ? <ul>{preview.changes.map((c, i) => <li key={i}>{localizeWeights(c, unit)}</li>)}</ul> : <span className="muted">{PER_SERIES.includes(pending.m) && !pending.sel.length ? "Elegí al menos una serie." : "La programación queda igual; cambia sólo el método."}</span>}
+                <small className="muted">Resultado: {structureText(preview.detail, preview.detail.setPlan?.length ?? e.sets)}. Las series que no elegiste no cambian. Se aplica todo junto y se puede deshacer.</small>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" className="btn sm pri" disabled={PER_SERIES.includes(pending.m) && !pending.sel.length} onClick={() => { change(preview.detail); setPending(null); }}>Aplicar</button>
-                <button type="button" className="btn sm" onClick={() => setPending(null)}>Cancelar</button>
+                <button type="button" className="btn sm pri" disabled={PER_SERIES.includes(pending.m) && !pending.sel.length} onClick={() => { change(preview.detail); setPending(null); setDist(false); setNewType(null); }}>Aplicar</button>
+                <button type="button" className="btn sm" onClick={() => { setPending(null); setDist(false); setNewType(null); }}>Cancelar</button>
               </div>
             </div>
           )}
-          {d.technique === "straight" && !pending && <label className="field" style={{ maxWidth: 260 }}>Peso de referencia (kg, opcional)<input inputMode="decimal" value={ref} onChange={(ev) => changeRef(ev.target.value)} placeholder="Ej.: 100" />
+          {d.technique === "straight" && !pending && <label className="field" style={{ maxWidth: 260 }}>Peso de referencia ({unit}, opcional)<NumInput inputMode="decimal" value={ref == null ? null : kgTo(ref, unit)} onChange={(n) => changeRef(n == null ? null : toKg(n, unit))} placeholder="Ej.: 100" />
             <small className="muted" style={{ fontWeight: 400 }}>Con series rectas, es el peso de todas las series.</small></label>}
         </section>
 
-        <section className="dx-sec"><div className="dx-set-h"><b>Series</b>
+        {!pending && <section className="dx-sec"><div className="dx-set-h"><b>Series</b>
           <small className="muted">{structureText(d, plan?.length ?? e.sets)}</small>
-          <button type="button" className="btn sm" style={{ marginLeft: "auto" }} disabled={!past.length} onClick={undo}>Deshacer</button></div>
+          <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button type="button" className="btn sm" aria-expanded={dist} onClick={() => setDist(!dist)}>Distribuir cargas</button>
+            <button type="button" className="btn sm" disabled={!past.length} onClick={undo}>Deshacer</button>
+          </span></div>
           {review && (
             <div className="dx-review" role="alert">
               <span>Estos bloques de cluster se cargaron antes de que REPI agrupara etapas y no se sabe cómo se hacían. Quedan como series separadas hasta que lo confirmes.</span>
@@ -188,6 +285,8 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
               </div>
             </div>
           )}
+          {dist && <LoadDistributor blocks={blocks ?? materialize(d, base)} unit={unit} incrementKg={inc} initialSel={workBlocks(blocks ?? materialize(d, base))} onCancel={() => setDist(false)}
+            onUse={(bs, kg) => { change(setMainLoads(d, base, bs, kg).detail); setDist(false); }} />}
           {!blocks ? (
             <>
               <span className="muted">{e.sets} series × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""}, todas iguales.</span>
@@ -195,43 +294,17 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
             </>
           ) : (
             <>
-              {blocks.map((b, bi) => (
-                <div key={b[0].id} className="dx-set dx-block">
-                  {b.map((s, si) => { rowIdx++; const i = rowIdx; return (
-                    <div key={s.id} className={si ? "dx-stage" : undefined}>
-                      <div className="dx-set-h">
-                        <b>{si ? stageLabel(s.kind, si) : `Serie ${bi + 1}`}</b><small className="muted">{target(i)}</small>
-                        <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                          {si === 0 && <>
-                            <button type="button" className="ibtn" aria-label={`Subir serie ${bi + 1}`} disabled={bi === 0} onClick={() => move(bi, -1)}>↑</button>
-                            <button type="button" className="ibtn" aria-label={`Bajar serie ${bi + 1}`} disabled={bi === blocks.length - 1} onClick={() => move(bi, 1)}>↓</button>
-                            <button type="button" className="ibtn" aria-label={`Duplicar serie ${bi + 1}`} title="Duplicar con sus etapas" disabled={blocks.length >= MAX_BLOCKS} onClick={() => duplicate(bi)}>⧉</button>
-                          </>}
-                          <button type="button" className="ibtn" aria-label={si ? `Quitar ${stageLabel(s.kind, si)} de la serie ${bi + 1}` : `Quitar serie ${bi + 1}`} disabled={si === 0 && blocks.length <= 1} onClick={() => removeRow(bi, si)}>×</button>
-                        </span></div>
-                      <div className="dx-grid">
-                        <label className="field">Tipo<select style={sel} value={s.kind} onChange={(ev) => setRow(bi, si, { kind: ev.target.value as SetKind, ...(ev.target.value === "drop" ? { restSec: 0 } : {}) })}>
-                          {(Object.keys(SET_KIND_LABEL) as SetKind[]).filter((k) => !si || STAGE_KINDS.includes(k)).map((k) => <option key={k} value={k}>{si && k === "rest_pause" ? "Mini serie" : si && k === "cluster" ? "Bloque de cluster" : SET_KIND_LABEL[k]}</option>)}</select></label>
-                        <label className="field">Reps<input value={s.reps} maxLength={20} onChange={(ev) => setRow(bi, si, { reps: ev.target.value })} placeholder="8-10, AMRAP, 40 s" /></label>
-                        <label className="field">Peso (kg)<NumInput inputMode="decimal" value={s.weightKg} onChange={(n) => setRow(bi, si, { weightKg: n })} placeholder={si && s.kind === "drop" ? "Lo elige" : "—"} /></label>
-                        {si === 0 && <label className="field">% 1RM<NumInput inputMode="decimal" value={s.pct1rm} onChange={(n) => setRow(bi, si, { pct1rm: n })} placeholder="—" /></label>}
-                        <label className="field">RIR<NumInput inputMode="numeric" value={s.rir} onChange={(n) => setRow(bi, si, { rir: n })} placeholder="—" /></label>
-                        {si === 0 && <label className="field">RPE<NumInput inputMode="decimal" value={s.rpe} onChange={(n) => setRow(bi, si, { rpe: n })} placeholder="—" /></label>}
-                        <label className="field">{si ? "Pausa antes (s)" : "Descanso (s)"}<NumInput inputMode="numeric" value={s.restSec} onChange={(n) => setRow(bi, si, { restSec: n })} placeholder={si ? "0" : String(e.restSec)} /></label>
-                        {s.kind === "amrap" && si === 0 && <label className="field">Por tiempo (min)<NumInput inputMode="decimal" value={s.durationSec ? s.durationSec / 60 : null} onChange={(n) => setRow(bi, si, n ? { durationSec: Math.round(n * 60), countUnit: s.countUnit ?? "rounds" } : { durationSec: null, countUnit: null })} placeholder="—" /></label>}
-                        <label className="field dx-note">Nota<input value={s.note ?? ""} maxLength={80} onChange={(ev) => setRow(bi, si, { note: ev.target.value || null })} placeholder="Ej.: subí 2,5 kg, pausa abajo" /></label>
-                      </div>
-                    </div>
-                  ); })}
-                  <button type="button" className="linkbtn dx-add-stage" disabled={b.length - 1 >= MAX_STAGES} onClick={() => addStage(bi)}>+ Etapa conectada a la serie {bi + 1}</button>
-                </div>
-              ))}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <SetTable caption={`Series de ${e.name}`} blocks={blocks} unit={unit} exRest={e.restSec} types={typeList} canCreateType={canCreate}
+                onCreateType={(bi, si) => setNewType({ bi, si, where: "plan" })} onRow={setRow} structural={structural} rowText={target} />
+              {newType?.where === "plan" && types && <NewSetTypeForm types={types} stage={newType.si > 0} onCreated={typeCreated} onCancel={() => setNewType(null)} />}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <button type="button" className="btn sm" disabled={blocks.length >= MAX_BLOCKS} onClick={() => setBlocks([...blocks, [{ ...blocks[blocks.length - 1][0], id: newSpecId() }]])}>+ Agregar serie</button>
+                {canCreate && <button type="button" className="linkbtn" aria-expanded={manage} onClick={() => setManage(!manage)}>Mis tipos de serie</button>}
               </div>
+              {manage && types && <SetTypesManager types={types} onClose={() => setManage(false)} />}
             </>
           )}
-        </section>
+        </section>}
 
         <section className="dx-sec"><b>Combinar con otros ejercicios</b>
           <small className="muted">Mismo grupo = se hacen juntos, uno detrás del otro (A1, A2…). Ponele la misma letra a los ejercicios del día que quieras combinar.</small>

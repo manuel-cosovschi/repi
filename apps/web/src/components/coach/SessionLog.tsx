@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { SET_FEEL, formatClock, isSetFeel } from "@repi/domain";
 import { fmtDate, nf } from "./types";
 
-export type LoggedSet = { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null };
+export type LoggedSet = { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label?: string | null };
 export type LoggedExercise = { exercise: string; timed: boolean; sets: LoggedSet[] };
 export type LoggedSession = { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; exercises: LoggedExercise[] };
 
@@ -51,6 +51,7 @@ export function LoggedSets({ sessions, i }: { sessions: LoggedSession[]; i: numb
               {e.sets.map((x) => (
                 <li key={x.n}>
                   <span className="slog-n">{x.n}</span>
+                  {x.label && <span className="chip mute">{x.label}</span>}
                   <span className="slog-v">{setText(x, e.timed)}</span>
                   {x.rir != null && <span className="muted">RIR {x.rir}</span>}
                   {x.feel && isSetFeel(x.feel) && <span className={`chip ${x.feel === "molestia" || x.feel === "ayuda" ? "bad" : "mute"}`}>{SET_FEEL[x.feel]}</span>}

@@ -3,7 +3,7 @@
 // Diferencia documentada (D30): los días del programa no tienen día de semana fijo; se elige el día y se sugiere
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { TECHNIQUES, kindAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
+import { TECHNIQUES, kindAt, labelAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
@@ -269,8 +269,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       const sg = a?.swap || a?.skip ? null : e.suggest ?? null;
       const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? (sg ? String(sg.reps) : e.reps));
       // D182: una serie reducida (aproximación, back-off, drop) sin peso en el plan queda por elegir: nunca hereda el del top set.
-      const st = startWeight({ kind: kindAt(e.detail, i), planKg: plan?.weightKg, suggestKg: a?.swap ? null : a?.weightKg ?? sg?.weightKg,
-        carriedKg: a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg });
+      const lb = labelAt(e.detail, i); // D192: Load Set y otras etiquetas: su carga, o la elige la persona (no hereda la del ejercicio)
+      const st = startWeight({ kind: kindAt(e.detail, i), label: lb, planKg: plan?.weightKg, suggestKg: a?.swap || lb ? null : a?.weightKg ?? sg?.weightKg,
+        carriedKg: lb ? null : a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg });
       sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}), r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {

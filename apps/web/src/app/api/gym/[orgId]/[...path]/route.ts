@@ -21,6 +21,9 @@ import * as connect from "@/server/gym/connect";
 import * as ac from "@/server/gym/access-control";
 import * as floor from "@/server/gym/floor-now";
 import * as guide from "@/server/gym/owner-assistant";
+import * as dc from "@/server/training/day-copy";
+import * as st from "@/server/training/set-types";
+import { CopyChoiceZ, SetTypeZ } from "@/server/training/workflow-schema";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -46,6 +49,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled };
     }
     case "notices": return notices.myStaffNotices(me, orgId);
+    case "set-types": { const ctx = await gym.gymContext(me, orgId); gym.need(ctx, "program.edit"); return st.listSetTypes({ orgId, userId: me }); } // D192
     case "shift": return gym.myShift(me, orgId, loc(u));
     case "hours": return gym.staffHoursFor(me, orgId, u.searchParams.get("user")); // D170
     case "queue": return gym.listQueue(me, orgId, loc(u) ?? "");
@@ -55,6 +59,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       if (!b) return gym.listMembers(me, orgId, loc(u) ?? "", u.searchParams.get("q") ?? "");
       if (c === "last") return gym.memberLastTimes(me, orgId, b, (u.searchParams.get("ids") ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x))); // D154
       if (c === "intelligence") return gym.memberIntelligence(me, orgId, b); // D191: sala/coordinación con consentimiento
+      if (c === "program-days") return dc.memberProgramDays(me, orgId, b); // D192: días para copiar a otro socio
       const d = await gym.memberDetail(me, orgId, b);
       return { ...d, community: await cm.memberCommunitySummary(orgId, b) }; // intentos y logros en la ficha (F-HX-15)
     }
@@ -128,6 +133,14 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     return gym.memberProgramDraft(me, orgId, b, await body(req, BriefZ));
   }
   if (a === "members" && b && c === "program") return gym.saveMemberProgram(me, orgId, b, await body(req, z.object({ doc: DOC, reason: z.string().max(300), completeTaskId: id.nullable().optional() })));
+  if (a === "members" && b && c === "day-copy") return dc.memberDayCopy(me, orgId, b, await body(req, z.object({ day: z.number().int().min(0).max(20), forMemberId: id, choice: CopyChoiceZ.nullable().optional() }))); // D192
+  if (a === "set-types") { // D192: tipos propios de quien arma programas en la sede (privados de cada profe)
+    const ctx = await gym.gymContext(me, orgId); gym.need(ctx, "program.edit");
+    const scope = { orgId, userId: me };
+    if (!b) return st.createSetType(scope, await body(req, SetTypeZ));
+    if (c === "archive") return st.archiveSetType(scope, b);
+    return st.updateSetType(scope, b, await body(req, SetTypeZ));
+  }
   if (a === "intel-proposals" && b) return gym.decideMemberProposal(me, orgId, b, await body(req, z.object({ status: z.enum(["accepted", "modified", "rejected", "kept"]), note: z.string().max(200).nullable().optional() }))); // D191
   if (a === "members" && b && c === "notes") return gym.addNote(me, orgId, b, await body(req, z.object({ kind: z.enum(["institutional", "personal"]), text: z.string().max(1000) })));
   if (a === "members" && b && c === "conversation") return msg.floorConversationFor(me, orgId, b);

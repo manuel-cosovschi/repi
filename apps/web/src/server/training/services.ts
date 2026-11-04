@@ -7,7 +7,7 @@ import {
   progressionApplies, kindAt, GENERAL_PAIN_DAYS, PAIN_LOOKBACK_DAYS, type SafetySignals, exerciseKey,
   rowFlags, rowRef, sessionMetrics, exerciseComplete, type SetKind, validateDetail, mainSets, circuitIssues, MAX_PLAN_ROWS,
   acceptInterval, decideSkip, interruptInterval, newerThan, toServerMs, type IntervalState,
-  loadIncrement,
+  loadIncrement, setTarget,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -143,7 +143,7 @@ export async function assertLibrary(orgId: string, doc: ProgramDoc) {
   if (ok.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
 }
 
-async function loadProgram(orgId: string, programId: string, tx: Tx | typeof db = db) {
+export async function loadProgram(orgId: string, programId: string, tx: Tx | typeof db = db) {
   const [p] = await tx.select().from(program).where(and(eq(program.id, programId), eq(program.orgId, orgId), isNull(program.archivedAt)));
   if (!p || !p.currentVersionId) throw NOT_FOUND();
   return p;
@@ -191,19 +191,29 @@ export async function saveProgram(actorId: string, orgId: string, programId: str
     const [p] = await tx.select().from(program).where(and(eq(program.id, programId), eq(program.orgId, orgId), isNull(program.archivedAt))).for("update");
     if (!p?.currentVersionId) throw NOT_FOUND();
     const cur = await readVersion(p.currentVersionId, tx);
-    // D183: lo guardado se normaliza igual que lo nuevo (identidad y bloques de planes anteriores): sin cambios reales, sin versión nueva.
-    const before = validateProgramDoc(plain(cur.doc));
-    if (sameDoc(before.ok ? before.doc : plain(cur.doc), v.doc)) return { version: cur.version.number, created: false };
-    if (cur.version.locked) {
-      const nv = await newVersion(tx, p.id, cur.version.number + 1, v.doc, actorId);
-      await audit(tx, { actorUserId: actorId, orgId, action: "program.versioned", resourceType: "program", resourceId: p.id, meta: { version: nv.number } });
-      return { version: nv.number, created: true };
-    }
-    await tx.update(programVersion).set({ name: v.doc.name, weeks: v.doc.weeks, note: v.doc.note }).where(eq(programVersion.id, cur.version.id));
-    await rewriteDays(tx, cur.version.id, v.doc);
-    await tx.update(program).set({ updatedAt: new Date() }).where(eq(program.id, p.id));
-    return { version: cur.version.number, created: false };
+    return writeProgramDoc(tx, { actorId, orgId, programId: p.id, cur, doc: v.doc });
   });
+}
+
+/**
+ * Escribe un documento ya validado sobre la versión vigente (`cur`, leída con el programa bloqueado). Si la versión está
+ * congelada (asignada o usada en una sesión), crea una versión nueva: el pasado y un entrenamiento abierto no cambian. D192:
+ * es el mismo camino para el autoguardado del constructor y para pegar un día (no hay una segunda forma de guardar).
+ */
+export async function writeProgramDoc(tx: Tx, p: { actorId: string; orgId: string; programId: string; cur: Awaited<ReturnType<typeof readVersion>>; doc: ProgramDoc }) {
+  const { cur, doc } = p;
+  // D183: lo guardado se normaliza igual que lo nuevo (identidad y bloques de planes anteriores): sin cambios reales, sin versión nueva.
+  const before = validateProgramDoc(plain(cur.doc));
+  if (sameDoc(before.ok ? before.doc : plain(cur.doc), doc)) return { version: cur.version.number, created: false };
+  if (cur.version.locked) {
+    const nv = await newVersion(tx, p.programId, cur.version.number + 1, doc, p.actorId);
+    await audit(tx, { actorUserId: p.actorId, orgId: p.orgId, action: "program.versioned", resourceType: "program", resourceId: p.programId, meta: { version: nv.number } });
+    return { version: nv.number, created: true };
+  }
+  await tx.update(programVersion).set({ name: doc.name, weeks: doc.weeks, note: doc.note }).where(eq(programVersion.id, cur.version.id));
+  await rewriteDays(tx, cur.version.id, doc);
+  await tx.update(program).set({ updatedAt: new Date() }).where(eq(program.id, p.programId));
+  return { version: cur.version.number, created: false };
 }
 
 export async function duplicateProgram(actorId: string, orgId: string, programId: string) {
@@ -362,17 +372,21 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
  * RIR y sensación), en el orden en que lo hizo. Lo ven su coach y el equipo de sala con quien compartió su entrenamiento.
  */
 export async function sessionLogs(sessionIds: string[]) {
-  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null }[] }[]>();
+  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null }[] }[]>();
   if (!sessionIds.length) return out;
-  const rows = await db.select({ l: setLog, name: exercise.name }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+  // D192: el nombre de la serie (Top set, Load Set, Drop 1…) sale de la versión congelada que se entrenó: renombrar después un
+  // tipo propio no cambia lo que se muestra de sesiones anteriores.
+  const rows = await db.select({ l: setLog, name: exercise.name, pe: { sets: programExercise.sets, reps: programExercise.reps, detail: programExercise.detail } }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+    .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(inArray(setLog.sessionId, sessionIds)).orderBy(asc(setLog.completedAt));
   const timed = await timedPeIds(rows.map((r) => r.l.programExerciseId));
-  for (const { l, name } of rows) {
+  for (const { l, name, pe } of rows) {
     const list = out.get(l.sessionId) ?? [];
     const key = `${l.programExerciseId}:${l.exerciseId}`;
     let ex = list.find((x) => (x as { key?: string }).key === key);
     if (!ex) { ex = Object.assign({ exercise: name, timed: timed.has(l.programExerciseId), sets: [] }, { key }); list.push(ex); }
-    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note });
+    const label = pe?.detail ? setTarget({ sets: pe.sets, reps: pe.reps, rir: null, restSec: 0, detail: pe.detail as ExerciseDetail }, l.setIndex).label : null;
+    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label });
     out.set(l.sessionId, list);
   }
   for (const list of out.values()) for (const ex of list) { delete (ex as { key?: string }).key; ex.sets.sort((a, b) => a.n - b.n); }

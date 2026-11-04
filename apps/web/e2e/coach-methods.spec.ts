@@ -27,7 +27,9 @@ test("coach: método no destructivo con vista previa, deshacer y confirmación a
   await expect(dlg.getByText("Serie 4", { exact: true })).toBeVisible();
   await expect(dlg.getByText("Serie 5", { exact: true })).toHaveCount(0); // los drops no son series nuevas
 
-  // Seleccionar el texto de una nota arrastrando y soltar fuera del panel: sigue abierto (D179).
+  // Seleccionar el texto de una nota arrastrando y soltar fuera del panel: sigue abierto (D179). D192: la nota de cada serie
+  // está en «Más campos» (⋯) de la tabla rápida.
+  await dlg.getByRole("button", { name: "Más campos de Serie 1" }).click();
   const note = dlg.getByRole("textbox", { name: "Nota" }).first();
   await note.fill("pausa abajo");
   const box = (await note.boundingBox())!;

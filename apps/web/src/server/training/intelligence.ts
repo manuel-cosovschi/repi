@@ -6,7 +6,7 @@
 // queda trazado); una falla acá nunca impide registrar una serie (quien llama la atrapa); no llama a ningún LLM.
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  TI_VERSION, TI_WINDOW, adjustAfterSet, loadIncrement, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
+  TI_VERSION, TI_WINDOW, adjustAfterSet, labelAt, loadIncrement, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
   type ExCtx, type ExerciseDetail, type HistRow, type IntelEvent, type Proposal, type RowTarget, type SetKind, type Trend,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -54,7 +54,7 @@ export async function historyRows(userId: string, exerciseIds: string[], o: { ex
     const h: HistRow = {
       sessionId: x.session_id, at: new Date(x.at).toISOString(), setLogId: x.id, specId: x.spec_id ?? ref?.id ?? null, kind: ((x.set_kind as SetKind | null) ?? ref?.kind ?? "work"),
       stage: x.stage_index ?? ref?.stage ?? 0, reps: t.reps, durationSec: t.durationSec, w: x.weight_kg == null ? null : Number(x.weight_kg), r: x.reps, rir: x.rir, feel: x.feel,
-      unilateral: !!x.pe_detail?.unilateral, source: "repi",
+      unilateral: !!x.pe_detail?.unilateral, source: "repi", label: labelAt(x.pe_detail, x.set_index),
     };
     out.set(x.exercise_id, [...(out.get(x.exercise_id) ?? []), h]);
   }
@@ -141,7 +141,7 @@ export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec
   const plan = Array.from({ length: e.sets }, (_, i) => rowContext(e as ExCtx, i));
   const main = plan.find((c) => c.cls === "main" || c.cls === "top");
   if (!main) return null;
-  const pts = sessionPoints(main, rows, now, plan.filter((c) => c.cls === main.cls && c.stage === 0).length);
+  const pts = sessionPoints(main, rows, now, plan.filter((c) => c.cls === main.cls && c.stage === 0 && c.label === main.label).length);
   const trend = exerciseTrend(pts);
   const t = setTarget(e as ExCtx, main.index);
   const r = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(t.reps.trim());
