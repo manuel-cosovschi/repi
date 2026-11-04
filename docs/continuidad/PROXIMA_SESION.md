@@ -1,6 +1,38 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D187; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D188; bloques 01/06 y 02/06 publicados; 03/06 en PR sin publicar), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Bloque 03/06 · Tema global Claro / Oscuro / Automático (D188) — 04/11/2026 · EN PR, SIN PUBLICAR
+
+- **Rama:** `feat/repi-global-theme-system`, sacada de `main` en `6cc299f` (= producción). PR borrador independiente. **No se integra a `main` sin autorización**, porque integrar despliega en vivo.
+- **Qué hace:** cada cuenta elige Claro («Premium Cream»), Oscuro («Premium Performance») o Automático (por defecto). Es la misma preferencia en Alumno, Coach, Gym, Admin y Mi cuenta, y en todos sus dispositivos. Arquitectura, tokens, sincronización y política de transición en **`docs/TEMA_GLOBAL.md`**.
+- **Archivos clave:**
+  - Tokens: `packages/domain/src/tokens.ts` (`theme.light`/`theme.dark`), `apps/web/scripts/gen-tokens.ts` y `tokens.css` (generado).
+  - Lógica: `packages/domain/src/theme.ts` (reglas puras), `apps/web/src/lib/theme.ts` y `theme-boot.ts`.
+  - Componentes: `components/theme/ThemeRuntime.tsx` y `ThemePicker.tsx`; `app/layout.tsx`.
+  - Servidor: `server/settings/services.ts` y `api/me/settings`.
+  - Estilos migrados: `member.css`, `coach.css`, `gym.css`, `method-editor.css`, `access.css` y `globals.css`, más unos 45 componentes con colores en línea.
+- **Migración 0042** (`0042_user_pref_theme.sql`):
+  - `user_pref.theme text not null default 'system'` con check, y `theme_changed_at timestamptz` nula. Es aditiva y sin relleno.
+  - Aplicada **sólo** en `repi_dev` y `repi_test` locales. **No en producción.**
+  - Reversión en `scripts/rollback/0042_user_pref_theme.down.sql`, sólo si se abandona también el código: el código anterior ignora las columnas.
+  - **Antes de aplicarla en Supabase:** respaldo completo con `pnpm ops:backup --source=hosted --storage --out=/Volumes/<SSD>/REPI/Backups`, como en D187 (plan Free, sin respaldos automáticos).
+  - Orden de publicación: **primero 0042, después integrar el PR.** El código nuevo lee `user_pref.theme`; sin la columna, `/api/me/settings` falla.
+- **Pruebas:**
+  - Dominio: 274 (incluye contraste WCAG de cada par de tokens).
+  - App: 313 en base descartable `repi_test`.
+  - Guardas: 16 (incluye la guarda de colores fijos).
+  - Typecheck y build: OK.
+  - E2E locales: `theme.spec.ts` 16/16 (móvil y escritorio) y `theme-visual.spec.ts` 18/18 (4 roles × 4 temas × 320–1366, axe WCAG 2.2 AA).
+  - No hay lint configurado en el repositorio.
+- **No probado:** iPhone o Android físicos; PWA instalada real (`display-mode: standalone` no se emula); panel Admin en navegador (no hay demo de Admin; comparte la estructura y los estilos de Coach y Gym).
+- **Smart Center:** el control presencial sigue en pausa. Este bloque no toca accesos, roles, permisos ni datos.
+- **Próxima acción:**
+  1. El titular revisa el PR y las capturas.
+  2. Hace el respaldo en el SSD.
+  3. Se aplica 0042 en Supabase, con el mismo procedimiento transaccional de D187 como `repi_app`.
+  4. Se integra el PR, se espera el despliegue y se corre el smoke de producción con la demo.
+  5. Después, el bloque 04/06 (Training Intelligence 2.0) con los tokens `--ui-*`.
 
 ## Publicación de los bloques 01/06 y 02/06 — 04/11/2026 · COMPLETA
 
