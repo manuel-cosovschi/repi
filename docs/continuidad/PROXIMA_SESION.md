@@ -1,6 +1,44 @@
 # REPI — Retomar acá
 
-Actualizado: 03/11/2026 (hasta D182), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D186; D182 integrado), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Arreglo urgente · Ejercicio nuevo en «Mi rutina» en un solo paso (D186) — 03/11/2026
+
+- **Reporte (titular, con captura de producción):**
+  - Al armar una rutina a mano con un ejercicio que no estaba («Remo en smith»), había que tocar «Crear y agregar» y después «Guardar».
+  - Sin el grupo muscular elegido, «Crear y agregar» quedaba apagado sin explicar por qué.
+  - Si se tocaba sólo «Guardar», la rutina se guardaba sin ese ejercicio.
+- **Arreglo (misma rama y PR #5):**
+  - `packages/domain/src/exercise-guess.ts` (nuevo): sugerencia de grupo y forma de registro por el nombre, y búsqueda por palabras.
+  - `member/OwnRoutines.tsx`: parecidos cuando no hay coincidencia, grupo y tipo sugeridos y cambiables, «Crear y agregar» que dice qué falta, y «Guardar rutina» que crea y agrega lo que está a medio cargar.
+  - También el flag `myTraining.ai` de D184: Entrenar no pide la sugerencia de la IA cuando el servidor no la tiene.
+- **Pruebas:**
+  - Dominio 166 ✓ (nueva `exercise-guess.test.ts`).
+  - Web 264 ✓ en 49 archivos, guardas 11 ✓, typecheck ✓ y build ✓.
+  - E2E de la rama completa: 38 ✓ y 0 ✗. Nueva `own-routine-create.spec.ts`: el caso de la captura con un solo «Guardar» y el aviso de grupo faltante.
+  - Para correr las E2E en local se purgaron las demos viejas de `repi_dev` (tope de demos abiertas).
+  - No probado en un teléfono real.
+
+## Arreglo urgente · Día sin ejercicios traba «Cargando entrenamiento…» (D185) — 03/11/2026
+
+- **Reporte:** Javier, alumno de Urko en Smart: «Empezar» y «Continuar» quedaban en «Cargando entrenamiento…». **Diagnóstico** en producción, sólo lectura:
+  - Su sesión abierta («Pecho-Cuadri», 20:13 UTC) es de un día **sin ejercicios** del programa anterior. Urko le asignó otro a las 20:20.
+  - La pantalla de entrenamiento no tenía qué mostrar y, al estar abierta, «Empezar» siempre la reabría.
+  - Es general: hay 4 días vacíos en programas activos, todos de Urko.
+  - Sin intervención, el cierre automático (6 h sin actividad) la descarta hacia las 02:15 UTC.
+- **Rama:** `fix/repi-empty-day-workout` desde `main` (`f912467`, lo que está en producción), independiente de los PR #3 y #4.
+- **Código:**
+  - `server/training/services.ts`: `startSession` rechaza un día vacío con `empty_day` y la rotación saltea los días vacíos.
+  - `member/MemberApp.tsx`: `begin` no arma localmente un día vacío.
+  - `member/Workout.tsx`: un entrenamiento vacío muestra el aviso y ofrece «Cortar este entrenamiento».
+  - `coach/ProgramBuilder.tsx`: aviso en un día vacío.
+- **Pruebas:**
+  - Nueva `tests/empty-day.test.ts` (2 ✓).
+  - Suite web 264 ✓ en 49 archivos y dominio 163 ✓. Typecheck ✓ y build ✓.
+  - Verificado en Chromium móvil contra el build local: un día vaciado en `repi_dev` (demo) muestra el aviso y «Cortar» deja la sesión descartada.
+  - Sin migraciones y sin tocar datos de producción.
+- **También:** «Saltar descanso» podía volver atrás si la respuesta de la sincronización llegaba justo después (la copia anterior lo reponía). Ahora el descanso de la pantalla se conserva.
+- **Pendiente:** autorización del titular para integrar y desplegar. Javier, después del despliegue: «Continuar» → «Cortar este entrenamiento» → empezar el programa nuevo.
 
 ## Bloque 01/06 · Cargas seguras e integridad (D182) — 03/11/2026
 

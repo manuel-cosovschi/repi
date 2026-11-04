@@ -5,9 +5,9 @@
 // después manda su última marca y la sugerencia de REPI.
 // D162: también se cargan desde una foto, una captura, un PDF, una planilla o texto (un día por rutina). Se ordenan como los
 // días de un programa y «Te toca hoy» marca la siguiente a la última que entrenó; en Inicio aparece igual.
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
-import { EXERCISE_GROUPS, cleanDecimalDraft, kgTo, parseWeightIn, type WeightUnit } from "@repi/domain";
+import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, kgTo, parseWeightIn, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
 import { RoutineImportSheet } from "./RoutineImport";
@@ -81,18 +81,33 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   const [warn, setWarn] = useState<string | null>(null);
   const set = (i: number, p: Partial<Row>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
   const move = (i: number, d: -1 | 1) => setRows((r) => { const n = [...r]; const j = i + d; if (j < 0 || j >= n.length) return r; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const rowOf = (e: Lib): Row => ({ key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, sets: 3, reps: defaultReps(e.kind), weightKg: null, w: "", restSec: null, note: null });
   const add = (e: Lib) => {
     if (rows.length >= MAX_EX) { flash(`Una rutina puede tener hasta ${MAX_EX} ejercicios.`); return; }
-    setRows((r) => [...r, { key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, sets: 3, reps: defaultReps(e.kind), weightKg: null, w: "", restSec: null, note: null }]);
+    setRows((r) => [...r, rowOf(e)]);
     setPicking(false);
   };
+  // D186: un ejercicio a medio crear (nombre escrito en «Crear un ejercicio») se crea y se agrega al guardar la rutina, en un
+  // solo paso. Antes había que tocar «Crear y agregar» y después «Guardar»; si se tocaba sólo «Guardar», se perdía.
+  const pending = useRef<(() => Promise<Lib | null>) | null>(null);
+  const [hasPending, setHasPending] = useState(false);
   const badW = rows.findIndex((r) => r.w.trim() !== "" && parseWeightIn(r.w, unit) == null);
-  const ready = name.trim().length >= 2 && rows.length > 0 && rows.every((r) => r.reps.trim()) && badW < 0;
+  const ready = name.trim().length >= 2 && (rows.length > 0 || hasPending) && rows.every((r) => r.reps.trim()) && badW < 0;
   const save = async () => {
-    if (!ready) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : "Completá las repeticiones de cada ejercicio."); return; }
+    let list = rows;
+    if (pending.current && name.trim().length >= 2) {
+      setBusy(true); setWarn(null);
+      const e = await pending.current().finally(() => setBusy(false));
+      if (!e) { setWarn("Completá el ejercicio nuevo (nombre y grupo muscular) o tocá «Cancelar» para no agregarlo."); return; }
+      if (list.length >= MAX_EX) { setWarn(`Una rutina puede tener hasta ${MAX_EX} ejercicios.`); return; }
+      list = [...rows, rowOf(e)];
+      setRows(list); setPicking(false); setHasPending(false);
+    }
+    const okNow = name.trim().length >= 2 && list.length > 0 && list.every((r) => r.reps.trim()) && badW < 0;
+    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : "Completá las repeticiones de cada ejercicio."); return; }
     setBusy(true); setWarn(null);
     try {
-      await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: rows.map((r) => ({
+      await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: list.map((r) => ({
         exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null, restSec: r.restSec, note: r.note?.trim() || null,
       })) } });
       flash(initial ? "Rutina actualizada." : "Rutina guardada. Ya la podés empezar.");
@@ -126,71 +141,99 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
           </div>
         </fieldset>
       ))}
-      {picking ? <Picker onPick={add} onCancel={rows.length ? () => setPicking(false) : undefined} taken={new Set(rows.map((r) => r.exerciseId))} />
+      {picking ? <Picker onPick={add} onCancel={rows.length ? () => setPicking(false) : undefined} taken={new Set(rows.map((r) => r.exerciseId))} pending={pending} onPending={setHasPending} />
         : rows.length < MAX_EX && <button type="button" className="ghost" onClick={() => setPicking(true)}><Ic i={Plus} size={16} /> Agregar ejercicio</button>}
       {initial && <button type="button" className="linkbtn or-del" disabled={busy} onClick={() => void remove()}>Borrar rutina</button>}
     </Sheet>
   );
 }
 
-export function Picker({ onPick, onCancel, taken, initialQuery = "" }: { onPick: (e: Lib) => void; onCancel?: () => void; taken: Set<string>; initialQuery?: string }) {
+export function Picker({ onPick, onCancel, taken, initialQuery = "", pending, onPending }: {
+  onPick: (e: Lib) => void; onCancel?: () => void; taken: Set<string>; initialQuery?: string;
+  /** D186: la hoja que contiene el buscador crea el ejercicio a medio cargar al guardar (sin pasar por «Crear y agregar»). */
+  pending?: MutableRefObject<(() => Promise<Lib | null>) | null>; onPending?: (has: boolean) => void;
+}) {
   const [lib, setLib] = useState<Lib[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState(initialQuery);
   const [group, setGroup] = useState<string | null>(null);
   // D163: lo que no está en la biblioteca, el alumno lo crea (sólo lo ve él).
-  const [creating, setCreating] = useState<{ name: string; group: string | null; kind: Lib["kind"] } | null>(null);
+  // D186: grupo y forma de registro sugeridos por el nombre (se ven marcados y se cambian con un toque); `mine` = los eligió la
+  // persona y ya no se pisan al seguir escribiendo.
+  const [creating, setCreating] = useState<{ name: string; group: string | null; kind: Lib["kind"]; mine: { group: boolean; kind: boolean } } | null>(null);
   const [busy, setBusy] = useState(false);
-  const create = async () => {
-    if (!creating?.group || creating.name.trim().length < 2) return;
+  const startCreate = (nm: string) => setCreating({ name: nm, group: group ?? guessExerciseGroup(nm), kind: guessExerciseKind(nm), mine: { group: !!group, kind: false } });
+  const typeName = (nm: string) => setCreating((c) => c && { ...c, name: nm, group: c.mine.group ? c.group : guessExerciseGroup(nm) ?? c.group, kind: c.mine.kind ? c.kind : guessExerciseKind(nm) });
+  /** Crea el ejercicio. Con algo sin completar lo dice (antes el botón quedaba apagado sin explicar por qué). */
+  const create = async (pick = true): Promise<Lib | null> => {
+    if (!creating) return null;
+    if (creating.name.trim().length < 2) { setErr("Escribí el nombre del ejercicio."); return null; }
+    if (!creating.group) { setErr("Elegí el grupo muscular del ejercicio."); return null; }
     setBusy(true); setErr(null);
     try {
       const e = await api<Lib>("/api/me/exercises", { body: { name: creating.name.trim(), group: creating.group, kind: creating.kind } });
       setLib((l) => (l && !l.some((x) => x.id === e.id) ? [...l, e] : l));
       setCreating(null);
-      onPick(e);
-    } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+      if (pick) onPick(e);
+      return e;
+    } catch (x) { setErr((x as Error).message); return null; } finally { setBusy(false); }
   };
+  const has = !!creating && creating.name.trim().length >= 2;
+  useEffect(() => {
+    if (pending) pending.current = has ? () => create(false) : null;
+    onPending?.(has);
+  });
+  useEffect(() => () => { if (pending) pending.current = null; onPending?.(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { api<Lib[]>("/api/me/exercises").then(setLib).catch((e) => setErr((e as Error).message)); }, []);
   const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const found = useMemo(() => {
-    const t = norm(q.trim());
-    return (lib ?? []).filter((e) => (!group || e.group === group) && (!t || norm(e.name).includes(t))).slice(0, 40);
+    // D186: por palabras («Remo en smith» encuentra «Remo en máquina Smith»).
+    return (lib ?? []).filter((e) => (!group || e.group === group) && matchesExerciseQuery(e.name, q)).slice(0, 40);
   }, [lib, q, group]);
+  // Sin coincidencia completa: los que comparten alguna palabra («Remo en smith» → los remos), para no crear uno repetido.
+  const near = useMemo(() => {
+    if (found.length || q.trim().length < 3) return [];
+    const words = q.split(/\s+/).filter((w) => w.length >= 4);
+    return (lib ?? []).filter((e) => (!group || e.group === group) && words.some((w) => matchesExerciseQuery(e.name, w))).slice(0, 8);
+  }, [lib, q, group, found.length]);
   return (
     <div className="or-pick" role="group" aria-label="Agregar ejercicio">
       <label className="or-field">Buscar ejercicio<input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ej.: sentadilla, remo, press" /></label>
       <div className="wish-goals" role="group" aria-label="Grupo muscular">
         {EXERCISE_GROUPS.map((g) => <button key={g} type="button" className="ai-chip" aria-pressed={group === g} onClick={() => setGroup(group === g ? null : g)}>{g}</button>)}
       </div>
-      {err && <p className="sheet-warn">{err}</p>}
+      {err && !creating && <p className="sheet-warn">{err}</p>}
       {!lib && !err && <p className="sheet-sub" role="status">Cargando ejercicios…</p>}
       {lib && (
         <ul className="or-results">
           {found.map((e) => (
             <li key={e.id}><button type="button" onClick={() => onPick(e)}><span>{e.name}</span><small>{e.group}{e.mine ? " · tuyo" : ""}{taken.has(e.id) ? " · ya está" : ""}</small></button></li>
           ))}
-          {!found.length && <li className="sheet-sub">No encontramos ese ejercicio en la biblioteca. Probá con otro nombre o crealo.</li>}
+          {!found.length && <li className="sheet-sub">{near.length ? "No está con ese nombre. ¿Es alguno de estos? Si no, crealo abajo." : "No encontramos ese ejercicio en la biblioteca. Probá con otro nombre o crealo."}</li>}
+          {near.map((e) => (
+            <li key={e.id}><button type="button" onClick={() => onPick(e)}><span>{e.name}</span><small>{e.group}{e.mine ? " · tuyo" : ""}{taken.has(e.id) ? " · ya está" : ""}</small></button></li>
+          ))}
         </ul>
       )}
-      {lib && !creating && <button type="button" className="ghost sm" onClick={() => setCreating({ name: q.trim(), group, kind: "load_reps" })}>
+      {lib && !creating && <button type="button" className="ghost sm" onClick={() => startCreate(q.trim())}>
         <Ic i={Plus} size={16} /> {q.trim().length >= 2 ? `Crear «${q.trim().slice(0, 40)}»` : "Crear un ejercicio"}</button>}
       {creating && (
         <div className="or-create" role="group" aria-label="Crear ejercicio">
-          <label className="or-field">Nombre<input value={creating.name} maxLength={60} onChange={(e) => setCreating({ ...creating, name: e.target.value })} placeholder="Ej.: Camilla de isquios" /></label>
+          <label className="or-field">Nombre<input value={creating.name} maxLength={60} onChange={(e) => typeName(e.target.value)} placeholder="Ej.: Camilla de isquios" /></label>
           <span className="sheet-sub">Grupo muscular</span>
           <div className="wish-goals" role="group" aria-label="Grupo muscular del ejercicio nuevo">
-            {EXERCISE_GROUPS.map((g) => <button key={g} type="button" className="ai-chip" aria-pressed={creating.group === g} onClick={() => setCreating({ ...creating, group: g })}>{g}</button>)}
+            {EXERCISE_GROUPS.map((g) => <button key={g} type="button" className="ai-chip" aria-pressed={creating.group === g} onClick={() => { setErr(null); setCreating({ ...creating, group: g, mine: { ...creating.mine, group: true } }); }}>{g}</button>)}
           </div>
           <span className="sheet-sub">Cómo lo registrás</span>
           <div className="wish-goals" role="group" aria-label="Cómo se registra">
-            {KIND_LABEL.map(([k, l]) => <button key={k} type="button" className="ai-chip" aria-pressed={creating.kind === k} onClick={() => setCreating({ ...creating, kind: k })}>{l}</button>)}
+            {KIND_LABEL.map(([k, l]) => <button key={k} type="button" className="ai-chip" aria-pressed={creating.kind === k} onClick={() => setCreating({ ...creating, kind: k, mine: { ...creating.mine, kind: true } })}>{l}</button>)}
           </div>
+          {err && <p className="sheet-warn" role="alert">{err}</p>}
           <div className="or-actions">
-            <button type="button" className="cta sm" disabled={!creating.group || creating.name.trim().length < 2} aria-busy={busy || undefined} onClick={() => void create()}>Crear y agregar</button>
+            <button type="button" className="cta sm" aria-busy={busy || undefined} onClick={() => void create()}>Crear y agregar</button>
             <button type="button" className="ghost sm" onClick={() => setCreating(null)}>Cancelar</button>
           </div>
-          <small className="mb-muted">Es tuyo: lo ves vos en tus rutinas y tu progreso. No se suma a la biblioteca de tu profe ni del gimnasio.</small>
+          <small className="mb-muted">{!creating.mine.group && creating.group ? `Le pusimos ${creating.group} por el nombre: cambialo si no es. ` : ""}Es tuyo: lo ves vos en tus rutinas y tu progreso. No se suma a la biblioteca de tu profe ni del gimnasio.{pending ? " Si guardás la rutina, se agrega solo." : ""}</small>
         </div>
       )}
       {onCancel && <button type="button" className="linkbtn" onClick={onCancel}>Cancelar</button>}

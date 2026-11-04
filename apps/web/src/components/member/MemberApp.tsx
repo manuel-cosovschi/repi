@@ -253,6 +253,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     setSheet(null);
     const d = t?.program?.days.find((x) => x.id === dayId);
     if (!t || !d) return;
+    // D185: un día vacío no se empieza (quedaba abierto un entrenamiento sin ejercicios, trabado en «Cargando»).
+    if (!d.exercises.length) { flash(`«${d.name}» todavía no tiene ejercicios. Avisale a tu coach o elegí otro día en Entrenar.`); return; }
     const nowIso = new Date().toISOString();
     const sets: LocalSession["sets"] = {};
     const ai = aiPlan.current?.dayId === d.id ? aiPlan.current : null;
@@ -601,7 +603,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
-      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} />}
+      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (

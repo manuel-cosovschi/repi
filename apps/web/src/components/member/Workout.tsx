@@ -141,8 +141,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         if (mine && (!v.done || (mine.done && !v.done)) && (mine.w !== v.w || mine.r !== v.r || mine.done !== v.done)) { kept = true; return [k, mine]; }
         return [k, v];
       }));
-      if (!kept) return fresh;
-      const merged = { ...fresh, sets };
+      // D185: el descanso es sólo de esta pantalla y la sincronización nunca lo cambia. Una copia leída antes de «Saltar
+      // descanso» (la respuesta de la serie llegó justo después) lo volvía a poner y el descanso «volvía».
+      const restMoved = JSON.stringify(cur.rest ?? null) !== JSON.stringify(fresh.rest ?? null);
+      if (!kept && !restMoved) return fresh;
+      const merged = { ...fresh, sets, rest: cur.rest ?? null };
       void putLocal(merged);
       return merged;
     });
@@ -228,6 +231,22 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     await commit(n);
     await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action, at: new Date().toISOString() });
     if (action === "pause") flash("Entrenamiento en pausa. El reloj se detuvo.");
+  };
+  /** D185: cortar un entrenamiento sin ejercicios (no hay series: queda descartado, en el servidor también). */
+  const discardEmpty = async () => {
+    if (!s) return;
+    setBusy(true);
+    try {
+      const n = localAction(s, "finish");
+      if (!s.synced) { await dropSession(s.id); await delLocal(s.id); }
+      else if (n) {
+        await commit({ ...n, rest: null });
+        await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action: "finish", at: new Date().toISOString() });
+        await flush();
+      }
+      flash("Cortaste el entrenamiento vacío. Ya podés empezar otro día.");
+      onExit("train");
+    } finally { setBusy(false); }
   };
   const finish = async (confirmed = false) => {
     if (!s) return;
@@ -326,6 +345,19 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   if (err) return <div className="mb-scroll nobar"><p role="alert" className="mb-err">{err}</p><button type="button" className="ghost" onClick={() => onExit("train")}>Volver</button></div>;
   if (summary) return <Done sum={summary} coachFirst={coachFirst} onExit={onExit} flash={flash} justFinished={justFinished} onNudge={gym && !demo ? onNudge : undefined} />;
   const painSheet = pain && s && ex ? <PainSheet exerciseName={ex.name} sessionId={s.id} flash={flash} onClose={() => setPain(false)} /> : null;
+  // D185: un día sin ejercicios (el coach lo dejó vacío o lo cambió después de empezar) dejaba la pantalla en «Cargando
+  // entrenamiento…» para siempre, y como el entrenamiento seguía abierto, «Empezar» y «Continuar» volvían a abrirlo. Ahora
+  // se explica y se puede cortar: sin series no se registra nada (queda descartado, como «Finalizar» sin series).
+  if (s && !s.exercises.length && s.status !== "completed" && s.status !== "abandoned") return (
+    <div className="mb-scroll nobar">
+      <h1 tabIndex={-1}>{s.dayName}</h1>
+      <p className="mb-note" role="alert">Este entrenamiento no tiene ejercicios: el día estaba vacío o tu coach lo cambió. No se registró nada.</p>
+      <p className="mb-muted">Cortalo para empezar otro día de tu rutina. Si tu coach te pasó una rutina nueva, ya la vas a ver en Entrenar.</p>
+      <button type="button" className="cta" aria-busy={busy || undefined} onClick={() => void discardEmpty()}>Cortar este entrenamiento</button>
+      <button type="button" className="ghost" onClick={() => onExit("train")}>Volver</button>
+    </div>
+  );
+  if (s && !ex && s.exercises.length) { setExIdx(0); return null; } // índice fuera de rango (la rutina cambió): al primero
   if (!s || !ex) return <div className="mb-scroll nobar"><p className="mb-muted">Cargando entrenamiento…</p></div>;
 
   const rowsOf = (i: number) => Array.from({ length: s.exercises[i].sets }, (_, j) => s.sets[setKey(s.exercises[i].id, j)]);
