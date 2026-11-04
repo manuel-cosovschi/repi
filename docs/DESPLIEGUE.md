@@ -61,6 +61,8 @@ Cuentas del seed (`@demo.repi.app`): **fuera de uso en el entorno hospedado (D87
 ```bash
 # Desde apps/web. Sólo lee; el resultado queda en ~/.repi-secrets/backups/<fecha>-hosted/ (no en el repo).
 pnpm ops:backup --source=hosted --storage
+# A otro disco (p. ej. un SSD externo; la carpeta tiene que existir y estar fuera del repo):
+pnpm ops:backup --source=hosted --storage --out=/Volumes/<SSD>/REPI/Backups
 # Ensayo de restauración en la base local descartable (una vez: createdb -h localhost repi_restore_check)
 RESTORE_DATABASE_URL=postgresql://<usuario>@localhost:5432/repi_restore_check pnpm ops:restore ~/.repi-secrets/backups/<carpeta>
 ```

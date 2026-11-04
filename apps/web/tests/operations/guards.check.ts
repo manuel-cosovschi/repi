@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { localTarget, safeStorageKey, checkedManifest } from "../../scripts/operations/guards";
+import { backupRoot, localTarget, safeStorageKey, checkedManifest } from "../../scripts/operations/guards";
 
 test("restore sólo puede apuntar a repi_restore_check local", () => {
   assert.equal(localTarget("postgres://u:p@localhost:5432/repi_restore_check", "restore").pathname, "/repi_restore_check");
@@ -18,4 +18,11 @@ test("restore rechaza respaldos incompletos o manifiestos alterados antes de con
   const manifest = { version: 1, status: "complete", database: { sha256: "a".repeat(64), bytes: 2 }, tables: [{ schema: "public", name: "user", rows: 4 }], storage: { included: false, files: [] } };
   assert.equal(checkedManifest(manifest).status, "complete");
   for (const changed of [{ ...manifest, status: "in_progress" }, { ...manifest, version: 2 }, { ...manifest, database: { sha256: "invalid", bytes: 2 } }, { ...manifest, tables: [{ schema: "other", name: "user", rows: 1 }] }, { ...manifest, tables: [{ schema: "public", name: "user", rows: -1 }] }, { ...manifest, storage: { included: true, files: [{ key: "../escape", sha256: "a".repeat(64), bytes: 5 }] } }]) assert.throws(() => checkedManifest(changed));
+});
+
+test("el destino del respaldo: el de siempre sin --out; con --out sólo una carpeta existente, absoluta y fuera del repo", () => {
+  const has = (p: string) => ["/Volumes/SSD/REPI/Backups", "/Users/m/repi"].includes(p);
+  assert.equal(backupRoot(undefined, "/Users/m", "/Users/m/repi", has), "/Users/m/.repi-secrets/backups");
+  assert.equal(backupRoot("/Volumes/SSD/REPI/Backups/", "/Users/m", "/Users/m/repi", has), "/Volumes/SSD/REPI/Backups");
+  for (const out of ["", "Volumes/SSD", "/Volumes/SSD/../../Users/m", "/Volumes/Otro/REPI/Backups", "/Users/m/repi", "/Users/m/repi/backups"]) assert.throws(() => backupRoot(out, "/Users/m", "/Users/m/repi", has));
 });
