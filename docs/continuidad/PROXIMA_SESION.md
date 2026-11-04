@@ -2,23 +2,28 @@
 
 Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
-## Respaldos de producción en GitHub (D190) — 04/11/2026
+## Respaldos de producción en GitHub (D190) — 04/11/2026 · EN MAIN, FALTA LA PUESTA EN MARCHA DEL TITULAR
 
-- **Estado:** implementado en `ops/respaldos-github`. Falta la puesta en marcha del titular (clave age + 2 valores en GitHub + contraseña del rol, ver `docs/RESPALDOS.md`) y la primera ejecución manual. Hasta entonces el cronograma no corre.
+- **Publicado:**
+  - PR #9: workflow, scripts y documentación.
+  - PR #10: pedido por issue «Respaldo: …» del dueño, porque la integración no puede usar `workflow_dispatch` (403).
+  - PR #8 (D189): también publicado. Producción en `f48b6bd`.
 - **Producción:**
-  - Rol `repi_backup` creado: sólo lectura, sin contraseña, 98 tablas legibles y 0 escribibles.
-  - Edge Function `repi-storage` con lectura firmada por OIDC.
-- **Archivos:**
-  - `.github/workflows/backup.yml`, `docs/RESPALDOS.md`.
-  - En `apps/web/scripts/operations/`: `backup.ts` (URL por entorno, Storage OIDC), `restore.ts` (FK, restricciones, informe, `--solo-hashes`), `backup-ci.sh`, `restore-from-release.sh`, `retention.ts` y `hosted-backup-role.sql`.
-  - `supabase/functions/repi-storage/{index,github-oidc}.ts`.
-- **Pruebas:**
-  - Guardas 18/18 (retención y OIDC incluidos).
-  - Cadena local completa: respaldo → cifrado → descifrado → restauración (98 tablas, 12 556 filas, 256 FK sin huérfanos).
-  - Detecta huérfanos; clave ajena y archivo alterado rechazados; lector OIDC contra simulador (22 archivos, nunca envía el secreto del proxy).
-  - Autoprueba en el PR.
-- **Regla nueva:** antes de cualquier migración productiva, correr «Respaldo» y seguir sólo si termina en verde.
-- **Próximo:** primer respaldo verificado → 0042 (`hosted-0042.sql`) → PR #7.
+  - Rol `repi_backup` (sólo lectura, sin contraseña, 98 tablas legibles, 0 escribibles).
+  - Edge Function `repi-storage` v3: rama OIDC de sólo `sign_read` para `backup.yml` en main; el camino de la app no cambió.
+- **Probado en GitHub:**
+  - Autoprueba en PR: cadena completa con release borrador real, recuperación documentada y rechazos.
+  - Pedido por issue (#11) sin configuración: se detuvo en «Configuración», comentó y abrió la alerta **#12** (queda abierta hasta el primer éxito).
+- **Falta (titular, `docs/RESPALDOS.md` → Puesta en marcha):**
+  1. Clave age privada guardada fuera de GitHub.
+  2. Variable `REPI_BACKUP_AGE_RECIPIENTS`.
+  3. `alter role repi_backup with password …` en Supabase.
+  4. Secreto `REPI_BACKUP_DATABASE_URL`.
+- **Después:**
+  1. Issue «Respaldo: antes de la migración 0042».
+  2. Si se cierra en verde: aplicar `hosted-0042.sql`, verificar integridad, integrar el PR #7 (ya conciliado con main, `ce4381a`) y verificar Claro/Oscuro/Automático en producción.
+  3. El cronograma diario se habilita solo con el primer respaldo verificado.
+- **Regla:** antes de cualquier migración productiva, respaldo verificado en GitHub; si falla, no se migra.
 
 ## Arreglo urgente · Solicitud de socio pendiente que encerraba al equipo (D189) — 04/11/2026
 
