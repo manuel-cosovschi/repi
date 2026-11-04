@@ -35,7 +35,7 @@ Actualizado: 04/11/2026 (hasta D188; bloques 01/06 y 02/06 publicados; 03/06 en 
 - **Próxima acción:**
   1. El titular revisa el PR y las capturas.
   2. Hace el respaldo en el SSD.
-  3. Se aplica 0042 en Supabase, con el mismo procedimiento transaccional de D187 como `repi_app`.
+  3. Se aplica 0042 en Supabase con `apps/web/scripts/operations/hosted-0042.sql`: una transacción como `repi_app`, igual que D187. Está preparado y ensayado con ROLLBACK en una copia local restaurada (51 filas quedaron en `system`); todavía no se ejecutó.
   4. Se integra el PR, se espera el despliegue y se corre el smoke de producción con la demo.
   5. Después, el bloque 04/06 (Training Intelligence 2.0) con los tokens `--ui-*`.
 
