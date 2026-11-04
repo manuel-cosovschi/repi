@@ -2,6 +2,29 @@
 
 Actualizado: 04/11/2026 (hasta D186), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+## Publicación de los bloques 01/06 y 02/06 — 04/11/2026
+
+- **Publicado y verificado en https://repiclub.com:**
+  - **PR #5** (hotfix D185–D186), merge `3567dea`, en producción a las 01:31 UTC.
+  - **PR #3** (bloque 01/06, D182) reconciliado con `main`, merge `8ba8d4d`, en producción a las 01:46 UTC (`/api/version` = `8ba8d4d93544`).
+  - CI verde en ambos.
+  - Smoke productivo con la demo guiada (datos ficticios, Chromium emulando Pixel 7): entrenar, editar el peso sin ceros, completar serie (guardada una vez en el servidor), saltar descanso, pausar, reanudar, recargar, finalizar y crear «Mi rutina» con un ejercicio nuevo en un solo «Guardar». Sin 5xx ni errores en Vercel. **No probado en teléfonos físicos.**
+- **PR #4 (bloque 02/06): NO publicado.** Ya está reconciliado con `main` (base `main`, CI verde en `0ae0cc9`), con el mismo código que antes y todas las líneas de D185/D186 presentes. Lo bloquean las migraciones:
+  - El código del #4 escribe `set_log.spec_id`…, `set_skip` y `workout_session.interval_state`. Sin 0040/0041 en Supabase, registrar series daría error.
+  - **Bloqueo:** Supabase está en plan Free, sin respaldos automáticos, y la URL de la base (`~/.repi-secrets/supabase.env`) está sólo en el equipo del titular. La regla del encargo exige un respaldo recuperable confirmado antes de tocar el esquema.
+- **Para terminar (en este orden):**
+  1. El titular corre, en su equipo, desde `apps/web`: `pnpm ops:backup --source=hosted --storage` (sólo lee; D91). Opcional, el ensayo: `ops:restore` en `repi_restore_check`.
+  2. Aplicar `apps/web/scripts/operations/hosted-0040-0041.sql`: una transacción con las sentencias exactas de los archivos, el registro en `drizzle.__drizzle_migrations` (hash sha256 y `when` del journal) y RLS en `set_skip`. Ensayado en una base local con el esquema de `main`: el migrador del #4 queda al día, y repetirlo falla sin cambios. Alternativa equivalente: `DATABASE_URL=<sesión> npx tsx scripts/migrate.ts` desde la rama del #4.
+  3. Validar con la línea base del 04/11 01:51 UTC (agregados, sin datos personales): 591 series, 4906 reps, tonelaje 223070,50, huella de (id, peso, reps, revisión) `363d7c58672837877eaa3d5321229a2a`, 60 sesiones.
+  4. Integrar el #4, esperar `/api/version`, smoke con la demo (sin ocultar la píldora: en producción hoy «Otro perfil» tapa «Saltar descanso», sólo en la demo; lo corrige el #4) y revisar Vercel.
+  - El código actual (`main`) funciona igual con el esquema nuevo: drizzle nombra las columnas y las nuevas son nulas. Por eso se migra primero.
+  - **Reversión:** Vercel → promover `dpl_…` de `8ba8d4d` (o el anterior). No se revierte el esquema (`ROLLBACK_PLAN.md`); `scripts/rollback/0041_*.down.sql` sólo si también se abandona el código.
+- **Relleno 0040:** no se ejecuta; la lectura compatible funciona sin él.
+- **Control presencial:** Smart Center Gym tiene `gym_access_policy.enabled = false` desde el 02/11 22:25 UTC (configuración real, leída en Supabase). No se tocó.
+- **IA:** `OPENAI_API_KEY` y `OPENAI_MODEL` cargadas en Vercel (producción); no se leyeron sus valores.
+- **Javier (Smart):** su entrenamiento vacío seguía abierto a las 01:29 UTC. Con el hotfix publicado ve el aviso y «Cortar este entrenamiento»; si no, el cierre automático lo descarta. Sus datos no se tocaron.
+
+
 ## Arreglo urgente D186 también en esta rama — 03/11/2026
 
 - El arreglo de «Mi rutina» (PR #5; detalle en su bitácora) está incorporado acá con cherry-pick, sobre el editor con métodos: búsqueda por palabras, parecidos, grupo sugerido y «Guardar» que crea el ejercicio a medio cargar.
