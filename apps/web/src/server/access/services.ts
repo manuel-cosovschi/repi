@@ -449,7 +449,9 @@ export async function memberOnboardingState(userId: string) {
     .innerJoin(organization, eq(organization.id, gymMember.orgId)).innerJoin(gymLocation, eq(gymLocation.id, gymMember.locationId))
     .where(and(eq(gymMember.userId, userId), eq(gymMember.status, "pending_consent")));
   if (m) return { step: "consentGym" as const, orgId: m.org.id, orgName: m.org.name, locationName: m.loc.name };
-  const [r] = await db.select().from(membershipRequest).where(and(eq(membershipRequest.userId, userId), eq(membershipRequest.status, "pending")));
+  // D189: una solicitud vencida (24 h) ya no cuenta como pendiente, aunque todavía no se haya marcado «expired».
+  const [r] = await db.select().from(membershipRequest).where(and(eq(membershipRequest.userId, userId), eq(membershipRequest.status, "pending"),
+    or(isNull(membershipRequest.expiresAt), sql`${membershipRequest.expiresAt} > now()`)));
   if (r) return { step: "memberPending" as const };
   return { step: null };
 }

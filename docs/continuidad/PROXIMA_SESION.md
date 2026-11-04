@@ -1,6 +1,17 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D187; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Arreglo urgente · Solicitud de socio pendiente que encerraba al equipo (D189) — 04/11/2026
+
+- **Reporte:** el titular (Admin y entrenador de piso de Smart Center) pidió ser socio por QR y no podía volver a Admin ni a su panel desde Acceso.
+- **Su cuenta:** rol Admin, rol de piso y 2FA intactos. Tiene una solicitud pendiente en Smart Center · Sede principal, que vence el 05/11 a las 01:30 UTC. Entrar directo a `/admin` o a `/gym/<org>` siempre funcionó.
+- **Arreglo:** rama `hotfix/acceso-solicitud-pendiente`, desde `main`, independiente del PR #7 (tema). Cambia `AccessFlow.tsx` (selector con la solicitud pendiente; «Ir a mis espacios») y `memberOnboardingState` (la vencida no cuenta).
+- **Pruebas:**
+  - `annex.test.ts` (D189): conserva espacios, no se autoaprueba, la aprueba otra persona, la vencida no cuenta.
+  - `e2e/join-pending-staff.spec.ts`.
+  - App: 311. Typecheck OK.
+- **Aprobación:** la hace otra persona de Smart Center con autoridad en la sede (recepción, gerencia, dueño o piso con turno). No se aprueba con SQL.
 
 ## Publicación de los bloques 01/06 y 02/06 — 04/11/2026 · COMPLETA
 
