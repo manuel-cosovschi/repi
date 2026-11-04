@@ -16,7 +16,7 @@
     "jobs:purge-media": "tsx --env-file=.env.local scripts/purge-media.ts",
     "jobs:notifications": "tsx --env-file=.env.local scripts/notifications.ts",
     "e2e": "playwright test",
-    "test:guards": "tsx --test tests/safety/database-target.check.ts tests/operations/guards.check.ts",
+    "test:guards": "tsx --test tests/safety/database-target.check.ts tests/operations/guards.check.ts tests/theme/theme-tokens.check.ts",
     "ops:backup": "tsx scripts/operations/backup.ts",
     "ops:restore": "tsx scripts/operations/restore.ts",
     "ops:first-admin": "tsx scripts/first-admin.ts"
