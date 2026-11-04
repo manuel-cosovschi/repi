@@ -329,8 +329,9 @@ export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneR
 
   if (d.feel === "molestia") {
     for (const x of later) { const cur = next[x.index]; if (cur && cur.weightKg != null && d.w != null && cur.weightKg > d.w) set(x.index, { weightKg: d.w, action: "hold", status: "limited", guards: [...new Set([...cur.guards, "pain_exercise" as const])] }, "in_session_pain"); else if (cur && (cur.action === "increase_load" || cur.action === "increase_reps")) set(x.index, { action: "hold", status: "limited", guards: [...new Set([...cur.guards, "pain_exercise" as const])] }, "in_session_pain"); }
-    return { targets: next, changed, event: { code: "pain", priority: 1, row: p.justDone, restPlusSec: null,
-      text: "Registraste una molestia. No voy a recomendar subir el peso en este ejercicio. Considerá detenerlo y consultar a tu entrenador o profesional de salud." } };
+    const text = "Registraste una molestia. No voy a recomendar subir el peso en este ejercicio. Considerá detenerlo y consultar a tu entrenador o profesional de salud.";
+    for (const i of changed) next[i] = { ...next[i], why: text };
+    return { targets: next, changed, event: { code: "pain", priority: 1, row: p.justDone, restPlusSec: null, text } };
   }
   const minR = t?.repsMin ?? null;
   const short = minR != null && d.r < minR;
@@ -347,6 +348,7 @@ export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneR
     const text = coachNext ? "La serie fue más exigente de lo previsto. Tu profe indicó la carga de la próxima: hacela con buena técnica y, si no sale, avisale."
       : far ? `La serie fue bastante más exigente de lo esperado (${d.r} de ${minR}). Para la siguiente, bajá un poco la carga y priorizá completar el rango.`
         : "La serie fue más exigente de lo previsto. Para la siguiente, mantené la carga y priorizá completar el rango sin forzar una subida.";
+    for (const i of changed) next[i] = { ...next[i], why: text }; // la fila ajustada explica el ajuste que se ejecutó
     return { targets: next, changed, event: { code: coachNext ? "coach_hold" : far ? "short" : "harder", priority: coachNext ? 2 : 3, row: p.justDone, restPlusSec: restPlus, text } };
   }
   const maxR = t?.repsMax ?? null;

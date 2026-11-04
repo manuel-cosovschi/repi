@@ -13,6 +13,7 @@ import { ImportModal } from "./ImportModal";
 import { useLoad } from "@/components/gym/shared";
 import { featureOn } from "@/lib/features";
 import { SessionLog, type LoggedExercise } from "./SessionLog";
+import { IntelSection } from "./CoachIntelligence";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -168,11 +169,12 @@ function PerfTab({ orgId, relId }: { orgId: string; relId: string }) {
   if (!d.data) return <p className="muted">Cargando…</p>;
   const { exercises, groups, formula } = d.data;
   const report = <a className="btn" href={`/coach/${orgId}/informe/${relId}`} style={{ alignSelf: "flex-start" }}>Informe mensual (imprimible)</a>;
-  if (!exercises.length && !groups.length) return <>{report}<div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div></>;
+  if (!exercises.length && !groups.length) return <>{report}<IntelSection orgId={orgId} relId={relId} /><div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div></>;
   const kg = (n: number) => `${n.toLocaleString("es-AR", { maximumFractionDigits: 1 })} kg`;
   return (
     <>
       {report}
+      <IntelSection orgId={orgId} relId={relId} />
       <section className="card">
         <h2>1RM estimado</h2>
         <span className="muted" style={{ fontSize: 13 }}>{formula} Últimas 4 semanas contra las 4 anteriores.</span>

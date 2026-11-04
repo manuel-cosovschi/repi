@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
-import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics } from "@repi/domain";
+import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, type RowTarget } from "@repi/domain";
+import { TargetCard } from "./TargetCard";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -232,7 +233,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     return setTarget(ex, b?.main ?? i).restSec ?? ex.restSec;
   };
   /** Después de resolver la fila `i` (hecha u omitida): descanso, combinación (A1 → A2) y cola de sincronización. */
-  const advance = async (sets: LocalSession["sets"], i: number, wasDone: boolean, enqueueSet: boolean) => {
+  const advance = async (sets: LocalSession["sets"], i: number, wasDone: boolean, enqueueSet: boolean, extra: Partial<LocalSession> = {}) => {
     if (!s || !ex) return;
     const more = Array.from({ length: ex.sets }, (_, k) => sets[setKey(ex.id, k)]).some((y) => !rowResolved(y));
     let restS = restAfter(s, i, sets);
@@ -245,7 +246,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const ivChange = !!emom && !wasDone && !!blocks[bi]?.rows.every((k) => rowResolved(sets[setKey(ex.id, k)]));
     const iv: LocalInterval | null = ivChange ? (bi + 1 < blocks.length ? { peId: ex.id, block: bi + 1, start: Date.now() + restS * 1000, emomSec: emom!, status: "running" } : null) : s.iv ?? null;
     // Editar una serie ya hecha no toca el descanso; si no, un descanso viejo no queda tapando una etapa sin pausa (un drop).
-    const next = { ...s, sets, iv, ivAt: ivChange ? new Date().toISOString() : s.ivAt ?? null, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : null };
+    const next = { ...s, ...extra, sets, iv, ivAt: ivChange ? new Date().toISOString() : s.ivAt ?? null, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : null };
     setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
     if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); else if (flow.rounds > 1) flash(`Vuelta ${flow.round + 1} de ${flow.rounds}.`); }
     await commit(next);
@@ -280,7 +281,21 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
     // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
-    await advance(sets, cur, wasDone, true);
+    // D191: con el resultado guardado en el teléfono, las mismas reglas que el servidor ajustan los objetivos siguientes (sólo
+    // mantener o bajar; nunca la serie hecha) y dejan un único mensaje, que no se repite en este ejercicio. Funciona sin conexión.
+    const extra: Partial<LocalSession> = {};
+    if (!wasDone) {
+      extra.intel = null;
+      if (ex.targets?.length && !ex.change) {
+        const done = Array.from({ length: ex.sets }, (_, i) => ({ i, x: sets[setKey(ex.id, i)] })).filter((y) => y.x?.done).map((y) => ({ index: y.i, w: y.x.w, r: y.x.r, rir: y.x.rir, feel: y.x.feel ?? null }));
+        const full = Array.from({ length: ex.sets }, (_, i) => ex.targets!.find((t) => t.setIndex === i)) as RowTarget[];
+        const a = adjustAfterSet({ ex, targets: full, done, justDone: cur });
+        if (a.changed.length) extra.exercises = s.exercises.map((e) => (e.id === ex.id ? { ...e, targets: a.targets.filter(Boolean) } : e));
+        const key = a.event ? `${ex.id}:${a.event.code}` : null;
+        if (a.event && key && !(s.intelSeen ?? []).includes(key)) { extra.intel = { key, text: a.event.text, restPlusSec: a.event.restPlusSec, at: new Date().toISOString() }; extra.intelSeen = [...(s.intelSeen ?? []), key]; }
+      }
+    }
+    await advance(sets, cur, wasDone, true, extra);
     if (!wasDone && gym && f && FEEL_ALERTS.includes(f as SetFeel) && !navigator.onLine) flash("Sin conexión: el aviso a sala sale al reconectar (si pasaron menos de 10 minutos).");
     if (wasDone) flash(`${rowName(cur)[0].toUpperCase()}${rowName(cur).slice(1)} actualizada.`);
   };
@@ -459,6 +474,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const grp = ex.detail?.group ? groupRounds(s.exercises, ex.detail.group) : null;
   const roundTxt = grp && labels[exIdx] && cur >= 0 ? `${ex.detail?.groupKind === "circuit" ? "Vuelta" : "Ronda"} ${blockOf(cur) + 1} de ${grp.programmed ?? grp.max}` : null;
   const keep = () => { lastAct.current = Date.now(); setStill(null); };
+  // D191: objetivo de la fila en curso (no con un reemplazo hecho en el teléfono: el objetivo era del ejercicio original).
+  const curTarget = !ex.change && cur >= 0 ? ex.targets?.find((t) => t.setIndex === cur) ?? null : null;
+  // Suma tiempo al descanso en curso sin reiniciarlo (sólo si la persona lo toca); la propuesta queda usada y no se repite.
+  const addRest = (sec: number) => rest && commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + sec, total: rest.total + sec } : { ...rest, end: (rest.end ?? Date.now()) + sec * 1000, total: rest.total + sec },
+    intel: s.intel ? { ...s.intel, restPlusSec: null } : null });
   return (
     <div className="wo" onPointerDownCapture={() => { lastAct.current = Date.now(); }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
       <div className="wo-body">
@@ -525,8 +545,12 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             ? <button type="button" className="wo-howto" onClick={() => setHowto(true)}><Ic i={PlayCircle} size={18} /> Ver cómo se hace</button>
             : <a className="wo-howto" href={ex.media?.url ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${sub ? sub.name : ex.name} técnica`)}`} target="_blank" rel="noopener noreferrer">
               <Ic i={PlayCircle} size={18} /> {ex.media ? "Ver cómo se hace" : "Buscar cómo se hace en YouTube"}</a>)}
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>
-          {ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
+          {curTarget ? (
+            <TargetCard t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !!curRow && !curRow.done}
+              real={curRow?.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null}
+              onUse={(w, r) => { editCur({ ...(w != null ? { w } : {}), ...(r != null ? { r } : {}) }); flash("Objetivo cargado: ajustalo si hace falta antes de completar."); }} />
+          ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>}
+          {!curTarget && ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
             <div className="wo-suggest" role="note">
               <small>REPI sugiere hoy</small>
               <b>{ex.suggest.weightKg != null ? `${kg(ex.suggest.weightKg, unit)} × ` : ""}{ex.suggest.reps} reps</b>
@@ -583,6 +607,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 <button type="button" className="plus30" onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + 30, total: rest.total + 30 } : { ...rest, end: (rest.end ?? Date.now()) + 30_000, total: rest.total + 30 } })}>+30s</button>
               </div>
             </div>
+            {s.intel && <p className="ti-rest" role="status">{s.intel.text}{s.intel.restPlusSec ? <> <button type="button" className="linkbtn" onClick={() => void addRest(s.intel!.restPlusSec!)}>Sumar {s.intel.restPlusSec} s</button></> : null}</p>}
             <div className="rest-foot"><span>Próxima: {cur >= 0 ? rowName(cur) : "serie"} · {curRow?.pend ? "peso por elegir" : kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
             {restAlert !== "unsupported" && (
               <div className="rest-alert">
@@ -632,7 +657,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               );
             })()}
             {!curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
-            {curRow.pend && !curRow.done && (() => {
+            {curRow.pend && !curRow.done && curTarget?.weightKg == null && (() => {
               // D182: referencia del método para confirmar (back-off −15 % del top, drop −20 % de la anterior). Nunca se aplica sola.
               const hint = reducedLoadHint(ex.detail?.setPlan, cur, rows.map((x) => (x.pend && !x.done ? null : x.w)));
               return (
@@ -668,6 +693,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         ) : (
           <>
             <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {blocks.length} {blocks.length === 1 ? "serie" : "series"}</span>
+            {!ex.change && ex.outlook?.proposal && <p className="ti-outlook"><small>Para la próxima sesión</small>{ex.outlook.proposal.text}{ex.outlook.proposal.requiresCoach ? " Lo decide tu profe." : ""}</p>}
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
               : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a la serie pendiente</button>
                 : <button type="button" className="cta" onClick={() => void finish()} aria-busy={busy || undefined}>Completar entrenamiento</button>}

@@ -1,7 +1,7 @@
 "use client";
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
-import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type SessionStatus, type SetKind, type Suggestion } from "@repi/domain";
+import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type Proposal, type RowTarget, type SessionStatus, type SetKind, type Suggestion, type Trend } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
@@ -17,6 +17,10 @@ export type LocalEx = { id: string; exerciseId: string; name: string; sets: numb
   change?: ExChange | null; origPrev?: LocalEx["prev"];
   suggest?: Suggestion | null; // D154: carga y reps sugeridas por REPI para hoy (sin carga indicada por el profe)
   media?: { kind: "video" | "link"; url: string } | null; // D164: cómo se hace (video o enlace del gimnasio o del coach)
+  // D191: objetivo de REPI por fila (del servidor; durante la sesión se ajusta acá con las mismas reglas, también sin conexión).
+  // Nunca es un resultado: lo registrado está en `sets`.
+  targets?: (RowTarget & { id?: string })[] | null;
+  outlook?: { trend: Trend; proposal: Proposal | null } | null;
 };
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
@@ -31,6 +35,8 @@ export type LocalSession = {
   // D183 + D184: EMOM. Intervalo en curso (`start` en el reloj de este teléfono), qué serie es y si se interrumpió. Se
   // sincroniza: `ivAt` es cuándo cambió acá; `skew` = hora del servidor − hora del teléfono (la última que se observó).
   iv?: LocalInterval | null; ivAt?: string | null; skew?: number;
+  // D191: último mensaje de Training Intelligence (uno solo) y los ya mostrados (`ejercicio:código`), para no repetirlos.
+  intel?: { key: string; text: string; restPlusSec: number | null; at: string } | null; intelSeen?: string[];
   updatedAt: string;
 };
 export type LocalInterval = { peId: string; block: number; start: number; emomSec: number; status: "running" | "interrupted" };
@@ -107,9 +113,12 @@ export function fromServer(x: {
         // D134: si el plan fija el peso o las repeticiones de esta serie, se precargan esas (drop, top set, back-off).
         // D182: una serie reducida sin peso en el plan no hereda la carga de otra serie ni la sugerencia: queda por elegir.
         const plan = e.detail?.setPlan?.[i];
-        const st = startWeight({ kind, planKg: plan?.weightKg, suggestKg: !logged ? sg?.weightKg : null, carriedKg: carriesLoad(carryKind, kind) ? carry : null });
+        // D191: el objetivo de la fila (si REPI lo calculó y no es una serie reducida) precarga el borrador, sólo antes de la
+        // primera serie registrada: después manda la carga que la persona eligió (no se pisa una elección manual).
+        const t = e.change ? null : (e.targets ?? []).find((y) => y.setIndex === i && y.source === "rules" && !y.pending && y.weightKg != null) ?? null;
+        const st = startWeight({ kind, planKg: plan?.weightKg, suggestKg: !logged ? t?.weightKg ?? sg?.weightKg : null, carriedKg: carriesLoad(carryKind, kind) ? carry : null });
         sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}),
-          r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null,
+          r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && t ? t.repsTarget ?? t.repsMin : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null,
           ...(sk ? { skip: sk.skipped, skipAt: sk.changedAt } : {}) }; // D184: omitida (o deshecha) en cualquier dispositivo
       }
     }
@@ -119,7 +128,7 @@ export function fromServer(x: {
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
     skew, ivAt: x.interval?.at ? new Date(Date.parse(x.interval.at) - skew).toISOString() : null,
     iv: x.interval ? { peId: x.interval.peId, block: x.interval.block, start: Date.parse(x.interval.startedAt) - skew, emomSec: x.interval.emomSec, status: x.interval.status } : null,
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null })),
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null })),
     sets,
   };
 }
