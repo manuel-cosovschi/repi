@@ -4,6 +4,9 @@
 #
 #   backup-ci.sh pack   <carpeta del respaldo> <carpeta de salida> <destinatarios age>   → <salida>/<nombre>.tar.gz.age
 #   backup-ci.sh verify <archivo .age> <identidad age> <carpeta de trabajo> [informe.json] → descifra, comprueba y restaura
+#   backup-ci.sh release-draft <etiqueta> <título> <notas.md> <commit> <archivo>…   → crea el release BORRADOR, sube, imprime el id
+#   backup-ci.sh release-download <id> <carpeta>                                     → baja los archivos de ese release por id
+# (release-*: con `gh` autenticado y GITHUB_REPOSITORY; todo por id, porque un borrador recién creado tarda en listarse)
 #
 # pack cifra para los destinatarios del titular (clave privada fuera de GitHub) y para una clave EFÍMERA creada acá.
 # Con esa efímera, el mismo job descifra el archivo ya cifrado y lo restaura en PostgreSQL descartable: así se prueba el
@@ -66,5 +69,27 @@ case "${1:-}" in
     # restore.ts recalcula cada hash contra el manifiesto, restaura en repi_restore_check y comprueba filas e integridad.
     (cd "$web" && pnpm -s exec tsx scripts/operations/restore.ts "$work" ${report:+--report="$report"})
     ;;
-  *) die "uso: backup-ci.sh pack|verify …" ;;
+  release-draft)
+    tag="${2:?etiqueta}"; title="${3:?título}"; notes="${4:?notas}"; target="${5:?commit}"; shift 5
+    repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY}"
+    id="$(gh api -X POST "repos/$repo/releases" -f tag_name="$tag" -f target_commitish="$target" -f name="$title" -F draft=true -F body=@"$notes" --jq .id)"
+    [[ "$id" =~ ^[0-9]+$ ]] || die "no se pudo crear el release."
+    for f in "$@"; do
+      gh api -X POST "https://uploads.github.com/repos/$repo/releases/$id/assets?name=$(basename "$f")" -H "Content-Type: application/octet-stream" --input "$f" --jq .id >/dev/null \
+        || die "no se pudo subir $(basename "$f")."
+    done
+    echo "$id"
+    ;;
+  release-download)
+    id="${2:?id}"; dir="${3:?carpeta}"; repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY}"
+    mkdir -p "$dir"
+    gh api "repos/$repo/releases/$id/assets?per_page=100" --jq '.[] | "\(.id) \(.name)"' > "$dir/.assets"
+    [[ -s "$dir/.assets" ]] || die "el release no tiene archivos."
+    while read -r aid name; do
+      [[ "$aid" =~ ^[0-9]+$ && "$name" =~ ^[A-Za-z0-9._-]+$ ]] || die "archivo de release inesperado."
+      gh api -H "Accept: application/octet-stream" "repos/$repo/releases/assets/$aid" > "$dir/$name"
+    done < "$dir/.assets"
+    rm -f "$dir/.assets"
+    ;;
+  *) die "uso: backup-ci.sh pack|verify|release-draft|release-download …" ;;
 esac
