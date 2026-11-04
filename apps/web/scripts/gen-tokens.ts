@@ -19,5 +19,16 @@ for (const [k, v] of Object.entries(tokens.motion.duration_ms)) lines.push(`  --
 lines.push(`  --font-ui: var(--font-barlow), "Barlow", system-ui, sans-serif;`);
 lines.push(`  --font-display: var(--font-barlow-condensed), "Barlow Condensed", var(--font-ui);`);
 lines.push(`  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;`);
-writeFileSync(new URL("../src/styles/tokens.css", import.meta.url), `/* Generado por scripts/gen-tokens.ts. No editar. */\n:root {\n${lines.join("\n")}\n}\n`);
+// D188: tema global. Sin atributo (antes de hidratar o sin JS) sigue al dispositivo; data-theme en <html> lo fija el
+// script de arranque (ThemeScript) con la preferencia guardada. .ui-dark / .ui-light fijan una zona (barra lateral navy,
+// tarjeta del día, informes) sin depender del tema activo: gana por estar declarada en el propio elemento.
+const vars = (t: Record<string, string>) => Object.entries(t).map(([k, v]) => `  --ui-${k}: ${v};`).join("\n");
+const light = `${vars(tokens.theme.light)}\n  color-scheme: light;`;
+const dark = `${vars(tokens.theme.dark)}\n  color-scheme: dark;`;
+const theme = [
+  `:root, .ui-light {\n${light}\n}`,
+  `@media (prefers-color-scheme: dark) {\n  :root:not([data-theme="light"]) {\n${dark.replace(/^/gm, "  ")}\n  }\n}`,
+  `:root[data-theme="dark"], .ui-dark {\n${dark}\n}`,
+].join("\n");
+writeFileSync(new URL("../src/styles/tokens.css", import.meta.url), `/* Generado por scripts/gen-tokens.ts. No editar. */\n:root {\n${lines.join("\n")}\n}\n${theme}\n`);
 console.log(lines.length, "tokens");
