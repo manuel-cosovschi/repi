@@ -16,8 +16,10 @@ export function targetLine(t: T, unit: WeightUnit) {
   return [t.weightKg != null && t.weightKg > 0 ? kg(t.weightKg, unit) : null, reps].filter(Boolean).join(" × ");
 }
 
-export function TargetCard({ t, unit, real, label, onUse, canUse }: {
+export function TargetCard({ t, unit, real, label, onUse, canUse, noCoachLoad = false }: {
   t: T; unit: WeightUnit; label: string;
+  /** D193: el plan de esta fila no tiene carga del profe (se dice; «Sin referencia» habla del historial, no del plan). */
+  noCoachLoad?: boolean;
   /** Lo registrado en esta fila hoy (null: todavía no). */
   real: { w: number; r: number; rir: number | null } | null;
   onUse: (w: number | null, r: number | null) => void; canUse: boolean;
@@ -34,6 +36,7 @@ export function TargetCard({ t, unit, real, label, onUse, canUse }: {
         <div><small>Real</small><b>{real ? `${real.w > 0 ? `${kg(real.w, unit)} × ` : ""}${real.r}${real.rir != null ? ` · RIR ${real.rir}` : ""}` : "Por registrar"}</b></div>
       </div>
       {t.why && <p className="ti-why">{localizeWeights(t.why, unit)}</p>}
+      {noCoachLoad && t.source !== "coach" && t.status !== "not_applicable" && <p className="ti-quality">Tu profe no indicó un peso para esta serie.</p>}
       {t.review && <p className="ti-review" role="note">{localizeWeights(t.review, unit)}</p>}
       {t.source === "rules" && t.weightKg != null && t.reasons.includes("increment_unknown") && <p className="ti-quality">Carga de referencia: ajustala a los discos o mancuernas que tengas. REPI no sabe qué saltos hay en este equipo.</p>}
       {t.prev?.source === "import" && <p className="ti-quality">Referencia de tu historial importado: puede no ser la misma serie.</p>}

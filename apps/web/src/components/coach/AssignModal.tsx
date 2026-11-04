@@ -23,7 +23,7 @@ export function AssignModal({ orgId, ov, programId, name, flash, onClose, onDone
     try {
       const r = await api<{ names: string[] }>(`/api/coach/${orgId}/programs/${programId}/assign`, { body: { coachClientIds: ids, startsOn: start } });
       const when = start === opts[0].date ? "desde hoy" : `desde el ${formatDayEs(start)}`;
-      flash(`Programa asignado a ${r.names.map((x) => x.split(" ")[0]).join(", ")}. Lo verá en la app ${when}.`);
+      flash(`Programa asignado a ${r.names.map((x) => x.split(" ")[0]).join(", ")}. Lo verá en la app ${when}. Si tiene un entrenamiento abierto, le aparece «Aplicar ahora».`);
       onDone();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
