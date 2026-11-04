@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BACKUP_AUDIENCE, BACKUP_POLICY, GITHUB_ISSUER, isBackupWorkflow, verifyGithubToken, type Jwk } from "../../../../supabase/functions/repi-storage/github-oidc";
+import { readFileSync } from "node:fs";
+import { BACKUP_AUDIENCE, BACKUP_POLICY, DB_AUDIENCE, GITHUB_ISSUER, isBackupWorkflow, verifyGithubToken, type Jwk } from "../../../../supabase/functions/repi-storage/github-oidc";
 
 // D190: Storage sólo firma lecturas para un token de GitHub del workflow de respaldo, en main, de este repositorio.
 const b64 = (b: Uint8Array | string) => Buffer.from(b).toString("base64url");
@@ -47,4 +48,16 @@ test("rechaza otra rama, PR, otro workflow, otro repositorio u otra audiencia", 
     assert.equal(isBackupWorkflow({ ...good, ...change }), false, JSON.stringify(change));
   }
   assert.equal(isBackupWorkflow(null), false);
+});
+
+test("la credencial de la base usa otra audiencia: un token de Storage no la obtiene, ni al revés", () => {
+  assert.equal(isBackupWorkflow({ ...good, aud: DB_AUDIENCE }, DB_AUDIENCE), true);
+  assert.equal(isBackupWorkflow({ ...good, aud: BACKUP_AUDIENCE }, DB_AUDIENCE), false);
+  assert.equal(isBackupWorkflow({ ...good, aud: DB_AUDIENCE }), false);
+  assert.equal(isBackupWorkflow({ ...good, aud: DB_AUDIENCE, ref: "refs/heads/otra" }, DB_AUDIENCE), false);
+});
+
+test("las dos Edge Functions usan la misma verificación (copias idénticas)", () => {
+  const base = new URL("../../../../supabase/functions/", import.meta.url);
+  assert.equal(readFileSync(new URL("repi-backup-credentials/github-oidc.ts", base), "utf8"), readFileSync(new URL("repi-storage/github-oidc.ts", base), "utf8"));
 });
