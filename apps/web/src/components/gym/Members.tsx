@@ -43,7 +43,7 @@ export function MembersScreen({ shell }: { shell: Shell }) {
       {list.err && <p role="alert" className="err-box">{list.err}</p>}
       <div className="split">
         <div className="list-pane">
-          <label className="search"><Ic i={MagnifyingGlass} size={16} color="#5B6B80" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar socio" aria-label="Buscar socio" /></label>
+          <label className="search"><Ic i={MagnifyingGlass} size={16} color="var(--ui-muted)" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar socio" aria-label="Buscar socio" /></label>
           {/* QA 29/10 (DATA-10): la lista trae hasta 200; con más, se avisa y se busca por nombre. */}
           {(list.data?.members.length ?? 0) >= 200 && <span className="muted" role="status" style={{ padding: "8px 12px", fontSize: 13 }}>Se muestran los primeros 200 en orden alfabético. Buscá por nombre para encontrar al resto.</span>}
           {list.data?.members.map((m) => (
@@ -158,7 +158,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
         {!notes.length && <span className="muted" style={{ fontSize: 14 }}>Sin notas.</span>}
       </section>
       <section className="card lock" style={{ flexDirection: "row" }}>
-        <Ic i={Lock} size={22} color="#5B6B80" />
+        <Ic i={Lock} size={22} color="var(--ui-muted)" />
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <h2>Datos restringidos</h2>
           <span className="muted" style={{ fontSize: 14 }}>{m.restricted.join(" · ")}. El gym no los ve: son del socio y de las relaciones que él autorice.</span>
@@ -261,7 +261,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       </label>
       {mentionsHealth(reason) && <p className="gy-warn" role="note" style={{ margin: 0 }}>El motivo lo ve el equipo: evitá datos de salud.</p>}
       {related && (
-        <label className="mrow" style={{ border: "1px solid #E2E8F0" }}>
+        <label className="mrow" style={{ border: "1px solid var(--ui-border)" }}>
           <input type="checkbox" checked={complete} onChange={(e) => setComplete(e.target.checked)} />
           <span><b style={{ fontSize: 14 }}>Completar {related.ref} · {TASK_CATEGORY[related.category]}</b><small className="muted">Queda atribuida a vos.</small></span>
         </label>

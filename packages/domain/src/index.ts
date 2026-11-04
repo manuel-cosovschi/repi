@@ -7,6 +7,7 @@ export * from "./gym";
 export * from "./community";
 export * from "./commercial";
 export * from "./units";
+export * from "./theme";
 export * from "./goals";
 export * from "./agenda";
 export * from "./csv";

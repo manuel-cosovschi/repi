@@ -45,13 +45,13 @@ function ConnectCard({ c, onOpen, onTake, busy }: { c: Card; onOpen: () => void;
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <span className={`chip ${STATE_CHIP[c.state] ?? "info"}`}>{c.stateLabel}</span>
           <span className={`chip ${PRI_CHIP[c.priority]}`} title={CONNECT_PRIORITY_RULE}>{TASK_PRIORITY[c.priority]}</span>
-          <span style={{ font: "500 11px var(--font-mono)", color: "#5B6B80" }}>{c.ref}</span>
+          <span style={{ font: "500 11px var(--font-mono)", color: "var(--ui-muted)" }}>{c.ref}</span>
           {c.fromSession && <span className="chip info">Entrenando ahora</span>}
           {c.overdue && <span className="chip bad">Seguimiento vencido</span>}
         </div>
         <span style={{ fontSize: 15, fontWeight: 600 }}>{c.member ?? "Sin socio asociado"} · {c.label}{c.exercise ? ` · ${c.exercise}` : ""}</span>
         {c.summary && c.summary !== `${c.label}${c.exercise ? ` · ${c.exercise}` : ""}` && <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>«{c.summary}»</span>}
-        {c.lastNote?.text && <span style={{ fontSize: 13, color: "#334155" }}><b>{c.lastNote.kind === "member_comment" ? "Socio" : c.lastNote.by?.split(" ")[0]}:</b> {c.lastNote.text}</span>}
+        {c.lastNote?.text && <span style={{ fontSize: 13, color: "var(--ui-text-2)" }}><b>{c.lastNote.kind === "member_comment" ? "Socio" : c.lastNote.by?.split(" ")[0]}:</b> {c.lastNote.text}</span>}
       </div>
       <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
         <span className="muted">{SOURCE[c.source] ?? c.source} · {age(c.ageMin)}</span>
@@ -276,7 +276,7 @@ export function ConnectReportScreen({ shell }: { shell: Shell }) {
           </div>
           <div className="grid-2" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,380px),1fr))" }}>
             <section className="card"><h2>Pedidos por semana</h2><Bars label="Pedidos recibidos por semana" data={v.weekly.map((w) => ({ label: w.label, n: w.received }))} /></section>
-            <section className="card"><h2>Resueltos por semana</h2><Bars label="Pedidos resueltos por semana" color="#5DE6D8" data={v.weekly.map((w) => ({ label: w.label, n: w.resolved }))} /></section>
+            <section className="card"><h2>Resueltos por semana</h2><Bars label="Pedidos resueltos por semana" color="var(--ui-accent-2)" data={v.weekly.map((w) => ({ label: w.label, n: w.resolved }))} /></section>
           </div>
           {v.stateNow && (
             <section className="card"><h2>Estado ahora</h2>

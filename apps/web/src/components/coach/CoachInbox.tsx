@@ -35,14 +35,14 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
           <section className="card">
             <h2>Pedidos de alumnos</h2>
             {d.requests.map((r) => (
-              <div key={r.id} style={{ border: "1px solid #E2E8F0", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8, opacity: r.status === "done" ? .65 : 1 }}>
+              <div key={r.id} style={{ border: "1px solid var(--ui-border)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8, opacity: r.status === "done" ? .65 : 1 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <span className="chip info">{REQUEST_KIND[r.kind]}</span><b style={{ fontSize: 13 }}>{r.member}</b><span className="muted">{when(r.createdAt)}</span>
                   {r.status === "done" && <span className="chip ok">Resuelto</span>}
                 </div>
                 <span style={{ fontSize: 14, lineHeight: 1.45 }}>{r.text}</span>
                 {r.videoDeleted && <span className="muted">Video eliminado: se borra 90 días después de resolver el pedido.</span>}
-                {r.videoId && <video src={`/api/media/${r.videoId}`} controls preload="metadata" style={{ width: "100%", maxHeight: 260, borderRadius: 10, background: "#0B0F14" }} aria-label={`Video de técnica de ${r.member}`} />}
+                {r.videoId && <video src={`/api/media/${r.videoId}`} controls preload="metadata" style={{ width: "100%", maxHeight: 260, borderRadius: 10, background: "var(--ui-border)" }} aria-label={`Video de técnica de ${r.member}`} />}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {r.status === "open" && <button type="button" className="btn sm" onClick={() => resolve(r.id)}>Marcar resuelto</button>}
                   {r.kind === "programa" && r.status === "open" && <button type="button" className="btn sm pri" onClick={() => go("builder")}>Asignar programa</button>}
@@ -56,14 +56,14 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
             <section className="card">
               <h2>Molestias y check-ins recientes</h2>
               {d.pains.map((p) => (
-                <button key={p.id} type="button" className="trow" style={{ border: 0, borderBottom: "1px solid #EEF2F6", background: "none", textAlign: "left", cursor: "pointer", width: "100%", font: "inherit", color: "inherit" }} onClick={() => go("clients", { sel: p.relId })}>
-                  <span className="dot" style={{ background: p.level >= 4 ? "#F59E0B" : "#5DE6D8" }} />
+                <button key={p.id} type="button" className="trow" style={{ border: 0, borderBottom: "1px solid var(--ui-divider)", background: "none", textAlign: "left", cursor: "pointer", width: "100%", font: "inherit", color: "inherit" }} onClick={() => go("clients", { sel: p.relId })}>
+                  <span className="dot" style={{ background: p.level >= 4 ? "var(--ui-warning)" : "var(--ui-accent-2)" }} />
                   <span style={{ flex: 1 }}><b>{p.member} · {p.zone} {p.level}/10</b> · {p.exerciseName ?? PAIN_CONTEXT[p.context]}{p.note ? ` · “${p.note}”` : ""}{p.shared ? " · compartida sólo este reporte" : ""}{p.level >= PAIN_WARN_LEVEL ? " · intensidad alta" : ""}</span>
                   <span className="muted">{when(p.createdAt)}</span>
                 </button>
               ))}
               {d.checkins.map((c) => (
-                <div key={c.id} className="trow"><span className="dot" style={{ background: "#9BB0C4" }} /><span style={{ flex: 1 }}><b>{c.member}</b> · check-in: energía {c.energy}/5 · sueño {c.sleep}/5 · ánimo {c.mood}/5</span><span className="muted">{c.date.split("-").reverse().slice(0, 2).join("/")}</span></div>
+                <div key={c.id} className="trow"><span className="dot" style={{ background: "var(--ui-faint)" }} /><span style={{ flex: 1 }}><b>{c.member}</b> · check-in: energía {c.energy}/5 · sueño {c.sleep}/5 · ánimo {c.mood}/5</span><span className="muted">{c.date.split("-").reverse().slice(0, 2).join("/")}</span></div>
               ))}
               {!d.pains.length && !d.checkins.length && <span className="muted" style={{ fontSize: 14 }}>Nada nuevo desde la app. Las molestias sólo aparecen si el alumno compartió su salud o ese reporte.</span>}
             </section>
@@ -77,7 +77,7 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
             <section className="card">
               <h2>Invitaciones</h2>
               {d.invitations.map((i) => (
-                <div key={i.id} className="trow"><span style={{ flex: "1 1 160px" }}>{i.email ?? "Enlace sin email"}</span><span style={{ font: "600 13px var(--font-mono)", color: "#006B88" }}>{i.code}</span><span className="chip warn">Pendiente · vence {fmtDate(i.expiresAt)}</span>{i.delivery === "failed" && <span className="chip bad">El correo no salió</span>}{i.delivery === "local_only" && <span className="chip mute">Sólo buzón local</span>}
+                <div key={i.id} className="trow"><span style={{ flex: "1 1 160px" }}>{i.email ?? "Enlace sin email"}</span><span style={{ font: "600 13px var(--font-mono)", color: "var(--ui-link)" }}>{i.code}</span><span className="chip warn">Pendiente · vence {fmtDate(i.expiresAt)}</span>{i.delivery === "failed" && <span className="chip bad">El correo no salió</span>}{i.delivery === "local_only" && <span className="chip mute">Sólo buzón local</span>}
                   {i.email && <button type="button" className="btn sm" onClick={async () => { try { const r = await api<{ delivery?: string }>("/api/access/invitations/resend", { body: { id: i.id } }); flash(r.delivery === "failed" ? `Nueva invitación creada, pero el correo a ${i.email} no salió. Pasale el código.` : `Invitación reenviada a ${i.email}. La anterior ya no sirve.`); await load(); } catch (e) { flash((e as Error).message); } }}>Reenviar</button>}</div>
               ))}
               {!d.invitations.length && <span className="muted" style={{ fontSize: 14 }}>No hay invitaciones pendientes.</span>}

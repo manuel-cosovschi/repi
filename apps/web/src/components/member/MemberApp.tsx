@@ -31,6 +31,7 @@ import { BeforeRepi } from "./HistoryImport";
 import { Wishes } from "./Wishes";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
+import { ThemePicker } from "@/components/theme/ThemePicker";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
@@ -406,7 +407,7 @@ function withProgramNotice(feed: Feed | null, t: Training | null): Notif[] {
   return [n, ...items].sort((a, b) => b.at.localeCompare(a.at));
 }
 
-const TONE: Record<Notif["tone"], string> = { cyan: "#00D1FF", turq: "#5DE6D8", ok: "#10B981", bad: "#EF4444", mute: "#2D3B4F" };
+const TONE: Record<Notif["tone"], string> = { cyan: "var(--ui-accent)", turq: "var(--ui-accent-2)", ok: "var(--ui-success)", bad: "var(--ui-error)", mute: "var(--ui-muted)" };
 function whenTxt(at: string) {
   const d = new Date(at), mins = Math.round((Date.now() - d.getTime()) / 60_000);
   if (mins < 60) return mins <= 1 ? "Ahora" : `${mins} min`;
@@ -489,15 +490,15 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
           ahí se ve qué pasó con su sincronización y se decide qué hacer con lo guardado en el teléfono. */}
       {t.openSession && !(t.state === "ready" && next) && (
-        <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="#0B0F14" />Continuar entrenamiento en curso</button>
+        <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />Continuar entrenamiento en curso</button>
       )}
       {t.state === "ready" && next ? (
         <div style={{ position: "relative" }}>
-          <button type="button" className="today" onClick={() => (t.openSession ? onStart(next.id) : go("train"))} aria-label={t.openSession ? `Continuar ${t.openSessionDay}` : `Ver ${next.name}`}>
+          <button type="button" className="today ui-dark" onClick={() => (t.openSession ? onStart(next.id) : go("train"))} aria-label={t.openSession ? `Continuar ${t.openSessionDay}` : `Ver ${next.name}`}>
             <span className="today-art" aria-hidden="true" />
             <span className="today-txt"><small>{t.openSession ? "Entrenamiento en curso" : "Próximo entrenamiento"}</small><strong>{t.openSessionDay ?? next.name}</strong><span>{t.openSession ? "Tocá para continuar donde lo dejaste" : `${next.exercises.length} ejercicios · ${next.exercises.reduce((a, e) => a + e.sets, 0)} series`}</span></span>
           </button>
-          <button type="button" className="play" aria-label={t.openSession ? "Continuar entrenamiento" : "Comenzar entrenamiento"} onClick={() => onStart(next.id)}><Ic i={Play} size={20} weight="fill" color="#F8FAFC" /></button>
+          <button type="button" className="play" aria-label={t.openSession ? "Continuar entrenamiento" : "Comenzar entrenamiento"} onClick={() => onStart(next.id)}><Ic i={Play} size={20} weight="fill" color="var(--ui-on-primary)" /></button>
         </div>
       ) : t.state === "scheduled" ? (
         <div className="dashed-card"><strong>Tu programa empieza el {formatDayEs(t.startsOn!)}</strong><span>{cap(coachFirst)} ya te lo asignó. Ese día lo vas a ver acá.</span></div>
@@ -520,26 +521,26 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       {t.state === "ready" && t.program?.update && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
       {inbox?.accessRequests.map((a) => (
         <button key={a.id} type="button" className="hbanner cyan" onClick={() => go("perfil")}>
-          <span className="dot" style={{ width: 8, height: 8, borderRadius: 4, background: "#00D1FF", flex: "none" }} />
+          <span className="dot" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
           <span><b>{a.from.split(" ")[0]} pidió ver tu {a.phrase}</b><small>Vos decidís. Podés revocarlo cuando quieras.</small></span><em>Revisar</em>
         </button>
       ))}
       {inbox?.requests.filter((r) => r.unseenResolved).map((r) => (
         <button key={r.id} type="button" className="hbanner" onClick={async () => { await api(`/api/me/requests/${r.id}/seen`, { body: {} }).catch(() => {}); reloadInbox(); }}>
-          <span style={{ width: 8, height: 8, borderRadius: 4, background: "#10B981", flex: "none" }} />
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-success)", flex: "none" }} />
           <span><b>Tu pedido fue resuelto</b><small>{REQUEST_KIND[r.kind]} · {inbox.coach?.name.split(" ")[0] ?? "tu coach"}</small></span><em>Ok</em>
         </button>
       ))}
       {!offline && connect && <ConnectCard refresh={connectTick} onOpen={(id) => onSheet({ type: "connectPanel", id })} />}
       {!connect && inbox?.gymRequests.filter((r) => r.unseen).map((r) => (
         <button key={r.id} type="button" className="hbanner" onClick={async () => { await api(`/api/me/gym/requests/${r.id}/seen`, { body: {} }).catch(() => {}); reloadInbox(); }}>
-          <span style={{ width: 8, height: 8, borderRadius: 4, background: "#10B981", flex: "none" }} />
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-success)", flex: "none" }} />
           <span><b>El equipo de sala resolvió tu pedido</b><small>{r.label}{r.doneBy ? ` · ${r.doneBy.split(" ")[0]}` : ""}</small></span><em>Ok</em>
         </button>
       ))}
       {!offline && inbox?.reviewInvites.map((i) => (
         <div key={i.id} className="hbanner" style={{ flexWrap: "wrap" }}>
-          <span style={{ width: 8, height: 8, borderRadius: 4, background: "#5DE6D8", flex: "none" }} />
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent-2)", flex: "none" }} />
           <span><b>¿Cómo te atendió {i.trainer.split(" ")[0]}?</b><small>Opcional · por {i.kind.toLowerCase()}</small></span>
           <span style={{ display: "flex", gap: 6 }}>
             <button type="button" className="cta sm" style={{ height: 36 }} onClick={() => onSheet({ type: "review", invite: i })}>Opinar</button>
@@ -549,7 +550,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       ))}
       {!offline && (
         <div className="quick">{QUICK.map(([l, d, fn]) => (
-          <button key={l} type="button" onClick={fn}><Ic i={d} size={20} color="#5DE6D8" />{l}</button>
+          <button key={l} type="button" onClick={fn}><Ic i={d} size={20} color="var(--ui-accent-2)" />{l}</button>
         ))}</div>
       )}
       {!offline && connect && <button type="button" className="linkbtn cx-mine" onClick={() => onSheet({ type: "connectPanel" })}>Mis pedidos al equipo de sala</button>}
@@ -592,7 +593,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
       <WeekStrip t={t} />
       {t.openSession && (
-        <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="#0B0F14" />Continuar entrenamiento en curso</button>
+        <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />Continuar entrenamiento en curso</button>
       )}
       {own}
       {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
@@ -608,7 +609,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (
         <button type="button" className="cta" onClick={() => onStart(d.id)}>
-          <Ic i={Play} size={18} weight="fill" color="#0B0F14" />{t.openSession ? "Continuar entrenamiento en curso" : "Comenzar entrenamiento"}
+          <Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />{t.openSession ? "Continuar entrenamiento en curso" : "Comenzar entrenamiento"}
         </button>
       )}
       {own}
@@ -839,7 +840,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       <section style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <h2 style={{ fontSize: 16 }}>Historial de accesos</h2>
         {!p?.history.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Sin movimientos todavía.</span> : p.history.map((h, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #1A2433", fontSize: 14, gap: 12 }}>
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--ui-divider)", fontSize: 14, gap: 12 }}>
             <span>{h.actor === "Vos" ? `${MINE[h.action] ?? h.action} ${h.label.toLowerCase()} con ${coach}` : `${h.actor} ${HIST[h.action] ?? h.action} tu ${(ACCESS_ITEMS as Record<string, { phrase: string }>)[h.item]?.phrase ?? h.label}`}</span>
             <span className="mb-muted" style={{ fontSize: 12, flex: "none" }}>{new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(h.at))}</span>
           </div>
@@ -879,7 +880,7 @@ function NextAppointment({ flash }: { flash: (m: string) => void }) {
     <>
       {show.map((a) => (
         <div key={a.id} className={`hbanner${a.status === "scheduled" ? " cyan" : ""}`} style={{ flexWrap: "wrap", cursor: "default" }}>
-          <span style={{ width: 8, height: 8, borderRadius: 4, background: a.status === "cancelled" ? "#EF4444" : "#00D1FF", flex: "none" }} />
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: a.status === "cancelled" ? "var(--ui-error)" : "var(--ui-accent)", flex: "none" }} />
           <span>
             <b>{a.status === "cancelled" ? `Cancelada: sesión con ${a.coach.split(" ")[0]}` : `Sesión con ${a.coach.split(" ")[0]}`}</b>
             <small style={{ textTransform: "none" }}>{when(a)} · {a.durationMin} min · {a.modality === "online" ? "Online" : "Presencial"}{a.place ? ` · ${a.place}` : ""}</small>
@@ -946,6 +947,8 @@ function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offli
         ))}
       </div>
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Cambia cómo ves y cargás los pesos. Tus registros no se modifican; tu coach los sigue viendo en kg.</span>
+      {/* D188: apariencia de la cuenta; funciona sin conexión y se sincroniza después. */}
+      <div style={{ marginTop: 10 }}><ThemePicker /></div>
     </section>
   );
 }
@@ -998,7 +1001,7 @@ function ProgramNotice({ u, version, name, offline, flash }: { u: ProgramUpdate;
     <>
       {!seen && (
         <div className="hbanner cyan" style={{ flexWrap: "wrap" }} role="status">
-          <span style={{ width: 8, height: 8, borderRadius: 4, background: "#00D1FF", flex: "none" }} />
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
           <span><b>{u.kind === "new" ? `${who} te asignó «${name}»` : `${who} actualizó tu programa`}</b>
             <small>{u.kind === "new" ? when : `Versión ${version} · ${when}${u.reason ? ` · ${u.reason}` : ""}`}</small></span>
           <span style={{ display: "flex", gap: 6 }}>
@@ -1033,10 +1036,10 @@ function MyCharges() {
       <h2 style={{ fontSize: 16 }}>Pagos con tu coach</h2>
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Lo registra tu coach. REPI no cobra ni procesa estos pagos.</span>
       {d.coaches.map((c) => c.charges.map((x) => (
-        <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderBottom: "1px solid #1A2433", fontSize: 14 }}>
+        <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--ui-divider)", fontSize: 14 }}>
           <span>{x.concept}<small className="mb-muted" style={{ display: "block", fontSize: 12 }}>{c.coach} · vence {day(x.dueOn)}</small></span>
           <span style={{ textAlign: "right", flex: "none" }}>{fmtMoney(x.amountMinor, x.currency as Currency)}
-            <small style={{ display: "block", fontSize: 12, color: x.status === "paid" ? "#5DE6D8" : x.status === "void" ? "#8A9BB0" : x.overdue ? "#FCA5A5" : "#F59E0B" }}>
+            <small style={{ display: "block", fontSize: 12, color: x.status === "paid" ? "var(--ui-accent-2)" : x.status === "void" ? "var(--ui-muted)" : x.overdue ? "var(--ui-error-text)" : "var(--ui-warning-text)" }}>
               {x.status === "paid" ? `Pagado${x.paidOn ? ` ${day(x.paidOn)}` : ""}` : x.status === "void" ? "Anulado" : x.overdue ? "Vencido" : "Pendiente"}</small></span>
         </div>
       )))}

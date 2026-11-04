@@ -72,7 +72,7 @@ export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; off
           <>
             <div className="hist">{mine.evolution.slice(0, 12).map((e) => (
               <div key={e.exercise}><span><b>{e.exercise}</b><br /><small className="mb-muted">{e.sessions} {e.sessions === 1 ? "día" : "días"} · desde {d(e.first.day)}</small></span>
-                <span className="mb-muted" style={{ textAlign: "right" }}>{mark(e.first)} → <b style={{ color: "var(--dark-ink)" }}>{mark(e.best)}</b><br /><small>mejor marca</small></span></div>
+                <span className="mb-muted" style={{ textAlign: "right" }}>{mark(e.first)} → <b style={{ color: "var(--ui-text)" }}>{mark(e.best)}</b><br /><small>mejor marca</small></span></div>
             ))}</div>
             {mine.imports.map((i) => (
               <span key={i.id} className="mb-muted" style={{ fontSize: 12 }}>{i.fileName || "Historial"} · {i.sessions} días ({d(i.fromDay)} – {d(i.toDay)}) · <button type="button" className="linkbtn" onClick={() => void remove(i.id)}>Quitar</button></span>

@@ -47,7 +47,7 @@ export function PanelScreen({ shell }: { shell: Shell }) {
           <section className="card"><h2>Sesiones registradas por semana</h2><Bars data={p.data.weeks} label="Sesiones por semana" /><span className="muted">Entrenamientos del programa institucional de socios de la sede.</span></section>
           <section className="card">
             <h2>Reseñas recientes</h2>
-            {p.data.recentReviews.map((r) => <div key={r.id} className="trow"><span style={{ color: "#007EA0" }}>{stars(r.stars)}</span><span style={{ flex: 1 }}>{r.text ?? <i className="muted">Sin comentario</i>}</span><span className="muted">{r.trainer} · {fmt(r.at)}</span></div>)}
+            {p.data.recentReviews.map((r) => <div key={r.id} className="trow"><span style={{ color: "var(--ui-link)" }}>{stars(r.stars)}</span><span style={{ flex: 1 }}>{r.text ?? <i className="muted">Sin comentario</i>}</span><span className="muted">{r.trainer} · {fmt(r.at)}</span></div>)}
             {!p.data.recentReviews.length && <span className="muted" style={{ fontSize: 14 }}>Sin reseñas todavía.</span>}
             <button type="button" className="gy-link" onClick={() => shell.go("reviews")}>Ver análisis de reseñas</button>
           </section>
@@ -193,7 +193,7 @@ export function TasksScreen({ shell }: { shell: Shell }) {
         <Modal label={`Reasignar ${re.ref}`} onClose={() => setRe(null)}>
           <div className="mhead"><h2>Reasignar {re.ref}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => setRe(null)}>×</button></div>
           {[...t.data.staff.map((s) => ({ id: s.id as string | null, name: s.name })), { id: null, name: "Cola compartida (sin asignar)" }].map((s) => (
-            <label key={s.id ?? "pool"} className="mrow" style={{ border: `1px solid ${to === s.id ? "#00D1FF" : "#E2E8F0"}` }}><input type="radio" name="to" checked={to === s.id} onChange={() => setTo(s.id)} /><span style={{ fontSize: 14 }}>{s.name}</span></label>
+            <label key={s.id ?? "pool"} className="mrow" style={{ border: `1px solid ${to === s.id ? "var(--ui-accent)" : "var(--ui-muted)"}` }}><input type="radio" name="to" checked={to === s.id} onChange={() => setTo(s.id)} /><span style={{ fontSize: 14 }}>{s.name}</span></label>
           ))}
           <div className="mfoot"><button type="button" className="btn" onClick={() => setRe(null)}>Cancelar</button>
             <button type="button" className="btn pri" aria-busy={busy === "re" || undefined} onClick={() => run("re", () => api(`/api/gym/${shell.orgId}/tasks/${re.id}/reassign`, { body: { toUserId: to } }), `${re.ref} reasignada.`).then((r) => { if (r) { setRe(null); t.reload(); } })}>Reasignar</button></div>

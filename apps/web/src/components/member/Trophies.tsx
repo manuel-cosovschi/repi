@@ -32,7 +32,7 @@ export function Medal({ k, tier, size = 88, spin }: { k: string; tier: TrophyTie
           <img src="/brand/icon_r.png" alt="" /><b />
         </div>
         <div className="tm-face tm-front">
-          <span className="tm-core"><Ic i={ICON[k] ?? Trophy} size={Math.round(size * 0.34)} color={tier ? "#00D1FF" : "#5B6B80"} /><b /></span>
+          <span className="tm-core"><Ic i={ICON[k] ?? Trophy} size={Math.round(size * 0.34)} color={tier ? "var(--ui-accent)" : "var(--ui-muted)"} /><b /></span>
           <i className="tm-sheen" />
         </div>
       </div>
@@ -57,7 +57,7 @@ export function LevelPanel({ data, onReplay }: { data?: LevelData | null; onRepl
   };
   return (
     <section className="lv" aria-label="Tu nivel y trofeos">
-      <div className="lv-card">
+      <div className="lv-card ui-dark">
         <div className="lv-top">
           <span className="lv-num"><small>Nivel</small>{d.level}</span>
           <span className="lv-xp"><b>{d.xp.toLocaleString("es-AR")}</b> puntos</span>
@@ -176,7 +176,7 @@ export function TrophyUnlock({ items, onDone }: { items: Unlock[]; onDone: () =>
   const words = it.title.replace(" · ", " ").split(" ");
   const last = i === items.length - 1;
   return (
-    <div className="tu" ref={root} role="dialog" aria-modal="true" aria-label={`Trofeo desbloqueado: ${it.title}`} data-tier={it.tier}>
+    <div className="tu ui-dark" ref={root} role="dialog" aria-modal="true" aria-label={`Trofeo desbloqueado: ${it.title}`} data-tier={it.tier}>
       <div className="tu-glow" />
       <div className="tu-stage">
         <div className="tu-scene" onPointerDown={(e) => { drag.current = { x: e.clientX, y: e.clientY }; (e.target as HTMLElement).setPointerCapture?.(e.pointerId); }}

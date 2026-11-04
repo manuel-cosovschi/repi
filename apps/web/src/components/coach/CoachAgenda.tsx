@@ -28,7 +28,7 @@ export function TodayAgenda({ orgId, go }: { orgId: string; go: () => void }) {
     <>
       {d.err && <span className="muted">{d.err}</span>}
       {!d.data ? <span className="muted">Cargando…</span> : !items.length ? <span className="muted" style={{ fontSize: 14 }}>No tenés sesiones agendadas para hoy.</span> : items.map((a) => (
-        <div key={a.id} className="todo"><span className="mono" style={{ width: 52, color: "#006B88" }}>{a.time}</span><span><b>{a.client}</b><small>{where(a)}{a.note ? ` · ${a.note}` : ""}</small></span>
+        <div key={a.id} className="todo"><span className="mono" style={{ width: 52, color: "var(--ui-link)" }}>{a.time}</span><span><b>{a.client}</b><small>{where(a)}{a.note ? ` · ${a.note}` : ""}</small></span>
           <span className={`chip ${RS[a.clientResponse]}`}>{APPT_RESPONSE[a.clientResponse]}</span></div>
       ))}
       <button type="button" className="btn sm" style={{ alignSelf: "flex-start", marginTop: 6 }} onClick={go}>Ver agenda</button>

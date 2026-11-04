@@ -242,14 +242,14 @@ export function InstallSteps() {
 function Li({ i, t, d }: { i: typeof Export; t: string; d: string }) {
   return (
     <li>
-      <span className="ig-num" aria-hidden="true"><Ic i={i} size={20} color="#00D1FF" /></span>
+      <span className="ig-num" aria-hidden="true"><Ic i={i} size={20} color="var(--ui-accent)" /></span>
       <span><strong>{t}</strong><small>{d}</small></span>
     </li>
   );
 }
 
 function Who({ t, d }: { t: string; d: string }) {
-  return <li><span className="ig-num" aria-hidden="true"><Ic i={CheckCircle} size={20} color="#00D1FF" /></span><span><strong>{t}</strong><small>{d}</small></span></li>;
+  return <li><span className="ig-num" aria-hidden="true"><Ic i={CheckCircle} size={20} color="var(--ui-accent)" /></span><span><strong>{t}</strong><small>{d}</small></span></li>;
 }
 
 function PhoneQr() {

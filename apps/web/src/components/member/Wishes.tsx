@@ -25,7 +25,7 @@ export function Wishes({ offline, flash }: { offline: boolean; flash: (m: string
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>REPI lo usa en «No vino el profe» para ajustar tu rutina del día. Tu programa no cambia. Sólo lo ve tu coach o el gym si lo marcás abajo. No pongas datos de salud: para eso está «Molestia».</span>
       <div className="wish-goals" role="radiogroup" aria-label="Objetivo principal">
         {(Object.entries(TRAINING_WISH_GOALS) as [TrainingWishGoal, string][]).map(([k, label]) => (
-          <button key={k} type="button" role="radio" className="ai-chip" aria-checked={w.goal === k} aria-pressed={w.goal === k} onClick={() => set({ goal: w.goal === k ? null : k })}>{label}</button>
+          <button key={k} type="button" role="radio" className="ai-chip" aria-checked={w.goal === k} onClick={() => set({ goal: w.goal === k ? null : k })}>{label}</button>
         ))}
       </div>
       <div className="wish-row">

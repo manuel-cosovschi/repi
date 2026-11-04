@@ -33,7 +33,7 @@ export function DemoPicker() {
       </div>
       {ROLES.map(([k, t, d, icon]) => (
         <button key={k} type="button" className="ac-opt" onClick={() => go(k)} disabled={!!busy} aria-busy={busy === k || undefined}>
-          <span className="ac-opt-ic" aria-hidden="true"><Ic i={icon} size={22} color="#00D1FF" /></span>
+          <span className="ac-opt-ic" aria-hidden="true"><Ic i={icon} size={22} color="var(--ui-accent)" /></span>
           <span><strong>{t}</strong><small>{busy === k ? "Armando tu demo…" : d}</small></span>
           <Ic i={CaretRight} size={16} style={{ color: "var(--t-muted)" }} />
         </button>

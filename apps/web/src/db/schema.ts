@@ -786,8 +786,12 @@ export const userPref = pgTable("user_pref", {
   notificationsSeenAt: ts("notifications_seen_at"), // F-NT-01: lo anterior figura como leído en el centro de notificaciones
   weightUnit: text("weight_unit", { enum: ["kg", "lb"] }).notNull().default("kg"), // F-HX-23: sólo presentación; se guarda en kg
   wishes: jsonb("wishes"), // D139 (TrainingWishes): objetivo, días, minutos, gustos y lo que evita (para la IA)
+  // D188: apariencia de la cuenta (no del rol ni del gimnasio). «system» sigue al dispositivo. theme_changed_at es el
+  // momento del cambio en el dispositivo: entre dos dispositivos gana el último (también si uno estaba sin conexión).
+  theme: text("theme", { enum: ["light", "dark", "system"] }).notNull().default("system"),
+  themeChangedAt: ts("theme_changed_at"),
   updatedAt: now("updated_at"),
-});
+}, (t) => [check("user_pref_theme_valid", sql`${t.theme} in ('light', 'dark', 'system')`)]);
 
 // Turno planificado (grilla del gerente, F-GM-04). Un código por persona, sede y día.
 export const shiftPlan = pgTable("shift_plan", {

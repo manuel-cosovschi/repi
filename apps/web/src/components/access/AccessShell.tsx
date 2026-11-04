@@ -5,7 +5,7 @@ import { Wordmark } from "./Wordmark";
 export function AccessShell({ children }: { children: ReactNode }) {
   return (
     <div className="ac">
-      <aside className="ac-brand" aria-hidden="false">
+      <aside className="ac-brand ui-dark" aria-hidden="false">
         <Wordmark width={83} />
         <div className="ac-brand-claim">
           <strong>Cada repetición cuenta.</strong>

@@ -78,14 +78,14 @@ export function MyPerfScreen({ shell }: { shell: Shell }) {
           <h2>Mis reseñas</h2>
           <span className="muted">Las ves sin el nombre del socio. {r.data && !r.data.responsesEnabled ? "El gym desactivó las respuestas." : "Podés responder una vez; no podés editar lo que escribió el socio."}</span>
           {r.data?.reviews.map((x) => (
-            <div key={x.id} style={{ border: "1px solid #E2E8F0", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div key={x.id} style={{ border: "1px solid var(--ui-border)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ color: "#007EA0", letterSpacing: 1 }} aria-label={`${x.stars} de 5`}>{stars(x.stars)}</span><span className="muted">{x.kind} · {fmt(x.at)}</span>
+                <span style={{ color: "var(--ui-link)", letterSpacing: 1 }} aria-label={`${x.stars} de 5`}>{stars(x.stars)}</span><span className="muted">{x.kind} · {fmt(x.at)}</span>
                 <span className={`chip ${x.status === "published" ? "ok" : "warn"}`}>{x.status === "published" ? "Verificada" : x.status === "reported" ? `Reportada · en moderación (${x.caseRef})` : "Edición pedida al socio"}</span>
               </div>
               {x.text && <span style={{ fontSize: 14, lineHeight: 1.45 }}>“{x.text}”</span>}
               <span className="muted">{REVIEW_DIMS.map((d, i) => `${d} ${x.dims[i] ?? "—"}`).join(" · ")}</span>
-              {x.response && <span style={{ fontSize: 13, background: "#F4FBFD", borderRadius: 8, padding: 8 }}>Tu respuesta: {x.response}</span>}
+              {x.response && <span style={{ fontSize: 13, background: "var(--ui-selection-bg)", borderRadius: 8, padding: 8 }}>Tu respuesta: {x.response}</span>}
               {x.status === "published" && (
                 <div style={{ display: "flex", gap: 8 }}>
                   {r.data!.responsesEnabled && !x.response && <button type="button" className="btn sm" onClick={() => setModal({ type: "respond", id: x.id, ref: x.text ?? stars(x.stars) })}>Responder</button>}
@@ -120,7 +120,7 @@ function CaseModal({ shell, modal, onClose }: { shell: Shell; modal: { type: "re
       <div className="mhead"><h2>{title}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
       <span className="muted" style={{ fontSize: 14 }}>{modal.ref}</span>
       {(modal.type === "report" || modal.type === "dispute") && reasons.map((x) => (
-        <label key={x} className="mrow" style={{ border: `1px solid ${reason === x ? "#00D1FF" : "#E2E8F0"}` }}><input type="radio" name="reason" checked={reason === x} onChange={() => setReason(x)} /><span style={{ fontSize: 14 }}>{x}</span></label>
+        <label key={x} className="mrow" style={{ border: `1px solid ${reason === x ? "var(--ui-accent)" : "var(--ui-muted)"}` }}><input type="radio" name="reason" checked={reason === x} onChange={() => setReason(x)} /><span style={{ fontSize: 14 }}>{x}</span></label>
       ))}
       <label className="field">{modal.type === "respond" ? "Tu respuesta" : modal.type === "appeal" ? "Por qué apelás" : "Detalle (opcional)"}
         <textarea className="note" rows={3} value={txt} onChange={(e) => setTxt(e.target.value)} maxLength={600} />
@@ -180,7 +180,7 @@ export function PerfCenterScreen({ shell }: { shell: Shell }) {
             <tbody>
               {pc.data.rows.map((r) => (
                 <tr key={r.id}>
-                  <td><input type="checkbox" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} aria-label={`Comparar a ${r.name}`} style={{ width: 18, height: 18, accentColor: "#00D1FF" }} /></td>
+                  <td><input type="checkbox" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} aria-label={`Comparar a ${r.name}`} style={{ width: 18, height: 18, accentColor: "var(--ui-accent)" }} /></td>
                   <td><button type="button" className="gy-person" onClick={() => shell.go("staff", { sel: r.id })}><span className="av36" style={{ width: 30, height: 30, fontSize: 11 }}>{initials(r.name)}</span><span><b>{r.name}</b><small className="muted">{r.sede}{r.turno ? ` · ${r.turno}` : ""}</small></span></button></td>
                   {COLS[cat].map(([l, f]) => <td key={l}>{f(r)}</td>)}
                 </tr>
@@ -238,7 +238,7 @@ export function TrainerDetail({ shell, id, onBack, backLabel }: { shell: Shell; 
             <section className="card">
               <h2>Distribución de reseñas</h2>
               {d.data.dist.map((x) => <HBar key={x.stars} label={`${x.stars} ★`} n={x.n} max={max} />)}
-              {d.data.reviews.map((r) => <div key={r.id} className="trow"><span style={{ color: "#007EA0" }}>{stars(r.stars)}</span><span style={{ flex: 1 }}>{r.hidden ? <i className="muted">En moderación</i> : r.text ?? <i className="muted">Sin comentario</i>}</span><span className="muted">{r.member ?? ""} · {fmt(r.at)}</span></div>)}
+              {d.data.reviews.map((r) => <div key={r.id} className="trow"><span style={{ color: "var(--ui-link)" }}>{stars(r.stars)}</span><span style={{ flex: 1 }}>{r.hidden ? <i className="muted">En moderación</i> : r.text ?? <i className="muted">Sin comentario</i>}</span><span className="muted">{r.member ?? ""} · {fmt(r.at)}</span></div>)}
             </section>
           </div>
           <section className="card">

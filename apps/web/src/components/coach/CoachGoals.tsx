@@ -15,7 +15,7 @@ export type Goal = {
 const n = (x: number) => x.toLocaleString("es-AR", { maximumFractionDigits: 2 });
 const day = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso.slice(0, 10)}T12:00:00Z`));
 const ST = { active: ["En curso", "info"], achieved: ["Logrado", "ok"], cancelled: ["Cancelado", "mute"] } as const;
-export const barColor = (p: number | null) => (p == null ? "#CBD5E1" : p >= 0.9 ? "#00D1FF" : p >= 0.6 ? "#5DE6D8" : "#F59E0B");
+export const barColor = (p: number | null) => (p == null ? "var(--ui-faint)" : p >= 0.9 ? "var(--ui-accent)" : p >= 0.6 ? "var(--ui-accent-2)" : "var(--ui-warning)");
 
 export function GoalLine({ g }: { g: Goal }) {
   const pct = g.progress == null ? null : Math.round(g.progress * 100);

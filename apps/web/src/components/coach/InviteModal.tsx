@@ -26,9 +26,9 @@ export function InviteModal({ orgId, onClose }: { orgId: string; onClose: () => 
           <p role="status" style={{ margin: 0, fontSize: 14 }}>{res.delivery === "failed"
             ? <>Invitación creada para {email}, pero <b>el correo no salió</b>. Pasale el enlace o el código (sólo funciona con ese email) o reenviala desde Solicitudes:</>
             : <>Invitación lista para {email}. Le llega por email; también podés pasarle el enlace o el código (sólo funciona con ese email):</>}</p>
-          <div style={{ background: "#F3F5F8", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ background: "var(--ui-surface-2)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
             <strong style={{ font: "600 24px var(--font-mono)", letterSpacing: ".2em" }}>{res.code}</strong>
-            <span style={{ fontSize: 13, wordBreak: "break-all", color: "#007EA0" }}>{link}</span>
+            <span style={{ fontSize: 13, wordBreak: "break-all", color: "var(--ui-link)" }}>{link}</span>
           </div>
           <div className="mfoot">
             <button type="button" className="btn" onClick={() => { navigator.clipboard?.writeText(link).catch(() => {}); }}>Copiar enlace</button>

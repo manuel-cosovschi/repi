@@ -2,6 +2,7 @@
 // REPI Gym desktop por rol (REPI Desktop Gym.dc.html). Cada persona ve la navegación de sus roles en esta organización;
 // la autorización real la resuelve el servidor por capacidad y sede.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ThemePicker } from "@/components/theme/ThemePicker";
 import { GYM_ROLE_LABEL, type GymRole } from "@repi/domain";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -137,7 +138,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
 
   return (
     <div className="co" data-drawer={drawer ? "1" : "0"}>
-      <aside className="co-side" aria-label="Navegación">
+      <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand">
           <Wordmark width={58} />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -147,7 +148,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         <a className="co-ws" href="/acceso?step=workspace" aria-label="Cambiar espacio de trabajo">
           <span className="co-ini">{initials(ctx.org.name)}</span>
           <span className="co-ws-txt"><b>{ctx.org.name} · {locName}</b><small>{roleTxt}</small></span>
-          <Ic i={CaretUpDown} size={16} color="#94A3B8" />
+          <Ic i={CaretUpDown} size={16} color="var(--ui-muted)" />
         </a>
         {multi && (
           <label className="gy-locpick"><span>Sede</span>
@@ -175,13 +176,15 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           <span className="av">{initials(ctx.name)}</span>
           <span><b>{ctx.name}</b><small><button type="button" onClick={async () => { if (!await signOutSafely()) return; window.location.href = "/acceso"; }} style={{ border: 0, background: "none", color: "inherit", padding: 0, font: "inherit", cursor: "pointer" }}>Cerrar sesión</button> · <a href="/cuenta" onClick={(e) => { e.preventDefault(); window.location.href = `/cuenta?desde=${encodeURIComponent(window.location.pathname)}`; }} style={{ color: "inherit" }}>Mi cuenta</a> · <a href="/ayuda" onClick={(e) => { e.preventDefault(); window.location.href = `/ayuda?desde=${encodeURIComponent(window.location.pathname)}`; }} style={{ color: "inherit" }}>Ayuda</a></small></span>
         </div>
+        {/* D188: apariencia personal (no del gimnasio): la misma en todos los espacios. */}
+        <div className="co-theme"><ThemePicker compact /></div>
       </aside>
       {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
       <main className="co-main">
-        <div className="co-topbar">
-          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="#F8FAFC" /></button>
+        <div className="co-topbar ui-dark">
+          <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="var(--ui-text)" /></button>
           <Wordmark width={50} />
-          <span style={{ marginLeft: "auto", fontSize: 13, color: "#94A3B8" }}>{ctx.org.name}</span>
+          <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--ui-muted)" }}>{ctx.org.name}</span>
         </div>
         <div className="co-content" ref={mainRef} key={`${screen}-${loc}`} data-section={screen}>
           {screen === "notices" && <NoticesScreen shell={shell} />}

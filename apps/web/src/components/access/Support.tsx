@@ -74,7 +74,7 @@ export function Support({ from }: { from?: string }) {
       {anon && (cat === "access" || cat === null) && (
         <>
           <a className="ac-opt" href="/acceso?step=rec1">
-            <span className="ac-opt-ic" aria-hidden="true"><Ic i={Key} size={22} color="#00D1FF" /></span>
+            <span className="ac-opt-ic" aria-hidden="true"><Ic i={Key} size={22} color="var(--ui-accent)" /></span>
             <span><strong>Olvidé mi contraseña</strong><small>Te mandamos un código a tu email para crear una nueva. Es lo más rápido.</small></span>
           </a>
           <div className="ac-info">

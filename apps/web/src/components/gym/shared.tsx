@@ -70,22 +70,22 @@ export function Seg<T extends string>({ value, options, onChange, label }: { val
   );
 }
 
-export function Bars({ data, label, color = "#00D1FF", fmtV = (v: number) => String(v) }: { data: { label: string; n: number | null }[]; label: string; color?: string; fmtV?: (v: number) => string }) {
+export function Bars({ data, label, color = "var(--ui-accent)", fmtV = (v: number) => String(v) }: { data: { label: string; n: number | null }[]; label: string; color?: string; fmtV?: (v: number) => string }) {
   const max = Math.max(1, ...data.map((d) => d.n ?? 0));
   return (
     <div className="bars10" role="img" aria-label={`${label}: ${data.map((d) => `${d.label} ${d.n == null ? "sin datos" : fmtV(d.n)}`).join(", ")}`} style={{ height: 120 }}>
       {data.map((d, i) => (
-        <div key={d.label + i}><small style={{ fontSize: 10, color: "#5B6B80" }}>{d.n == null ? "" : fmtV(d.n)}</small><i style={{ height: `${d.n ? Math.max(4, (d.n / max) * 100) : 3}%`, background: i === data.length - 1 ? color : "#B7EEF9" }} /><span>{d.label}</span></div>
+        <div key={d.label + i}><small style={{ fontSize: 10, color: "var(--ui-muted)" }}>{d.n == null ? "" : fmtV(d.n)}</small><i style={{ height: `${d.n ? Math.max(4, (d.n / max) * 100) : 3}%`, background: i === data.length - 1 ? color : "var(--ui-chart-soft)" }} /><span>{d.label}</span></div>
       ))}
     </div>
   );
 }
 
-export function HBar({ label, n, max, note, color = "#00D1FF" }: { label: string; n: number | null; max: number; note?: string | null; color?: string }) {
+export function HBar({ label, n, max, note, color = "var(--ui-accent)" }: { label: string; n: number | null; max: number; note?: string | null; color?: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>{label}</span><b>{n == null ? "Sin datos" : nf(n)}</b></div>
-      <div style={{ height: 8, borderRadius: 4, background: "#EEF2F6", overflow: "hidden" }}><div style={{ width: `${n && max ? Math.min(100, (n / max) * 100) : 0}%`, height: "100%", background: color, borderRadius: 4 }} /></div>
+      <div style={{ height: 8, borderRadius: 4, background: "var(--ui-chart-track)", overflow: "hidden" }}><div style={{ width: `${n && max ? Math.min(100, (n / max) * 100) : 0}%`, height: "100%", background: color, borderRadius: 4 }} /></div>
       {note && <small className="muted">{note}</small>}
     </div>
   );
@@ -97,7 +97,7 @@ export function LocSelect({ shell, allowAll, value, onChange }: { shell: Shell; 
   return (
     <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <span>Sede</span>
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} style={{ height: 38, borderRadius: 10, border: "1px solid #C9D2DD", padding: "0 10px", font: "500 14px var(--font-ui)", background: "#fff" }}>
+      <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} style={{ height: 38, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "500 14px var(--font-ui)", background: "var(--ui-input-bg)" }}>
         {allowAll && <option value="">Todas las sedes</option>}
         {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>

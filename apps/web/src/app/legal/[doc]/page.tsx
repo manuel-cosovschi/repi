@@ -1,6 +1,6 @@
 // Documentos legales (F-PU-01, D104 → D109). Texto completo redactado sobre el funcionamiento real de la app; borrador
 // pendiente de revisión legal y de los datos societarios del titular. La versión es la que se registra al aceptar.
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TERMS_VERSION } from "@repi/domain";
@@ -8,6 +8,9 @@ import { Wordmark } from "@/components/access/Wordmark";
 import { SiteFooter } from "@/components/site/PublicSite";
 import { LEGAL } from "./texts";
 import "@/styles/site.css";
+
+// D188: el sitio público conserva su diseño editorial navy en cualquier tema.
+export const viewport: Viewport = { themeColor: "var(--ui-text)" };
 
 type P = { params: Promise<{ doc: string }> };
 const docOf = (k: string) => (k in LEGAL ? LEGAL[k as keyof typeof LEGAL] : null);

@@ -29,12 +29,12 @@ export function CommunityChallenges({ go, flash }: { go: (n: Nudge) => void; fla
   return (
     <section className="cch" aria-label="Desafíos de la comunidad">
       <div className="cch-head">
-        <h2><Ic i={Trophy} size={16} weight="fill" color="#00D1FF" />Desafíos de la comunidad</h2>
+        <h2><Ic i={Trophy} size={16} weight="fill" color="var(--ui-accent)" />Desafíos de la comunidad</h2>
         {!d.minor && <button type="button" className="linkbtn" onClick={() => setPropose(true)}>Proponer</button>}
       </div>
       {!d.items.length && (
         <button type="button" className="cch-empty" onClick={() => (d.minor ? undefined : setPropose(true))} disabled={d.minor}>
-          <Ic i={Lightbulb} size={22} color="#00D1FF" />
+          <Ic i={Lightbulb} size={22} color="var(--ui-accent)" />
           <span><b>¿Tenés un desafío en mente?</b><small>Proponelo: si un profe lo aprueba, lo ve toda la sede y validarlo suma puntos a tu nivel.</small></span>
         </button>
       )}

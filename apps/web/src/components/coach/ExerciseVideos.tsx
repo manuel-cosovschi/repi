@@ -64,7 +64,7 @@ export function ExerciseVideos({ orgId, flash }: { orgId: string; flash: (t: str
         <p className="muted" style={{ margin: "4px 0 0", fontSize: 14 }}>Subí un video corto de cómo se hace cada ejercicio (MP4, MOV o WebM de hasta 80 MB) o pegá un enlace de YouTube, TikTok o Instagram. Lo ven tus alumnos y socios con «Ver cómo se hace» mientras entrenan. {data ? `Cargados: ${data.total}.` : ""}</p>
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <label className="search" style={{ flex: "1 1 240px" }}><Ic i={MagnifyingGlass} size={16} color="#5B6B80" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
+        <label className="search" style={{ flex: "1 1 240px" }}><Ic i={MagnifyingGlass} size={16} color="var(--ui-muted)" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
         <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 14 }}><input type="checkbox" checked={only} onChange={(e) => setOnly(e.target.checked)} /> Sólo los que tienen video</label>
       </div>
       <input ref={file} type="file" hidden accept="video/mp4,video/quicktime,video/webm" onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
