@@ -512,7 +512,9 @@ export const trainingTarget = pgTable("training_target", {
 // Una abierta por relación, ejercicio y tipo; al decidir, queda con quién, cuándo y su nota.
 export const trainingProposal = pgTable("training_proposal", {
   id: id(),
-  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
+  // Exactamente una relación (como program_assignment): el coach privado o el equipo de sala de la sede del socio.
+  coachClientId: text("coach_client_id").references(() => coachClient.id, { onDelete: "cascade" }),
+  gymMemberId: text("gym_member_id").references(() => gymMember.id, { onDelete: "cascade" }),
   exerciseId: text("exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }),
   kind: text("kind", { enum: ["load", "reps", "hold", "review", "deload", "rest"] }).notNull(),
   payload: jsonb("payload").$type<{ text: string; weightKg: number | null; reps: number | null; basis: string; trend: string; sessions: number }>().notNull(),
@@ -523,8 +525,11 @@ export const trainingProposal = pgTable("training_proposal", {
   note: text("note"),
   createdAt: now("created_at"),
 }, (t) => [
-  uniqueIndex("training_proposal_open_unique").on(t.coachClientId, t.exerciseId, t.kind).where(sql`status = 'open'`),
+  uniqueIndex("training_proposal_open_unique").on(t.coachClientId, t.exerciseId, t.kind).where(sql`status = 'open' and coach_client_id is not null`),
+  uniqueIndex("training_proposal_member_open_unique").on(t.gymMemberId, t.exerciseId, t.kind).where(sql`status = 'open' and gym_member_id is not null`),
   index("training_proposal_rel_idx").on(t.coachClientId, t.createdAt),
+  index("training_proposal_member_idx").on(t.gymMemberId, t.createdAt),
+  check("training_proposal_one_relation", sql`(${t.coachClientId} is null) <> (${t.gymMemberId} is null)`),
 ]);
 
 // D132: historial anterior a REPI cargado desde un archivo. Borrador hasta que la persona lo confirma; no se guarda el archivo.

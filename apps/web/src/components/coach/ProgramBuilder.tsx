@@ -16,6 +16,7 @@ import { circuitIssues, groupLabels, isStraightPlan, mainSets, resizeBlocks, str
 import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 import { ProgramAssistant } from "./ProgramAssistant";
+import { ProposalBanner, clearTiDraft, readTiDraft, type TiDraft } from "./ProposalDraft";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -39,6 +40,9 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const { subs, setSubs } = useSubstitutions(orgId);
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // D191: propuesta de Training Intelligence traída desde la ficha del cliente (sólo para este programa).
+  const [tiDraft, setTiDraft] = useState<TiDraft | null>(null);
+  useEffect(() => { setTiDraft(prog ? readTiDraft({ kind: "coach", programId: prog.id }) : null); }, [prog?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); return r.programs; }), [orgId]);
   useEffect(() => { loadList().then((ps) => { if (!pid && ps[0]) setPid(ps[0].id); }).catch((e) => flash(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -183,6 +187,14 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             {/* D155: propuesta completa armada por REPI; reemplaza el editor sólo si el coach la usa (y se guarda como cualquier edición). */}
             <ProgramAssistant url={`/api/coach/${orgId}/programs/draft`} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib}
               onUse={(d) => { edit(() => d as EditableDoc); setDay(0); }} />
+            {tiDraft && <ProposalBanner draft={tiDraft} days={doc.days} onDismiss={() => { clearTiDraft(); setTiDraft(null); }}
+              onApply={(ps) => {
+                edit((d) => ({ ...d, days: d.days.map((x, di) => ({ ...x, exercises: x.exercises.map((e, i) => ps.find((p) => p.day === di && p.index === i)?.detail ? { ...e, detail: ps.find((p) => p.day === di && p.index === i)!.detail } : e) })) }));
+                setDay(ps[0].day);
+                // El coach la aplicó con su edición: queda registrada como aceptada (si seguía abierta).
+                api(`/api/coach/${orgId}/proposals/${tiDraft.proposalId}`, { body: { status: "accepted", note: "Aplicada desde el constructor" } }).catch(() => {});
+                clearTiDraft(); setTiDraft(null); flash("Propuesta aplicada al programa. Se guarda como una edición tuya; las sesiones registradas no cambian.");
+              }} />}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
               <div className="seg">
                 <div role="tablist" aria-label="Días del programa" style={{ display: "contents" }}>

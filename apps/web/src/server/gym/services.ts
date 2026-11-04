@@ -12,6 +12,7 @@ import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { addIso, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
 import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
+import { recordDecision, relationIntelligence, type ProposalDecision } from "../training/intelligence";
 
 const { staffHours, user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
   workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject, userPref } = schema;
@@ -585,6 +586,33 @@ export async function memberLastTimes(actorId: string, orgId: string, gymMemberI
   const [g] = await db.select({ id: consentGrant.id }).from(consentGrant).where(and(eq(consentGrant.relationId, m.id), eq(consentGrant.item, "attendance_training"), eq(consentGrant.status, "active")));
   if (!g) return {};
   return Object.fromEntries(await lastTimeByExercise(m.userId, exerciseIds.slice(0, 60), undefined, { gymMemberId: m.id }));
+}
+
+/**
+ * D191 · Training Intelligence del socio para el equipo de sala. Mismo núcleo que la ficha del coach (`relationIntelligence`).
+ * Lo ven quienes arman su programa en esa sede (entrenador de sala, coordinación: `program.edit`) y sólo si el socio compartió
+ * su entrenamiento con la sede (`attendance_training`). Dueño y gerencia no lo ven por administrar el gimnasio. Usa sólo lo
+ * entrenado con esta sede: sin historial importado, sin la app privada ni su coach, sin datos de salud.
+ */
+export async function memberIntelligence(actorId: string, orgId: string, gymMemberId: string, now = new Date()) {
+  const m = await intelMember(actorId, orgId, gymMemberId);
+  return relationIntelligence({ kind: "gym", id: m.id, userId: m.userId }, now);
+}
+async function intelMember(actorId: string, orgId: string, gymMemberId: string) {
+  const ctx = await gymContext(actorId, orgId);
+  need(ctx, "program.edit");
+  const [m] = await db.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId)));
+  if (!m || !inScope(ctx, m.locationId)) throw NOT_FOUND();
+  const [g] = await db.select({ id: consentGrant.id }).from(consentGrant).where(and(eq(consentGrant.relationId, m.id), eq(consentGrant.item, "attendance_training"), eq(consentGrant.status, "active")));
+  if (!g) throw new AccessError("consent_required", "El socio no compartió su entrenamiento con la sede.", 403);
+  return m;
+}
+/** Decisión del equipo de sala sobre una propuesta: no cambia el programa (se edita y guarda como siempre). */
+export async function decideMemberProposal(actorId: string, orgId: string, proposalId: string, p: ProposalDecision) {
+  const [pr] = await db.select().from(schema.trainingProposal).where(eq(schema.trainingProposal.id, proposalId));
+  if (!pr?.gymMemberId) throw NOT_FOUND();
+  await intelMember(actorId, orgId, pr.gymMemberId);
+  return recordDecision(actorId, orgId, pr, p);
 }
 
 export async function memberDetail(actorId: string, orgId: string, gymMemberId: string, now = new Date()) {

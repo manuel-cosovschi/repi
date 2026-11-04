@@ -7,6 +7,7 @@ import {
   progressionApplies, kindAt, GENERAL_PAIN_DAYS, PAIN_LOOKBACK_DAYS, type SafetySignals, exerciseKey,
   rowFlags, rowRef, sessionMetrics, exerciseComplete, type SetKind, validateDetail, mainSets, circuitIssues, MAX_PLAN_ROWS,
   acceptInterval, decideSkip, interruptInterval, newerThan, toServerMs, type IntervalState,
+  loadIncrement,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -865,7 +866,7 @@ async function sessionIntel(userId: string, s: typeof workoutSession.$inferSelec
   if (s.status === "in_progress" || s.status === "paused") {
     const hist = history && sx.every((e) => e.skipped || history.has(e.doing)) ? history : await ti.historyRows(userId, sx.map((e) => e.doing), { excludeSessionId: s.id, now });
     const owned = !(await isSoloSession(db as unknown as Tx, s));
-    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned));
+    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned, false, e.doing === e.exerciseId ? loadIncrement(e.detail) : null));
   }
   return { targets, outlook };
 }

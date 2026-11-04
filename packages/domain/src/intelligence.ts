@@ -17,7 +17,7 @@
 //
 // Todo número sale de reglas con nombre y explicación. Son heurísticas conservadoras del producto, no fórmulas médicas.
 import type { ExerciseDetail, SetKind } from "./prescription";
-import { setTarget } from "./prescription";
+import { loadIncrement, setTarget } from "./prescription";
 import { normalizePlan } from "./stages";
 import { epley1rm, parseReps } from "./training";
 import { BACKOFF_FACTOR, DROP_FACTOR, GUARD_TEXT, floorToStep, loadStep, type GuardCode, type SafetySignals } from "./load-safety";
@@ -160,9 +160,11 @@ export type RecommendInput = {
   ex: ExCtx; history: HistRow[]; now: Date;
   /** Señales del propio alumno (D182). `daysSinceLast` se calcula acá con la historia comparable. */
   signals?: Omit<SafetySignals, "daysSinceLast">;
-  /** Menor salto de carga disponible en el equipo (kg), si se conoce. */
+  /** Menor salto de carga disponible en el equipo (kg). Sin indicarlo, el configurado en el ejercicio (`detail.load`);
+   *  `null` = desconocido (p. ej. un ejercicio sustituto con otro equipo). */
   increment?: number | null;
 };
+const incOf = (p: { ex: ExCtx; increment?: number | null }) => (p.increment !== undefined ? p.increment : loadIncrement(p.ex.detail));
 
 function base(c: RowCtx, p: Partial<RowTarget>): RowTarget {
   const t = parseReps(c.reps);
@@ -178,7 +180,8 @@ function base(c: RowCtx, p: Partial<RowTarget>): RowTarget {
 const NO_REF = "Todavía no tenemos una referencia comparable para esta serie.";
 
 /** Objetivos de todas las filas del ejercicio (en orden: las etapas usan el objetivo de la serie de la que dependen). */
-export function recommendExercise(p: RecommendInput): RowTarget[] {
+export function recommendExercise(input: RecommendInput): RowTarget[] {
+  const p = { ...input, increment: incOf(input) };
   const ctxs = exerciseRows(p.ex);
   const out: RowTarget[] = [];
   for (const c of ctxs) out.push(recommendRow(p, c, ctxs, out));
@@ -237,13 +240,15 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
       const top = Math.max(0, ...s.rows.map((r) => r.w ?? 0));
       w = action === "increase_load" ? nextLoad(top, p.increment) : fitIncrement(w, p.increment);
     }
+    // Una carga nueva (subir, bajar o estimar) sin el salto del equipo es una referencia: puede no existir tal cual.
+    const newLoad = w != null && w > 0 && (action === "increase_load" || action === "reduce_load" || action === "estimate");
     const guards = sg.guards ?? [];
     const limited = guards.some((g) => g !== "range_change");
     const t = base(c, {
       status: limited ? "limited" : "ready", action: w == null && action === "increase_load" ? "increase_reps" : action, quality: h.quality, prev, refs, guards,
       // Al cambiar la carga se muestra el rango (volvés al piso); al mantenerla, las repeticiones que tocan hoy.
       weightKg: w, repsTarget: sg.reps, text: targetText(w, sg.reps, sg.action === "hold" || sg.action === "reps" ? null : parseRepsMax(c.reps)),
-      why: sg.why, reasons: [`progression_${sg.action}`, ...(h.quality === "low" ? ["low_quality"] : [])],
+      why: sg.why, reasons: [`progression_${sg.action}`, ...(h.quality === "low" ? ["low_quality"] : []), ...(newLoad ? [p.increment ? "increment_fit" : "increment_unknown"] : [])],
     });
     return withCoach(t);
   }
@@ -278,16 +283,16 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
   const cap = parentKg != null && parentKg > 0 ? Math.max(0, parentKg - loadStep(parentKg)) : null;
   if (own && own.w != null && own.w > 0) {
     let w = cap != null ? Math.min(own.w, cap) : own.w;
-    if (painG.length) w = floorToStep(w * 0.9);
+    if (painG.length) w = fitIncrement(w * 0.9, p.increment);
     return withCoach(base(c, { status: painG.length ? "limited" : "ready", action: painG.length ? "reduce_load" : "hold", quality: h.quality, prev, refs, guards: painG, pending: true,
       weightKg: w, repsTarget: own.r, text: targetText(w, own.r, null),
       why: `${label}: la carga se calcula aparte de la serie principal. La vez pasada: ${targetText(own.w, own.r, null)}.${w < own.w ? " Queda por debajo de la serie anterior." : ""}${painG.map((g) => ` ${GUARD_TEXT[g]}`).join("")}`,
       reasons: ["stage_own_history"] }));
   }
   if (parentKg != null && parentKg > 0) {
-    const w = floorToStep(parentKg * factor);
+    const w = fitIncrement(parentKg * factor, p.increment);
     return withCoach(base(c, { status: "no_data", action: "reference", quality: "none", pending: true, weightKg: w > 0 ? w : null, guards: painG,
-      text: w > 0 ? fmtKg(w) : "", why: `${label}: sin una referencia propia todavía. Aproximación: ${c.cls === "drop" ? "−20 % de la serie anterior" : "−15 % del top set"}; ajustala en la serie.`, reasons: ["stage_reference"] }));
+      text: w > 0 ? fmtKg(w) : "", why: `${label}: sin una referencia propia todavía. Aproximación: ${c.cls === "drop" ? "−20 % de la serie anterior" : "−15 % del top set"}; ajustala en la serie.`, reasons: ["stage_reference", p.increment ? "increment_fit" : "increment_unknown"] }));
   }
   return withCoach(base(c, { pending: true, why: `${label}: ${NO_REF.toLowerCase()} Elegí la carga en la serie.`, reasons: ["no_history"] }));
 }
@@ -304,7 +309,8 @@ export type IntelEvent = { code: "pain" | "harder" | "short" | "easier" | "range
  * mantener o bajar exigencia (nunca sube en la sesión), nunca toca filas ya registradas ni cargas del profe, y no inventa nada
  * si falta el resultado. Devuelve un único mensaje (el más importante) o ninguno.
  */
-export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneRow[]; justDone: number }): { targets: RowTarget[]; event: IntelEvent | null; changed: number[] } {
+export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneRow[]; justDone: number; increment?: number | null }): { targets: RowTarget[]; event: IntelEvent | null; changed: number[] } {
+  const inc = incOf(p);
   const ctxs = exerciseRows(p.ex);
   const c = ctxs[p.justDone];
   const d = p.done.find((x) => x.index === p.justDone);
@@ -341,7 +347,7 @@ export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneR
     for (const x of same) {
       const cur = next[x.index];
       if (!cur || cur.weightKg == null || d.w == null) continue;
-      if (far) set(x.index, { weightKg: Math.min(cur.weightKg, fitIncrement(d.w - loadStep(d.w))), action: "reduce_load" }, "in_session_short");
+      if (far) set(x.index, { weightKg: Math.min(cur.weightKg, fitIncrement(d.w - (inc ?? loadStep(d.w)), inc)), action: "reduce_load" }, "in_session_short");
       else if (cur.weightKg > d.w) set(x.index, { weightKg: d.w, action: "hold" }, "in_session_harder");
       else if (cur.action === "increase_load" || cur.action === "increase_reps") set(x.index, { action: "hold" }, "in_session_harder");
     }
@@ -365,9 +371,11 @@ export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneR
 export const topEvent = (xs: (IntelEvent | null | undefined)[]) => xs.filter((x): x is IntelEvent => !!x).sort((a, b) => a.priority - b.priority)[0] ?? null;
 
 /** ¿Cómo se resolvió el objetivo? accepted: misma carga (o sin carga) y reps dentro del rango; modified: otra cosa. */
+/** Cargar en lb lo que se ve (1 decimal) vuelve a kg con hasta ~0,03 kg de diferencia: sigue siendo «lo propuesto». */
+const LB_ROUNDING_KG = 0.03;
 export function decisionFor(t: Pick<RowTarget, "weightKg" | "repsMin" | "repsMax" | "repsTarget" | "action">, real: { w: number | null; r: number | null }): "accepted" | "modified" {
   if (t.action === "none" || t.action === "reference") return "modified";
-  const sameW = t.weightKg == null || real.w == null ? (t.weightKg ?? 0) === (real.w ?? 0) : Math.abs(t.weightKg - real.w) < 0.01;
+  const sameW = t.weightKg == null || real.w == null ? (t.weightKg ?? 0) === (real.w ?? 0) : Math.abs(t.weightKg - real.w) < LB_ROUNDING_KG;
   const lo = t.repsMin ?? t.repsTarget, hi = t.repsMax ?? t.repsTarget;
   const inRange = lo == null || real.r == null ? true : real.r >= lo && real.r <= (hi ?? lo) + 2;
   return sameW && inRange ? "accepted" : "modified";

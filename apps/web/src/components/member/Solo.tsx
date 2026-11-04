@@ -5,7 +5,8 @@
 // (en «por mi cuenta», a pedido), siempre dentro del programa asignado. D138: la persona puede responderle (ocupado, no hay,
 // me molesta o un mensaje) y la IA rearma con alternativas compatibles; al empezar, los cambios quedan aplicados en la sesión.
 import { useEffect, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, mainSets, type ExerciseChangeReason, type ExerciseDetail, type SoloPlan, type SoloVariant } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, mainSets, type ExerciseChangeReason, type ExerciseDetail, type SoloPlan, type SoloVariant, fmtWeight, localizeWeights } from "@repi/domain";
+import { useUnit } from "./units";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 
@@ -45,6 +46,7 @@ export function SoloEntry({ onOpen, prefetch = true }: { onOpen: (v: SoloVariant
 export function SoloSheet({ variant, onClose, onStart, onStartRoutine, onContinue, onHelp, onMessage }: {
   variant: SoloVariant; onClose: () => void; onStart: (dayId: string, ai?: Advice) => void; onStartRoutine: (r: Routine) => void; onContinue: () => void; onHelp: () => void; onMessage: () => void;
 }) {
+  const unit = useUnit();
   const [plan, setPlan] = useState<SoloPlan | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ai, setAi] = useState<Advice | null>(null);
@@ -106,14 +108,14 @@ export function SoloSheet({ variant, onClose, onStart, onStartRoutine, onContinu
             {aiState === "error" && <p className="sheet-warn">{aiErr} <button type="button" className="linkbtn" onClick={() => (ai ? reply() : askAi(true))}>Reintentar</button></p>}
             {aiState === "idle" && !ai && <button type="button" className="ghost" onClick={() => askAi()}>Sugerencia personalizada de REPI</button>}
             {ai && <>
-              <b>{ai.headline}</b>
-              <p className="sheet-sub">{ai.summary}</p>
-              {ai.caution && <p className="sheet-warn" role="note">{ai.caution}</p>}
+              <b>{localizeWeights(ai.headline, unit)}</b>
+              <p className="sheet-sub">{localizeWeights(ai.summary, unit)}</p>
+              {ai.caution && <p className="sheet-warn" role="note">{localizeWeights(ai.caution, unit)}</p>}
               {turns.length > 0 && <p className="sheet-sub ai-said">Le dijiste: «{turns[turns.length - 1].text}»</p>}
               <ul>{ai.exercises.map((e) => (
                 <li key={e.id} className={e.skip ? "ai-skip" : undefined}>
                   <span>{e.swap ? <>{e.swap.name} <small className="ai-swap">en lugar de {e.name}{e.swap.approved ? " · aprobado por tu profe" : ""}</small></> : e.name}</span>
-                  <span>{e.skip ? "Saltear hoy" : `${e.sets}×${e.reps}${e.weightKg != null ? ` · ${e.weightKg.toLocaleString("es-AR")} kg` : ""}`}</span>
+                  <span>{e.skip ? "Saltear hoy" : `${e.sets}×${e.reps}${e.weightKg != null ? ` · ${fmtWeight(e.weightKg, unit)}` : ""}`}</span>
                   {e.note && <small>{e.note}</small>}
                   <span className="ai-issues" role="group" aria-label={`Problema con ${e.swap?.name ?? e.name}`}>
                     {ISSUES.map(([k, label]) => (
@@ -140,6 +142,7 @@ export function SoloSheet({ variant, onClose, onStart, onStartRoutine, onContinu
 
 /** D153: sin rutina asignada, REPI arma la de hoy con ejercicios de la biblioteca. Se puede pedir otra cosa y rearmarla. */
 function RoutineCard({ onStart }: { onStart: (r: Routine) => void }) {
+  const unit = useUnit();
   const [r, setR] = useState<Routine | null>(null);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -155,13 +158,13 @@ function RoutineCard({ onStart }: { onStart: (r: Routine) => void }) {
       {busy && <p className="sheet-sub" role="status">{r ? "REPI está rearmando tu rutina…" : "REPI está armando tu rutina para hoy…"}</p>}
       {err && <p className="sheet-warn">{err} <button type="button" className="linkbtn" onClick={() => ask(msg.trim() || undefined)}>Reintentar</button></p>}
       {r && <>
-        <b>{r.headline}</b>
-        <p className="sheet-sub">{r.summary}</p>
-        {r.caution && <p className="sheet-warn" role="note">{r.caution}</p>}
+        <b>{localizeWeights(r.headline, unit)}</b>
+        <p className="sheet-sub">{localizeWeights(r.summary, unit)}</p>
+        {r.caution && <p className="sheet-warn" role="note">{localizeWeights(r.caution, unit)}</p>}
         <ul>{r.exercises.map((e) => (
           <li key={e.id}>
             <span>{e.name} <small className="ai-swap">{e.group}</small></span>
-            <span>{`${mainSets(e.detail, e.sets)}×${e.reps}${e.weightKg != null ? ` · ${e.weightKg.toLocaleString("es-AR")} kg` : ""}`}</span>
+            <span>{`${mainSets(e.detail, e.sets)}×${e.reps}${e.weightKg != null ? ` · ${fmtWeight(e.weightKg, unit)}` : ""}`}</span>
             {e.method && <small className="ai-swap">{e.method}</small>}
             {e.note && <small>{e.note}</small>}
           </li>

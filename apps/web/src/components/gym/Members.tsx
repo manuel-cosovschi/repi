@@ -19,6 +19,8 @@ import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
 import { IntInput } from "@/components/ui/IntInput";
 import { ProgramAssistant } from "@/components/coach/ProgramAssistant";
 import { SessionLog, type LoggedSession } from "@/components/coach/SessionLog";
+import { IntelSection } from "@/components/coach/CoachIntelligence";
+import { ProposalBanner, clearTiDraft, readTiDraft, stashTiDraft, type TiDraft } from "@/components/coach/ProposalDraft";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -124,6 +126,9 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
           : !m.log.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span>
           : <SessionLog sessions={m.log} />}
       </section>
+      {/* D191: quien arma su programa en la sede y sólo si el socio compartió su entrenamiento (el servidor lo vuelve a exigir). */}
+      {m.trainingShared && m.canEdit && <IntelSection kind="gym" relId={m.id} who="en esta sede" load={`/api/gym/${shell.orgId}/members/${m.id}/intelligence`}
+        decideUrl={(pid) => `/api/gym/${shell.orgId}/intel-proposals/${pid}`} onReview={(t) => { stashTiDraft(t); setEdit(true); }} />}
       <SharedWishes w={m.wishes} who={m.name.split(" ")[0]} />
       {m.community && (
         <section className="card">
@@ -192,6 +197,9 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const [complete, setComplete] = useState(!!related);
   const { busy, run } = useAct(shell.flash);
   const [noteOpen, setNoteOpen] = useState<string | null>(null); // D174: «día:posición» del ejercicio con la nota recién abierta
+  // D191: propuesta de Training Intelligence traída desde la ficha. Sólo cambia este borrador si se aplica; se guarda como siempre.
+  const [tiDraft, setTiDraft] = useState<TiDraft | null>(() => readTiDraft({ kind: "gym", relId: member.id }));
+  const [tiApplied, setTiApplied] = useState<string | null>(null);
   const setEx = (i: number, patch: Partial<Ex>) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.map((e, k) => k === i ? { ...e, ...patch } : e) } : x) }));
   const removeEx = (i: number) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.filter((_, k) => k !== i) } : x) }));
   const addEx = (e: Lib[number]) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: [...x.exercises, { exerciseId: e.id, name: e.name, sets: 3, reps: "10-12", rir: 2, restSec: 90, note: null }] } : x) }));
@@ -199,7 +207,10 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const save = async () => {
     const r = await run("save", () => api<{ revision: number; completed: { ref: string; invite: string | null } | null }>(`/api/gym/${shell.orgId}/members/${member.id}/program`, { body: { doc, reason, completeTaskId: complete && related ? related.id : null } }),
       (x) => { const y = x as { revision: number; completed: { ref: string; invite: string | null } | null }; return y.completed ? `Programa guardado (revisión ${y.revision}) y ${y.completed.ref} completada.${y.completed.invite === "pending" ? ` ${member.name.split(" ")[0]} recibirá una invitación opcional para opinar.` : ""}` : `Programa guardado. Revisión ${y.revision} registrada para el equipo.`; });
-    if (r) onClose(true);
+    if (r) {
+      if (tiApplied) api(`/api/gym/${shell.orgId}/intel-proposals/${tiApplied}`, { body: { status: "accepted", note: "Aplicada desde el editor del programa" } }).catch(() => {});
+      clearTiDraft(); onClose(true);
+    }
   };
   const cur = doc.days[day];
   const labels = groupLabels(cur.exercises);
@@ -208,6 +219,13 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
       <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib.data ?? []}
         onUse={(d) => { setDoc(d); setDay(0); if (reason.trim().length < 3) setReason("Programa armado con la propuesta de REPI"); }} />
+      {tiDraft && <ProposalBanner draft={tiDraft} days={doc.days} onDismiss={() => { clearTiDraft(); setTiDraft(null); }}
+        onApply={(ps) => {
+          setDoc((d) => ({ ...d, days: d.days.map((x, di) => ({ ...x, exercises: x.exercises.map((e, i) => { const p = ps.find((q) => q.day === di && q.index === i); return p ? { ...e, detail: p.detail } : e; }) })) }));
+          setDay(ps[0].day); setTiApplied(tiDraft.proposalId); setTiDraft(null);
+          if (reason.trim().length < 3) setReason(`Training Intelligence: ${tiDraft.name}`.slice(0, 300));
+          shell.flash("Propuesta aplicada al borrador. Se guarda recién al tocar «Guardar revisión».");
+        }} />}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <label className="field" style={{ flex: "2 1 240px" }}>Nombre<input value={doc.name} maxLength={120} onChange={(e) => setDoc({ ...doc, name: e.target.value })} /></label>
         <label className="field" style={{ flex: "0 0 110px" }}>Semanas<IntInput min={1} max={52} value={doc.weeks} onChange={(n) => n != null && setDoc({ ...doc, weeks: n })} /></label>

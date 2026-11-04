@@ -1,6 +1,7 @@
 CREATE TABLE "training_proposal" (
 	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
-	"coach_client_id" text NOT NULL,
+	"coach_client_id" text,
+	"gym_member_id" text,
 	"exercise_id" text NOT NULL,
 	"kind" text NOT NULL,
 	"payload" jsonb NOT NULL,
@@ -9,7 +10,8 @@ CREATE TABLE "training_proposal" (
 	"decided_by" text,
 	"decided_at" timestamp with time zone,
 	"note" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "training_proposal_one_relation" CHECK (("training_proposal"."coach_client_id" is null) <> ("training_proposal"."gym_member_id" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "training_target" (
@@ -48,6 +50,7 @@ CREATE TABLE "training_target" (
 );
 --> statement-breakpoint
 ALTER TABLE "training_proposal" ADD CONSTRAINT "training_proposal_coach_client_id_coach_client_id_fk" FOREIGN KEY ("coach_client_id") REFERENCES "public"."coach_client"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "training_proposal" ADD CONSTRAINT "training_proposal_gym_member_id_gym_member_id_fk" FOREIGN KEY ("gym_member_id") REFERENCES "public"."gym_member"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "training_proposal" ADD CONSTRAINT "training_proposal_exercise_id_exercise_id_fk" FOREIGN KEY ("exercise_id") REFERENCES "public"."exercise"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "training_proposal" ADD CONSTRAINT "training_proposal_decided_by_user_id_fk" FOREIGN KEY ("decided_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "training_target" ADD CONSTRAINT "training_target_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -55,8 +58,10 @@ ALTER TABLE "training_target" ADD CONSTRAINT "training_target_session_id_workout
 ALTER TABLE "training_target" ADD CONSTRAINT "training_target_program_exercise_id_program_exercise_id_fk" FOREIGN KEY ("program_exercise_id") REFERENCES "public"."program_exercise"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "training_target" ADD CONSTRAINT "training_target_exercise_id_exercise_id_fk" FOREIGN KEY ("exercise_id") REFERENCES "public"."exercise"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "training_target" ADD CONSTRAINT "training_target_version_id_program_version_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."program_version"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "training_proposal_open_unique" ON "training_proposal" USING btree ("coach_client_id","exercise_id","kind") WHERE status = 'open';--> statement-breakpoint
+CREATE UNIQUE INDEX "training_proposal_open_unique" ON "training_proposal" USING btree ("coach_client_id","exercise_id","kind") WHERE status = 'open' and coach_client_id is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "training_proposal_member_open_unique" ON "training_proposal" USING btree ("gym_member_id","exercise_id","kind") WHERE status = 'open' and gym_member_id is not null;--> statement-breakpoint
 CREATE INDEX "training_proposal_rel_idx" ON "training_proposal" USING btree ("coach_client_id","created_at");--> statement-breakpoint
+CREATE INDEX "training_proposal_member_idx" ON "training_proposal" USING btree ("gym_member_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_target_seq_unique" ON "training_target" USING btree ("session_id","program_exercise_id","set_index","seq");--> statement-breakpoint
 CREATE UNIQUE INDEX "training_target_current_unique" ON "training_target" USING btree ("session_id","program_exercise_id","set_index") WHERE superseded_at is null;--> statement-breakpoint
 CREATE INDEX "training_target_user_idx" ON "training_target" USING btree ("user_id","created_at");

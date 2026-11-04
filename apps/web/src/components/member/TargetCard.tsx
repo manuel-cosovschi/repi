@@ -2,7 +2,7 @@
 // D191 · Training Intelligence: ANTERIOR → REPI → REAL para la serie o etapa en curso. Tres datos distintos que nunca se
 // mezclan: lo que hizo la vez comparable anterior, el objetivo (de REPI o indicado por el profe) y lo que registró hoy. La
 // tarjeta no registra nada: «Usar» sólo carga el borrador, que la persona puede cambiar antes de completar la serie.
-import type { RowTarget, WeightUnit } from "@repi/domain";
+import { localizeWeights, type RowTarget, type WeightUnit } from "@repi/domain";
 import { kg } from "./types";
 
 type T = RowTarget & { id?: string };
@@ -33,8 +33,9 @@ export function TargetCard({ t, unit, real, label, onUse, canUse }: {
         <div className="ti-main"><small>{head}</small><b>{line || (t.pending ? "Elegí la carga" : "—")}</b>{t.rirTarget != null && t.status !== "not_applicable" && <small className="ti-rir">RIR {t.rirTarget}</small>}</div>
         <div><small>Real</small><b>{real ? `${real.w > 0 ? `${kg(real.w, unit)} × ` : ""}${real.r}${real.rir != null ? ` · RIR ${real.rir}` : ""}` : "Por registrar"}</b></div>
       </div>
-      {t.why && <p className="ti-why">{t.why}</p>}
-      {t.review && <p className="ti-review" role="note">{t.review}</p>}
+      {t.why && <p className="ti-why">{localizeWeights(t.why, unit)}</p>}
+      {t.review && <p className="ti-review" role="note">{localizeWeights(t.review, unit)}</p>}
+      {t.source === "rules" && t.weightKg != null && t.reasons.includes("increment_unknown") && <p className="ti-quality">Carga de referencia: ajustala a los discos o mancuernas que tengas. REPI no sabe qué saltos hay en este equipo.</p>}
       {t.prev?.source === "import" && <p className="ti-quality">Referencia de tu historial importado: puede no ser la misma serie.</p>}
       {canUse && !real && (t.weightKg != null || reps != null) && t.status !== "not_applicable" && t.action !== "none" && line && (
         <button type="button" className="ghost sm" onClick={() => onUse(t.weightKg, reps)}>Usar {line}</button>

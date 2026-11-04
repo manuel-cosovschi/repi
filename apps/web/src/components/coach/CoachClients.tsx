@@ -14,6 +14,7 @@ import { useLoad } from "@/components/gym/shared";
 import { featureOn } from "@/lib/features";
 import { SessionLog, type LoggedExercise } from "./SessionLog";
 import { IntelSection } from "./CoachIntelligence";
+import { stashTiDraft } from "./ProposalDraft";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -107,7 +108,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
               </section>
             )}
             <div className="tabs" role="tablist" aria-label="Ficha del cliente">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>
-            {!det ? <p className="muted">Cargando ficha…</p> : <Tab tab={tab} det={det} row={current!} orgId={orgId} flash={flash} />}
+            {!det ? <p className="muted">Cargando ficha…</p> : <Tab tab={tab} det={det} row={current!} orgId={orgId} flash={flash} go={go} />}
           </div>
         </div>
       )}
@@ -116,7 +117,7 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
   );
 }
 
-function Tab({ tab, det, row, orgId, flash }: { tab: string; det: Detail; row: ClientRow; orgId: string; flash: (t: string) => void }) {
+function Tab({ tab, det, row, orgId, flash, go }: { tab: string; det: Detail; row: ClientRow; orgId: string; flash: (t: string) => void; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void }) {
   const done = det.sessions.filter((s) => s.status === "completed");
   if (tab === "res") return (
     <>
@@ -139,7 +140,7 @@ function Tab({ tab, det, row, orgId, flash }: { tab: string; det: Detail; row: C
       ))}
     </section>
   ) : <div className="empty">Sin programa asignado.</div>;
-  if (tab === "rend") return <PerfTab key={det.id} orgId={orgId} relId={det.id} />;
+  if (tab === "rend") return <PerfTab key={det.id} orgId={orgId} relId={det.id} go={go} />;
   if (tab === "pay") return <ClientPayTab key={det.id} orgId={orgId} relId={det.id} name={det.name} flash={flash} />;
   const SENS: Record<string, "health" | "nutrition" | "measurements"> = { salud: "health", nutri: "nutrition", body: "measurements" };
   if (SENS[tab]) return <SensitiveTab key={`${det.id}-${tab}`} orgId={orgId} relId={det.id} name={det.name} item={SENS[tab]} flash={flash} />;
@@ -163,18 +164,21 @@ function Sessions({ det }: { det: Detail }) {
 // F-CO-04: rendimiento desde series reales. Fórmula visible; tendencia contra las 4 semanas previas.
 type Perf = { formula: string; exercises: { name: string; group: string; best: { e1rm: number; weightKg: number; reps: number } | null; previous: { e1rm: number } | null; sets: number }[];
   groups: { group: string; thisWeek: number; lastWeek: number }[] };
-function PerfTab({ orgId, relId }: { orgId: string; relId: string }) {
+function PerfTab({ orgId, relId, go }: { orgId: string; relId: string; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void }) {
+  // D191: la propuesta se revisa en el constructor de siempre (programa del cliente), donde sólo cambia el borrador si se aplica.
+  const intel = <IntelSection kind="coach" relId={relId} load={`/api/coach/${orgId}/clients/${relId}/intelligence`} decideUrl={(id) => `/api/coach/${orgId}/proposals/${id}`}
+    onReview={(t) => { stashTiDraft(t); go("builder", { pid: t.programId }); }} />;
   const d = useLoad<Perf>(`/api/coach/${orgId}/clients/${relId}/performance`);
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
   if (!d.data) return <p className="muted">Cargando…</p>;
   const { exercises, groups, formula } = d.data;
   const report = <a className="btn" href={`/coach/${orgId}/informe/${relId}`} style={{ alignSelf: "flex-start" }}>Informe mensual (imprimible)</a>;
-  if (!exercises.length && !groups.length) return <>{report}<IntelSection orgId={orgId} relId={relId} /><div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div></>;
+  if (!exercises.length && !groups.length) return <>{report}{intel}<div className="empty">Todavía no hay series con carga en las últimas 8 semanas.</div></>;
   const kg = (n: number) => `${n.toLocaleString("es-AR", { maximumFractionDigits: 1 })} kg`;
   return (
     <>
       {report}
-      <IntelSection orgId={orgId} relId={relId} />
+      {intel}
       <section className="card">
         <h2>1RM estimado</h2>
         <span className="muted" style={{ fontSize: 13 }}>{formula} Últimas 4 semanas contra las 4 anteriores.</span>

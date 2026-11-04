@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { adjustAfterSet, compareRows, comparableHistory, decisionFor, exerciseRows, exerciseTrend, fitIncrement, nextProposal, progressToGoal, recommendExercise, rowContext, sessionPoints, topEvent, TI_VERSION, type ExCtx, type HistRow } from "./intelligence";
+import { kgTo, toKg } from "./units";
 import { applyMethod } from "./stages";
-import { emptyDetail, type ExerciseDetail, type SetSpec } from "./prescription";
+import { emptyDetail, loadIncrement, validateDetail, type ExerciseDetail, type SetSpec } from "./prescription";
 
 const NOW = new Date("2026-11-04T15:00:00Z");
 const day = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString();
@@ -91,6 +92,35 @@ describe("B · progresión", () => {
     expect(t.weightKg).toBe(55);
     expect(fitIncrement(52.5, 5)).toBe(50);
     expect(rec(straight(3, "8-10"), sess(2, [{ w: 50, r: 5 }, { w: 50, r: 5 }, { w: 50, r: 5 }]), { increment: 5 })[0].weightKg! % 5).toBe(0);
+  });
+  it("D191 · equipo configurado: mancuernas de 2 en 2, barra con 1,25 por lado, máquina de 5; sin configurar es una referencia", () => {
+    const full = sess(2, [{ w: 22 }, { w: 22 }, { w: 22 }]);
+    const db = (load: ExerciseDetail["load"]) => ({ ...emptyDetail(), load });
+    // Mancuernas: 22 → 24 (no 24,5 ni 23).
+    expect(rec(straight(3, "8-10"), full, { increment: loadIncrement(db({ equipment: "dumbbell", incrementKg: 2 })) })[0]).toMatchObject({ weightKg: 24, action: "increase_load" });
+    // Barra: 1,25 por lado = 2,5 total.
+    expect(loadIncrement(db({ equipment: "barbell", incrementKg: 1.25, perSide: true }))).toBe(2.5);
+    expect(rec(straight(3, "8-10"), sess(2, [{ w: 61.25 }, { w: 61.25 }, { w: 61.25 }]), { increment: 2.5 })[0].weightKg).toBe(63.75);
+    // Máquina de placas de 5: bajar desde 47,5 queda en un múltiplo de 5.
+    expect(rec(straight(3, "8-10"), sess(2, [{ w: 47.5, r: 5 }, { w: 47.5, r: 5 }, { w: 47.5, r: 4 }]), { increment: 5 })[0].weightKg! % 5).toBe(0);
+    // Sin configurar: misma regla conservadora de siempre, marcada como referencia a ajustar.
+    const u = rec(straight(3, "8-10"), full)[0];
+    expect(u.reasons).toContain("increment_unknown");
+    expect(rec(straight(3, "8-10"), full, { increment: 2 })[0].reasons).toContain("increment_fit");
+    // Mantener la carga de la última vez no es una carga nueva: no hay nada que ajustar.
+    expect(rec(straight(3, "8-10"), sess(2, [{ r: 9 }, { r: 9 }, { r: 9 }]))[0].reasons).not.toContain("increment_unknown");
+    // Drop sin historia propia: −20 % ajustado al salto de las mancuernas.
+    const drop = withPlan([S("work", "8-10"), { ...S("drop", "al fallo"), block: 0, stage: 1 }]);
+    const dt = rec(drop, sess(2, [{ w: 24, specId: "x" }]), { increment: 2 });
+    expect(dt[1].weightKg! % 2).toBe(0);
+  });
+  it("D191 · validateDetail conserva el equipo y rechaza saltos fuera de rango", () => {
+    const ok = validateDetail({ ...emptyDetail(), load: { equipment: "barbell", incrementKg: 1.25, perSide: true } }, 3);
+    expect(ok.ok && ok.detail?.load).toEqual({ equipment: "barbell", incrementKg: 1.25, perSide: true });
+    const ds = validateDetail({ ...emptyDetail(), load: { equipment: "dumbbell", incrementKg: 2, perSide: true } }, 3);
+    expect(ds.ok && ds.detail?.load).toEqual({ equipment: "dumbbell", incrementKg: 2 }); // mancuernas: no hay «por lado»
+    expect(validateDetail({ ...emptyDetail(), load: { equipment: "machine", incrementKg: 40 } }, 3).ok).toBe(false);
+    expect(validateDetail({ ...emptyDetail(), load: { equipment: "machine", incrementKg: null as unknown as number } }, 3).ok).toBe(false);
   });
   it("peso corporal: progresa en repeticiones", () => {
     expect(rec(straight(3, "8-12"), sess(2, [{ w: null, r: 9 }, { w: null, r: 9 }, { w: null, r: 9 }]))[0]).toMatchObject({ weightKg: null, action: "increase_reps", repsTarget: 10 });
@@ -234,6 +264,13 @@ describe("Durante la sesión", () => {
   it("aceptada vs modificada", () => {
     expect(decisionFor(ts[0], { w: 62.5, r: 9 })).toBe("accepted");
     expect(decisionFor(ts[0], { w: 60, r: 9 })).toBe("modified");
+  });
+  it("en lb: cargar lo que se ve (137,8 lb → 62,51 kg) cuenta como lo propuesto; el objetivo guardado sigue en kg", () => {
+    const w = toKg(kgTo(ts[0].weightKg!, "lb"), "lb");
+    expect(w).toBe(62.51);
+    expect(decisionFor(ts[0], { w, r: 9 })).toBe("accepted");
+    expect(ts[0].weightKg).toBe(62.5);
+    expect(decisionFor(ts[0], { w: toKg(kgTo(ts[0].weightKg!, "lb") - 0.5, "lb"), r: 9 })).toBe("modified");
   });
 });
 

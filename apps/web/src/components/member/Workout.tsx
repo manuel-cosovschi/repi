@@ -3,7 +3,7 @@
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, localizeWeights, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
 import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, type RowTarget } from "@repi/domain";
 import { TargetCard } from "./TargetCard";
@@ -568,12 +568,12 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               real={curRow?.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null}
               // «Al fallo», AMRAP o por tiempo: las repeticiones son el resultado, no se precargan (D184); sólo la carga.
               onUse={(w, r) => { const numeric = !!curT && parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Objetivo cargado: ajustalo si hace falta antes de completar."); }} />
-          ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev)}</span></div>}
+          ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev, unit)}</span></div>}
           {!curTarget && ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
             <div className="wo-suggest" role="note">
               <small>REPI sugiere hoy</small>
               <b>{ex.suggest.weightKg != null ? `${kg(ex.suggest.weightKg, unit)} × ` : ""}{ex.suggest.reps} reps</b>
-              <span>{ex.suggest.why}</span>
+              <span>{localizeWeights(ex.suggest.why, unit)}</span>
             </div>
           )}
           <div className="sets" role="list" aria-label="Series">
@@ -626,7 +626,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 <button type="button" className="plus30" onClick={() => commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + 30, total: rest.total + 30 } : { ...rest, end: (rest.end ?? Date.now()) + 30_000, total: rest.total + 30 } })}>+30s</button>
               </div>
             </div>
-            {s.intel && <p className="ti-rest" role="status">{s.intel.text}{s.intel.restPlusSec ? <> <button type="button" className="linkbtn" onClick={() => void addRest(s.intel!.restPlusSec!)}>Sumar {s.intel.restPlusSec} s</button></> : null}</p>}
+            {s.intel && <p className="ti-rest" role="status">{localizeWeights(s.intel.text, unit)}{s.intel.restPlusSec ? <> <button type="button" className="linkbtn" onClick={() => void addRest(s.intel!.restPlusSec!)}>Sumar {s.intel.restPlusSec} s</button></> : null}</p>}
             <div className="rest-foot"><span>Próxima: {cur >= 0 ? rowName(cur) : "serie"} · {curRow?.pend ? "peso por elegir" : kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
             {restAlert !== "unsupported" && (
               <div className="rest-alert">
@@ -682,7 +682,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               return (
                 <div className="wo-suggest" role="note">
                   <small>{setTarget(ex, cur).label ?? "Serie"} · elegí el peso</small>
-                  {hint ? <><b>Referencia: {kg(hint.weightKg, unit)}</b><span>{hint.why}. Es una aproximación: ajustala si hace falta.</span>
+                  {hint ? <><b>Referencia: {kg(hint.weightKg, unit)}</b><span>{localizeWeights(hint.why, unit)}. Es una aproximación: ajustala si hace falta.</span>
                     <button type="button" className="ghost sm" onClick={() => editCur({ w: hint.weightKg })}>Usar {kg(hint.weightKg, unit)}</button></>
                     : <span>Esta serie va con menos carga que la principal. Marcá el peso con − y + o tocá el número para escribirlo.</span>}
                 </div>
@@ -712,7 +712,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         ) : (
           <>
             <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {blocks.length} {blocks.length === 1 ? "serie" : "series"}</span>
-            {!ex.change && ex.outlook?.proposal && <p className="ti-outlook"><small>Para la próxima sesión</small>{ex.outlook.proposal.text}{ex.outlook.proposal.requiresCoach ? " Lo decide tu profe." : ""}</p>}
+            {!ex.change && ex.outlook?.proposal && <p className="ti-outlook"><small>Para la próxima sesión</small>{localizeWeights(ex.outlook.proposal.text, unit)}{ex.outlook.proposal.requiresCoach ? " Lo decide tu profe." : ""}</p>}
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
               : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a la serie pendiente</button>
                 : <button type="button" className="cta" onClick={() => void finish()} aria-busy={busy || undefined}>Completar entrenamiento</button>}

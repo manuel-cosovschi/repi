@@ -6,7 +6,7 @@
 // queda trazado); una falla acá nunca impide registrar una serie (quien llama la atrapa); no llama a ningún LLM.
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  TI_VERSION, TI_WINDOW, adjustAfterSet, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
+  TI_VERSION, TI_WINDOW, adjustAfterSet, loadIncrement, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
   type ExCtx, type ExerciseDetail, type HistRow, type IntelEvent, type Proposal, type RowTarget, type SetKind, type Trend,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -25,7 +25,7 @@ type RawHist = { id: string; exercise_id: string; session_id: string; set_index:
  * Filas registradas de las últimas `TI_WINDOW.sessions` sesiones terminadas de cada ejercicio (en `TI_WINDOW.days` días), más el
  * historial importado (hasta `importDays`, deduplicado por día y serie). Con `coachClientId`, sólo lo entrenado con ese coach.
  */
-export async function historyRows(userId: string, exerciseIds: string[], o: { excludeSessionId?: string; coachClientId?: string; now?: Date; imports?: boolean } = {}) {
+export async function historyRows(userId: string, exerciseIds: string[], o: { excludeSessionId?: string; coachClientId?: string; gymMemberId?: string; now?: Date; imports?: boolean } = {}) {
   const out = new Map<string, HistRow[]>();
   const list = [...new Set(exerciseIds)].slice(0, 80);
   if (!list.length) return out;
@@ -39,6 +39,7 @@ export async function historyRows(userId: string, exerciseIds: string[], o: { ex
       where ws.user_id = ${userId} and ws.status = 'completed' and sl.exercise_id in (${ids(list)}) and sl.completed_at >= ${since.toISOString()}::timestamptz
         ${o.excludeSessionId ? sql`and ws.id <> ${o.excludeSessionId}` : sql``}
         ${o.coachClientId ? sql`and ws.coach_client_id = ${o.coachClientId}` : sql``}
+        ${o.gymMemberId ? sql`and ws.gym_member_id = ${o.gymMemberId}` : sql``}
       group by sl.exercise_id, sl.session_id)
     select sl.id, sl.exercise_id, sl.session_id, sl.set_index, sl.weight_kg, sl.reps, sl.rir, sl.feel, sl.spec_id, sl.set_kind, sl.stage_index, r.at,
       pe.reps as pe_reps, pe.sets as pe_sets, pe.detail as pe_detail
@@ -57,8 +58,8 @@ export async function historyRows(userId: string, exerciseIds: string[], o: { ex
     };
     out.set(x.exercise_id, [...(out.get(x.exercise_id) ?? []), h]);
   }
-  if (o.imports !== false && !o.coachClientId) {
-    // D132: el historial importado es del alumno; sólo cuenta para sus propios objetivos (nunca en la vista del coach).
+  if (o.imports !== false && !o.coachClientId && !o.gymMemberId) {
+    // D132: el historial importado es del alumno; sólo cuenta para sus propios objetivos (nunca en la vista del coach ni de la sede).
     const iSince = new Date(now.getTime() - TI_WINDOW.importDays * 86_400_000).toISOString().slice(0, 10);
     const imp = await db.select({ ex: historyEntry.exerciseId, day: historyEntry.day, i: historyEntry.setIndex, w: historyEntry.weightKg, r: historyEntry.reps, s: historyEntry.seconds })
       .from(historyEntry).where(and(eq(historyEntry.userId, userId), inArray(historyEntry.exerciseId, list), sql`${historyEntry.day} >= ${iSince}`))
@@ -120,7 +121,7 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
     await db.transaction(async (tx) => {
       if (stale.length) await tx.update(trainingTarget).set({ supersededAt: now }).where(and(inArray(trainingTarget.id, stale.map((r) => r.id)), isNull(trainingTarget.supersededAt)));
       for (const e of need) {
-        const ts = recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name) });
+        const ts = recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), ...(e.doing !== e.exerciseId ? { increment: null } : {}) }); // sustituto: otro equipo, salto desconocido
         const mine = (byPe.get(e.id) ?? []).filter((r) => !stale.includes(r));
         const missing = ts.filter((t) => !e.logged.has(t.setIndex) && !mine.some((r) => r.setIndex === t.setIndex));
         if (!missing.length) continue;
@@ -136,7 +137,7 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
 }
 
 /** Tendencia y propuesta del ejercicio para la persona (texto breve; nunca cambia la rutina). */
-export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false): Outlook {
+export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false, increment: number | null = loadIncrement(e.detail)): Outlook {
   const plan = Array.from({ length: e.sets }, (_, i) => rowContext(e as ExCtx, i));
   const main = plan.find((c) => c.cls === "main" || c.cls === "top");
   if (!main) return null;
@@ -144,7 +145,7 @@ export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec
   const trend = exerciseTrend(pts);
   const t = setTarget(e as ExCtx, main.index);
   const r = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(t.reps.trim());
-  const proposal = nextProposal(trend, pts, { repsMin: r ? Number(r[1]) : null, repsMax: r ? Number(r[2] ?? r[1]) : null, coachOwned, fatigue });
+  const proposal = nextProposal(trend, pts, { repsMin: r ? Number(r[1]) : null, repsMax: r ? Number(r[2] ?? r[1]) : null, coachOwned, fatigue, increment });
   return { trend, proposal };
 }
 
@@ -166,7 +167,7 @@ export async function afterSetLogged(userId: string, sessionId: string, peId: st
   const ex: ExCtx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: pe.detail as ExerciseDetail | null };
   const targets: RowTarget[] = Array.from({ length: pe.sets }, (_, i) => { const r = cur.find((x) => x.setIndex === i); return r ? toOut(r) : null; }) as RowTarget[];
   const done = logs.map((l) => ({ index: l.setIndex, w: l.weightKg == null ? null : Number(l.weightKg), r: l.reps, rir: l.rir, feel: l.feel }));
-  const adj = adjustAfterSet({ ex, targets, done, justDone: setIndex });
+  const adj = adjustAfterSet({ ex, targets, done, justDone: setIndex, ...(mine.exerciseId !== pe.exerciseId ? { increment: null } : {}) });
   const logged = new Set(logs.map((l) => l.setIndex));
   await db.transaction(async (tx) => {
     await tx.update(trainingTarget).set({ decision: decisionFor(toOut(mine), { w: done.find((d) => d.index === setIndex)!.w, r: log.reps }), setLogId: log.id, decidedAt: now })
@@ -199,18 +200,35 @@ export async function closeTargets(sessionId: string, now = new Date()) {
 export async function clientIntelligence(actorId: string, orgId: string, coachClientId: string, now = new Date()) {
   await requireCoach(actorId, orgId);
   const rel = await requireClientOf(orgId, coachClientId);
-  const [a] = await db.select().from(programAssignment).where(and(eq(programAssignment.coachClientId, coachClientId), eq(programAssignment.status, "active")));
-  if (!a) return { formula: FORMULA, exercises: [], adherence: null };
+  return relationIntelligence({ kind: "coach", id: coachClientId, userId: rel.userId }, now);
+}
+
+/** Relación ya autorizada por quien llama: coach privado (`coach_client`) o socio de la sede (`gym_member`). */
+export type IntelRel = { kind: "coach" | "gym"; id: string; userId: string };
+const relCol = (k: IntelRel["kind"]) => ({
+  assignment: k === "coach" ? programAssignment.coachClientId : programAssignment.gymMemberId,
+  session: k === "coach" ? workoutSession.coachClientId : workoutSession.gymMemberId,
+  proposal: k === "coach" ? trainingProposal.coachClientId : trainingProposal.gymMemberId,
+});
+
+/**
+ * Núcleo compartido por la ficha del coach y la del equipo de sala (D191). Sólo lee lo entrenado dentro de esa relación
+ * (nunca el historial importado ni datos de salud) y deja abiertas las propuestas: nunca cambia la rutina ni crea versiones.
+ */
+export async function relationIntelligence(rel: IntelRel, now = new Date()) {
+  const col = relCol(rel.kind);
+  const [a] = await db.select().from(programAssignment).where(and(eq(col.assignment, rel.id), eq(programAssignment.status, "active")));
+  if (!a) return { formula: FORMULA, exercises: [], adherence: null, programId: null };
   const [p] = await db.select().from(program).where(eq(program.id, a.programId));
   const { doc } = await readVersion(p.currentVersionId!);
   const seen = new Set<string>();
   const exs = doc.days.flatMap((d) => d.exercises).filter((e) => (seen.has(e.exerciseId) ? false : (seen.add(e.exerciseId), true))).slice(0, 40);
-  const hist = await historyRows(rel.userId, exs.map((e) => e.exerciseId), { coachClientId, now, imports: false });
+  const hist = await historyRows(rel.userId, exs.map((e) => e.exerciseId), { ...(rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id }), now, imports: false });
   const since = new Date(now.getTime() - 28 * 86_400_000);
-  // Prescripción vs resultado: objetivos de REPI en las sesiones con este coach (últimos 28 días) y cómo se resolvieron.
+  // Prescripción vs resultado: objetivos de REPI en las sesiones de esta relación (últimos 28 días) y cómo se resolvieron.
   const decided = await db.select({ ex: trainingTarget.exerciseId, d: trainingTarget.decision, n: sql<number>`count(*)::int` }).from(trainingTarget)
     .innerJoin(workoutSession, eq(workoutSession.id, trainingTarget.sessionId))
-    .where(and(eq(workoutSession.coachClientId, coachClientId), isNull(trainingTarget.supersededAt), sql`${trainingTarget.createdAt} >= ${since.toISOString()}::timestamptz`))
+    .where(and(eq(col.session, rel.id), isNull(trainingTarget.supersededAt), sql`${trainingTarget.createdAt} >= ${since.toISOString()}::timestamptz`))
     .groupBy(trainingTarget.exerciseId, trainingTarget.decision);
   const out = [];
   for (const e of exs) {
@@ -224,9 +242,10 @@ export async function clientIntelligence(actorId: string, orgId: string, coachCl
     let proposal: { id: string; status: string } & Proposal | null = null;
     if (o?.proposal && (o.proposal.requiresCoach || o.proposal.kind === "load" || o.proposal.kind === "review" || o.proposal.kind === "deload")) {
       const pl = { text: o.proposal.text, weightKg: o.proposal.weightKg, reps: o.proposal.reps, basis: o.proposal.basis, trend: o.trend.kind, sessions: o.trend.sessions };
-      await db.insert(trainingProposal).values({ coachClientId, exerciseId: e.exerciseId, kind: o.proposal.kind, payload: pl, algoVersion: TI_VERSION })
-        .onConflictDoUpdate({ target: [trainingProposal.coachClientId, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql`status = 'open'`, set: { payload: pl, algoVersion: TI_VERSION } });
-      const [row] = await db.select().from(trainingProposal).where(and(eq(trainingProposal.coachClientId, coachClientId), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open")));
+      const relVals = rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id };
+      await db.insert(trainingProposal).values({ ...relVals, exerciseId: e.exerciseId, kind: o.proposal.kind, payload: pl, algoVersion: TI_VERSION })
+        .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`), set: { payload: pl, algoVersion: TI_VERSION } });
+      const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open")));
       if (row) proposal = { id: row.id, status: row.status, ...o.proposal };
     }
     out.push({
@@ -235,23 +254,29 @@ export async function clientIntelligence(actorId: string, orgId: string, coachCl
       trend: o?.trend ?? null, proposal, targets: counts,
     });
   }
-  const done = await db.select({ n: sql<number>`count(*)::int` }).from(workoutSession).where(and(eq(workoutSession.coachClientId, coachClientId), eq(workoutSession.status, "completed"), sql`${workoutSession.endedAt} >= ${since.toISOString()}::timestamptz`));
-  return { formula: FORMULA, exercises: out, adherence: { sessions28d: done[0]?.n ?? 0 } };
+  const done = await db.select({ n: sql<number>`count(*)::int` }).from(workoutSession).where(and(eq(col.session, rel.id), eq(workoutSession.status, "completed"), sql`${workoutSession.endedAt} >= ${since.toISOString()}::timestamptz`));
+  return { formula: FORMULA, exercises: out, adherence: { sessions28d: done[0]?.n ?? 0 }, programId: p.id };
 }
 const FORMULA = `Tendencia con las últimas ${TI_WINDOW.sessions} sesiones comparables (hasta ${TI_WINDOW.days} días) de la serie principal: mejor serie de cada sesión por 1RM estimado (Epley, 1–12 reps) o kilos y repeticiones. Menos de 3 sesiones: datos insuficientes. Son reglas del producto, no un diagnóstico.`;
 
-export async function decideProposal(actorId: string, orgId: string, proposalId: string, p: { status: "accepted" | "modified" | "rejected" | "kept"; note?: string | null }) {
+export type ProposalDecision = { status: "accepted" | "modified" | "rejected" | "kept"; note?: string | null };
+export async function decideProposal(actorId: string, orgId: string, proposalId: string, p: ProposalDecision) {
   await requireCoach(actorId, orgId);
   const [row] = await db.select({ pr: trainingProposal, org: coachClient.coachOrgId }).from(trainingProposal).innerJoin(coachClient, eq(coachClient.id, trainingProposal.coachClientId))
     .where(eq(trainingProposal.id, proposalId));
   if (!row || row.org !== orgId) throw new AccessError("not_found", "No encontramos lo que buscás.", 404);
-  await requireClientOf(orgId, row.pr.coachClientId);
-  if (row.pr.status !== "open") return { id: row.pr.id, status: row.pr.status };
+  await requireClientOf(orgId, row.pr.coachClientId!);
+  return recordDecision(actorId, orgId, row.pr, p);
+}
+
+/** Registra la decisión sobre una propuesta ya autorizada. Sólo cambia la propuesta: la rutina sigue igual. */
+export async function recordDecision(actorId: string, orgId: string, pr: typeof trainingProposal.$inferSelect, p: ProposalDecision) {
+  if (pr.status !== "open") return { id: pr.id, status: pr.status };
   const note = p.note?.trim().slice(0, 200) || null;
   const [u] = await db.update(trainingProposal).set({ status: p.status, decidedBy: actorId, decidedAt: new Date(), note })
-    .where(and(eq(trainingProposal.id, proposalId), eq(trainingProposal.status, "open"))).returning();
-  await audit(db, { actorUserId: actorId, orgId, action: `training_proposal.${p.status}`, resourceType: "training_proposal", resourceId: proposalId, meta: { kind: row.pr.kind } });
-  return { id: proposalId, status: u?.status ?? row.pr.status };
+    .where(and(eq(trainingProposal.id, pr.id), eq(trainingProposal.status, "open"))).returning();
+  await audit(db, { actorUserId: actorId, orgId, action: `training_proposal.${p.status}`, resourceType: "training_proposal", resourceId: pr.id, meta: { kind: pr.kind } });
+  return { id: pr.id, status: u?.status ?? pr.status };
 }
 
 /** Ejercicios de la sesión con el ejercicio que realmente se hace y las filas ya registradas (para `ensureTargets`). */

@@ -1,5 +1,5 @@
 {
-  "id": "66ea2c3a-40a2-4af6-a278-978eb618e4f4",
+  "id": "80ce55bb-ef6a-4f51-a7f0-4b73b9a1c546",
   "prevId": "56b7a452-05ca-4f1a-b8ef-e83a51f21498",
   "version": "7",
   "dialect": "postgresql",
@@ -12919,7 +12919,13 @@
           "name": "coach_client_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "gym_member_id": {
+          "name": "gym_member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "exercise_id": {
           "name": "exercise_id",
@@ -13002,7 +13008,35 @@
             }
           ],
           "isUnique": true,
-          "where": "status = 'open'",
+          "where": "status = 'open' and coach_client_id is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_proposal_member_open_unique": {
+          "name": "training_proposal_member_open_unique",
+          "columns": [
+            {
+              "expression": "gym_member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "exercise_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "status = 'open' and gym_member_id is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -13027,6 +13061,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "training_proposal_member_idx": {
+          "name": "training_proposal_member_idx",
+          "columns": [
+            {
+              "expression": "gym_member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -13036,6 +13091,19 @@
           "tableTo": "coach_client",
           "columnsFrom": [
             "coach_client_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "training_proposal_gym_member_id_gym_member_id_fk": {
+          "name": "training_proposal_gym_member_id_gym_member_id_fk",
+          "tableFrom": "training_proposal",
+          "tableTo": "gym_member",
+          "columnsFrom": [
+            "gym_member_id"
           ],
           "columnsTo": [
             "id"
@@ -13073,7 +13141,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "training_proposal_one_relation": {
+          "name": "training_proposal_one_relation",
+          "value": "(\"training_proposal\".\"coach_client_id\" is null) <> (\"training_proposal\".\"gym_member_id\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.training_target": {
