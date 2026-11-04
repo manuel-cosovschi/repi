@@ -3,7 +3,7 @@
 // aplicación explícita por la programación (versión nueva, historial intacto); kg/lb; saltos de carga por equipo; molestia;
 // top set + back-off y rest-pause; historial importado e insuficiente.
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { applyLoad, emptyDetail, kgTo, localDate, localizeWeights, toKg, type ExerciseDetail, type ProgramDoc, type SetSpec } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -307,5 +307,26 @@ describe("Durante el entrenamiento: molestia, métodos e historial", () => {
     const v = await ti.clientIntelligence(c.coach, c.org, c.rel);
     expect(v.exercises[0]).toMatchObject({ last: null, proposal: null });
     expect(v.exercises[0].trend).toMatchObject({ kind: "insufficient", confidence: "none" });
+  });
+});
+
+describe("Si Training Intelligence falla, se entrena igual", () => {
+  it("sin la tabla de objetivos (falla de la base o 0043 sin aplicar): empezar, abrir, registrar y terminar funcionan", async () => {
+    const c = await coachMember([{ sets: 2, reps: "8-10" }]);
+    await train(c.user, [[{ w: 60, r: 10 }, { w: 60, r: 10 }]]);
+    await db.execute(sql`alter table training_target rename to training_target_off`);
+    try {
+      const sid = await open(c.user);
+      const s = await tr.getSession(c.user, sid);
+      expect(s.exercises[0].targets).toEqual([]);
+      const r = await tr.logSet(c.user, sid, { id: randomUUID(), programExerciseId: s.exercises[0].id, setIndex: 0, weightKg: 62.5, reps: 9, rir: 2 });
+      expect(r.intel ?? null).toBeNull();
+      await tr.logSet(c.user, sid, { id: randomUUID(), programExerciseId: s.exercises[0].id, setIndex: 1, weightKg: 62.5, reps: 9, rir: 2 });
+      await tr.sessionAction(c.user, sid, "finish");
+      const sum = await tr.sessionSummary(c.user, sid);
+      expect([sum.status, sum.setsDone]).toEqual(["completed", 2]);
+    } finally {
+      await db.execute(sql`alter table training_target_off rename to training_target`);
+    }
   });
 });
