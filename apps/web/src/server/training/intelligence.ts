@@ -44,7 +44,8 @@ export async function historyRows(userId: string, exerciseIds: string[], o: { ex
       pe.reps as pe_reps, pe.sets as pe_sets, pe.detail as pe_detail
     from ranked r join set_log sl on sl.session_id = r.session_id and sl.exercise_id = r.exercise_id
     join program_exercise pe on pe.id = sl.program_exercise_id
-    where r.rk <= ${TI_WINDOW.sessions}`)) as unknown as RawHist[];
+    where r.rk <= ${TI_WINDOW.sessions}
+    order by r.at desc, sl.set_index`)) as unknown as RawHist[];
   for (const x of rows) {
     // D183: tipo y etapa guardados al registrar; en registros anteriores, los de la versión congelada (sin inventar).
     const ref = rowRef(x.pe_detail, x.pe_sets, x.set_index);
