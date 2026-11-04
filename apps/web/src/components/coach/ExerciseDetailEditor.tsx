@@ -8,9 +8,9 @@
 import { useMemo, useState, type InputHTMLAttributes } from "react";
 import { Modal } from "@/components/ui/Modal";
 import {
-  DEFAULT_STAGES, GROUP_KIND_LABEL, GROUP_LETTERS, MAX_BLOCKS, MAX_STAGES, SET_KIND_LABEL, STAGE_KINDS, TECHNIQUES, applyMethod, defaultSelection, emptyDetail, flatten,
+  DEFAULT_STAGES, EQUIPMENT, GROUP_KIND_LABEL, loadIncrement, GROUP_LETTERS, MAX_BLOCKS, MAX_STAGES, SET_KIND_LABEL, STAGE_KINDS, TECHNIQUES, applyMethod, defaultSelection, emptyDetail, flatten,
   isStraightPlan, materialize, newSpecId, normalizePlan, presetPlan, setTarget, setTargetText, stageLabel, structureText, uniformPlan, validateDetail,
-  type ExerciseDetail, type GroupKind, type MethodOptions, type PlanRow, type SetKind, type Technique,
+  type Equipment, type ExerciseDetail, type GroupKind, type MethodOptions, type PlanRow, type SetKind, type Technique,
 } from "@repi/domain";
 
 type Ex = { name: string; sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null };
@@ -21,7 +21,7 @@ export function detailSummary(e: Ex, label?: string | null) {
   if (!d) return null;
   const straightKg = isStraightPlan(d) && uniformPlan(d.setPlan) ? d.setPlan![0].weightKg : null; // D173: series rectas con peso
   return [d.technique !== "straight" ? TECHNIQUES[d.technique].label : null, label ? `${label}${d.groupKind === "circuit" ? ` (circuito${d.rounds ? ` × ${d.rounds}` : ""})` : ""}` : null,
-    d.tempo ? `tempo ${d.tempo}` : null, d.variant, d.unilateral ? "unilateral" : null, d.emomSec ? `cada ${d.emomSec} s` : null,
+    d.tempo ? `tempo ${d.tempo}` : null, d.variant, d.load && loadIncrement(d) != null ? `${EQUIPMENT[d.load.equipment].toLowerCase()}, salto ${loadIncrement(d)!.toLocaleString("es-AR")} kg` : null, d.unilateral ? "unilateral" : null, d.emomSec ? `cada ${d.emomSec} s` : null,
     straightKg != null ? `${straightKg.toLocaleString("es-AR")} kg en todas las series` : d.setPlan ? structureText(d, e.sets) : null].filter(Boolean).join(" · ");
 }
 
@@ -253,6 +253,18 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false }: { e
             <label className="field dx-note">Progresión<input value={d.progression ?? ""} maxLength={120} onChange={(ev) => change({ ...d, progression: ev.target.value || null })} placeholder="+2,5 kg por semana si completás todas las series" /></label>
           </div>
           <label className="crow" style={{ gap: 8 }}><input type="checkbox" checked={d.unilateral} onChange={(ev) => change({ ...d, unilateral: ev.target.checked })} />Unilateral (las repeticiones son por lado)</label>
+        </section>
+
+        {/* D191: con el menor salto real del equipo, REPI propone cargas que se pueden armar; sin él, son una referencia a ajustar. */}
+        <section className="dx-sec" aria-label="Equipo y saltos de carga"><b>Equipo y saltos de carga</b>
+          <small className="muted">Opcional. El menor salto de carga con el que se arma este ejercicio (por ejemplo, mancuernas de 2 en 2 kg o discos de 1,25 kg por lado). REPI ajusta sus propuestas a ese salto; sin él, la carga propuesta es una referencia.</small>
+          <div className="dx-grid">
+            <label className="field">Equipo<select style={sel} value={d.load?.equipment ?? ""} onChange={(ev) => change({ ...d, load: ev.target.value ? { equipment: ev.target.value as Equipment, incrementKg: d.load?.incrementKg ?? (null as unknown as number), perSide: d.load?.perSide } : null })}>
+              <option value="">Sin indicar</option>{(Object.keys(EQUIPMENT) as Equipment[]).map((k) => <option key={k} value={k}>{EQUIPMENT[k]}</option>)}</select></label>
+            {d.load && <label className="field">Menor salto (kg)<NumInput inputMode="decimal" value={d.load.incrementKg ?? null} onChange={(n) => change({ ...d, load: { ...d.load!, incrementKg: n as number } })} placeholder={d.load.equipment === "dumbbell" ? "2" : d.load.equipment === "barbell" ? "1,25" : "5"} /></label>}
+          </div>
+          {d.load && (d.load.equipment === "barbell" || d.load.equipment === "plate_loaded") && <label className="crow" style={{ gap: 8 }}><input type="checkbox" checked={!!d.load.perSide} onChange={(ev) => change({ ...d, load: { ...d.load!, perSide: ev.target.checked } })} />El salto es por lado (se carga igual de los dos lados)</label>}
+          {d.load && loadIncrement(d) != null && <small className="muted">Salto total: {loadIncrement(d)!.toLocaleString("es-AR")} kg.</small>}
         </section>
 
         {err && <p className="err-box" role="alert">{err}</p>}

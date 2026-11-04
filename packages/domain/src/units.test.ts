@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanDecimalDraft, fmtWeight, kgTo, parseWeightIn, stepWeightIn, toKg, volumeIn } from "./units";
+import { cleanDecimalDraft, fmtWeight, kgTo, localizeWeights, parseWeightIn, stepWeightIn, toKg, volumeIn } from "./units";
 
 describe("unidad de peso (F-HX-23)", () => {
   it("kg queda igual; lb redondea a 0,1 y vuelve al mismo valor mostrado", () => {
@@ -43,5 +43,21 @@ describe("D182 · edición del peso sin ceros agregados", () => {
     expect(cleanDecimalDraft(" 62,5 kg")).toBe("62,5");
     expect(parseWeightIn(cleanDecimalDraft("070"), "kg")).toBe(70);
     expect(parseWeightIn(cleanDecimalDraft(""), "kg")).toBeNull();
+  });
+});
+
+describe("D191 · explicaciones en la unidad elegida", () => {
+  it("kg queda igual; lb convierte cada carga con decimales", () => {
+    const t = "Subí a 62,5 kg. La vez pasada: 60 kg × 8. −15 % del top set (102.5 kg)";
+    expect(localizeWeights(t, "kg")).toBe(t);
+    expect(localizeWeights(t, "lb")).toBe("Subí a 137,8 lb. La vez pasada: 132,3 lb × 8. −15 % del top set (226 lb)");
+  });
+  it("no convierte dos veces ni toca porcentajes, segundos o repeticiones", () => {
+    const once = localizeWeights("Mantené 20 kg y 45 s; 8 reps; −20 %", "lb");
+    expect(once).toBe("Mantené 44,1 lb y 45 s; 8 reps; −20 %");
+    expect(localizeWeights(once, "lb")).toBe(once);
+  });
+  it("cargas chicas de mancuernas con dos decimales", () => {
+    expect(localizeWeights("Probá 1,25 kg más", "lb")).toBe("Probá 2,8 lb más");
   });
 });

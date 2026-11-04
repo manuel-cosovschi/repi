@@ -551,6 +551,7 @@ function CommentBox({ onSend }: { onSend: (t: string) => void }) {
 type LiftRank = { inRanking: boolean; metric: string; updatedAt: string; exercises: { id: string; name: string; people: number }[]; exercise: { id: string; name: string } | null;
   rows: { key: string; name: string; best: number; pos: number; delta: number | null; isNew: boolean; me: boolean }[] };
 function LiftRankView({ orgId }: { orgId: string }) {
+  const unit = useUnit();
   const [r, setR] = useState<LiftRank | null>(null);
   const [ex, setEx] = useState<string | null>(null);
   const [live, setLive] = useState<Record<string, "up" | "down">>({});
@@ -586,7 +587,7 @@ function LiftRankView({ orgId }: { orgId: string }) {
     }
   }, [r]);
   if (!r) return <span className="mb-muted">Cargando…</span>;
-  const kg = (v: number) => `${v.toLocaleString("es-AR")} kg`;
+  const kg = (v: number) => fmtWeight(v, unit);
   return (
     <>
       {r.exercises.length > 0 && <div className="lift-ex" role="radiogroup" aria-label="Ejercicio">

@@ -54,6 +54,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "members": {
       if (!b) return gym.listMembers(me, orgId, loc(u) ?? "", u.searchParams.get("q") ?? "");
       if (c === "last") return gym.memberLastTimes(me, orgId, b, (u.searchParams.get("ids") ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x))); // D154
+      if (c === "intelligence") return gym.memberIntelligence(me, orgId, b); // D191: sala/coordinación con consentimiento
       const d = await gym.memberDetail(me, orgId, b);
       return { ...d, community: await cm.memberCommunitySummary(orgId, b) }; // intentos y logros en la ficha (F-HX-15)
     }
@@ -127,6 +128,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     return gym.memberProgramDraft(me, orgId, b, await body(req, BriefZ));
   }
   if (a === "members" && b && c === "program") return gym.saveMemberProgram(me, orgId, b, await body(req, z.object({ doc: DOC, reason: z.string().max(300), completeTaskId: id.nullable().optional() })));
+  if (a === "intel-proposals" && b) return gym.decideMemberProposal(me, orgId, b, await body(req, z.object({ status: z.enum(["accepted", "modified", "rejected", "kept"]), note: z.string().max(200).nullable().optional() }))); // D191
   if (a === "members" && b && c === "notes") return gym.addNote(me, orgId, b, await body(req, z.object({ kind: z.enum(["institutional", "personal"]), text: z.string().max(1000) })));
   if (a === "members" && b && c === "conversation") return msg.floorConversationFor(me, orgId, b);
   if (a === "team" && b && c === "after-hours") return gym.setAfterHours(me, orgId, b, (await body(req, z.object({ on: z.boolean() }))).on);

@@ -64,7 +64,21 @@ export type ExerciseDetail = {
   progression: string | null; // «+2,5 kg por semana si completás todo»
   /** D183: EMOM: cada cuántos segundos empieza una serie (cada serie principal es un intervalo). */
   emomSec?: number | null;
+  /** D191: equipo y menor salto de carga disponible. Sin esto, la carga calculada es una referencia a ajustar. */
+  load?: LoadSetup | null;
 };
+
+// ── D191 · Saltos de carga por equipo ─────────────────────────────────────
+// Se configuran en el ejercicio del programa (quien lo edita con permiso, versionado como siempre). No es un inventario:
+// no dice qué discos o mancuernas hay, sólo el menor salto real con el que se arma la carga en ese ejercicio.
+export const EQUIPMENT = { dumbbell: "Mancuernas", barbell: "Barra con discos", plate_loaded: "Máquina de discos", machine: "Máquina de placas (pin)", cable: "Polea", kettlebell: "Pesa rusa", other: "Otro" } as const;
+export type Equipment = keyof typeof EQUIPMENT;
+/** `perSide`: el salto se carga de cada lado (barra, máquina de discos); el salto total es el doble. */
+export type LoadSetup = { equipment: Equipment; incrementKg: number; perSide?: boolean };
+/** Salto total en kg (null si no se configuró). */
+export const loadIncrement = (d: { load?: LoadSetup | null } | null | undefined): number | null =>
+  d?.load && d.load.incrementKg > 0 ? Math.round(d.load.incrementKg * (d.load.perSide ? 2 : 1) * 100) / 100 : null;
+const EQUIP_KEYS = Object.keys(EQUIPMENT) as Equipment[];
 
 export const emptyDetail = (): ExerciseDetail => ({ technique: "straight", setPlan: null, group: null, groupKind: null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null });
 const S = (kind: SetKind, reps: string, p: Partial<SetSpec> = {}): SetSpec => ({ kind, reps, weightKg: null, pct1rm: null, rir: null, rpe: null, restSec: null, note: null, ...p });
@@ -130,12 +144,21 @@ export function validateDetail(d: Partial<ExerciseDetail> | null | undefined, se
   if (tempo && !/^[0-9xX]{1,2}([-–][0-9xX]{1,2}){2,3}$/.test(tempo)) return { ok: false, error: "El tempo se escribe como excéntrica-pausa-concéntrica-pausa, por ejemplo 3-1-1-0 (X = explosivo)." };
   const emomSec = technique === "emom" ? numIn(d.emomSec ?? 60, 10, 300) : null;
   if (Number.isNaN(emomSec)) return { ok: false, error: "El intervalo del EMOM va de 10 segundos a 5 minutos." };
+  let load: LoadSetup | null = null;
+  if (d.load) {
+    const inc = numIn(d.load.incrementKg, 0.1, 25);
+    if (inc == null) return { ok: false, error: "Indicá el menor salto de carga del equipo (o elegí «Sin indicar»)." };
+    if (Number.isNaN(inc)) return { ok: false, error: "El salto de carga va de 0,1 a 25 kg." };
+    const equipment = EQUIP_KEYS.includes(d.load.equipment) ? d.load.equipment : "other";
+    load = { equipment, incrementKg: Math.round(inc * 100) / 100, ...(d.load.perSide && (equipment === "barbell" || equipment === "plate_loaded") ? { perSide: true } : {}) };
+  }
   const detail: ExerciseDetail = {
     technique, setPlan, group, groupKind, rounds: rounds ?? null, tempo: tempo?.replace(/–/g, "-").toUpperCase() ?? null,
     variant: txt(d.variant, 60), unilateral: !!d.unilateral, progression: txt(d.progression, 120),
   };
   if (emomSec != null) detail.emomSec = Math.round(emomSec);
-  const empty = technique === "straight" && !setPlan && !group && !detail.tempo && !detail.variant && !detail.unilateral && !detail.progression;
+  if (load) detail.load = load;
+  const empty = technique === "straight" && !setPlan && !group && !detail.tempo && !detail.variant && !detail.unilateral && !detail.progression && !load;
   return { ok: true, detail: empty ? null : detail, sets: setPlan ? setPlan.length : sets, ...(setPlan ? { blocks: setPlan.filter((r) => r.stage === 0).length } : {}) };
 }
 

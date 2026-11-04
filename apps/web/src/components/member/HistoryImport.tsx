@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 import { spreadsheetToCsv } from "@/lib/spreadsheet";
+import { fmtWeight, type WeightUnit } from "@repi/domain";
+import { useUnit } from "./units";
 
 type Preview = {
   id: string; source: "csv" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
@@ -16,7 +18,7 @@ type Mark = { day: string; weightKg: number | null; reps: number | null; seconds
 type Mine = { imports: { id: string; fileName: string | null; sessions: number; sets: number; fromDay: string | null; toDay: string | null }[]; evolution: { exercise: string; sessions: number; first: Mark; best: Mark; last: Mark }[] };
 
 const d = (iso: string | null) => (iso ? new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`)) : "—");
-const mark = (m: Mark) => m.seconds != null && m.weightKg == null ? `${m.seconds} s` : `${m.weightKg != null ? `${m.weightKg.toLocaleString("es-AR")} kg` : "PC"}${m.reps != null ? ` × ${m.reps}` : ""}`;
+const mark = (m: Mark, unit: WeightUnit) => m.seconds != null && m.weightKg == null ? `${m.seconds} s` : `${m.weightKg != null ? fmtWeight(m.weightKg, unit) : "PC"}${m.reps != null ? ` × ${m.reps}` : ""}`;
 
 /** Foto a JPEG de hasta 2000 px: menos datos para subir y suficiente para leer un cuaderno. */
 async function shrinkImage(file: File): Promise<string> {
@@ -55,6 +57,7 @@ export async function readImportFile(f: File): Promise<ImportBody | string> {
 }
 
 export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; offline?: boolean }) {
+  const unit = useUnit();
   const [mine, setMine] = useState<Mine | null>(null);
   const [open, setOpen] = useState(false);
   const load = useCallback(() => { api<Mine>("/api/me/history-import").then(setMine).catch(() => {}); }, []);
@@ -72,7 +75,7 @@ export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; off
           <>
             <div className="hist">{mine.evolution.slice(0, 12).map((e) => (
               <div key={e.exercise}><span><b>{e.exercise}</b><br /><small className="mb-muted">{e.sessions} {e.sessions === 1 ? "día" : "días"} · desde {d(e.first.day)}</small></span>
-                <span className="mb-muted" style={{ textAlign: "right" }}>{mark(e.first)} → <b style={{ color: "var(--ui-text)" }}>{mark(e.best)}</b><br /><small>mejor marca</small></span></div>
+                <span className="mb-muted" style={{ textAlign: "right" }}>{mark(e.first, unit)} → <b style={{ color: "var(--ui-text)" }}>{mark(e.best, unit)}</b><br /><small>mejor marca</small></span></div>
             ))}</div>
             {mine.imports.map((i) => (
               <span key={i.id} className="mb-muted" style={{ fontSize: 12 }}>{i.fileName || "Historial"} · {i.sessions} días ({d(i.fromDay)} – {d(i.toDay)}) · <button type="button" className="linkbtn" onClick={() => void remove(i.id)}>Quitar</button></span>
@@ -86,6 +89,7 @@ export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; off
 }
 
 function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; onClose: () => void; onDone: () => void }) {
+  const unit = useUnit();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -127,7 +131,7 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
         <div key={e.name}><span><b>{e.matched ?? e.name}</b>{e.matched && e.matched !== e.name && <><br /><small className="mb-muted">escrito «{e.name}»</small></>}{!e.matched && <><br /><small className="mb-muted">Sin equivalente en la biblioteca: queda con este nombre</small></>}</span><span className="mb-muted">{e.sets} series</span></div>
       ))}</div>
       {p.sample.map((s) => (
-        <p key={s.day} className="sheet-sub"><b>{d(s.day)}:</b> {s.items.map((x) => `${x.exercise} ${mark({ day: s.day, ...x })}`).join(" · ")}</p>
+        <p key={s.day} className="sheet-sub"><b>{d(s.day)}:</b> {s.items.map((x) => `${x.exercise} ${mark({ day: s.day, ...x }, unit)}`).join(" · ")}</p>
       ))}
       <button type="button" className="ghost" onClick={() => void discard()}>Subir otro archivo</button>
     </Sheet>

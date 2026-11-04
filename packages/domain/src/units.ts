@@ -46,3 +46,13 @@ export function cleanDecimalDraft(s: string): string {
   t = t.replace(/^0+(?=\d)/, "");
   return t.slice(0, 7);
 }
+
+/**
+ * D191 · Textos explicativos en la unidad de la persona. El dominio redacta las explicaciones con kilos canónicos
+ * («Subí a 62,5 kg») y así se guardan; al mostrarlas se pasa cada «N kg» a la unidad elegida. Es sólo presentación: no
+ * toca números guardados ni puede convertir dos veces (un texto ya en lb no tiene «kg» que reemplazar).
+ */
+export function localizeWeights<T extends string | null | undefined>(text: T, unit: WeightUnit): T {
+  if (unit === "kg" || !text) return text;
+  return (text as string).replace(/(\d+(?:[.,]\d+)?)\s?kg\b/g, (_, n: string) => fmtWeight(Number(n.replace(",", ".")), unit)) as T;
+}

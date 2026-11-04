@@ -41,6 +41,7 @@ Reglas:
 - Para cada ejercicio de ese día proponé series, repeticiones y peso usando su última marca: progresá poco (+2,5 kg o +1 repetición) si completó bien; mantené o bajá un 5–10 % si el check-in muestra poca energía o mal sueño. Sin dato previo, weightKg null y una nota para empezar liviano.
 - Usá sólo los programExerciseId del día elegido. No agregues ejercicios nuevos ni cambies los del programa.
 - Tené en cuenta «loQueBusca» (objetivo, tiempo disponible, gustos y lo que prefiere evitar) para el enfoque, las reps y las notas; si tiene pocos minutos, sugerí menos series. No cambies el programa por eso.
+- «tendencia» la calculó REPI con reglas: no la contradigas ni inventes otra; usala sólo para explicar.
 - No des consejos médicos. Si hay señales de fatiga, sugerí descansar o bajar la intensidad en «caution».
 - headline: máximo 50 caracteres. summary: máximo 160 caracteres. note: máximo 60 caracteres.
 
@@ -66,6 +67,11 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
     followDayId ? dayAlternatives(userId, followDayId, 8) : Promise.resolve(null),
   ]);
   const sets = recent.length ? await db.select({ s: setLog.sessionId }).from(setLog).where(inArray(setLog.sessionId, recent.map((r) => r.id))) : [];
+  // D191: la tendencia de cada ejercicio sale del motor determinista (Training Intelligence); la IA sólo la usa para explicar.
+  const { historyRows, outlookFor } = await import("./intelligence");
+  const allEx = t.program.days.flatMap((d) => d.exercises);
+  const hist = await historyRows(userId, allEx.map((e) => e.exerciseId), { now }).catch(() => new Map());
+  const trendOf = (e: (typeof allEx)[number]) => { try { return outlookFor({ sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null }, hist.get(e.exerciseId) ?? [], now, true)?.trend.text ?? null; } catch { return null; } };
   const goals = goalsAll.filter((g) => g.progress != null || g.current != null).slice(0, 5);
   const next = t.program.days[t.program.nextDay];
   // Códigos cortos (d1, e3, opción 2) en lugar de IDs largos: el modelo los copia sin errores y responde más rápido.
@@ -74,7 +80,7 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
   const ctx = {
     hoy: today, relacion: t.relation?.kind === "gym" ? "programa del gimnasio" : "programa de su coach",
     programa: t.program.name, proximoDia: next ? { dayId: dKey.get(next.id), nombre: next.name } : null,
-    dias: t.program.days.map((d) => ({ dayId: dKey.get(d.id)!, nombre: d.name, ejercicios: d.exercises.map((e) => ({ programExerciseId: eKey.get(e.id), nombre: e.name, series: e.sets, reps: e.reps, rir: e.rir, ultimaMarca: e.prev })) })),
+    dias: t.program.days.map((d) => ({ dayId: dKey.get(d.id)!, nombre: d.name, ejercicios: d.exercises.map((e) => ({ programExerciseId: eKey.get(e.id), nombre: e.name, series: e.sets, reps: e.reps, rir: e.rir, ultimaMarca: e.prev, tendencia: trendOf(e) ?? undefined })) })),
     ultimosEntrenamientos: recent.map((r) => ({ dia: r.dayName, fecha: r.endedAt ? localDate(r.endedAt) : null, rpe: r.rpe, series: sets.filter((x) => x.s === r.id).length })),
     checkinHoy: ci ? { energia: ci.energy, sueno: ci.sleep, animo: ci.mood } : null,
     objetivos: goals.map((g) => ({ objetivo: g.title, actual: g.current, meta: g.target, progreso: g.progress })),
