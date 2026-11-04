@@ -16,9 +16,10 @@
     "jobs:purge-media": "tsx --env-file=.env.local scripts/purge-media.ts",
     "jobs:notifications": "tsx --env-file=.env.local scripts/notifications.ts",
     "e2e": "playwright test",
-    "test:guards": "tsx --test tests/safety/database-target.check.ts tests/operations/guards.check.ts",
+    "test:guards": "tsx --test tests/safety/database-target.check.ts tests/operations/guards.check.ts tests/operations/retention.check.ts tests/operations/github-oidc.check.ts",
     "ops:backup": "tsx scripts/operations/backup.ts",
     "ops:restore": "tsx scripts/operations/restore.ts",
+    "ops:retention": "tsx scripts/operations/retention.ts",
     "ops:first-admin": "tsx scripts/first-admin.ts"
   },
   "dependencies": {

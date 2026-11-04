@@ -2,6 +2,24 @@
 
 Actualizado: 04/11/2026 (hasta D189 en ramas; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+## Respaldos de producción en GitHub (D190) — 04/11/2026
+
+- **Estado:** implementado en `ops/respaldos-github`. Falta la puesta en marcha del titular (clave age + 2 valores en GitHub + contraseña del rol, ver `docs/RESPALDOS.md`) y la primera ejecución manual. Hasta entonces el cronograma no corre.
+- **Producción:**
+  - Rol `repi_backup` creado: sólo lectura, sin contraseña, 98 tablas legibles y 0 escribibles.
+  - Edge Function `repi-storage` con lectura firmada por OIDC.
+- **Archivos:**
+  - `.github/workflows/backup.yml`, `docs/RESPALDOS.md`.
+  - En `apps/web/scripts/operations/`: `backup.ts` (URL por entorno, Storage OIDC), `restore.ts` (FK, restricciones, informe, `--solo-hashes`), `backup-ci.sh`, `restore-from-release.sh`, `retention.ts` y `hosted-backup-role.sql`.
+  - `supabase/functions/repi-storage/{index,github-oidc}.ts`.
+- **Pruebas:**
+  - Guardas 18/18 (retención y OIDC incluidos).
+  - Cadena local completa: respaldo → cifrado → descifrado → restauración (98 tablas, 12 556 filas, 256 FK sin huérfanos).
+  - Detecta huérfanos; clave ajena y archivo alterado rechazados; lector OIDC contra simulador (22 archivos, nunca envía el secreto del proxy).
+  - Autoprueba en el PR.
+- **Regla nueva:** antes de cualquier migración productiva, correr «Respaldo» y seguir sólo si termina en verde.
+- **Próximo:** primer respaldo verificado → 0042 (`hosted-0042.sql`) → PR #7.
+
 ## Arreglo urgente · Solicitud de socio pendiente que encerraba al equipo (D189) — 04/11/2026
 
 - **Reporte:** el titular (Admin y entrenador de piso de Smart Center) pidió ser socio por QR y no podía volver a Admin ni a su panel desde Acceso.
