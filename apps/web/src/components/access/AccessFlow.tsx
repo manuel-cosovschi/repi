@@ -152,7 +152,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     if (m.member.step === "memberPending") {
       const reqs = await api<JoinReq[]>("/api/me/gym/joins");
       const p = reqs.find((r) => r.status === "pending");
-      if (p) { setJoinReq(p); setFlow("join"); setStep("joinStatus"); return; }
+      // D189: quien ya tiene otros espacios (Admin, gimnasio, coach) no queda encerrado esperando la aprobación de socio:
+      // entra al selector y la solicitud aparece ahí como un espacio pendiente.
+      if (p) { setJoinReq(p); if (!m.workspaces.length) { setFlow("join"); setStep("joinStatus"); return; } }
     }
     // Invitaciones del mismo email verificado que quedaron sin abrir (p. ej. se perdió el enlace al agregar a inicio).
     if (!code && m.invitations?.length) { setStep("pendingInv"); return; }
@@ -558,7 +560,10 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         info, title: "Tu solicitud llegó a la sede", stepLabel: "", sub: r.message ?? "", // espera, no un paso: el contador no retrocede (F-13)
         list: [["✓", "Solicitud enviada", "Al equipo de sala en turno y a recepción"], ["2", "Confirman que sos socio/a", "Mostrá este código si te lo piden"], ["3", "Entrás a la app", "Con tu programa del gym"]].map(([ini, t, d]) => ({ ini, title: t, detail: d })),
         cta: { label: "Actualizar estado", go: run(async () => { const c = await refreshJoin(); if (c?.status === "pending") flash("Todavía está pendiente."); }) },
-        secondary: [{ label: "Cancelar solicitud", go: run(async () => { await api(`/api/me/gym/joins/${r.id}/cancel`, { body: {} }); await refreshJoin(); }) }],
+        secondary: [
+          ...(me?.workspaces.length ? [{ label: "Ir a mis espacios", go: () => { setHist([]); setStep("workspace"); } }] : []),
+          { label: "Cancelar solicitud", go: run(async () => { await api(`/api/me/gym/joins/${r.id}/cancel`, { body: {} }); await refreshJoin(); }) },
+        ],
         note: "La solicitud vence a las 24 horas. Este código no prueba que seas socio/a: lo confirma una persona del equipo.",
         extra: <InstallSteps />,
       };
@@ -700,7 +705,11 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
       const ws = me?.workspaces ?? [];
       return {
         title: "¿A dónde querés entrar?", sub: ws.length > 1 ? "Tu cuenta tiene varios espacios. Los datos de cada uno no se mezclan." : ws.length ? "Elegí tu espacio. Si sumás otro, sus datos no se mezclan." : "Tu cuenta todavía no tiene espacios.",
-        listLabel: "Espacios", list: ws.map((w) => ({ ini: w.ini, title: w.title, detail: w.detail, go: () => goWorkspace(w), badge: w.needs2fa ? "Requiere 2 pasos" : undefined, badgeKind: "warn" as const })),
+        listLabel: "Espacios", list: [
+          ...ws.map((w) => ({ ini: w.ini, title: w.title, detail: w.detail, go: () => goWorkspace(w), badge: w.needs2fa ? "Requiere 2 pasos" : undefined, badgeKind: "warn" as const })),
+          // D189: la solicitud de socio pendiente no bloquea los otros espacios; se consulta desde acá.
+          ...(joinReq?.status === "pending" ? [{ ini: joinReq.code, title: `${joinReq.orgName} · ${joinReq.locationName}`, detail: "Socio · solicitud enviada, falta la aprobación de la sede", go: () => { setFlow("join"); setStep("joinStatus"); }, badge: "Pendiente", badgeKind: "warn" as const }] : []),
+        ],
         note: me && !ws.length ? "Si te invitaron, ingresá el código. Si sos socio, escaneá el QR de tu sede. Si sos coach o tenés un gimnasio, escribinos para el alta." : undefined,
         secondary: me && !ws.length ? [
           ...(resume ? [{ label: "Retomar mi alta", go: () => { window.location.href = entryHref(resume); } }] : []),
