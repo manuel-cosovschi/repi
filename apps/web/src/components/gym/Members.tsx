@@ -3,10 +3,11 @@
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
 import { SharedWishes, type SharedWishesView } from "@/components/coach/SharedWishes";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { TASK_CATEGORY, formatRest, groupLabels, isStraightPlan, mainSets, mentionsHealth, parseRest, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
+import { TASK_CATEGORY, copyDayContent, formatRest, groupLabels, isStraightPlan, mainSets, mentionsHealth, parseRest, pasteDay, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
+import { DayMenu, GymDayPaste, readClip, writeClip, type DayClip } from "@/components/coach/DayCopy";
 import { NoteButton, NoteField } from "@/components/coach/ExerciseNote";
 import { Modal } from "@/components/ui/Modal";
 import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
@@ -214,6 +215,24 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   };
   const cur = doc.days[day];
   const labels = groupLabels(cur.exercises);
+  // D192: copiar y pegar días. El portapapeles es una referencia (socio y día) en esta pestaña; el contenido lo arma el servidor
+  // con lo guardado y vuelve a este borrador, que se guarda con motivo como cualquier revisión.
+  const [clip, setClip] = useState<DayClip | null>(() => readClip("gym", shell.orgId));
+  const [pasting, setPasting] = useState(false);
+  const dupDay = () => {
+    if (doc.days.length >= 7) return shell.flash("El programa ya tiene 7 días.");
+    const c = copyDayContent(cur, { weights: "keep", notes: true }).day;
+    setDoc({ ...doc, days: [...doc.days.slice(0, day + 1), { name: `${cur.name || `Día ${day + 1}`} (copia)`.slice(0, 60), exercises: c.exercises }, ...doc.days.slice(day + 1)] });
+    setDay(day + 1);
+  };
+  const copyDay = () => {
+    if (!member.program) return shell.flash("Guardá el programa antes de copiar un día.");
+    const saved = member.program.doc.days[day];
+    const differs = !saved || JSON.stringify(base.days[day]) !== JSON.stringify(doc.days[day]);
+    writeClip({ kind: "gym", orgId: shell.orgId, memberId: member.id, day, dayName: saved?.name ?? cur.name, from: `${member.name.split(" ")[0]} · ${saved?.name ?? cur.name}` });
+    setClip(readClip("gym", shell.orgId));
+    shell.flash(differs ? "Día copiado tal como está guardado (los cambios sin guardar de este día no se copian). Abrí el programa de otro socio y elegí «Pegar día»." : "Día copiado. Abrí el programa de otro socio y elegí «Día ▾ → Pegar día».");
+  };
   return (
     <Modal label={`Editar programa · ${member.name}`} onClose={() => onClose(false)} wide>
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
@@ -236,6 +255,17 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         </div>
         {doc.days.length < 7 && <button type="button" aria-label="Agregar día" onClick={() => { setDoc({ ...doc, days: [...doc.days, { name: `Día ${String.fromCharCode(65 + doc.days.length)}`, exercises: [] }] }); setDay(doc.days.length); }}>+ Día</button>}
       </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <DayMenu dayName={cur.name} clip={clip && clip.memberId ? clip : null} onDuplicate={dupDay} onCopy={copyDay} onPaste={() => setPasting(true)} />
+      </div>
+      {pasting && clip?.memberId && <GymDayPaste orgId={shell.orgId} clip={clip} memberId={member.id} days={doc.days} currentDay={day} onCancel={() => setPasting(false)}
+        onApply={(content, mode, target) => {
+          const r = pasteDay(doc.days, content, mode, target, 7);
+          if (!r.ok) return shell.flash(r.error);
+          setDoc({ ...doc, days: r.days }); setDay(r.day); setPasting(false);
+          if (reason.trim().length < 3) setReason(`Día copiado: ${clip.dayName}`.slice(0, 300));
+          shell.flash("Pegado en el borrador. Se guarda recién al tocar «Guardar revisión».");
+        }} />}
       <label className="field">Nombre del día<input value={cur.name} maxLength={60} onChange={(e) => setDoc({ ...doc, days: doc.days.map((x, j) => j === day ? { ...x, name: e.target.value } : x) })} /></label>
       <div className="exhead"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Desc.</span><span className="c-act" /></div>
       {cur.exercises.map((e, i) => (
@@ -259,7 +289,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         </Fragment>
       ))}
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca.</span>}
-      {detailFor != null && cur.exercises[detailFor] && <ExerciseDetailEditor e={cur.exercises[detailFor]} onClose={() => setDetailFor(null)}
+      {detailFor != null && cur.exercises[detailFor] && <ExerciseDetailEditor e={cur.exercises[detailFor]} types={{ kind: "gym", orgId: shell.orgId }} onClose={() => setDetailFor(null)}
         onSave={(p) => {
           // D183: en un circuito con vueltas, todos sus ejercicios quedan con una serie por vuelta (quitar series se confirma).
           const exs = cur.exercises.map((y, k) => (k === detailFor ? { ...y, detail: p.detail, sets: p.sets } : y));

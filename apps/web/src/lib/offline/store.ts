@@ -1,7 +1,7 @@
 "use client";
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
-import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type Proposal, type RowTarget, type SessionStatus, type SetKind, type Suggestion, type Trend } from "@repi/domain";
+import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, labelAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type Proposal, type RowTarget, type SessionStatus, type SetKind, type Suggestion, type Trend } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
@@ -97,7 +97,7 @@ export function fromServer(x: {
   const skew = x.serverNow ? Date.parse(x.serverNow) - Date.now() : 0;
   const sets: Record<string, LocalSet> = {};
   for (const e of x.exercises) {
-    let carry: number | null = e.defaultWeight ?? null, carryKind: SetKind = "work", logged = false;
+    let carry: number | null = e.defaultWeight ?? null, carryKind: SetKind = "work", carryLabel: string | null = null, logged = false;
     // D154: sin series hechas en esta sesión, el peso y las reps de partida son los sugeridos por REPI.
     const sg = e.change ? null : e.suggest ?? null;
     const doing = e.change?.kind === "substitute" ? e.change.substitute?.exerciseId : e.exerciseId;
@@ -108,7 +108,7 @@ export function fromServer(x: {
       const c = x.conflicts?.find((k) => k.targetKey === setKey(e.id, i));
       const kind = kindAt(e.detail, i);
       // Sólo una serie del mismo ejercicio sugiere el peso de las siguientes (un reemplazo no hereda la carga del original).
-      if (l) { logged = true; if (!l.exerciseId || l.exerciseId === doing) { carry = l.weightKg ?? carry; carryKind = kind; } sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, note: l.note ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
+      if (l) { logged = true; if (!l.exerciseId || l.exerciseId === doing) { carry = l.weightKg ?? carry; carryKind = kind; carryLabel = labelAt(e.detail, i); } sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, note: l.note ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
       else {
         // D134: si el plan fija el peso o las repeticiones de esta serie, se precargan esas (drop, top set, back-off).
         // D182: una serie reducida sin peso en el plan no hereda la carga de otra serie ni la sugerencia: queda por elegir.
@@ -116,7 +116,10 @@ export function fromServer(x: {
         // D191: el objetivo de la fila (si REPI lo calculó y no es una serie reducida) precarga el borrador, sólo antes de la
         // primera serie registrada: después manda la carga que la persona eligió (no se pisa una elección manual).
         const t = e.change ? null : (e.targets ?? []).find((y) => y.setIndex === i && y.source === "rules" && !y.pending && y.weightKg != null) ?? null;
-        const st = startWeight({ kind, planKg: plan?.weightKg, suggestKg: !logged ? t?.weightKg ?? sg?.weightKg : null, carriedKg: carriesLoad(carryKind, kind) ? carry : null });
+        // D192: una serie con nombre propio (Load Set) sólo arranca con su propio objetivo o la carga del profe: nunca con la
+        // sugerencia del ejercicio ni con la carga de otra fila (el top set).
+        const lb = labelAt(e.detail, i);
+        const st = startWeight({ kind, label: lb, planKg: plan?.weightKg, suggestKg: !logged ? t?.weightKg ?? (lb ? null : sg?.weightKg) : null, carriedKg: carriesLoad(carryKind, kind, carryLabel, lb) ? carry : null });
         sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}),
           r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && t ? t.repsTarget ?? t.repsMin : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null,
           ...(sk ? { skip: sk.skipped, skipAt: sk.changedAt } : {}) }; // D184: omitida (o deshecha) en cualquier dispositivo

@@ -17,6 +17,9 @@ import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 import { ProgramAssistant } from "./ProgramAssistant";
 import { ProposalBanner, clearTiDraft, readTiDraft, type TiDraft } from "./ProposalDraft";
+import { CoachDayCopy, DayMenu, readClip, writeClip, type DayClip } from "./DayCopy";
+import { TemplateRollout } from "./TemplateRollout";
+import { copyDayContent } from "@repi/domain";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -42,6 +45,13 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // D191: propuesta de Training Intelligence traída desde la ficha del cliente (sólo para este programa).
   const [tiDraft, setTiDraft] = useState<TiDraft | null>(null);
+  // D192: copiar y pegar días. `reload` vuelve a leer el programa después de pegar en él; `jump`, el día al que se va.
+  const [reload, setReload] = useState(0);
+  const jump = useRef<number | null>(null);
+  const [clip, setClip] = useState<DayClip | null>(null);
+  useEffect(() => setClip(readClip("coach", orgId)), [orgId, pid]);
+  const [rollout, setRollout] = useState(false); // D194
+  const [copy, setCopy] = useState<{ from: { programId: string; day: number }; fromLabel: string; to: { programId: string; day: number } | null } | null>(null);
   useEffect(() => { setTiDraft(prog ? readTiDraft({ kind: "coach", programId: prog.id }) : null); }, [prog?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); return r.programs; }), [orgId]);
@@ -56,7 +66,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     // Un programa recién creado tiene que aparecer en la lista sin esperar al primer guardado (F-03).
     api<ProgramFull>(`/api/coach/${orgId}/programs/${pid}`).then((p) => {
       if (!live) return;
-      setProg(p); setDay(0);
+      setProg(p); setDay(jump.current ?? 0); jump.current = null;
       // D177: cambios que no llegaron al servidor (sin conexión, pestaña cerrada) se recuperan y se vuelven a guardar.
       const d = readDraft(p.id);
       if (d && d.version === p.version && JSON.stringify(strip(d.doc)) !== JSON.stringify(strip(p.doc))) {
@@ -65,32 +75,50 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
       if (listRef.current && !listRef.current.some((x) => x.id === p.id)) loadList();
     }).catch((e) => { if (!live) return; flash(e.message); setPid(null); });
     return () => { live = false; };
-  }, [orgId, pid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orgId, pid, reload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autoguardado con debounce; el estado visible refleja el resultado real del servidor.
   // D177: cada cambio queda también en este navegador hasta que el servidor lo confirma; sin conexión se reintenta solo.
+  // D192: `saveNow` guarda ya lo pendiente (antes de copiar o pegar un día, el servidor tiene que tener lo que se ve).
   const [retry, setRetry] = useState(0);
+  const docRef = useRef(doc); docRef.current = doc;
+  const progRef = useRef(prog); progRef.current = prog;
+  const inflight = useRef<Promise<boolean> | null>(null);
+  const persist = (): Promise<boolean> => {
+    const d = docRef.current, p = progRef.current;
+    if (!d || !p) return Promise.resolve(false);
+    const run = (async () => {
+      setSave({ s: "saving" });
+      try {
+        const r = await api<{ version: number; created: boolean }>(`/api/coach/${orgId}/programs/${p.id}`, { method: "PUT", body: strip(d) });
+        setSave({ s: "saved", v: r.version });
+        if (r.created) {
+          flash(`Versión ${r.version} guardada. Las sesiones ya registradas y otras asignaciones no cambian.`);
+          setProg((x) => x && { ...x, version: r.version, locked: false });
+        }
+        // Si hubo otro cambio mientras se guardaba, sigue pendiente (se guarda en la próxima vuelta).
+        if (docRef.current === d) { dirty.current = false; clearDraft(p.id); }
+        loadList();
+        return true;
+      } catch (e) {
+        setSave({ s: "error", m: `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.` });
+        timer.current = setTimeout(() => setRetry((n) => n + 1), 8000);
+        return false;
+      } finally { inflight.current = null; }
+    })();
+    inflight.current = run;
+    return run;
+  };
+  const saveNow = async () => {
+    clearTimeout(timer.current);
+    if (inflight.current) await inflight.current;
+    return dirty.current ? persist() : true;
+  };
   useEffect(() => {
     if (!doc || !prog || !dirty.current) return;
     writeDraft(prog.id, prog.version, doc);
     clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setSave({ s: "saving" });
-      try {
-        const r = await api<{ version: number; created: boolean }>(`/api/coach/${orgId}/programs/${prog.id}`, { method: "PUT", body: strip(doc) });
-        setSave({ s: "saved", v: r.version });
-        if (r.created) {
-          flash(`Versión ${r.version} guardada. Las sesiones ya registradas y otras asignaciones no cambian.`);
-          setProg((p) => p && { ...p, version: r.version, locked: false });
-        }
-        dirty.current = false;
-        clearDraft(prog.id);
-        loadList();
-      } catch (e) {
-        setSave({ s: "error", m: `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.` });
-        timer.current = setTimeout(() => setRetry((n) => n + 1), 8000);
-      }
-    }, retry ? 0 : 700);
+    timer.current = setTimeout(() => { void persist(); }, retry ? 0 : 700);
     return () => clearTimeout(timer.current);
   }, [doc, retry]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -142,6 +170,24 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
       if (prog.kind === "client_copy") onAssigned();
     } catch (e) { flash((e as Error).message); }
   };
+  // D192: acciones del día. Duplicar es una edición más (autoguardado); copiar y pegar pasan por el servidor con lo guardado.
+  const fromLabel = (d: number) => !prog || !doc ? "" : `${prog.kind === "client_copy" ? `programa de ${prog.forClient ?? "un cliente"}` : `plantilla «${doc.name}»`} · ${doc.days[d]?.name ?? `Día ${d + 1}`}`;
+  const duplicateDay = () => {
+    if (!doc || !cur) return;
+    if (doc.days.length >= 14) return flash("El programa ya tiene 14 días.");
+    const c = copyDayContent(cur, { weights: "keep", notes: true }).day; // mismo alumno: conserva pesos y notas; filas con identidad nueva
+    const i = day;
+    edit((d) => ({ ...d, days: [...d.days.slice(0, i + 1), { name: `${cur.name || `Día ${i + 1}`} (copia)`.slice(0, 60), exercises: c.exercises }, ...d.days.slice(i + 1)] }));
+    setDay(i + 1);
+    flash(`Día duplicado: «${cur.name} (copia)». Se guarda solo, como cualquier cambio.`);
+  };
+  const copyDay = async () => {
+    if (!prog || !cur) return;
+    if (!(await saveNow())) return flash("No pudimos guardar tus cambios: el día se copia cuando estén guardados.");
+    writeClip({ kind: "coach", orgId, programId: prog.id, day, dayName: cur.name || `Día ${day + 1}`, from: fromLabel(day) });
+    setClip(readClip("coach", orgId));
+    flash(`Día «${cur.name}» copiado. Abrí el programa de destino y elegí «Día ▾ → Pegar día», o usá «Copiar a…».`);
+  };
   // D193: una plantilla no es el programa de nadie: cada cliente entrena con su copia. Antes el encabezado decía «Programa ·
   // <cliente>» y el profe cargaba las cargas en la plantilla creyendo que le llegaban a su alumno.
   const firsts = prog?.clients.map((c) => c.split(" ")[0]).join(", ") ?? "";
@@ -173,10 +219,15 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
           <div className="mfoot"><button type="button" className="btn" onClick={() => setDel(false)}>Cancelar</button><button type="button" className="btn pri danger" onClick={() => void remove()}>Eliminar</button></div>
         </Modal>
       )}
+      {rollout && prog?.kind === "template" && <TemplateRollout orgId={orgId} templateId={prog.id} ready={saveNow} onClose={() => setRollout(false)} onDone={(t) => { flash(t); loadList(); }} />}
+      {copy && prog && <CoachDayCopy orgId={orgId} from={copy.from} fromLabel={copy.fromLabel} to={copy.to} ready={saveNow} onClose={() => setCopy(null)}
+        onOpen={(id, d) => { setCopy(null); jump.current = d; if (id === prog.id) setReload((n) => n + 1); else setPid(id); }}
+        onDone={(r) => { if (r.programId === prog.id) { jump.current = r.day; setReload((n) => n + 1); } flash(`Día pegado y guardado${r.created ? ` (versión ${r.version})` : ""}. Las sesiones registradas no cambian.`); }} />}
       {prog?.kind === "template" && prog.clients.length > 0 && (
         <p role="note" className="tpl-note">
           <b>Los cambios de esta plantilla no le llegan solos a {firsts}.</b> Cada cliente entrena con su propia copia. Para que {prog.clients.length > 1 ? "reciban" : "reciba"} estas
-          series y cargas, tocá «Asignar a clientes» (con un entrenamiento abierto, le aparece «Aplicar ahora») o editá su programa desde su ficha.
+          series y cargas, usá «Actualizar programas de alumnos»: elegís a quién y qué cambios, y se conserva lo que personalizaste para cada uno.
+          <button type="button" className="btn pri" onClick={() => setRollout(true)}>Actualizar programas de alumnos</button>
         </p>
       )}
       {save.s === "error" && <p role="alert" className="err-box">No se guardó: {save.m}</p>}
@@ -217,12 +268,15 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <label className="dayname"><span>Nombre del día</span><input value={cur.name} onChange={(e) => setDayDoc((x) => ({ ...x, name: e.target.value }))} placeholder="Ej.: Torso A, Piernas, Empuje" maxLength={60} /></label>
+              <DayMenu dayName={cur.name} clip={clip} onDuplicate={duplicateDay} onCopy={() => void copyDay()}
+                onPaste={() => clip?.programId && prog && setCopy({ from: { programId: clip.programId, day: clip.day }, fromLabel: clip.from, to: { programId: prog.id, day } })}
+                onCopyTo={() => prog && setCopy({ from: { programId: prog.id, day }, fromLabel: fromLabel(day), to: null })} />
               {doc.days.length > 1 && <button type="button" className="btn danger" style={{ height: 44, borderRadius: 10 }} onClick={() => { const i = day; edit((d) => ({ ...d, days: d.days.filter((_, j) => j !== i) })); setDay(Math.max(0, i - 1)); }}>Quitar día</button>}
             </div>
             <div className="exhead" aria-hidden="true"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Descanso</span><span className="c-act" /></div>
             {(() => { const labels = groupLabels(cur.exercises); return cur.exercises.map((e, i) => (
               <div key={`${prog?.id}-${prog?.version}-${day}-${i}-${e.exerciseId}`}>
-                <ExRow n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsFor === `${i}:${e.exerciseId}`}
+                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsFor === `${i}:${e.exerciseId}`}
                   onSubs={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
                   onDetail={(p) => saveDetail(i, p)}
@@ -275,8 +329,8 @@ function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); }
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
 
-function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove }: {
-  n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;
+function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove }: {
+  orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;
   onChange: (p: Partial<EditableDoc["days"][number]["exercises"][number]>) => void; onMove: (d: 1 | -1) => void; onRemove: () => void;
   onDetail: (p: { detail: EditableDoc["days"][number]["exercises"][number]["detail"]; sets: number }) => void;
 }) {
@@ -307,7 +361,7 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove
         <button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={onRemove}>×</button>
       </span>
       {(noteOpen || !!e.note) && <NoteField name={e.name} value={e.note ?? ""} who="tu cliente" onChange={(v) => onChange({ note: v })} onEmpty={() => setNoteOpen(false)} />}
-      {detail && <ExerciseDetailEditor e={e} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
+      {detail && <ExerciseDetailEditor e={e} types={{ kind: "coach", orgId }} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
     </div>
   );
 }

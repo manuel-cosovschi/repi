@@ -3,6 +3,7 @@
 // son criterios conservadores del producto, con nombre y explicación, que frenan una suba cuando hay una señal para no subir.
 // El alumno siempre puede registrar lo que realmente hizo: esto sólo cambia lo que REPI sugiere o precarga.
 import type { SetKind, SetSpec, ExerciseDetail } from "./prescription";
+import { labelKey } from "./prescription";
 
 /** Salto de carga: chico en cargas livianas (mancuernas, máquinas), 5 kg en las pesadas. */
 export const loadStep = (w: number) => (w < 20 ? 1 : w < 100 ? 2.5 : 5);
@@ -92,8 +93,12 @@ export const REDUCED_KINDS: readonly SetKind[] = ["warmup", "backoff", "drop"];
 export const isReducedKind = (k: SetKind | null | undefined) => !!k && REDUCED_KINDS.includes(k);
 /** Series que comparan con la carga de trabajo (las reducidas, mini series y clusters no son referencia de progresión). */
 export const COMPARABLE_KINDS: readonly SetKind[] = ["work", "top", "amrap", "failure"];
-/** ¿La carga hecha en una serie `from` se copia como punto de partida a la serie `to` siguiente? */
-export const carriesLoad = (from: SetKind | null | undefined, to: SetKind | null | undefined) => (from ?? "work") !== "warmup" && !isReducedKind(to);
+/**
+ * ¿La carga hecha en una serie `from` se copia como punto de partida a la serie `to` siguiente? D192: con etiquetas del profe
+ * («Load Set»), sólo entre filas con la misma etiqueta: un Load Set no arranca con la carga del top set (ni al revés).
+ */
+export const carriesLoad = (from: SetKind | null | undefined, to: SetKind | null | undefined, fromLabel?: string | null, toLabel?: string | null) =>
+  (from ?? "work") !== "warmup" && !isReducedKind(to) && labelKey(fromLabel) === labelKey(toLabel);
 
 /** Tipo de la serie `i` según el plan del profe (sin plan, todas efectivas). */
 export const kindAt = (detail: ExerciseDetail | null | undefined, i: number): SetKind => detail?.setPlan?.[i]?.kind ?? "work";
@@ -107,6 +112,7 @@ export function progressionApplies(detail: ExerciseDetail | null | undefined) {
   const plan = detail?.setPlan;
   if (!plan?.length) return true;
   if (!plan.every((s) => s.kind === "work" || s.kind === "warmup")) return false;
+  if (plan.some((s) => s.label)) return false; // D192: una serie con nombre propio (Load Set) lleva su propia carga
   const work = plan.filter((s) => s.kind === "work");
   return work.length > 0 && work.every((s) => s.reps === work[0].reps);
 }
@@ -136,9 +142,11 @@ export function reducedLoadHint(plan: SetSpec[] | null | undefined, i: number, w
  * reducida (aproximación, back-off, drop) sin carga en el plan queda **pendiente** (la persona la elige o confirma la referencia,
  * nunca hereda la del top set); la sugerencia del día; la carga de la serie anterior compatible; si no, 0.
  */
-export function startWeight(o: { kind: SetKind; planKg?: number | null; suggestKg?: number | null; carriedKg?: number | null }): { w: number; pending: boolean } {
+export function startWeight(o: { kind: SetKind; planKg?: number | null; suggestKg?: number | null; carriedKg?: number | null; label?: string | null }): { w: number; pending: boolean } {
   if (o.planKg != null) return { w: o.planKg, pending: false };
   if (isReducedKind(o.kind)) return { w: 0, pending: true };
+  // D192: una serie con nombre propio (Load Set) sin carga del profe ni referencia propia: la elige la persona; no hereda otra.
+  if (o.label && o.suggestKg == null) return { w: 0, pending: true };
   if (o.suggestKg != null) return { w: o.suggestKg, pending: false };
   return { w: o.carriedKg ?? 0, pending: false };
 }

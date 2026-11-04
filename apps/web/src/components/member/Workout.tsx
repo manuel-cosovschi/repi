@@ -4,7 +4,7 @@
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, localizeWeights, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
-import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, reducedLoadHint } from "@repi/domain";
+import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
 import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, type RowTarget } from "@repi/domain";
 import { TargetCard } from "./TargetCard";
 import { api } from "@/lib/api";
@@ -298,7 +298,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const { skip: _sk, ...row } = curRow;
     const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
     // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
-    if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
+    if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i), labelAt(ex.detail, cur), labelAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
     // D191: con el resultado guardado en el teléfono, las mismas reglas que el servidor ajustan los objetivos siguientes (sólo
     // mantener o bajar; nunca la serie hecha) y dejan un único mensaje, que no se repite en este ejercicio. Funciona sin conexión.
     const extra: Partial<LocalSession> = {};

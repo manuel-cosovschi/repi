@@ -532,6 +532,25 @@ export const trainingProposal = pgTable("training_proposal", {
   check("training_proposal_one_relation", sql`(${t.coachClientId} is null) <> (${t.gymMemberId} is null)`),
 ]);
 
+// D192: tipos de serie personalizados («Load Set», «Serie de control»): la biblioteca privada de cada profe en cada
+// organización (coach independiente o gimnasio). Nombre visible + tipo real de REPI (`kind`, lo que define conteo, métricas y
+// Training Intelligence) + valores por defecto opcionales. El plan guarda una copia del nombre: renombrar o quitar un tipo
+// (archived_at) no cambia programas ni registros anteriores. No se comparte con otras organizaciones ni con otros profes.
+export const setType = pgTable("set_type", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  kind: text("kind", { enum: ["warmup", "work", "top", "backoff", "drop", "amrap", "failure", "rest_pause", "cluster"] }).notNull(),
+  defaults: jsonb("defaults").$type<{ reps?: string | null; rir?: number | null; rpe?: number | null; restSec?: number | null }>().notNull().default({}),
+  archivedAt: ts("archived_at"),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  uniqueIndex("set_type_owner_name_unique").on(t.orgId, t.ownerUserId, sql`lower(${t.name})`).where(sql`archived_at is null`),
+  index("set_type_owner_idx").on(t.orgId, t.ownerUserId),
+]);
+
 // D132: historial anterior a REPI cargado desde un archivo. Borrador hasta que la persona lo confirma; no se guarda el archivo.
 export const historyImport = pgTable("history_import", {
   id: id(),

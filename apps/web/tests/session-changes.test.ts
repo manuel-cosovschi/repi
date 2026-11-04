@@ -94,8 +94,8 @@ describe("cambios en la sesión activa", () => {
     await expect(tr.setExerciseChange(user, sid, { programExerciseId: plank.id, change: null })).rejects.toMatchObject({ code: "closed" });
     const det = await tr.clientDetail(coach.id, org.id, (await db.select().from(schema.workoutSession).where(eq(schema.workoutSession.id, sid)))[0].coachClientId!);
     expect(det.sessions[0].setNotes).toEqual([{ exercise: "Sentadilla", set: 1, note: "bajé hasta paralelo" }]);
-    // D178: el coach ve cada serie anotada (peso, repeticiones, RIR y nota), agrupada por ejercicio.
-    expect(det.sessions[0].exercises).toEqual([{ exercise: "Sentadilla", timed: false, sets: [{ n: 1, weightKg: 60, reps: 8, rir: 2, feel: null, note: "bajé hasta paralelo" }] }]);
+    // D178: el coach ve cada serie anotada (peso, repeticiones, RIR y nota), agrupada por ejercicio. D192: con la etiqueta de la serie (null si no tiene).
+    expect(det.sessions[0].exercises).toEqual([{ exercise: "Sentadilla", timed: false, sets: [{ n: 1, weightKg: 60, reps: 8, rir: 2, feel: null, note: "bajé hasta paralelo", label: null }] }]);
     expect(det.sessions[0].changes).toEqual([{ exercise: "Plancha", kind: "skip", reason: "no_time", substitute: null }]);
     const ev = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.resourceId, sid), eq(schema.auditEvent.action, "session.exercise_skip")));
     expect(ev).toHaveLength(1);

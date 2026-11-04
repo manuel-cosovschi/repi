@@ -30,7 +30,42 @@ export type SetSpec = {
   countUnit?: "reps" | "rounds" | null;
   /** D183: agrupación heredada que no se puede deducir con certeza (clusters anteriores): pendiente de que la confirme el profe. */
   review?: boolean;
+  /**
+   * D192: nombre visible que eligió el profe («Load Set», «Serie pesada»). Es sólo la etiqueta: cómo funciona la serie (conteo,
+   * métricas, cargas, Training Intelligence) lo sigue diciendo `kind`. Queda escrito en el plan (versión congelada): renombrar
+   * o quitar el tipo de la biblioteca del profe no cambia programas ni registros anteriores.
+   */
+  label?: string | null;
+  /** D192: tipo personalizado de la biblioteca del profe del que salió la etiqueta (sólo referencia). */
+  typeId?: string | null;
 };
+
+// ── D192 · Etiquetas visibles y tipos personalizados ───────────────────────
+/** Etiquetas de REPI listas para usar. Load Set: serie efectiva con su propia carga, sin relación automática con el top set. */
+export const SET_LABEL_PRESETS = [
+  { key: "load_set", label: "Load Set", kind: "work" as SetKind, what: "Serie efectiva con nombre propio (por ejemplo, después del top set). Su carga, repeticiones, RIR y descanso los indicás vos: no hereda ni descuenta nada del top set." },
+] as const;
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+/** Clave para comparar etiquetas («Load set», «load  SET» y «Load Set» son la misma). null = sin etiqueta. */
+export const labelKey = (label: string | null | undefined) => (typeof label === "string" && label.trim() ? fold(label) : null);
+const LABEL_RE = /^[\p{L}\p{N}][\p{L}\p{N} .,+\-/()'&%º°#]*$/u;
+export const LABEL_MAX = 30;
+/**
+ * Valida el nombre de un tipo personalizado o de una etiqueta. Entre 2 y 30 caracteres, letras, números y signos simples. No
+ * puede ser el nombre de un tipo de REPI («Top set», «Drop»…): ese ya está en la lista y significaría otra cosa.
+ */
+export function cleanSetLabel(raw: unknown): { ok: true; label: string } | { ok: false; error: string } {
+  const label = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim() : "";
+  if (label.length < 2) return { ok: false, error: "El nombre del tipo necesita al menos 2 caracteres." };
+  if (label.length > LABEL_MAX) return { ok: false, error: `El nombre del tipo puede tener hasta ${LABEL_MAX} caracteres.` };
+  if (!LABEL_RE.test(label)) return { ok: false, error: "El nombre del tipo usa letras, números y signos simples (sin emojis ni símbolos raros)." };
+  const k = fold(label);
+  if ((Object.values(SET_KIND_LABEL) as string[]).some((x) => fold(x) === k) || ["serie", "serie efectiva", "mini serie", "bloque de cluster", "amrap por tiempo", "personalizada"].includes(k))
+    return { ok: false, error: `«${label}» ya es un tipo de REPI: elegilo de la lista.` };
+  return { ok: true, label };
+}
+/** Nombre visible de la fila en el editor: la etiqueta del profe o el tipo de REPI. */
+export const rowKindName = (s: Pick<SetSpec, "kind" | "label">) => (s.label ? s.label : SET_KIND_LABEL[s.kind]);
 
 export type Technique = "straight" | "top_backoff" | "drop_set" | "pyramid" | "reverse_pyramid" | "rest_pause" | "myo_reps" | "cluster" | "amrap_last" | "amrap_time" | "emom" | "custom";
 export const TECHNIQUES: Record<Technique, { label: string; what: string }> = {
@@ -122,11 +157,17 @@ export function validateDetail(d: Partial<ExerciseDetail> | null | undefined, se
       if ([weightKg, pct1rm, rir, rpe, restSec].some((x) => Number.isNaN(x))) return { ok: false, error: `Fila ${i + 1}: revisá peso (0–1000 kg), % del 1RM (1–120), RIR (0–5), RPE (1–10) o descanso (0–15 min).` };
       const durationSec = kind === "amrap" ? numIn(s.durationSec, 30, 7200) : null;
       if (Number.isNaN(durationSec)) return { ok: false, error: `Fila ${i + 1}: el AMRAP por tiempo va de 30 segundos a 2 horas.` };
-      const row: SetSpec = { kind, reps, weightKg: weightKg == null ? null : Math.round(weightKg * 4) / 4, pct1rm, rir: rir == null ? null : Math.round(rir), rpe: rpe == null ? null : Math.round(rpe * 2) / 2, restSec: restSec == null ? null : Math.round(restSec), note: txt(s.note, 80) };
+      const row: SetSpec = { kind, reps, weightKg: weightKg == null ? null : Math.round(weightKg * 100) / 100, pct1rm, rir: rir == null ? null : Math.round(rir), rpe: rpe == null ? null : Math.round(rpe * 2) / 2, restSec: restSec == null ? null : Math.round(restSec), note: txt(s.note, 80) };
       if (typeof s.id === "string") row.id = s.id;
       if (Number.isInteger(s.block) && Number.isInteger(s.stage)) { row.block = s.block; row.stage = s.stage; }
       if (durationSec != null) { row.durationSec = Math.round(durationSec); row.countUnit = s.countUnit === "reps" ? "reps" : "rounds"; }
       if (s.review === true) row.review = true;
+      if (s.label != null && s.label !== "") {
+        const l = cleanSetLabel(s.label);
+        if (!l.ok) return { ok: false, error: `Fila ${i + 1}: ${l.error}` };
+        row.label = l.label;
+        if (typeof s.typeId === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(s.typeId)) row.typeId = s.typeId;
+      }
       raw.push(row);
     }
     const norm = normalizePlan(raw);
@@ -173,7 +214,7 @@ export function straightRow(detail: ExerciseDetail | null | undefined, patch: { 
   return { ...patch, sets: n, detail: { ...detail, setPlan: Array.from({ length: n }, (_, i) => ({ ...one, id: detail.setPlan![i]?.id ?? newSpecId(), block: i, stage: 0 })) } };
 }
 // D183: la identidad y la posición (id, bloque, etapa) no cuentan para decidir si dos series son iguales.
-const SAME_KEYS: (keyof SetSpec)[] = ["kind", "reps", "weightKg", "pct1rm", "rir", "rpe", "restSec", "note", "durationSec", "countUnit"];
+const SAME_KEYS: (keyof SetSpec)[] = ["kind", "label", "reps", "weightKg", "pct1rm", "rir", "rpe", "restSec", "note", "durationSec", "countUnit"];
 const sameSet = (a: SetSpec, b: SetSpec) => SAME_KEYS.every((k) => (a[k] ?? null) === (b[k] ?? null));
 /** Todas las series del plan son iguales (siguen siendo «series rectas»). */
 export const uniformPlan = (plan: SetSpec[] | null | undefined) => !!plan?.length && plan.every((x) => sameSet(x, plan[0]));
@@ -186,11 +227,15 @@ export function setTarget(e: { sets: number; reps: string; rir: number | null; r
   const { rows } = normalizePlan(e.detail?.setPlan);
   const s = rows[i];
   if (!s) return { kind: "work" as SetKind, label: null as string | null, reps: e.reps, weightKg: null as number | null, pct1rm: null as number | null, rir: e.rir, rpe: null as number | null, restSec: e.restSec, note: null as string | null,
-    block: i, stage: 0, durationSec: null as number | null, countUnit: null as "reps" | "rounds" | null };
-  const label = s.stage > 0 ? stageLabel(s.kind, s.stage) : s.kind === "work" ? null : s.kind === "amrap" && s.durationSec ? "AMRAP por tiempo" : SET_KIND_LABEL[s.kind];
-  return { kind: s.kind, label, reps: s.reps, weightKg: s.weightKg, pct1rm: s.pct1rm, rir: s.rir ?? null, rpe: s.rpe, restSec: s.restSec ?? (s.stage > 0 ? 0 : e.restSec), note: s.note,
+    block: i, stage: 0, durationSec: null as number | null, countUnit: null as "reps" | "rounds" | null, custom: false };
+  // D192: la etiqueta del profe es el nombre que ve el alumno («Load Set»); el tipo real sigue en `kind`.
+  const label = s.label ? (s.stage > 0 ? `${s.label} ${s.stage}` : s.label)
+    : s.stage > 0 ? stageLabel(s.kind, s.stage) : s.kind === "work" ? null : s.kind === "amrap" && s.durationSec ? "AMRAP por tiempo" : SET_KIND_LABEL[s.kind];
+  return { kind: s.kind, label, custom: !!s.label, reps: s.reps, weightKg: s.weightKg, pct1rm: s.pct1rm, rir: s.rir ?? null, rpe: s.rpe, restSec: s.restSec ?? (s.stage > 0 ? 0 : e.restSec), note: s.note,
     block: s.block, stage: s.stage, durationSec: s.durationSec ?? null, countUnit: s.countUnit ?? null };
 }
+/** D192: etiqueta del profe en la fila `i` del plan (null si usa el nombre de REPI). */
+export const labelAt = (detail: ExerciseDetail | null | undefined, i: number): string | null => normalizePlan(detail?.setPlan).rows[i]?.label ?? null;
 
 /** Texto corto de la serie: «Top set · 3-5 · 100 kg · RPE 8». */
 export function setTargetText(t: ReturnType<typeof setTarget>) {

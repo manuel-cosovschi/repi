@@ -30,3 +30,5 @@ export * from "./execution";
 export * from "./method-detect";
 export * from "./exercise-guess";
 export * from "./intelligence";
+export * from "./coach-workflow";
+export * from "./template-rollout";

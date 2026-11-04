@@ -50,3 +50,67 @@
 .dx-host .crow { display: flex; gap: 8px; align-items: center; min-height: 44px; color: var(--ui-text); font: 500 14px var(--font-ui); }
 .dx-host .crow input { width: 22px; height: 22px; accent-color: var(--ui-accent); }
 .dx-host .linkbtn { min-height: 40px; }
+
+/* D192: tabla rápida de series. Escritorio: una fila por serie o etapa. Teléfono (abajo): dos líneas por fila, con etiquetas. */
+.dx-table { display: flex; flex-direction: column; gap: 6px; }
+.dx-tr { display: grid; grid-template-columns: 72px minmax(140px, 1.5fr) minmax(70px, .8fr) minmax(76px, .8fr) 54px 68px 116px; gap: 6px; align-items: center; }
+.dx-th { font-size: 12px; font-weight: 600; color: var(--ui-muted); padding: 0 2px; }
+.dx-tbody { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--ui-divider); border-radius: 12px; background: var(--ui-surface); }
+.dx-tbody[data-hl] { border-color: var(--ui-selection-border); background: var(--ui-selection-bg); }
+.dx-tr-stage { padding-left: 10px; border-left: 2px solid var(--ui-selection-border); }
+.dx-tr input, .dx-tr .dx-sel { width: 100%; min-width: 0; height: 40px; border-radius: 9px; border: 1px solid var(--ui-control-border); padding: 0 8px; font: 500 15px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
+.dx-tr input:focus, .dx-tr .dx-sel:focus { outline: 2px solid var(--ui-focus, var(--ui-accent)); outline-offset: 1px; }
+.dx-tr[data-changed] input, .dx-tr[data-changed] .dx-sel { border-color: var(--ui-selection-border); }
+.dx-n { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; min-width: 0; font-size: 14px; }
+.dx-arrow { color: var(--ui-muted); }
+.dx-rowtxt { display: none; }
+.dx-c-kind { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dx-sem { font-size: 11px; }
+.dx-cl { display: none; font-size: 11px; font-weight: 600; color: var(--ui-muted); }
+.dx-acts { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: nowrap; }
+.dx-acts .ibtn { width: 36px; height: 36px; }
+.dx-acts-h { min-width: 1px; }
+.dx-more { grid-column: 1 / -1; }
+.dx-sel { min-height: 38px; border-radius: 9px; border: 1px solid var(--ui-control-border); padding: 0 8px; font: 500 14px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); width: 100%; }
+.dx-dist, .dx-newtype { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--ui-border-strong); border-radius: 12px; background: var(--ui-surface-2); }
+.dx-warn { color: var(--ui-chip-warn-ink); background: var(--ui-chip-warn-bg); border-radius: 8px; padding: 4px 8px; align-self: flex-start; font-size: 13px; }
+.dx-typerow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dx-typerow > span { flex: 1 1 180px; }
+.dx-typerow input { flex: 1 1 180px; min-height: 40px; border-radius: 9px; border: 1px solid var(--ui-control-border); padding: 0 10px; font: 500 15px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
+.dx-unit { display: flex; gap: 4px; margin-left: auto; }
+.dx-unit .pill { min-height: 32px; padding: 0 10px; }
+@media (max-width: 720px) {
+  .dx-th { display: none; }
+  .dx-tr { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-areas: "n kind kind kind" "reps w rir rest" "acts acts acts acts"; row-gap: 6px; }
+  .dx-n { grid-area: n; }
+  .dx-c-kind { grid-area: kind; }
+  .dx-c-reps { grid-area: reps; } .dx-c-w { grid-area: w; } .dx-c-rir { grid-area: rir; } .dx-c-rest { grid-area: rest; }
+  .dx-acts { grid-area: acts; justify-content: flex-start; flex-wrap: wrap; }
+  .dx-acts .ibtn { width: 40px; height: 40px; }
+  .dx-c-reps, .dx-c-w, .dx-c-rir, .dx-c-rest { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .dx-cl { display: block; }
+  .dx-tr input, .dx-tr .dx-sel { height: 44px; font-size: 16px; } /* 16 px: el teléfono no hace zoom al entrar al campo */
+  .dx-tr-stage { padding-left: 8px; }
+}
+
+/* D192: menú del día y copiar / pegar un día (coach y sala). */
+.daymenu { position: relative; }
+.daymenu-list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 240px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; padding: 6px; border-radius: 12px;
+  border: 1px solid var(--ui-border-strong); background: var(--ui-surface); box-shadow: var(--ui-shadow-pop); }
+.daymenu-item { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 44px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--ui-text); font: 600 14px var(--font-ui); text-align: left; cursor: pointer; }
+button.daymenu-item:hover, button.daymenu-item:focus-visible { background: var(--ui-surface-2); }
+.daymenu-item[aria-disabled="true"] { cursor: default; }
+.dc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: start; }
+.dc-set { border: 1px solid var(--ui-divider); border-radius: 12px; padding: 8px 12px; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.dc-set legend { font-size: 13px; font-weight: 600; color: var(--ui-text-2); padding: 0 4px; }
+.dc-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding: 12px; border-radius: 12px; border: 1px solid var(--ui-selection-border); background: var(--ui-selection-bg); }
+.dc-preview > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dc-preview ol { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ui-text); }
+.dc-preview .dx-review, .dc-preview > label { grid-column: 1 / -1; }
+.ok-box { background: var(--ui-chip-ok-bg); color: var(--ui-chip-ok-ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; margin: 0; }
+.dx-moreacts { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+/* Botones de texto del editor (en Coach y Gym no carga member.css). */
+.dx .linkbtn { border: 0; background: none; color: var(--ui-link); font: 600 13px var(--font-ui); cursor: pointer; padding: 0 4px; min-height: 36px; }
+.dx .linkbtn:disabled { opacity: .45; cursor: default; }
+.dx .linkbtn:hover:not(:disabled) { text-decoration: underline; }

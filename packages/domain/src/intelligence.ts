@@ -17,7 +17,7 @@
 //
 // Todo número sale de reglas con nombre y explicación. Son heurísticas conservadoras del producto, no fórmulas médicas.
 import type { ExerciseDetail, SetKind } from "./prescription";
-import { loadIncrement, setTarget } from "./prescription";
+import { labelKey, loadIncrement, setTarget } from "./prescription";
 import { normalizePlan } from "./stages";
 import { epley1rm, parseReps } from "./training";
 import { BACKOFF_FACTOR, DROP_FACTOR, GUARD_TEXT, floorToStep, loadStep, type GuardCode, type SafetySignals } from "./load-safety";
@@ -41,6 +41,8 @@ export type ExCtx = { sets: number; reps: string; rir: number | null; restSec: n
 export type RowClass = "main" | "top" | "backoff" | "warmup" | "drop" | "rest_pause" | "cluster" | "amrap" | "amrap_time" | "timed";
 export type RowCtx = {
   index: number; specId: string; kind: SetKind; cls: RowClass; block: number; stage: number; reps: string;
+  /** D192: etiqueta del profe normalizada («load set»). Dos filas con etiquetas distintas nunca son la misma referencia. */
+  label: string | null;
   planKg: number | null; rir: number | null; rpe: number | null; restSec: number; durationSec: number | null;
   unilateral: boolean; emom: boolean; technique: string;
 };
@@ -58,7 +60,7 @@ export function rowContext(e: ExCtx, i: number): RowCtx {
   const { rows } = normalizePlan(e.detail?.setPlan);
   const specId = rows[i]?.id ?? `r${i}`;
   return {
-    index: i, specId, kind: t.kind, cls: rowClass(t.kind, t.reps, t.durationSec), block: t.block, stage: t.stage, reps: t.reps,
+    index: i, specId, kind: t.kind, cls: rowClass(t.kind, t.reps, t.durationSec), block: t.block, stage: t.stage, reps: t.reps, label: labelKey(rows[i]?.label),
     planKg: t.weightKg ?? null, rir: t.rir ?? e.rir ?? null, rpe: t.rpe ?? null, restSec: t.restSec ?? e.restSec,
     durationSec: t.durationSec ?? null, unilateral: !!e.detail?.unilateral, emom: !!e.detail?.emomSec, technique: e.detail?.technique ?? "straight",
   };
@@ -71,6 +73,8 @@ export type HistRow = {
   sessionId: string; at: string; setLogId?: string | null; specId: string | null; kind: SetKind | null; stage: number | null;
   reps: string | null; durationSec?: number | null; w: number | null; r: number | null; rir: number | null; feel: string | null;
   unilateral?: boolean; source: "repi" | "import";
+  /** D192: etiqueta del profe en esa fila de la versión registrada (null = nombre de REPI). */
+  label?: string | null;
 };
 export type Match = "exact" | "equivalent" | "general" | "none";
 const LEGACY_ID = /^r\d+$/;
@@ -79,6 +83,8 @@ const LEGACY_ID = /^r\d+$/;
 export function compareRows(cur: RowCtx, past: HistRow): { level: Match; why: string } {
   if (past.r == null || past.r <= 0) return { level: "none", why: "sin resultado registrado" };
   if (cur.cls === "warmup") return { level: "none", why: "las aproximaciones no son referencia" };
+  // D192: un Load Set (u otra etiqueta) sólo se compara con filas de la misma etiqueta; el importado no trae etiquetas.
+  if (cur.label && past.source === "import") return { level: "none", why: "historial importado sin la etiqueta de la serie" };
   if (past.source === "import") {
     // Un registro importado no trae tipo de serie, etapa ni método: sólo sirve como referencia general de una serie principal.
     return cur.cls === "main" && cur.stage === 0 && past.w != null ? { level: "general", why: "historial importado (sin tipo de serie)" } : { level: "none", why: "historial importado sin etapa" };
@@ -86,6 +92,7 @@ export function compareRows(cur: RowCtx, past: HistRow): { level: Match; why: st
   if (!!past.unilateral !== cur.unilateral) return { level: "none", why: "unilateral y bilateral no se comparan" };
   const pc = rowClass(past.kind, past.reps, past.durationSec);
   if (pc !== cur.cls) return { level: "none", why: "otro tipo de serie" };
+  if (labelKey(past.label) !== cur.label) return { level: "none", why: "otra etiqueta de serie" };
   if ((past.stage ?? 0) !== cur.stage) return { level: "none", why: "otra etapa" };
   if (cur.cls === "amrap_time" && (past.durationSec ?? null) !== cur.durationSec) return { level: "none", why: "otra duración" };
   if (past.specId && past.specId === cur.specId && !LEGACY_ID.test(cur.specId)) return { level: "exact", why: "misma fila del plan" };
@@ -225,7 +232,7 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
 
   // Series principales y top sets: doble progresión de D182 con las filas comparables de la última vez.
   if (c.cls === "main" || c.cls === "top") {
-    const sameCls = all.filter((x) => x.cls === c.cls && x.stage === 0).length;
+    const sameCls = all.filter((x) => x.cls === c.cls && x.stage === 0 && x.label === c.label).length;
     if (!s) return withCoach(base(c, { why: NO_REF, reasons: ["no_history"] }));
     const last: LastSet[] = s.rows.map((r) => ({ weightKg: r.w, reps: r.r, rir: r.rir, feel: r.feel, kind: c.cls === "top" ? "top" : "work" }));
     const sg = suggestNext({ reps: c.reps, sets: sameCls, last, lastReps: s.rows[0]?.reps ?? null, signals });
@@ -318,7 +325,7 @@ export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneR
   if (!c || !d || d.r == null || d.r <= 0 || c.cls === "warmup") return { targets: p.targets, event: null, changed: [] };
   const doneIdx = new Set(p.done.map((x) => x.index));
   const later = ctxs.filter((x) => x.index > p.justDone && !doneIdx.has(x.index));
-  const same = later.filter((x) => x.cls === c.cls && x.stage === c.stage);
+  const same = later.filter((x) => x.cls === c.cls && x.stage === c.stage && x.label === c.label);
   const next = p.targets.slice();
   const changed: number[] = [];
   const set = (i: number, patch: Partial<RowTarget>, reason: string) => {
