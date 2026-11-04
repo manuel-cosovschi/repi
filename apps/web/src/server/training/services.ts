@@ -500,7 +500,7 @@ export async function myRelations(userId: string): Promise<TrainingRelation[]> {
 export async function myActive(userId: string) {
   const rels = await myRelations(userId);
   if (!rels.length) return null;
-  const [pref] = await db.select().from(userPref).where(eq(userPref.userId, userId));
+  const [pref] = await db.select({ activeRelationId: userPref.activeRelationId }).from(userPref).where(eq(userPref.userId, userId));
   const picked = rels.find((r) => r.id === pref?.activeRelationId) ?? rels.find((r) => r.assignment) ?? rels[0];
   return { ...picked, all: rels };
 }

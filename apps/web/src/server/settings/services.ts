@@ -1,22 +1,42 @@
 // Configuración del alumno (F-HX-23, D95). Hoy: unidad de peso. Idioma es-AR único y notificaciones en el centro de la app
 // (sin push al alumno todavía); menores según la política que defina el titular: no hay opciones que simular acá.
 // D139: además, lo que busca entrenando (objetivo, tiempo, gustos y lo que evita), que usa la IA de «No vino el profe».
-import { eq } from "drizzle-orm";
-import { cleanWishes, isWeightUnit, type TrainingWishes, type WeightUnit } from "@repi/domain";
+import { eq, sql } from "drizzle-orm";
+import { acceptThemeChange, cleanWishes, isThemePref, isWeightUnit, type ThemePref, type TrainingWishes, type WeightUnit } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 
 const { userPref } = schema;
 
 export async function mySettings(userId: string) {
-  const [p] = await db.select({ weightUnit: userPref.weightUnit, wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, userId));
-  return { weightUnit: (p?.weightUnit ?? "kg") as WeightUnit, wishes: (p?.wishes ?? null) as TrainingWishes | null };
+  const [p] = await db.select({ weightUnit: userPref.weightUnit, wishes: userPref.wishes, theme: userPref.theme, themeChangedAt: userPref.themeChangedAt })
+    .from(userPref).where(eq(userPref.userId, userId));
+  // D188: `uid` es la propia cuenta (quien pregunta); el cliente lo usa sólo para no mandar un cambio pendiente a otra cuenta.
+  return {
+    uid: userId, weightUnit: (p?.weightUnit ?? "kg") as WeightUnit, wishes: (p?.wishes ?? null) as TrainingWishes | null,
+    theme: (p?.theme ?? "system") as ThemePref, themeChangedAt: p?.themeChangedAt ? p.themeChangedAt.getTime() : null,
+  };
 }
 
 /** Cambia sólo la presentación: los registros siguen en kg y no se reescriben. */
-export async function updateSettings(userId: string, p: { weightUnit?: unknown; wishes?: unknown }) {
+export async function updateSettings(userId: string, p: { weightUnit?: unknown; wishes?: unknown; theme?: unknown; themeChangedAt?: unknown }) {
   if (p.weightUnit !== undefined && !isWeightUnit(p.weightUnit)) throw new AccessError("invalid", "Elegí kg o lb.");
+  if (p.theme !== undefined && !isThemePref(p.theme)) throw new AccessError("invalid", "Elegí Claro, Oscuro o Automático.");
+  if (p.themeChangedAt !== undefined && (typeof p.themeChangedAt !== "number" || !Number.isFinite(p.themeChangedAt))) throw new AccessError("invalid", "Fecha de cambio inválida.");
   const now = new Date();
+  if (p.theme !== undefined && isThemePref(p.theme)) {
+    // D188: gana el último cambio hecho en un dispositivo (también uno sin conexión que llega tarde). Si el guardado es
+    // más nuevo, no se pisa y la respuesta devuelve el vigente para que el dispositivo lo adopte.
+    const [cur] = await db.select({ at: userPref.themeChangedAt }).from(userPref).where(eq(userPref.userId, userId));
+    const r = acceptThemeChange(cur?.at ? cur.at.getTime() : null, p.themeChangedAt as number | undefined, now.getTime());
+    if (r.ok) {
+      const at = new Date(r.at);
+      await db.insert(userPref).values({ userId, theme: p.theme, themeChangedAt: at, updatedAt: now })
+        .onConflictDoUpdate({ target: userPref.userId, set: { theme: p.theme, themeChangedAt: at, updatedAt: now },
+          // Dos pedidos simultáneos: el más viejo no pisa al más nuevo.
+          setWhere: sql`${userPref.themeChangedAt} is null or ${userPref.themeChangedAt} < ${at.toISOString()}::timestamptz` });
+    }
+  }
   if (p.weightUnit) {
     await db.insert(userPref).values({ userId, weightUnit: p.weightUnit, updatedAt: now })
       .onConflictDoUpdate({ target: userPref.userId, set: { weightUnit: p.weightUnit, updatedAt: now } });
