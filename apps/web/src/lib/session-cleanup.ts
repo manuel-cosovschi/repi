@@ -3,6 +3,7 @@ import { authClient } from "./auth-client";
 import { pendingFor } from "./offline/queue";
 import { clearEntry } from "./entry";
 import { wipeLocal } from "./offline/store";
+import { forgetThemeOwner } from "./theme";
 
 export const LOGOUT_KEY = "repi:logout";
 export async function clearPrivateDeviceData() {
@@ -13,6 +14,8 @@ export async function clearPrivateDeviceData() {
   // Las altas pendientes tienen tokens personales; tampoco se transfieren a otra cuenta.
   sessionStorage.removeItem("repi:first-admin-ticket");
   clearEntry();
+  // D188: la apariencia queda en el navegador, pero sin cuenta ni cambio pendiente.
+  forgetThemeOwner();
 }
 /** Una única salida para Alumno, Coach, Gym, Admin y cambio de cuenta en Acceso. */
 export async function signOutSafely(): Promise<boolean> {

@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
 import { listWorkspaces, memberOnboardingState } from "@/server/access/services";
 import { PublicSite } from "@/components/site/PublicSite";
 import "@/styles/site.css";
+
+// D188: el sitio público conserva su diseño editorial navy en cualquier tema.
+export const viewport: Viewport = { themeColor: "var(--ui-text)" };
 
 export const dynamic = "force-dynamic";
 

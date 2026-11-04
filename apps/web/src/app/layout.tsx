@@ -5,6 +5,9 @@ import { SessionBoundary } from "@/components/session/SessionBoundary";
 import { UpdateWatcher } from "@/components/session/UpdateWatcher";
 import { appVersion } from "@/server/version";
 import { DemoTour } from "@/components/demo/DemoTour";
+import { ThemeRuntime } from "@/components/theme/ThemeRuntime";
+import { THEME_BOOT } from "@/lib/theme-boot";
+import { tokens } from "@repi/domain/tokens";
 
 // Fuentes OFL autoalojadas por next/font (sin pedidos a Google en tiempo de ejecución).
 // Selección G · Atlética (REPI_SELECCION_VISUAL.md): Barlow en interfaz, Barlow Condensed sólo en títulos destacados.
@@ -22,13 +25,19 @@ export const metadata: Metadata = {
 
 // El navegador entrega beforeinstallprompt una vez y puede ser antes de hidratar: se guarda para la guía de inicio.
 const CATCH_INSTALL = "addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__repiBIP=e;dispatchEvent(new Event('repi:bip'))});addEventListener('appinstalled',function(){window.__repiBIP=undefined})";
-export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#0B0F14" };
+// D188: la barra del navegador sigue al tema. Sin preferencia elegida, por el modo del dispositivo; con Claro u Oscuro
+// elegidos, ThemeRuntime ajusta el color. viewport-fit y escala intactos (correcciones de iOS D121/D122).
+export const viewport: Viewport = {
+  width: "device-width", initialScale: 1, viewportFit: "cover",
+  themeColor: [{ media: "(prefers-color-scheme: light)", color: tokens.theme.light.statusbar }, { media: "(prefers-color-scheme: dark)", color: tokens.theme.dark.statusbar }],
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-AR" className={`${ui.variable} ${display.variable} ${mono.variable}`}>
-      <head><meta name="repi-version" content={appVersion()} /><script dangerouslySetInnerHTML={{ __html: CATCH_INSTALL }} /></head>
-      <body><SessionBoundary />{children}<DemoTour /><UpdateWatcher /></body>
+    // suppressHydrationWarning: THEME_BOOT fija data-theme en <html> antes de hidratar (sólo afecta a ese elemento).
+    <html lang="es-AR" className={`${ui.variable} ${display.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} /><meta name="repi-version" content={appVersion()} /><script dangerouslySetInnerHTML={{ __html: CATCH_INSTALL }} /></head>
+      <body><ThemeRuntime /><SessionBoundary />{children}<DemoTour /><UpdateWatcher /></body>
     </html>
   );
 }
