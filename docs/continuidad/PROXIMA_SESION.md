@@ -1,7 +1,16 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D193, hotfix P0 de cargas del profe; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D194; D192/D194 en el PR #21 sin publicar; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+
+## PR #21 · Flujo del entrenador (D192) + actualizar alumnos desde plantilla (D194) — 04/11/2026 · LISTO PARA REVISIÓN, SIN PUBLICAR
+
+**Rama:** `feat/repi-coach-workflow-ux` (incluye `main` con el hotfix #20). **No integrar ni desplegar** sin la decisión del titular.
+**Qué hay:** editor rápido de series y distribución de cargas, Load Set y tipos de serie propios (`set_type`), copiar y pegar días (coach y sala), «Actualizar programas de alumnos» desde una plantilla. Detalle: `docs/COACH_WORKFLOW.md`.
+**Migración 0044:** `scripts/operations/hosted-0044.sql` (además activa RLS en `training_target`/`training_proposal`, que hoy no lo tienen en producción; sin exposición: `anon`/`authenticated` sin permisos), reversión `scripts/rollback/0044_set_types.down.sql`, ensayo `bash apps/web/scripts/operations/verify-0044.sh` (verde). **NO aplicada en producción.**
+**Para publicar:** 1) respaldo «Respaldo» en verde; 2) aplicar `hosted-0044.sql` (antes del despliegue del código); 3) integrar el PR #21; 4) `/api/version` y smoke con la demo guiada (coach: tabla de series, Load Set, tipo propio, copiar día, actualizar alumnos; alumno: etiqueta en el entrenamiento).
+**Verificación pendiente del hotfix D193:** «Tu profe indicó X kg» con un profe y un alumno reales vinculados en producción. La demo no lo permite (cada perfil abre otra demo). Procedimiento: `scripts/operations/verify-coach-weights-prod.mjs` con dos cuentas de prueba autorizadas (ver su encabezado).
+**Archivos nuevos:** `packages/domain/src/{coach-workflow,template-rollout}.ts` (+tests), `apps/web/src/server/training/{day-copy,set-types,template-rollout,workflow-schema}.ts`, `components/coach/{SetTable,SetTypes,LoadDistributor,DayCopy,TemplateRollout}.tsx`, rutas `api/coach/[orgId]/{set-types,paste-targets,programs/[pid]/paste-day,programs/[pid]/rollout}`, tests `coach-workflow`, `template-rollout`, E2E `coach-workflow`, `template-rollout`.
 
 ## Hotfix P0 · cargas del profe que el alumno no veía (D193) — 04/11/2026
 

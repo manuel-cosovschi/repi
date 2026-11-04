@@ -18,6 +18,7 @@ import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 import { ProgramAssistant } from "./ProgramAssistant";
 import { ProposalBanner, clearTiDraft, readTiDraft, type TiDraft } from "./ProposalDraft";
 import { CoachDayCopy, DayMenu, readClip, writeClip, type DayClip } from "./DayCopy";
+import { TemplateRollout } from "./TemplateRollout";
 import { copyDayContent } from "@repi/domain";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
@@ -49,6 +50,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const jump = useRef<number | null>(null);
   const [clip, setClip] = useState<DayClip | null>(null);
   useEffect(() => setClip(readClip("coach", orgId)), [orgId, pid]);
+  const [rollout, setRollout] = useState(false); // D194
   const [copy, setCopy] = useState<{ from: { programId: string; day: number }; fromLabel: string; to: { programId: string; day: number } | null } | null>(null);
   useEffect(() => { setTiDraft(prog ? readTiDraft({ kind: "coach", programId: prog.id }) : null); }, [prog?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -217,13 +219,15 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
           <div className="mfoot"><button type="button" className="btn" onClick={() => setDel(false)}>Cancelar</button><button type="button" className="btn pri danger" onClick={() => void remove()}>Eliminar</button></div>
         </Modal>
       )}
+      {rollout && prog?.kind === "template" && <TemplateRollout orgId={orgId} templateId={prog.id} ready={saveNow} onClose={() => setRollout(false)} onDone={(t) => { flash(t); loadList(); }} />}
       {copy && prog && <CoachDayCopy orgId={orgId} from={copy.from} fromLabel={copy.fromLabel} to={copy.to} ready={saveNow} onClose={() => setCopy(null)}
         onOpen={(id, d) => { setCopy(null); jump.current = d; if (id === prog.id) setReload((n) => n + 1); else setPid(id); }}
         onDone={(r) => { if (r.programId === prog.id) { jump.current = r.day; setReload((n) => n + 1); } flash(`Día pegado y guardado${r.created ? ` (versión ${r.version})` : ""}. Las sesiones registradas no cambian.`); }} />}
       {prog?.kind === "template" && prog.clients.length > 0 && (
         <p role="note" className="tpl-note">
           <b>Los cambios de esta plantilla no le llegan solos a {firsts}.</b> Cada cliente entrena con su propia copia. Para que {prog.clients.length > 1 ? "reciban" : "reciba"} estas
-          series y cargas, tocá «Asignar a clientes» (con un entrenamiento abierto, le aparece «Aplicar ahora») o editá su programa desde su ficha.
+          series y cargas, usá «Actualizar programas de alumnos»: elegís a quién y qué cambios, y se conserva lo que personalizaste para cada uno.
+          <button type="button" className="btn pri" onClick={() => setRollout(true)}>Actualizar programas de alumnos</button>
         </p>
       )}
       {save.s === "error" && <p role="alert" className="err-box">No se guardó: {save.m}</p>}
