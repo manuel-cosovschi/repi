@@ -6,6 +6,8 @@
 //   npx tsx scripts/operations/backup.ts --source=local            # repi_dev de .env.local
 //   npx tsx scripts/operations/backup.ts --source=hosted [--storage] # Supabase (~/.repi-secrets/supabase.env, sesión 5432)
 //   … --out=/Volumes/<SSD>/REPI/Backups                               # destino alternativo (debe existir; fuera del repo)
+// GitHub Actions (D190, .github/workflows/backup.yml): la URL llega en REPI_BACKUP_DATABASE_URL (rol de sólo lectura
+// repi_backup) y los archivos se leen con el token OIDC del job (--storage-auth=github-oidc), sin secretos de Storage.
 // Salida: ~/.repi-secrets/backups/<fecha>/ (0700) con manifest.json, db/*.copy y storage/ si se pidió.
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -22,6 +24,7 @@ const ident = (s: string) => `"${s.replace(/"/g, '""')}"`;
 const arg = (name: string) => process.argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`))?.split("=")[1] ?? (process.argv.includes(`--${name}`) ? "true" : undefined);
 
 async function hostedUrl() {
+  if (process.env.REPI_BACKUP_DATABASE_URL) return process.env.REPI_BACKUP_DATABASE_URL;
   const env = await readFile(join(homedir(), ".repi-secrets", "supabase.env"), "utf8");
   const line = env.split("\n").find((l) => l.startsWith("DATABASE_URL_SESSION="));
   if (!line) throw new Error("Falta DATABASE_URL_SESSION en ~/.repi-secrets/supabase.env.");
@@ -30,6 +33,31 @@ async function hostedUrl() {
 async function localUrl() {
   try { process.loadEnvFile(fileURLToPath(new URL("../../.env.local", import.meta.url))); } catch { /* */ }
   return localTarget(process.env.DATABASE_URL, "backup").href;
+}
+
+const STORAGE_PROXY = "https://qiamewdridgdvsyysmog.supabase.co/functions/v1/repi-storage";
+/**
+ * D190: lectura de archivos con el token OIDC del job de GitHub. La Edge Function sólo acepta ese token para firmar
+ * lecturas del workflow de respaldo en main. El token se pide de nuevo cada 4 min (vence a los pocos minutos).
+ */
+function githubOidcReader() {
+  const reqUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL, reqToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+  if (!reqUrl || !reqToken) throw new Error("--storage-auth=github-oidc requiere GitHub Actions con permiso id-token: write.");
+  let token: { value: string; at: number } | null = null;
+  const fresh = async () => {
+    if (token && Date.now() - token.at < 240_000) return token.value;
+    const r = await fetch(`${reqUrl}&audience=repi-storage-backup`, { headers: { Authorization: `bearer ${reqToken}` } });
+    if (!r.ok) throw new Error(`No se obtuvo el token OIDC de GitHub (${r.status}).`);
+    token = { value: ((await r.json()) as { value: string }).value, at: Date.now() };
+    return token.value;
+  };
+  return async (key: string) => {
+    const sign = await fetch(`${process.env.SUPABASE_STORAGE_PROXY_URL ?? STORAGE_PROXY}?op=sign_read&key=${encodeURIComponent(key)}`, { method: "POST", headers: { "x-repi-github-oidc": await fresh() } });
+    if (!sign.ok) throw new Error(`almacenamiento: firma de lectura falló (${sign.status})`);
+    const r = await fetch(((await sign.json()) as { url: string }).url);
+    if (!r.ok || !r.body) throw new Error(`almacenamiento: lectura falló (${r.status})`);
+    return { stream: r.body };
+  };
 }
 
 /** Cuenta bytes y calcula el hash de lo que pasa, sin retenerlo en memoria. */
@@ -80,11 +108,15 @@ async function main() {
 
     const files: BackupManifest["storage"]["files"] = [];
     if (withStorage) {
-      // Las credenciales de Storage están en Vercel, no acá: se leen del archivo local del titular si existe.
-      try { process.loadEnvFile(join(homedir(), ".repi-secrets", "vercel.env")); } catch { /* */ }
-      process.env.SUPABASE_STORAGE_PROXY_URL ??= "https://qiamewdridgdvsyysmog.supabase.co/functions/v1/repi-storage";
-      if (!process.env.STORAGE_PROXY_SECRET) throw new Error("Falta STORAGE_PROXY_SECRET en ~/.repi-secrets/vercel.env.");
-      const { readObject } = await import("../../src/server/storage");
+      let readObject: (key: string) => Promise<{ stream: unknown }>;
+      if (arg("storage-auth") === "github-oidc") readObject = githubOidcReader();
+      else {
+        // Las credenciales de Storage están en Vercel, no acá: se leen del archivo local del titular si existe.
+        try { process.loadEnvFile(join(homedir(), ".repi-secrets", "vercel.env")); } catch { /* */ }
+        process.env.SUPABASE_STORAGE_PROXY_URL ??= STORAGE_PROXY;
+        if (!process.env.STORAGE_PROXY_SECRET) throw new Error("Falta STORAGE_PROXY_SECRET en ~/.repi-secrets/vercel.env.");
+        readObject = (await import("../../src/server/storage")).readObject;
+      }
       const keys = await sql<{ k: string }[]>`select storage_key as k from media_object order by storage_key`;
       for (const { k } of keys) {
         const key = safeStorageKey(k), h = createHash("sha256"), c = { bytes: 0 };

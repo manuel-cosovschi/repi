@@ -3,7 +3,7 @@
 //
 // Uso (desde apps/web):
 //   createdb -h localhost repi_restore_check   # una vez
-//   RESTORE_DATABASE_URL=postgresql://<usuario>@localhost:5432/repi_restore_check npx tsx scripts/operations/restore.ts <carpeta del respaldo>
+//   RESTORE_DATABASE_URL=postgresql://<usuario>@localhost:5432/repi_restore_check npx tsx scripts/operations/restore.ts <carpeta del respaldo> [--report=<archivo.json>]
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -25,7 +25,7 @@ async function sha256File(path: string) {
 }
 
 async function main() {
-  const folder = process.argv[2];
+  const folder = process.argv.slice(2).find((a) => !a.startsWith("--"));
   if (!folder) throw new Error("Indicá la carpeta del respaldo.");
   const dir = resolve(folder);
   // 1) Manifiesto y archivos se validan antes de conectar a ninguna base.
@@ -45,6 +45,11 @@ async function main() {
     if (await sha256File(join(dir, "storage", f.key)) !== f.sha256) throw new Error(`El archivo ${f.key} no coincide con el manifiesto.`);
   }
 
+  if (process.argv.includes("--solo-hashes")) {
+    const pub = tables.filter((t) => t.schema === "public");
+    console.log(`Respaldo íntegro: ${pub.length} tablas (${pub.reduce((a, t) => a + t.rows, 0)} filas) más el registro de ${raw.migrations ?? "?"} migraciones, ${manifest.storage.files.length} archivos; base SHA-256 ${manifest.database.sha256}. No se restauró en ninguna base.`);
+    return;
+  }
   // 2) Destino: sólo repi_restore_check local, confirmado también por el servidor.
   const url = localTarget(process.env.RESTORE_DATABASE_URL, "restore").href;
   const sql = postgres(url, { max: 1, onnotice: () => {} });
@@ -83,7 +88,33 @@ async function main() {
       if (n !== t.rows) throw new Error(`${t.name}: se esperaban ${t.rows} filas y hay ${n}.`);
       ok++;
     }
-    console.log(`Restauración verificada en repi_restore_check: ${ok} tablas, ${tables.reduce((a, t) => a + (t.schema === "public" ? t.rows : 0), 0)} filas, ${manifest.storage.files.length} archivos con hash correcto (no se suben a ningún almacenamiento).`);
+    // 5) D190: integridad relacional. La carga desactiva las claves foráneas, así que se comprueban una por una:
+    // ninguna fila hija sin su fila madre y ninguna restricción marcada como no validada.
+    const fks = await load<{ name: string; child: string; parent: string; cols: string[]; refs: string[] }[]>`
+      select con.conname as name, ch.relname as child, pa.relname as parent,
+        array(select a.attname::text from unnest(con.conkey) with ordinality k(n, i) join pg_attribute a on a.attrelid = con.conrelid and a.attnum = k.n order by k.i) as cols,
+        array(select a.attname::text from unnest(con.confkey) with ordinality k(n, i) join pg_attribute a on a.attrelid = con.confrelid and a.attnum = k.n order by k.i) as refs
+      from pg_constraint con join pg_class ch on ch.oid = con.conrelid join pg_class pa on pa.oid = con.confrelid
+      join pg_namespace ns on ns.oid = ch.relnamespace where con.contype = 'f' and ns.nspname = 'public' order by 1`;
+    let orphans = 0;
+    for (const fk of fks) {
+      const notNull = fk.cols.map((c) => `c.${ident(c)} is not null`).join(" and ");
+      const match = fk.cols.map((c, i) => `p.${ident(fk.refs[i])} = c.${ident(c)}`).join(" and ");
+      const [{ n }] = await load.unsafe<{ n: number }[]>(`select count(*)::int as n from public.${ident(fk.child)} c where ${notNull} and not exists (select 1 from public.${ident(fk.parent)} p where ${match})`);
+      if (n) { orphans += n; console.error(`${fk.child} → ${fk.parent} (${fk.name}): ${n} filas sin referencia.`); }
+    }
+    const [{ n: invalid }] = await load<{ n: number }[]>`select count(*)::int as n from pg_constraint c join pg_namespace ns on ns.oid = c.connamespace where ns.nspname = 'public' and not c.convalidated`;
+    if (orphans || invalid) throw new Error(`Integridad: ${orphans} filas huérfanas y ${invalid} restricciones sin validar.`);
+    const rows = tables.reduce((a, t) => a + (t.schema === "public" ? t.rows : 0), 0);
+    console.log(`Restauración verificada en repi_restore_check: ${ok} tablas, ${rows} filas, ${fks.length} claves foráneas sin huérfanos, 0 restricciones sin validar, ${manifest.storage.files.length} archivos con hash correcto (no se suben a ningún almacenamiento).`);
+    // Informe sin datos personales (cantidades y hashes) para las notas del respaldo publicado.
+    const report = process.argv.find((a) => a.startsWith("--report="))?.slice("--report=".length);
+    if (report) {
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(report, JSON.stringify({ tables: ok, rows, foreignKeys: fks.length, orphans, invalidConstraints: invalid, migrations: Number(raw.migrations ?? 0),
+        storageFiles: manifest.storage.files.length, storageBytes: manifest.storage.files.reduce((a, f) => a + f.bytes, 0),
+        databaseSha256: manifest.database.sha256, databaseBytes: manifest.database.bytes, createdAt: raw.createdAt, source: raw.source }, null, 2));
+    }
   } finally { await load.end(); }
 }
 
