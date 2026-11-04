@@ -2,7 +2,9 @@
 // reconocibles se lee sin IA; fotos, capturas, PDF y texto libre los transcribe REPI. Siempre se revisa antes de guardar.
 import { parseCsv } from "./csv";
 
-export type ImportedRoutineEx = { name: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null };
+// D184: `technique` y `group` tal como están escritos (columna Técnica/Método y Grupo/Superserie). No se interpretan acá: los
+// lee `detectMethod`/`detectGroupLabel` (method-detect.ts) y la persona confirma lo ambiguo antes de guardar.
+export type ImportedRoutineEx = { name: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null; technique?: string | null; group?: string | null };
 export type ImportedRoutineDay = { name: string; exercises: ImportedRoutineEx[] };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -25,6 +27,7 @@ export function parseRoutineCsv(text: string): ImportedRoutineDay[] | null {
   const cEx = col(/ejercicio|exercise|movimiento/), cS = col(/^series?$|^sets?$/), cR = col(/^rep|repeticion/);
   if (cEx == null || (cS == null && cR == null)) return null;
   const cDay = col(/^(dia|day|rutina|sesion)\b/), cW = col(/peso|kg|weight|carga/), cRest = col(/descanso|rest|pausa/), cN = col(/^nota|observ|comentario/);
+  const cT = col(/^(tecnica|metodo|method|technique)/), cG = col(/^(grupo|superserie|combinado|group)/);
   const days: ImportedRoutineDay[] = [];
   for (const r of rows) {
     const name = (r[cEx] ?? "").replace(/\s+/g, " ").trim();
@@ -39,6 +42,8 @@ export function parseRoutineCsv(text: string): ImportedRoutineDay[] | null {
       name: name.slice(0, 80), sets: sets >= 1 && sets <= 10 ? sets : 3, reps: (cR == null ? "" : (r[cR] ?? "").trim()).slice(0, 20) || "10",
       weightKg: w != null && w > 0 && w <= 500 ? w : null, restSec: rest != null && rest >= 0 && rest <= 600 ? Math.round(rest) : null,
       note: (cN == null ? "" : (r[cN] ?? "").trim()).slice(0, 120) || null,
+      ...(cT != null && (r[cT] ?? "").trim() ? { technique: r[cT].trim().slice(0, 80) } : {}),
+      ...(cG != null && (r[cG] ?? "").trim() ? { group: r[cG].trim().slice(0, 20) } : {}),
     });
   }
   return days.length ? days : null;

@@ -4,7 +4,7 @@
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
-import { localDate } from "@repi/domain";
+import { applyMethod, localDate, rowRef, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { AccessError } from "../access/util";
@@ -56,6 +56,11 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind }).onConflictDoNothing();
     const lib = new Map((await db.select().from(schema.exercise).where(inArray(schema.exercise.name, LIB.map((l) => l[0])))).filter((e) => !e.orgId && !e.ownerUserId).map((e) => [e.name, e.id]));
     const ex = (name: string, sets: number, reps: string, rir: number, restSec: number) => ({ exerciseId: lib.get(name)!, name, sets, reps, rir, restSec });
+    // D183: la última serie con dos drops conectados (muestra las etapas en la demo de coach y de alumno).
+    const exDrop = (name: string, sets: number, reps: string, rir: number, restSec: number) => {
+      const detail = applyMethod(null, { sets, reps, rir }, "drop_set", [sets - 1], { stages: 2 }).detail;
+      return { ...ex(name, sets, reps, rir, restSec), sets: detail.setPlan!.length, detail };
+    };
 
     const owner = await person("martin.sosa", "Martín Sosa");
     const floor = await person("sofia.ramirez", "Sofía Ramírez");
@@ -158,9 +163,9 @@ export async function startDemo(role: DemoRole, now = new Date()) {
       rels[u.id] = rel.id;
     }
     const hip = await createTemplate(coach.id, coachOrg.id, { name: "Hipertrofia · 3 días", weeks: 6, note: "Semana de carga: RIR 2 en la última serie.", days: [
-      { name: "Torso A", exercises: [ex("Press de banca", 4, "8-10", 2, 120), ex("Remo con barra", 4, "8-10", 2, 120), ex("Press militar", 3, "8-12", 2, 90), ex("Elevaciones laterales", 3, "12-15", 1, 60)] },
-      { name: "Piernas", exercises: [ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8-10", 2, 120), ex("Prensa", 3, "10-12", 2, 90), ex("Hip thrust", 3, "10", 2, 90)] },
-      { name: "Torso B", exercises: [ex("Jalón al pecho", 4, "10", 2, 120), ex("Press inclinado mancuernas", 3, "10", 2, 120), ex("Remo en polea", 3, "12", 2, 90), ex("Fondos en paralelas", 3, "8-10", 1, 90)] },
+      { name: "Torso A", exercises: [ex("Press de banca", 4, "8-10", 2, 120), ex("Remo con barra", 4, "8-10", 2, 120), ex("Press militar", 3, "8-12", 2, 90), exDrop("Elevaciones laterales", 3, "12-15", 1, 60)] },
+      { name: "Piernas", exercises: [ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8-10", 2, 120), ex("Prensa", 3, "10-12", 2, 90), exDrop("Hip thrust", 3, "10", 2, 90)] },
+      { name: "Torso B", exercises: [ex("Jalón al pecho", 4, "10", 2, 120), ex("Press inclinado mancuernas", 3, "10", 2, 120), exDrop("Remo en polea", 3, "12", 2, 90), ex("Fondos en paralelas", 3, "8-10", 1, 90)] },
     ] });
     await createTemplate(coach.id, coachOrg.id, { name: "Fuerza base · 2 días", weeks: 8, note: "Subí 2,5 kg por semana si completás todas las series.", days: [
       { name: "Día A", exercises: [ex("Sentadilla", 5, "5", 2, 180), ex("Press de banca", 5, "5", 2, 180)] },
@@ -291,7 +296,11 @@ async function history(userId: string, relId: string, count: number, now: Date, 
     for (const e of exs.filter((x) => x.dayId === d.id)) {
       const w = base[e.name] == null ? null : Math.round(base[e.name] * strength * (1 + i * 0.02) * 2) / 2;
       for (let k = 0; k < e.sets; k++) {
-        await db.insert(schema.setLog).values({ id: randomUUID(), sessionId: sid, programExerciseId: e.id, exerciseId: e.exerciseId, setIndex: k, weightKg: w == null ? null : String(w), reps: 9 - Math.min(k, 2), rir: 2, completedAt: new Date(start.getTime() + (k + 1) * 4 * 60_000), revision: 1, updatedAt: end });
+        // D183: los drops con menos carga (−20 % por etapa) y con la referencia de su serie y etapa.
+        const ref = rowRef(e.detail as ExerciseDetail | null, e.sets, k);
+        const wk = w == null ? null : ref && ref.stage > 0 ? Math.max(1, Math.floor(w * 0.8 ** ref.stage * 2) / 2) : w;
+        await db.insert(schema.setLog).values({ id: randomUUID(), sessionId: sid, programExerciseId: e.id, exerciseId: e.exerciseId, setIndex: k, weightKg: wk == null ? null : String(wk), reps: 9 - Math.min(k, 2), rir: 2, completedAt: new Date(start.getTime() + (k + 1) * 4 * 60_000), revision: 1, updatedAt: end,
+          specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null });
       }
     }
   }

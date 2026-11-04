@@ -235,7 +235,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (offlineAt || !navigator.onLine) { flash("Para empezar la rutina de hoy necesitás conexión."); return; }
     try {
       const s = await api<{ id: string }>("/api/me/solo/routine/start", { body: { id: crypto.randomUUID(), dayName: r.dayName,
-        exercises: r.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, reps: e.reps, restSec: e.restSec, weightKg: e.weightKg, note: e.note || null })) } });
+        exercises: r.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, reps: e.reps, restSec: e.restSec, weightKg: e.weightKg, note: e.note || null, detail: e.detail ?? null })) } });
       setWorkout(s.id);
     } catch (e) { flash((e as Error).message); }
   };

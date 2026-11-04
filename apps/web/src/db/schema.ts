@@ -341,7 +341,8 @@ export const ownRoutine = pgTable("own_routine", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  exercises: jsonb("exercises").$type<{ exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null }[]>().notNull(),
+  // D184: `detail` opcional (técnica, plan con etapas conectadas, superserie o circuito), el mismo ExerciseDetail que el programa del coach.
+  exercises: jsonb("exercises").$type<{ exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null; detail?: unknown }[]>().notNull(),
   createdAt: now("created_at"),
   updatedAt: now("updated_at"),
   lastUsedAt: ts("last_used_at"),
@@ -408,6 +409,8 @@ export const workoutSession = pgTable("workout_session", {
   updatedAt: now("updated_at"),
   presenceCheckinId: text("presence_checkin_id"), // D127: ingreso validado con el que se inició (sesiones del gym con control de acceso)
   floorTrainerId: text("floor_trainer_id"), // D131: profesor de sala elegido por el socio para ese día (sin FK: el historial sobrevive a bajas)
+  // D184: intervalo EMOM en curso (ejercicio, serie, inicio en hora del servidor, estado). Null = ninguno. Ver IntervalState.
+  intervalState: jsonb("interval_state"),
 }, (t) => [
   index("workout_session_user_idx").on(t.userId, t.startedAt),
   index("session_relation_idx").on(t.coachClientId, t.startedAt),
@@ -426,6 +429,12 @@ export const setLog = pgTable("set_log", {
   rir: integer("rir"),
   feel: text("feel"), // sensación de la serie (pedido 26/10): facil|bien|dificil|limite|molestia|ayuda
   note: text("note"), // nota de la persona sobre esta serie (F-HX-21, D106); la ve su coach en la relación
+  // D183: copia de la prescripción al registrar (serie principal y etapa). Nulos en registros anteriores: se deducen de la
+  // versión congelada con `rowRef` (stages.ts). No reemplazan a `set_index`, que sigue siendo la clave de sincronización.
+  specId: text("spec_id"), // identidad estable de la fila del plan («r0» para planes sin identidad)
+  setKind: text("set_kind"), // tipo: work, warmup, top, backoff, drop, rest_pause, cluster, amrap, failure
+  blockIndex: integer("block_index"), // serie principal (desde 0)
+  stageIndex: integer("stage_index"), // 0 = principal; 1..K = etapa conectada
   completedAt: ts("completed_at").notNull(),
   revision: integer("revision").notNull().default(1),
   updatedAt: now("updated_at"),
@@ -433,6 +442,21 @@ export const setLog = pgTable("set_log", {
   uniqueIndex("set_log_unique").on(t.sessionId, t.programExerciseId, t.setIndex),
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
 ]);
+
+// D184: etapas conectadas (drop, mini serie, bloque de cluster) que la persona decidió no hacer («Terminar la serie acá»).
+// Aparte de set_log a propósito: una omisión nunca es un resultado (no suma reps, tonelaje, récords ni niveles). Una fila por
+// etapa; `skipped = false` es la omisión deshecha (se conserva para resolver entre dispositivos: gana el cambio más reciente,
+// `changed_at`). Si la etapa tiene registro en set_log, el registro manda y la omisión se ignora.
+export const setSkip = pgTable("set_skip", {
+  id: id(),
+  sessionId: text("session_id").notNull().references(() => workoutSession.id, { onDelete: "cascade" }),
+  programExerciseId: text("program_exercise_id").notNull().references(() => programExercise.id),
+  setIndex: integer("set_index").notNull(),
+  specId: text("spec_id"), // identidad de la fila del plan al omitirla (como set_log.spec_id)
+  skipped: boolean("skipped").notNull().default(true),
+  changedAt: ts("changed_at").notNull(), // hora del cambio en el dispositivo (acotada por el servidor)
+  updatedAt: now("updated_at"),
+}, (t) => [uniqueIndex("set_skip_unique").on(t.sessionId, t.programExerciseId, t.setIndex)]);
 
 // D132: historial anterior a REPI cargado desde un archivo. Borrador hasta que la persona lo confirma; no se guarda el archivo.
 export const historyImport = pgTable("history_import", {

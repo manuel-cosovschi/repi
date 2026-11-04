@@ -16,6 +16,20 @@ export function localTarget(value: string | undefined, kind: "backup" | "restore
   return url;
 }
 
+/**
+ * Carpeta de destino del respaldo. Sin `--out` queda la de siempre (~/.repi-secrets/backups). Con `--out` (p. ej. un disco
+ * externo): ruta absoluta, sin «..», que ya exista (un volumen sin montar no se crea en el disco interno) y fuera del repo.
+ */
+export function backupRoot(out: string | undefined, home: string, repo: string, exists: (p: string) => boolean) {
+  if (out === undefined) return `${home.replace(/\/+$/, "")}/.repi-secrets/backups`;
+  const clean = out.replace(/\/+$/, "");
+  if (!clean.startsWith("/") || clean.split("/").includes("..") || /[\u0000-\u001f]/.test(clean)) throw new Error("--out tiene que ser una ruta absoluta, sin «..».");
+  const r = repo.replace(/\/+$/, "");
+  if (clean === r || clean.startsWith(`${r}/`)) throw new Error("--out no puede estar dentro del repositorio.");
+  if (!exists(clean)) throw new Error("--out no existe: montá el disco y creá la carpeta antes de respaldar.");
+  return clean;
+}
+
 /** Claves de objetos tal como las guarda REPI: segmentos simples separados por «/», sin rutas relativas ni absolutas. */
 export function safeStorageKey(value: string) {
   const segments = value.split("/");

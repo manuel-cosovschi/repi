@@ -4,6 +4,7 @@ import { AdminApp } from "@/components/admin/AdminApp";
 import { requiresTwoFactor } from "@repi/domain";
 import { requireUser } from "@/server/access/guard";
 import "@/styles/coach.css";
+import "@/styles/method-editor.css";
 import "@/styles/gym.css";
 
 export const metadata: Metadata = { title: "REPI Admin" };

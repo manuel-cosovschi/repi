@@ -3,11 +3,13 @@ import { comboNext, emptyDetail, groupLabels, presetPlan, setTarget, setTargetTe
 import { validateProgramDoc } from "./training";
 
 describe("prescripción avanzada", () => {
-  it("las técnicas arman el plan serie por serie", () => {
+  it("las técnicas arman el plan sin reemplazar la programación (D183)", () => {
+    // Top set + back-off conserva series, repeticiones y pesos: sólo marca qué serie es el top set y cuáles son back-off.
     const top = presetPlan("top_backoff", { sets: 4, reps: "8", weightKg: 100 })!;
-    expect(top.map((s) => [s.kind, s.weightKg])).toEqual([["top", 100], ["backoff", 85], ["backoff", 85], ["backoff", 85]]);
+    expect(top.map((s) => [s.kind, s.reps, s.weightKg, s.block, s.stage])).toEqual([["top", "8", 100, 0, 0], ["backoff", "8", 100, 1, 0], ["backoff", "8", 100, 2, 0], ["backoff", "8", 100, 3, 0]]);
+    // Drop set: 3 series principales; los drops van conectados a la última y sin carga (la elige el alumno con referencia).
     const drop = presetPlan("drop_set", { sets: 3, reps: "10", weightKg: 50 })!;
-    expect(drop.map((s) => [s.kind, s.weightKg, s.restSec])).toEqual([["work", 50, null], ["drop", 40, 0], ["drop", 30, 0]]);
+    expect(drop.map((s) => [s.kind, s.weightKg, s.restSec, s.block, s.stage])).toEqual([["work", 50, null, 0, 0], ["work", 50, null, 1, 0], ["work", 50, null, 2, 0], ["drop", null, 0, 2, 1], ["drop", null, 0, 2, 2]]);
     expect(presetPlan("straight", { sets: 3, reps: "10" })).toBeNull();
     // D173: series rectas con peso: el peso queda guardado en todas las series y lo ve el socio.
     const sp = presetPlan("straight", { sets: 3, reps: "8-10", rir: 2, weightKg: 60 })!;
@@ -37,14 +39,15 @@ describe("prescripción avanzada", () => {
   });
   it("objetivo por serie, texto y etiquetas de combinación", () => {
     const e = { sets: 2, reps: "10", rir: 2, restSec: 90, detail: { technique: "top_backoff" as const, setPlan: presetPlan("top_backoff", { sets: 2, reps: "8", weightKg: 100 }), group: "A", groupKind: "superset" as const, rounds: null, tempo: null, variant: null, unilateral: false, progression: null } };
-    expect(setTargetText(setTarget(e, 0))).toBe("Top set · 3-5 · 100 kg · RPE 8");
+    expect(setTargetText(setTarget(e, 0))).toBe("Top set · 8 · 100 kg");
     expect(setTarget({ ...e, detail: null }, 1)).toMatchObject({ reps: "10", rir: 2, restSec: 90 });
     expect(groupLabels([e, { detail: null }, e])).toEqual(["A1", null, "A2"]);
   });
   it("el documento del programa conserva el detalle y ajusta las series", () => {
     const r = validateProgramDoc({ name: "P", weeks: 4, note: "", days: [{ name: "A", exercises: [{ exerciseId: "x", name: "Sentadilla", sets: 3, reps: "8", rir: 2, restSec: 120,
       detail: { technique: "drop_set", setPlan: presetPlan("drop_set", { sets: 3, reps: "8", weightKg: 60 }), group: null, groupKind: null, rounds: null, tempo: null, variant: "con pausa", unilateral: false, progression: null } }] }] });
-    expect(r.ok && r.doc.days[0].exercises[0]).toMatchObject({ sets: 3, detail: { technique: "drop_set", variant: "con pausa" } });
+    // `sets` son las filas registrables: 3 series principales + 2 drops conectados a la última.
+    expect(r.ok && r.doc.days[0].exercises[0]).toMatchObject({ sets: 5, detail: { technique: "drop_set", variant: "con pausa" } });
   });
   it("superserie: alterna A1 → A2 sin descanso y al cerrar la vuelta vuelve a A1 con descanso", () => {
     const g = (group: string | null) => ({ technique: "straight" as const, setPlan: null, group, groupKind: group ? "superset" as const : null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null });

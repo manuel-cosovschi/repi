@@ -3,7 +3,7 @@
 // El ranking usa sólo sesiones del programa institucional del gym y asistencia: nunca la relación con un coach privado.
 import { and, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { createHash, randomUUID } from "node:crypto";
-import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, fileOk, hasLink, liftRanking, localDate, parseReps, volumeKg } from "@repi/domain";
+import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, fileOk, hasLink, liftRanking, localDate, parseReps, rowFlags, volumeKg, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
@@ -158,11 +158,13 @@ export async function shareableSessions(userId: string, orgId: string) {
 async function sessionSnapshot(memberId: string, sessionId: string) {
   const [s] = await db.select().from(workoutSession).where(and(eq(workoutSession.id, sessionId), eq(workoutSession.gymMemberId, memberId), eq(workoutSession.status, "completed")));
   if (!s) throw new AccessError("invalid", "Elegí un entrenamiento terminado del programa del gym.");
-  const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name, target: programExercise.reps }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
+  const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name, target: programExercise.reps, idx: setLog.setIndex, sets: programExercise.sets, detail: programExercise.detail }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
     .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId)).where(eq(setLog.sessionId, s.id));
+  // D183: misma definición que el resumen de la sesión (series principales; sin aproximación ni series por tiempo en el volumen).
+  const fl = logs.map((l) => (l.target != null ? rowFlags({ sets: l.sets ?? 0, reps: l.target, detail: l.detail as ExerciseDetail | null }, l.idx) : null));
   return {
-    type: "session", dayName: s.dayName, date: localDate(s.startedAt), minutes: Math.round(s.activeMs / 60_000), sets: logs.length,
-    volumeKg: volumeKg(logs.map((l) => ({ exerciseId: "", weightKg: l.w == null ? null : Number(l.w), reps: l.r, completed: true, timed: l.target != null && parseReps(l.target).kind === "time" }))),
+    type: "session", dayName: s.dayName, date: localDate(s.startedAt), minutes: Math.round(s.activeMs / 60_000), sets: fl.filter((f) => !f || (f.stage === 0 && !f.warmup)).length,
+    volumeKg: volumeKg(logs.map((l, i) => ({ exerciseId: "", weightKg: l.w == null ? null : Number(l.w), reps: l.r, completed: true, timed: fl[i]?.timed || undefined, warmup: fl[i]?.warmup || undefined, rounds: fl[i]?.rounds || undefined }))),
     exercises: [...new Set(logs.map((l) => l.name))].slice(0, 8),
   };
 }

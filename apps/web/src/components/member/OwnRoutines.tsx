@@ -5,9 +5,12 @@
 // después manda su última marca y la sugerencia de REPI.
 // D162: también se cargan desde una foto, una captura, un PDF, una planilla o texto (un día por rutina). Se ordenan como los
 // días de un programa y «Te toca hoy» marca la siguiente a la última que entrenó; en Inicio aparece igual.
+// D184: cada ejercicio puede llevar un método (drop set, rest-pause, myo-reps, cluster, top set + back-off, AMRAP, EMOM,
+// pirámide) y combinarse en superserie o circuito, con el mismo editor y las mismas reglas que el programa del coach.
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
-import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, kgTo, parseWeightIn, type WeightUnit } from "@repi/domain";
+import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseWeightIn, syncCircuit, circuitIssues, resizeBlocks, type ExerciseDetail, type WeightUnit } from "@repi/domain";
+import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
 import { RoutineImportSheet } from "./RoutineImport";
@@ -18,7 +21,7 @@ import { useUnit } from "./units";
 
 export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time"; mine?: boolean };
 const KIND_LABEL: [Lib["kind"], string][] = [["load_reps", "Con peso"], ["bodyweight", "Peso corporal"], ["time", "Por tiempo"]];
-type Ex = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null };
+type Ex = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null; detail?: ExerciseDetail | null };
 type Saved = { id: string; name: string; lastUsedAt: string | null; next?: boolean; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
 type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w: string };
 
@@ -57,13 +60,17 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
         <div key={r.id} className="or-card">
           <div className="or-title">{r.next && list.length > 1 && <span className="or-next">Te toca hoy</span>}<b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
           <ul>{r.exercises.map((e, i) => (
-            <li key={i}><span>{e.name}</span><span>{e.sets}×{e.reps}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
+            <li key={i}><span>{e.name}{e.detail && <small className="mb-muted or-method">{detailSummary({ ...e, rir: null, restSec: e.restSec ?? 90 }, groupLabels(r.exercises)[i])}</small>}</span>
+              <span>{mainSets(e.detail, e.sets)}×{e.reps}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
           ))}</ul>
           <div className="or-actions">
             <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
               <Ic i={Play} size={16} weight="fill" color="#0B0F14" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
             </button>
             <button type="button" className="ghost sm" onClick={() => open(r)}>Editar</button>
+            <button type="button" className="ghost sm" disabled={offline} onClick={async () => {
+              try { await api(`/api/me/routines/${r.id}/duplicate`, { body: {} }); flash(`Duplicaste «${r.name}».`); void load(); } catch (e) { flash((e as Error).message); }
+            }}>Duplicar</button>
           </div>
         </div>
       ))}
@@ -79,7 +86,18 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   const [picking, setPicking] = useState(!initial);
   const [busy, setBusy] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
+  const [tech, setTech] = useState<number | null>(null); // D184: ejercicio con el editor de series y técnica abierto
   const set = (i: number, p: Partial<Row>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const asEx = (r: Row) => ({ name: r.name, sets: r.sets, reps: r.reps.trim() || defaultReps(r.kind), rir: null, restSec: r.restSec ?? 90, detail: r.detail ?? null });
+  /** D184: guardar «Series y técnica». En un circuito, todos quedan con una serie por vuelta (se pregunta antes de quitar). */
+  const saveTech = (i: number, p: { detail: ExerciseDetail | null; sets: number }) => {
+    const next = rows.map((x, j) => (j === i ? { ...x, detail: p.detail, sets: p.sets } : x));
+    const sync = syncCircuit(next.map(asEx), i);
+    if (sync.removed.length && !window.confirm(`El circuito tiene ${sync.rounds} vueltas: se quitan series de ${sync.removed.map((r) => `${r.exercise} (${r.blocks})`).join(", ")}. ¿Seguir?`)) { setRows(next); return; }
+    setRows(next.map((x, j) => ({ ...x, sets: sync.exs[j].sets, detail: sync.exs[j].detail ?? null })));
+  };
+  const labels = groupLabels(rows.map(asEx));
+  const issue = circuitIssues(rows.map(asEx))[0];
   const move = (i: number, d: -1 | 1) => setRows((r) => { const n = [...r]; const j = i + d; if (j < 0 || j >= n.length) return r; [n[i], n[j]] = [n[j], n[i]]; return n; });
   const rowOf = (e: Lib): Row => ({ key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, sets: 3, reps: defaultReps(e.kind), weightKg: null, w: "", restSec: null, note: null });
   const add = (e: Lib) => {
@@ -92,7 +110,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   const pending = useRef<(() => Promise<Lib | null>) | null>(null);
   const [hasPending, setHasPending] = useState(false);
   const badW = rows.findIndex((r) => r.w.trim() !== "" && parseWeightIn(r.w, unit) == null);
-  const ready = name.trim().length >= 2 && (rows.length > 0 || hasPending) && rows.every((r) => r.reps.trim()) && badW < 0;
+  const ready = name.trim().length >= 2 && (rows.length > 0 || hasPending) && rows.every((r) => r.reps.trim()) && badW < 0 && !issue;
   const save = async () => {
     let list = rows;
     if (pending.current && name.trim().length >= 2) {
@@ -103,12 +121,12 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       list = [...rows, rowOf(e)];
       setRows(list); setPicking(false); setHasPending(false);
     }
-    const okNow = name.trim().length >= 2 && list.length > 0 && list.every((r) => r.reps.trim()) && badW < 0;
-    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : "Completá las repeticiones de cada ejercicio."); return; }
+    const okNow = name.trim().length >= 2 && list.length > 0 && list.every((r) => r.reps.trim()) && badW < 0 && !issue;
+    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : issue ? `El circuito ${issue.group} tiene ${issue.rounds} vueltas, pero ${issue.exercise} tiene ${issue.blocks} series. Igualalas en «Series y técnica».` : "Completá las repeticiones de cada ejercicio."); return; }
     setBusy(true); setWarn(null);
     try {
       await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: list.map((r) => ({
-        exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null, restSec: r.restSec, note: r.note?.trim() || null,
+        exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null, restSec: r.restSec, note: r.note?.trim() || null, detail: r.detail ?? null,
       })) } });
       flash(initial ? "Rutina actualizada." : "Rutina guardada. Ya la podés empezar.");
       onSaved();
@@ -126,14 +144,19 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       <label className="or-field">Nombre<input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Ej.: Día A · piernas" /></label>
       {rows.map((r, i) => (
         <fieldset key={r.key} className="or-ex">
-          <legend>{i + 1}. {r.name} <small>{r.group}</small></legend>
+          <legend>{labels[i] ? `${labels[i]} · ` : `${i + 1}. `}{r.name} <small>{r.group}</small></legend>
           <div className="or-ex-grid">
-            <label>Series<IntInput value={r.sets} min={1} max={10} onChange={(n) => n != null && set(i, { sets: n })} aria-label={`Series de ${r.name}`} /></label>
+            {/* D184: con un plan serie por serie (método, etapas), las series salen del plan: se editan en «Series y técnica». */}
+            <label>Series<IntInput value={mainSets(r.detail, r.sets)} min={1} max={10} disabled={!!r.detail?.setPlan && !isStraightPlan(r.detail)} onChange={(n) => n != null && set(i, r.detail?.setPlan ? resizeBlocks(asEx(r), n) : { sets: n })} aria-label={`Series de ${r.name}`} /></label>
             <label>{r.kind === "time" ? "Tiempo" : "Repes"}<input value={r.reps} maxLength={20} onChange={(e) => set(i, { reps: e.target.value })} placeholder={defaultReps(r.kind)} aria-label={`${r.kind === "time" ? "Tiempo" : "Repeticiones"} de ${r.name}`} /></label>
             {r.kind !== "time" && <label>Peso ({unit})<input inputMode="decimal" value={r.w} maxLength={7} aria-invalid={r.w.trim() !== "" && parseWeightIn(r.w, unit) == null || undefined}
               onChange={(e) => set(i, { w: cleanDecimalDraft(e.target.value) })} placeholder={r.kind === "bodyweight" ? "—" : "Opcional"} aria-label={`Peso de ${r.name} en ${unit}`} /></label>}
           </div>
           <input className="or-note" value={r.note ?? ""} maxLength={120} onChange={(e) => set(i, { note: e.target.value })} placeholder="Nota (opcional): agarre, pausa, máquina…" aria-label={`Nota de ${r.name}`} />
+          <div className="or-tech">
+            {r.detail && <small className="mb-muted">{detailSummary(asEx(r), labels[i])}</small>}
+            <button type="button" className="ghost sm" onClick={() => setTech(i)} aria-label={`Series y técnica de ${r.name}`}>{r.detail ? "Cambiar método" : "Método y series"}</button>
+          </div>
           <div className="or-ex-actions">
             <button type="button" className="linkbtn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Subir ${r.name}`}><Ic i={ArrowUp} size={16} /></button>
             <button type="button" className="linkbtn" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={`Bajar ${r.name}`}><Ic i={ArrowDown} size={16} /></button>
@@ -144,6 +167,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       {picking ? <Picker onPick={add} onCancel={rows.length ? () => setPicking(false) : undefined} taken={new Set(rows.map((r) => r.exerciseId))} pending={pending} onPending={setHasPending} />
         : rows.length < MAX_EX && <button type="button" className="ghost" onClick={() => setPicking(true)}><Ic i={Plus} size={16} /> Agregar ejercicio</button>}
       {initial && <button type="button" className="linkbtn or-del" disabled={busy} onClick={() => void remove()}>Borrar rutina</button>}
+      {tech != null && rows[tech] && <ExerciseDetailEditor member e={asEx(rows[tech])} onClose={() => setTech(null)} onSave={(p) => { saveTech(tech, p); setTech(null); }} />}
     </Sheet>
   );
 }

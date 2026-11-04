@@ -3,7 +3,7 @@
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
 import { SharedWishes, type SharedWishesView } from "@/components/coach/SharedWishes";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { TASK_CATEGORY, formatRest, groupLabels, isStraightPlan, mentionsHealth, parseRest, straightRow, type ProgramDoc } from "@repi/domain";
+import { TASK_CATEGORY, formatRest, groupLabels, isStraightPlan, mainSets, mentionsHealth, parseRest, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
@@ -229,7 +229,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
               onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}
             {!e.note && noteOpen !== `${day}:${i}` && <NoteButton name={e.name} onOpen={() => setNoteOpen(`${day}:${i}`)} />}</span>
           {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
-          <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan && !isStraightPlan(e.detail)} aria-label={`Series de ${e.name}`} min={1} max={20} value={e.sets} onChange={(n) => n != null && setEx(i, straightRow(e.detail, { sets: n }))} /></span>
+          <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan && !isStraightPlan(e.detail)} aria-label={`Series de ${e.name}`} min={1} max={20} value={!!e.detail?.setPlan && !isStraightPlan(e.detail) ? mainSets(e.detail, e.sets) : e.sets} onChange={(n) => n != null && setEx(i, straightRow(e.detail, { sets: n }))} /></span>
           <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, straightRow(e.detail, { reps: ev.target.value }))} /></span>
           <span className="c-rir"><small className="c-lbl">RIR</small><IntInput aria-label={`RIR de ${e.name}`} min={0} max={5} nullable value={e.rir} onChange={(n) => setEx(i, straightRow(e.detail, { rir: n }))} /></span>
           <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
@@ -242,7 +242,14 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       ))}
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca.</span>}
       {detailFor != null && cur.exercises[detailFor] && <ExerciseDetailEditor e={cur.exercises[detailFor]} onClose={() => setDetailFor(null)}
-        onSave={(p) => { setEx(detailFor, { detail: p.detail, sets: p.sets }); setDetailFor(null); }} />}
+        onSave={(p) => {
+          // D183: en un circuito con vueltas, todos sus ejercicios quedan con una serie por vuelta (quitar series se confirma).
+          const exs = cur.exercises.map((y, k) => (k === detailFor ? { ...y, detail: p.detail, sets: p.sets } : y));
+          const sync = syncCircuit(exs, detailFor);
+          const ok = !sync.removed.length || window.confirm(`El circuito tiene ${sync.rounds} vueltas: se quitan series de ${sync.removed.map((r) => `${r.exercise} (${r.blocks})`).join(", ")}. ¿Seguir?`);
+          setDoc((d) => ({ ...d, days: d.days.map((x, j) => (j === day ? { ...x, exercises: ok ? sync.exs : exs } : x)) }));
+          setDetailFor(null);
+        }} />}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <label className="search"><input value={libQ} onChange={(e) => setLibQ(e.target.value)} placeholder="Buscar en la biblioteca" aria-label="Buscar ejercicio" /></label>
         <div className="pills">{filtered.map((e) => <button key={e.id} type="button" className="pill" onClick={() => addEx(e)}>+ {e.name}{e.own ? " · propio" : ""}</button>)}</div>

@@ -1,0 +1,56 @@
+/* D184: editor de series y técnica (ExerciseDetailEditor) compartido por el coach, la sala y el alumno («Mis rutinas»,
+   rutinas importadas). Sólo tokens. Las reglas .dx-* salieron de coach.css; las bases del modal (botón, campo, pastilla)
+   se repiten acotadas a .dx-host porque la app del alumno no carga coach.css.
+   En el alumno el modal es oscuro: .dx-host redefine los tokens claros con los oscuros. Es el mismo mecanismo que usará el
+   tema global Light/Dark del bloque 03/06 (cambiar tokens, no colores en cada regla). */
+.dx { display: flex; flex-direction: column; gap: 14px; }
+.dx-sec { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--light-divider); }
+.dx-sec > b { font-size: 15px; }
+.dx-set { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--light-divider); border-radius: 12px; background: var(--light-surface); }
+.dx-set-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.dx-grid .field input { height: 38px; }
+.dx-note { grid-column: 1 / -1; }
+.dx-block { gap: 10px; }
+.dx-stage { margin-left: 14px; padding: 8px 0 0 12px; border-left: 2px solid var(--light-selection-border); display: flex; flex-direction: column; gap: 8px; }
+.dx-add-stage { align-self: flex-start; margin-left: 14px; }
+.dx-apply { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--light-selection-border); border-radius: 12px; background: var(--light-selection-bg); }
+.dx-apply-row { display: flex; flex-direction: column; gap: 6px; }
+.dx-lbl { font-size: 13px; font-weight: 600; color: var(--light-ink); }
+.dx-preview { display: flex; flex-direction: column; gap: 4px; }
+.dx-preview ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--light-ink); }
+.dx-review { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--semantic-chip-warn-bg); color: var(--semantic-chip-warn-ink); font-size: 14px; }
+
+/* Alumno: tokens oscuros y bases del modal. */
+.dx-host {
+  --light-surface: var(--dark-surface); --light-ink: var(--dark-ink); --light-ink-2: var(--dark-ink-2); --light-muted: var(--dark-muted);
+  --light-border-strong: var(--dark-border); --light-divider: var(--dark-border); --light-selection-bg: var(--dark-surface-2); --light-selection-border: var(--dark-accent);
+}
+.dx-host.modal-bg { position: fixed; inset: 0; z-index: 60; background: rgba(5, 7, 10, .7); display: flex; align-items: flex-end; justify-content: center;
+  padding: max(12px, var(--safe-top)) 0 0; }
+.dx-host .modal { color: var(--light-ink); font-family: var(--font-ui); width: 100%; max-width: 560px; max-height: 100%; overflow: auto; overscroll-behavior: contain; background: var(--light-surface);
+  border-radius: 20px 20px 0 0; border: 1px solid var(--dark-border); border-bottom: 0;
+  padding: 20px max(16px, env(safe-area-inset-right)) max(20px, calc(env(safe-area-inset-bottom) + 12px)) max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 14px; }
+.dx-host .modal > * { flex-shrink: 0; }
+.dx-host .modal h2 { font: 700 22px var(--font-display, var(--font-ui)); }
+.dx-host .mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.dx-host .x { width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--dark-surface-2); color: var(--light-ink); font-size: 18px; cursor: pointer; }
+.dx-host .mfoot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; position: sticky; bottom: calc(-1 * max(20px, calc(env(safe-area-inset-bottom) + 12px))); background: var(--light-surface); padding: 10px 0 4px; }
+.dx-host .btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--light-border-strong); background: var(--dark-surface-2); color: var(--light-ink); font: 600 14px var(--font-ui); cursor: pointer; white-space: nowrap; }
+.dx-host .btn.pri { border: 0; background: var(--dark-accent); color: var(--dark-on-accent); }
+.dx-host .btn.sm { min-height: 40px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
+.dx-host .btn:disabled, .dx-host .btn[aria-disabled="true"] { opacity: .45; }
+.dx-host .muted { font-size: 13px; color: var(--light-muted); }
+.dx-host .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.dx-host .pill { min-height: 40px; padding: 0 12px; border-radius: 20px; border: 1px solid var(--light-border-strong); background: var(--dark-surface-2); color: var(--light-ink-2); font: 600 13px var(--font-ui); cursor: pointer; }
+.dx-host .pill[aria-pressed="true"] { background: var(--dark-accent); border-color: var(--dark-accent); color: var(--dark-on-accent); }
+.dx-host .ibtn { width: 44px; height: 44px; border-radius: 10px; border: 0; background: var(--dark-surface-2); cursor: pointer; color: var(--light-ink-2); }
+.dx-host .ibtn:disabled { opacity: .4; cursor: default; }
+.dx-host .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--light-ink-2); }
+.dx-host .field input, .dx-host .field select { min-height: 44px; border-radius: 10px; border: 1px solid var(--light-border-strong); padding: 0 12px; font: 400 16px var(--font-ui); background: var(--dark-bg); color: var(--light-ink); }
+.dx-host .err-box { background: var(--semantic-chip-bad-bg); color: var(--semantic-chip-bad-ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.dx-host .dx-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.dx-host .dx-grid .field input { min-height: 44px; }
+.dx-host .crow { display: flex; gap: 8px; align-items: center; min-height: 44px; color: var(--light-ink); font: 500 14px var(--font-ui); }
+.dx-host .crow input { width: 22px; height: 22px; accent-color: var(--dark-accent); }
+.dx-host .linkbtn { min-height: 40px; }

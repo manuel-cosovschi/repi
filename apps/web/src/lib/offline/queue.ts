@@ -10,7 +10,9 @@ export type Item =
   | { seq?: number; key: string; kind: "set"; sid: string; peId: string; idx: number }
   | { seq?: number; key: string; kind: "action"; sid: string; action: "pause" | "resume" | "finish"; at: string }
   | { seq?: number; key: string; kind: "feedback"; sid: string }
-  | { seq?: number; key: string; kind: "exchange"; sid: string; peId: string }; // saltar/reemplazar (F-HX-21): se envía el estado vigente
+  | { seq?: number; key: string; kind: "exchange"; sid: string; peId: string } // saltar/reemplazar (F-HX-21): se envía el estado vigente
+  | { seq?: number; key: string; kind: "skip"; sid: string; peId: string; idx: number } // D184: etapa omitida o deshecha (estado vigente)
+  | { seq?: number; key: string; kind: "interval"; sid: string }; // D184: intervalo EMOM vigente
 export type SyncState = { kind: "idle" | "saving" | "saved" | "pending" | "offline" | "error" | "conflict"; pending: number; error?: string };
 
 const listeners = new Set<(s: SyncState) => void>();
@@ -27,7 +29,7 @@ export const pendingFor = async (sid?: string) => (await idbAll<Item>("queue")).
 
 /** Encola. Para series y feedback, una sola entrada por clave (se envía el valor vigente al sincronizar). */
 export async function enqueue(item: Item) {
-  if (item.kind === "set" || item.kind === "feedback" || item.kind === "start" || item.kind === "exchange") {
+  if (item.kind === "set" || item.kind === "feedback" || item.kind === "start" || item.kind === "exchange" || item.kind === "skip" || item.kind === "interval") {
     const existing = (await idbAll<Item>("queue")).find((i) => i.key === item.key);
     if (existing) { void flush(); return; }
   }
@@ -56,6 +58,20 @@ async function build(it: Item, s: LocalSession): Promise<Built> {
     const c = e.change ?? null;
     const body = { programExerciseId: e.id, change: c ? { kind: c.kind, reason: c.reason, exerciseId: c.substitute?.exerciseId ?? null } : null };
     return { url: `${base}/${s.id}/exercises`, body, sent: JSON.stringify(body.change) };
+  }
+  if (it.kind === "skip") {
+    const x = s.sets[setKey(it.peId, it.idx)];
+    if (!x) return null;
+    const skipped = !!x.skip && !x.done;
+    const at = x.skipAt ?? new Date().toISOString();
+    return { url: `${base}/${s.id}/skips`, body: { programExerciseId: it.peId, setIndex: it.idx, skipped, at }, sent: `${skipped}|${x.skipAt ?? ""}` };
+  }
+  if (it.kind === "interval") {
+    // Horas de este teléfono (inicio, cambio y envío): el servidor las traduce a la suya, aunque el pedido haya esperado.
+    const iv = s.iv ?? null;
+    const at = s.ivAt ?? new Date().toISOString();
+    const state = iv ? { peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status } : null;
+    return { url: `${base}/${s.id}/interval`, body: { state, at, sentAt: new Date().toISOString() }, sent: `${JSON.stringify(state)}|${s.ivAt ?? ""}` };
   }
   if (it.kind === "action") return { url: `${base}/${s.id}/action`, body: { action: it.action, at: it.at } };
   if (s.rpe == null) return null;
@@ -153,6 +169,30 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
     const c = s.exercises.find((y) => y.id === it.peId)?.change ?? null;
     const now = JSON.stringify(c ? { kind: c.kind, reason: c.reason, exerciseId: c.substitute?.exerciseId ?? null } : null);
     if (now === b.sent) await idbDel("queue", it.seq!);
+    return;
+  }
+  if (it.kind === "skip") {
+    // Si la persona volvió a cambiarla mientras viajaba, queda el ítem y se envía lo nuevo. Si no, lo que dice el servidor
+    // manda: otro dispositivo pudo deshacerla después, o la etapa ya tenía un resultado (el resultado gana).
+    const k = setKey(it.peId, it.idx);
+    const x = s.sets[k];
+    if (!x) { await idbDel("queue", it.seq!); return; }
+    if (`${!!x.skip && !x.done}|${x.skipAt ?? ""}` !== b.sent) return;
+    if (!x.done && (data.skipped as boolean) !== !!x.skip) { s.sets[k] = { ...x, skip: !!data.skipped, skipAt: (data.changedAt as string | null) ?? x.skipAt }; await putLocal(s); }
+    await idbDel("queue", it.seq!);
+    return;
+  }
+  if (it.kind === "interval") {
+    const iv = s.iv ?? null;
+    const now = `${JSON.stringify(iv ? { peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status } : null)}|${s.ivAt ?? ""}`;
+    if (now !== b.sent) return;
+    const skew = typeof data.serverNow === "string" ? Date.parse(data.serverNow) - Date.now() : s.skew ?? 0;
+    // No se aplicó (había un cambio más reciente de otro dispositivo, o el intervalo era viejo): queda el del servidor.
+    if (data.applied === false) {
+      const v = data.interval as { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null;
+      await putLocal({ ...s, skew, iv: v ? { peId: v.peId, block: v.block, start: Date.parse(v.startedAt) - skew, emomSec: v.emomSec, status: v.status } : null, ivAt: v ? new Date(Date.parse(v.at) - skew).toISOString() : s.ivAt });
+    } else await putLocal({ ...s, skew });
+    await idbDel("queue", it.seq!);
     return;
   }
   if (it.kind === "action") { await putLocal({ ...s, revision: (data.revision as number) ?? s.revision }); await idbDel("queue", it.seq!); return; }

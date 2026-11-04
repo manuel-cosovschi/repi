@@ -3,7 +3,7 @@
 // busca entrenando, su check-in y sus marcas previas. Sin la IA (o si tarda o falla) se arma con reglas: cuerpo completo,
 // un ejercicio por grupo, más o menos según los minutos disponibles. No recibe datos de salud, nombre ni email.
 import { and, eq, isNull, or } from "drizzle-orm";
-import { TRAINING_WISH_GOALS, checkLoad, hasWishes, localDate, type TrainingWishes } from "@repi/domain";
+import { TRAINING_WISH_GOALS, checkLoad, detectedLabel, hasWishes, localDate, methodDetail, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
@@ -14,7 +14,11 @@ import { lastSetByExercise, myActive, myTraining } from "./services";
 const { exercise, checkin } = schema;
 
 type Prev = { weightKg: number | null; reps: number | null } | null;
-export type RoutineEx = { id: string; exerciseId: string; name: string; group: string; sets: number; reps: string; weightKg: number | null; restSec: number; note: string; prev: Prev };
+// D184: `detail` (opcional) con un método de la lista corta de abajo, armado con el mismo `applyMethod` que el coach.
+export type RoutineEx = { id: string; exerciseId: string; name: string; group: string; sets: number; reps: string; weightKg: number | null; restSec: number; note: string; prev: Prev; detail?: ExerciseDetail | null; method?: string | null };
+// D184: métodos que REPI puede proponer en la rutina de hoy (sin carga: la elige la persona con su referencia, D182).
+const AI_METHODS = ["none", "drop_set", "rest_pause", "myo_reps", "amrap_last"] as const;
+type AiMethod = (typeof AI_METHODS)[number];
 export type SoloRoutine = { kind: "routine"; dayName: string; headline: string; summary: string; caution: string | null; exercises: RoutineEx[]; byRules: boolean };
 
 // Orden de cuerpo completo; los minutos disponibles definen cuántos grupos entran.
@@ -30,16 +34,28 @@ Reglas:
 - 2 a 4 series. Peso: con «ultimaMarca», igual o un poco menos; sin marca, weightKg null y una nota para empezar liviano.
 - Si el check-in muestra poca energía o mal sueño, menos series y cargas moderadas, y avisalo en «caution».
 - No des consejos médicos. headline: máximo 50 caracteres. summary: máximo 160. note: máximo 60.
-- Con «pedidoDeLaPersona», respetalo (p. ej. «sólo tren superior», «no hay barras», «tengo 20 minutos»).`;
+- Con «pedidoDeLaPersona», respetalo (p. ej. «sólo tren superior», «no hay barras», «tengo 20 minutos»).
+- method: casi siempre «none». Sólo si la persona lo pide o ya entrena seguido (tiene «ultimaMarca»), como mucho UN ejercicio de aislamiento o en máquina con «drop_set», «rest_pause», «myo_reps» o «amrap_last» (siempre en la última serie). Nunca en ejercicios con barra libre pesados (sentadilla, peso muerto, press con barra), nunca con poca energía o mal sueño en el check-in.`;
 const SCHEMA = {
   type: "object", additionalProperties: false, required: ["headline", "summary", "caution", "exercises"],
   properties: {
     headline: { type: "string" }, summary: { type: "string" }, caution: { type: ["string", "null"] },
-    exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["code", "sets", "reps", "weightKg", "note"],
-      properties: { code: { type: "string" }, sets: { type: "integer" }, reps: { type: "string" }, weightKg: { type: ["number", "null"] }, note: { type: "string" } } } },
+    exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["code", "sets", "reps", "weightKg", "note", "method"],
+      properties: { code: { type: "string" }, sets: { type: "integer" }, reps: { type: "string" }, weightKg: { type: ["number", "null"] }, note: { type: "string" }, method: { type: "string", enum: [...AI_METHODS] } } } },
   },
 };
-type Out = { headline: string; summary: string; caution: string | null; exercises: { code: string; sets: number; reps: string; weightKg: number | null; note: string }[] };
+type Out = { headline: string; summary: string; caution: string | null; exercises: { code: string; sets: number; reps: string; weightKg: number | null; note: string; method?: AiMethod }[] };
+const HEAVY = /sentadilla|peso muerto|press (de )?banca|press militar|hip thrust con barra|con barra/i;
+
+/**
+ * D184: el método que propone REPI pasa por las mismas reglas que cualquier otro: sólo de la lista, como mucho uno por
+ * rutina, nunca en un básico pesado ni con el check-in bajo. El plan sale de `methodDetail` (applyMethod), en la última serie.
+ */
+export function aiMethodDetail(m: AiMethod | undefined, e: { name: string; kind: string }, base: { sets: number; reps: string; weightKg: number | null }, tired: boolean): { detail: ExerciseDetail; label: string } | null {
+  if (!m || m === "none" || !AI_METHODS.includes(m) || tired || e.kind === "time" || HEAVY.test(e.name)) return null;
+  const det = { technique: m, confident: true, matched: m, selection: "last" as const, stages: null, emomSec: null, durationSec: null };
+  return { detail: methodDetail(det, base).detail, label: detectedLabel(det) };
+}
 
 /** Rutina de hoy sin programa asignado. `message`: lo que la persona pide al rearmar («sólo tren superior»). */
 export async function soloRoutine(userId: string, now = new Date(), message?: string): Promise<SoloRoutine> {
@@ -95,13 +111,17 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
     try {
       const r = await aiJson<Out>({ name: "rutina_sin_programa", system: SYSTEM, parts: [{ type: "text", text: JSON.stringify(ctx) }], schema: SCHEMA, fast: true, maxTokens: 900, timeoutMs: 15_000 });
       const seen = new Set<string>();
+      let methods = 0;
       const exs = r.exercises.flatMap((x) => {
         const e = code.get(x.code);
         if (!e || seen.has(e.id)) return [];
         seen.add(e.id);
         // D182: la carga de la IA pasa por el validador común; acá la regla es «igual o un poco menos» que la última marca.
         const wk = checkLoad({ proposedKg: x.weightKg, source: "ai", referenceKg: prev.get(e.id)?.weightKg ?? null, blockIncrease: true }).weightKg;
-        return [mk(e, Math.min(Math.max(x.sets, 1), 5), (x.reps || repsFor(w?.goal)).slice(0, 20), wk, (x.note ?? "").slice(0, 120))];
+        const ex = mk(e, Math.min(Math.max(x.sets, 1), 5), (x.reps || repsFor(w?.goal)).slice(0, 20), wk, (x.note ?? "").slice(0, 120));
+        const md = methods < 1 ? aiMethodDetail(x.method, e, { sets: ex.sets, reps: ex.reps, weightKg: null }, tired) : null;
+        if (md) { methods++; ex.detail = md.detail; ex.sets = md.detail.setPlan!.length; ex.method = md.label; }
+        return [ex];
       }).slice(0, 8);
       out = exs.length >= 2
         ? { kind: "routine", byRules: false, dayName: "Rutina de hoy", headline: r.headline.slice(0, 80), summary: r.summary.slice(0, 400), caution: r.caution?.slice(0, 200) ?? null, exercises: exs }

@@ -5,7 +5,7 @@
 // (en «por mi cuenta», a pedido), siempre dentro del programa asignado. D138: la persona puede responderle (ocupado, no hay,
 // me molesta o un mensaje) y la IA rearma con alternativas compatibles; al empezar, los cambios quedan aplicados en la sesión.
 import { useEffect, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, type ExerciseChangeReason, type SoloPlan, type SoloVariant } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, mainSets, type ExerciseChangeReason, type ExerciseDetail, type SoloPlan, type SoloVariant } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 
@@ -16,7 +16,7 @@ export type Advice = { dayId: string; dayName: string; headline: string; summary
 type Turn = { role: "user" | "assistant"; text: string };
 /** D153: rutina de hoy sin programa asignado (ejercicios de la biblioteca). */
 export type Routine = { kind: "routine"; dayName: string; headline: string; summary: string; caution: string | null; byRules: boolean;
-  exercises: { id: string; exerciseId: string; name: string; group: string; sets: number; reps: string; weightKg: number | null; restSec: number; note: string; prev: Prev }[] };
+  exercises: { id: string; exerciseId: string; name: string; group: string; sets: number; reps: string; weightKg: number | null; restSec: number; note: string; prev: Prev; detail?: ExerciseDetail | null; method?: string | null }[] };
 // Problemas que la persona marca con un toque; el resto lo cuenta en el mensaje.
 const ISSUES: [ExerciseChangeReason, string][] = [["busy", "Ocupada"], ["no_equipment", "No hay"], ["discomfort", "Me molesta"]];
 
@@ -161,7 +161,8 @@ function RoutineCard({ onStart }: { onStart: (r: Routine) => void }) {
         <ul>{r.exercises.map((e) => (
           <li key={e.id}>
             <span>{e.name} <small className="ai-swap">{e.group}</small></span>
-            <span>{`${e.sets}×${e.reps}${e.weightKg != null ? ` · ${e.weightKg.toLocaleString("es-AR")} kg` : ""}`}</span>
+            <span>{`${mainSets(e.detail, e.sets)}×${e.reps}${e.weightKg != null ? ` · ${e.weightKg.toLocaleString("es-AR")} kg` : ""}`}</span>
+            {e.method && <small className="ai-swap">{e.method}</small>}
             {e.note && <small>{e.note}</small>}
           </li>
         ))}</ul>

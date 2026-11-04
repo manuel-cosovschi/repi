@@ -1,6 +1,123 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D186; D182 integrado), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D186), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+
+## Publicación de los bloques 01/06 y 02/06 — 04/11/2026
+
+- **Publicado y verificado en https://repiclub.com:**
+  - **PR #5** (hotfix D185–D186), merge `3567dea`, en producción a las 01:31 UTC.
+  - **PR #3** (bloque 01/06, D182) reconciliado con `main`, merge `8ba8d4d`, en producción a las 01:46 UTC (`/api/version` = `8ba8d4d93544`).
+  - CI verde en ambos.
+  - Smoke productivo con la demo guiada (datos ficticios, Chromium emulando Pixel 7): entrenar, editar el peso sin ceros, completar serie (guardada una vez en el servidor), saltar descanso, pausar, reanudar, recargar, finalizar y crear «Mi rutina» con un ejercicio nuevo en un solo «Guardar». Sin 5xx ni errores en Vercel. **No probado en teléfonos físicos.**
+- **PR #4 (bloque 02/06): NO publicado.** Ya está reconciliado con `main` (base `main`, CI verde en `0ae0cc9`), con el mismo código que antes y todas las líneas de D185/D186 presentes. Lo bloquean las migraciones:
+  - El código del #4 escribe `set_log.spec_id`…, `set_skip` y `workout_session.interval_state`. Sin 0040/0041 en Supabase, registrar series daría error.
+  - **Bloqueo:** Supabase está en plan Free, sin respaldos automáticos, y la URL de la base (`~/.repi-secrets/supabase.env`) está sólo en el equipo del titular. La regla del encargo exige un respaldo recuperable confirmado antes de tocar el esquema.
+- **Para terminar (en este orden):**
+  1. El titular corre, en su equipo, desde `apps/web`: `pnpm ops:backup --source=hosted --storage` (sólo lee; D91). Opcional, el ensayo: `ops:restore` en `repi_restore_check`.
+  2. Aplicar `apps/web/scripts/operations/hosted-0040-0041.sql`: una transacción con las sentencias exactas de los archivos, el registro en `drizzle.__drizzle_migrations` (hash sha256 y `when` del journal) y RLS en `set_skip`. Ensayado en una base local con el esquema de `main`: el migrador del #4 queda al día, y repetirlo falla sin cambios. Alternativa equivalente: `DATABASE_URL=<sesión> npx tsx scripts/migrate.ts` desde la rama del #4.
+  3. Validar con la línea base del 04/11 01:51 UTC (agregados, sin datos personales): 591 series, 4906 reps, tonelaje 223070,50, huella de (id, peso, reps, revisión) `363d7c58672837877eaa3d5321229a2a`, 60 sesiones.
+  4. Integrar el #4, esperar `/api/version`, smoke con la demo (sin ocultar la píldora: en producción hoy «Otro perfil» tapa «Saltar descanso», sólo en la demo; lo corrige el #4) y revisar Vercel.
+  - El código actual (`main`) funciona igual con el esquema nuevo: drizzle nombra las columnas y las nuevas son nulas. Por eso se migra primero.
+  - **Reversión:** Vercel → promover `dpl_…` de `8ba8d4d` (o el anterior). No se revierte el esquema (`ROLLBACK_PLAN.md`); `scripts/rollback/0041_*.down.sql` sólo si también se abandona el código.
+- **Relleno 0040:** no se ejecuta; la lectura compatible funciona sin él.
+- **Control presencial:** Smart Center Gym tiene `gym_access_policy.enabled = false` desde el 02/11 22:25 UTC (configuración real, leída en Supabase). No se tocó.
+- **IA:** `OPENAI_API_KEY` y `OPENAI_MODEL` cargadas en Vercel (producción); no se leyeron sus valores.
+- **Javier (Smart):** su entrenamiento vacío seguía abierto a las 01:29 UTC. Con el hotfix publicado ve el aviso y «Cortar este entrenamiento»; si no, el cierre automático lo descarta. Sus datos no se tocaron.
+
+
+## Arreglo urgente D186 también en esta rama — 03/11/2026
+
+- El arreglo de «Mi rutina» (PR #5; detalle en su bitácora) está incorporado acá con cherry-pick, sobre el editor con métodos: búsqueda por palabras, parecidos, grupo sugerido y «Guardar» que crea el ejercicio a medio cargar.
+- **Pruebas en esta rama:** dominio 241 ✓, web 310 ✓ y E2E 51 ✓ (1 omitida). Incluye `own-routine-create.spec.ts`.
+
+## Arreglo urgente D185 también en esta rama — 03/11/2026
+
+- El arreglo del día sin ejercicios (PR #5 sobre `main`; detalle en su bitácora) está incorporado acá con cherry-pick. También el del descanso que volvía: si la respuesta de la sincronización llegaba justo después de «Saltar descanso», la copia anterior lo volvía a poner (lo encontró `connected-stages` en escritorio).
+- **Pruebas en esta rama:** web 310 ✓ en 53 archivos; E2E 49 ✓ y 1 omitida.
+  - `connected-stages` pasó 8 de 8 repeticiones.
+  - Al repetir la importación se agota el límite de 12 por hora (se guarda en la base). Para repetirla en local, vaciá `app_rate_limit` en `repi_dev`.
+
+## Cierre del bloque 02/06 · Métodos en todos los orígenes y ejecución entre dispositivos (D184) — 03/11/2026
+
+- **Pedido:** «Cierre definitivo del bloque 02/06» sobre el PR #4. Misma rama `feat/repi-connected-training-methods`; sigue encadenado sobre el PR #3. **Sin desplegar ni integrar; sin tocar producción.** Referencia: `docs/METODOS_Y_ETAPAS.md` (secciones Orígenes, Ejecución, API, 0041 y relleno de 0040).
+- **Corregido:**
+  1. Rutinas propias, importadas, de REPI y duplicadas con los mismos métodos: mismo `ExerciseDetail`, validador y editor del coach (`ExerciseDetailEditor member`). La importación detecta métodos y combinados, aplica lo claro y pregunta lo ambiguo. Se agregó «Duplicar» en «Mis rutinas».
+  2. Etapas omitidas en el servidor (`set_skip`): cola offline, gana el cambio más reciente, un resultado siempre gana, «Volver a pendiente» y corrección con el entrenamiento terminado.
+  3. EMOM persistido (`workout_session.interval_state`): hora del servidor, diferencia de reloj por dispositivo, la pausa lo interrumpe y lo vencido no se calcula.
+  4. La pastilla de la demo tiene su carril (`--demo-lane`) y no tapa «Saltar descanso». La prueba de superposición encontró otro defecto real: el anillo del descanso se quedaba con el toque de «Pausar descanso» (`pointer-events: none`).
+  5. Script de relleno de 0040, por lotes, idempotente, validado y reversible. No hace falta antes de producción.
+  6. El 503 de las E2E: Entrenar pedía por adelantado la sugerencia de la IA aunque el servidor no la tuviera configurada. Ahora `myTraining.ai` dice si está y el teléfono no la pide. Un error real del proveedor con clave sigue fallando las pruebas. No hizo falta un proveedor simulado.
+- **Defectos del bloque 02 encontrados y corregidos:**
+  - `detail-schema.ts` (zod de las rutas) descartaba identidad, bloque, etapa, EMOM y AMRAP por tiempo, y cortaba en 20 filas. Las pruebas de servicios no lo veían.
+  - Un drop «al fallo» se completaba con 0 repeticiones. Ahora completar con 0 se bloquea.
+  - Esc en el editor de técnica, abierto sobre una hoja, cerraba también la hoja.
+- **Migración:** `0041_set_skip_interval.sql`: tabla nueva y una columna nula. Reversión en `apps/web/scripts/rollback/0041_set_skip_interval.down.sql`. Aplicada sólo en `repi_test` y `repi_dev` locales; **no en producción**. El relleno de 0040 se probó sólo en `repi_test`.
+- **Archivos:**
+  - Dominio:
+    - Nuevos: `execution.ts` (`decideSkip`, `intervalView`, `acceptInterval`, `toServerMs`) y `method-detect.ts` (`detectMethod`, `detectGroupLabel`, `methodDetail`).
+    - `metrics.ts` (`stagesSkipped`) y `routine-import.ts` (columnas Técnica y Grupo).
+  - Servidor:
+    - `services.ts`: `setStageSkip`, `setSessionInterval`, `getSession` con `skips`, `interval` y `serverNow`, `startSoloRoutine` con `detail`, y la pausa, la versión nueva y el cierre automático también actualizan el intervalo.
+    - `own-routines.ts`, `solo-routine.ts` (`aiMethodDetail`) y `detail-schema.ts`.
+    - Rutas `sessions/[id]/skips`, `sessions/[id]/interval` y `routines/[id]/duplicate`.
+  - App:
+    - `OwnRoutines.tsx`, `RoutineImport.tsx`, `Workout.tsx`, `Solo.tsx`, `MemberApp.tsx` y `Sheet.tsx`.
+    - `lib/offline/{store,queue}.ts` (ítems `skip` e `interval`).
+    - `ui/Modal.tsx` (`className`).
+    - `styles/method-editor.css` (nuevo: `.dx-*` sale de `coach.css`; `.dx-host` cambia tokens) y `globals.css`/`member.css` (carril de la demo y anillo).
+  - Script: `scripts/operations/backfill-set-log-stage.ts`.
+- **Pruebas** (locales; Chromium emulando teléfonos, **no dispositivos físicos**):
+  - Dominio: 238 ✓; typecheck limpio (se corrigió el error que venía de antes en `prescription.test.ts`).
+  - App: 308 ✓ en 52 archivos. Nueva `methods-everywhere.test.ts` con los puntos 1–9 y 11–12 del pedido, más permisos y la regresión de la API.
+  - Guardas 11 ✓, typecheck ✓ y build ✓.
+  - E2E: 49 ✓ y 1 omitida (sólo móvil), 0 ✗. Nuevas `mobile-layout.spec.ts` (superposiciones de 320 a 430 px, rutina propia con drop set, importación con método claro y ambiguo) y `emom-sync.spec.ts`. `connected-stages.spec.ts` ahora prueba otro dispositivo y «Saltar descanso».
+- **Límites que quedan:**
+  - Otro dispositivo ve omisiones e intervalo al abrir o recargar la sesión (no hay tiempo real).
+  - El coach todavía no ve las etapas omitidas en el detalle de la sesión: ve los resultados.
+  - La importación por foto o PDF depende de la IA (sin clave, sólo planilla y texto con columnas).
+  - Sin prueba en iPhone ni Android reales.
+  - El editor del coach en el alumno es una adaptación con tokens: el rediseño es del bloque 05/06.
+- **Para 03/06 (Light/Dark):** `method-editor.css` muestra el mecanismo, que es redefinir tokens en un contenedor (`.dx-host`). Componentes nuevos para adaptar: `.dx-host`, `.ri-method`, `.or-tech`, `.wo-stage` (omitida y EMOM) y `.setrow.skipped`.
+- **Próxima acción:** revisar el PR #3 y después el #4. El titular decide si se corre el relleno de 0040 en producción (no hace falta) y cuándo aplicar 0040 y 0041 al desplegar.
+
+## Bloque 02/06 · Series principales con etapas conectadas (D183) — 03/11/2026
+
+- **Pedido:** master prompt 02/06 (métodos avanzados, etapas conectadas, métricas). Rama `feat/repi-connected-training-methods` desde `fix/repi-p0-training-safety` `225ec0c` (PR #3); PR encadenado en borrador con base en esa rama. **Sin desplegar ni integrar.** Referencia técnica: `docs/METODOS_Y_ETAPAS.md`.
+- **Decisión vigente del producto:** el control de ingreso presencial queda en pausa. No se tocó su código ni su configuración; con el control apagado (por gimnasio o con `NEXT_PUBLIC_REPI_FEATURES=-gym_access`) el entrenamiento no pide QR ni pase (pruebas en `connected-methods.test.ts`). Smart sigue con el control encendido en producción: apagarlo en REPI Admin o con el interruptor general (requiere redeploy) es una acción pendiente del titular.
+- **Código:**
+  - Dominio:
+    - `stages.ts` (nuevo): `normalizePlan`, `planBlocks`, `rowRef`, `applyMethod`, `comboStep`, `circuitIssues`, `resizeBlocks` y `syncCircuit`.
+    - `metrics.ts` (nuevo).
+    - `prescription.ts`: tipos v2, `validateDetail`, `setTarget` con etapa, y `presetPlan` y `comboNext` delegando en el modelo nuevo.
+    - `training.ts`: volumen sin aproximación ni rondas, `setControl` con AMRAP por tiempo y validación de circuitos.
+  - Servidor:
+    - `training/services.ts`: `logSet` guarda la etapa; `timedPeIds` clasifica cada fila; el resumen y el historial usan `metrics`; la comparación de versiones se normaliza.
+    - `community/levels.ts` y `club.ts`.
+    - `sandbox/services.ts`: la demo trae drops en la última serie de un ejercicio por día.
+  - App:
+    - `coach/ExerciseDetailEditor.tsx`, con su lógica reescrita sobre los componentes actuales.
+    - `coach/ProgramBuilder.tsx` y `gym/Members.tsx` (sincronización de circuitos).
+    - `member/Workout.tsx`, `SetControl.tsx` (AMRAP por tiempo) y `types.ts`.
+    - `lib/offline/store.ts` (`skip`, `iv`, `keepLocalOnly`).
+    - Estilos sólo con tokens.
+- **Migración:** `0040_set_log_stage.sql`: 4 columnas nulas en `set_log`, sin relleno. Aplicada sólo en `repi_test` y `repi_dev` locales; **no en producción**. El relleno histórico es opcional y no se ejecutó.
+- **Pruebas:**
+  - Dominio: 224 ✓ (antes 191; nuevas `stages.test.ts` y `metrics.test.ts`).
+  - App: 290 ✓ (antes 278; nueva `connected-methods.test.ts` con los escenarios A–F, persistencia y permisos, más casos offline en `prefill.test.ts`).
+  - Guardas 11 ✓, typecheck ✓ y build ✓.
+  - E2E local (Chromium, build de producción, demo):
+    - Nuevos `connected-stages.spec.ts` (drop set con una etapa sin conexión, cortar la serie y recargar sin duplicar) y `coach-methods.spec.ts` (aplicar a la última serie con vista previa, deshacer, arrastrar sin cerrar, confirmar al descartar): ✓ en móvil y escritorio.
+    - Suite completa: 40 ✓ y 2 ✗. Las dos fallas son «cada pestaña abre sin errores», por el 503 de `/api/me/solo/ai` sin `OPENAI_API_KEY` (ambiental, igual que en 01/06).
+  - No probado en dispositivos reales.
+- **Hallazgo menor (no resuelto):** en la demo, a 412 px de ancho, la pastilla «Otro perfil» tapa «Saltar descanso». Sólo pasa en la demo.
+- **Límites conocidos:**
+  - Una etapa omitida es local: otro dispositivo la ve pendiente.
+  - El intervalo EMOM empieza con «Empezar el intervalo» y no sobrevive a otro dispositivo.
+  - Las rutinas importadas y las propias no tienen métodos (texto libre como «12-10-9»).
+  - La recomendación por etapa es del bloque 04/06.
+  - El rediseño visual de la sesión es del bloque 05/06.
+  - La adaptación a temas es del bloque 03/06 (componentes nuevos: `.dx-apply`, `.dx-preview`, `.dx-review`, `.dx-stage`, `.setblock`, `.setrow.stage`, `.wo-stage` y el AMRAP por tiempo de `SetControl`).
+- **Próxima acción:** revisar los PR #3 y este en orden (#3 primero). Después, bloque 03/06 (temas).
 
 ## Arreglo urgente · Ejercicio nuevo en «Mi rutina» en un solo paso (D186) — 03/11/2026
 

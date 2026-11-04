@@ -5,17 +5,18 @@
 // Uso (desde apps/web):
 //   npx tsx scripts/operations/backup.ts --source=local            # repi_dev de .env.local
 //   npx tsx scripts/operations/backup.ts --source=hosted [--storage] # Supabase (~/.repi-secrets/supabase.env, sesión 5432)
+//   … --out=/Volumes/<SSD>/REPI/Backups                               # destino alternativo (debe existir; fuera del repo)
 // Salida: ~/.repi-secrets/backups/<fecha>/ (0700) con manifest.json, db/*.copy y storage/ si se pidió.
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { Transform } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import postgres from "postgres";
-import { localTarget, safeStorageKey, type BackupManifest } from "./guards";
+import { backupRoot, localTarget, safeStorageKey, type BackupManifest } from "./guards";
 
 const ident = (s: string) => `"${s.replace(/"/g, '""')}"`;
 const arg = (name: string) => process.argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`))?.split("=")[1] ?? (process.argv.includes(`--${name}`) ? "true" : undefined);
@@ -43,10 +44,13 @@ async function main() {
   if (withStorage && source !== "hosted") throw new Error("--storage sólo aplica al entorno hospedado.");
   const url = source === "hosted" ? await hostedUrl() : await localUrl();
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const root = join(homedir(), ".repi-secrets", "backups");
+  // D187: `--out=<carpeta existente>` (p. ej. /Volumes/SSD/REPI/Backups) cambia sólo dónde se escribe.
+  const out = arg("out");
+  const root = backupRoot(out === "true" ? "" : out, homedir(), fileURLToPath(new URL("../../../../", import.meta.url)), existsSync);
   const dir = join(root, `${stamp}-${source}`);
   await mkdir(join(dir, "db"), { recursive: true, mode: 0o700 });
-  await chmod(root, 0o700);
+  // En un disco externo (exFAT, por ejemplo) los permisos pueden no aplicarse: se avisa y el respaldo sigue.
+  try { await chmod(root, 0o700); } catch (e) { if (!out) throw e; console.warn("Aviso: el disco de destino no guarda permisos de carpeta (0700)."); }
 
   const sql = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
   const dbHash = createHash("sha256"), dbBytes = { bytes: 0 };
@@ -65,7 +69,10 @@ async function main() {
         const file = `db/${t.schema}.${t.name}.copy`;
         const h = createHash("sha256"), c = { bytes: 0 };
         const out = await tx.unsafe(`copy ${ident(t.schema)}.${ident(t.name)} (${columns.map(ident).join(", ")}) to stdout`).readable();
-        await pipeline(out, digest(h, c), digest(dbHash, dbBytes), createWriteStream(join(dir, file), { mode: 0o600 }));
+        // D187: el COPY se lee entero sin pausar el stream. Con contrapresión, postgres.js a veces no recibe el fin del COPY
+        // y la consulta siguiente queda esperando para siempre (se colgaba con tablas de unos cientos de KB).
+        const data = await new Promise<Buffer>((ok, ko) => { const parts: Buffer[] = []; out.on("data", (b: Buffer) => parts.push(b)); out.on("end", () => ok(Buffer.concat(parts))); out.on("error", ko); });
+        await pipeline(Readable.from([data]), digest(h, c), digest(dbHash, dbBytes), createWriteStream(join(dir, file), { mode: 0o600 }));
         tables.push({ schema: t.schema, name: t.name, rows: n, columns, file, sha256: h.digest("hex") });
         console.log(`${t.schema}.${t.name}: ${n}`);
       }

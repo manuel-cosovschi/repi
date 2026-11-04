@@ -231,14 +231,6 @@ textarea.note { border: 1px solid var(--light-border-strong); border-radius: 10p
 .ag p { margin: 0; font-size: 14px; line-height: 1.5; }
 
 /* D134: editor de series y técnica. */
-.dx { display: flex; flex-direction: column; gap: 14px; }
-.dx-sec { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--light-divider); }
-.dx-sec > b { font-size: 15px; }
-.dx-set { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--light-divider); border-radius: 12px; background: var(--light-surface); }
-.dx-set-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.dx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
-.dx-grid .field input { height: 38px; }
-.dx-note { grid-column: 1 / -1; }
 /* D134: fila del constructor con rótulos visibles en el celular (antes eran números sin nombre). */
 .exrow .c-lbl { display: none; font-size: 11px; font-weight: 600; color: var(--light-muted); }
 .ex-sum { flex: 1 1 100%; font-size: 12px; color: var(--light-muted); padding-left: 26px; }

@@ -2,11 +2,12 @@
 import { z } from "zod";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";
 import { startSoloRoutine } from "@/server/training/services";
+import { DetailZ } from "@/server/training/detail-schema";
 
 const B = z.object({
   id: z.string().max(64),
   dayName: z.string().max(60),
-  exercises: z.array(z.object({ exerciseId: z.string().max(64), sets: z.number().int(), reps: z.string().max(20), restSec: z.number().int().nullable().optional(), weightKg: z.number().nullable().optional(), note: z.string().max(200).nullable().optional() })).max(12),
+  exercises: z.array(z.object({ exerciseId: z.string().max(64), sets: z.number().int(), reps: z.string().max(20), restSec: z.number().int().nullable().optional(), weightKg: z.number().nullable().optional(), note: z.string().max(200).nullable().optional(), detail: DetailZ })).max(12),
 });
 
 export const POST = handle(async (req) => {

@@ -63,6 +63,11 @@ body:has(.sheet-bg, .modal-bg, .tu, .bi) .dt-pill { display: none; }
   .dt-card { left: 16px; right: 16px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); }
   .dt-pill { bottom: calc(92px + env(safe-area-inset-bottom)); }
 }
+/* D184: la píldora de la demo tapaba «Saltar descanso» y los botones de abajo del entrenamiento. No se esconde ninguna acción:
+   la píldora tiene su propio carril (--demo-lane) y las barras fijas de abajo lo reservan. En el entrenamiento (sin barra de
+   pestañas) va pegada al borde; la barra de acciones del entrenamiento y el final de cada pantalla dejan ese espacio libre. */
+body:has(.dt-pill) { --demo-lane: 56px; }
+body:has(.wo) .dt-pill { bottom: calc(6px + env(safe-area-inset-bottom)); }
 /* QA 29/10 (UX-7): un botón ocupado no acepta otro toque (doble envío) mientras espera la respuesta. */
 button[aria-busy="true"] { pointer-events: none; cursor: progress; }
 /* QA 29/10 (A11Y-2): en pantallas táctiles los campos llevan 16 px; con menos, iOS hace zoom al enfocarlos y la página

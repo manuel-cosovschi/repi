@@ -398,7 +398,8 @@ describe("prescripción avanzada (D134)", () => {
     const id = randomUUID();
     await tr.startSession(a.userId, { id, dayId: t.program.days[0].id });
     const s = await tr.getSession(a.userId, id);
-    expect(s.exercises[0].detail?.setPlan?.[0]).toMatchObject({ kind: "top", reps: "3-5", rpe: 8 });
+    // D183: la técnica no reescribe las repeticiones del profe; cada fila llega con su identidad, bloque y etapa.
+    expect(s.exercises[0].detail?.setPlan?.[0]).toMatchObject({ kind: "top", reps: "8", block: 0, stage: 0, id: expect.any(String) });
     expect(s.exercises[1].detail).toMatchObject({ group: "A" });
     // Plan inválido: rechazado con el motivo.
     const bad: ProgramDoc = DOC();

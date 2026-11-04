@@ -12,7 +12,7 @@ import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./t
 import { NewExercise } from "./NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
 import { NoteButton, NoteField } from "./ExerciseNote";
-import { groupLabels, isStraightPlan, straightRow } from "@repi/domain";
+import { circuitIssues, groupLabels, isStraightPlan, mainSets, resizeBlocks, straightRow, syncCircuit } from "@repi/domain";
 import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 import { ProgramAssistant } from "./ProgramAssistant";
@@ -100,6 +100,21 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const edit = (fn: (d: EditableDoc) => EditableDoc) => { dirty.current = true; setDoc((d) => (d ? fn(d) : d)); };
   const setDayDoc = (fn: (x: EditableDoc["days"][number]) => EditableDoc["days"][number]) => edit((d) => ({ ...d, days: d.days.map((x, i) => (i === day ? fn(x) : x)) }));
   const cur = doc?.days[day] ?? doc?.days[0];
+  /**
+   * D183: guardar «Series y técnica». Si el ejercicio es parte de un circuito con vueltas, todos los del circuito quedan con
+   * una serie por vuelta (las vueltas gobiernan la ejecución); quitar series se confirma antes.
+   */
+  const saveDetail = (i: number, p: { detail: EditableDoc["days"][number]["exercises"][number]["detail"]; sets: number }) => {
+    if (!cur) return;
+    const exs = cur.exercises.map((y, k) => (k === i ? { ...y, detail: p.detail, sets: p.sets } : y));
+    const sync = syncCircuit(exs, i);
+    if (sync.removed.length && !window.confirm(`El circuito tiene ${sync.rounds} vueltas: se quitan series de ${sync.removed.map((r) => `${r.exercise} (${r.blocks})`).join(", ")}. ¿Seguir?`)) {
+      setDayDoc((x) => ({ ...x, exercises: exs })); flash("Guardado sin igualar las vueltas: revisá el circuito."); return;
+    }
+    setDayDoc((x) => ({ ...x, exercises: sync.exs }));
+    if (sync.rounds != null && sync.exs.some((y, k) => y.sets !== exs[k].sets)) flash(`Los ejercicios del circuito quedaron con ${sync.rounds} ${sync.rounds === 1 ? "serie" : "series"}, una por vuelta.`);
+  };
+  const issues = cur ? circuitIssues(cur.exercises) : [];
   const libq = libQ.trim().toLowerCase();
   const addLib = (l: { id: string; name: string; kind: string }) => {
     if (!cur) return;
@@ -189,6 +204,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                 <ExRow n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsFor === `${i}:${e.exerciseId}`}
                   onSubs={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
+                  onDetail={(p) => saveDetail(i, p)}
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
                 <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />
@@ -196,6 +212,15 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
               </div>
             )); })()}
             {!cur.exercises.length && <div className="empty" role="note">Este día no tiene ejercicios: hasta que los agregues desde la biblioteca, no aparece para empezar (D185).</div>}
+            {issues.length > 0 && (
+              <div className="err-box" role="alert">
+                Circuito {issues[0].group}: {issues[0].rounds} vueltas, pero {issues.map((x) => `${x.exercise} tiene ${x.blocks} ${x.blocks === 1 ? "serie" : "series"}`).join(" y ")}. Las vueltas tienen que coincidir para guardar.
+                <button type="button" className="btn sm" style={{ marginLeft: 8 }} onClick={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y) => {
+                  const bad = issues.find((k) => k.exercise === y.name && y.detail?.group === k.group);
+                  return bad ? { ...y, ...resizeBlocks(y, bad.rounds) } : y;
+                }) }))}>Igualar a {issues[0].rounds} vueltas</button>
+              </div>
+            )}
             <label className="field">Indicación para el cliente<textarea className="note" rows={2} value={doc.note} maxLength={1000} onChange={(e) => edit((d) => ({ ...d, note: e.target.value }))} /></label>
           </section>
         ) : (
@@ -229,9 +254,10 @@ function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); }
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
 
-function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove }: {
+function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove }: {
   n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;
   onChange: (p: Partial<EditableDoc["days"][number]["exercises"][number]>) => void; onMove: (d: 1 | -1) => void; onRemove: () => void;
+  onDetail: (p: { detail: EditableDoc["days"][number]["exercises"][number]["detail"]; sets: number }) => void;
 }) {
   const [rest, setRest] = useState(formatRest(e.restSec));
   const [reps, setReps] = useState(e.reps);
@@ -248,7 +274,7 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
         {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}
         {!noteOpen && !e.note && <NoteButton name={e.name} onOpen={() => setNoteOpen(true)} />}</span>
       {sum && <span className="ex-sum">{sum}</span>}
-      <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && row({ sets: n })} /></span>
+      <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={custom ? mainSets(e.detail, e.sets) : e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && row({ sets: n })} /></span>
       <span className="c-r"><small className="c-lbl">Reps</small><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
         onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) row({ reps: ev.target.value }); }} /></span>
       <span className="c-rir"><small className="c-lbl">RIR</small><IntInput min={0} max={5} nullable value={e.rir} aria-label={`RIR de ${e.name}`} placeholder="—" onChange={(n) => row({ rir: n })} /></span>
@@ -260,7 +286,7 @@ function ExRow({ n, e, group, subs, subsOpen, onSubs, onChange, onMove, onRemove
         <button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={onRemove}>×</button>
       </span>
       {(noteOpen || !!e.note) && <NoteField name={e.name} value={e.note ?? ""} who="tu cliente" onChange={(v) => onChange({ note: v })} onEmpty={() => setNoteOpen(false)} />}
-      {detail && <ExerciseDetailEditor e={e} onClose={() => setDetail(false)} onSave={(p) => { onChange({ detail: p.detail, sets: p.sets }); setDetail(false); }} />}
+      {detail && <ExerciseDetailEditor e={e} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
     </div>
   );
 }

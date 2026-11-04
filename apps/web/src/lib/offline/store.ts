@@ -5,7 +5,9 @@ import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, startWeight, t
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
-export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null; pend?: boolean;
+// `skip` (D183): etapa conectada (drop, mini serie) que la persona decidió no hacer: queda resuelta y no es un resultado.
+// D184: se sincroniza (`skipAt`, hora del cambio en este teléfono): la ven los otros dispositivos y se puede deshacer.
+export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null; pend?: boolean; skip?: boolean; skipAt?: string | null;
   // `other`: la versión que NO es la que se ve en pantalla. `appliedIsMine`: si la versión aplicada en el servidor es la de este dispositivo.
   conflict?: { id: string; other: { weightKg: number | null; reps: number | null; rir: number | null }; appliedIsMine: boolean } };
 // F-HX-21 (D106): saltar o reemplazar el ejercicio sólo en esta sesión. `origPrev`: el «anterior» del original, para volver.
@@ -26,8 +28,29 @@ export type LocalSession = {
   // la cola no se borra y se vuelve a intentar sólo ante un evento (volver a la app, reconectar, «Reintentar»).
   rejected?: { message: string; at: string; code?: string };
   rest?: { end: number | null; total: number; left: number; paused: boolean } | null;
+  // D183 + D184: EMOM. Intervalo en curso (`start` en el reloj de este teléfono), qué serie es y si se interrumpió. Se
+  // sincroniza: `ivAt` es cuándo cambió acá; `skew` = hora del servidor − hora del teléfono (la última que se observó).
+  iv?: LocalInterval | null; ivAt?: string | null; skew?: number;
   updatedAt: string;
 };
+export type LocalInterval = { peId: string; block: number; start: number; emomSec: number; status: "running" | "interrupted" };
+/** D183: una fila está resuelta si se registró o si era una etapa que se decidió no hacer. */
+export const rowResolved = (x: LocalSet | undefined) => !!x && (x.done || !!x.skip);
+/**
+ * D184: al volver a leer la sesión del servidor (sin nada pendiente en la cola), manda el servidor. Excepción: omisiones que
+ * este teléfono guardó antes de que se sincronizaran (versión anterior de la app): se conservan y se devuelven para subirlas.
+ */
+export function keepLocalOnly(fresh: LocalSession, local: LocalSession | undefined, serverSkips?: Set<string>): { session: LocalSession; upload: string[] } {
+  if (!local) return { session: fresh, upload: [] };
+  const sets = { ...fresh.sets };
+  const upload: string[] = [];
+  for (const [k, v] of Object.entries(local.sets)) {
+    if (!v.skip || !sets[k] || sets[k].done || serverSkips?.has(k)) continue;
+    sets[k] = { ...sets[k], skip: true, skipAt: v.skipAt ?? local.updatedAt };
+    upload.push(k);
+  }
+  return { session: { ...fresh, sets }, upload };
+}
 export const setKey = (peId: string, i: number) => `${peId}:${i}`;
 
 export async function ensureOwner(userId: string) {
@@ -63,15 +86,19 @@ export function fromServer(x: {
   activeMs: number; lastResumedAt: string | null; revision: number; dayId?: string;
   exercises: (LocalEx & { defaultWeight: number | null; defaultReps: number | null; logs: { id: string; setIndex: number; exerciseId?: string; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; revision: number; completedAt: string }[] })[];
   conflicts?: { id: string; targetKey: string; server: unknown; client: unknown }[];
+  interval?: { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null; serverNow?: string;
 }, keepRest?: LocalSession["rest"]): LocalSession {
+  const skew = x.serverNow ? Date.parse(x.serverNow) - Date.now() : 0;
   const sets: Record<string, LocalSet> = {};
   for (const e of x.exercises) {
     let carry: number | null = e.defaultWeight ?? null, carryKind: SetKind = "work", logged = false;
     // D154: sin series hechas en esta sesión, el peso y las reps de partida son los sugeridos por REPI.
     const sg = e.change ? null : e.suggest ?? null;
     const doing = e.change?.kind === "substitute" ? e.change.substitute?.exerciseId : e.exerciseId;
+    const skips = (e as { skips?: { setIndex: number; skipped: boolean; changedAt: string }[] }).skips ?? [];
     for (let i = 0; i < e.sets; i++) {
       const l = e.logs.find((y) => y.setIndex === i);
+      const sk = skips.find((y) => y.setIndex === i);
       const c = x.conflicts?.find((k) => k.targetKey === setKey(e.id, i));
       const kind = kindAt(e.detail, i);
       // Sólo una serie del mismo ejercicio sugiere el peso de las siguientes (un reemplazo no hereda la carga del original).
@@ -82,13 +109,16 @@ export function fromServer(x: {
         const plan = e.detail?.setPlan?.[i];
         const st = startWeight({ kind, planKg: plan?.weightKg, suggestKg: !logged ? sg?.weightKg : null, carriedKg: carriesLoad(carryKind, kind) ? carry : null });
         sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}),
-          r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null };
+          r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null,
+          ...(sk ? { skip: sk.skipped, skipAt: sk.changedAt } : {}) }; // D184: omitida (o deshecha) en cualquier dispositivo
       }
     }
   }
   return {
     id: x.id, dayId: x.dayId ?? "", dayName: x.dayName, note: x.note, startedAt: x.startedAt, status: x.status, activeMs: x.activeMs, lastResumedAt: x.lastResumedAt,
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
+    skew, ivAt: x.interval?.at ? new Date(Date.parse(x.interval.at) - skew).toISOString() : null,
+    iv: x.interval ? { peId: x.interval.peId, block: x.interval.block, start: Date.parse(x.interval.startedAt) - skew, emomSec: x.interval.emomSec, status: x.interval.status } : null,
     exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null })),
     sets,
   };
