@@ -837,6 +837,7 @@
 .ti-why, .ti-review, .ti-quality { margin: 0; font-size: 13px; line-height: 1.4; color: var(--ui-text-2); }
 .ti-review { color: var(--ui-warning-text); }
 .ti-quality { color: var(--ui-muted); font-size: 12px; }
+.wo-coachload { font-size: 15px; color: var(--ui-text); } .wo-coachload small { color: var(--ui-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .ti-card .ghost.sm { align-self: flex-start; }
 /* Mensaje breve durante el descanso: debajo del reloj, sin tapar controles ni empujar el dock (hasta 3 líneas). */
 .ti-rest { margin: 0; font-size: 13px; line-height: 1.4; color: var(--ui-text-2); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

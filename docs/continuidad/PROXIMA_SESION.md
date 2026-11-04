@@ -1,7 +1,15 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D191; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D193, hotfix P0 de cargas del profe; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+
+## Hotfix P0 · cargas del profe que el alumno no veía (D193) — 04/11/2026
+
+**Causa:** el profe cargó las cargas en la plantilla y el alumno entrenaba con su copia (sin cargas). Al reasignársela con el entrenamiento abierto, la sesión no avisaba y «Aplicar ahora» fallaba («Tu programa ya no está asignado»). Verificado con consultas de solo lectura en producción (sin datos personales ni escrituras): las cargas nunca estuvieron en la copia del alumno; la copia nueva (asignada 21:33 UTC) sí las tiene.
+**Arreglo (rama `fix/repi-coach-prescribed-weights`, sin migraciones):** `liveAssignment` en `services.ts` (`getSession.outdated`, `upgradeSession`, que mueve la sesión a la asignación vigente); aviso «Plantilla · …» y nota en `ProgramBuilder.tsx`; texto de `AssignModal.tsx`; «Tu profe no indicó un peso…» en `TargetCard.tsx`; «Tu profe indicó» sin objetivo calculado en `Workout.tsx`.
+**Pruebas:** `tests/prescribed-weights.test.ts` (9), app 350, dominio 321, guardas 24/24, typecheck, build; `e2e/prescribed-weights.spec.ts` (móvil y escritorio, Chromium emulado).
+**Alumno del reporte:** con la versión publicada, al abrir su entrenamiento en curso ve «Actualizó tu rutina · Aplicar ahora». Si lo aplica, las series ya registradas se conservan y las que faltan muestran la carga del profe. Si ya terminó, el próximo entrenamiento sale de la copia nueva con 45/40/35 kg.
+**Próximo:** retomar `feat/repi-coach-workflow-ux` (D192, trabajo de Urko) sobre el `main` con este hotfix.
 
 ## Bloque 04/06 publicado: Training Intelligence 2.0 (D191) — 04/11/2026 · COMPLETO
 
