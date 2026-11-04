@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D194; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D194; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; próximo: 05/06; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 ## PR #21 publicado: flujo del entrenador (D192) + actualizar alumnos desde plantilla (D194) — 04/11/2026 · COMPLETO
@@ -35,6 +35,11 @@ Actualizado: 04/11/2026 (hasta D194; D192/D194 publicados con el PR #21 y la 004
 - Es `coach_owner` activo de su organización de coach (habilitada, sin demo): 9 plantillas, 8 alumnos activos y 8 asignaciones activas.
 - Todas las funciones nuevas piden exactamente ese rol (`requireCoach`). No se le dio ningún permiso nuevo y no se tocaron sus datos.
 - No es personal de Smart Center Gym; las funciones de sala las usa el personal del gimnasio.
+
+### Próximo: Master Prompt 05/06
+- En una rama nueva desde `main` (al día con `9172e95` y esta bitácora). Leer primero MASTER_PROMPT.md y este archivo.
+- Ya anotado para el 05/06 en bloques anteriores: el rediseño visual de la sesión del alumno, el editor del coach en la vista del alumno y el catálogo de equipos por sede (`docs/TRAINING_INTELLIGENCE_2.md` §8 quater).
+- Antes de cualquier migración productiva: workflow «Respaldo» en verde (docs/RESPALDOS.md).
 
 ### Pendiente
 - **Hotfix D193:** «Tu profe indicó X kg» con un profe y un alumno reales vinculados en producción sigue sin verificar. No hay cuentas de prueba en producción (sólo usuarios reales y demos), y la demo no lo permite (cada perfil abre otra demo). No se tocó ningún alumno real. Cubierto por las pruebas automáticas (integración y E2E local). Para cerrarlo: el titular crea dos cuentas de prueba vinculadas (un coach y un alumno, sin 2FA) y se corre `scripts/operations/verify-coach-weights-prod.mjs` (ver su encabezado).
