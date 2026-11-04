@@ -180,6 +180,7 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 .co-toast { position: fixed; right: 24px; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 70; max-width: 380px; background: var(--ui-inverse-bg); color: var(--ui-inverse-text); border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.4; box-shadow: var(--ui-shadow-pop); display: flex; gap: 10px; align-items: flex-start; animation: co-pop 200ms var(--ease-out); }
 .co-toast::before { content: ""; width: 8px; height: 8px; border-radius: 4px; background: var(--ui-primary); flex: none; margin-top: 6px; }
 @media (max-width: 767px) { .co-toast { left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); } }
+.tpl-note { background: var(--ui-chip-warn-bg, var(--ui-surface-2)); color: var(--ui-chip-warn-ink, var(--ui-text)); border-radius: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.45; margin: 0 0 12px; }
 .err-box { background: var(--ui-chip-bad-bg); color: var(--ui-chip-bad-ink); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
 .nbadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ui-primary); color: var(--ui-on-primary); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
 @media (min-width: 768px) and (max-width: 1099px) { .co-nav button { position: relative; } .nbadge { position: absolute; top: 2px; right: 6px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 4px; } }

@@ -142,7 +142,10 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
       if (prog.kind === "client_copy") onAssigned();
     } catch (e) { flash((e as Error).message); }
   };
-  const forTxt = !prog ? "" : prog.kind === "client_copy" ? `Programa de ${prog.forClient ?? "un cliente"} · versión ${prog.version}` : `Programa · ${prog.clients.map((c) => c.split(" ")[0]).join(", ") || "sin clientes asignados"} · versión ${prog.version}`;
+  // D193: una plantilla no es el programa de nadie: cada cliente entrena con su copia. Antes el encabezado decía «Programa ·
+  // <cliente>» y el profe cargaba las cargas en la plantilla creyendo que le llegaban a su alumno.
+  const firsts = prog?.clients.map((c) => c.split(" ")[0]).join(", ") ?? "";
+  const forTxt = !prog ? "" : prog.kind === "client_copy" ? `Programa de ${prog.forClient ?? "un cliente"} · versión ${prog.version}` : `Plantilla · ${prog.clients.length ? `base del programa de ${firsts}` : "sin clientes asignados"} · versión ${prog.version}`;
 
   return (
     <>
@@ -169,6 +172,12 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             : prog.clients.length ? `Sale de tu lista. ${prog.clients.map((c) => c.split(" ")[0]).join(", ")} lo sigue${prog.clients.length > 1 ? "n" : ""} usando: cada cliente tiene su copia. Para cambiárselo, asignale otro programa.` : "Sale de tu lista de programas."}</p>
           <div className="mfoot"><button type="button" className="btn" onClick={() => setDel(false)}>Cancelar</button><button type="button" className="btn pri danger" onClick={() => void remove()}>Eliminar</button></div>
         </Modal>
+      )}
+      {prog?.kind === "template" && prog.clients.length > 0 && (
+        <p role="note" className="tpl-note">
+          <b>Los cambios de esta plantilla no le llegan solos a {firsts}.</b> Cada cliente entrena con su propia copia. Para que {prog.clients.length > 1 ? "reciban" : "reciba"} estas
+          series y cargas, tocá «Asignar a clientes» (con un entrenamiento abierto, le aparece «Aplicar ahora») o editá su programa desde su ficha.
+        </p>
       )}
       {save.s === "error" && <p role="alert" className="err-box">No se guardó: {save.m}</p>}
       <div className="split">

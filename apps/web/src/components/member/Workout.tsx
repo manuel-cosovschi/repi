@@ -564,11 +564,15 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             : <a className="wo-howto" href={ex.media?.url ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${sub ? sub.name : ex.name} técnica`)}`} target="_blank" rel="noopener noreferrer">
               <Ic i={PlayCircle} size={18} /> {ex.media ? "Ver cómo se hace" : "Buscar cómo se hace en YouTube"}</a>)}
           {curTarget ? (
-            <TargetCard t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !!curRow && !curRow.done}
+            <TargetCard t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !!curRow && !curRow.done} noCoachLoad={repsKind !== "time" && ex.detail?.setPlan?.[cur]?.weightKg == null}
               real={curRow?.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null}
               // «Al fallo», AMRAP o por tiempo: las repeticiones son el resultado, no se precargan (D184); sólo la carga.
               onUse={(w, r) => { const numeric = !!curT && parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Objetivo cargado: ajustalo si hace falta antes de completar."); }} />
-          ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev, unit)}</span></div>}
+          ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev, unit)}</span>
+            {/* D193: sin objetivo calculado (o con un reemplazo), la carga del profe se sigue viendo con su nombre. */}
+            {!ex.change && cur >= 0 && ex.detail?.setPlan?.[cur]?.weightKg != null && (
+              <span className="wo-coachload"><small>Tu profe indicó</small> <b>{kg(ex.detail.setPlan[cur].weightKg!, unit)} × {ex.detail.setPlan[cur].reps}</b></span>
+            )}</div>}
           {!curTarget && ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
             <div className="wo-suggest" role="note">
               <small>REPI sugiere hoy</small>

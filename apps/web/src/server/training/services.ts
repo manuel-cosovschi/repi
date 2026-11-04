@@ -732,6 +732,25 @@ async function gymPresence(tx: Tx, userId: string, gymMemberId: string, action: 
 }
 
 /**
+ * Hotfix P0 (D193): programa vigente de una sesión abierta. Si el profe le volvió a asignar un programa a la persona con el
+ * entrenamiento abierto, la asignación de la sesión quedó cerrada y la vigente es otra de la misma relación: antes no se
+ * avisaba ni se podía «Aplicar ahora», y la persona seguía con la copia vieja (sin las cargas nuevas). Una rutina propia
+ * (`solo`) nunca pasa a un programa asignado.
+ */
+async function liveAssignment(tx: Tx | typeof db, s: typeof workoutSession.$inferSelect): Promise<{ assignmentId: string; versionId: string } | null> {
+  const [own] = await tx.select({ a: programAssignment, kind: program.kind, v: program.currentVersionId }).from(programAssignment)
+    .innerJoin(program, eq(program.id, programAssignment.programId)).where(eq(programAssignment.id, s.assignmentId));
+  if (!own || own.kind === "solo") return null;
+  if (own.a.status === "active") return own.v ? { assignmentId: own.a.id, versionId: own.v } : null;
+  const rel = own.a.coachClientId ? eq(programAssignment.coachClientId, own.a.coachClientId) : own.a.gymMemberId ? eq(programAssignment.gymMemberId, own.a.gymMemberId) : null;
+  if (!rel) return null;
+  const [next] = await tx.select({ id: programAssignment.id, v: program.currentVersionId }).from(programAssignment)
+    .innerJoin(program, eq(program.id, programAssignment.programId))
+    .where(and(rel, eq(programAssignment.status, "active"), sql`${program.kind} <> 'solo'`));
+  return next?.v ? { assignmentId: next.id, versionId: next.v } : null;
+}
+
+/**
  * La validación de ingreso es para el programa del gimnasio (modo híbrido: «iniciar y registrar un entrenamiento del programa
  * del gimnasio»). Las rutinas propias del alumno (D158) y la rutina de hoy de REPI (D153) no son el programa del gym: se
  * entrenan sin check-in, igual que se ven desde cualquier lugar.
@@ -892,8 +911,9 @@ export async function getSession(userId: string, sessionId: string, now = new Da
     sessionOrg(s.versionId).then((orgId) => import("./exercise-media").then((m) => m.mediaFor(orgId, doneIds)))]); // D164: video de cómo se hace
   // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
   const open = s.status === "in_progress" || s.status === "paused";
-  const [cur] = open ? await db.select({ v: program.currentVersionId }).from(programAssignment).innerJoin(program, eq(program.id, programAssignment.programId))
-    .where(and(eq(programAssignment.id, s.assignmentId), eq(programAssignment.status, "active"))) : [];
+  // D193: también si el profe le reasignó el programa (otra asignación de la misma relación).
+  const live = open ? await liveAssignment(db, s) : null;
+  const cur = live ? { v: live.versionId } : null;
   const intel = await sessionIntel(userId, s, exs, logs, now).catch(() => null); // D191: nunca impide abrir el entrenamiento
   return {
     id: s.id, dayId: s.dayId, dayName: s.dayName, status: s.status, note: v?.note ?? "", rpe: s.rpe, sessionNote: s.note, outdated: !!cur?.v && cur.v !== s.versionId,
@@ -1202,9 +1222,10 @@ export async function upgradeSession(userId: string, sessionId: string, now = ne
     const s = await mySession(userId, sessionId, tx, true);
     if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
     await assertRelationActive(tx, s);
-    const [cur] = await tx.select({ v: program.currentVersionId, status: programAssignment.status }).from(programAssignment)
-      .innerJoin(program, eq(program.id, programAssignment.programId)).where(eq(programAssignment.id, s.assignmentId));
-    if (!cur || cur.status !== "active" || !cur.v) throw new AccessError("no_program", "Tu programa ya no está asignado.", 409);
+    // D193: la versión vigente puede ser de otra asignación (el profe le reasignó el programa con el entrenamiento abierto).
+    const live = await liveAssignment(tx, s);
+    if (!live) throw new AccessError("no_program", "Tu programa ya no está asignado.", 409);
+    const cur = { v: live.versionId };
     if (cur.v === s.versionId) return { changed: false, moved: 0, kept: [] as string[] };
     const [{ n: open }] = await tx.select({ n: sql<number>`count(*)::int` }).from(syncConflict).where(and(eq(syncConflict.sessionId, s.id), eq(syncConflict.status, "open")));
     if (open) throw new AccessError("conflicts", "Resolvé primero las series con dos versiones.", 409);
@@ -1233,8 +1254,8 @@ export async function upgradeSession(userId: string, sessionId: string, now = ne
     const logged = new Set((await tx.select({ pe: setLog.programExerciseId }).from(setLog).where(eq(setLog.sessionId, s.id))).map((r) => r.pe));
     const kept = oldEx.filter((e) => !map[e.id] && logged.has(e.id)).map((e) => e.name);
     await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, cur.v));
-    await tx.update(workoutSession).set({ versionId: cur.v, dayId: newDay.id, dayName: newDay.name, intervalState: ivNext, revision: s.revision + 1, updatedAt: now }).where(eq(workoutSession.id, s.id));
-    await audit(tx, { actorUserId: userId, action: "session.upgraded", resourceType: "workout_session", resourceId: s.id, meta: { from: s.versionId, to: cur.v, moved, kept: kept.length } });
+    await tx.update(workoutSession).set({ assignmentId: live.assignmentId, versionId: cur.v, dayId: newDay.id, dayName: newDay.name, intervalState: ivNext, revision: s.revision + 1, updatedAt: now }).where(eq(workoutSession.id, s.id));
+    await audit(tx, { actorUserId: userId, action: "session.upgraded", resourceType: "workout_session", resourceId: s.id, meta: { from: s.versionId, to: cur.v, moved, kept: kept.length, reassigned: live.assignmentId !== s.assignmentId } });
     return { changed: true, moved, kept };
   });
   return { ...res, session: await getSession(userId, sessionId, now) };
