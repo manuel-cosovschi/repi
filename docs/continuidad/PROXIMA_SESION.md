@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos implementado pero **sin armar**; bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
@@ -37,14 +37,12 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 - Objetivos abiertos: 28, mismo hash.
 - Un entrenamiento real salió del conjunto «previo» porque su dueño lo terminó a las 21:04:37 (24 series intactas): es actividad legítima, no un cambio del deploy.
 
-**Vigilante de respaldos (D198): NO ACTIVO.** El código está en producción y corre cada hora, pero sin `BACKUP_HEARTBEAT_SECRET` no está armado. No se puede configurar desde acá: los secretos de GitHub no están en la conexión y Vercel responde 403. Se declara activo recién cuando haya una señal auténtica registrada (`audit_event` `backup.verified` ≥ 1) y la revisión de la hora siguiente diga `armed: true`.
-
-**Cómo armarlo (titular, en tu computadora):**
-1. `openssl rand -hex 32` (no lo pegues en ningún chat).
-2. Vercel → proyecto repi → Settings → Environment Variables → Add: nombre `BACKUP_HEARTBEAT_SECRET`, valor el generado, sólo Production → Save. Después: Deployments → el último → «…» → Redeploy.
-3. GitHub → repositorio repi → Settings → Secrets and variables → Actions → New repository secret: el mismo nombre y el mismo valor.
-4. Abrir un issue con el título «Respaldo: prueba del vigilante». En la corrida, el paso «Señal de respaldo verificado» tiene que decir «Vigilante de REPI: señal enviada».
-5. Avisarle a Claude para que verifique el registro y el `armed: true`.
+**Vigilante de respaldos (D198): ACTIVO desde el 05/11/2026 23:07 UTC.**
+- La señal se autentica con el token OIDC del job de GitHub (PR #40, `26f7cdc`): audiencia `repi-backup-heartbeat`, `backup.yml` en `main`, misma corrida. No hace falta ningún secreto en GitHub.
+- `BACKUP_HEARTBEAT_SECRET` está en Vercel y se sigue aceptando. Su valor pasó por el chat: conviene borrarlo de Vercel, porque el vigilante funciona sólo con OIDC.
+- **Prueba:** issue #41 → corrida 42125410178 → `backup-20261105-225638-42125410178`. Contiene 104 tablas, 7655 filas y 46 migraciones. Se descifró y se restauró en PostgreSQL descartable: 278 claves foráneas sin huérfanos.
+- `audit_event` `backup.verified` registrado a las 22:56:43 con `source: oidc`.
+- Revisión de las 23:07: `{"armed":true,"late":false}`. 0 alertas enviadas.
 
 ## Bloque 06/06 · Final Release Hardening (D197, D198) — 05/11/2026 · PUBLICADO (ver arriba)
 
@@ -101,6 +99,11 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 - `search_path` de `gym_task_event_immutable` en la próxima migración.
 - Índices de claves foráneas antes de crecer.
 - Validar la sesión antes del cuerpo en las rutas que dan 400 sin sesión (P3).
+- **Prueba intermitente nueva (P2):** `tests/gym.test.ts` «métricas desde eventos reales» falló una vez en CI.
+  - Dónde: PR #42, sólo documentación, 05/11 23:09 UTC. Esperaba `req` 3 y recibió 2.
+  - Pasó en el CI de `main` 20 minutos antes con el mismo código y 11/11 en local.
+  - `req` cuenta tareas con `completedAt` entre `now − 7 días` y `now`; la causa todavía no está identificada.
+  - No se cambió la expectativa. Investigar antes de sumar E2E a CI.
 
 ## Cierre del bloque 05/06 (D195) y respaldos (D190) — 05/11/2026 · PUBLICADO Y VALIDADO
 

@@ -58,7 +58,7 @@ Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único ar
     - Ese valor pasó por un chat. Conviene borrarlo de Vercel: el vigilante sigue funcionando sólo con OIDC.
   - La tarea de cada minuto (pg_cron de Supabase → `/api/cron/notifications`) revisa una vez por hora (minuto 7). Como mucho un email cada 12 h mientras siga sin respaldo.
   - **Se arma con la primera señal auténtica:** hasta entonces no avisa nada (sin falsas alarmas). Si la señal falla, el respaldo igual se publica y el vigilante avisa a las 30 h.
-  - **Estado:** ver `docs/continuidad/PROXIMA_SESION.md`.
+  - **Estado: ACTIVO desde el 05/11/2026 23:07 UTC.** Primera señal OIDC registrada por el respaldo `backup-20261105-225638-42125410178` (issue #41); la revisión siguiente dio `armed: true, late: false`.
   - **Segunda capa opcional (externa, gratis):** un «dead man's switch» como Healthchecks.io (período 1 día, gracia 6 h). Guardar la URL de ping como secreto `BACKUP_DEADMAN_URL`: el mismo paso la llama. Avisa aunque REPI entero esté caído. Requiere crear la cuenta: decisión del titular.
 - **Pérdida máxima esperable (RPO): hasta ~24 h** de escrituras (un respaldo verificado por día; con el plan gratuito de Supabase no hay respaldos gestionados ni PITR). Con Supabase Pro se suman los diarios del proveedor (7 días); con PITR baja a minutos.
 - **Tiempo objetivo de recuperación (RTO): 2–4 h** para un desastre real con el procedimiento de abajo (proyecto Supabase nuevo, migraciones, carga y Storage). No está ensayado de punta a punta en un proyecto nuevo: sí la restauración verificada en PostgreSQL descartable en cada corrida.
