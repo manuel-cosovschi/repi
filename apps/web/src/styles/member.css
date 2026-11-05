@@ -642,6 +642,9 @@
 .or-ex legend small { font-weight: 400; color: var(--ui-muted); margin-left: 4px; }
 .or-ex-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .or-ex-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ui-muted); }
+.or-time { display: contents; }
+.or-activity { display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 2px; font-size: 12px; }
+.or-activity .linkbtn { font-size: 13px; padding: 0; min-height: 32px; }
 .or-ex-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .or-ex-actions .linkbtn { height: 40px; min-width: 40px; }
 /* D184: método del ejercicio en «Mis rutinas» y en la revisión de una rutina importada. */

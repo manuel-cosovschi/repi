@@ -5,7 +5,7 @@
 // Nunca registra nada: «Usar» sólo carga el borrador, y lo sugerido nunca se confunde con lo hecho. Consume los contratos de
 // Training Intelligence 2.0 (RowTarget) sin cambiarlos.
 import { useState } from "react";
-import { localizeWeights, type RowTarget, type WeightUnit } from "@repi/domain";
+import { fmtSeconds, localizeWeights, repsText, type RowTarget, type WeightUnit } from "@repi/domain";
 import { kg } from "./types";
 import { targetLine } from "./TargetCard";
 import { Hint } from "./Hint";
@@ -20,16 +20,18 @@ export function SetGuide({ t, plan, prevFallback, suggest, real, draft, unit, la
   unit: WeightUnit; label: string; canUse: boolean; onUse: (w: number | null, r: number | null) => void;
 }) {
   const [why, setWhy] = useState(false);
-  const unitR = plan.timed ? " s" : "";
-  const coachLine = plan.weightKg != null && plan.weightKg > 0 ? `${kg(plan.weightKg, unit)} × ${plan.reps}` : `${plan.reps}${plan.timed ? "" : " reps"}`;
+  // Tiempos legibles (05/11/2026): «20 min» o «1 min 30 s», no «1200 s».
+  const n = (r: number | null | undefined) => (r == null ? "—" : plan.timed ? fmtSeconds(r) : String(r));
+  const reps = plan.timed ? repsText(plan.reps) : plan.reps;
+  const coachLine = plan.weightKg != null && plan.weightKg > 0 ? `${kg(plan.weightKg, unit)} × ${reps}` : `${reps}${plan.timed ? "" : " reps"}`;
   // REPI: el objetivo calculado por reglas. Con la carga del profe, sólo si propone otra cosa (o una revisión).
   const rules = t && t.source === "rules" && t.status !== "not_applicable" ? t : null;
   const line = rules ? targetLine(rules, unit) : "";
   const sameAsCoach = !!rules && plan.weightKg != null && rules.weightKg != null && Math.abs(rules.weightKg - plan.weightKg) < 0.01;
   const safety = !!t && (t.status === "limited" || t.guards.length > 0);
   const prev = t?.prev
-    ? `${t.prev.w != null && t.prev.w > 0 ? `${kg(t.prev.w, unit)} × ` : ""}${t.prev.r ?? "—"}${unitR}${t.prev.rir != null ? ` · RIR ${t.prev.rir}` : ""}`
-    : prevFallback ? `${prevFallback.weightKg != null && prevFallback.weightKg > 0 ? `${kg(prevFallback.weightKg, unit)} × ` : ""}${prevFallback.reps ?? "—"}${unitR}` : null;
+    ? `${t.prev.w != null && t.prev.w > 0 ? `${kg(t.prev.w, unit)} × ` : ""}${n(t.prev.r)}${t.prev.rir != null ? ` · RIR ${t.prev.rir}` : ""}`
+    : prevFallback ? `${prevFallback.weightKg != null && prevFallback.weightKg > 0 ? `${kg(prevFallback.weightKg, unit)} × ` : ""}${n(prevFallback.reps)}` : null;
   const useW = rules?.weightKg ?? (suggest?.weightKg ?? null);
   const useR = rules ? rules.repsTarget ?? rules.repsMin : suggest?.reps ?? null;
   const useTxt = rules ? line : suggest ? `${suggest.weightKg != null ? `${kg(suggest.weightKg, unit)} × ` : ""}${suggest.reps}` : "";
@@ -50,7 +52,7 @@ export function SetGuide({ t, plan, prevFallback, suggest, real, draft, unit, la
           <div className="sg-row is-repi"><dt>REPI sugiere hoy</dt><dd><b>{useTxt}</b></dd></div>
         )}
         <div className="sg-row"><dt>Anterior</dt><dd>{prev ? <span>{prev}{t?.prev?.source === "import" && <small> · importado</small>}</span> : <span className="sg-none">Sin referencia</span>}</dd></div>
-        <div className="sg-row is-real"><dt>Real (hoy)</dt><dd>{real ? <b>{real.w > 0 ? `${kg(real.w, unit)} × ` : ""}{real.r}{unitR}{real.rir != null ? ` · RIR ${real.rir}` : ""}</b> : <span className="sg-none">Por registrar</span>}</dd></div>
+        <div className="sg-row is-real"><dt>Real (hoy)</dt><dd>{real ? <b>{real.w > 0 ? `${kg(real.w, unit)} × ` : ""}{n(real.r)}{real.rir != null ? ` · RIR ${real.rir}` : ""}</b> : <span className="sg-none">Por registrar</span>}</dd></div>
       </dl>
       {t?.source === "coach" && t.why && <p className="sg-note">{localizeWeights(t.why, unit)}</p>}
       {t?.review && <p className="sg-note is-review" role="note">{localizeWeights(t.review, unit)}</p>}

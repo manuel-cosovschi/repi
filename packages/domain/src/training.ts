@@ -32,10 +32,24 @@ export function parseReps(input: string): RepsTarget {
   if (m) return { kind: "reps", min: Number(m[1]), max: Number(m[1]) };
   m = /^(\d{1,4})\s*(s|seg|segundos)$/i.exec(s);
   if (m) return { kind: "time", seconds: Number(m[1]) };
+  // Cardio y actividades largas (05/11/2026): «20 min», «1 min 30 s», «20:00», «1:30». Se guardan igual como «N s».
+  m = /^(\d{1,3})\s*(?:m|min|mins|minutos?)(?:\s*(\d{1,2})\s*(?:s|seg|segundos)?)?$/i.exec(s);
+  if (m && (!m[2] || Number(m[2]) < 60)) return { kind: "time", seconds: Number(m[1]) * 60 + Number(m[2] ?? 0) };
+  m = /^(\d{1,3}):([0-5]\d)$/.exec(s);
+  if (m) return { kind: "time", seconds: Number(m[1]) * 60 + Number(m[2]) };
   return { kind: "free", text: s };
 }
+/** Segundos legibles: «45 s», «20 min», «1 min 30 s». */
+export function fmtSeconds(sec: number): string {
+  const n = Math.max(0, Math.round(sec));
+  if (n < 60) return `${n} s`;
+  const mm = Math.floor(n / 60), ss = n % 60;
+  return ss ? `${mm} min ${ss} s` : `${mm} min`;
+}
+/** La prescripción tal como se lee: un tiempo en minutos y segundos; lo demás, como se escribió. */
+export const repsText = (reps: string) => { const t = parseReps(reps); return t.kind === "time" ? fmtSeconds(t.seconds) : reps; };
 export const repsLabel = (t: RepsTarget) =>
-  t.kind === "reps" ? (t.min === t.max ? `${t.min}` : `${t.min}-${t.max}`) : t.kind === "time" ? `${t.seconds} s` : t.text;
+  t.kind === "reps" ? (t.min === t.max ? `${t.min}` : `${t.min}-${t.max}`) : t.kind === "time" ? fmtSeconds(t.seconds) : t.text;
 
 // Steppers de la sesión activa (22_DEVELOPER_ACCEPTANCE_CRITERIA F-CL-03: ±2,5 kg / ±1 rep).
 export const WEIGHT_STEP = 2.5;

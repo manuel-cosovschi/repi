@@ -18,6 +18,8 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
   action?: { label: string; ready: boolean; busy?: boolean; onSubmit: () => void };
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const warnRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (warn) warnRef.current?.scrollIntoView?.({ block: "nearest" }); }, [warn]);
   const close = useRef(onClose);
   close.current = onClose;
   useScrollLock();
@@ -53,7 +55,7 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
             <div>{g.opts.map(([v, l]) => <button type="button" key={String(v)} aria-pressed={g.value === v} style={g.minW ? { minWidth: g.minW } : undefined} onClick={() => g.onPick(v)}>{l}</button>)}</div>
           </fieldset>
         ))}
-        {warn && <p className="sheet-warn" role="alert">{warn}</p>}
+        {warn && !action && <p className="sheet-warn" role="alert">{warn}</p>}
         {children}
         {text && <textarea rows={3} value={text.value} maxLength={1000} placeholder={text.placeholder} aria-label={text.placeholder} onChange={(e) => text.onChange(e.target.value)} />}
         {video && (
@@ -63,6 +65,9 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
             <input type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" onChange={(e) => video.onPick(e.target.files?.[0] ?? null)} />
           </label>
         )}
+        {/* 05/11/2026: con botón de acción, el aviso va justo arriba del botón. Arriba de todo no se veía en una hoja larga
+            (p. ej. una rutina con 8 ejercicios) y parecía que «Guardar» no hacía nada. */}
+        {warn && action && <p className="sheet-warn" role="alert" ref={warnRef}>{warn}</p>}
         {action && <button type="button" className="cta" style={{ height: 52, opacity: action.ready ? 1 : .45 }} aria-busy={action.busy || undefined} onClick={action.onSubmit}>{action.busy ? "Un momento…" : action.label}</button>}
       </div>
     </div>,
