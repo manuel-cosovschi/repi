@@ -28,7 +28,10 @@ Actualizado: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en prod
   - Los respaldos por issue o manuales no pasan por esa regla: siempre corren y no cuentan como diario.
   - **Defecto encontrado en la revisión y corregido en el mismo PR:** `created_at` de un release es la fecha del **commit** de destino, no la del respaldo (`backup-20261105-040245` tiene `created_at` 00:03 y `published_at` 04:02). Con main sin commits nuevos, el turno de reserva iba a repetir el diario y la retención iba a agrupar todos los diarios en un solo «día» y borrar los anteriores (simulado con 5 diarios: borraba 3). Ahora la detección y la retención usan `published_at` (los borradores, `created_at`).
   - Cifrado, permisos, alertas y reglas de retención sin cambios. CI y autoprueba en verde en `7f96556`.
-- **Estado del cronograma:** ambos cron están en `main` y el workflow está activo. A las 12:48 UTC el turno de las 12:47 todavía no había creado ninguna ejecución `schedule` (GitHub suele demorarlas). **La automatización no está comprobada** hasta que exista una ejecución `schedule` en verde.
+- **Estado del cronograma: NO funciona todavía.** Ambos cron están en `main` y el workflow está activo, pero GitHub **tampoco creó** la ejecución de las 12:47 UTC (comprobado a las 13:20: 0 ejecuciones `schedule` en todo el repositorio desde que existe el workflow).
+  - **Hipótesis, sin comprobar:** todos los commits que tocaron `backup.yml` (#9, #10, #14, #27) entraron por merges hechos con la integración de GitHub (committer `web-flow`, sesión de Claude). GitHub atribuye el cronograma a quien modificó el cron por última vez; si ese cambio llega por un token de aplicación, el planificador puede no dispararlo. No es un descarte por carga: no hubo ni una sola ejecución en dos días y cuatro turnos posibles.
+  - **Acción del titular (no la puede hacer la integración):** en GitHub, Actions → Respaldo → «…» → **Disable workflow** y después **Enable workflow**, desde su navegador. Eso vuelve a registrar el cronograma a su nombre. Si al día siguiente sigue sin haber ejecuciones `schedule`, usar un disparador externo (ver docs/RESPALDOS.md).
+  - **Copia del día:** pedida con el issue #28 («Respaldo: diario manual…»). Una ejecución manual garantiza una copia reciente, **no** demuestra el cronograma.
 - **Último respaldo verificado:** `backup-20261105-040245-41965097791` (por issue, antes de la 0045): descifrado, hashes del manifiesto y restauración en PostgreSQL descartable verificados por el workflow. No hay alertas abiertas.
 
 ### Recuento de `set_log` 1422 → 172: explicado, sin pérdida de datos reales
@@ -268,7 +271,7 @@ Comenzar el Master Prompt 06/06 cuando el titular lo indique.
   - Abierto con la clave del titular, con todos los hashes iguales al manifiesto.
   - La credencial temporal quedó vencida.
 - **Alertas:** probadas con el issue #11 y la alerta #12. El éxito del issue #15 cerró la alerta.
-- **05/11:** GitHub no creó la ejecución programada de las 06:17 UTC (descarte del planificador: el workflow está activo y el cron está en main). Se agregó un turno de reserva a las 12:47 UTC que sólo respalda si ese día no hay un respaldo «diario» verificado. Hay que confirmar que el turno de reserva respalde.
+- **05/11:** GitHub no creó ni la ejecución de las 06:17 ni la de reserva de las 12:47 UTC (PR #27). Copia del día por el issue #28. El cronograma automático sigue sin probarse: ver «Cierre del bloque 05/06» arriba.
 
 ### Migración 0042 — aplicada el 04/11 a las 14:04 UTC
 - **Cómo:** `hosted-0042.sql`, en una transacción como `repi_app`.
