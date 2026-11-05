@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  activeSeconds, detectPR, epley1rm, nextDayIndex, parseReps, parseRest, restLeft, startOptions, stepWeight,
+  activeSeconds, detectPR, epley1rm, fmtSeconds, nextDayIndex, parseReps, repsText, parseRest, restLeft, startOptions, stepWeight,
   validateProgramDoc, volumeKg, bestE1rm, weekOf, weeklyAdherence, defaultRepsFor, formatClock, setControl,
 } from "./training";
 
@@ -16,6 +16,17 @@ describe("prescripción", () => {
     expect(parseReps("8-10")).toEqual({ kind: "reps", min: 8, max: 10 });
     expect(parseReps("12")).toEqual({ kind: "reps", min: 12, max: 12 });
     expect(parseReps("40 s")).toEqual({ kind: "time", seconds: 40 });
+    // Cardio en minutos y segundos (05/11/2026).
+    expect(parseReps("20 min")).toEqual({ kind: "time", seconds: 1200 });
+    expect(parseReps("1 min 30 s")).toEqual({ kind: "time", seconds: 90 });
+    expect(parseReps("20:00")).toEqual({ kind: "time", seconds: 1200 });
+    expect(parseReps("1:30")).toEqual({ kind: "time", seconds: 90 });
+    expect(parseReps("1 min 75 s").kind).toBe("free");
+    expect(fmtSeconds(45)).toBe("45 s");
+    expect(fmtSeconds(1200)).toBe("20 min");
+    expect(fmtSeconds(90)).toBe("1 min 30 s");
+    expect(repsText("1200 s")).toBe("20 min");
+    expect(repsText("8-10")).toBe("8-10");
     expect(parseReps("al fallo técnico")).toEqual({ kind: "free", text: "al fallo técnico" });
     expect(defaultRepsFor("8-10")).toBe(8);
     expect(defaultRepsFor("40 s")).toBeNull();

@@ -45,3 +45,39 @@ test("rutina a mano: un ejercicio nuevo se crea y se guarda con un solo «Guarda
   await expect(card.getByText(/2 ejercicios/)).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+// 05/11/2026 (reporte de un alumno con captura): el cardio pedía series y el tiempo sólo en segundos, y al dejar el tiempo vacío
+// «Guardar rutina» no hacía nada visible (el aviso quedaba arriba de todo de la hoja). Ahora el cardio es una actividad continua,
+// el tiempo va en minutos y segundos y el aviso aparece junto al botón.
+test("rutina a mano: cardio como actividad continua con minutos y segundos; el aviso se ve junto a «Guardar»", async ({ page }) => {
+  const errors = watchErrors(page);
+  await openDemo(page, "member");
+  await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: /Entrenar/ }).click();
+  const mine = page.locator("section.or");
+  await mine.getByRole("button", { name: /Cargarla a mano|Nueva/ }).first().click();
+  const sheet = page.getByRole("dialog", { name: /Mi rutina/ });
+  await sheet.getByRole("textbox", { name: "Nombre" }).first().fill("Cardio suave");
+  await sheet.getByRole("searchbox", { name: "Buscar ejercicio" }).fill("Cinta");
+  await sheet.locator(".or-results button").filter({ hasText: /^Cinta/ }).first().click();
+  const name = (await sheet.locator("legend").first().innerText()).replace(/^\d+\.\s*/, "").replace(/\s*Cardio$/, "").trim();
+  await expect(sheet.getByText("Actividad continua")).toBeVisible();
+  await expect(sheet.getByRole("textbox", { name: `Series de ${name}` })).toHaveCount(0);
+  const min = sheet.getByRole("textbox", { name: `Minutos de ${name}` }), sec = sheet.getByRole("textbox", { name: `Segundos de ${name}` });
+  await expect(min).toHaveValue("20");
+  await expect(sec).toHaveValue("0");
+  // Sin tiempo: el aviso dice qué falta y se ve sin subir.
+  await min.fill(""); await sec.fill("");
+  await sec.blur();
+  await sheet.getByRole("button", { name: "Guardar rutina" }).click();
+  const warn = sheet.getByRole("alert").filter({ hasText: `Completá el tiempo de ${name}.` });
+  await expect(warn).toBeVisible();
+  await expect(warn).toBeInViewport();
+  await min.fill("25"); await sec.fill("30"); await sec.blur();
+  await sheet.getByRole("button", { name: "Guardar rutina" }).click();
+  await expect(sheet).toHaveCount(0);
+  const card = mine.locator(".or-card").filter({ hasText: "Cardio suave" });
+  await expect(card.getByText("25 min 30 s")).toBeVisible();
+  const saved = (await (await page.request.get("/api/me/routines")).json()) as { name: string; exercises: { sets: number; reps: string }[] }[];
+  expect(saved.find((r) => r.name === "Cardio suave")?.exercises[0]).toMatchObject({ sets: 1, reps: "1530 s" });
+  expect(errors).toEqual([]);
+});

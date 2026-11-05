@@ -9,7 +9,7 @@
 // pirámide) y combinarse en superserie o circuito, con el mismo editor y las mismas reglas que el programa del coach.
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
-import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseWeightIn, syncCircuit, circuitIssues, resizeBlocks, type ExerciseDetail, type WeightUnit } from "@repi/domain";
+import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, repsText, syncCircuit, circuitIssues, resizeBlocks, type ExerciseDetail, type WeightUnit } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
@@ -27,6 +27,20 @@ type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w
 
 const MAX_EX = 12;
 const defaultReps = (k: Lib["kind"]) => (k === "time" ? "30 s" : k === "bodyweight" ? "12" : "10");
+// 05/11/2026: el cardio (cinta, bici, elíptico…) es una actividad continua: una sola vez, sin series, y el tiempo en minutos.
+const isCardio = (r: { group: string; kind: Lib["kind"] }) => r.group === "Cardio" && r.kind === "time";
+const secsOf = (reps: string) => { const t = parseReps(reps); return t.kind === "time" ? t.seconds : 0; };
+/** Tiempo en minutos y segundos. Se guarda como «N s» (lo que ya entiende el entrenamiento); vacío o 0 = sin completar. */
+function TimeField({ name, reps, onChange }: { name: string; reps: string; onChange: (reps: string) => void }) {
+  const total = secsOf(reps), mm = Math.floor(total / 60), ss = total % 60;
+  const put = (m: number, s: number) => onChange(m * 60 + s > 0 ? `${m * 60 + s} s` : "");
+  return (
+    <span className="or-time">
+      <label>Min<IntInput value={reps.trim() ? mm : null} nullable min={0} max={60} onChange={(n) => put(n ?? 0, ss)} aria-label={`Minutos de ${name}`} /></label>
+      <label>Seg<IntInput value={reps.trim() ? ss : null} nullable min={0} max={59} onChange={(n) => put(mm, n ?? 0)} aria-label={`Segundos de ${name}`} /></label>
+    </span>
+  );
+}
 const fmtDate = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(iso));
 const wTxt = (w: number | null, unit: WeightUnit) => (w == null ? "" : String(kgTo(w, unit)).replace(".", ","));
 
@@ -61,7 +75,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
           <div className="or-title">{r.next && list.length > 1 && <span className="or-next">Te toca hoy</span>}<b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
           <ul>{r.exercises.map((e, i) => (
             <li key={i}><span>{e.name}{e.detail && <small className="mb-muted or-method">{detailSummary({ ...e, rir: null, restSec: e.restSec ?? 90 }, groupLabels(r.exercises)[i])}</small>}</span>
-              <span>{mainSets(e.detail, e.sets)}×{e.reps}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
+              <span>{isCardio(e) && mainSets(e.detail, e.sets) === 1 ? repsText(e.reps) : `${mainSets(e.detail, e.sets)}×${repsText(e.reps)}`}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
           ))}</ul>
           <div className="or-actions">
             <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
@@ -99,7 +113,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   const labels = groupLabels(rows.map(asEx));
   const issue = circuitIssues(rows.map(asEx))[0];
   const move = (i: number, d: -1 | 1) => setRows((r) => { const n = [...r]; const j = i + d; if (j < 0 || j >= n.length) return r; [n[i], n[j]] = [n[j], n[i]]; return n; });
-  const rowOf = (e: Lib): Row => ({ key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, sets: 3, reps: defaultReps(e.kind), weightKg: null, w: "", restSec: null, note: null });
+  const rowOf = (e: Lib): Row => ({ key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, sets: isCardio(e) ? 1 : 3, reps: isCardio(e) ? "1200 s" : defaultReps(e.kind), weightKg: null, w: "", restSec: null, note: null });
   const add = (e: Lib) => {
     if (rows.length >= MAX_EX) { flash(`Una rutina puede tener hasta ${MAX_EX} ejercicios.`); return; }
     setRows((r) => [...r, rowOf(e)]);
@@ -122,7 +136,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       setRows(list); setPicking(false); setHasPending(false);
     }
     const okNow = name.trim().length >= 2 && list.length > 0 && list.every((r) => r.reps.trim()) && badW < 0 && !issue;
-    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : issue ? `El circuito ${issue.group} tiene ${issue.rounds} vueltas, pero ${issue.exercise} tiene ${issue.blocks} series. Igualalas en «Series y técnica».` : "Completá las repeticiones de cada ejercicio."); return; }
+    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : issue ? `El circuito ${issue.group} tiene ${issue.rounds} vueltas, pero ${issue.exercise} tiene ${issue.blocks} series. Igualalas en «Series y técnica».` : (() => { const r = list.find((x) => !x.reps.trim()); return r ? `Completá ${r.kind === "time" ? "el tiempo" : "las repeticiones"} de ${r.name}.` : "Completá las repeticiones de cada ejercicio."; })()); return; }
     setBusy(true); setWarn(null);
     try {
       await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: list.map((r) => ({
@@ -147,8 +161,12 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
           <legend>{labels[i] ? `${labels[i]} · ` : `${i + 1}. `}{r.name} <small>{r.group}</small></legend>
           <div className="or-ex-grid">
             {/* D184: con un plan serie por serie (método, etapas), las series salen del plan: se editan en «Series y técnica». */}
-            <label>Series<IntInput value={mainSets(r.detail, r.sets)} min={1} max={10} disabled={!!r.detail?.setPlan && !isStraightPlan(r.detail)} onChange={(n) => n != null && set(i, r.detail?.setPlan ? resizeBlocks(asEx(r), n) : { sets: n })} aria-label={`Series de ${r.name}`} /></label>
-            <label>{r.kind === "time" ? "Tiempo" : "Repes"}<input value={r.reps} maxLength={20} onChange={(e) => set(i, { reps: e.target.value })} placeholder={defaultReps(r.kind)} aria-label={`${r.kind === "time" ? "Tiempo" : "Repeticiones"} de ${r.name}`} /></label>
+            {isCardio(r) && r.sets === 1 && !r.detail
+              ? <span className="or-activity"><small className="mb-muted">Actividad continua</small><button type="button" className="linkbtn" onClick={() => set(i, { sets: 3 })}>Hacerlo en series</button></span>
+              : <label>Series<IntInput value={mainSets(r.detail, r.sets)} min={1} max={10} disabled={!!r.detail?.setPlan && !isStraightPlan(r.detail)} onChange={(n) => n != null && set(i, r.detail?.setPlan ? resizeBlocks(asEx(r), n) : { sets: n })} aria-label={`Series de ${r.name}`} /></label>}
+            {r.kind === "time"
+              ? <TimeField name={r.name} reps={r.reps} onChange={(v) => set(i, { reps: v })} />
+              : <label>Repes<input value={r.reps} maxLength={20} onChange={(e) => set(i, { reps: e.target.value })} placeholder={defaultReps(r.kind)} aria-label={`Repeticiones de ${r.name}`} /></label>}
             {r.kind !== "time" && <label>Peso ({unit})<input inputMode="decimal" value={r.w} maxLength={7} aria-invalid={r.w.trim() !== "" && parseWeightIn(r.w, unit) == null || undefined}
               onChange={(e) => set(i, { w: cleanDecimalDraft(e.target.value) })} placeholder={r.kind === "bodyweight" ? "—" : "Opcional"} aria-label={`Peso de ${r.name} en ${unit}`} /></label>}
           </div>
