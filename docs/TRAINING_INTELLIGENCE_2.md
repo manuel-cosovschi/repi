@@ -247,6 +247,12 @@ Integridad:
 
   El motor no cambia: sólo quién resuelve el número.
 
+- **Hecho en el 05/06 (D195):** el catálogo existe (`gym_equipment` + `gym_equipment_exercise`, por sede) y alimenta el mismo `increment` con ese orden de prioridad (`resolveLadder`).
+  - Además de un salto, puede dar una lista explícita de cargas (`LoadLadder.loadsKg`).
+  - `fitTargetsToLoads` ajusta los objetivos de reglas a esas cargas sin subir por redondeo (más de 10 % de diferencia: mantiene la carga con `equipment_fit` + `increment_too_large`) y sin tocar lo indicado por el profe.
+  - El motor (`recommendExercise`, `adjustAfterSet`) no cambió.
+  - Detalle: `docs/EXPERIENCE_UX_2.md` §5.
+
 ## 9. IA generativa
 
 - El motor determinista resuelve comparabilidad, selección, rangos, límites, seguridad, objetivo, validación y persistencia.
@@ -341,6 +347,8 @@ Puede reutilizar sin tocar el motor:
 - `detail.load` y `loadIncrement` para un catálogo de equipos.
 
 El rediseño puede cambiar la presentación (sesión, descanso, ficha) consumiendo los mismos contratos.
+
+**05/06 (D195):** la sesión usa `SetGuide` en lugar de `TargetCard` (mismos `RowTarget`, misma región «Objetivo de serie N»). Las correcciones del historial no modifican `training_target` ni `training_proposal`: lo emitido queda como evidencia y las próximas recomendaciones leen el historial corregido, sin lo anulado.
 
 ## 14. Publicación de 0043 (aplicada en producción el 04/11/2026)
 
