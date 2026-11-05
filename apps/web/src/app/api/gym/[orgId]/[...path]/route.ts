@@ -23,6 +23,7 @@ import * as floor from "@/server/gym/floor-now";
 import * as guide from "@/server/gym/owner-assistant";
 import * as dc from "@/server/training/day-copy";
 import * as st from "@/server/training/set-types";
+import * as eqp from "@/server/gym/equipment";
 import { CopyChoiceZ, SetTypeZ } from "@/server/training/workflow-schema";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
@@ -30,6 +31,12 @@ const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 
 const id = z.string().min(1).max(64);
 const period = (u: URL): Period => { const p = u.searchParams.get("period"); return isPeriod(p) ? p : "30d"; };
 const loc = (u: URL) => u.searchParams.get("loc")?.slice(0, 64) || null;
+// D195: equipo de la sede (números en la unidad del equipo; se convierten a kg al usarlos).
+const EQUIP = z.object({
+  name: z.string().max(80), category: z.string().max(20), code: z.string().max(20).nullable().optional(), unit: z.enum(["kg", "lb"]),
+  increment: z.number().positive().max(2204).nullable(), perSide: z.boolean(), minLoad: z.number().positive().max(2204).nullable(), maxLoad: z.number().positive().max(2204).nullable(),
+  loads: z.array(z.number().positive().max(2204)).max(120).nullable(), note: z.string().max(200).nullable().optional(), exerciseIds: z.array(id).max(60),
+}).strict();
 const DOC = z.object({
   name: z.string().max(120), weeks: z.number().int(), note: z.string().max(1000),
   days: z.array(z.object({ name: z.string().max(60), exercises: z.array(z.object({
@@ -49,6 +56,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled };
     }
     case "notices": return notices.myStaffNotices(me, orgId);
+    case "equipment": return b === "library" ? eqp.equipmentLibrary(me, orgId, loc(u)) : eqp.listEquipment(me, orgId, loc(u), { archived: u.searchParams.get("archived") === "1" }); // D195
     case "set-types": { const ctx = await gym.gymContext(me, orgId); gym.need(ctx, "program.edit"); return st.listSetTypes({ orgId, userId: me }); } // D192
     case "shift": return gym.myShift(me, orgId, loc(u));
     case "hours": return gym.staffHoursFor(me, orgId, u.searchParams.get("user")); // D170
@@ -113,6 +121,9 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   await limit(`gym:${me}`, 120);
   const [a, b, c] = path;
+  if (a === "equipment" && !b) { const p = await body(req, EQUIP.extend({ loc: id })); const { loc: l, ...rest } = p; return eqp.createEquipment(me, orgId, l, rest); }
+  if (a === "equipment" && b && c === "archive") return eqp.archiveEquipment(me, orgId, b, (await body(req, z.object({ archived: z.boolean() }))).archived);
+  if (a === "equipment" && b && !c) return eqp.updateEquipment(me, orgId, b, await body(req, EQUIP.extend({ revision: z.number().int().min(1) })));
   if (a === "notices" && b === "read") return notices.markStaffNoticesRead(me, orgId, (await body(req, z.object({ ids: z.array(id).max(100).nullable() }))).ids);
   if (a === "hours") return gym.setStaffHours(me, orgId, await body(req, z.object({ locationId: id, days: z.array(z.number().int()).max(7), from: z.string().max(5), to: z.string().max(5), userId: id.nullable().optional() })));
   if (a === "shift" && b === "start") return gym.startShift(me, orgId, (await body(req, z.object({ loc: id }))).loc);

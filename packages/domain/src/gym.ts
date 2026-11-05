@@ -25,15 +25,16 @@ export const GYM_CAPS = [
   "club.moderate", // moderación de Repi Club del gym (F-RC-05)
   "members.validate", // validar altas de socios por QR (anexo 26/10): piso sólo con turno efectivo en la sede
   "challenges.witness", // validar en persona un intento de récord sin video (F-HX-12, D165): piso sólo con turno en la sede
+  "equipment.manage", // D195: catálogo de equipamiento de la sede (no es inventario ni datos de socios)
 ] as const;
 export type GymCap = (typeof GYM_CAPS)[number];
 
 const CAPS: Record<GymRole, GymCap[]> = {
   owner: ["member.read", "task.reassign", "team.read", "shifts.plan", "reviews.read_named", "reviews.moderate", "gym.config", "members.approve",
-    "community.publish", "catalog.publish", "challenges.validate", "reception.desk", "club.moderate"],
+    "community.publish", "catalog.publish", "challenges.validate", "reception.desk", "club.moderate", "equipment.manage"],
   manager: ["member.read", "task.create", "task.reassign", "team.read", "shifts.plan", "reviews.read_named", "reviews.moderate", "members.approve",
-    "community.publish", "catalog.publish", "challenges.validate", "reception.desk", "club.moderate"],
-  coordinator: ["floor.work", "member.read", "program.edit", "task.create", "task.reassign", "team.read", "shifts.plan", "perf.own", "messages.floor", "members.validate", "challenges.witness"],
+    "community.publish", "catalog.publish", "challenges.validate", "reception.desk", "club.moderate", "equipment.manage"],
+  coordinator: ["floor.work", "member.read", "program.edit", "task.create", "task.reassign", "team.read", "shifts.plan", "perf.own", "messages.floor", "members.validate", "challenges.witness", "equipment.manage"],
   floor_trainer: ["floor.work", "member.read", "program.edit", "task.create", "perf.own", "messages.floor", "members.validate", "challenges.witness"],
   reception: ["task.create", "members.approve", "catalog.publish", "reception.desk"],
 };

@@ -6,7 +6,7 @@
 // queda trazado); una falla acá nunca impide registrar una serie (quien llama la atrapa); no llama a ningún LLM.
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  TI_VERSION, TI_WINDOW, adjustAfterSet, labelAt, loadIncrement, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
+  TI_VERSION, TI_WINDOW, adjustAfterSet, labelAt, loadIncrement, fitTargetsToLoads, resolveLadder, type LoadLadder, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
   type ExCtx, type ExerciseDetail, type HistRow, type IntelEvent, type Proposal, type RowTarget, type SetKind, type Trend,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -106,7 +106,11 @@ export type Outlook = { trend: Trend; proposal: Proposal | null } | null;
  * conservan aunque cambie el algoritmo. Al cambiar la versión de la rutina o el ejercicio que se hace, los de filas sin
  * registrar quedan obsoletos (superseded) y se emiten otros. Una sesión terminada sólo se lee: nunca se recalcula.
  */
-export async function ensureTargets(userId: string, s: { id: string; versionId: string; status: string }, exs: SessionEx[], now = new Date()) {
+/** D195: saltos del ejercicio que realmente se hace: plan (sólo si es el original) > equipo de la sede > desconocido. */
+export const ladderFor = (e: Pick<SessionEx, "doing" | "exerciseId" | "detail">, gym?: Map<string, LoadLadder> | null) =>
+  resolveLadder(e.doing === e.exerciseId ? e.detail : null, gym?.get(e.doing) ?? null);
+
+export async function ensureTargets(userId: string, s: { id: string; versionId: string; status: string }, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null) {
   const current = await db.select().from(trainingTarget).where(and(eq(trainingTarget.sessionId, s.id), isNull(trainingTarget.supersededAt)));
   const open = s.status === "in_progress" || s.status === "paused";
   const byPe = new Map<string, TargetRow[]>();
@@ -121,7 +125,10 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
     await db.transaction(async (tx) => {
       if (stale.length) await tx.update(trainingTarget).set({ supersededAt: now }).where(and(inArray(trainingTarget.id, stale.map((r) => r.id)), isNull(trainingTarget.supersededAt)));
       for (const e of need) {
-        const ts = recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), ...(e.doing !== e.exerciseId ? { increment: null } : {}) }); // sustituto: otro equipo, salto desconocido
+        // Sustituto: otro equipo (salto desconocido salvo que la sede lo tenga cargado). D195: con lista de cargas de la sede, el
+        // objetivo se ajusta a una carga que existe (nunca la del profe ni una serie hecha).
+        const lad = ladderFor(e, gym);
+        const ts = fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad);
         const mine = (byPe.get(e.id) ?? []).filter((r) => !stale.includes(r));
         const missing = ts.filter((t) => !e.logged.has(t.setIndex) && !mine.some((r) => r.setIndex === t.setIndex));
         if (!missing.length) continue;
@@ -167,7 +174,10 @@ export async function afterSetLogged(userId: string, sessionId: string, peId: st
   const ex: ExCtx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: pe.detail as ExerciseDetail | null };
   const targets: RowTarget[] = Array.from({ length: pe.sets }, (_, i) => { const r = cur.find((x) => x.setIndex === i); return r ? toOut(r) : null; }) as RowTarget[];
   const done = logs.map((l) => ({ index: l.setIndex, w: l.weightKg == null ? null : Number(l.weightKg), r: l.reps, rir: l.rir, feel: l.feel }));
-  const adj = adjustAfterSet({ ex, targets, done, justDone: setIndex, ...(mine.exerciseId !== pe.exerciseId ? { increment: null } : {}) });
+  const gym = s.gymMemberId ? await import("../gym/equipment").then((m) => m.laddersForMember(s.gymMemberId, [mine.exerciseId])).catch(() => null) : null;
+  const lad = ladderFor({ doing: mine.exerciseId, exerciseId: pe.exerciseId, detail: ex.detail ?? null }, gym);
+  const raw = adjustAfterSet({ ex, targets, done, justDone: setIndex, increment: lad.incrementKg });
+  const adj = { ...raw, targets: fitTargetsToLoads(raw.targets, lad) };
   const logged = new Set(logs.map((l) => l.setIndex));
   await db.transaction(async (tx) => {
     await tx.update(trainingTarget).set({ decision: decisionFor(toOut(mine), { w: done.find((d) => d.index === setIndex)!.w, r: log.reps }), setLogId: log.id, decidedAt: now })
@@ -231,11 +241,13 @@ export async function relationIntelligence(rel: IntelRel, now = new Date()) {
     .where(and(eq(col.session, rel.id), isNull(trainingTarget.supersededAt), sql`${trainingTarget.createdAt} >= ${since.toISOString()}::timestamptz`))
     .groupBy(trainingTarget.exerciseId, trainingTarget.decision);
   const out = [];
+  // D195: en la sala, los saltos del equipo de la sede del socio (si el plan no los indica).
+  const gymL = rel.kind === "gym" ? await import("../gym/equipment").then((m) => m.laddersForMember(rel.id, exs.map((e) => e.exerciseId))).catch(() => null) : null;
   for (const e of exs) {
     const rows = hist.get(e.exerciseId) ?? [];
     const ex = { sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null };
     const fatigue = rows.slice(0, 12).filter((r) => r.feel === "limite" || r.rir === 0).length >= 4;
-    const o = outlookFor(ex, rows, now, true, fatigue);
+    const o = outlookFor(ex, rows, now, true, fatigue, resolveLadder(ex.detail, gymL?.get(e.exerciseId) ?? null).incrementKg);
     const last = rows[0] ? rows.filter((r) => r.sessionId === rows[0].sessionId) : [];
     const counts = { accepted: 0, modified: 0, not_done: 0 };
     for (const d of decided.filter((x) => x.ex === e.exerciseId)) if (d.d && d.d in counts) counts[d.d as keyof typeof counts] += d.n;

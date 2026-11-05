@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, localizeWeights, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
-import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, type RowTarget } from "@repi/domain";
+import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, fitTargetsToLoads, type RowTarget } from "@repi/domain";
 import { TargetCard } from "./TargetCard";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
@@ -307,7 +307,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       if (ex.targets?.length && !ex.change) {
         const done = Array.from({ length: ex.sets }, (_, i) => ({ i, x: sets[setKey(ex.id, i)] })).filter((y) => y.x?.done).map((y) => ({ index: y.i, w: y.x.w, r: y.x.r, rir: y.x.rir, feel: y.x.feel ?? null }));
         const full = Array.from({ length: ex.sets }, (_, i) => ex.targets!.find((t) => t.setIndex === i)) as RowTarget[];
-        const a = adjustAfterSet({ ex, targets: full, done, justDone: cur });
+        // D195: los mismos saltos con que el servidor calculó (plan, equipo de la sede o desconocido) y sólo cargas que existen.
+        const raw = adjustAfterSet({ ex, targets: full, done, justDone: cur, increment: ex.ladder ? ex.ladder.incrementKg : undefined });
+        const a = { ...raw, targets: fitTargetsToLoads(raw.targets, ex.ladder) };
         if (a.changed.length) extra.exercises = s.exercises.map((e) => (e.id === ex.id ? { ...e, targets: a.targets.filter(Boolean) } : e));
         const key = a.event ? `${ex.id}:${a.event.code}` : null;
         if (a.event && key && !(s.intelSeen ?? []).includes(key)) { extra.intel = { key, text: a.event.text, restPlusSec: a.event.restPlusSec, at: new Date().toISOString() }; extra.intelSeen = [...(s.intelSeen ?? []), key]; }

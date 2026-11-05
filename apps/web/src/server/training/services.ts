@@ -897,14 +897,17 @@ function withFirstLoad(d: ExerciseDetail, kg: number | null): ExerciseDetail {
 async function sessionIntel(userId: string, s: typeof workoutSession.$inferSelect, exs: (typeof programExercise.$inferSelect)[], logs: { programExerciseId: string; setIndex: number }[], now: Date) {
   const ti = await import("./intelligence");
   const sx = await ti.sessionExercises(s.id, exs, logs);
-  const { targets, history } = await ti.ensureTargets(userId, s, sx, now);
+  // D195: cargas reales de la sede del socio (catálogo de equipamiento). Sin catálogo o en una sesión de coach: como siempre.
+  const gym = s.gymMemberId ? await import("../gym/equipment").then((m) => m.laddersForMember(s.gymMemberId, sx.map((e) => e.doing))).catch(() => null) : null;
+  const { targets, history } = await ti.ensureTargets(userId, s, sx, now, gym);
+  const ladders = new Map(sx.map((e) => [e.id, ti.ladderFor(e, gym)]));
   const outlook = new Map<string, import("./intelligence").Outlook>();
   if (s.status === "in_progress" || s.status === "paused") {
     const hist = history && sx.every((e) => e.skipped || history.has(e.doing)) ? history : await ti.historyRows(userId, sx.map((e) => e.doing), { excludeSessionId: s.id, now });
     const owned = !(await isSoloSession(db as unknown as Tx, s));
-    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned, false, e.doing === e.exerciseId ? loadIncrement(e.detail) : null));
+    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned, false, ladders.get(e.id)?.incrementKg ?? null));
   }
-  return { targets, outlook };
+  return { targets, outlook, ladders };
 }
 
 export async function getSession(userId: string, sessionId: string, now = new Date()) {
@@ -951,6 +954,8 @@ export async function getSession(userId: string, sessionId: string, now = new Da
         media: media.get(doing(e)) ?? null,
         // D191: objetivo de REPI por fila (serie o etapa) y tendencia del ejercicio. Separado del plan y de lo registrado.
         targets: intel?.targets.get(e.id) ?? [], outlook: intel?.outlook.get(e.id) ?? null,
+        // D195: saltos y cargas disponibles con que REPI calculó (plan, sede o desconocido), para el ajuste en el teléfono.
+        ladder: intel?.ladders.get(e.id) ?? null,
         change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
         logs: logs.filter((l) => l.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)
           .map((l) => ({ id: l.id, setIndex: l.setIndex, exerciseId: l.exerciseId, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, completedAt: l.completedAt, revision: l.revision })),
