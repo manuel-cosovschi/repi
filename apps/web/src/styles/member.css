@@ -769,6 +769,7 @@
 .club-max small { grid-column: 1 / -1; font-size: 12px; color: var(--ui-muted); }
 .club-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .club-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+.club-grid .club-img-gone { aspect-ratio: 1; min-height: 0; border-radius: 8px; font-size: 12px; }
 .club-me em { font-style: normal; color: var(--ui-link); font-weight: 600; font-size: 14px; }
 
 /* F-BR-02: intro de marca (escena 1 del video de lanzamiento). Siempre oscura (.ui-dark): es el video de marca. */
