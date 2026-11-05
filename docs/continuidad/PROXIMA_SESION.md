@@ -1,7 +1,60 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D194; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; próximo: 05/06; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 05/11/2026 (hasta D195; bloque 05/06 implementado en el PR #24 en borrador, sin publicar; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; próximo: revisar y publicar 05/06 (PR #24), después 06/06; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
+
+## Bloque 05/06 · Experience Intelligence & UX 2.0 (D195) — 05/11/2026 · IMPLEMENTADO, SIN PUBLICAR
+
+**Estado:** rama `feat/repi-experience-intelligence-ux`, PR #24 en borrador sobre `main` (`9e18035`).
+- No se integró ni se desplegó.
+- La migración 0045 **no** se aplicó en producción.
+- Producción sigue en `9e1803536424`.
+
+**Qué hay** (detalle en `docs/EXPERIENCE_UX_2.md`):
+- Sesión del alumno con la guía de la serie (Tu profe indicó / REPI recomienda / Anterior / Real).
+- Lista de ejercicios, «Salir un momento» y aviso «Entrenamiento en curso · Volver».
+- Atajos a cargas reales y estados de guardado honestos.
+- Historial corregible y reversible con auditoría.
+- Vista previa del coach de sólo lectura.
+- Catálogo de equipamiento por sede integrado a Training Intelligence.
+- Ayudas de primera vez.
+
+**Archivos principales:**
+- Dominio: `packages/domain/src/{corrections,equipment}.ts`.
+- Servidor: `apps/web/src/server/training/history.ts`, `apps/web/src/server/gym/equipment.ts`.
+- Rutas: `/api/me/history/**`, `/api/me/hints`, `gym/[orgId]/equipment`.
+- Componentes del alumno: `components/member/{History,SetGuide,SyncBadge,Hint}.tsx`.
+- Coach y gimnasio: `components/coach/StudentPreview.tsx`, `components/gym/Equipment.tsx`.
+
+**Migración 0045** (aditiva): `drizzle/0045_experience_ux.sql`, `scripts/operations/hosted-0045.sql`, `scripts/rollback/0045_experience_ux.down.sql` y `scripts/operations/verify-0045.sh`.
+- Ensayada en `repi_verify_0045`: huella igual, RLS, reintento sin efecto, reversión negada con anulados, revertir y reaplicar.
+- Compatible con el código actual de producción.
+
+**Pruebas:**
+- typecheck, guardas (24) y dominio (371) en verde.
+- Integración (`repi_test`): 60 archivos, 397 pruebas en verde.
+- Build en verde.
+- E2E nuevo `e2e/experience-ux.spec.ts` en verde (Pixel 7 emulado y escritorio, axe).
+- Suite E2E completa contra la build local y `repi_dev` (Chromium preinstalado): 111 pasan, 0 fallan, 27 omitidas por diseño del proyecto (teléfono o escritorio).
+  - La primera corrida encontró tres regresiones, ya corregidas:
+    - la guarda de doble toque bloqueaba un toque legítimo después de «Saltar descanso»;
+    - faltaba «Usar» en drops con carga de referencia;
+    - el contraste del enlace de la ayuda en el coach oscuro.
+- No probado en teléfonos físicos.
+
+**Decisiones:**
+- Anular = estado + columna, nunca `DELETE`.
+- Sólo la persona dueña corrige su historial (coach y gimnasio: 404).
+- Trofeos ganados no se revocan; recomendaciones emitidas no se modifican.
+- `fitTargetsToLoads` sube sólo si la carga disponible está a 10 % o menos.
+- Equipamiento con `equipment.manage` (dueño, gerente, coordinador).
+
+**Próxima acción:**
+1. Revisión del PR #24 por el titular.
+2. Con su autorización: workflow «Respaldo» en verde.
+3. `hosted-0045.sql` en producción y verificación.
+4. Integrar el PR (squash) y desplegar.
+5. Probar en producción con la demo, idealmente en un teléfono físico.
 
 ## PR #21 publicado: flujo del entrenador (D192) + actualizar alumnos desde plantilla (D194) — 04/11/2026 · COMPLETO
 

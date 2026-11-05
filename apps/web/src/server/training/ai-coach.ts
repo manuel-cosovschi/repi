@@ -3,7 +3,7 @@
 // Sólo propone ejercicios del programa asignado (no inventa rutinas) y no recibe datos de salud, nombre ni email.
 // D138: la persona puede responder («la máquina está ocupada», «no hay», «me molesta») y la IA rearma la rutina con esa
 // información, cambiando sólo por alternativas compatibles de la biblioteca (primero las aprobadas por su profe) o salteando.
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isChangeReason, localDate, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
@@ -66,7 +66,7 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
     mySettings(userId), // D139: lo que la persona busca entrenando
     followDayId ? dayAlternatives(userId, followDayId, 8) : Promise.resolve(null),
   ]);
-  const sets = recent.length ? await db.select({ s: setLog.sessionId }).from(setLog).where(inArray(setLog.sessionId, recent.map((r) => r.id))) : [];
+  const sets = recent.length ? await db.select({ s: setLog.sessionId }).from(setLog).where(and(inArray(setLog.sessionId, recent.map((r) => r.id)), isNull(setLog.voidedAt))) : [];
   // D191: la tendencia de cada ejercicio sale del motor determinista (Training Intelligence); la IA sólo la usa para explicar.
   const { historyRows, outlookFor } = await import("./intelligence");
   const allEx = t.program.days.flatMap((d) => d.exercises);

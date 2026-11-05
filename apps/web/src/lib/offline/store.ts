@@ -1,7 +1,7 @@
 "use client";
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
-import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, labelAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type Proposal, type RowTarget, type SessionStatus, type SetKind, type Suggestion, type Trend } from "@repi/domain";
+import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, labelAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type Proposal, type RowTarget, type SessionStatus, type SetKind, type Suggestion, type Trend, type LoadLadder } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
@@ -21,6 +21,8 @@ export type LocalEx = { id: string; exerciseId: string; name: string; sets: numb
   // Nunca es un resultado: lo registrado está en `sets`.
   targets?: (RowTarget & { id?: string })[] | null;
   outlook?: { trend: Trend; proposal: Proposal | null } | null;
+  // D195: saltos y cargas disponibles con que se calcularon los objetivos (plan del ejercicio, equipo de la sede o desconocido).
+  ladder?: LoadLadder | null;
 };
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
@@ -131,7 +133,7 @@ export function fromServer(x: {
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
     skew, ivAt: x.interval?.at ? new Date(Date.parse(x.interval.at) - skew).toISOString() : null,
     iv: x.interval ? { peId: x.interval.peId, block: x.interval.block, start: Date.parse(x.interval.startedAt) - skew, emomSec: x.interval.emomSec, status: x.interval.status } : null,
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null })),
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null, ladder: (e as { ladder?: LoadLadder | null }).ladder ?? null })),
     sets,
   };
 }

@@ -5,8 +5,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, localizeWeights, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
-import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, type RowTarget } from "@repi/domain";
-import { TargetCard } from "./TargetCard";
+import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, fitTargetsToLoads, nearLoads, type RowTarget } from "@repi/domain";
+import { SetGuide } from "./SetGuide";
+import { syncInk, syncView } from "./SyncBadge";
+import { Hint } from "./Hint";
 import { api } from "@/lib/api";
 import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
@@ -25,7 +27,7 @@ import { StepSlider } from "@/components/motion/StepSlider";
 import { seedOf } from "@/lib/confetti";
 import { prefersReducedMotion } from "@/lib/motion";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, NotePencil, Pause, Play, PlayCircle, Trophy } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, ListBullets, NotePencil, Pause, Play, PlayCircle, Trophy } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
 import { Nudges, type Nudge } from "./Nudges";
 
@@ -98,6 +100,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const [changing, setChanging] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [howto, setHowto] = useState(false); // D164: video de cómo se hace
+  const [exList, setExList] = useState(false); // D195: lista de ejercicios para saltar a cualquiera
   // Nota de la serie en edición (F-HX-21): como RIR y sensación, se guarda al completar o guardar la serie.
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [restAlert, setRestAlert] = useState<RestAlertState>("unsupported");
@@ -133,6 +136,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       }
     } else void flush();
     if (!x) return;
+    // D195: un entrenamiento anulado desde el historial no se retoma ni se resume como hecho.
+    if (x.status === "voided") { setErr("Este entrenamiento está anulado. Podés restaurarlo desde Progreso → Historial."); return; }
     setS(x);
     if (x.status === "completed" || x.status === "abandoned") { await showSummary(x); return; }
     const firstOpen = x.exercises.findIndex((e) => e.change?.kind !== "skip" && Array.from({ length: e.sets }, (_, i) => x!.sets[setKey(e.id, i)]).some((y) => !rowResolved(y)));
@@ -285,7 +290,16 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     await enqueue({ key: `skip:${s.id}:${k}`, kind: "skip", sid: s.id, peId: ex.id, idx: i });
     flash(`${rowName(i)[0].toUpperCase()}${rowName(i).slice(1)} vuelve a estar pendiente.`);
   };
+  // D195: un doble toque accidental no registra dos veces ni salta la serie siguiente.
+  // Doble toque: el segundo toque sobre el botón principal (que ya muestra la serie siguiente) no registra otra serie.
+  // Tocar cualquier otra cosa en el medio (saltar el descanso, elegir una serie) habilita el siguiente toque enseguida.
+  const completing = useRef(false);
   const complete = async () => {
+    if (!s || !ex || cur < 0 || !curRow || completing.current) return;
+    completing.current = true;
+    try { await completeNow(); } finally { setTimeout(() => { completing.current = false; }, 450); }
+  };
+  const completeNow = async () => {
     if (!s || !ex || cur < 0 || !curRow) return;
     const k = setKey(ex.id, cur);
     const wasDone = curRow.done;
@@ -307,7 +321,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       if (ex.targets?.length && !ex.change) {
         const done = Array.from({ length: ex.sets }, (_, i) => ({ i, x: sets[setKey(ex.id, i)] })).filter((y) => y.x?.done).map((y) => ({ index: y.i, w: y.x.w, r: y.x.r, rir: y.x.rir, feel: y.x.feel ?? null }));
         const full = Array.from({ length: ex.sets }, (_, i) => ex.targets!.find((t) => t.setIndex === i)) as RowTarget[];
-        const a = adjustAfterSet({ ex, targets: full, done, justDone: cur });
+        // D195: los mismos saltos con que el servidor calculó (plan, equipo de la sede o desconocido) y sólo cargas que existen.
+        const raw = adjustAfterSet({ ex, targets: full, done, justDone: cur, increment: ex.ladder ? ex.ladder.incrementKg : undefined });
+        const a = { ...raw, targets: fitTargetsToLoads(raw.targets, ex.ladder) };
         if (a.changed.length) extra.exercises = s.exercises.map((e) => (e.id === ex.id ? { ...e, targets: a.targets.filter(Boolean) } : e));
         const key = a.event ? `${ex.id}:${a.event.code}` : null;
         if (a.event && key && !(s.intelSeen ?? []).includes(key)) { extra.intel = { key, text: a.event.text, restPlusSec: a.event.restPlusSec, at: new Date().toISOString() }; extra.intelSeen = [...(s.intelSeen ?? []), key]; }
@@ -480,13 +496,10 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const anyOpen = s.exercises.some((_, i) => !resolved(i));
   const sub = ex.change?.kind === "substitute" ? ex.change.substitute : null;
   const anyDone = Object.values(s.sets).some((x) => x.done);
-  const savedTxt = sync.kind === "saving" ? "Guardando…"
-    : sync.kind === "offline" ? `Sin conexión · ${sync.pending} pendiente${sync.pending === 1 ? "" : "s"}`
-      : sync.kind === "pending" ? `Pendiente de sincronizar (${sync.pending})`
-        : sync.kind === "error" ? "Error al guardar"
-          : sync.kind === "conflict" || conflicts.length ? "Conflicto por resolver"
-            : anyDone ? (s.synced ? "Guardado" : "Guardado en el teléfono") : "Sin series todavía";
-  const savedInk = sync.kind === "error" || sync.kind === "conflict" || conflicts.length ? "var(--ui-error-text)" : sync.kind === "offline" || sync.kind === "pending" ? "var(--ui-warning-text)" : "var(--ui-accent-2)";
+  // D195: dónde están los datos, según la cola (en el teléfono no es «en tu cuenta»).
+  const sv = syncView(sync, { anyDone, conflicts: conflicts.length, rejected: !!s.rejected });
+  const savedTxt = sv.text;
+  const savedInk = syncInk(sv.tone);
 
   const pendingSets = s.exercises.reduce((n, _, i) => n + (skippedAt(i) ? 0 : mainLeft(i)), 0);
   const grp = ex.detail?.group ? groupRounds(s.exercises, ex.detail.group) : null;
@@ -498,7 +511,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const addRest = (sec: number) => rest && commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + sec, total: rest.total + sec } : { ...rest, end: (rest.end ?? Date.now()) + sec * 1000, total: rest.total + sec },
     intel: s.intel ? { ...s.intel, restPlusSec: null } : null });
   return (
-    <div className="wo" onPointerDownCapture={() => { lastAct.current = Date.now(); }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
+    <div className="wo" onPointerDownCapture={(e) => { lastAct.current = Date.now(); if (!(e.target as HTMLElement).closest?.("[data-cta]")) completing.current = false; }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
       <div className="wo-body">
         <div className="wo-head">
           <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => (s.rejected ? onExit("train") : setStill("leave"))}><Ic i={ArrowLeft} size={22} color="var(--ui-text)" /></button>
@@ -546,6 +559,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           );
         })}
         <div className="prog" aria-hidden="true">{s.exercises.map((e, i) => <i key={e.id} className={resolved(i) ? "done" : i === exIdx ? "cur" : ""} />)}</div>
+        {!anyDone && <Hint id="workout_nav" title="Cómo registrar" text="Ajustá peso y repeticiones con − y + (o tocá el número), y tocá «Registrar». Tocá una serie de la lista para corregirla. Con el ícono de lista ves todos los ejercicios; si salís, el entrenamiento queda guardado y volvés desde cualquier pestaña." />}
         <div className="excard">
           <div className="excard-top">
             <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{labels[exIdx] ? `${labels[exIdx]} · ` : ""}{sub ? sub.name : ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null && !ex.detail?.setPlan ? ` · RIR ${ex.rir}` : ""}</small>
@@ -553,6 +567,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               {roundTxt && <small className="xc-tag" aria-live="polite">{roundTxt}</small>}
               {ex.change && <small className="xc-tag">{sub ? `En lugar de ${ex.name}` : "Salteado"} · {EXERCISE_CHANGE_REASONS[ex.change.reason].toLowerCase()}</small>}</div>
             <div className="nav2">
+              <button type="button" aria-label={`Ver los ${s.exercises.length} ejercicios`} onClick={() => setExList(true)}><Ic i={ListBullets} size={16} /></button>
               {!paused && <button type="button" aria-label={`Cambiar ${ex.name} en este entrenamiento`} onClick={() => setChanging(true)}><Ic i={ArrowsClockwise} size={16} /></button>}
               <button type="button" aria-label="Ejercicio anterior" disabled={exIdx === 0} onClick={() => { setExIdx(exIdx - 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretLeft} size={16} /></button>
               <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretRight} size={16} /></button>
@@ -563,22 +578,14 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             ? <button type="button" className="wo-howto" onClick={() => setHowto(true)}><Ic i={PlayCircle} size={18} /> Ver cómo se hace</button>
             : <a className="wo-howto" href={ex.media?.url ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${sub ? sub.name : ex.name} técnica`)}`} target="_blank" rel="noopener noreferrer">
               <Ic i={PlayCircle} size={18} /> {ex.media ? "Ver cómo se hace" : "Buscar cómo se hace en YouTube"}</a>)}
-          {curTarget ? (
-            <TargetCard t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !!curRow && !curRow.done} noCoachLoad={repsKind !== "time" && ex.detail?.setPlan?.[cur]?.weightKg == null}
-              real={curRow?.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null}
+          {/* D195: guía de la serie en curso (Anterior / Profe / REPI / Real) adaptada a lo que hay, legible en 320 px. */}
+          {cur >= 0 && curRow && curT && (
+            <SetGuide t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !curRow.done}
+              plan={{ weightKg: !ex.change ? ex.detail?.setPlan?.[cur]?.weightKg ?? null : null, reps: curT.reps, timed: repsKind === "time" }}
+              prevFallback={ex.prev} suggest={!curTarget && !ex.change && ex.suggest && !ex.detail?.setPlan?.some((p) => p.weightKg != null) ? { weightKg: ex.suggest.weightKg, reps: ex.suggest.reps, why: ex.suggest.why } : null}
+              real={curRow.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null} draft={curRow.done ? null : { w: curRow.w, r: curRow.r }}
               // «Al fallo», AMRAP o por tiempo: las repeticiones son el resultado, no se precargan (D184); sólo la carga.
-              onUse={(w, r) => { const numeric = !!curT && parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Objetivo cargado: ajustalo si hace falta antes de completar."); }} />
-          ) : <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><small>Serie anterior</small><span style={{ fontSize: 15, fontWeight: 500 }}>{prevTxt(ex.prev, unit)}</span>
-            {/* D193: sin objetivo calculado (o con un reemplazo), la carga del profe se sigue viendo con su nombre. */}
-            {!ex.change && cur >= 0 && ex.detail?.setPlan?.[cur]?.weightKg != null && (
-              <span className="wo-coachload"><small>Tu profe indicó</small> <b>{kg(ex.detail.setPlan[cur].weightKg!, unit)} × {ex.detail.setPlan[cur].reps}</b></span>
-            )}</div>}
-          {!curTarget && ex.suggest && !ex.change && !ex.detail?.setPlan?.some((p) => p.weightKg != null) && (
-            <div className="wo-suggest" role="note">
-              <small>REPI sugiere hoy</small>
-              <b>{ex.suggest.weightKg != null ? `${kg(ex.suggest.weightKg, unit)} × ` : ""}{ex.suggest.reps} reps</b>
-              <span>{localizeWeights(ex.suggest.why, unit)}</span>
-            </div>
+              onUse={(w, r) => { const numeric = parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Propuesta cargada: ajustala si hace falta antes de registrar."); }} />
           )}
           <div className="sets" role="list" aria-label="Series">
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
@@ -693,15 +700,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               );
             })()}
             <div className="steppers">
-              <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} />
+              <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} loads={!ex.change && ex.ladder?.loadsKg?.length ? ex.ladder.loadsKg : null} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>
             </div>
-            <div className="wo-tools">
-              {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
-              <button type="button" className="linkbtn" onClick={() => setNoteOpen(true)}>{noteDraft?.trim() ? "Editar nota" : "Nota de la serie"}</button>
-              {connectPlace && <button type="button" className="linkbtn" onClick={() => setAsking(true)}>Pedir ayuda a sala</button>}
-            </div>
-            {noteDraft?.trim() && <span className="feel-note">Nota: {noteDraft.trim()}</span>}
             <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
             <div className="feel" role="group" aria-label="¿Cómo se sintió la serie? (opcional)">
               {(Object.keys(SET_FEEL) as SetFeel[]).filter((k) => gym || k !== "ayuda").map((k) => {
@@ -711,7 +712,14 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               })}
             </div>
             {gym && (curRow.done ? curRow.feel : feel) && FEEL_ALERTS.includes((curRow.done ? curRow.feel : feel) as SetFeel) && <span className="feel-note">Al completarla avisamos al equipo de sala en turno para que se acerque.</span>}
-            <button type="button" className="cta" onClick={complete}>{curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
+            {/* D195: la acción principal va antes que las herramientas: con el teclado o en 320 px no queda debajo de la barra. */}
+            <button type="button" className="cta" data-cta="" onClick={() => void complete()}>{curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
+            {noteDraft?.trim() && <span className="feel-note">Nota: {noteDraft.trim()}</span>}
+            <div className="wo-tools">
+              {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
+              <button type="button" className="linkbtn" onClick={() => setNoteOpen(true)}>{noteDraft?.trim() ? "Editar nota" : "Nota de la serie"}</button>
+              {connectPlace && <button type="button" className="linkbtn" onClick={() => setAsking(true)}>Pedir ayuda a sala</button>}
+            </div>
           </>
         ) : (
           <>
@@ -735,9 +743,28 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           <button type="button" className="cta" onClick={keep}>Sí, sigo entrenando</button>
           <button type="button" className="ghost" onClick={async () => { setStill(null); if (s.status === "in_progress") await act("pause"); if (still === "leave") onExit("train"); }}>
             {still === "leave" ? "Pausar y seguir más tarde" : "Pausar el entrenamiento"}</button>
+          {still === "leave" && s.status === "in_progress" && (
+            <button type="button" className="ghost" onClick={() => { setStill(null); flash("El entrenamiento sigue en curso: volvés desde «Entrenamiento en curso»."); onExit("home"); }}>Salir un momento (el reloj sigue)</button>
+          )}
           <button type="button" className="ghost" aria-busy={busy || undefined} onClick={() => { setStill(null); void finish(true); }}>
             {!anyDone ? "Cortar entrenamiento (sin series, se descarta)" : pendingSets ? "Cortar entrenamiento acá" : "Completar entrenamiento"}</button>
           {anyDone && pendingSets > 0 && <p className="sheet-sub">Lo que registraste queda guardado; las {pendingSets} series que faltan no se cuentan.</p>}
+        </Sheet>
+      )}
+      {exList && (
+        <Sheet title="Ejercicios de hoy" sub={`${s.exercises.filter((_, i) => resolved(i)).length} de ${s.exercises.length} resueltos. Tocá uno para ir; el orden indicado no cambia.`} closeLabel="Cerrar" onClose={() => setExList(false)}>
+          <ol className="wo-exlist">
+            {s.exercises.map((e, i) => {
+              const rs = Array.from({ length: e.sets }, (_, k) => s.sets[setKey(e.id, k)]);
+              const done = rs.filter((y) => y?.done).length;
+              const st = skippedAt(i) ? "Salteado" : resolved(i) ? "Hecho" : i === exIdx ? "En curso" : done ? `${done} de ${e.sets}` : "Pendiente";
+              return (
+                <li key={e.id}><button type="button" aria-current={i === exIdx || undefined} onClick={() => { setExIdx(i); setSel(null); setRir(null); setNoteDraft(null); setExList(false); }}>
+                  <span><b>{labels[i] ? `${labels[i]} · ` : ""}{e.change?.substitute ? e.change.substitute.name : e.name}</b><small>{metaTxt(e)}</small></span>
+                  <span className={`wo-exst${resolved(i) ? " ok" : i === exIdx ? " cur" : ""}`}>{st}</span></button></li>
+              );
+            })}
+          </ol>
         </Sheet>
       )}
       {howto && ex.media?.kind === "video" && (
@@ -842,7 +869,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
 
 /** Peso con paso elegible (0,25 a 2,5 kg o 0,5 a 5 lb) y carga directa con decimales en la unidad elegida (F-HX-23).
  *  Se guarda siempre en kg: en lb el ± parte del valor mostrado para no acumular redondeos. */
-function WeightStepper({ exerciseId, unit, w, onChange, flash }: { exerciseId: string; unit: WeightUnit; w: number; onChange: (w: number) => void; flash: (t: string) => void }) {
+function WeightStepper({ exerciseId, unit, w, onChange, flash, loads }: { exerciseId: string; unit: WeightUnit; w: number; onChange: (w: number) => void; flash: (t: string) => void; loads?: readonly number[] | null }) {
   const key = `repi:wstep:${unit === "kg" ? "" : "lb:"}${exerciseId}`;
   const opts: readonly number[] = unit === "kg" ? WEIGHT_STEPS : WEIGHT_STEPS_LB;
   const [step, setStep] = useState<number>(() => { try { const v = Number(localStorage.getItem(key)); return opts.includes(v) ? v : unit === "kg" ? 2.5 : 5; } catch { return unit === "kg" ? 2.5 : 5; } });
@@ -861,6 +888,7 @@ function WeightStepper({ exerciseId, unit, w, onChange, flash }: { exerciseId: s
   const fmt = (n: number) => n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
   const shown = kgTo(w, unit);
   return (
+    <>
     <div className="stepper wstep">
       <button type="button" aria-label={`Menos ${fmt(step)} ${unit}`} onClick={() => onChange(stepWeightIn(w, -1, step, unit))}>−</button>
       <span>
@@ -878,8 +906,19 @@ function WeightStepper({ exerciseId, unit, w, onChange, flash }: { exerciseId: s
         </div>
       )}
     </div>
+      {/* D195: con las cargas reales del equipo (plan o sede), atajos a las más cercanas. Nunca cambia el peso sola. */}
+      {loads && loads.length > 0 && (() => {
+        const near = nearLoads(loads, w);
+        return near.length > 1 ? (
+          <div className="wo-loads" role="group" aria-label="Cargas disponibles">
+            {near.map((v) => <button type="button" key={v} aria-pressed={Math.abs(v - w) < 0.005} onClick={() => onChange(v)}>{fmt(kgTo(v, unit))}</button>)}
+          </div>
+        ) : null;
+      })()}
+    </>
   );
 }
+
 
 const RPE_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 const RIR_STEPS = [0, 1, 2, 3, 4] as const;

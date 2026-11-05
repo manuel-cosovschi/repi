@@ -21,7 +21,8 @@ test("anterior → REPI → real; ajuste tras una serie al límite; tema durante
   const card = page.getByRole("region", { name: /^Objetivo de serie 1$/ });
   await expect(card).toBeVisible();
   await expect(card.getByText("Anterior", { exact: true })).toBeVisible();
-  await expect(card.getByText(/^(REPI recomienda|Tu profe indicó|REPI)$/)).toBeVisible();
+  // D195: la guía muestra a la vez lo indicado por el profe y lo que propone REPI (cuando difiere).
+  await expect(card.getByText(/^(REPI recomienda|Tu profe indicó|REPI)$/).first()).toBeVisible();
   await expect(card.getByText("Por registrar")).toBeVisible();
   await expectNoHorizontalOverflow(page, "entrenamiento con objetivo");
   await expectAccessible(page, info, "ti-card");

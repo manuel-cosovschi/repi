@@ -28,6 +28,8 @@ import { ConnectCard, ConnectHelpSheet, ConnectPanelSheet, type ConnectContext }
 import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { FloorNow } from "./FloorNow";
 import { BeforeRepi } from "./HistoryImport";
+import { HistoryList, HistorySession, type HistoryItem } from "./History";
+import { resetHints } from "./Hint";
 import { Wishes } from "./Wishes";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
@@ -54,7 +56,7 @@ type Notif = { id: string; title: string; body: string; at: string; tone: "cyan"
 type Feed = { items: Notif[]; unread: number; seenAt: string | null };
 type SheetState = null | { type: "checkin"; dayId: string } | { type: "pain" } | { type: "help"; kind?: RequestKind; to?: "coach" | "gym" } | { type: "injury" } | { type: "review"; invite: Inbox["reviewInvites"][number] }
   | { type: "connect"; context?: ConnectContext | null } | { type: "connectPanel"; id?: string | null } | { type: "presence"; dayId?: string };
-type History = { id: string; dayName: string; endedAt: string; durationSec: number; sets: number; volumeKg: number; rpe: number | null }[];
+type History = HistoryItem[];
 
 export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [tab, setTab] = useState<Tab>((["home", "train", "prog", "msgs", "gym", "perfil"] as const).includes(initialTab as Tab) ? (initialTab as Tab) : "home");
@@ -316,6 +318,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       <main className="mb-scroll">
         {err && <p role="alert" className="mb-err">{err} <button type="button" className="linkbtn" onClick={() => void load()}>Reintentar</button></p>}
         {offlineAt && <p className="offline-bar" role="status">Sin conexión · programa guardado el {new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(offlineAt))}</p>}
+        {/* D195: con un entrenamiento abierto, volver está a un toque desde cualquier pestaña (Inicio ya lo muestra en su tarjeta). */}
+        {openId && tab !== "home" && (
+          <button type="button" className="wo-live" onClick={() => setWorkout(openId)} aria-label={`Entrenamiento en curso${localOpen?.dayName ? `: ${localOpen.dayName}` : ""}. Volver`}>
+            <i aria-hidden="true" /><span><b>Entrenamiento en curso</b>{localOpen?.dayName ? <small> · {localOpen.dayName}</small> : null}</span><span className="wo-live-go">Volver</span>
+          </button>
+        )}
         {!t ? <p className="mb-muted">Cargando…</p> : (
           <div key={tab} className="tab-pane">
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
@@ -325,7 +333,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
               own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
-            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} flash={flash} offline={!!offlineAt} />}
+            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
@@ -709,12 +717,13 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
   );
 }
 
-function Progress({ t, hist, err, retry, flash, offline }: { t: Training; hist: History | null; err: boolean; retry: () => void; flash: (t: string) => void; offline?: boolean }) {
+function Progress({ t, hist, err, retry, onChanged, flash, offline }: { t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean }) {
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
-  // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico.
+  const [open, setOpen] = useState<string | null>(null);
+  // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico. Lo anulado no cuenta (D195).
   const weeks = new Map<string, number>();
-  for (const s of hist ?? []) {
+  for (const s of (hist ?? []).filter((x) => x.status !== "voided")) {
     const d = new Date(s.endedAt); const k = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "numeric", month: "short" }).format(new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000));
     weeks.set(k, (weeks.get(k) ?? 0) + s.volumeKg);
   }
@@ -741,11 +750,12 @@ function Progress({ t, hist, err, retry, flash, offline }: { t: Training; hist: 
         {err ? <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu historial (necesita conexión). <button type="button" className="linkbtn" onClick={retry}>Reintentar</button></span>
           : !hist ? (rv.ambient ? <Ambient label="Cargando tu historial" /> : null)
           : !hist.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no completaste entrenamientos.</span> : (
-          <div className={`hist${rv.leaving ? " m03-in" : ""}`} style={{ position: "relative" }}>{rv.leaving && <Ambient label="Cargando tu historial" leaving />}{hist.map((s) => (
-            <div key={s.id}><span><b>{s.dayName}</b><br /><small className="mb-muted">{new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "short" }).format(new Date(s.endedAt))} · {formatClock(s.durationSec)}{s.rpe ? ` · RPE ${s.rpe}` : ""}</small></span><span className="mb-muted">{s.sets} series · {volumeIn(s.volumeKg, unit).toLocaleString("es-AR")} {unit}</span></div>
-          ))}</div>
+          <div className={rv.leaving ? "m03-in" : undefined} style={{ position: "relative" }}>{rv.leaving && <Ambient label="Cargando tu historial" leaving />}
+            <HistoryList items={hist} onOpen={setOpen} />
+          </div>
         )}
       </section>
+      {open && <HistorySession id={open} flash={flash} offline={offline} onClose={() => setOpen(null)} onChanged={onChanged} />}
       {t.stats.weekDone === 0 && <span className="mb-muted" style={{ fontSize: 13 }}>Fuerza, constancia y medidas se agregan en la Etapa 4.</span>}
     </>
   );
@@ -855,6 +865,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       <a className="ghost" href="/cuenta?desde=/app" style={{ display: "grid", placeItems: "center" }}>Mi cuenta y seguridad</a>
       <a className="ghost" href="/ayuda?desde=/app" style={{ display: "grid", placeItems: "center" }}>Ayuda y soporte</a>
       <a className="ghost" href="/acceso?step=workspace" style={{ display: "grid", placeItems: "center" }}>Cambiar de espacio</a>
+      {!offline && <button type="button" className="linkbtn" style={{ height: 44 }} onClick={() => void resetHints().then(() => flash("Listo: las ayudas vuelven a aparecer donde corresponda.")).catch((e) => flash((e as Error).message))}>Volver a ver las ayudas</button>}
       <button type="button" className="ghost" onClick={logout}>Cerrar sesión</button>
     </>
   );

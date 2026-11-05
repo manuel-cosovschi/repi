@@ -308,12 +308,12 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   if (c?.sessionId && c.programExerciseId) {
     sets = await db.select({ setIndex: setLog.setIndex, weightKg: setLog.weightKg, reps: setLog.reps, rir: setLog.rir, feel: setLog.feel }).from(setLog)
       .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
-      .where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, c.programExerciseId), eq(workoutSession.gymMemberId, t.gymMemberId ?? "-"))).orderBy(asc(setLog.setIndex));
+      .where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, c.programExerciseId), eq(workoutSession.gymMemberId, t.gymMemberId ?? "-"), isNull(setLog.voidedAt))).orderBy(asc(setLog.setIndex));
   } else if (c?.exerciseId) privateSession = true;
   if (c?.exerciseId && t.gymMemberId) {
     // Últimas series de ese ejercicio en sesiones del programa del gym (nunca las del coach privado).
     recent = await db.select({ at: setLog.completedAt, weightKg: setLog.weightKg, reps: setLog.reps }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
-      .where(and(eq(workoutSession.gymMemberId, t.gymMemberId), eq(setLog.exerciseId, c.exerciseId))).orderBy(desc(setLog.completedAt)).limit(6);
+      .where(and(eq(workoutSession.gymMemberId, t.gymMemberId), eq(setLog.exerciseId, c.exerciseId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt))).orderBy(desc(setLog.completedAt)).limit(6);
   }
   const prog = t.gymMemberId ? await db.select({ name: programVersion.name, n: programVersion.number }).from(programAssignment)
     .innerJoin(program, eq(program.id, programAssignment.programId)).innerJoin(programVersion, eq(programVersion.id, program.currentVersionId))

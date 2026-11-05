@@ -2,7 +2,7 @@
 // Argentina (UTC−3, sin horario de verano). El alumno ve todas sus sesiones y su check-in promedio; el coach ve sólo las
 // sesiones de su relación con el permiso de entrenamientos vigente y nunca check-ins, molestias ni salud.
 // Con menos datos de los necesarios se dice «datos insuficientes»; no se estima nada que no se haya registrado.
-import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { bestE1rm, localDate, volumeKg } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
@@ -35,7 +35,7 @@ async function build(scope: Scope, month: string, now: Date) {
     .where(and(who, eq(workoutSession.status, "completed"), gte(workoutSession.endedAt, b.prevStart), lt(workoutSession.endedAt, b.end))).orderBy(asc(workoutSession.endedAt));
   const cur = sessions.filter((s) => s.endedAt! >= b.start), prev = sessions.filter((s) => s.endedAt! < b.start);
   const sets = sessions.length ? await db.select({ l: setLog, name: exercise.name, group: exercise.muscleGroup }).from(setLog)
-    .innerJoin(exercise, eq(exercise.id, setLog.exerciseId)).where(inArray(setLog.sessionId, sessions.map((s) => s.id))) : [];
+    .innerJoin(exercise, eq(exercise.id, setLog.exerciseId)).where(and(inArray(setLog.sessionId, sessions.map((s) => s.id)), isNull(setLog.voidedAt))) : [];
   const curIds = new Set(cur.map((s) => s.id));
   const curSets = sets.filter((x) => curIds.has(x.l.sessionId)), prevSets = sets.filter((x) => !curIds.has(x.l.sessionId));
   const rpes = cur.map((s) => s.rpe).filter((r): r is number => r != null);

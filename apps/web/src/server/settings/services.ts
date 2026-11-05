@@ -52,3 +52,29 @@ export async function updateSettings(userId: string, p: { weightUnit?: unknown; 
   }
   return mySettings(userId);
 }
+
+// ── D195: ayudas de primera vez (onboarding contextual) ─────────────────────
+// Sólo la clave de cada ayuda y cuándo se vio u omitió (nada personal). Sirve para no repetirlas en otro dispositivo.
+export const HINT_KEYS = ["start_guide", "ti_intro", "history_edit", "workout_nav", "coach_start", "gym_equipment", "rest_intel"] as const;
+export type HintKey = (typeof HINT_KEYS)[number];
+export const isHintKey = (k: unknown): k is HintKey => typeof k === "string" && (HINT_KEYS as readonly string[]).includes(k);
+
+export async function myHints(userId: string) {
+  const [p] = await db.select({ hints: userPref.hints }).from(userPref).where(eq(userPref.userId, userId));
+  return { hints: (p?.hints ?? {}) as Record<string, string> };
+}
+/** Marca una ayuda como vista u omitida (`seen: false` la vuelve a mostrar: «Ver la guía de nuevo»). */
+export async function setHint(userId: string, key: HintKey, seen: boolean) {
+  const now = new Date();
+  const cur = (await myHints(userId)).hints;
+  const next = { ...cur };
+  if (seen) next[key] = now.toISOString(); else delete next[key];
+  await db.insert(userPref).values({ userId, hints: next, updatedAt: now }).onConflictDoUpdate({ target: userPref.userId, set: { hints: next, updatedAt: now } });
+  return { hints: next };
+}
+/** «Volver a ver las ayudas»: borra todas las marcas. */
+export async function resetHints(userId: string) {
+  const now = new Date();
+  await db.insert(userPref).values({ userId, hints: {}, updatedAt: now }).onConflictDoUpdate({ target: userPref.userId, set: { hints: {}, updatedAt: now } });
+  return { hints: {} };
+}

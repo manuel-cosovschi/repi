@@ -24,7 +24,7 @@ async function currentValue(g: { kind: GoalKind; exerciseId: string | null; targ
   }
   const rows = await db.select({ l: setLog }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
     .where(and(eq(workoutSession.coachClientId, coachClientId), eq(setLog.exerciseId, g.exerciseId!), gte(setLog.completedAt, since),
-      inArray(workoutSession.status, ["completed", "in_progress", "paused"])));
+      inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt)));
   const timed = await timedPeIds(rows.map((r) => r.l.programExerciseId));
   if (g.kind === "e1rm") return bestE1rm(rows.map((r) => toLogged(r.l, timed)))?.e1rm ?? null;
   const ok = rows.map((r) => r.l).filter((l) => !timed.has(l.programExerciseId) && l.weightKg != null && (l.reps ?? 0) >= (g.targetReps ?? 1)).map((l) => Number(l.weightKg));

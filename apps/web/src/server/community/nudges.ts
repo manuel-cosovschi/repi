@@ -28,7 +28,7 @@ async function myMarks(userId: string, exerciseIds: string[], now: Date) {
   if (!exerciseIds.length) return new Map<string, { kg: number; reps: number }>();
   const rows = await db.select({ ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), inArray(setLog.exerciseId, exerciseIds), gte(setLog.completedAt, new Date(now.getTime() - 90 * dayMs))));
+    .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), inArray(setLog.exerciseId, exerciseIds), gte(setLog.completedAt, new Date(now.getTime() - 90 * dayMs))));
   const out = new Map<string, { kg: number; reps: number }>();
   for (const x of rows) {
     if (x.r == null || x.r < 1 || (x.target != null && parseReps(x.target).kind === "time")) continue; // series por tiempo: reps son segundos

@@ -32,3 +32,5 @@ export * from "./exercise-guess";
 export * from "./intelligence";
 export * from "./coach-workflow";
 export * from "./template-rollout";
+export * from "./corrections";
+export * from "./equipment";

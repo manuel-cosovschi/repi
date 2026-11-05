@@ -106,6 +106,41 @@ export const gymLocation = pgTable("gym_location", {
   createdAt: now("created_at"),
 }, (t) => [index("gym_location_org_idx").on(t.orgId)]);
 
+// D195: equipamiento real de cada sede (no es un inventario financiero ni de mantenimiento). Sirve para que REPI recomiende cargas
+// que existen: salto mínimo (por lado en barra y máquina de discos), rango opcional o lista explícita de cargas (mancuernas
+// 10 / 12,5 / 15…). Los números van en la unidad del equipo (`unit`) y se convierten a kg al usarlos. Archivado, no borrado.
+export const gymEquipment = pgTable("gym_equipment", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  category: text("category", { enum: ["dumbbell", "barbell", "plate_loaded", "machine", "cable", "kettlebell", "bodyweight", "other"] }).notNull(),
+  code: text("code"), // identificador interno opcional («M-04»)
+  unit: text("unit", { enum: ["kg", "lb"] }).notNull().default("kg"),
+  increment: doublePrecision("increment"), // salto mínimo (por lado si per_side)
+  perSide: boolean("per_side").notNull().default(false),
+  minLoad: doublePrecision("min_load"),
+  maxLoad: doublePrecision("max_load"),
+  loads: jsonb("loads").$type<number[] | null>(), // cargas totales disponibles, si la secuencia es irregular
+  note: text("note"),
+  archivedAt: ts("archived_at"),
+  revision: integer("revision").notNull().default(1),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  index("gym_equipment_location_idx").on(t.orgId, t.locationId),
+  uniqueIndex("gym_equipment_name_unique").on(t.locationId, sql`lower(${t.name})`).where(sql`archived_at is null`),
+  check("gym_equipment_category_valid", sql`${t.category} in ('dumbbell', 'barbell', 'plate_loaded', 'machine', 'cable', 'kettlebell', 'bodyweight', 'other')`),
+  check("gym_equipment_unit_valid", sql`${t.unit} in ('kg', 'lb')`),
+]);
+// Ejercicios de la biblioteca que se hacen con ese equipo (lo decide el personal; no se deduce por grupo muscular).
+export const gymEquipmentExercise = pgTable("gym_equipment_exercise", {
+  equipmentId: text("equipment_id").notNull().references(() => gymEquipment.id, { onDelete: "cascade" }),
+  exerciseId: text("exercise_id").notNull().references(() => exercise.id, { onDelete: "cascade" }),
+  createdAt: now("created_at"),
+}, (t) => [primaryKey({ columns: [t.equipmentId, t.exerciseId] }), index("gym_equipment_exercise_ex_idx").on(t.exerciseId)]);
+
 export const staffMembership = pgTable("staff_membership", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
@@ -398,7 +433,9 @@ export const workoutSession = pgTable("workout_session", {
   versionId: text("version_id").notNull().references(() => programVersion.id),
   dayId: text("day_id").notNull().references(() => programDay.id),
   dayName: text("day_name").notNull(),
-  status: text("status", { enum: ["in_progress", "paused", "completed", "abandoned"] }).notNull().default("in_progress"),
+  // D195: «voided» = sesión terminada que la persona anuló (reversible). No se borra nada: sale del historial activo, de las
+  // estadísticas, récords, niveles, rankings y de Training Intelligence porque todo filtra por estado; restaurar la devuelve a «completed».
+  status: text("status", { enum: ["in_progress", "paused", "completed", "abandoned", "voided"] }).notNull().default("in_progress"),
   startedAt: ts("started_at").notNull(),
   lastResumedAt: ts("last_resumed_at"),
   activeMs: integer("active_ms").notNull().default(0),
@@ -411,6 +448,10 @@ export const workoutSession = pgTable("workout_session", {
   floorTrainerId: text("floor_trainer_id"), // D131: profesor de sala elegido por el socio para ese día (sin FK: el historial sobrevive a bajas)
   // D184: intervalo EMOM en curso (ejercicio, serie, inicio en hora del servidor, estado). Null = ninguno. Ver IntervalState.
   intervalState: jsonb("interval_state"),
+  // D195: anulación reversible (quién, cuándo y motivo opcional). Restaurar las deja en null; el rastro queda en training_correction.
+  voidedAt: ts("voided_at"),
+  voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
+  voidReason: text("void_reason"),
 }, (t) => [
   index("workout_session_user_idx").on(t.userId, t.startedAt),
   index("session_relation_idx").on(t.coachClientId, t.startedAt),
@@ -438,9 +479,37 @@ export const setLog = pgTable("set_log", {
   completedAt: ts("completed_at").notNull(),
   revision: integer("revision").notNull().default(1),
   updatedAt: now("updated_at"),
+  // D195: serie registrada por error y anulada desde el historial (reversible). Una serie anulada nunca es un resultado: no suma
+  // volumen, series, récords, niveles, rankings ni referencias de Training Intelligence. La fila se conserva (no hay DELETE).
+  voidedAt: ts("voided_at"),
+  voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
+  voidReason: text("void_reason"),
 }, (t) => [
   uniqueIndex("set_log_unique").on(t.sessionId, t.programExerciseId, t.setIndex),
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
+]);
+
+// D195: correcciones del historial, sólo agregar (append-only). Cada edición, anulación o restauración de una serie o de una
+// sesión deja una fila con los valores anteriores y nuevos (sólo los campos que cambiaron), quién, cuándo y el motivo opcional.
+// `request_id` hace idempotente cada pedido (un reintento no duplica la corrección). Son datos de entrenamiento de la propia
+// persona: se borran con su cuenta (cascada) y nunca van al audit_event global, que sólo registra la acción y los ids.
+export const trainingCorrection = pgTable("training_correction", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }), // dueño del registro
+  sessionId: text("session_id").notNull().references(() => workoutSession.id, { onDelete: "cascade" }),
+  setLogId: text("set_log_id").references(() => setLog.id, { onDelete: "cascade" }), // null = corrección de la sesión
+  actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+  action: text("action", { enum: ["set_edit", "set_void", "set_restore", "set_add", "session_void", "session_restore"] }).notNull(),
+  before: jsonb("before").$type<Record<string, unknown>>().notNull(),
+  after: jsonb("after").$type<Record<string, unknown>>().notNull(),
+  reason: text("reason"),
+  requestId: text("request_id").notNull(),
+  baseRevision: integer("base_revision"),
+  createdAt: now("created_at"),
+}, (t) => [
+  uniqueIndex("training_correction_request_unique").on(t.userId, t.requestId),
+  index("training_correction_session_idx").on(t.sessionId, t.createdAt),
+  check("training_correction_action_valid", sql`${t.action} in ('set_edit', 'set_void', 'set_restore', 'set_add', 'session_void', 'session_restore')`),
 ]);
 
 // D184: etapas conectadas (drop, mini serie, bloque de cluster) que la persona decidió no hacer («Terminar la serie acá»).
@@ -883,6 +952,8 @@ export const userPref = pgTable("user_pref", {
   // momento del cambio en el dispositivo: entre dos dispositivos gana el último (también si uno estaba sin conexión).
   theme: text("theme", { enum: ["light", "dark", "system"] }).notNull().default("system"),
   themeChangedAt: ts("theme_changed_at"),
+  // D195: ayudas de primera vez ya vistas u omitidas ({ clave: fecha ISO }). Sin contenido personal; sirve para no repetirlas.
+  hints: jsonb("hints").$type<Record<string, string>>().notNull().default({}),
   updatedAt: now("updated_at"),
 }, (t) => [check("user_pref_theme_valid", sql`${t.theme} in ('light', 'dark', 'system')`)]);
 
