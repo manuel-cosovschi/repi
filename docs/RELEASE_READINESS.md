@@ -1,5 +1,14 @@
 # REPI — Matriz de preparación para el lanzamiento
 
+> **05/11/2026 · cierre 06/06 (D197–D198):** la matriz vigente, con estados y evidencia por requisito, está en [FINAL_RELEASE_HARDENING_06.md](FINAL_RELEASE_HARDENING_06.md) §2.
+>
+> Veredicto actual:
+> - **Beta controlada:** GO.
+> - **Expansión comercial gradual:** NO-GO hasta cerrar LB-02 (planes), LB-03 (teléfonos), LB-08 (deploy de `main`) y armar el vigilante de respaldos.
+> - **Lanzamiento público:** NO-GO (además, LB-04 legal).
+>
+> Lo que sigue es el histórico del 27/10 (`rc-2026.10.27`); no lo tomes como estado actual.
+
 Actualizado: 27/10/2026, commit de la release candidata `rc-2026.10.27` (D111). Directiva vigente: «LAUNCH FIRST MASTER DIRECTIVE» (chat 27/10/2026). Alcance: [MVP_SCOPE.md](MVP_SCOPE.md). Bloqueantes abiertos: [LAUNCH_BLOCKERS.md](LAUNCH_BLOCKERS.md).
 
 **Veredicto:** release candidata técnica lista para una **beta controlada** con coaches y gimnasios elegidos. **No** lista para lanzamiento comercial público: quedan P0 externos (plan de hosting comercial, textos legales revisados, prueba en teléfonos reales) que dependen del titular.

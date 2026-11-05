@@ -51,4 +51,18 @@ describe("demo guiada", () => {
     expect(await db.select().from(schema.organization).where(inArray(schema.organization.id, [gymId, coachId]))).toHaveLength(0);
     expect(await db.select().from(schema.exercise).where(eq(schema.exercise.id, own.id))).toHaveLength(0);
   });
+
+  it("D197: las sedes de una demo no aparecen en la búsqueda pública de gimnasios", async () => {
+    const d = await startDemo("owner");
+    const [o] = await db.select().from(schema.organization).where(and(eq(schema.organization.isDemo, true), eq(schema.organization.kind, "gym"))).limit(1);
+    expect(o).toBeTruthy();
+    await db.update(schema.gymLocation).set({ publicJoin: true }).where(eq(schema.gymLocation.orgId, o.id));
+    const { searchJoinableLocations } = await import("@/server/access/services");
+    const found = await searchJoinableLocations("");
+    const demoLocs = (await db.select({ id: schema.gymLocation.id }).from(schema.gymLocation).where(eq(schema.gymLocation.orgId, o.id))).map((l) => l.id);
+    expect(demoLocs.length).toBeGreaterThan(0);
+    expect(found.filter((l) => demoLocs.includes(l.id))).toEqual([]);
+    expect(d).toBeTruthy();
+  });
 });
+

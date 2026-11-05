@@ -10,7 +10,7 @@ import { SetGuide } from "./SetGuide";
 import { syncInk, syncView } from "./SyncBadge";
 import { Hint } from "./Hint";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
+import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { kg, metaTxt, prevTxt, type Summary } from "./types";
 import { useUnit } from "./units";
@@ -177,11 +177,10 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     let off = false;
     api<{ exercises: { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"]; ladder?: LocalEx["ladder"] }[] }>(`/api/me/sessions/${sessionId}`).then((srv) => {
       if (off) return;
-      const by = new Map(srv.exercises.map((e) => [e.id, e]));
       setS((c) => {
         if (!c) return c;
         // D195: también la escalera de cargas del equipo (plan o sede): sin ella, el ajuste en el teléfono usaría un salto genérico.
-        const m = { ...c, exercises: c.exercises.map((e) => (e.targets != null ? e : { ...e, targets: by.get(e.id)?.targets ?? [], outlook: by.get(e.id)?.outlook ?? null, ladder: by.get(e.id)?.ladder ?? e.ladder ?? null })) };
+        const m = mergeIntel(c, srv);
         void putLocal(m);
         return m;
       });

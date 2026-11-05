@@ -432,7 +432,8 @@ export async function searchJoinableLocations(q: string) {
   const term = `%${q.trim().replace(/[%_]/g, "")}%`;
   const rows = await db.select({ id: gymLocation.id, name: gymLocation.name, address: gymLocation.address, orgName: organization.name })
     .from(gymLocation).innerJoin(organization, eq(organization.id, gymLocation.orgId))
-    .where(and(eq(gymLocation.publicJoin, true), eq(organization.kind, "gym"),
+    // D197: las demos (is_demo, se borran a las 6 h) nunca aparecen en la búsqueda pública de gimnasios reales.
+    .where(and(eq(gymLocation.publicJoin, true), eq(organization.kind, "gym"), eq(organization.isDemo, false),
       q.trim() ? or(ilike(organization.name, term), ilike(gymLocation.name, term), ilike(gymLocation.address, term)) : sql`true`))
     .orderBy(organization.name, gymLocation.name).limit(20);
   return rows.map((r) => ({ ...r, orgInitials: initials(r.orgName) }));

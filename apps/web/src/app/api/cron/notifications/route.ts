@@ -7,6 +7,7 @@ import { trialNotices } from "@/server/commercial/notices";
 import { connectSweep } from "@/server/gym/connect";
 import { closeShiftsAfterHours, syncScheduledShifts } from "@/server/gym/services";
 import { closeIdleWorkouts } from "@/server/training/services";
+import { checkBackupFreshness } from "@/server/ops/backup-watch";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ export async function GET(req: Request) {
   const workoutsClosed = await step("workouts", () => closeIdleWorkouts(), 0); // D160: entrenamientos olvidados (22 h en el gym, 6 h sin actividad)
   const consentReminders = await step("consent", () => remindPendingConsent(), 0); // D160: altas aprobadas sin terminar, a las 8
   const p = await step("outbox", () => processOutbox(), { processed: 0 });
-  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders };
+  // D198: vigilante de respaldos, una vez por hora (minuto 7), independiente del cronograma de GitHub.
+  const backup = new Date().getUTCMinutes() === 7 ? await step("backup", () => checkBackupFreshness(), null) : null;
+  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders, backup };
   return failed.length ? Response.json({ ...out, error: "job falló", failed }, { status: 500 }) : Response.json(out);
 }
