@@ -1,7 +1,7 @@
 // D169: perfil del Club con foto, máximos y publicaciones con imagen; las fotos las ven sólo socios del Club, nunca entre
 // personas bloqueadas ni la de una publicación oculta.
 import { randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
@@ -81,5 +81,15 @@ describe("perfil del Club", () => {
     // Foto de otra persona: no se puede usar.
     const other = await club.uploadClubImage(ana.u, org.id, { mime: "image/jpeg", bytes: JPG() });
     expect((await err(club.createClubPost(beto.u, org.id, { imageId: other.id })))?.code).toBe("invalid");
+
+    // Regresión (05/11/2026): la purga diaria de huérfanos borró la foto de una publicación del Club. Con más de 24 h, la foto
+    // de la publicación y la de perfil se conservan; la subida que nunca se usó (`other`) sí se purga.
+    await db.update(schema.mediaObject).set({ createdAt: new Date(Date.now() - 48 * 3_600_000) }).where(inArray(schema.mediaObject.id, [av.id, pic.id, other.id]));
+    expect((await fu.purgeMedia()).orphans).toBeGreaterThanOrEqual(1);
+    const left = new Map((await db.select().from(schema.mediaObject).where(inArray(schema.mediaObject.id, [av.id, pic.id, other.id]))).map((m) => [m.id, m.deletedAt]));
+    expect(left.get(pic.id)).toBeNull();
+    expect(left.get(av.id)).toBeNull();
+    expect(left.get(other.id)).not.toBeNull();
+    expect((await fu.authorizeVideo(ana.u, pic.id)).id).toBe(pic.id);
   });
 });

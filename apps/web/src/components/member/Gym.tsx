@@ -426,8 +426,19 @@ function MeCard({ orgId }: { orgId: string }) {
 /** D169: foto de perfil del Club (o iniciales). */
 function Avatar({ id, name, size = 36 }: { id: string | null; name: string; size?: number }) {
   const ini = name === "Vos" ? "Vos" : name.split(/\s+/).map((x) => x[0]).join("").slice(0, 2).toUpperCase();
-  return id ? <img className="club-av" src={`/api/media/${id}`} alt="" width={size} height={size} style={{ width: size, height: size }} />
+  const [gone, setGone] = useState(false); // archivo que ya no está: iniciales, nunca el ícono roto del navegador
+  return id && !gone ? <img className="club-av" src={`/api/media/${id}`} alt="" width={size} height={size} style={{ width: size, height: size }} onError={() => setGone(true)} />
     : <span className="club-av club-av-ini" aria-hidden="true" style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}>{ini}</span>;
+}
+/** Foto de una publicación del Club. Si el archivo ya no está (404), lo dice en vez de mostrar el ícono roto del navegador. */
+function ClubImg({ id, alt }: { id: string; alt: string }) {
+  const [gone, setGone] = useState(false);
+  return gone ? <div className="club-img club-img-gone" role="img" aria-label="Foto no disponible">Foto no disponible</div>
+    : <img className="club-img" src={`/api/media/${id}`} alt={alt} loading="lazy" onError={() => setGone(true)} />;
+}
+function GridImg({ id }: { id: string }) {
+  const [gone, setGone] = useState(false);
+  return gone ? <div className="club-img-gone" role="img" aria-label="Foto no disponible">No disponible</div> : <img src={`/api/media/${id}`} alt="" loading="lazy" onError={() => setGone(true)} />;
 }
 /** Elegir y subir una foto al Club (se achica en el teléfono, sin metadatos de ubicación). */
 function useClubPhoto(orgId: string, flash: (t: string) => void, max = 1400) {
@@ -509,7 +520,7 @@ function Feed({ orgId, achievements, flash }: { orgId: string; achievements: Hom
           {p.achievement && <div className="club-ach"><Sticker on size={36} /><span><b>{p.achievement.title}</b><small>{p.achievement.detail}</small></span></div>}
           {p.payload?.type === "progress" && <div className="club-ach club-prog"><span><b>{p.payload.exercise}</b><small>{kgTo(p.payload.points[0].kg, unit).toLocaleString("es-AR")} → {fmtWeight(p.payload.points.at(-1)!.kg, unit)}{p.payload.deltaKg > 0 ? ` · +${fmtWeight(p.payload.deltaKg, unit)}` : ""} en {p.payload.points.length} entrenamientos</small></span><Spark points={p.payload.points} small /></div>}
           {p.payload?.type === "session" && <div className="club-ach"><span><b>Entrenamiento completo · {p.payload.dayName}</b><small>{p.payload.minutes} min · {p.payload.sets} series · {volumeIn(p.payload.volumeKg, unit).toLocaleString("es-AR")} {unit} de volumen</small><small>{p.payload.exercises.join(" · ")}</small></span></div>}
-          {p.imageId && <img className="club-img" src={`/api/media/${p.imageId}`} alt={p.text ? "" : `Foto de ${p.author}`} loading="lazy" />}
+          {p.imageId && <ClubImg id={p.imageId} alt={p.text ? "" : `Foto de ${p.author}`} />}
           {p.text && <p>{p.text}</p>}
           <div className="club-actions">
             <button type="button" aria-pressed={p.applauded} onClick={() => act(api(`/api/me/gym/club/posts/${p.id}/applause${q}`, { body: {} }))}>👏 {p.applause > 0 ? p.applause : "Aplaudir"}</button>
@@ -684,7 +695,7 @@ function ProfileSheet({ orgId, userId, onClose, onEdit }: { orgId: string; userI
         {v.monthDays != null && <div className="club-ach"><span><b>{v.monthDays} día{v.monthDays === 1 ? "" : "s"} entrenando este mes</b><small>Programa del gym</small></span></div>}
         {v.showcase.map((x) => <div key={x.exercise} className="club-ach club-prog"><span><b>{x.exercise}</b><small>Última: {fmtWeight(x.points.at(-1)!.kg, unit)} × {x.points.at(-1)!.reps}</small></span><Spark points={x.points} small /></div>)}
         {v.mine && onEdit && <button type="button" className="ghost sm" style={{ alignSelf: "flex-start" }} onClick={onEdit}>Editar mi perfil</button>}
-        {v.photos.length > 0 && <div className="club-grid">{v.photos.map((id) => <img key={id} src={`/api/media/${id}`} alt="" loading="lazy" />)}</div>}
+        {v.photos.length > 0 && <div className="club-grid">{v.photos.map((id) => <GridImg key={id} id={id} />)}</div>}
         {!v.bio && !v.showcase.length && v.monthDays == null && !v.maxes?.length && !v.photos.length && <span className="mb-muted">{v.mine ? "Tu perfil está vacío: elegí qué mostrar en «Mi perfil del Club»." : "Esta persona todavía no eligió qué mostrar."}</span>}
       </>}
     </Sheet>
