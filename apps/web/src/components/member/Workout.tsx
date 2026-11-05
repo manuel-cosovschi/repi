@@ -170,17 +170,18 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   }), [sessionId]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
   // D191: el entrenamiento se crea primero en el teléfono; cuando el inicio ya llegó al servidor (cola vacía), se traen los
-  // objetivos de REPI. Sólo completa objetivos y tendencia: nunca toca series, borradores, descanso ni intervalo.
+  // objetivos de REPI. Sólo completa objetivos, tendencia y cargas del equipo: nunca toca series, borradores, descanso ni intervalo.
   const needIntel = !!s && (s.status === "in_progress" || s.status === "paused") && s.exercises.some((e) => e.targets == null);
   useEffect(() => {
     if (!needIntel || sync.pending > 0 || sync.kind === "offline") return;
     let off = false;
-    api<{ exercises: { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"] }[] }>(`/api/me/sessions/${sessionId}`).then((srv) => {
+    api<{ exercises: { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"]; ladder?: LocalEx["ladder"] }[] }>(`/api/me/sessions/${sessionId}`).then((srv) => {
       if (off) return;
       const by = new Map(srv.exercises.map((e) => [e.id, e]));
       setS((c) => {
         if (!c) return c;
-        const m = { ...c, exercises: c.exercises.map((e) => (e.targets != null ? e : { ...e, targets: by.get(e.id)?.targets ?? [], outlook: by.get(e.id)?.outlook ?? null })) };
+        // D195: también la escalera de cargas del equipo (plan o sede): sin ella, el ajuste en el teléfono usaría un salto genérico.
+        const m = { ...c, exercises: c.exercises.map((e) => (e.targets != null ? e : { ...e, targets: by.get(e.id)?.targets ?? [], outlook: by.get(e.id)?.outlook ?? null, ladder: by.get(e.id)?.ladder ?? e.ladder ?? null })) };
         void putLocal(m);
         return m;
       });
