@@ -17,7 +17,7 @@ Fecha: 05/11/2026. Rama: `feat/repi-release-hardening-06`, desde `main` en `70e7
 | Qué | Valor | Cómo se verificó |
 | --- | --- | --- |
 | `main` | `70e7779` (PR #35, hotfix D196) sobre `d004d98` (PR #34) | `git log`, API de GitHub |
-| Producción | **`d004d98`** (`/api/version`, 05/11 18:00–19:30 UTC) | Vercel **no creó deploy** para `70e7779`: no hay estado de Vercel en el commit. Ver §16 y P-01 |
+| Producción | **`70e7779`** desde las 18:32 UTC (`/api/version`) | Vercel tardó ~29 min en crear el deploy del merge (18:01 → 18:30). No se sabe si fue demora de Vercel o un redeploy manual: sin acceso al equipo (§16) |
 | PR abiertos | #2 (borrador, D181, control de acceso; no se toca) | API de GitHub |
 | Migraciones | 46 registradas, última `0045_experience_ux` | `drizzle.__drizzle_migrations` (sólo lectura) |
 | Base | PostgreSQL 17.11, `sa-east-1`, 28 MB, 16/60 conexiones | Supabase MCP (sólo lectura) |
@@ -64,7 +64,7 @@ Todas las filas son del 05/11/2026, sobre el commit de esta rama, salvo que se i
 | H-DATA-01 | Integridad de 0045 y migraciones | P0 | Alto | Catálogo | **VP** · 46/46, hash de 0045 `36cdc6b5…` | sólo lectura | Prod | — |
 | H-DATA-02 | Respaldo diario verificado y restauración en base descartable | P0 | Alto | Workflow | **VP** · cada corrida restaura y compara; 278 FK sin huérfanos | releases verificados | CI | Seguir el cronograma 7 días (titular) |
 | H-DATA-03 | Ausencia de respaldo detectada aunque la ejecución no empiece | P0 | Alto | Integración | **VT · AE** · implementado (D198), se arma con un secreto | `tests/backup-watch.test.ts` | Aislado | Configurar `BACKUP_HEARTBEAT_SECRET` (titular, §14) |
-| H-DATA-04 | Purga de archivos nunca borra lo referenciado | P0 | Alto | Integración con tabla nueva | **VT** (PR #35) · **no publicado** (Vercel no desplegó) | `club-profile.test.ts` | Aislado | Redeploy de `main` (titular, P-01) |
+| H-DATA-04 | Purga de archivos nunca borra lo referenciado | P0 | Alto | Integración con tabla nueva | **VT + publicado** (PR #35, `70e7779` en producción desde 18:32 UTC). La primera purga con esta lógica es el 06/11 06:30 UTC | `club-profile.test.ts` | Aislado + Prod | Mirar el resultado de la purga del 06/11 (Claude/titular) |
 | H-TRN-01 | Entrenador programa → alumno recibe → entrena → registra → sincroniza → finaliza → historial | P0 | Alto | Integración + E2E | **VT/VA** | `launch-flows.test.ts` LF-01, `member-workout.spec.ts` | Aislado | — |
 | H-TRN-02 | Carga del profe visible y nunca pisada por la sugerencia; sin cargas inventadas; lo registrado no cambia al actualizar | P0 | Alto | Integración + E2E | **VT/VA** | `prescribed-weights.test.ts` (8 casos), `prescribed-weights.spec.ts` | Aislado | Cuentas de prueba vinculadas en producción (titular) |
 | H-TRN-03 | Caso Urko: plantilla → asignar → editar → la copia no cambia → actualizar → «Tu profe indicó X kg» → reasignar con sesión abierta → «Aplicar ahora» sin tocar lo hecho | P0 | Alto | Integración + E2E con demos | **VT/VA** · **NV en producción** con cuentas reales | `prescribed-weights.test.ts` («caso real…»), `template-rollout.test.ts` («alumno entrenando…»), `template-rollout.spec.ts` | Aislado | Crear 2 cuentas de prueba vinculadas y correr `verify-coach-weights-prod.mjs` (titular) |
@@ -78,7 +78,7 @@ Todas las filas son del 05/11/2026, sobre el commit de esta rama, salvo que se i
 | H-DEV-01 | iPhone (Safari y PWA) y Android (Chrome y PWA) | P0 | Alto | Manual | **DF** · no hay dispositivo físico accesible desde esta sesión. La emulación no cuenta como prueba en teléfono | lista en §13 | — | Titular con sus teléfonos |
 | H-OPS-01 | Alertas de errores por email | P1 | Medio | — | **VP** (D149, 29/10) | `alert-test` | Prod | — |
 | H-OPS-02 | Logs de Vercel | P1 | Medio | — | **AE** · 403 al equipo | — | — | Autorizar el acceso (titular, §16) |
-| H-OPS-03 | Deploy automático de `main` | P0 | Alto | Estado del commit | **DC** · `70e7779` sin deploy | API de GitHub | Prod | Redeploy y revisar la integración (titular) |
+| H-OPS-03 | Deploy automático de `main` | P1 | Medio | Estado del commit | **VP con demora** · `70e7779` desplegó 29 min después del merge (otros merges del 05/11: ~1 min) | API de GitHub | Prod | Con acceso a Vercel, revisar la cola de builds (titular) |
 | H-PERF-01 | Latencia real en producción | P1 | Medio | Una demo, pedidos secuenciales | **VP** · ver §17 | `perf/latency.mjs` | Prod | — |
 | H-PERF-02 | Carga escalonada | P1 | Medio | Usuarios virtuales con demos propias | **VA** · ver §17 | `perf/load.mjs` | Aislado | Repetir en staging con plan pago (titular) |
 | H-INF-01 | Hosting apto para uso comercial | P0 comercial | Alto | Planes | **AE** · Supabase Free; Vercel sin confirmar (probablemente Hobby, que prohíbe uso comercial) | §18 | — | Cambiar de plan (titular) |
@@ -109,7 +109,7 @@ Todas las filas son del 05/11/2026, sobre el commit de esta rama, salvo que se i
 | V-05 | P3 | Función de trigger sin `search_path` fijo (aviso de Supabase). No es `SECURITY DEFINER` ni referencia tablas | Abierto (P3): `ALTER FUNCTION public.gym_task_event_immutable() SET search_path = ''` en la próxima migración |
 | V-06 | P1 (riesgo) | 2FA optativa también para REPI Admin y dueños (D119, decisión del titular) | Riesgo aceptado; recomendado exigirla al menos a Admin antes de la expansión |
 | V-07 | P3 | esbuild 0.18 (moderada) dentro de drizzle-kit: sólo afecta al servidor de desarrollo | Abierto |
-| D-01 | P0 operativo | Vercel no desplegó `70e7779` (hotfix #35): producción sigue en `d004d98` | **Externo:** redeploy del titular. Sin riesgo inmediato: `d004d98` ya protege las tablas actuales (PR #30) |
+| D-01 | P2 operativo | El deploy de `70e7779` (hotfix #35) tardó ~29 min en crearse | **Resuelto solo:** en producción desde las 18:32 UTC. La causa no se pudo ver sin acceso a Vercel |
 | D-02 | P1 | Falta prueba de cliente del hotfix #26 (ladder) | **Corregido:** `mergeIntel()` extraída sin cambiar el comportamiento, con prueba que falla con la lógica previa |
 | D-03 | P1 | Ninguna E2E cubría recargar la app **sin conexión** con series pendientes | **Agregada:** `e2e/offline-reload.spec.ts` |
 | D-04 | P0 | Un respaldo omitido no avisaba (GitHub puede no crear la ejecución) | **Implementado** D198 (se arma con un secreto del titular) |
@@ -335,7 +335,7 @@ Resultados del 05/11/2026 sobre esta rama.
 ## 22–24. Publicación y recuperación
 
 **Antes de integrar este PR:**
-1. Que Vercel vuelva a desplegar `main`: hoy `70e7779` no está en producción.
+1. Producción en el último `main` (`70e7779`, verificado 18:55 UTC).
 2. CI en verde.
 3. Revisar el diff: sin migraciones, sin cambios destructivos.
 4. Respaldo verificado del día.
@@ -360,7 +360,7 @@ Resultados del 05/11/2026 sobre esta rama.
 
 | Etapa | Cumplido | Pendiente | Riesgos | Dependencias externas | Decisión |
 | --- | --- | --- | --- | --- | --- |
-| **A. Beta controlada** (coaches y gimnasios conocidos, soporte cercano) | Flujos principales verificados por pruebas y en producción con demos; aislamiento y permisos; respaldo diario verificado con restauración; alertas de errores | Redeploy de `main`; publicar este PR; teléfonos reales | RPO de 24 h; cronograma de GitHub con una sola ejecución programada; 2FA optativa | Ninguna bloqueante | **GO** (ya en curso), con el redeploy y el vigilante configurado |
+| **A. Beta controlada** (coaches y gimnasios conocidos, soporte cercano) | Flujos principales verificados por pruebas y en producción con demos; aislamiento y permisos; respaldo diario verificado con restauración; alertas de errores; hotfix de la purga en producción | Publicar este PR; teléfonos reales | RPO de 24 h; cronograma de GitHub con una sola ejecución programada; 2FA optativa | Ninguna bloqueante | **GO** (ya en curso), con el vigilante configurado |
 | **B. Expansión comercial gradual** | Lo de A | Vercel Pro y Supabase Pro (LB-02); teléfonos reales (LB-03); acceso a los logs de Vercel; vigilante armado; 2FA de Admin; cuentas de prueba vinculadas para verificar en producción el caso Urko y el equipamiento | Hosting no comercial; sin respaldos del proveedor; sin observabilidad de Vercel | Cambio de planes (gasto), dispositivos, accesos | **NO-GO hasta** cerrar LB-02 y LB-03 y configurar el vigilante; después **GO** |
 | **C. Lanzamiento comercial público** | — | Lo de B, más revisión legal (LB-04), eliminación de cuenta automatizada, E2E en CI, PITR o RPO aceptado por contrato, ensayo de recuperación en un proyecto nuevo, índices antes de crecer | Legal y privacidad sin revisión profesional; RTO no ensayado | Abogado, presupuesto | **NO-GO** |
 

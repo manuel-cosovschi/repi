@@ -4,7 +4,7 @@
 >
 > Veredicto actual:
 > - **Beta controlada:** GO.
-> - **Expansión comercial gradual:** NO-GO hasta cerrar LB-02 (planes), LB-03 (teléfonos), LB-08 (deploy de `main`) y armar el vigilante de respaldos.
+> - **Expansión comercial gradual:** NO-GO hasta cerrar LB-02 (planes) y LB-03 (teléfonos), y armar el vigilante de respaldos.
 > - **Lanzamiento público:** NO-GO (además, LB-04 legal).
 >
 > Lo que sigue es el histórico del 27/10 (`rc-2026.10.27`); no lo tomes como estado actual.

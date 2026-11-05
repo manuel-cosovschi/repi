@@ -8,9 +8,9 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 
 **Documento principal:** `docs/FINAL_RELEASE_HARDENING_06.md`. Incluye la matriz por requisito, los hallazgos, las pruebas, el rendimiento, la infraestructura y sus costos, la lista de teléfonos, los pendientes legales y el veredicto por etapa.
 
-**Estado de producción:** `d004d98`. **Vercel no desplegó `70e7779`** (hotfix #35, D196, ya en `main`): LB-08. Sin riesgo inmediato: `d004d98` protege las tablas actuales (PR #30).
+**Estado de producción:** `70e7779` (hotfix #35, D196) desde las 18:32 UTC. Vercel tardó ~29 min en desplegar el merge; la causa no se pudo ver sin acceso al equipo (LB-09). Primera purga con la lógica nueva: 06/11 06:30 UTC.
 
-**Rama:** `feat/repi-release-hardening-06`, desde `70e7779`. Sin migraciones. **No integrar sin autorización del titular.**
+**Rama:** `feat/repi-release-hardening-06`, desde `70e7779`. Sin migraciones. **No integrar sin autorización del titular.** PR #36, CI en verde (`a3ce204`).
 
 **Cambios:**
 - `src/server/access/http.ts`: `crossSiteWrite()` en `handle()` (CSRF, D197).
@@ -44,15 +44,14 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 **Datos reales tocados (autorizado por el titular en el chat):** sólo la publicación del Club con la foto purgada (`status = removed`) y un aviso de disculpas a su dueño. Ver «Cierre del bloque 05/06».
 
 **Para el titular:**
-1. Redeploy de `main` en Vercel (LB-08).
-2. Aprobar el acceso de Claude al equipo de Vercel (LB-09).
-3. Armar el vigilante: `BACKUP_HEARTBEAT_SECRET` en Vercel y en GitHub (`docs/RESPALDOS.md`).
-4. Revisar e integrar este PR.
-5. Teléfonos reales (lista en §13 del documento).
-6. Planes Vercel Pro y Supabase Pro (≈ USD 45/mes) antes de la expansión.
-7. Decidir sobre la 2FA de Admin (LB-10).
-8. Abogado (§19).
-9. Cuentas de prueba vinculadas (un coach y un alumno, y un dueño con un socio en una sede de prueba) para verificar en producción el caso Urko y el equipamiento.
+1. Aprobar el acceso de Claude al equipo de Vercel (LB-09).
+2. Armar el vigilante: `BACKUP_HEARTBEAT_SECRET` en Vercel y en GitHub (`docs/RESPALDOS.md`).
+3. Revisar e integrar este PR.
+4. Teléfonos reales (lista en §13 del documento).
+5. Planes Vercel Pro y Supabase Pro (≈ USD 45/mes) antes de la expansión.
+6. Decidir sobre la 2FA de Admin (LB-10).
+7. Abogado (§19).
+8. Cuentas de prueba vinculadas (un coach y un alumno, y un dueño con un socio en una sede de prueba) para verificar en producción el caso Urko y el equipamiento.
 
 **Pendientes técnicos:**
 - E2E en CI (D-05).
