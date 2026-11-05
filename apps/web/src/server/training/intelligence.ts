@@ -36,14 +36,14 @@ export async function historyRows(userId: string, exerciseIds: string[], o: { ex
       select sl.exercise_id, sl.session_id, max(sl.completed_at) as at,
         row_number() over (partition by sl.exercise_id order by max(sl.completed_at) desc) as rk
       from set_log sl join workout_session ws on ws.id = sl.session_id
-      where ws.user_id = ${userId} and ws.status = 'completed' and sl.exercise_id in (${ids(list)}) and sl.completed_at >= ${since.toISOString()}::timestamptz
+      where ws.user_id = ${userId} and ws.status = 'completed' and sl.voided_at is null and sl.exercise_id in (${ids(list)}) and sl.completed_at >= ${since.toISOString()}::timestamptz
         ${o.excludeSessionId ? sql`and ws.id <> ${o.excludeSessionId}` : sql``}
         ${o.coachClientId ? sql`and ws.coach_client_id = ${o.coachClientId}` : sql``}
         ${o.gymMemberId ? sql`and ws.gym_member_id = ${o.gymMemberId}` : sql``}
       group by sl.exercise_id, sl.session_id)
     select sl.id, sl.exercise_id, sl.session_id, sl.set_index, sl.weight_kg, sl.reps, sl.rir, sl.feel, sl.spec_id, sl.set_kind, sl.stage_index, r.at,
       pe.reps as pe_reps, pe.sets as pe_sets, pe.detail as pe_detail
-    from ranked r join set_log sl on sl.session_id = r.session_id and sl.exercise_id = r.exercise_id
+    from ranked r join set_log sl on sl.session_id = r.session_id and sl.exercise_id = r.exercise_id and sl.voided_at is null
     join program_exercise pe on pe.id = sl.program_exercise_id
     where r.rk <= ${TI_WINDOW.sessions}
     order by r.at desc, sl.set_index`)) as unknown as RawHist[];

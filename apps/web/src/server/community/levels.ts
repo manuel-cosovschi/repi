@@ -19,7 +19,7 @@ export async function levelStats(userId: string): Promise<LevelStats> {
   const logs = await db.select({ session: workoutSession.id, at: workoutSession.startedAt, ex: setLog.exerciseId, group: exercise.muscleGroup, l: setLog }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
     .innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
-    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed")))
+    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), isNull(setLog.voidedAt)))
     .orderBy(workoutSession.startedAt);
   const plan = await timedPeIds(logs.map((r) => r.l.programExerciseId));
   type Row = { session: string; at: Date; ex: string; group: string; top: number; vol: number };

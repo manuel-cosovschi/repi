@@ -1,4 +1,5 @@
 import { handle, sessionUserId } from "@/server/access/http";
-import * as tr from "@/server/training/services";
+import * as h from "@/server/training/history";
 
-export const GET = handle(async () => ({ sessions: await tr.myHistory(await sessionUserId()) }));
+// D195: historial con sesiones activas y anuladas (paginado por fecha de fin).
+export const GET = handle(async (req) => h.historyList(await sessionUserId(), { before: new URL(req.url).searchParams.get("before") }));

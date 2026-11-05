@@ -27,7 +27,8 @@ export function decideSetWrite(existing: ServerSet | null, incoming: IncomingSet
   return { kind: "conflict", reason: "stale_base" };
 }
 
-export type SessionStatus = "in_progress" | "paused" | "completed" | "abandoned";
+// D195: «voided» = terminada y anulada por la persona (reversible desde el historial). Ninguna acción la cambia.
+export type SessionStatus = "in_progress" | "paused" | "completed" | "abandoned" | "voided";
 
 /** Transiciones de sesión con timestamp de cliente acotado. Devuelve null si la transición no aplica. */
 export function applySessionAction(
@@ -40,7 +41,7 @@ export function applySessionAction(
   const run = s.status === "in_progress" && s.lastResumedAt ? t.getTime() - s.lastResumedAt.getTime() : 0;
   if (action === "pause") return s.status === "in_progress" ? { status: "paused", activeMs: s.activeMs + run, lastResumedAt: null, endedAt: null } : null;
   if (action === "resume") return s.status === "paused" ? { status: "in_progress", activeMs: s.activeMs, lastResumedAt: t, endedAt: null } : null;
-  if (s.status === "completed" || s.status === "abandoned") return null;
+  if (s.status === "completed" || s.status === "abandoned" || s.status === "voided") return null;
   return { status: hasSets ? "completed" : "abandoned", activeMs: s.activeMs + run, lastResumedAt: null, endedAt: t };
 }
 

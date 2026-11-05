@@ -337,7 +337,7 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
   const since = new Date(now.getTime() - 56 * 86_400_000), mid = new Date(now.getTime() - 28 * 86_400_000);
   const rows = await db.select({ l: setLog, name: exercise.name, group: exercise.muscleGroup }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
-    .where(and(eq(workoutSession.coachClientId, coachClientId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, since)));
+    .where(and(eq(workoutSession.coachClientId, coachClientId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), gte(setLog.completedAt, since)));
   const byEx = new Map<string, { name: string; group: string; recent: typeof rows; before: typeof rows }>();
   for (const r of rows) {
     const e = byEx.get(r.l.exerciseId) ?? { name: r.name, group: r.group, recent: [], before: [] };
@@ -372,21 +372,24 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
  * RIR y sensación), en el orden en que lo hizo. Lo ven su coach y el equipo de sala con quien compartió su entrenamiento.
  */
 export async function sessionLogs(sessionIds: string[]) {
-  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null }[] }[]>();
+  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null; corrected?: boolean }[] }[]>();
   if (!sessionIds.length) return out;
   // D192: el nombre de la serie (Top set, Load Set, Drop 1…) sale de la versión congelada que se entrenó: renombrar después un
   // tipo propio no cambia lo que se muestra de sesiones anteriores.
   const rows = await db.select({ l: setLog, name: exercise.name, pe: { sets: programExercise.sets, reps: programExercise.reps, detail: programExercise.detail } }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
     .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(inArray(setLog.sessionId, sessionIds)).orderBy(asc(setLog.completedAt));
+    .where(and(inArray(setLog.sessionId, sessionIds), isNull(setLog.voidedAt))).orderBy(asc(setLog.completedAt));
   const timed = await timedPeIds(rows.map((r) => r.l.programExerciseId));
+  // D195: la persona corrigió o agregó esta serie desde su historial (se muestra; quien la ve no puede cambiarla).
+  const corrected = new Set((await db.selectDistinct({ id: schema.trainingCorrection.setLogId }).from(schema.trainingCorrection)
+    .where(and(inArray(schema.trainingCorrection.sessionId, sessionIds), inArray(schema.trainingCorrection.action, ["set_edit", "set_add"])))).map((r) => r.id));
   for (const { l, name, pe } of rows) {
     const list = out.get(l.sessionId) ?? [];
     const key = `${l.programExerciseId}:${l.exerciseId}`;
     let ex = list.find((x) => (x as { key?: string }).key === key);
     if (!ex) { ex = Object.assign({ exercise: name, timed: timed.has(l.programExerciseId), sets: [] }, { key }); list.push(ex); }
     const label = pe?.detail ? setTarget({ sets: pe.sets, reps: pe.reps, rir: null, restSec: 0, detail: pe.detail as ExerciseDetail }, l.setIndex).label : null;
-    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label });
+    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label, ...(corrected.has(l.id) ? { corrected: true } : {}) });
     out.set(l.sessionId, list);
   }
   for (const list of out.values()) for (const ex of list) { delete (ex as { key?: string }).key; ex.sets.sort((a, b) => a.n - b.n); }
@@ -405,7 +408,7 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
   }
   const sessions = await db.select().from(workoutSession).where(and(eq(workoutSession.coachClientId, coachClientId), inArray(workoutSession.status, ["completed", "in_progress", "paused"])))
     .orderBy(desc(workoutSession.startedAt)).limit(20);
-  const sets = sessions.length ? await db.select().from(setLog).where(inArray(setLog.sessionId, sessions.map((s) => s.id))) : [];
+  const sets = sessions.length ? await db.select().from(setLog).where(and(inArray(setLog.sessionId, sessions.map((s) => s.id)), isNull(setLog.voidedAt))) : [];
   // F-HX-21 (D106): el coach ve qué ejercicios se saltaron o reemplazaron y las notas por serie, con su motivo.
   const changes = sessions.length ? await db.select({ c: sessionExerciseChange, pe: programExercise.name, sub: exercise.name }).from(sessionExerciseChange)
     .innerJoin(programExercise, eq(programExercise.id, sessionExerciseChange.programExerciseId)).leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId))
@@ -551,7 +554,7 @@ export async function lastTimeByExercise(userId: string, exerciseIds: string[], 
   if (!exerciseIds.length) return out;
   const latest = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, at: setLog.completedAt })
     .from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
-    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), inArray(setLog.exerciseId, exerciseIds),
+    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), isNull(setLog.voidedAt), inArray(setLog.exerciseId, exerciseIds),
       excludeSessionId ? ne(workoutSession.id, excludeSessionId) : undefined,
       // El coach o el gym ven sólo lo entrenado con ellos (nunca el entrenamiento con otro coach o gimnasio).
       scope?.coachClientId ? eq(workoutSession.coachClientId, scope.coachClientId) : undefined,
@@ -562,7 +565,7 @@ export async function lastTimeByExercise(userId: string, exerciseIds: string[], 
   const rows = await db.select({ exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, idx: setLog.setIndex, w: setLog.weightKg, r: setLog.reps, rir: setLog.rir, feel: setLog.feel,
     peReps: programExercise.reps, detail: programExercise.detail, setKind: setLog.setKind })
     .from(setLog).innerJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(and(inArray(setLog.sessionId, [...new Set(latest.map((l) => l.sessionId))]), inArray(setLog.exerciseId, exerciseIds))).orderBy(asc(setLog.setIndex));
+    .where(and(inArray(setLog.sessionId, [...new Set(latest.map((l) => l.sessionId))]), inArray(setLog.exerciseId, exerciseIds), isNull(setLog.voidedAt))).orderBy(asc(setLog.setIndex));
   for (const l of latest) {
     const mine = rows.filter((x) => x.sessionId === l.sessionId && x.exerciseId === l.exerciseId);
     out.set(l.exerciseId, { at: l.at, reps: mine[0]?.peReps ?? null, sets: mine.map((x) => ({ weightKg: x.w == null ? null : Number(x.w), reps: x.r, rir: x.rir, feel: x.feel,
@@ -630,7 +633,7 @@ export async function lastSetByExercise(userId: string, exerciseIds: string[], e
   if (!exerciseIds.length) return new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
   const rows = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, weightKg: setLog.weightKg, reps: setLog.reps, completedAt: setLog.completedAt })
     .from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
-    .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), inArray(setLog.exerciseId, exerciseIds),
+    .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), inArray(setLog.exerciseId, exerciseIds),
       excludeSessionId ? ne(workoutSession.id, excludeSessionId) : undefined))
     .orderBy(setLog.exerciseId, desc(setLog.completedAt));
   const m = new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
@@ -664,7 +667,7 @@ export async function myTraining(userId: string, now = new Date()) {
   const lastWeek = completed.filter((c) => !week.includes(localDate(c.endedAt!)));
   const vol = async (ids: string[]) => {
     if (!ids.length) return 0;
-    const ls = await db.select().from(setLog).where(inArray(setLog.sessionId, ids));
+    const ls = await db.select().from(setLog).where(and(inArray(setLog.sessionId, ids), isNull(setLog.voidedAt)));
     const timed = await timedPeIds(ls.map((l) => l.programExerciseId));
     return volumeKg(ls.map((l) => toLogged(l, timed)));
   };
@@ -908,7 +911,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const s = await mySession(userId, sessionId);
   const dayExs = await db.select().from(programExercise).where(eq(programExercise.dayId, s.dayId)).orderBy(asc(programExercise.position));
   const [v] = await db.select({ note: programVersion.note }).from(programVersion).where(eq(programVersion.id, s.versionId));
-  const logs = await db.select().from(setLog).where(eq(setLog.sessionId, s.id));
+  const logs = await db.select().from(setLog).where(and(eq(setLog.sessionId, s.id), isNull(setLog.voidedAt)));
   const skips = await db.select().from(setSkip).where(eq(setSkip.sessionId, s.id)); // D184: etapas omitidas (y deshechas)
   // QA 29/10 (DATA-5): series de un ejercicio que la rutina nueva ya no tiene («Aplicar ahora») siguen a la vista, al final.
   const inDay = new Set(dayExs.map((e) => e.id));
@@ -983,6 +986,8 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
   const res = await db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true);
     if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
+    // D195: una sesión anulada no recibe cambios (un teléfono atrasado no la revive); se restaura desde el historial.
+    if (s.status === "voided") throw new AccessError("voided", "Anulaste este entrenamiento. Restauralo desde tu historial para cambiarlo.", 409);
     await assertRelationActive(tx, s);
     if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
     let [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
@@ -1172,6 +1177,8 @@ export async function setStageSkip(userId: string, sessionId: string, p: { progr
   return db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true); // bloquea la sesión: los cambios de la misma sesión van en fila
     if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
+    // D195: una sesión anulada no recibe cambios (un teléfono atrasado no la revive); se restaura desde el historial.
+    if (s.status === "voided") throw new AccessError("voided", "Anulaste este entrenamiento. Restauralo desde tu historial para cambiarlo.", 409);
     await assertRelationActive(tx, s);
     if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
     let [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
@@ -1363,7 +1370,7 @@ export async function sessionSummary(userId: string, sessionId: string) {
       const mine = e.logs.filter((l) => l.exerciseId === exId);
       const before = await db.select({ l: setLog }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
         .where(and(eq(workoutSession.userId, userId), eq(setLog.exerciseId, exId), ne(workoutSession.id, s.id), lt(setLog.completedAt, s.startedAt),
-          inArray(workoutSession.status, ["completed"])));
+          inArray(workoutSession.status, ["completed"]), isNull(setLog.voidedAt)));
       const timedBefore = await timedPeIds(before.map((b) => b.l.programExerciseId));
       const cur = (l: (typeof mine)[number]) => rowFlags(e as { sets: number; reps: string; detail: ExerciseDetail | null }, l.setIndex);
       const pr = detectPR(before.map((b) => toLogged(b.l, timedBefore)), mine.map((l) => ({ exerciseId: exId, weightKg: l.weightKg, reps: l.reps, completed: true, timed: cur(l).timed || undefined, warmup: cur(l).warmup || undefined, rounds: cur(l).rounds || undefined })));
@@ -1379,10 +1386,11 @@ export async function sessionSummary(userId: string, sessionId: string) {
   };
 }
 
+/** Sesiones terminadas (activas) con series y volumen válidos. La app usa el historial de D195 (history.ts), que suma anuladas. */
 export async function myHistory(userId: string) {
   const sessions = await db.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed")))
     .orderBy(desc(workoutSession.endedAt)).limit(30);
-  const sets = sessions.length ? await db.select().from(setLog).where(inArray(setLog.sessionId, sessions.map((s) => s.id))) : [];
+  const sets = sessions.length ? await db.select().from(setLog).where(and(inArray(setLog.sessionId, sessions.map((s) => s.id)), isNull(setLog.voidedAt))) : [];
   const timed = await timedPeIds(sets.map((x) => x.programExerciseId));
   return sessions.map((s) => {
     const ss = sets.filter((x) => x.sessionId === s.id);

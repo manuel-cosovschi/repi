@@ -126,7 +126,7 @@ type Point = { d: string; kg: number; reps: number; e1rm: number | null };
 async function evolution(gymMemberId: string, exerciseId: string, limit = 8): Promise<Point[]> {
   const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(and(eq(workoutSession.gymMemberId, gymMemberId), eq(setLog.exerciseId, exerciseId), ne(workoutSession.status, "abandoned")))
+    .where(and(eq(workoutSession.gymMemberId, gymMemberId), eq(setLog.exerciseId, exerciseId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt)))
     .orderBy(desc(workoutSession.startedAt)).limit(400);
   const best = new Map<string, Point>();
   for (const r of rows) {
@@ -142,7 +142,7 @@ export async function myExercises(userId: string, orgId: string) {
   const m = await activeMember(userId, orgId);
   const rows = await db.select({ id: setLog.exerciseId, name: exercise.name, n: sql<number>`count(distinct ${workoutSession.id})::int`, last: sql<Date>`max(${workoutSession.startedAt})` }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
-    .where(and(eq(workoutSession.gymMemberId, m.id), ne(workoutSession.status, "abandoned"))).groupBy(setLog.exerciseId, exercise.name).orderBy(desc(sql`max(${workoutSession.startedAt})`));
+    .where(and(eq(workoutSession.gymMemberId, m.id), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt))).groupBy(setLog.exerciseId, exercise.name).orderBy(desc(sql`max(${workoutSession.startedAt})`));
   return rows.map((r) => ({ id: r.id, name: r.name, sessions: r.n, last: r.last }));
 }
 export async function exerciseEvolution(userId: string, orgId: string, exerciseId: string) {
@@ -159,7 +159,7 @@ async function sessionSnapshot(memberId: string, sessionId: string) {
   const [s] = await db.select().from(workoutSession).where(and(eq(workoutSession.id, sessionId), eq(workoutSession.gymMemberId, memberId), eq(workoutSession.status, "completed")));
   if (!s) throw new AccessError("invalid", "Elegí un entrenamiento terminado del programa del gym.");
   const logs = await db.select({ w: setLog.weightKg, r: setLog.reps, name: exercise.name, target: programExercise.reps, idx: setLog.setIndex, sets: programExercise.sets, detail: programExercise.detail }).from(setLog).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
-    .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId)).where(eq(setLog.sessionId, s.id));
+    .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId)).where(and(eq(setLog.sessionId, s.id), isNull(setLog.voidedAt)));
   // D183: misma definición que el resumen de la sesión (series principales; sin aproximación ni series por tiempo en el volumen).
   const fl = logs.map((l) => (l.target != null ? rowFlags({ sets: l.sets ?? 0, reps: l.target, detail: l.detail as ExerciseDetail | null }, l.idx) : null));
   return {
@@ -236,7 +236,7 @@ export async function maxesOf(gymMemberId: string, limit = 8) {
   const rows = await db.select({ ex: setLog.exerciseId, name: exercise.name, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
     .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(and(eq(workoutSession.gymMemberId, gymMemberId), ne(workoutSession.status, "abandoned")));
+    .where(and(eq(workoutSession.gymMemberId, gymMemberId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt)));
   const best = new Map<string, { exercise: string; kg: number; reps: number; e1rm: number; at: Date }>();
   for (const x of rows) {
     if (x.w == null || x.r == null || x.r < 1 || (x.target != null && parseReps(x.target).kind === "time")) continue;
@@ -412,7 +412,7 @@ export async function liftBests(gms: string[], now = new Date()) {
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
   const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
-    .where(and(inArray(workoutSession.gymMemberId, gms), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
+    .where(and(inArray(workoutSession.gymMemberId, gms), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
   // Mejor marca por ejercicio y persona, y la mejor hasta hace una semana.
   const best = new Map<string, Map<string, { best: number; before: number | null }>>();
   for (const x of sets) {
