@@ -6,7 +6,7 @@ Actualizado: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en prod
 
 ## Cierre del bloque 05/06 (D195) y respaldos (D190) — 05/11/2026 · PUBLICADO Y VALIDADO
 
-**Producción:** `83f014075eeb` (repiclub.com `/api/version`), Vercel `dpl_DCkSW9BkLDXaASdjyLbWDC5x1WJp` READY desde las 12:30 UTC. El código de la app es el de `95e2831` (#26); `83f0140` sólo cambia el workflow de respaldo, un comentario de `retention.ts` y documentación.
+**Producción:** `b9ef4d1a610e` (repiclub.com `/api/version`, 13:54 UTC), con los hotfixes #30 y #32 de abajo. El smoke del bloque se hizo sobre `83f0140` (`dpl_DCkSW9BkLDXaASdjyLbWDC5x1WJp`), cuyo código de la app es el de `95e2831` (#26).
 
 ### Publicación (hecha por la sesión anterior, verificada hoy)
 1. **Respaldo previo:** issue #25 → corrida 23 en verde → release `backup-20261105-040245-41965097791` (101 tablas, 7272 filas, 267 claves foráneas sin huérfanos, 0 restricciones sin validar).
@@ -31,8 +31,12 @@ Actualizado: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en prod
 - **Estado del cronograma: NO funciona todavía.** Ambos cron están en `main` y el workflow está activo, pero GitHub **tampoco creó** la ejecución de las 12:47 UTC (comprobado a las 13:20: 0 ejecuciones `schedule` en todo el repositorio desde que existe el workflow).
   - **Hipótesis, sin comprobar:** todos los commits que tocaron `backup.yml` (#9, #10, #14, #27) entraron por merges hechos con la integración de GitHub (committer `web-flow`, sesión de Claude). GitHub atribuye el cronograma a quien modificó el cron por última vez; si ese cambio llega por un token de aplicación, el planificador puede no dispararlo. No es un descarte por carga: no hubo ni una sola ejecución en dos días y cuatro turnos posibles.
   - **Acción del titular (no la puede hacer la integración):** en GitHub, Actions → Respaldo → «…» → **Disable workflow** y después **Enable workflow**, desde su navegador. Eso vuelve a registrar el cronograma a su nombre. Si al día siguiente sigue sin haber ejecuciones `schedule`, usar un disparador externo (ver docs/RESPALDOS.md).
-  - **Copia del día:** pedida con el issue #28 («Respaldo: diario manual…»). Una ejecución manual garantiza una copia reciente, **no** demuestra el cronograma.
-- **Último respaldo verificado:** `backup-20261105-040245-41965097791` (por issue, antes de la 0045): descifrado, hashes del manifiesto y restauración en PostgreSQL descartable verificados por el workflow. No hay alertas abiertas.
+  - **Copia del día:** el issue #28 **falló** (corrida 42034952448, «firma de lectura falló (404)»): `backup.ts` pedía el archivo de cada fila de `media_object`, incluida una foto del Club que la purga diaria de las 06:41 UTC había borrado de Storage. Desde esa purga **ningún respaldo podía completarse**. Alerta #29 abierta por el workflow.
+  - **Arreglo:** PR #30 (`67c8f7c`): `backup.ts` copia sólo archivos vigentes (`deleted_at is null`) y `purgeMedia` ya no trata como huérfanas las fotos de `club_post` y `club_profile`. Prueba de regresión en `tests/club-profile.test.ts`.
+  - **Reintento:** issue #31 → corrida 42038583479 en verde → `backup-20261105-134716-42038583479` (104 tablas, 8634 filas, 278 claves foráneas sin huérfanos, 0 restricciones sin validar, 1 archivo con hash correcto). Cerró la alerta #29. #28 cerrado como duplicado de #31. Una ejecución manual garantiza una copia reciente, **no** demuestra el cronograma.
+  - **Retención:** al publicar el de las 13:47 borró `backup-20261105-040245-41965097791` (previo a la 0045), según la regla «último de cada día». Siguen `backup-20261104-234215-41935448423` (último del 04/11, 30 días) y `backup-20261104-140210-41843251047` (primero de noviembre, 4 meses).
+- **Último respaldo verificado:** `backup-20261105-134716-42038583479` (por issue, 13:47 UTC). No hay alertas abiertas.
+- **Foto del Club borrada por la purga (dato real):** era la única imagen de producción. Está dentro de `backup-20261104-140210-41843251047` y `backup-20261104-234215-41935448423`. Recuperarla requiere la clave privada del titular y subirla a Storage de producción: **pendiente de decisión del titular**, no se hizo. Mientras tanto el Club muestra «Foto no disponible».
 
 ### Recuento de `set_log` 1422 → 172: explicado, sin pérdida de datos reales
 - **1422** es el total del respaldo del 05/11 a las 04:02 (log de la corrida 23), con **10 demos abiertas** en ese momento. **172** son las series de usuarios reales (correo que no termina en `.invalid`) hoy. A las 12:24 el total era 680 = 172 reales + 508 de las 4 demos abiertas desde las 11:32.
@@ -59,10 +63,22 @@ Huella (cantidad + md5 de cada fila) de usuarios, organizaciones, entrenamientos
 - 12:42 y 12:48 UTC (durante y después de todas las pruebas): **las 16 huellas idénticas** (cantidades y md5). No hubo escrituras de usuarios reales en esa ventana, así que no hubo cambios legítimos que separar. Las pruebas sólo escribieron en organizaciones `is_demo` y usuarios `.invalid`; los accesos denegados quedaron auditados con el usuario de la demo y sin organización.
 - No se usaron alumnos ni configuración de Smart Center.
 
+### Hotfixes del 05/11 por reportes de usuarios (después del smoke)
+- **PR #30** (`67c8f7c`): la purga diaria borraba fotos del Club (faltaban `club_post.image_id` y `club_profile.avatar_id` en la lista de referencias) y eso rompía el respaldo. Club con «Foto no disponible» y avatar con iniciales si el archivo no está. Typecheck, guardas (24), integración completa (60 archivos, 397 pruebas) y build en verde; CI y autoprueba en verde.
+- **PR #32** (`b9ef4d1`): reporte de un alumno al armar su rutina.
+  - El cardio de «Mis rutinas» es una actividad continua (1 vez, 20 min) con el tiempo en minutos y segundos, guardado como `"N s"`.
+  - El aviso de las hojas con botón aparece junto al botón: antes quedaba arriba, fuera de la vista, y «Guardar rutina» parecía no hacer nada (en la base no hubo ningún intento de guardado).
+  - `parseReps` entiende «20 min», «1 min 30 s», «20:00» y «1:30». En producción no había programas ni rutinas con tiempos en minutos, así que no cambia nada de lo existente.
+  - E2E nueva en `own-routine-create.spec.ts`.
+  - Verificado en repiclub.com con una demo (Pixel 7 emulado).
+- **E2E local completa** con estos cambios (Chromium emulado, build local y `repi_dev` descartable): 108 pasan, 27 omitidas por diseño, 5 fallaron sólo por el entorno del contenedor (sin `DATABASE_URL` en el ejecutor ni `.env.local`: `prescribed-weights` y `training-intelligence-roles`, en teléfono y escritorio) o por una espera intermitente (`connected-stages`). Repetidas con el entorno, pasan todas.
+
 ### Pendientes externos
 - Probar en un iPhone y un Android físicos.
 - Dos cuentas de prueba vinculadas (coach + alumno, o dueño + socio de la misma sede) autorizadas por el titular para ver «Cargas disponibles» con equipos reales en producción (`scripts/operations/verify-coach-weights-prod.mjs` es el modelo).
 - Comprobar la clave privada de recuperación (`restore-from-release.sh último … --sin-base`), sólo el titular.
+- Decidir si se recupera la foto del Club desde el respaldo del 04/11 (requiere la clave privada del titular).
+- Re-registrar el cronograma de respaldo desde el navegador del titular (Actions → Respaldo → Disable workflow → Enable workflow) y comprobar al día siguiente que haya una ejecución `schedule`.
 - Autorizar la conexión de Vercel al equipo para leer errores de ejecución.
 - Prueba de regresión del hotfix #26 (cliente conserva `ladder` al refrescar): hoy sólo hay pruebas de servidor.
 - PR #2 (D181, abierto desde antes) sin tocar.
@@ -271,7 +287,7 @@ Comenzar el Master Prompt 06/06 cuando el titular lo indique.
   - Abierto con la clave del titular, con todos los hashes iguales al manifiesto.
   - La credencial temporal quedó vencida.
 - **Alertas:** probadas con el issue #11 y la alerta #12. El éxito del issue #15 cerró la alerta.
-- **05/11:** GitHub no creó ni la ejecución de las 06:17 ni la de reserva de las 12:47 UTC (PR #27). Copia del día por el issue #28. El cronograma automático sigue sin probarse: ver «Cierre del bloque 05/06» arriba.
+- **05/11:** GitHub no creó ni la ejecución de las 06:17 ni la de reserva de las 12:47 UTC (PR #27). El respaldo por el issue #28 falló por una foto purgada; arreglado en #30 y copia del día con el issue #31. El cronograma automático sigue sin probarse: ver «Cierre del bloque 05/06» arriba.
 
 ### Migración 0042 — aplicada el 04/11 a las 14:04 UTC
 - **Cómo:** `hosted-0042.sql`, en una transacción como `repi_app`.
