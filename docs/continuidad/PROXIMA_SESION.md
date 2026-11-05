@@ -35,7 +35,11 @@ Actualizado: 05/11/2026 (hasta D195; bloque 05/06 implementado en el PR #24 en b
 - Integración (`repi_test`): 60 archivos, 397 pruebas en verde.
 - Build en verde.
 - E2E nuevo `e2e/experience-ux.spec.ts` en verde (Pixel 7 emulado y escritorio, axe).
-- Suite E2E completa: ver el PR.
+- Suite E2E completa contra la build local y `repi_dev` (Chromium preinstalado): 111 pasan, 0 fallan, 27 omitidas por diseño del proyecto (teléfono o escritorio).
+  - La primera corrida encontró tres regresiones, ya corregidas:
+    - la guarda de doble toque bloqueaba un toque legítimo después de «Saltar descanso»;
+    - faltaba «Usar» en drops con carga de referencia;
+    - el contraste del enlace de la ayuda en el coach oscuro.
 - No probado en teléfonos físicos.
 
 **Decisiones:**

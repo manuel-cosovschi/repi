@@ -32,7 +32,7 @@ Este documento describe qué cambió, por qué y cómo verificarlo. Consume los 
 
 ### Registro y navegación (`components/member/Workout.tsx`)
 - La acción principal («Completar serie N») va antes que las herramientas: con teclado o en 320 px no queda tapada.
-- Un doble toque no registra dos veces (guarda de 450 ms sobre la misma acción).
+- Un doble toque no registra dos veces: un segundo toque seguido al botón principal, dentro de 450 ms, se ignora. Tocar otra cosa en el medio (saltar el descanso) lo habilita enseguida.
 - Botón de lista: «Ejercicios de hoy» con el estado de cada uno (hecho, en curso, N de M, salteado, pendiente). Tocar uno va ahí; no cambia el orden indicado.
 - Al volver: «Pausar y seguir más tarde», **«Salir un momento (el reloj sigue)»** o cortar el entrenamiento.
 - En cualquier pestaña aparece **«Entrenamiento en curso · Volver»** (`.wo-live`). Inicio ya lo muestra en su tarjeta.
@@ -161,7 +161,7 @@ Nunca se muestra un código interno como explicación principal.
 - **Integración** sobre `repi_test`, base descartable con guardas:
   - `tests/history-corrections.test.ts`: dueño, coach 404, idempotencia, conflictos, confirmación, anular y restaurar series y sesiones, agregar faltante, exclusión en récords y volumen, abierta y anulada 409.
   - `tests/gym-equipment.test.ts`: permisos por sede, duplicados, revisión vieja, archivar y escalera para el socio.
-- **E2E (Chromium emulado):** se actualizaron las expectativas de la guía de la serie. Ver el informe del PR para lo que se corrió.
+- **E2E (Chromium emulado, Pixel 7 y escritorio, con axe):** `e2e/experience-ux.spec.ts` cubre la sesión (ayuda, lista de ejercicios, salir y volver), el historial (corregir, anular y restaurar series y entrenamientos, confirmado por el servidor) y la vista previa del coach. La suite completa: 111 pasan, 0 fallan, 27 omitidas por diseño.
 - **No probado en iPhone ni Android físicos.**
 
 ## 9. Límites conocidos
