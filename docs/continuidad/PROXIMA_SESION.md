@@ -99,6 +99,11 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 - `search_path` de `gym_task_event_immutable` en la próxima migración.
 - Índices de claves foráneas antes de crecer.
 - Validar la sesión antes del cuerpo en las rutas que dan 400 sin sesión (P3).
+- **Prueba intermitente nueva (P2):** `tests/gym.test.ts` «métricas desde eventos reales» falló una vez en CI.
+  - Dónde: PR #42, sólo documentación, 05/11 23:09 UTC. Esperaba `req` 3 y recibió 2.
+  - Pasó en el CI de `main` 20 minutos antes con el mismo código y 11/11 en local.
+  - `req` cuenta tareas con `completedAt` entre `now − 7 días` y `now`; la causa todavía no está identificada.
+  - No se cambió la expectativa. Investigar antes de sumar E2E a CI.
 
 ## Cierre del bloque 05/06 (D195) y respaldos (D190) — 05/11/2026 · PUBLICADO Y VALIDADO
 
