@@ -8,7 +8,7 @@ Los respaldos de producción se hacen y se prueban en GitHub Actions y se guarda
 | Dónde quedan | Releases con etiqueta `backup-AAAAMMDD-HHMMSS-<ejecución>`: un archivo `repi-backup-….tar.gz.age` y su `.sha256` |
 | Contenido | Todas las tablas de `public` (COPY en un único instante, `REPEATABLE READ READ ONLY`), `drizzle.__drizzle_migrations`, los archivos de Storage (`media_object`) y `manifest.json` con el SHA-256 de cada archivo |
 | Cifrado | [age](https://age-encryption.org) (X25519 + ChaCha20-Poly1305, autenticado). La clave pública del titular está en `apps/web/scripts/operations/backup-recipients.txt` (o en la variable `REPI_BACKUP_AGE_RECIPIENTS`, si existe); la **privada nunca entra a GitHub**: está en el Google Drive del titular, carpeta «REPI — Recuperación de respaldos» |
-| Retención | El último de cada uno de los 30 días más recientes con respaldo, más el primero de cada uno de los 4 meses más recientes. El último válido no se borra nunca |
+| Retención | El último de cada uno de los 30 días más recientes con respaldo, más el primero de cada uno de los 4 meses más recientes. El último válido no se borra nunca. Los días se cuentan por la fecha de **publicación** del release (`published_at`), no por `created_at`, que en GitHub es la fecha del commit de destino |
 | Alerta | Si falla o se corta, el workflow abre o comenta el issue «Respaldo de producción fallido», asignado al titular (GitHub avisa por correo y en la app). El siguiente éxito lo cierra |
 
 ## Qué hace cada ejecución
@@ -41,6 +41,20 @@ Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único ar
 - Usa la misma cadena sobre una base de demostración del runner, con claves de prueba.
 - Sube y baja un release borrador (después se borra).
 - Ejecuta el procedimiento de recuperación de abajo y comprueba que una clave ajena o un archivo alterado se rechazan.
+
+## Cronograma diario y vigilancia (05/11/2026, PR #27)
+
+- **Dos turnos:** `17 6 * * *` (03:17 Buenos Aires) y `47 12 * * *` (09:47, reserva). GitHub puede demorar o descartar ejecuciones programadas: el 05/11 no creó la de las 06:17 (0 ejecuciones `schedule` en el repositorio).
+- **Sin duplicados:** en un turno programado, «Automatización habilitada» cuenta los releases publicados **ese día UTC** (`published_at`) con la marca de verificado y «Motivo: diario». Si ya hay uno, el turno termina sin respaldar y sin alerta. Los respaldos por issue o manuales siempre corren y no cuentan como diario.
+- **Cómo saber si el cronograma funciona:** Actions → Respaldo, filtrar por evento `schedule`, o `gh api "repos/manuel-cosovschi/repi/actions/runs?event=schedule"`. Un respaldo manual o por issue en verde garantiza una copia reciente, pero **no** prueba el cronograma.
+- **Si se omiten los dos turnos:** pedir un respaldo con un issue «Respaldo: diario manual (cronograma omitido)». La integración no puede usar «Run workflow» (403).
+- **Estado al 05/11 13:20 UTC: el cronograma nunca disparó** (ni las 06:17 ni las 12:47; 0 ejecuciones `schedule`). Hipótesis sin comprobar: todos los cambios del cron entraron por merges de la integración (committer `web-flow`) y GitHub atribuye el cronograma a quien lo modificó por última vez. Acción del titular: Actions → Respaldo → «…» → Disable workflow → Enable workflow desde su navegador.
+- **Archivos purgados:** el respaldo copia sólo los archivos vigentes de `media_object` (`deleted_at is null`). Las filas de los purgados quedan en la base y en el respaldo como registro (PR #30: antes, una foto purgada hacía fallar el respaldo con 404).
+- **Riesgo abierto:** si GitHub descarta ambos turnos, hoy nadie avisa: la alerta sólo se abre cuando una ejecución falla, no cuando no existe.
+- **Propuesta (no implementada, requiere decisión del titular):** una alerta independiente de GitHub Actions cuando pasen más de 24 h sin un respaldo verificado.
+  - *Recomendada:* «dead man's switch» externo (por ejemplo Healthchecks.io, plan gratuito). El paso de publicación hace un `curl` a la URL del chequeo; si no llega en 24 h + 2 h de gracia, el servicio manda un correo. Requiere crear la cuenta y guardar la URL como secreto. Cambio de una línea en `backup.yml`.
+  - *Disparador independiente* (si el cronograma de GitHub no se recupera): el `pg_cron` de Supabase o el cron de Vercel llaman una vez por día a `workflow_dispatch` con un token de GitHub de alcance mínimo (sólo Actions de este repositorio). Requiere crear y guardar ese token.
+  - *Sin terceros:* el cron diario de Vercel (`/api/cron/purge-media`, 06:30 UTC) consulta la API de Releases con un token de sólo lectura y, si el último verificado tiene más de 26 h, manda un correo al titular. Requiere un token de GitHub de sólo lectura en Vercel y código nuevo en la app.
 
 ## Puesta en marcha (hecha el 04/11/2026)
 

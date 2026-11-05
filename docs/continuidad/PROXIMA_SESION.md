@@ -1,14 +1,94 @@
 # REPI — Retomar acá
 
-Actualizado: 05/11/2026 (hasta D195; bloque 05/06 implementado en el PR #24 en borrador, sin publicar; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; próximo: revisar y publicar 05/06 (PR #24), después 06/06; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
-## Bloque 05/06 · Experience Intelligence & UX 2.0 (D195) — 05/11/2026 · IMPLEMENTADO, SIN PUBLICAR
 
-**Estado:** rama `feat/repi-experience-intelligence-ux`, PR #24 en borrador sobre `main` (`9e18035`).
-- No se integró ni se desplegó.
-- La migración 0045 **no** se aplicó en producción.
-- Producción sigue en `9e1803536424`.
+## Cierre del bloque 05/06 (D195) y respaldos (D190) — 05/11/2026 · PUBLICADO Y VALIDADO
+
+**Producción:** `b9ef4d1a610e` (repiclub.com `/api/version`, 13:54 UTC), con los hotfixes #30 y #32 de abajo. El smoke del bloque se hizo sobre `83f0140` (`dpl_DCkSW9BkLDXaASdjyLbWDC5x1WJp`), cuyo código de la app es el de `95e2831` (#26).
+
+### Publicación (hecha por la sesión anterior, verificada hoy)
+1. **Respaldo previo:** issue #25 → corrida 23 en verde → release `backup-20261105-040245-41965097791` (101 tablas, 7272 filas, 267 claves foráneas sin huérfanos, 0 restricciones sin validar).
+2. **0045 aplicada** con `hosted-0045.sql`. Verificado hoy, sólo lectura:
+   - Un único registro (id 46), hash `36cdc6b5…` igual al SHA-256 de `drizzle/0045_experience_ux.sql`, último aplicado, sin hashes duplicados; 46 migraciones en la base y en el código.
+   - `gym_equipment`, `gym_equipment_exercise` y `training_correction`: dueño `repi_app`, RLS sin `FORCE`, sin permisos para `anon` ni `authenticated`; `repi_backup` sólo `SELECT`.
+   - Columnas `voided_at`, `voided_by`, `void_reason` (NULL) en `set_log` y `workout_session`; `user_pref.hints` `jsonb NOT NULL DEFAULT '{}'`.
+   - Los 5 índices y las 11 claves foráneas de la migración, todas validadas. RLS en las 104 tablas de `public`; 0 restricciones sin validar en `public`.
+   - El permiso temporal de `postgres` sobre `repi_app` está revocado (sólo queda la membresía automática de creación: `supabase_admin`, sin `INHERIT` ni `SET`).
+   - Asesor de seguridad de Supabase: sólo los avisos de siempre (RLS sin políticas, por diseño: la app es dueña y `anon` no tiene permisos; `gym_task_event_immutable` con `search_path` mutable, anterior a 0045).
+3. **PR #24 integrado** (squash) como `719bb94`, desplegado 04:08 UTC (`dpl_GHYqW8CvNhP31ea4ozuMSrpnUeQp`).
+4. **Hotfix PR #26** (`95e2831`, `dpl_An5Q94UDmt3z6DmFANHAwpMMv858`, 11:30 UTC): el refresco de objetivos de una sesión recién iniciada ahora también copia `ladder`. Sin prueba de regresión propia (ver pendientes).
+- **Reversión del código:** promover en Vercel `dpl_GHYqW8CvNhP31ea4ozuMSrpnUeQp` (sin el hotfix) o `dpl_8PNnKSMwUHkqzrnpDFEc6jEM1GTz` (`9e18035`, antes del bloque). El esquema puede quedar: el código anterior no lee nada de 0045.
+
+### Respaldo diario (PR #27)
+- **Problema:** GitHub no creó la ejecución programada del 05/11 a las 06:17 UTC. En todo el repositorio hay 0 ejecuciones con evento `schedule`; los respaldos por issue funcionan.
+- **PR #27** (`83f0140`, squash, autorizado por el titular):
+  - Segundo turno `47 12 * * *` (09:47 Buenos Aires). Sólo respalda si ese día (UTC) no hay ya un respaldo con «Motivo: diario» publicado y verificado.
+  - Los respaldos por issue o manuales no pasan por esa regla: siempre corren y no cuentan como diario.
+  - **Defecto encontrado en la revisión y corregido en el mismo PR:** `created_at` de un release es la fecha del **commit** de destino, no la del respaldo (`backup-20261105-040245` tiene `created_at` 00:03 y `published_at` 04:02). Con main sin commits nuevos, el turno de reserva iba a repetir el diario y la retención iba a agrupar todos los diarios en un solo «día» y borrar los anteriores (simulado con 5 diarios: borraba 3). Ahora la detección y la retención usan `published_at` (los borradores, `created_at`).
+  - Cifrado, permisos, alertas y reglas de retención sin cambios. CI y autoprueba en verde en `7f96556`.
+- **Estado del cronograma: NO funciona todavía.** Ambos cron están en `main` y el workflow está activo, pero GitHub **tampoco creó** la ejecución de las 12:47 UTC (comprobado a las 13:20: 0 ejecuciones `schedule` en todo el repositorio desde que existe el workflow).
+  - **Hipótesis, sin comprobar:** todos los commits que tocaron `backup.yml` (#9, #10, #14, #27) entraron por merges hechos con la integración de GitHub (committer `web-flow`, sesión de Claude). GitHub atribuye el cronograma a quien modificó el cron por última vez; si ese cambio llega por un token de aplicación, el planificador puede no dispararlo. No es un descarte por carga: no hubo ni una sola ejecución en dos días y cuatro turnos posibles.
+  - **Acción del titular (no la puede hacer la integración):** en GitHub, Actions → Respaldo → «…» → **Disable workflow** y después **Enable workflow**, desde su navegador. Eso vuelve a registrar el cronograma a su nombre. Si al día siguiente sigue sin haber ejecuciones `schedule`, usar un disparador externo (ver docs/RESPALDOS.md).
+  - **Copia del día:** el issue #28 **falló** (corrida 42034952448, «firma de lectura falló (404)»): `backup.ts` pedía el archivo de cada fila de `media_object`, incluida una foto del Club que la purga diaria de las 06:41 UTC había borrado de Storage. Desde esa purga **ningún respaldo podía completarse**. Alerta #29 abierta por el workflow.
+  - **Arreglo:** PR #30 (`67c8f7c`): `backup.ts` copia sólo archivos vigentes (`deleted_at is null`) y `purgeMedia` ya no trata como huérfanas las fotos de `club_post` y `club_profile`. Prueba de regresión en `tests/club-profile.test.ts`.
+  - **Reintento:** issue #31 → corrida 42038583479 en verde → `backup-20261105-134716-42038583479` (104 tablas, 8634 filas, 278 claves foráneas sin huérfanos, 0 restricciones sin validar, 1 archivo con hash correcto). Cerró la alerta #29. #28 cerrado como duplicado de #31. Una ejecución manual garantiza una copia reciente, **no** demuestra el cronograma.
+  - **Retención:** al publicar el de las 13:47 borró `backup-20261105-040245-41965097791` (previo a la 0045), según la regla «último de cada día». Siguen `backup-20261104-234215-41935448423` (último del 04/11, 30 días) y `backup-20261104-140210-41843251047` (primero de noviembre, 4 meses).
+- **Último respaldo verificado:** `backup-20261105-134716-42038583479` (por issue, 13:47 UTC). No hay alertas abiertas.
+- **Foto del Club borrada por la purga (dato real):** era la única imagen de producción. Está dentro de `backup-20261104-140210-41843251047` y `backup-20261104-234215-41935448423`. Recuperarla requiere la clave privada del titular y subirla a Storage de producción: **pendiente de decisión del titular**, no se hizo. Mientras tanto el Club muestra «Foto no disponible».
+
+### Recuento de `set_log` 1422 → 172: explicado, sin pérdida de datos reales
+- **1422** es el total del respaldo del 05/11 a las 04:02 (log de la corrida 23), con **10 demos abiertas** en ese momento. **172** son las series de usuarios reales (correo que no termina en `.invalid`) hoy. A las 12:24 el total era 680 = 172 reales + 508 de las 4 demos abiertas desde las 11:32.
+- **Evidencia de que los reales están completos:** el respaldo del 04/11 a las 14:02 se hizo con **0 demos** (`demo_sandbox: 0`), así que todo lo que tenía era real: 48 usuarios, 7 organizaciones, 18 entrenamientos y 151 series. Hoy existen exactamente los 48 usuarios creados hasta entonces (ninguno de demo), las 7 organizaciones (5 reales y 2 demo permanentes), los 18 entrenamientos reales iniciados hasta entonces y sus **151 series**. Las 21 series reales restantes son de entrenamientos iniciados entre el 04/11 14:00 y el 05/11 04:02 (la última, 04/11 23:04). 151 + 21 = 172. Ninguna serie real está anulada.
+- **Quién borra:** el único código que borra entrenamientos, usuarios u organizaciones es `purgeSandboxes` (`server/sandbox/services.ts`), llamado cada minuto por `/api/cron/notifications`. Borra sólo los `user_ids` y `org_ids` de demos vencidas (6 h); esos ids salen sólo de usuarios creados con correo `@demo-<tag>.invalid` y organizaciones `is_demo` (comprobado también en las 4 demos abiertas: 32/32 usuarios de demo, 12/12 organizaciones `is_demo`). `set_log` no tiene `DELETE` propio: se borra en cascada con el entrenamiento.
+- **Registros:** las respuestas del cron que guarda `pg_net` (06:27–12:26 UTC, 360 llamadas, todas 200) muestran una purga de 1 demo a las 08:34. Las otras 9 demos del respaldo de las 04:02 vencieron antes de las 06:27 y no quedan respuestas de esa ventana.
+- **Incertidumbre:** no se abrió ningún respaldo (la clave privada es del titular). Para las series reales del intervalo 04/11 14:02 – 05/11 04:02 no hay una huella anterior sólo de reales: la conclusión se apoya en que el único borrado posible es el de demos. No hay indicios de pérdida.
+
+### Smoke productivo (05/11, 12:35–12:52 UTC) — demos guiadas, Chromium emulado
+Script: fuera del repositorio (scratchpad de la sesión), adaptado de `e2e/experience-ux.spec.ts`; sólo demos `is_demo`, que se borran a las 6 h.
+- **Alumno, Pixel 7 emulado:** inicio; guía de la serie (Tu profe indicó / Anterior / Real (hoy); «REPI recomienda» no aplicó en esa serie); + peso y ± repeticiones; **doble toque** en «Completar serie 1» → 1 sola serie en el servidor; IndexedDB `repi_offline_v1` y «Guardado en tu cuenta»; descanso con reloj y «Saltar descanso»; **refresco** con la sesión abierta → «Entrenamiento en curso · Continuar entrenamiento», la serie sigue y la copia local tiene `ladder` en 4/4 ejercicios; cambio de ejercicio (sustituido por «Aperturas con mancuernas», confirmado por el servidor; la escalera no se hereda del ejercicio original); salir un momento y volver; finalizar (completed).
+- **Historial:** reps 8 → 9 (volumen 444 → 499,5); anular la serie (series 1 → 0, volumen 0) y restaurarla; anular y restaurar el entrenamiento; la serie conserva el valor corregido. Auditoría: `set_edit, set_void, set_restore, session_void, session_restore`.
+- **Coach, Pixel 7:** ficha del alumno, «Editar programa» abre el constructor, vista previa «Ver cómo lo verá…» de sólo lectura sin botones de registro. Historial de otra persona: 404.
+- **Alumno, escritorio, oscuro:** guía visible, `ladder` en todos los ejercicios de la API. Otro alumno: leer su historial 404, anular su entrenamiento 404.
+- **Gimnasio (dueño), escritorio:** catálogo, crear «Mancuernas humo» (10; 12,5; 15; 17,5; 20 kg) asociado a un curl, editar cargas (10; 12,5; 15), archivar. Belgrano no ve el equipo de Palermo. Otra organización (demo de gimnasio, demo de coach, id inexistente): GET y POST 404, archivar 404.
+- **Hotfix #26:** el servidor devuelve `ladder` en cada ejercicio al iniciar y al refrescar, y el cliente lo conserva (4/4 tras recargar). En las demos la fuente es `unknown`: la demo no trae equipos y el dueño y el alumno son demos distintas, así que **no se pudo ver «Cargas disponibles» con equipos reales de la sede en producción**. La prioridad plan > sede > desconocido, el aislamiento por sede y la ambigüedad están cubiertos por `tests/gym-equipment.test.ts` (integración).
+- **Accesibilidad:** axe 0 serias o críticas en sesión (claro y oscuro, teléfono y escritorio oscuro), historial, vista previa del coach y equipamiento (claro y oscuro). Sin scroll horizontal. **Consola y red:** 0 errores de consola, 0 respuestas 5xx en todas las pruebas.
+- **Ajustes del script, no de la app:** tras recargar se entra por «Continuar entrenamiento» (comportamiento previsto); textos con coincidencia exacta; `requestId` con formato válido.
+- **No hecho:** teléfonos físicos (iPhone/Android); logs de errores de Vercel (la conexión MCP no tiene acceso al equipo `manuel-cosovschis-projects`: 403).
+
+### Integridad de datos reales durante las pruebas
+Huella (cantidad + md5 de cada fila) de usuarios, organizaciones, entrenamientos, series, programas, versiones, asignaciones, relaciones coach-alumno, socios, consentimientos, objetivos y propuestas de Training Intelligence, correcciones, auditoría, equipos y preferencias, limitada a usuarios reales y organizaciones no demo:
+- 12:29 UTC (antes): `user 53`, `organization 5`, `workout_session 20`, `set_log 172`, `program 41`, `program_version 51`, `program_assignment 29`, `coach_client 8`, `gym_member 27`, `consent_grant 47`, `training_target 49`, `training_proposal 0`, `training_correction 0`, `audit_event 468`, `gym_equipment 0`, `user_pref 7`.
+- 12:42 y 12:48 UTC (durante y después de todas las pruebas): **las 16 huellas idénticas** (cantidades y md5). No hubo escrituras de usuarios reales en esa ventana, así que no hubo cambios legítimos que separar. Las pruebas sólo escribieron en organizaciones `is_demo` y usuarios `.invalid`; los accesos denegados quedaron auditados con el usuario de la demo y sin organización.
+- No se usaron alumnos ni configuración de Smart Center.
+
+### Hotfixes del 05/11 por reportes de usuarios (después del smoke)
+- **PR #30** (`67c8f7c`): la purga diaria borraba fotos del Club (faltaban `club_post.image_id` y `club_profile.avatar_id` en la lista de referencias) y eso rompía el respaldo. Club con «Foto no disponible» y avatar con iniciales si el archivo no está. Typecheck, guardas (24), integración completa (60 archivos, 397 pruebas) y build en verde; CI y autoprueba en verde.
+- **PR #32** (`b9ef4d1`): reporte de un alumno al armar su rutina.
+  - El cardio de «Mis rutinas» es una actividad continua (1 vez, 20 min) con el tiempo en minutos y segundos, guardado como `"N s"`.
+  - El aviso de las hojas con botón aparece junto al botón: antes quedaba arriba, fuera de la vista, y «Guardar rutina» parecía no hacer nada (en la base no hubo ningún intento de guardado).
+  - `parseReps` entiende «20 min», «1 min 30 s», «20:00» y «1:30». En producción no había programas ni rutinas con tiempos en minutos, así que no cambia nada de lo existente.
+  - E2E nueva en `own-routine-create.spec.ts`.
+  - Verificado en repiclub.com con una demo (Pixel 7 emulado).
+- **E2E local completa** con estos cambios (Chromium emulado, build local y `repi_dev` descartable): 108 pasan, 27 omitidas por diseño, 5 fallaron sólo por el entorno del contenedor (sin `DATABASE_URL` en el ejecutor ni `.env.local`: `prescribed-weights` y `training-intelligence-roles`, en teléfono y escritorio) o por una espera intermitente (`connected-stages`). Repetidas con el entorno, pasan todas.
+
+### Pendientes externos
+- Probar en un iPhone y un Android físicos.
+- Dos cuentas de prueba vinculadas (coach + alumno, o dueño + socio de la misma sede) autorizadas por el titular para ver «Cargas disponibles» con equipos reales en producción (`scripts/operations/verify-coach-weights-prod.mjs` es el modelo).
+- Comprobar la clave privada de recuperación (`restore-from-release.sh último … --sin-base`), sólo el titular.
+- Decidir si se recupera la foto del Club desde el respaldo del 04/11 (requiere la clave privada del titular).
+- Re-registrar el cronograma de respaldo desde el navegador del titular (Actions → Respaldo → Disable workflow → Enable workflow) y comprobar al día siguiente que haya una ejecución `schedule`.
+- Autorizar la conexión de Vercel al equipo para leer errores de ejecución.
+- Prueba de regresión del hotfix #26 (cliente conserva `ladder` al refrescar): hoy sólo hay pruebas de servidor.
+- PR #2 (D181, abierto desde antes) sin tocar.
+
+### Próxima acción
+Comenzar el Master Prompt 06/06 cuando el titular lo indique.
+
+## Bloque 05/06 · Experience Intelligence & UX 2.0 (D195) — 05/11/2026 · IMPLEMENTADO (publicado: ver arriba)
+
+**Estado (histórico, al implementar):** rama `feat/repi-experience-intelligence-ux`, PR #24 en borrador sobre `main` (`9e18035`). **Hoy está integrado (`719bb94`), la 0045 aplicada y desplegado: ver «Cierre del bloque 05/06» arriba.**
 
 **Qué hay** (detalle en `docs/EXPERIENCE_UX_2.md`):
 - Sesión del alumno con la guía de la serie (Tu profe indicó / REPI recomienda / Anterior / Real).
@@ -207,7 +287,7 @@ Actualizado: 05/11/2026 (hasta D195; bloque 05/06 implementado en el PR #24 en b
   - Abierto con la clave del titular, con todos los hashes iguales al manifiesto.
   - La credencial temporal quedó vencida.
 - **Alertas:** probadas con el issue #11 y la alerta #12. El éxito del issue #15 cerró la alerta.
-- **05/11:** GitHub no creó la ejecución programada de las 06:17 UTC (descarte del planificador: el workflow está activo y el cron está en main). Se agregó un turno de reserva a las 12:47 UTC que sólo respalda si ese día no hay un respaldo «diario» verificado. Hay que confirmar que el turno de reserva respalde.
+- **05/11:** GitHub no creó ni la ejecución de las 06:17 ni la de reserva de las 12:47 UTC (PR #27). El respaldo por el issue #28 falló por una foto purgada; arreglado en #30 y copia del día con el issue #31. El cronograma automático sigue sin probarse: ver «Cierre del bloque 05/06» arriba.
 
 ### Migración 0042 — aplicada el 04/11 a las 14:04 UTC
 - **Cómo:** `hosted-0042.sql`, en una transacción como `repi_app`.
