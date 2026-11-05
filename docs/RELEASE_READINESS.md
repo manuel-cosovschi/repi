@@ -1,6 +1,6 @@
 # REPI — Matriz de preparación para el lanzamiento
 
-> **05/11/2026 · cierre 06/06 (D197–D198):** la matriz vigente, con estados y evidencia por requisito, está en [FINAL_RELEASE_HARDENING_06.md](FINAL_RELEASE_HARDENING_06.md) §2.
+> **05/11/2026 · cierre 06/06 (D197–D198), publicado 21:06 UTC (`ab4e1ad`):** la matriz vigente, con estados y evidencia por requisito, está en [FINAL_RELEASE_HARDENING_06.md](FINAL_RELEASE_HARDENING_06.md) §2.
 >
 > Veredicto actual:
 > - **Beta controlada:** GO.

@@ -1,16 +1,58 @@
 # REPI — Retomar acá
 
-Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» en PR, sin publicar**, ver la sección de abajo; bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos implementado pero **sin armar**; bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
-## Bloque 06/06 · Final Release Hardening (D197, D198) — 05/11/2026 · EN PR, SIN PUBLICAR
+## Publicación del bloque 06/06 — 05/11/2026 · PUBLICADO Y VALIDADO (autorizado por el titular)
+
+**Producción:** `ab4e1adcb307` (`/api/version`). Deploy READY a las 21:06:43 UTC, ~1 min después del merge squash del PR #36.
+
+**Antes de integrar:**
+- PR al día con `main` (base `70e7779`), sin conflictos y sin migraciones (ningún archivo de `drizzle/` ni `schema.ts` en el diff).
+- CI y autoprueba del respaldo en verde.
+- Respaldo cifrado nuevo: issue #37 → corrida 42108774553 → `backup-20261105-210336-42108774553`. Contiene 104 tablas, 3645 filas, 46 migraciones y 1 archivo. Se descifró, se compararon los hashes y se restauró en PostgreSQL descartable: 278 claves foráneas sin huérfanos y 0 restricciones sin validar. Por retención reemplazó al de las 14:42 (queda el último de cada día).
+
+**CSRF y solicitudes legítimas:**
+- Ninguna integración escribe en rutas con `handle()` desde fuera del navegador: los cron usan GET con secreto, la señal del respaldo tiene su propia ruta, el service worker sólo hace GET y no hay webhooks.
+- La autenticación (`/api/auth/*`) está fuera de `handle()`.
+- Safari no se pudo probar acá (no hay WebKit en el contenedor). Por el estándar Fetch envía `Origin` del propio sitio en cada POST. Se confirma en el iPhone (paso 4 de la lista de teléfonos).
+
+**Smoke productivo con demos (10 pasaron, 0 fallaron; 6 omitidas por diseño de proyecto):**
+- Alumno en Pixel 7: sesión, series, descanso, cambio de ejercicio, recarga, doble toque (1 serie), sync, fin, historial corregible, anulación y restauración.
+- Offline en producción, en teléfono y escritorio: el servidor se mantiene en 0 sin red, recargar sin red recupera las 2 series, al reconectar llegan exactamente 2 y no hay duplicados.
+- Guía «Tu profe indicó», escalera de cargas, coach (ficha, editor, vista previa de sólo lectura, 404 a lo ajeno), equipamiento del gimnasio (alta, edición, archivo, 404 a otra organización) y cardio en minutos y segundos.
+- CSP y Permissions-Policy presentes.
+- POST desde otro origen: 403 con y sin sesión, y `Sec-Fetch-Site: cross-site` 403. La misma escritura desde REPI: 200.
+- `get-session` 200 y credenciales inválidas 401.
+- Búsqueda pública: 3 sedes, las 3 reales y 0 demos (cotejado en la base).
+- Señal del vigilante sin secreto: 404.
+- axe sin violaciones serias en las pantallas recorridas.
+- Sin errores en los logs de Postgres ni de Edge Functions (21:00–21:15).
+- La tarea de cada minuto responde 200; a las 21:07 corrió el vigilante: `{"armed":false}`.
+
+**Integridad histórica (sólo lectura):** las filas reales previas a las 21:04:43 están idénticas después del deploy:
+- `set_log`: 196, mismo hash.
+- `program_version`: 64, mismo hash.
+- Objetivos abiertos: 28, mismo hash.
+- Un entrenamiento real salió del conjunto «previo» porque su dueño lo terminó a las 21:04:37 (24 series intactas): es actividad legítima, no un cambio del deploy.
+
+**Vigilante de respaldos (D198): NO ACTIVO.** El código está en producción y corre cada hora, pero sin `BACKUP_HEARTBEAT_SECRET` no está armado. No se puede configurar desde acá: los secretos de GitHub no están en la conexión y Vercel responde 403. Se declara activo recién cuando haya una señal auténtica registrada (`audit_event` `backup.verified` ≥ 1) y la revisión de la hora siguiente diga `armed: true`.
+
+**Cómo armarlo (titular, en tu computadora):**
+1. `openssl rand -hex 32` (no lo pegues en ningún chat).
+2. Vercel → proyecto repi → Settings → Environment Variables → Add: nombre `BACKUP_HEARTBEAT_SECRET`, valor el generado, sólo Production → Save. Después: Deployments → el último → «…» → Redeploy.
+3. GitHub → repositorio repi → Settings → Secrets and variables → Actions → New repository secret: el mismo nombre y el mismo valor.
+4. Abrir un issue con el título «Respaldo: prueba del vigilante». En la corrida, el paso «Señal de respaldo verificado» tiene que decir «Vigilante de REPI: señal enviada».
+5. Avisarle a Claude para que verifique el registro y el `armed: true`.
+
+## Bloque 06/06 · Final Release Hardening (D197, D198) — 05/11/2026 · PUBLICADO (ver arriba)
 
 **Documento principal:** `docs/FINAL_RELEASE_HARDENING_06.md`. Incluye la matriz por requisito, los hallazgos, las pruebas, el rendimiento, la infraestructura y sus costos, la lista de teléfonos, los pendientes legales y el veredicto por etapa.
 
 **Estado de producción:** `70e7779` (hotfix #35, D196) desde las 18:32 UTC. Vercel tardó ~29 min en desplegar el merge; la causa no se pudo ver sin acceso al equipo (LB-09). Primera purga con la lógica nueva: 06/11 06:30 UTC.
 
-**Rama:** `feat/repi-release-hardening-06`, desde `70e7779`. Sin migraciones. **No integrar sin autorización del titular.** PR #36, CI en verde (`a3ce204`).
+**Rama:** `feat/repi-release-hardening-06`, desde `70e7779`. Sin migraciones. **Integrado con autorización del titular** (PR #36, squash `ab4e1ad`).
 
 **Cambios:**
 - `src/server/access/http.ts`: `crossSiteWrite()` en `handle()` (CSRF, D197).
@@ -46,12 +88,11 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 **Para el titular:**
 1. Aprobar el acceso de Claude al equipo de Vercel (LB-09).
 2. Armar el vigilante: `BACKUP_HEARTBEAT_SECRET` en Vercel y en GitHub (`docs/RESPALDOS.md`).
-3. Revisar e integrar este PR.
-4. Teléfonos reales (lista en §13 del documento).
-5. Planes Vercel Pro y Supabase Pro (≈ USD 45/mes) antes de la expansión.
-6. Decidir sobre la 2FA de Admin (LB-10).
-7. Abogado (§19).
-8. Cuentas de prueba vinculadas (un coach y un alumno, y un dueño con un socio en una sede de prueba) para verificar en producción el caso Urko y el equipamiento.
+3. Teléfonos reales (lista en §13 del documento).
+4. Planes Vercel Pro y Supabase Pro (≈ USD 45/mes) antes de la expansión.
+5. Decidir sobre la 2FA de Admin (LB-10).
+6. Abogado (§19).
+7. Cuentas de prueba vinculadas (un coach y un alumno, y un dueño con un socio en una sede de prueba) para verificar en producción el caso Urko y el equipamiento.
 
 **Pendientes técnicos:**
 - E2E en CI (D-05).

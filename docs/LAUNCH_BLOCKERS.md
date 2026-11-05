@@ -1,6 +1,6 @@
 # REPI — Bloqueantes del lanzamiento
 
-Actualizado: 05/11/2026 (06/06, D197–D198; evaluación completa en [FINAL_RELEASE_HARDENING_06.md](FINAL_RELEASE_HARDENING_06.md)). Antes: 27/10/2026 (D111). Fuente: [RELEASE_READINESS.md](RELEASE_READINESS.md). No hay bloqueantes **de código** abiertos para una beta controlada. Todos los que siguen dependen del titular: gasto, cuentas, dispositivos o asesoramiento profesional.
+Actualizado: 05/11/2026 (06/06 publicado, `ab4e1ad`; D197–D198; evaluación completa en [FINAL_RELEASE_HARDENING_06.md](FINAL_RELEASE_HARDENING_06.md)). Antes: 27/10/2026 (D111). Fuente: [RELEASE_READINESS.md](RELEASE_READINESS.md). No hay bloqueantes **de código** abiertos para una beta controlada. Todos los que siguen dependen del titular: gasto, cuentas, dispositivos o asesoramiento profesional.
 
 | ID | Bloquea | Qué falta | Por qué | Quién | Cómo se cierra |
 | --- | --- | --- | --- | --- | --- |
