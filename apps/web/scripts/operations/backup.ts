@@ -117,7 +117,9 @@ async function main() {
         if (!process.env.STORAGE_PROXY_SECRET) throw new Error("Falta STORAGE_PROXY_SECRET en ~/.repi-secrets/vercel.env.");
         readObject = (await import("../../src/server/storage")).readObject;
       }
-      const keys = await sql<{ k: string }[]>`select storage_key as k from media_object order by storage_key`;
+      // Sólo archivos vigentes: los marcados con deleted_at ya se borraron de Storage a propósito (purga) y pedirlos da 404.
+      // La fila queda en la tabla (y en el respaldo) como registro; el archivo no existe más.
+      const keys = await sql<{ k: string }[]>`select storage_key as k from media_object where deleted_at is null order by storage_key`;
       for (const { k } of keys) {
         const key = safeStorageKey(k), h = createHash("sha256"), c = { bytes: 0 };
         const target = join(dir, "storage", key);

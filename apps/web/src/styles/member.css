@@ -752,6 +752,7 @@
 .club-av-ini { display: inline-grid; place-items: center; font-weight: 700; color: var(--ui-link); font-family: "Barlow Condensed", "Barlow", sans-serif; }
 .club-author { display: inline-flex; align-items: center; gap: 8px; }
 .club-img { width: 100%; max-height: 520px; object-fit: cover; border-radius: 12px; display: block; background: var(--ui-media-bg); }
+.club-img-gone { min-height: 120px; display: grid; place-items: center; background: transparent; color: var(--ui-muted); font-size: 14px; border: 1px dashed var(--ui-border); }
 .club-photo-btn { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
 .club-photo-prev { position: relative; align-self: flex-start; }
 .club-photo-prev img { display: block; max-width: 100%; max-height: 220px; border-radius: 12px; }
