@@ -34,7 +34,8 @@ export function SetGuide({ t, plan, prevFallback, suggest, real, draft, unit, la
   const useR = rules ? rules.repsTarget ?? rules.repsMin : suggest?.reps ?? null;
   const useTxt = rules ? line : suggest ? `${suggest.weightKg != null ? `${kg(suggest.weightKg, unit)} × ` : ""}${suggest.reps}` : "";
   const differs = !!draft && ((useW != null && Math.abs(useW - draft.w) > 0.005) || (useR != null && !plan.timed && useR !== draft.r));
-  const showUse = canUse && !real && !!useTxt && differs && !(rules?.pending) && rules?.action !== "none";
+  // Un objetivo «por elegir» (drop, back-off) con carga de referencia también se puede usar, como antes (D182).
+  const showUse = canUse && !real && !!useTxt && differs && rules?.action !== "none";
   const explain = (rules?.why || suggest?.why) ? localizeWeights(rules?.why || suggest!.why, unit) : null;
   return (
     <section className="sg ti-card" aria-label={`Objetivo de ${label}`}>

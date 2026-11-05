@@ -291,6 +291,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     flash(`${rowName(i)[0].toUpperCase()}${rowName(i).slice(1)} vuelve a estar pendiente.`);
   };
   // D195: un doble toque accidental no registra dos veces ni salta la serie siguiente.
+  // Doble toque: el segundo toque sobre el botón principal (que ya muestra la serie siguiente) no registra otra serie.
+  // Tocar cualquier otra cosa en el medio (saltar el descanso, elegir una serie) habilita el siguiente toque enseguida.
   const completing = useRef(false);
   const complete = async () => {
     if (!s || !ex || cur < 0 || !curRow || completing.current) return;
@@ -509,7 +511,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const addRest = (sec: number) => rest && commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + sec, total: rest.total + sec } : { ...rest, end: (rest.end ?? Date.now()) + sec * 1000, total: rest.total + sec },
     intel: s.intel ? { ...s.intel, restPlusSec: null } : null });
   return (
-    <div className="wo" onPointerDownCapture={() => { lastAct.current = Date.now(); }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
+    <div className="wo" onPointerDownCapture={(e) => { lastAct.current = Date.now(); if (!(e.target as HTMLElement).closest?.("[data-cta]")) completing.current = false; }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
       <div className="wo-body">
         <div className="wo-head">
           <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => (s.rejected ? onExit("train") : setStill("leave"))}><Ic i={ArrowLeft} size={22} color="var(--ui-text)" /></button>
@@ -711,7 +713,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             </div>
             {gym && (curRow.done ? curRow.feel : feel) && FEEL_ALERTS.includes((curRow.done ? curRow.feel : feel) as SetFeel) && <span className="feel-note">Al completarla avisamos al equipo de sala en turno para que se acerque.</span>}
             {/* D195: la acción principal va antes que las herramientas: con el teclado o en 320 px no queda debajo de la barra. */}
-            <button type="button" className="cta" onClick={() => void complete()}>{curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
+            <button type="button" className="cta" data-cta="" onClick={() => void complete()}>{curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
             {noteDraft?.trim() && <span className="feel-note">Nota: {noteDraft.trim()}</span>}
             <div className="wo-tools">
               {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
