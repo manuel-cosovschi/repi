@@ -1,7 +1,9 @@
 # REPI — Experience Intelligence & UX 2.0 (bloque 05/06, D195)
 
-Estado: **implementado en la rama `feat/repi-experience-intelligence-ux`, sin publicar.** La migración 0045 está lista y
-ensayada en una base descartable, pero **no se aplicó en producción**. Nada se desplegó.
+Estado: **publicado y validado en producción (05/11/2026).** PR #24 integrado como `719bb94`, migración 0045 aplicada
+después del respaldo verificado `backup-20261105-040245-41965097791`, hotfix #26 (`95e2831`: escalera de cargas al
+refrescar la sesión). Verificación de la 0045, smoke productivo e integridad: `docs/continuidad/PROXIMA_SESION.md`,
+«Cierre del bloque 05/06».
 
 Este documento describe qué cambió, por qué y cómo verificarlo. Consume los contratos de Training Intelligence 2.0
 (`docs/TRAINING_INTELLIGENCE_2.md`) sin reescribir el motor ni el constructor de programas.
@@ -152,7 +154,8 @@ Nunca se muestra un código interno como explicación principal.
   - El reintento falla entero, sin cambios.
   - La reversión se niega si hay una serie anulada.
   - Revertir y reaplicar dejan la misma huella.
-- **Publicación (pendiente de autorización):** workflow «Respaldo» en verde → `hosted-0045.sql` → verificación → despliegue del código.
+- **Publicación (hecha el 05/11):** workflow «Respaldo» en verde (issue #25) → `hosted-0045.sql` → verificación → despliegue del código (`719bb94`).
+- **Verificada en producción (sólo lectura, 05/11):** un registro (id 46) con el hash del archivo, las tres tablas con RLS y dueño `repi_app`, sin permisos para `anon`/`authenticated`, columnas e `user_pref.hints` como en el archivo, 5 índices y 11 claves foráneas validadas.
 - **Reversión del código:** volver al despliegue anterior. El esquema puede quedar. Revertir el esquema sólo si se abandona el bloque y no hay anulados.
 
 ## 8. Pruebas
@@ -162,6 +165,8 @@ Nunca se muestra un código interno como explicación principal.
   - `tests/history-corrections.test.ts`: dueño, coach 404, idempotencia, conflictos, confirmación, anular y restaurar series y sesiones, agregar faltante, exclusión en récords y volumen, abierta y anulada 409.
   - `tests/gym-equipment.test.ts`: permisos por sede, duplicados, revisión vieja, archivar y escalera para el socio.
 - **E2E (Chromium emulado, Pixel 7 y escritorio, con axe):** `e2e/experience-ux.spec.ts` cubre la sesión (ayuda, lista de ejercicios, salir y volver), el historial (corregir, anular y restaurar series y entrenamientos, confirmado por el servidor) y la vista previa del coach. La suite completa: 111 pasan, 0 fallan, 27 omitidas por diseño.
+- **Smoke productivo (05/11, repiclub.com, demos guiadas, Chromium emulado Pixel 7 y escritorio, claro y oscuro, axe):** sesión (guía, doble toque, guardado, descanso, refresco, cambio de ejercicio, salir y volver, fin), historial (corregir, anular y restaurar serie y entrenamiento, volumen y series recalculados, auditoría), coach (ficha, editor, vista previa de sólo lectura, sin acceso al historial ajeno), gimnasio (crear, editar, archivar equipos; aislamiento por sede y por organización). 0 errores de consola y 0 respuestas 5xx. Detalle en la bitácora.
+- **Hotfix #26 en producción:** el servidor devuelve `ladder` por ejercicio y el cliente la conserva al recargar. «Cargas disponibles» con equipos reales de la sede no se pudo ver en producción: el dueño y el alumno de la demo son entornos distintos y no hay cuentas de prueba vinculadas.
 - **No probado en iPhone ni Android físicos.**
 
 ## 9. Límites conocidos
