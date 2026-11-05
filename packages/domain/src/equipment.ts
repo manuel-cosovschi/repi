@@ -127,3 +127,12 @@ export function fitTargetsToLoads<T extends Pick<RowTarget, "source" | "weightKg
       why: `${t.why} Ajustado a las cargas disponibles en tu sede.`.trim() };
   });
 }
+
+/** Atajos de carga para la pantalla de la serie: hasta dos cargas disponibles abajo del peso actual, la igual y hasta dos arriba. */
+export function nearLoads(loads: readonly number[], w: number): number[] {
+  const sorted = [...new Set(loads)].sort((a, b) => a - b);
+  const at = sorted.findIndex((v) => v >= w - 0.005);
+  const i = at < 0 ? sorted.length : at;
+  const same = sorted[i] != null && Math.abs(sorted[i] - w) < 0.005;
+  return sorted.slice(Math.max(0, i - 2), same ? i + 3 : i + 2);
+}

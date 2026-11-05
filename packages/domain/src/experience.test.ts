@@ -1,6 +1,7 @@
 // D195 · Bloque 05/06: reglas puras de correcciones del historial y de cargas disponibles por sede.
 import { describe, expect, it } from "vitest";
 import {
+  nearLoads,
   correctionSummary, correctionWarnings, diffValues, equipmentLadder, fitTargetsToLoads, historyActions, parseLoadList, resolveLadder, validateCorrection, validateEquipment,
   type CorrectableValues, type RowTarget,
 } from "./index";
@@ -106,5 +107,15 @@ describe("equipamiento por sede", () => {
   it("lee la lista con coma decimal", () => {
     expect(parseLoadList("10; 12,5; 15 17,5\n20")).toEqual([10, 12.5, 15, 17.5, 20]);
     expect(parseLoadList("10; x")).toBeNull();
+  });
+});
+
+describe("nearLoads", () => {
+  it("muestra las cargas reales vecinas sin inventar intermedias", () => {
+    const l = [10, 12.5, 15, 17.5, 20, 22.5];
+    expect(nearLoads(l, 15)).toEqual([10, 12.5, 15, 17.5, 20]);
+    expect(nearLoads(l, 16)).toEqual([12.5, 15, 17.5, 20]);
+    expect(nearLoads(l, 5)).toEqual([10, 12.5]);
+    expect(nearLoads(l, 40)).toEqual([20, 22.5]);
   });
 });

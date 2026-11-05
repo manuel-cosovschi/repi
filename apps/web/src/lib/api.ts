@@ -1,6 +1,6 @@
 // Cliente de las rutas /api/access/*. Lanza Error con el mensaje en español del servidor.
 export class ApiError extends Error {
-  constructor(message: string, public code: string, public status: number) { super(message); }
+  constructor(message: string, public code: string, public status: number, public data?: Record<string, unknown>) { super(message); }
 }
 export async function api<T = unknown>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   const res = await fetch(path.startsWith("/") ? path : `/api/access/${path}`, {
@@ -10,6 +10,6 @@ export async function api<T = unknown>(path: string, init?: { method?: string; b
     credentials: "same-origin",
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error ?? "No pudimos completar la acción. Revisá tu conexión.", data.code ?? "error", res.status);
+  if (!res.ok) throw new ApiError(data.error ?? "No pudimos completar la acción. Revisá tu conexión.", data.code ?? "error", res.status, data.data);
   return data as T;
 }
