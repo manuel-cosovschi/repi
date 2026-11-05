@@ -36,7 +36,7 @@ Actualizado: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en prod
   - **Reintento:** issue #31 → corrida 42038583479 en verde → `backup-20261105-134716-42038583479` (104 tablas, 8634 filas, 278 claves foráneas sin huérfanos, 0 restricciones sin validar, 1 archivo con hash correcto). Cerró la alerta #29. #28 cerrado como duplicado de #31. Una ejecución manual garantiza una copia reciente, **no** demuestra el cronograma.
   - **Retención:** al publicar el de las 13:47 borró `backup-20261105-040245-41965097791` (previo a la 0045), según la regla «último de cada día». Siguen `backup-20261104-234215-41935448423` (último del 04/11, 30 días) y `backup-20261104-140210-41843251047` (primero de noviembre, 4 meses).
 - **Último respaldo verificado:** `backup-20261105-134716-42038583479` (por issue, 13:47 UTC). No hay alertas abiertas.
-- **Foto del Club borrada por la purga (dato real):** era la única imagen de producción. Está dentro de `backup-20261104-140210-41843251047` y `backup-20261104-234215-41935448423`. Recuperarla requiere la clave privada del titular y subirla a Storage de producción: **pendiente de decisión del titular**, no se hizo. Mientras tanto el Club muestra «Foto no disponible».
+- **Foto del Club borrada por la purga (dato real):** decisión del titular (05/11): no recuperarla. La publicación se quitó como lo hace la app (`club_post.status = removed`, sólo esa fila) y su dueño recibió un aviso con disculpas (`member_notice`, `club_notice`; no tiene push). Se hizo en una transacción con `set local role repi_app`, como las migraciones; al terminar la pertenencia de `postgres` a `repi_app` quedó igual que antes. Para deshacer: volver la fila a `visible` y borrar ese aviso. El script `restore-media-file.ts` (PR #34) queda sin uso. **D196:** la purga ahora protege cualquier archivo que alguna tabla referencie.
 
 ### Recuento de `set_log` 1422 → 172: explicado, sin pérdida de datos reales
 - **1422** es el total del respaldo del 05/11 a las 04:02 (log de la corrida 23), con **10 demos abiertas** en ese momento. **172** son las series de usuarios reales (correo que no termina en `.invalid`) hoy. A las 12:24 el total era 680 = 172 reales + 508 de las 4 demos abiertas desde las 11:32.
@@ -71,6 +71,7 @@ Huella (cantidad + md5 de cada fila) de usuarios, organizaciones, entrenamientos
   - `parseReps` entiende «20 min», «1 min 30 s», «20:00» y «1:30». En producción no había programas ni rutinas con tiempos en minutos, así que no cambia nada de lo existente.
   - E2E nueva en `own-routine-create.spec.ts`.
   - Verificado en repiclub.com con una demo (Pixel 7 emulado).
+- **D196** (este PR): `purgeMedia` lee las referencias a `media_object` del catálogo de Postgres; si falta alguna conocida no purga. Nuevo `member_notice.kind = club_notice` (en Notificaciones lleva a Novedades del Gym).
 - **E2E local completa** con estos cambios (Chromium emulado, build local y `repi_dev` descartable): 108 pasan, 27 omitidas por diseño, 5 fallaron sólo por el entorno del contenedor (sin `DATABASE_URL` en el ejecutor ni `.env.local`: `prescribed-weights` y `training-intelligence-roles`, en teléfono y escritorio) o por una espera intermitente (`connected-stages`). Repetidas con el entorno, pasan todas.
 
 ### Pendientes externos

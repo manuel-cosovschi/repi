@@ -343,6 +343,35 @@ export async function authorizeVideo(actorId: string, videoId: string) {
  * D39: borra videos de técnica 90 días después de resolver su pedido y los subidos sin pedido tras 24 h.
  * Se borra el archivo y se marca el registro (metadata sin contenido queda para auditoría). Pensado para un job programado.
  */
+/** Columnas que vencen por plazo (pedido resuelto, tarea terminada, intento decidido). */
+const RETENTION_SOURCES = ["student_request.video_id", "gym_task.video_id", "challenge_attempt.video_id"];
+/** Referencias que dejan de contar cuando la fila se borra lógicamente (comportamiento previo, D41/D169). */
+const SOFT_DELETED: Record<string, string> = { "community_post.image_id": "deleted_at", "catalog_item.image_id": "deleted_at" };
+/** Las que el esquema conocido declara hoy: si el catálogo no las devuelve todas, algo no cuadra y no se purga nada. */
+export const KNOWN_MEDIA_REFERENCES = ["exercise_media.media_id", "student_request.video_id", "gym_task.video_id", "community_post.image_id",
+  "challenge_attempt.video_id", "catalog_item.image_id", "club_post.image_id", "club_profile.avatar_id"];
+
+type MediaRef = { table: string; column: string };
+
+/** Toda clave foránea de una columna hacia media_object, leída del catálogo (no de una lista a mano). */
+export async function mediaReferences(): Promise<MediaRef[]> {
+  const rows = await db.execute<{ table: string; column: string }>(sql`
+    select c.conrelid::regclass::text as "table", a.attname as "column"
+    from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+    where c.contype = 'f' and c.confrelid = 'media_object'::regclass and array_length(c.conkey, 1) = 1
+    order by 1, 2`);
+  const refs = [...rows].map((r) => ({ table: r.table.replace(/^public\./, "").replace(/^"|"$/g, ""), column: r.column }));
+  const found = new Set(refs.map((r) => `${r.table}.${r.column}`));
+  const missing = KNOWN_MEDIA_REFERENCES.filter((k) => !found.has(k));
+  if (missing.length) throw new Error(`purgeMedia: no se encontraron las referencias ${missing.join(", ")}; no se purga nada.`);
+  return refs;
+}
+
+function notReferenced(r: MediaRef) {
+  const soft = SOFT_DELETED[`${r.table}.${r.column}`];
+  return sql`not exists (select 1 from ${sql.identifier(r.table)} x where x.${sql.identifier(r.column)} = ${mediaObject.id}${soft ? sql` and x.${sql.identifier(soft)} is null` : sql``})`;
+}
+
 export async function purgeMedia(now = new Date()) {
   const limitResolved = new Date(now.getTime() - VIDEO_RETENTION_DAYS * 86_400_000);
   const limitOrphan = new Date(now.getTime() - ORPHAN_VIDEO_HOURS * 3_600_000);
@@ -351,18 +380,22 @@ export async function purgeMedia(now = new Date()) {
   // También el video adjunto a un pedido al equipo de sala (D41): mismo plazo desde que la tarea se completa o cancela.
   const expiredGym = await db.select({ m: mediaObject }).from(mediaObject).innerJoin(schema.gymTask, eq(schema.gymTask.videoId, mediaObject.id))
     .where(and(isNull(mediaObject.deletedAt), eq(schema.gymTask.status, "done"), lt(schema.gymTask.completedAt, limitResolved)));
+  // D196: huérfano = ninguna fila de NINGUNA tabla lo referencia. Las referencias se leen del catálogo de Postgres en cada
+  // corrida, así una tabla nueva con foto o video queda protegida sin acordarse de sumarla acá (05/11/2026 se borró una foto
+  // del Club porque esa tabla faltaba en una lista escrita a mano).
+  const refs = await mediaReferences();
   const orphans = await db.select().from(mediaObject)
-    .where(and(isNull(mediaObject.deletedAt), lt(mediaObject.createdAt, limitOrphan), sql`not exists (select 1 from student_request r where r.video_id = ${mediaObject.id})`,
-      sql`not exists (select 1 from gym_task t where t.video_id = ${mediaObject.id})`, sql`not exists (select 1 from challenge_attempt a where a.video_id = ${mediaObject.id})`,
-      sql`not exists (select 1 from community_post p where p.image_id = ${mediaObject.id} and p.deleted_at is null)`, sql`not exists (select 1 from catalog_item c where c.image_id = ${mediaObject.id} and c.deleted_at is null)`,
-      sql`not exists (select 1 from exercise_media e where e.media_id = ${mediaObject.id})`,
-      // Hotfix 05/11/2026: fotos del Club (publicación y perfil, D169). Faltaban acá y la purga borró la foto de una publicación real.
-      sql`not exists (select 1 from club_post c where c.image_id = ${mediaObject.id})`, sql`not exists (select 1 from club_profile c where c.avatar_id = ${mediaObject.id})`));
+    .where(and(isNull(mediaObject.deletedAt), lt(mediaObject.createdAt, limitOrphan), ...refs.map((r) => notReferenced(r))));
   // Video de intento de récord: 90 días después de la decisión (05_BUSINESS_RULES · Comunidad).
   const expiredAttempts = await db.select({ m: mediaObject }).from(mediaObject).innerJoin(schema.challengeAttempt, eq(schema.challengeAttempt.videoId, mediaObject.id))
     .where(and(isNull(mediaObject.deletedAt), inArray(schema.challengeAttempt.status, ["approved", "rejected"]), lt(schema.challengeAttempt.decidedAt, limitResolved)));
   expired.push(...expiredGym, ...expiredAttempts);
-  const all = [...expired.map((e) => e.m), ...orphans];
+  // Lo vencido por plazo se borra sólo si ninguna OTRA tabla lo usa (p. ej. el mismo archivo reutilizado en el Club).
+  const sources = new Set(RETENTION_SOURCES);
+  const others = refs.filter((r) => !sources.has(`${r.table}.${r.column}`));
+  const reused = expired.length ? new Set((await db.select({ id: mediaObject.id }).from(mediaObject)
+    .where(and(inArray(mediaObject.id, expired.map((e) => e.m.id)), sql`not (${and(...others.map((r) => notReferenced(r)))})`))).map((x) => x.id)) : new Set<string>();
+  const all = [...expired.map((e) => e.m).filter((m) => !reused.has(m.id)), ...orphans];
   for (const m of all) {
     await deleteObject(m.storageKey);
     await db.update(mediaObject).set({ deletedAt: now }).where(eq(mediaObject.id, m.id));

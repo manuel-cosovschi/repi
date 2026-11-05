@@ -46,7 +46,7 @@ export async function myNotifications(userId: string, now = new Date()) {
   for (const n of notices) {
     const ok = n.kind === "attempt_approved" || n.kind === "prize_delivered";
     items.push({ id: `notice:${n.id}`, title: n.title, body: clip(n.body), at: iso(n.createdAt), tone: ok ? "cyan" : n.kind === "attempt_rejected" ? "bad" : "mute",
-      dest: { tab: "gym", gymTab: n.kind === "attempt_rejected" ? "ch" : "logros" } });
+      dest: { tab: "gym", gymTab: n.kind === "attempt_rejected" ? "ch" : n.kind === "club_notice" ? "news" : "logros" } });
   }
   for (const a of inbox.accessRequests) {
     items.push({ id: `access:${a.id}`, title: `${a.from} pidió acceso`, body: `Quiere ver tu ${a.phrase}. Decidís vos en Perfil.`, at: iso(a.createdAt), tone: "cyan", dest: { tab: "perfil" } });
