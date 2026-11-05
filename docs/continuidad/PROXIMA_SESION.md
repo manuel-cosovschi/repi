@@ -1,8 +1,65 @@
 # REPI — Retomar acá
 
-Actualizado: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» en PR, sin publicar**, ver la sección de abajo; bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
+
+## Bloque 06/06 · Final Release Hardening (D197, D198) — 05/11/2026 · EN PR, SIN PUBLICAR
+
+**Documento principal:** `docs/FINAL_RELEASE_HARDENING_06.md`. Incluye la matriz por requisito, los hallazgos, las pruebas, el rendimiento, la infraestructura y sus costos, la lista de teléfonos, los pendientes legales y el veredicto por etapa.
+
+**Estado de producción:** `70e7779` (hotfix #35, D196) desde las 18:32 UTC. Vercel tardó ~29 min en desplegar el merge; la causa no se pudo ver sin acceso al equipo (LB-09). Primera purga con la lógica nueva: 06/11 06:30 UTC.
+
+**Rama:** `feat/repi-release-hardening-06`, desde `70e7779`. Sin migraciones. **No integrar sin autorización del titular.** PR #36, CI en verde (`a3ce204`).
+
+**Cambios:**
+- `src/server/access/http.ts`: `crossSiteWrite()` en `handle()` (CSRF, D197).
+- `next.config.ts`: CSP mínima y Permissions-Policy.
+- `src/server/access/services.ts`: la búsqueda pública de sedes excluye demos (en producción mostraba 33).
+- `src/lib/offline/store.ts`: `mergeIntel()` extraída de `Workout.tsx` sin cambiar el comportamiento (regresión del hotfix #26).
+- `src/server/ops/backup-watch.ts`, `src/app/api/cron/backup-heartbeat/route.ts` y un paso en `/api/cron/notifications` (minuto 7): vigilante de respaldos (D198).
+- `.github/workflows/backup.yml`: paso «Señal de respaldo verificado». No hace nada sin el secreto.
+- Pruebas nuevas:
+  - `tests/csrf.test.ts`
+  - `tests/workout-ladder-client.test.ts`
+  - `tests/backup-watch.test.ts`
+  - un caso en `tests/sandbox.test.ts`
+  - `e2e/api-auth-sweep.spec.ts`
+  - `e2e/offline-reload.spec.ts`
+- Docs:
+  - `FINAL_RELEASE_HARDENING_06.md`
+  - `RESPALDOS.md` (vigilante, RPO y RTO)
+  - `RELEASE_READINESS.md` (encabezado)
+  - `LAUNCH_BLOCKERS.md` (LB-05 actualizado y LB-08 a LB-10 nuevos)
+  - `DECISIONS.md` (D197, D198)
+
+**Pruebas (aislado):**
+- Typecheck y build: OK. **No hay linter** en el proyecto (D-06).
+- Dominio 371/371 y guardas 24/24.
+- Integración completa en verde.
+- E2E: 115 pasaron, 29 omitidas, 0 fallaron.
+- `offline-reload` y `connected-stages` 12/12 repetidas.
+- Carga con 5, 20 y 50 usuarios virtuales: 0 errores.
+
+**Datos reales tocados (autorizado por el titular en el chat):** sólo la publicación del Club con la foto purgada (`status = removed`) y un aviso de disculpas a su dueño. Ver «Cierre del bloque 05/06».
+
+**Para el titular:**
+1. Aprobar el acceso de Claude al equipo de Vercel (LB-09).
+2. Armar el vigilante: `BACKUP_HEARTBEAT_SECRET` en Vercel y en GitHub (`docs/RESPALDOS.md`).
+3. Revisar e integrar este PR.
+4. Teléfonos reales (lista en §13 del documento).
+5. Planes Vercel Pro y Supabase Pro (≈ USD 45/mes) antes de la expansión.
+6. Decidir sobre la 2FA de Admin (LB-10).
+7. Abogado (§19).
+8. Cuentas de prueba vinculadas (un coach y un alumno, y un dueño con un socio en una sede de prueba) para verificar en producción el caso Urko y el equipamiento.
+
+**Pendientes técnicos:**
+- E2E en CI (D-05).
+- Sumar ESLint (D-06).
+- `theme-admin` sin correr: falta el Admin de prueba local.
+- `search_path` de `gym_task_event_immutable` en la próxima migración.
+- Índices de claves foráneas antes de crecer.
+- Validar la sesión antes del cuerpo en las rutas que dan 400 sin sesión (P3).
 
 ## Cierre del bloque 05/06 (D195) y respaldos (D190) — 05/11/2026 · PUBLICADO Y VALIDADO
 

@@ -61,6 +61,17 @@ export function keepLocalOnly(fresh: LocalSession, local: LocalSession | undefin
 }
 export const setKey = (peId: string, i: number) => `${peId}:${i}`;
 
+/**
+ * D191/D195 (regresión del hotfix #26): al traer los objetivos de REPI para una sesión recién iniciada se completan sólo
+ * los ejercicios sin objetivos, con objetivos, tendencia y escalera de cargas del equipo. Nunca toca series, borradores,
+ * descanso ni intervalo; si el servidor no trae escalera se conserva la que ya había.
+ */
+export function mergeIntel(c: LocalSession, srv: { exercises: { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"]; ladder?: LocalEx["ladder"] }[] }): LocalSession {
+  const by = new Map(srv.exercises.map((e) => [e.id, e]));
+  return { ...c, exercises: c.exercises.map((e) => (e.targets != null ? e : { ...e, targets: by.get(e.id)?.targets ?? [], outlook: by.get(e.id)?.outlook ?? null, ladder: by.get(e.id)?.ladder ?? e.ladder ?? null })) };
+}
+
+
 export async function ensureOwner(userId: string) {
   const owner = await idbGet<string>("kv", "owner");
   if (owner && owner !== userId) await wipeLocal();

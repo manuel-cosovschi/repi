@@ -48,19 +48,20 @@ Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único ar
 - **Sin duplicados:** en un turno programado, «Automatización habilitada» cuenta los releases publicados **ese día UTC** (`published_at`) con la marca de verificado y «Motivo: diario». Si ya hay uno, el turno termina sin respaldar y sin alerta. Los respaldos por issue o manuales siempre corren y no cuentan como diario.
 - **Cómo saber si el cronograma funciona:** Actions → Respaldo, filtrar por evento `schedule`, o `gh api "repos/manuel-cosovschi/repi/actions/runs?event=schedule"`. Un respaldo manual o por issue en verde garantiza una copia reciente, pero **no** prueba el cronograma.
 - **Si se omiten los dos turnos:** pedir un respaldo con un issue «Respaldo: diario manual (cronograma omitido)». La integración no puede usar «Run workflow» (403).
-- **Estado al 05/11 13:20 UTC: el cronograma nunca disparó** (ni las 06:17 ni las 12:47; 0 ejecuciones `schedule`). Hipótesis sin comprobar: todos los cambios del cron entraron por merges de la integración (committer `web-flow`) y GitHub atribuye el cronograma a quien lo modificó por última vez. Acción del titular: Actions → Respaldo → «…» → Disable workflow → Enable workflow desde su navegador.
+- **Estado al 05/11 (cierre del 06/06):** el cronograma disparó por primera vez a las 14:40 UTC (evento `schedule`, corrida 42047337258 → `backup-20261105-144245-42047337258`, verificado). Una sola ejecución no prueba que sea confiable: seguir mirando Actions → Respaldo → filtro `schedule` durante una semana. Mientras tanto vale la alerta de abajo.
 - **Archivos purgados:** el respaldo copia sólo los archivos vigentes de `media_object` (`deleted_at is null`). Las filas de los purgados quedan en la base y en el respaldo como registro (PR #30: antes, una foto purgada hacía fallar el respaldo con 404).
-- **Riesgo abierto:** si GitHub descarta ambos turnos, hoy nadie avisa: la alerta sólo se abre cuando una ejecución falla, no cuando no existe.
-- **Propuesta (no implementada, requiere decisión del titular):** una alerta independiente de GitHub Actions cuando pasen más de 24 h sin un respaldo verificado.
-  - *Recomendada:* «dead man's switch» externo (por ejemplo Healthchecks.io, plan gratuito). El paso de publicación hace un `curl` a la URL del chequeo; si no llega en 24 h + 2 h de gracia, el servicio manda un correo. Requiere crear la cuenta y guardar la URL como secreto. Cambio de una línea en `backup.yml`.
-  - *Disparador independiente* (si el cronograma de GitHub no se recupera): el `pg_cron` de Supabase o el cron de Vercel llaman una vez por día a `workflow_dispatch` con un token de GitHub de alcance mínimo (sólo Actions de este repositorio). Requiere crear y guardar ese token.
-  - *Sin terceros:* el cron diario de Vercel (`/api/cron/purge-media`, 06:30 UTC) consulta la API de Releases con un token de sólo lectura y, si el último verificado tiene más de 26 h, manda un correo al titular. Requiere un token de GitHub de sólo lectura en Vercel y código nuevo en la app.
-
-## Puesta en marcha (hecha el 04/11/2026)
-
-No hay secretos ni variables que cargar en GitHub:
-- La clave pública está en el repositorio.
-- La contraseña de la base es temporal y la entrega la Edge Function al token OIDC del job.
+- **Vigilante independiente (D198, 06/06):** si pasan **más de 30 h sin un respaldo verificado** llega un email a `ALERT_EMAIL` (el mismo de las alertas de errores, D149). Detecta también una ejecución que nunca empezó, porque no depende de GitHub:
+  - El paso «Señal de respaldo verificado» de `backup.yml` avisa a `POST /api/cron/backup-heartbeat` con la etiqueta del release. REPI lo anota en `audit_event` (`backup.verified`, sin datos personales).
+  - La tarea de cada minuto (pg_cron de Supabase → `/api/cron/notifications`) revisa una vez por hora (minuto 7). Como mucho un email cada 12 h mientras siga sin respaldo.
+  - **Se arma con la primera señal:** hasta configurar el secreto no avisa nada (sin falsas alarmas) y el respaldo funciona igual. Si la señal falla, el respaldo igual se publica y el vigilante avisa a las 30 h.
+  - **Para activarlo (titular, 5 minutos):**
+    1. Generar un secreto largo en tu computadora: `openssl rand -hex 32` (no lo pegues en el chat).
+    2. Vercel → proyecto repi → Settings → Environment Variables → `BACKUP_HEARTBEAT_SECRET` (Production) con ese valor → Redeploy.
+    3. GitHub → Settings → Secrets and variables → Actions → New repository secret → `BACKUP_HEARTBEAT_SECRET` con el mismo valor.
+    4. Pedir un respaldo con un issue «Respaldo: prueba del vigilante». En el resumen de la corrida tiene que decir «Vigilante de REPI: señal enviada».
+  - **Segunda capa opcional (externa, gratis):** un «dead man's switch» como Healthchecks.io (período 1 día, gracia 6 h). Guardar la URL de ping como secreto `BACKUP_DEADMAN_URL`: el mismo paso la llama. Avisa aunque REPI entero esté caído. Requiere crear la cuenta: decisión del titular.
+- **Pérdida máxima esperable (RPO): hasta ~24 h** de escrituras (un respaldo verificado por día; con el plan gratuito de Supabase no hay respaldos gestionados ni PITR). Con Supabase Pro se suman los diarios del proveedor (7 días); con PITR baja a minutos.
+- **Tiempo objetivo de recuperación (RTO): 2–4 h** para un desastre real con el procedimiento de abajo (proyecto Supabase nuevo, migraciones, carga y Storage). No está ensayado de punta a punta en un proyecto nuevo: sí la restauración verificada en PostgreSQL descartable en cada corrida.
 - `REPI_BACKUP_DATABASE_URL` y `REPI_BACKUP_AGE_RECIPIENTS` siguen funcionando si alguna vez se cargan, y tienen prioridad.
 
 **Clave privada:** `repi-respaldos.age.key`, en el Google Drive del titular (carpeta «REPI — Recuperación de respaldos», sin compartir).
@@ -126,7 +127,7 @@ Para el paso 4 hace falta una variante del script con destino explícito. Se pre
 
 ## Seguridad y límites
 
-- **Secretos en GitHub:** ninguno.
+- **Secretos en GitHub:** ninguno obligatorio. Opcionales: `BACKUP_HEARTBEAT_SECRET` (sólo sirve para anotar «hubo respaldo»; no lee nada) y `BACKUP_DEADMAN_URL`.
   - La base usa una contraseña temporal por ejecución, de un rol de sólo lectura, emitida por `repi-backup-credentials`.
   - Storage usa el token OIDC.
   - La clave pública es pública por naturaleza.
