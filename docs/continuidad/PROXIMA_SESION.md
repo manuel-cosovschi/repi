@@ -207,7 +207,7 @@ Actualizado: 05/11/2026 (hasta D195; bloque 05/06 implementado en el PR #24 en b
   - Abierto con la clave del titular, con todos los hashes iguales al manifiesto.
   - La credencial temporal quedó vencida.
 - **Alertas:** probadas con el issue #11 y la alerta #12. El éxito del issue #15 cerró la alerta.
-- **Pendiente:** confirmar la primera ejecución diaria del cronograma (05/11 a las 06:17 UTC). Hay un recordatorio de la sesión.
+- **05/11:** GitHub no creó la ejecución programada de las 06:17 UTC (descarte del planificador: el workflow está activo y el cron está en main). Se agregó un turno de reserva a las 12:47 UTC que sólo respalda si ese día no hay un respaldo «diario» verificado. Hay que confirmar que el turno de reserva respalde.
 
 ### Migración 0042 — aplicada el 04/11 a las 14:04 UTC
 - **Cómo:** `hosted-0042.sql`, en una transacción como `repi_app`.

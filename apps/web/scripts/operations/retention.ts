@@ -4,7 +4,9 @@
 //   - Sólo se consideran releases con etiqueta `backup-AAAAMMDD-HHMMSS-<ejecución>`; cualquier otra no se toca.
 //   - Un borrador de más de 24 h es una subida que no terminó: se borra. Uno más nuevo puede estar en curso: queda.
 //   - Un respaldo publicado sin la marca de verificado no se borra (no debería existir): queda para revisión humana.
-// Uso en el workflow: gh api … --jq '.[] | {tag: .tag_name, createdAt: .created_at, draft, body}' | tsx retention.ts
+// Uso en el workflow: gh api … --jq '.[] | {tag: .tag_name, createdAt: (.published_at // .created_at), draft, body}' | tsx retention.ts
+//   createdAt es la fecha de PUBLICACIÓN: el created_at de la API de GitHub es la del commit de destino (con main sin
+//   commits nuevos, todos los diarios caerían en el mismo «día» y la retención borraría los anteriores).
 export const VERIFIED_MARK = "<!-- repi-backup:verified -->";
 export const BACKUP_TAG = /^backup-(\d{8})-(\d{6})-\d+$/;
 
