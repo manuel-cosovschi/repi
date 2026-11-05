@@ -4,6 +4,8 @@ Fecha: 05/11/2026. Rama: `feat/repi-release-hardening-06`, desde `main` en `70e7
 
 **Qué es este documento:** la evaluación técnica y operativa del cierre de la serie 01/06–06/06. Distingue lo **verificado** (con evidencia, fecha y ambiente) de lo **implementado sin verificar**. No es una declaración de cumplimiento legal.
 
+> **Publicado el 05/11/2026 21:06 UTC** con autorización del titular: PR #36, squash `ab4e1ad`. Antes, un respaldo verificado `backup-20261105-210336-42108774553`. Smoke productivo con demos: 10/10. Integridad histórica sin cambios. Detalle en `docs/continuidad/PROXIMA_SESION.md` §«Publicación del bloque 06/06». El vigilante de respaldos está publicado pero **no armado** (falta `BACKUP_HEARTBEAT_SECRET`). Publicar no equivale a autorizar un lanzamiento comercial masivo: rige el veredicto del §25.
+
 **Qué no hace este bloque:**
 - No publica nada: el PR queda para revisión y autorización del titular.
 - No aplica migraciones.
@@ -42,9 +44,9 @@ Todas las filas son del 05/11/2026, sobre el commit de esta rama, salvo que se i
 | ID | Requisito | Prior. | Riesgo | Prueba | Resultado | Evidencia | Ambiente | Próximo paso (responsable) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | H-SEC-01 | Ninguna ruta de la API entrega datos sin sesión | P0 | Alto | Barrido de las 129 rutas (164 combinaciones ruta × método) sin cookie | **VA** · 0 rutas con 2xx salvo 2 públicas revisadas; 0 con 5xx | `e2e/api-auth-sweep.spec.ts` | Aislado | Correr en cada release (Claude) |
-| H-SEC-02 | CSRF: una escritura desde otro sitio no se ejecuta | P1 | Medio | Origin ajeno, `null`, prefijo engañoso y `Sec-Fetch-Site: cross-site` | **DC → corregido** · antes sólo protegía SameSite=Lax | `tests/csrf.test.ts`, barrido E2E (403 `cross_site`) | VT + Aislado | Publicar con el PR (titular) |
+| H-SEC-02 | CSRF: una escritura desde otro sitio no se ejecuta | P1 | Medio | Origin ajeno, `null`, prefijo engañoso y `Sec-Fetch-Site: cross-site` | **DC → corregido y VP** · 403 desde otro origen con y sin sesión; misma escritura desde REPI 200 (05/11 21:08) | `tests/csrf.test.ts`, barrido E2E, smoke productivo | Prod | Confirmar Safari en iPhone (titular) |
 | H-SEC-03 | Cabeceras: HSTS, nosniff, frame DENY, referrer | P1 | Bajo | `curl -I` a producción | **VP** | HSTS 2 años, `X-Frame-Options: DENY`, `nosniff` | Prod | — |
-| H-SEC-04 | CSP mínima y Permissions-Policy | P2 | Bajo | `curl -I` local | **DC → corregido** · faltaban | `next.config.ts`; verificado en el build local | Aislado | Publicar con el PR |
+| H-SEC-04 | CSP mínima y Permissions-Policy | P2 | Bajo | Cabeceras en producción | **DC → corregido y VP** | smoke productivo | Prod | — |
 | H-SEC-05 | CORS cerrado | P1 | Medio | `OPTIONS` con Origin ajeno a `/api/me/export` | **VP** · 204 sin `Access-Control-Allow-*` | curl | Prod | — |
 | H-SEC-06 | XSS | P0 | Alto | Revisión de `dangerouslySetInnerHTML` (8 usos) | **VT/revisión** · todos son SVG de QR generados por la librería o el arranque del tema; sin texto de personas | grep + lectura | Código | — |
 | H-SEC-07 | Inyección SQL | P0 | Alto | Revisión de `sql.raw`/`unsafe` | **Revisión** · 1 `sql.raw` con constantes; el resto parametrizado (Drizzle) | grep | Código | — |
@@ -60,10 +62,10 @@ Todas las filas son del 05/11/2026, sobre el commit de esta rama, salvo que se i
 | H-PRIV-03 | Exportar mis datos y pedir eliminación | P0 | Medio | Integración | **VT** · la eliminación la ejecuta Admin a mano | `privacy.test.ts`, `docs/PRIVACIDAD_OPERACION.md` | Aislado | Automatizar el borrado (post-06) |
 | H-PRIV-04 | Auditoría de lecturas sensibles y denegados | P1 | Medio | Integración | **VT** | `data_access_log`, `denied.test.ts` | Aislado | — |
 | H-PRIV-05 | Menores: consentimiento del tutor | P0 | Alto | Integración | **VT** | `access.test.ts` («menores») | Aislado | Revisión legal (titular) |
-| H-PRIV-06 | Búsqueda pública de gimnasios sin demos | P2 | Medio | Conteo en producción + integración | **DC → corregido** · producción mostraba **33 sedes de demo** junto a las 3 reales | `sandbox.test.ts` (D197); conteo de sólo lectura | VT | Publicar con el PR |
+| H-PRIV-06 | Búsqueda pública de gimnasios sin demos | P2 | Medio | API productiva cotejada con la base | **DC → corregido y VP** · antes 33 sedes de demo; ahora 3 sedes, 0 demos | `sandbox.test.ts`, smoke productivo | Prod | — |
 | H-DATA-01 | Integridad de 0045 y migraciones | P0 | Alto | Catálogo | **VP** · 46/46, hash de 0045 `36cdc6b5…` | sólo lectura | Prod | — |
 | H-DATA-02 | Respaldo diario verificado y restauración en base descartable | P0 | Alto | Workflow | **VP** · cada corrida restaura y compara; 278 FK sin huérfanos | releases verificados | CI | Seguir el cronograma 7 días (titular) |
-| H-DATA-03 | Ausencia de respaldo detectada aunque la ejecución no empiece | P0 | Alto | Integración | **VT · AE** · implementado (D198), se arma con un secreto | `tests/backup-watch.test.ts` | Aislado | Configurar `BACKUP_HEARTBEAT_SECRET` (titular, §14) |
+| H-DATA-03 | Ausencia de respaldo detectada aunque la ejecución no empiece | P0 | Alto | Integración + producción | **VT · publicado · NO ARMADO** · corre cada hora (21:07: `armed:false`); sin señal registrada | `tests/backup-watch.test.ts`, respuesta del cron | Prod | Configurar `BACKUP_HEARTBEAT_SECRET` (titular, §14) |
 | H-DATA-04 | Purga de archivos nunca borra lo referenciado | P0 | Alto | Integración con tabla nueva | **VT + publicado** (PR #35, `70e7779` en producción desde 18:32 UTC). La primera purga con esta lógica es el 06/11 06:30 UTC | `club-profile.test.ts` | Aislado + Prod | Mirar el resultado de la purga del 06/11 (Claude/titular) |
 | H-TRN-01 | Entrenador programa → alumno recibe → entrena → registra → sincroniza → finaliza → historial | P0 | Alto | Integración + E2E | **VT/VA** | `launch-flows.test.ts` LF-01, `member-workout.spec.ts` | Aislado | — |
 | H-TRN-02 | Carga del profe visible y nunca pisada por la sugerencia; sin cargas inventadas; lo registrado no cambia al actualizar | P0 | Alto | Integración + E2E | **VT/VA** | `prescribed-weights.test.ts` (8 casos), `prescribed-weights.spec.ts` | Aislado | Cuentas de prueba vinculadas en producción (titular) |
@@ -73,7 +75,7 @@ Todas las filas son del 05/11/2026, sobre el commit de esta rama, salvo que se i
 | H-TI-02 | Cargas del equipo (ladder) al refrescar | P1 | Medio | Cliente | **VT** · regresión de cliente nueva para el hotfix #26 (falla con la lógica previa) | `tests/workout-ladder-client.test.ts` | Aislado | — |
 | H-TI-03 | Equipamiento: prioridad plan > sede > desconocido; otro gimnasio no ve las cargas | P1 | Medio | Integración | **VT** · **NV en producción** con equipos reales | `gym-equipment.test.ts` | Aislado | Cuentas de prueba en una sede (titular) |
 | H-HIS-01 | Correcciones, anulación, restauración, auditoría, idempotencia, 409, recálculo | P0 | Alto | Integración + E2E | **VT/VA** | `history-corrections.test.ts`, `weight-edit.spec.ts`, `experience-ux.spec.ts` | Aislado | — |
-| H-OFF-01 | Sin conexión: registrar, recargar sin red, recuperar, reconectar, sincronizar una vez | P0 | Alto | E2E nueva | **VA** · 2/2 y 6/6 repetida (teléfono y escritorio emulados); el servidor tiene 0 series mientras no hay red y exactamente 2 después | `e2e/offline-reload.spec.ts` | Aislado | Repetir en teléfonos reales (titular, §13) |
+| H-OFF-01 | Sin conexión: registrar, recargar sin red, recuperar, reconectar, sincronizar una vez | P0 | Alto | E2E nueva + smoke productivo | **VA + VP (emulado)** · local 2/2 y 6/6; en producción con demo, en teléfono emulado y escritorio: 0 sin red → 2 al reconectar, sin duplicados | `e2e/offline-reload.spec.ts`, smoke productivo | Prod (Chromium emulado) | Repetir en teléfonos reales (titular, §13) |
 | H-OFF-02 | Conflictos entre dispositivos explícitos; reintentos sin duplicar | P0 | Alto | Integración | **VT** | `sync.test.ts` (6 casos) | Aislado | — |
 | H-DEV-01 | iPhone (Safari y PWA) y Android (Chrome y PWA) | P0 | Alto | Manual | **DF** · no hay dispositivo físico accesible desde esta sesión. La emulación no cuenta como prueba en teléfono | lista en §13 | — | Titular con sus teléfonos |
 | H-OPS-01 | Alertas de errores por email | P1 | Medio | — | **VP** (D149, 29/10) | `alert-test` | Prod | — |
