@@ -1,16 +1,49 @@
 # REPI — Retomar acá
 
-Actualizado: 04/11/2026 (hasta D194; D192/D194 en el PR #21 sin publicar; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 04/11/2026 (hasta D194; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; próximo: 05/06; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
-## PR #21 · Flujo del entrenador (D192) + actualizar alumnos desde plantilla (D194) — 04/11/2026 · LISTO PARA REVISIÓN, SIN PUBLICAR
+## PR #21 publicado: flujo del entrenador (D192) + actualizar alumnos desde plantilla (D194) — 04/11/2026 · COMPLETO
 
-**Rama:** `feat/repi-coach-workflow-ux` (incluye `main` con el hotfix #20). **No integrar ni desplegar** sin la decisión del titular.
+**Producción:** `9172e95c1ed9` (repiclub.com `/api/version`), desde las 23:49 UTC. Vercel `dpl_64HXHiA6XEB2i94XwjxeBsrYtAtE` READY. Hay 45 migraciones en la base y 45 en el código.
 **Qué hay:** editor rápido de series y distribución de cargas, Load Set y tipos de serie propios (`set_type`), copiar y pegar días (coach y sala), «Actualizar programas de alumnos» desde una plantilla. Detalle: `docs/COACH_WORKFLOW.md`.
-**Migración 0044:** `scripts/operations/hosted-0044.sql` (además activa RLS en `training_target`/`training_proposal`, que hoy no lo tienen en producción; sin exposición: `anon`/`authenticated` sin permisos), reversión `scripts/rollback/0044_set_types.down.sql`, ensayo `bash apps/web/scripts/operations/verify-0044.sh` (verde). **NO aplicada en producción.**
-**Para publicar:** 1) respaldo «Respaldo» en verde; 2) aplicar `hosted-0044.sql` (antes del despliegue del código); 3) integrar el PR #21; 4) `/api/version` y smoke con la demo guiada (coach: tabla de series, Load Set, tipo propio, copiar día, actualizar alumnos; alumno: etiqueta en el entrenamiento).
-**Verificación pendiente del hotfix D193:** «Tu profe indicó X kg» con un profe y un alumno reales vinculados en producción. La demo no lo permite (cada perfil abre otra demo). Procedimiento: `scripts/operations/verify-coach-weights-prod.mjs` con dos cuentas de prueba autorizadas (ver su encabezado).
-**Archivos nuevos:** `packages/domain/src/{coach-workflow,template-rollout}.ts` (+tests), `apps/web/src/server/training/{day-copy,set-types,template-rollout,workflow-schema}.ts`, `components/coach/{SetTable,SetTypes,LoadDistributor,DayCopy,TemplateRollout}.tsx`, rutas `api/coach/[orgId]/{set-types,paste-targets,programs/[pid]/paste-day,programs/[pid]/rollout}`, tests `coach-workflow`, `template-rollout`, E2E `coach-workflow`, `template-rollout`.
+
+### Publicación
+1. **Revisión:** PR #21 al día con `main` (incluye el hotfix #20), sin conflictos, CI verde en `c2d65e2`.
+2. **Respaldo previo:** issue #22 → workflow «Respaldo» corrida 15, en verde.
+   - Release `backup-20261104-234215-41935448423`: 100 tablas, 5973 filas, 44 migraciones, 1 archivo de Storage.
+   - El workflow lo descifró, comprobó los hashes del manifiesto, lo restauró en un PostgreSQL descartable y verificó 265 claves foráneas sin huérfanos y 0 restricciones sin validar.
+   - La clave privada sigue en el Drive del titular («REPI — Recuperación de respaldos»; el archivo figura como `repi-respaldos.age 2.key`). Sólo se miraron los metadatos.
+3. **0044 aplicada** (~23:44 UTC) con `hosted-0044.sql`, en una transacción como `repi_app`.
+   - Antes: 44 migraciones, la última `7c551dc6…` (0043); 0044 sin registrar; `set_type` inexistente; `training_target` y `training_proposal` sin RLS y sin permisos para `anon`/`authenticated`.
+   - Después: 45 migraciones (`ca3d81a8…`, `when` 1793818585874). `set_type` de `repi_app` con RLS, clave primaria, 2 claves foráneas válidas, índice único parcial `(org_id, owner_user_id, lower(name))` e índice `(org_id, owner_user_id)`.
+   - RLS en las 101 tablas de `public`, todas de `repi_app`, sin `FORCE` (el backend, dueño, sigue operando). `anon` y `authenticated` sin ningún permiso sobre las tres tablas; `repi_backup` sólo lectura.
+   - El permiso temporal de `postgres` sobre `repi_app` quedó revocado.
+   - Huellas iguales antes y después de migrar: `set_log` (1097), `workout_session` (91), `program_version` (100), `history_entry` (0), `training_target` (129), `training_proposal` (3) y `program` (88).
+4. **PR #21 integrado** (squash) como `9172e95`. CI de `main` (corrida 149) en verde. Sin errores de ejecución en Vercel desde el despliegue.
+5. **Integridad después de publicar y de las pruebas:** sin contar las 6 demos de las pruebas, las siete huellas son idénticas a las de antes de migrar. No hay tipos de serie ni actualizaciones desde plantilla en organizaciones reales.
+- **Reversión del código:** promover en Vercel `dpl_EmPac9ej9omWGugfJ2CwToSiyMZE` (`784e83b`). El esquema queda: el código anterior no lee `set_type`. No hace falta revertir la 0044.
+
+### Pruebas en producción (demo guiada, datos ficticios)
+- Arnés fuera del repo: los E2E del repo contra repiclub.com, sin simular IPs (cupo de 6 demos por hora), en Chromium emulado. **No probado en teléfonos físicos.**
+- Teléfono (Pixel 7): editor rápido (pirámide, distribución de cargas, deshacer, lb, teclado); top set + Load Set y tipos propios (crear, usar, renombrar sin tocar el plan, quitar); copiar un día de Valentina a Martina sin pesos y con el historial intacto; sala: copiar el día de un socio al borrador de otro.
+- Escritorio: «Actualizar programas de alumnos» con un conflicto real (Martina personalizada en el mismo ejercicio). Por defecto se conserva lo suyo; Valentina recibe una versión nueva con 80/90/100 kg; las sesiones de las dos no cambian; claro y oscuro.
+- Alumno (teléfono): Training Intelligence 2.0 sigue dando objetivos por serie («Anterior / REPI recomienda / Real»), en claro y oscuro.
+- Sin sesión, las rutas nuevas del coach responden 401.
+
+### Urko
+- Es `coach_owner` activo de su organización de coach (habilitada, sin demo): 9 plantillas, 8 alumnos activos y 8 asignaciones activas.
+- Todas las funciones nuevas piden exactamente ese rol (`requireCoach`). No se le dio ningún permiso nuevo y no se tocaron sus datos.
+- No es personal de Smart Center Gym; las funciones de sala las usa el personal del gimnasio.
+
+### Próximo: Master Prompt 05/06
+- En una rama nueva desde `main` (al día con `9172e95` y esta bitácora). Leer primero MASTER_PROMPT.md y este archivo.
+- Ya anotado para el 05/06 en bloques anteriores: el rediseño visual de la sesión del alumno, el editor del coach en la vista del alumno y el catálogo de equipos por sede (`docs/TRAINING_INTELLIGENCE_2.md` §8 quater).
+- Antes de cualquier migración productiva: workflow «Respaldo» en verde (docs/RESPALDOS.md).
+
+### Pendiente
+- **Hotfix D193:** «Tu profe indicó X kg» con un profe y un alumno reales vinculados en producción sigue sin verificar. No hay cuentas de prueba en producción (sólo usuarios reales y demos), y la demo no lo permite (cada perfil abre otra demo). No se tocó ningún alumno real. Cubierto por las pruebas automáticas (integración y E2E local). Para cerrarlo: el titular crea dos cuentas de prueba vinculadas (un coach y un alumno, sin 2FA) y se corre `scripts/operations/verify-coach-weights-prod.mjs` (ver su encabezado).
+- La alerta de Supabase `function_search_path_mutable` en `gym_task_event_immutable` sigue igual que antes.
 
 ## Hotfix P0 · cargas del profe que el alumno no veía (D193) — 04/11/2026
 
