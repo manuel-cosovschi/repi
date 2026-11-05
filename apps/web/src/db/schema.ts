@@ -1322,7 +1322,7 @@ export const memberNotice = pgTable("member_notice", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   orgId: text("org_id").references(() => organization.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["attempt_approved", "attempt_rejected", "prize_delivered", "challenge_closed", "proposal_approved", "proposal_rejected"] }).notNull(),
+  kind: text("kind", { enum: ["attempt_approved", "attempt_rejected", "prize_delivered", "challenge_closed", "proposal_approved", "proposal_rejected", "club_notice"] }).notNull(), // club_notice: aviso del equipo de REPI sobre el Club (D196)
   title: text("title").notNull(),
   body: text("body").notNull(),
   refId: text("ref_id"),

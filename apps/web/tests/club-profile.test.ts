@@ -1,7 +1,7 @@
 // D169: perfil del Club con foto, máximos y publicaciones con imagen; las fotos las ven sólo socios del Club, nunca entre
 // personas bloqueadas ni la de una publicación oculta.
 import { randomUUID } from "node:crypto";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
@@ -91,5 +91,19 @@ describe("perfil del Club", () => {
     expect(left.get(av.id)).toBeNull();
     expect(left.get(other.id)).not.toBeNull();
     expect((await fu.authorizeVideo(ana.u, pic.id)).id).toBe(pic.id);
+
+    // D196: que no vuelva a pasar con una tabla FUTURA. Una tabla nueva con clave foránea a media_object protege su archivo
+    // sin tocar purgeMedia; y lo vencido por plazo no se borra si otra tabla lo sigue usando.
+    const fut = await club.uploadClubImage(ana.u, org.id, { mime: "image/jpeg", bytes: JPG() });
+    await db.execute(sql`create table zz_future_media (id serial primary key, media_id text references media_object(id))`);
+    try {
+      await db.execute(sql`insert into zz_future_media (media_id) values (${fut.id})`);
+      await db.update(schema.mediaObject).set({ createdAt: new Date(Date.now() - 48 * 3_600_000) }).where(eq(schema.mediaObject.id, fut.id));
+      expect((await fu.mediaReferences()).map((r) => `${r.table}.${r.column}`)).toEqual(expect.arrayContaining([...fu.KNOWN_MEDIA_REFERENCES, "zz_future_media.media_id"]));
+      await fu.purgeMedia();
+      expect((await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, fut.id)))[0]?.deletedAt).toBeNull();
+    } finally {
+      await db.execute(sql`drop table zz_future_media`);
+    }
   });
 });
