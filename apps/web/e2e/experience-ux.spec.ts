@@ -47,6 +47,10 @@ test("alumno: sesión con lista de ejercicios, salir un momento y volver; histor
   await expect(live).toBeVisible();
   await expectNoHorizontalOverflow(page, "aviso de entrenamiento en curso");
   await live.click();
+  // Vuelve al mismo punto: si el descanso sigue corriendo, se ve el reloj (no se reinició al salir).
+  const skipRest = page.getByRole("button", { name: "Saltar descanso" });
+  await expect(page.getByRole("button", { name: /^(Completar serie 2|Saltar descanso)$/ }).first()).toBeVisible();
+  if (await skipRest.isVisible()) { await expect(page.getByRole("timer")).toBeVisible(); await skipRest.click(); }
   await expect(page.getByRole("button", { name: /^Completar serie 2$/ })).toBeVisible();
   expect((await (await page.request.get(`/api/me/sessions/${sid}`)).json()).status).toBe("in_progress");
 
@@ -57,7 +61,6 @@ test("alumno: sesión con lista de ejercicios, salir un momento y volver; histor
   const before = firstLog(await hx(page, sid));
   await page.goto("/app?tab=prog");
   await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: /Progreso/ }).click();
-  await page.getByRole("listitem").filter({ hasText: /series/ }).first().waitFor();
   await page.getByRole("button", { name: /Abrir detalle$/ }).first().click();
   const sheet = page.getByRole("dialog").filter({ has: page.getByText("Repeticiones", { exact: true }) }).first();
   await expect(sheet).toBeVisible();
@@ -102,11 +105,9 @@ test("coach: «Ver cómo lo verá» muestra el programa del alumno en sólo lect
   const errors = watchErrors(page);
   const href = await openDemo(page, "coach");
   await page.goto(href.replace(/\?s=\w+/, "?s=clients"));
+  // Un cliente con programa asignado (la demo trae a Martina con «Hipertrofia · 3 días»).
+  await page.getByRole("button", { name: /Martina López/ }).first().click();
   const pv = page.getByRole("button", { name: /^Ver cómo lo verá / }).first();
-  if (!(await pv.isVisible({ timeout: 5_000 }).catch(() => false))) {
-    const first = page.locator(".crow").first();
-    await first.click();
-  }
   await expect(pv).toBeVisible({ timeout: 10_000 });
   const before = page.url();
   await pv.click();

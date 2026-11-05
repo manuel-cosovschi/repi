@@ -44,16 +44,16 @@ async function dropStaleLocal(id: string) {
 export function HistoryList({ items, onOpen }: { items: HistoryItem[]; onOpen: (id: string) => void }) {
   const unit = useUnit();
   return (
-    <div className="hist hx-list" role="list">
+    <ul className="hist hx-list" aria-label="Entrenamientos">
       {items.map((s) => (
-        <button type="button" role="listitem" key={s.id} className={`hx-row${s.status === "voided" ? " is-void" : ""}`} onClick={() => onOpen(s.id)}
+        <li key={s.id}><button type="button" className={`hx-row${s.status === "voided" ? " is-void" : ""}`} onClick={() => onOpen(s.id)}
           aria-label={`${s.dayName}, ${dateTxt(s.endedAt)}${s.status === "voided" ? ", anulado" : ""}. ${s.sets} series. Abrir detalle`}>
           <span><b>{s.dayName}</b>{s.status === "voided" && <span className="hx-chip bad">Anulado</span>}{s.corrected && s.status !== "voided" && <span className="hx-chip">Corregido</span>}<br />
             <small className="mb-muted">{dateTxt(s.endedAt)} · {formatClock(s.durationSec)}{s.rpe ? ` · RPE ${s.rpe}` : ""}</small></span>
           <span className="mb-muted">{s.status === "voided" ? "No cuenta" : `${s.sets} series · ${volumeIn(s.volumeKg, unit).toLocaleString("es-AR")} ${unit}`}</span>
-        </button>
+        </button></li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -100,21 +100,21 @@ export function HistorySession({ id, flash, onClose, onChanged, offline }: { id:
               <div className="hx-ex-head"><b>{e.change?.kind === "substitute" && e.change.substitute ? `${e.change.substitute} (en lugar de ${e.name})` : e.name}</b>
                 {e.change?.kind === "skip" && <span className="hx-chip">Salteado</span>}
                 {e.compare && <small className="mb-muted">Mejor serie: {kg(e.compare.current.weightKg, unit)} × {e.compare.current.reps} · la vez anterior {kg(e.compare.previous.weightKg, unit)} × {e.compare.previous.reps}</small>}</div>
-              <div role="list" className="hx-sets">
+              <ul className="hx-sets" aria-label={`Series de ${e.doneName}`}>
                 {e.rows.map((r) => {
                   const l = r.log;
                   const val = l ? `${r.timed ? `${l.reps ?? "—"} s` : `${l.weightKg != null && l.weightKg > 0 ? `${kg(l.weightKg, unit)} × ` : ""}${l.reps ?? "—"}`}${l.rir != null ? ` · RIR ${l.rir}` : ""}${l.feel ? ` · ${SET_FEEL[l.feel as SetFeel] ?? l.feel}` : ""}` : r.skipped ? "Sin hacer" : "No registrada";
                   const can = d.actions.edit && !offline;
                   return (
-                    <button type="button" role="listitem" key={r.setIndex} className={`hx-set${r.stage > 0 ? " stage" : ""}${l?.voidedAt ? " is-void" : ""}${!l ? " is-empty" : ""}`} disabled={!can}
+                    <li key={r.setIndex}><button type="button" className={`hx-set${r.stage > 0 ? " stage" : ""}${l?.voidedAt ? " is-void" : ""}${!l ? " is-empty" : ""}`} disabled={!can}
                       onClick={() => setEdit({ ex: e, row: r })} aria-label={`${setName(r)}: ${val}${l?.voidedAt ? ", anulada" : ""}${l?.corrected ? ", corregida" : ""}${can ? ". Tocá para corregir" : ""}`}>
                       <span>{r.stage > 0 ? `↳ ${r.label ?? "Etapa"}` : `${r.block + 1}${r.label ? ` · ${r.label}` : ""}`}</span>
                       <span>{val}{l?.note && <small className="mb-muted"> · «{l.note}»</small>}</span>
                       <span>{l?.voidedAt ? <span className="hx-chip bad">Anulada</span> : l?.added ? <span className="hx-chip">Agregada</span> : l?.corrected ? <span className="hx-chip">Corregida</span> : null}</span>
-                    </button>
+                    </button></li>
                   );
                 })}
-              </div>
+              </ul>
             </section>
           ))}
           {d.corrections.length > 0 && (
