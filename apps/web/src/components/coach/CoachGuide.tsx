@@ -7,6 +7,7 @@ const START: GuideStep[] = [
   { t: "Que agreguen REPI al teléfono", d: "Pasales repiclub.com/instalar o el cartel con QR de /instalar/cartel: en un minuto queda como una app." },
   { t: "Armá la rutina → «Programas»", d: "Días, ejercicios, series, reps, RIR, descanso e indicaciones. Se guarda sola. «Reemplazos» deja aprobadas alternativas si falta una máquina." },
   { t: "Asignála → «Asignar a clientes»", d: "Cada alumno recibe su propia copia: después ajustás la de uno sin tocar la de los demás." },
+  { t: "Revisá cómo lo ve → ficha → «Ver cómo lo verá…»", d: "Vista previa de sólo lectura del programa tal como lo abre el alumno: orden, combinados, métodos, series con carga, descansos y notas. No entra a su cuenta ni registra nada." },
   { t: "Seguí el progreso → «Clientes» → ficha", d: "Sesiones, series, cargas, notas, cambios de ejercicio, rendimiento y objetivos. Si editás su programa, cambia para adelante; lo ya hecho queda." },
 ];
 

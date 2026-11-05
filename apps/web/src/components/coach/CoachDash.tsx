@@ -1,4 +1,5 @@
 "use client";
+import { Hint } from "@/components/member/Hint";
 import { fmtDate, type Overview, type Screen } from "./types";
 import { TodayAgenda } from "./CoachAgenda";
 
@@ -26,6 +27,12 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
         <div><span className="co-kicker">{today.charAt(0).toUpperCase() + today.slice(1)}</span><h1 tabIndex={-1}>{greet()}, {first}</h1></div>
         <div className="co-actions"><button type="button" className="btn" onClick={onInvite}>Invitar cliente</button><button type="button" className="btn pri" onClick={onNewProgram}>Nuevo programa</button></div>
       </div>
+      {/* D195: primeros pasos, una sola vez: se cierra y no vuelve; la Guía queda siempre en el menú. */}
+      {(!ov.clients.length || k.noProgram > 0) && (
+        <Hint id="coach_start" title="Primeros pasos" text={`${ov.clients.length ? "✓" : "1."} Invitá a un alumno · ${k.noProgram === 0 && ov.clients.length ? "✓" : "2."} Armá y asigná su programa · 3. Revisá «Ver cómo lo verá» en su ficha.`}>
+          <button type="button" className="linkbtn" style={{ alignSelf: "flex-start", minHeight: 32 }} onClick={() => go("guide")}>Ver la guía completa</button>
+        </Hint>
+      )}
       {ov.org.status === "trial" && (
         <div className="banner"><span><strong>Estás en período de prueba.</strong>{ov.org.trialEndsAt ? ` Termina el ${fmtDate(ov.org.trialEndsAt, { day: "numeric", month: "long" })}.` : ""} Tus condiciones (alumnos vigentes acordados y precio) están en «Condiciones REPI».</span></div>
       )}
