@@ -184,7 +184,9 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           { echo "### Respaldo verificado y publicado"; echo; echo "- Release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$TAG"; sed -n '/^- Contenido/,/^- Verificado/p' "$R/notas.md"; } >> "$GITHUB_STEP_SUMMARY"
       # D198: señal al vigilante de REPI (independiente de este cronograma) y, si se configuró, a un «dead man's switch» externo.
-      # Sin los secretos no hace nada. Si falla, el respaldo igual queda publicado y el vigilante avisa a las 30 h.
+      # Se autentica con el token OIDC de este job (backup.yml en main, audiencia propia, atado a esta corrida): no hace falta
+      # ningún secreto en GitHub. Si existe BACKUP_HEARTBEAT_SECRET se usa ese. Si falla, el respaldo igual queda publicado y el
+      # vigilante avisa a las 30 h.
       - name: Señal de respaldo verificado
         if: github.event_name != 'pull_request'
         continue-on-error: true
@@ -194,10 +196,16 @@ jobs:
           DEADMAN_URL: ${{ secrets.BACKUP_DEADMAN_URL }}
           TAG: ${{ steps.publicar.outputs.tag }}
         run: |
+          BODY="{\"tag\":\"$TAG\",\"run\":\"$GITHUB_RUN_ID\"}"
           if [ -n "$HB_SECRET" ]; then
-            curl -fsS --max-time 20 -X POST "$HB_URL" -H "authorization: Bearer $HB_SECRET" -H "content-type: application/json" \
-              -d "{\"tag\":\"$TAG\",\"run\":\"$GITHUB_RUN_ID\"}" -o /dev/null && echo "Vigilante de REPI: señal enviada." || echo "::warning::El vigilante de REPI no recibió la señal."
-          else echo "::notice::BACKUP_HEARTBEAT_SECRET sin configurar: el vigilante de REPI no está armado (docs/RESPALDOS.md)."; fi
+            AUTH="authorization: Bearer $HB_SECRET"; VIA="secreto"
+          else
+            T="$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=repi-backup-heartbeat" | jq -r .value)" || T=""
+            echo "::add-mask::$T"
+            AUTH="x-repi-github-oidc: $T"; VIA="token OIDC"
+          fi
+          C="$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -X POST "$HB_URL" -H "$AUTH" -H "content-type: application/json" -d "$BODY" || true)"
+          if [ "$C" = "200" ]; then echo "Vigilante de REPI: señal enviada ($VIA)."; else echo "::warning::El vigilante de REPI no recibió la señal ($VIA, HTTP $C)."; fi
           if [ -n "$DEADMAN_URL" ]; then curl -fsS --max-time 20 "$DEADMAN_URL" -o /dev/null && echo "Señal externa enviada." || echo "::warning::La señal externa falló."; fi
       # Sólo el archivo CIFRADO, 1 día: permite comprobar desde afuera que la clave del titular lo abre.
       - name: Copia cifrada para la prueba de la clave del titular

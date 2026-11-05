@@ -57,7 +57,10 @@ test("la credencial de la base usa otra audiencia: un token de Storage no la obt
   assert.equal(isBackupWorkflow({ ...good, aud: DB_AUDIENCE, ref: "refs/heads/otra" }, DB_AUDIENCE), false);
 });
 
-test("las dos Edge Functions usan la misma verificación (copias idénticas)", () => {
+test("las dos Edge Functions y la app usan la misma verificación (copias idénticas)", () => {
   const base = new URL("../../../../supabase/functions/", import.meta.url);
-  assert.equal(readFileSync(new URL("repi-backup-credentials/github-oidc.ts", base), "utf8"), readFileSync(new URL("repi-storage/github-oidc.ts", base), "utf8"));
+  const ref = readFileSync(new URL("repi-storage/github-oidc.ts", base), "utf8");
+  assert.equal(readFileSync(new URL("repi-backup-credentials/github-oidc.ts", base), "utf8"), ref);
+  // D198: la señal del vigilante de respaldos (apps/web/src/server/ops/github-oidc.ts) usa la misma verificación.
+  assert.equal(readFileSync(new URL("../../src/server/ops/github-oidc.ts", import.meta.url), "utf8"), ref);
 });

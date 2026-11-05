@@ -52,14 +52,13 @@ Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único ar
 - **Archivos purgados:** el respaldo copia sólo los archivos vigentes de `media_object` (`deleted_at is null`). Las filas de los purgados quedan en la base y en el respaldo como registro (PR #30: antes, una foto purgada hacía fallar el respaldo con 404).
 - **Vigilante independiente (D198, 06/06):** si pasan **más de 30 h sin un respaldo verificado** llega un email a `ALERT_EMAIL` (el mismo de las alertas de errores, D149). Detecta también una ejecución que nunca empezó, porque no depende de GitHub:
   - El paso «Señal de respaldo verificado» de `backup.yml` avisa a `POST /api/cron/backup-heartbeat` con la etiqueta del release. REPI lo anota en `audit_event` (`backup.verified`, sin datos personales).
+  - **Autenticación (revisada 05/11):** el token OIDC del job, firmado por GitHub. Usa la audiencia `repi-backup-heartbeat` y la misma política que las Edge Functions (D190): `backup.yml` en `main` de este repositorio, por cronograma, manual o issue, y nunca un PR. Además el token tiene que ser de esa misma corrida (`run_id`).
+    - **No hace falta ningún secreto en GitHub.**
+    - `BACKUP_HEARTBEAT_SECRET` sigue aceptándose: está configurado en Vercel y, si alguna vez se carga en GitHub, el paso lo usa.
+    - Ese valor pasó por un chat. Conviene borrarlo de Vercel: el vigilante sigue funcionando sólo con OIDC.
   - La tarea de cada minuto (pg_cron de Supabase → `/api/cron/notifications`) revisa una vez por hora (minuto 7). Como mucho un email cada 12 h mientras siga sin respaldo.
-  - **Estado (05/11/2026 21:10 UTC): publicado en producción (`ab4e1ad`) y corriendo cada hora, NO ARMADO.** Falta configurar el secreto. Se considera activo cuando haya una señal registrada y la revisión siguiente diga `armed: true`.
-  - **Se arma con la primera señal:** hasta configurar el secreto no avisa nada (sin falsas alarmas) y el respaldo funciona igual. Si la señal falla, el respaldo igual se publica y el vigilante avisa a las 30 h.
-  - **Para activarlo (titular, 5 minutos):**
-    1. Generar un secreto largo en tu computadora: `openssl rand -hex 32` (no lo pegues en el chat).
-    2. Vercel → proyecto repi → Settings → Environment Variables → `BACKUP_HEARTBEAT_SECRET` (Production) con ese valor → Redeploy.
-    3. GitHub → Settings → Secrets and variables → Actions → New repository secret → `BACKUP_HEARTBEAT_SECRET` con el mismo valor.
-    4. Pedir un respaldo con un issue «Respaldo: prueba del vigilante». En el resumen de la corrida tiene que decir «Vigilante de REPI: señal enviada».
+  - **Se arma con la primera señal auténtica:** hasta entonces no avisa nada (sin falsas alarmas). Si la señal falla, el respaldo igual se publica y el vigilante avisa a las 30 h.
+  - **Estado:** ver `docs/continuidad/PROXIMA_SESION.md`.
   - **Segunda capa opcional (externa, gratis):** un «dead man's switch» como Healthchecks.io (período 1 día, gracia 6 h). Guardar la URL de ping como secreto `BACKUP_DEADMAN_URL`: el mismo paso la llama. Avisa aunque REPI entero esté caído. Requiere crear la cuenta: decisión del titular.
 - **Pérdida máxima esperable (RPO): hasta ~24 h** de escrituras (un respaldo verificado por día; con el plan gratuito de Supabase no hay respaldos gestionados ni PITR). Con Supabase Pro se suman los diarios del proveedor (7 días); con PITR baja a minutos.
 - **Tiempo objetivo de recuperación (RTO): 2–4 h** para un desastre real con el procedimiento de abajo (proyecto Supabase nuevo, migraciones, carga y Storage). No está ensayado de punta a punta en un proyecto nuevo: sí la restauración verificada en PostgreSQL descartable en cada corrida.
@@ -128,7 +127,7 @@ Para el paso 4 hace falta una variante del script con destino explícito. Se pre
 
 ## Seguridad y límites
 
-- **Secretos en GitHub:** ninguno obligatorio. Opcionales: `BACKUP_HEARTBEAT_SECRET` (sólo sirve para anotar «hubo respaldo»; no lee nada) y `BACKUP_DEADMAN_URL`.
+- **Secretos en GitHub:** ninguno obligatorio (la señal del vigilante usa OIDC). Opcionales: `BACKUP_HEARTBEAT_SECRET` (sólo sirve para anotar «hubo respaldo»; no lee nada) y `BACKUP_DEADMAN_URL`.
   - La base usa una contraseña temporal por ejecución, de un rol de sólo lectura, emitida por `repi-backup-credentials`.
   - Storage usa el token OIDC.
   - La clave pública es pública por naturaleza.
