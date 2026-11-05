@@ -37,7 +37,7 @@ Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» 
 - Objetivos abiertos: 28, mismo hash.
 - Un entrenamiento real salió del conjunto «previo» porque su dueño lo terminó a las 21:04:37 (24 series intactas): es actividad legítima, no un cambio del deploy.
 
-**Vigilante de respaldos (D198): NO ACTIVO.** El código está en producción y corre cada hora, pero sin `BACKUP_HEARTBEAT_SECRET` no está armado. No se puede configurar desde acá: los secretos de GitHub no están en la conexión y Vercel responde 403. Se declara activo recién cuando haya una señal auténtica registrada (`audit_event` `backup.verified` ≥ 1) y la revisión de la hora siguiente diga `armed: true`.
+**Vigilante de respaldos (D198): NO ACTIVO (actualizado 21:30 UTC).** Vercel ya tiene `BACKUP_HEARTBEAT_SECRET` (verificado sin registrar nada). **Bloqueo:** falta el mismo secreto en GitHub Actions, que sólo puede cargar el titular. Cuando esté, Claude abre el issue «Respaldo: prueba del vigilante» y verifica la señal, el `backup.verified` y el `armed: true`. Antes: El código está en producción y corre cada hora, pero sin `BACKUP_HEARTBEAT_SECRET` no está armado. No se puede configurar desde acá: los secretos de GitHub no están en la conexión y Vercel responde 403. Se declara activo recién cuando haya una señal auténtica registrada (`audit_event` `backup.verified` ≥ 1) y la revisión de la hora siguiente diga `armed: true`.
 
 **Cómo armarlo (titular, en tu computadora):**
 1. `openssl rand -hex 32` (no lo pegues en ningún chat).

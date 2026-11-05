@@ -53,7 +53,11 @@ Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único ar
 - **Vigilante independiente (D198, 06/06):** si pasan **más de 30 h sin un respaldo verificado** llega un email a `ALERT_EMAIL` (el mismo de las alertas de errores, D149). Detecta también una ejecución que nunca empezó, porque no depende de GitHub:
   - El paso «Señal de respaldo verificado» de `backup.yml` avisa a `POST /api/cron/backup-heartbeat` con la etiqueta del release. REPI lo anota en `audit_event` (`backup.verified`, sin datos personales).
   - La tarea de cada minuto (pg_cron de Supabase → `/api/cron/notifications`) revisa una vez por hora (minuto 7). Como mucho un email cada 12 h mientras siga sin respaldo.
-  - **Estado (05/11/2026 21:10 UTC): publicado en producción (`ab4e1ad`) y corriendo cada hora, NO ARMADO.** Falta configurar el secreto. Se considera activo cuando haya una señal registrada y la revisión siguiente diga `armed: true`.
+  - **Estado (05/11/2026 21:30 UTC): NO ARMADO.**
+    - Vercel: `BACKUP_HEARTBEAT_SECRET` configurado y activo en producción (`4d81b6a`). Comprobado sin registrar nada: con la clave, una señal inválida da 400; sin ella, 404.
+    - GitHub Actions: **falta el secreto.** La integración de Claude no puede escribir secretos de Actions: el conector de GitHub no tiene esa operación y `gh` no tiene token válido en la sesión.
+    - 0 señales registradas.
+    - Se considera activo cuando haya una señal auténtica registrada y la revisión siguiente diga `armed: true`.
   - **Se arma con la primera señal:** hasta configurar el secreto no avisa nada (sin falsas alarmas) y el respaldo funciona igual. Si la señal falla, el respaldo igual se publica y el vigilante avisa a las 30 h.
   - **Para activarlo (titular, 5 minutos):**
     1. Generar un secreto largo en tu computadora: `openssl rand -hex 32` (no lo pegues en el chat).
