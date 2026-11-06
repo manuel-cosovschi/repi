@@ -9,7 +9,8 @@
 //   comentarios). Se confirma recién después de verificar que el archivo quedó guardado con el tamaño esperado.
 // - Al borrar: primero se quita la referencia (la foto deja de verse) y después el archivo; si Storage falla, el archivo
 //   queda sin referencia y la purga diaria lo reintenta (D196 lee las referencias del catálogo, incluida progress_photo).
-// - Menores de 18: no disponible en 1.0 (el consentimiento vigente del adulto responsable no contempla fotos corporales).
+// - Sólo adultos confirmados (D203): menores de 18 no (el consentimiento vigente del adulto responsable no contempla fotos
+//   corporales) y edad desconocida tampoco: se ofrece declarar la fecha de nacimiento. Ver y borrar las propias, siempre.
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { PROGRESS_PHOTO_LIMITS, imageInfo, isIsoDay, localDate, stripImageMetadata, type ProgressPose } from "@repi/domain";
@@ -17,7 +18,7 @@ import { db, schema } from "@/db";
 import { featureOn } from "@/lib/features";
 import { AccessError, audit } from "../access/util";
 import { deleteObject, probeObject, putObject } from "../storage";
-import { isMinor } from "./body";
+import { bodyEligibility, requireAdult } from "./body";
 
 const { progressPhoto, mediaObject } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos esa foto.", 404);
@@ -32,7 +33,7 @@ const view = (r: { id: string; takenOn: string; pose: string | null; width: numb
 
 export async function uploadProgressPhoto(userId: string, p: { bytes: Uint8Array; mime: string; day: string; pose?: string | null }, now = new Date()) {
   requireOn();
-  if (await isMinor(userId, now)) throw new AccessError("minor_restricted", "Las fotos de progreso no están disponibles para menores de 18 años.", 403);
+  await requireAdult(userId, "Las fotos de progreso", now);
   if (!isIsoDay(p.day) || p.day > localDate(new Date(now.getTime() + 86_400_000)) || p.day < "1990-01-01") throw new AccessError("invalid", "Elegí una fecha válida.");
   const pose = p.pose ? (POSES.has(p.pose as ProgressPose) ? (p.pose as ProgressPose) : null) : null;
   if (p.pose && !pose) throw new AccessError("invalid", "Categoría no válida.");
@@ -78,7 +79,7 @@ export async function myProgressPhotos(userId: string) {
   const rows = await db.select().from(progressPhoto).innerJoin(mediaObject, eq(mediaObject.id, progressPhoto.mediaId))
     .where(and(eq(progressPhoto.userId, userId), eq(mediaObject.ownerUserId, userId), isNull(mediaObject.deletedAt)))
     .orderBy(desc(progressPhoto.takenOn), desc(progressPhoto.createdAt)).limit(PROGRESS_PHOTO_LIMITS.maxPerUser);
-  return { photos: rows.map((r) => view(r.progress_photo)), limit: PROGRESS_PHOTO_LIMITS.maxPerUser, canUpload: !(await isMinor(userId)) };
+  return { photos: rows.map((r) => view(r.progress_photo)), limit: PROGRESS_PHOTO_LIMITS.maxPerUser, ...(await (async () => { const e = await bodyEligibility(userId); return { canUpload: e === "adult", eligibility: e }; })()) };
 }
 
 /** Archivo de una foto propia (para el endpoint que lo entrega). Ajena o inexistente: 404. */

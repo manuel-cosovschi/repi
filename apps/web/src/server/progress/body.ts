@@ -3,10 +3,11 @@
 //   consentimiento «medidas corporales» (D117) sigue sin ofrecerse (módulo `body` apagado) y no da acceso a esto.
 // - Un id ajeno responde 404, igual que uno inexistente.
 // - Una medición por día: guardar otro valor ese día lo reemplaza (no hay duplicados por doble toque ni por reintentos).
-// - Menores de 18: no se ofrece en 1.0 (hace falta una política con el adulto responsable). La API responde 403.
+// - Sólo adultos (D203): menores de 18, no en 1.0 (hace falta una política con el adulto responsable); edad desconocida
+//   (sin fecha de nacimiento) tampoco: nunca se supone adulta. Se ofrece declararla una vez (declareBirthDate). API: 403.
 // - Auditoría sin valores: sólo qué acción se hizo (nunca el peso).
 import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
-import { classifyAge, bodyGoalProgress, isIsoDay, localDate, rangeStart, weightSummary, bodyWeightOk, type ProgressRange } from "@repi/domain";
+import { ageEligibility, bodyGoalProgress, isIsoDay, localDate, rangeStart, weightSummary, bodyWeightOk, type ProgressRange } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 
@@ -14,13 +15,20 @@ const { bodyWeightEntry, bodyGoal, user } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos esa medición.", 404);
 export const BODY_MAX_ENTRIES = 3000; // ~8 años con una medición por día
 
-export async function isMinor(userId: string, now = new Date()) {
+/** Elegibilidad para funciones sólo de adultos: «adult», «minor» o «unknown» (sin fecha de nacimiento válida). */
+export async function bodyEligibility(userId: string, now = new Date()) {
   const [u] = await db.select({ birth: user.birthDate }).from(user).where(eq(user.id, userId));
   if (!u) throw new AccessError("unauthorized", "Ingresá para continuar.", 401);
-  return !!u.birth && classifyAge(u.birth, localDate(now)) === "minor";
+  return ageEligibility(u.birth, localDate(now));
+}
+/** Sólo adultos confirmados. Menor: 403 minor_restricted. Edad desconocida: 403 age_required (la app ofrece declararla). */
+export async function requireAdult(userId: string, what: string, now = new Date()) {
+  const e = await bodyEligibility(userId, now);
+  if (e === "minor") throw new AccessError("minor_restricted", `${what} no está disponible para menores de 18 años.`, 403);
+  if (e === "unknown") throw new AccessError("age_required", `Para usar ${what.toLowerCase()} confirmá tu fecha de nacimiento.`, 403);
 }
 async function requireBodyAllowed(userId: string, now: Date) {
-  if (await isMinor(userId, now)) throw new AccessError("minor_restricted", "El seguimiento corporal no está disponible para menores de 18 años.", 403);
+  await requireAdult(userId, "El seguimiento corporal", now);
 }
 function checkDay(day: string, now: Date) {
   if (!isIsoDay(day) || day < "1990-01-01") throw new AccessError("invalid", "Elegí una fecha válida.");
@@ -33,8 +41,8 @@ const view = (e: typeof bodyWeightEntry.$inferSelect) => ({ id: e.id, day: e.mea
 
 /** Mediciones del período, el objetivo y el progreso hacia la meta (siempre contra el historial completo). */
 export async function myBody(userId: string, range: ProgressRange, now = new Date()) {
-  const minor = await isMinor(userId, now);
-  if (minor) return { available: false as const, reason: "minor" as const };
+  const elig = await bodyEligibility(userId, now);
+  if (elig !== "adult") return { available: false as const, reason: elig === "minor" ? "minor" as const : "age_unknown" as const };
   const all = await db.select().from(bodyWeightEntry).where(eq(bodyWeightEntry.userId, userId)).orderBy(asc(bodyWeightEntry.measuredOn)).limit(BODY_MAX_ENTRIES);
   const [goal] = await db.select().from(bodyGoal).where(eq(bodyGoal.userId, userId));
   const from = rangeStart(range, localDate(now));

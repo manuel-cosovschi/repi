@@ -122,7 +122,7 @@ export const CALORIE_MIN_SEC = 5 * 60, CALORIE_MAX_SEC = 4 * 3600;
 export type CalorieInput = { activeSec: number; cardioSec: number; bodyWeightG: number | null; rpe: number | null; minor: boolean; voided?: boolean };
 export type CalorieEstimate =
   | { ok: true; low: number; high: number; kind: "strength" | "cardio" | "mixed"; minutes: number; bodyWeightG: number; mets: { strength: readonly [number, number] | null; cardio: readonly [number, number] | null } }
-  | { ok: false; reason: "no_weight" | "too_short" | "too_long" | "minor" | "voided" };
+  | { ok: false; reason: "no_weight" | "too_short" | "too_long" | "minor" | "voided" | "age_unknown" };
 
 const band = (rpe: number | null) => (rpe == null || !Number.isFinite(rpe) ? "any" : rpe <= 5 ? "light" : rpe <= 7 ? "moderate" : "hard");
 export function estimateCalories(p: CalorieInput): CalorieEstimate {
@@ -144,6 +144,7 @@ export const CALORIE_REASON: Record<Exclude<CalorieEstimate, { ok: true }>["reas
   too_short: "Sesión demasiado corta para estimar el gasto.",
   too_long: "Duración atípica: no estimamos el gasto de esta sesión.",
   minor: "La estimación de calorías no está disponible para menores de 18 años.",
+  age_unknown: "Confirmá tu fecha de nacimiento para ver el gasto estimado (es sólo para adultos).",
   voided: "Entrenamiento anulado: no se estima.",
 };
 export const CALORIE_NOTE = "Estimación aproximada con valores MET de referencia, tu peso y el tiempo activo. Puede diferir bastante de tu gasto real.";

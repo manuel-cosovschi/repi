@@ -1,6 +1,6 @@
 # REPI — Personal Progress & Body Tracking 1.0 + Product Updates & Trainer UX
 
-**Bloque:** posterior a la serie 01/06–06/06. **Decisiones:** D199 (progreso, peso y calorías), D200 (fotos privadas), D201 (corrección de Urko) y D202 (novedades de REPI).
+**Bloque:** posterior a la serie 01/06–06/06. **Decisiones:** D199 (progreso, peso y calorías), D200 (fotos privadas), D201 (corrección de Urko), D202 (novedades de REPI) y D203 (edad desconocida no es adulta, §6.1).
 **Rama:** `feat/repi-personal-progress-1`, creada desde `main` `8f158b1`.
 **Migración:** `0046_personal_progress` (aditiva). **No está aplicada en producción** y no hay despliegue sin autorización del titular.
 
@@ -178,6 +178,28 @@ Reutiliza lo existente. No hay un segundo historial, ni otro motor de récords, 
 
 **Menores de 18:** no se ofrece. La app lo explica y la API responde 403. Hace falta una política con el adulto responsable (§15).
 
+### 6.1 Elegibilidad por edad (D203)
+
+Peso corporal, objetivo, fotos de progreso y calorías son **sólo para adultos confirmados**. La elegibilidad tiene tres estados (`ageEligibility`):
+
+| Estado | Cuándo | Peso, objetivo y fotos | Calorías |
+| --- | --- | --- | --- |
+| Adulta | Fecha de nacimiento registrada y 18 años o más | Sí | Sí, si hay peso |
+| Menor | Fecha registrada y menos de 18 (menos de 13 también) | No: 403 `minor_restricted`, aun con autorización del adulto responsable (la política vigente no contempla datos corporales) | No |
+| Desconocida | Sin fecha (opcional en algunos registros) o con una fecha inválida | No: 403 `age_required`; la app ofrece confirmar la fecha | No (`age_unknown`) |
+
+**Nunca se supone adulta una cuenta sin fecha.**
+
+**Confirmar la fecha** (`POST /api/me/birth-date`, `declareBirthDate`):
+- Es la misma declaración que pide el registro, con el mismo validador. La persona la confirma (casilla «Es mi fecha real…»).
+- Se hace **una sola vez**: sólo se guarda si la cuenta no tiene fecha (`where birth_date is null`). Una fecha existente no se reemplaza desde la app; un error se corrige por soporte. Así una menor no puede «volverse» adulta cambiándola.
+- Una fecha de menor activa los mecanismos existentes: `minorWithoutGuardian`, el pedido de autorización al adulto responsable y `MINOR_RESTRICTED`.
+- Auditoría `account.birth_date_declared` con la elegibilidad resultante, nunca la fecha. Límite de 5 pedidos por minuto.
+
+**Lo que no se bloquea:** entrenar, el historial, los gráficos de entrenamiento y todo lo demás. Una persona siempre puede ver y borrar sus propias mediciones y fotos.
+
+**Demos:** las personas de la demo son adultas ficticias con fecha registrada (1994-06-15).
+
 **Sin conexión**
 - No se guarda a medias: se ve y se guarda con conexión, y la app lo dice.
 - «Guardado» aparece sólo cuando el servidor lo confirmó.
@@ -211,7 +233,7 @@ Reutiliza lo existente. No hay un segundo historial, ni otro motor de récords, 
 - falta el peso (se ofrece «Registrar mi peso» y no se usa ningún peso oculto);
 - la sesión dura menos de 5 minutos o más de 4 horas (atípica: probablemente quedó abierta);
 - la sesión está anulada;
-- la persona es **menor de 18** (los MET de adultos no valen para menores);
+- la persona es **menor de 18** (los MET de adultos no valen para menores), o su edad es **desconocida** (§6.1);
 - no hay base para calcularla por serie o por ejercicio. No se usan series, tonelaje ni frecuencia cardíaca.
 
 **Incertidumbre**
@@ -372,9 +394,9 @@ Reutiliza lo existente. No hay un segundo historial, ni otro motor de récords, 
 | Recurso | Alumno dueño | Coach | Dueño o gerente | Otro alumno | REPI Admin |
 | --- | --- | --- | --- | --- | --- |
 | Gráficos de sus entrenamientos | Sí | Sin cambios (sus pantallas existentes, según la relación y el permiso de entrenamientos) | Sin cambios | No (404) | Sin ruta nueva |
-| Peso corporal y objetivo | Sí | No (404) | No (404) | No (404) | Sin ruta de lectura |
-| Fotos de progreso | Sí | No (404, también por `/api/media`) | No (404) | No (404) | Sin ruta de lectura |
-| Calorías de una sesión | Sí | No (404) | No (404) | No (404) | Sin ruta |
+| Peso corporal y objetivo | Sí (adulta confirmada, §6.1) | No (404) | No (404) | No (404) | Sin ruta de lectura |
+| Fotos de progreso | Sí (subir: adulta confirmada; ver y borrar las propias: siempre) | No (404, también por `/api/media`) | No (404) | No (404) | Sin ruta de lectura |
+| Calorías de una sesión | Sí (adulta confirmada, §6.1) | No (404) | No (404) | No (404) | Sin ruta |
 | Novedades | Según audiencia | Según audiencia (rol de coach) | Según audiencia (rol en esa organización) | Según audiencia | Administra (2FA) |
 | Crear o publicar novedades | No (404) | No (404) | No (404) | No (404) | Sí |
 
@@ -458,6 +480,7 @@ Detalle en `docs/continuidad/PROXIMA_SESION.md`.
 | Storage Free de 1 GB | Subidas fallan al llenarse | Plan Pro: decisión de gasto del titular (LB-11) |
 | Calorías: precisión individual limitada | Expectativas | Rango, texto explícito, interruptor apagado hasta que el titular lo apruebe |
 | Menores: sin peso, fotos ni calorías | Funcionalidad parcial para ese grupo | Política con el adulto responsable (decisión del titular y legal) |
+| Fecha de nacimiento autodeclarada (D203) | Un adulto puede mentir sobre su edad, como en el registro | Igual que el registro vigente; no se puede cambiar desde la app una vez guardada. Verificación documental fuera de alcance |
 | El consentimiento «medidas o fotos» para el coach existe en el dominio | Si alguien enciende `body`, el coach vería una pestaña vacía | No da acceso a estas tablas; compartir con el coach queda para un bloque con consentimiento granular propio |
 | Verificado sólo en Chromium, no en iPhone real (no hay WebKit acá) | Detalles de Safari: `createImageBitmap` y fecha | En Safari, si falla la re-codificación se sube el original y el servidor igual quita los metadatos. Probar en iPhone (lista de teléfonos del 06/06) |
 | `tests/gym.test.ts` «métricas desde eventos reales» intermitente (06/06) | Ruido en CI | Ver PROXIMA_SESION: no se cambió la expectativa |

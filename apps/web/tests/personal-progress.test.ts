@@ -25,9 +25,9 @@ import { resetRateLimits } from "@/server/access/util";
 import { jpegWithGps } from "../../../packages/domain/src/image-fixtures";
 
 let n = 0;
-async function verified(name = "Persona PP", birth = "01/01/1990") {
+async function verified(name = "Persona PP", birth: string | null = "01/01/1990") {
   const email = `pp${++n}.${Date.now()}@test.repi.local`;
-  const r = await acc.signUpPerson({ name, email, password: "prueba1234", terms: true, birth });
+  const r = await acc.signUpPerson({ name, email, password: "prueba1234", terms: true, ...(birth === null ? {} : { birth }) });
   const [m] = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, email)).orderBy(desc(schema.devMailbox.createdAt)).limit(1);
   await auth.api.verifyEmailOTP({ body: { email, otp: /(\d{6})/.exec(m.body)![1] } });
   return { id: r.userId!, email };
@@ -434,5 +434,65 @@ describe("novedades de REPI", () => {
     expect(f.items.find((x) => x.title === "Aviso del Club")).toMatchObject({ dest: { tab: "gym", gymTab: "news" }, unread: true });
     await markNotificationsSeen(w.user);
     expect((await myNotifications(w.user)).unread).toBe(0);
+  });
+});
+
+describe("elegibilidad por edad (D203): nunca se supone adulta a una cuenta sin fecha de nacimiento", () => {
+  const year = new Date().getUTCFullYear();
+  it("sin fecha: peso, fotos y calorías no disponibles (403 age_required); entrenar y sus gráficos siguen", async () => {
+    const w = await world();
+    await db.update(schema.user).set({ birthDate: null }).where(eq(schema.user.id, w.user)); // registro donde era opcional
+    const sid = await trained(w.user, { bench: [[60, 10]], minutes: 45 }); // entrenar no se bloquea
+    expect((await ex.myProgressSummary(w.user, "30d")).totals.sessions).toBe(1);
+    expect((await ex.myExerciseProgress(w.user, EX["Press banca PP"], "30d")).points).toHaveLength(1);
+    expect(await bd.myBody(w.user, "all")).toEqual({ available: false, reason: "age_unknown" });
+    expect((await err(bd.saveWeight(w.user, { day: dayAgo(0), weightG: 80000 })))?.code).toBe("age_required");
+    expect((await err(bd.setGoal(w.user, { targetG: 76000 })))?.code).toBe("age_required");
+    expect((await err(ph.uploadProgressPhoto(w.user, { bytes: jpegWithGps(), mime: "image/jpeg", day: dayAgo(0) })))?.code).toBe("age_required");
+    expect(await ph.myProgressPhotos(w.user)).toMatchObject({ canUpload: false, eligibility: "unknown", photos: [] });
+    expect((await sessionCalories(w.user, sid)).estimate).toEqual({ ok: false, reason: "age_unknown" });
+    expect(await db.select().from(schema.bodyWeightEntry).where(eq(schema.bodyWeightEntry.userId, w.user))).toEqual([]);
+  });
+
+  it("declarar la fecha una vez: adulta habilita; no se puede reemplazar desde la app; auditoría sin la fecha", async () => {
+    const u = await verified("Sin fecha PP", null);
+    expect((await db.select({ b: schema.user.birthDate }).from(schema.user).where(eq(schema.user.id, u.id)))[0].b).toBeNull();
+    expect((await err(acc.declareBirthDate(u.id, "31/02/1990")))?.code).toBe("invalid_birth");
+    expect((await err(acc.declareBirthDate(u.id, `01/01/${year + 1}`)))?.code).toBe("invalid_birth");
+    expect(await acc.declareBirthDate(u.id, "1990-05-10")).toEqual({ eligibility: "adult", guardian: null });
+    expect((await bd.saveWeight(u.id, { day: dayAgo(0), weightG: 80000 })).entry.weightG).toBe(80000);
+    expect((await ph.uploadProgressPhoto(u.id, { bytes: jpegWithGps(), mime: "image/jpeg", day: dayAgo(0) })).photo.width).toBe(640);
+    // Una menor no puede «volverse» adulta cambiando la fecha, ni al revés: la existente no se reemplaza.
+    expect((await err(acc.declareBirthDate(u.id, `01/01/${year - 15}`)))?.code).toBe("already_set");
+    expect((await db.select({ b: schema.user.birthDate }).from(schema.user).where(eq(schema.user.id, u.id)))[0].b).toBe("1990-05-10");
+    const [a] = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, u.id), eq(schema.auditEvent.action, "account.birth_date_declared")));
+    expect(a.meta).toEqual({ eligibility: "adult" });
+    expect(JSON.stringify(a)).not.toContain("1990-05-10");
+  });
+
+  it("declarar una fecha de menor activa las reglas de menores y del adulto responsable (y no habilita nada)", async () => {
+    const u = await verified("Sin fecha menor PP", null);
+    expect(await acc.minorWithoutGuardian(u.id)).toBe(false); // sin fecha, el mecanismo existente no la veía como menor
+    expect(await acc.declareBirthDate(u.id, `01/01/${year - 15}`)).toEqual({ eligibility: "minor", guardian: "none" });
+    expect(await acc.minorWithoutGuardian(u.id)).toBe(true); // ahora sí: consentimiento del adulto responsable
+    await acc.requestGuardianConsent(u.id, { name: "Madre PP", email: `madre${n}.${Date.now()}@test.repi.local`, relation: "Madre" });
+    expect(await bd.myBody(u.id, "all")).toEqual({ available: false, reason: "minor" });
+    expect((await err(bd.saveWeight(u.id, { day: dayAgo(0), weightG: 50000 })))?.code).toBe("minor_restricted");
+    expect((await err(ph.uploadProgressPhoto(u.id, { bytes: jpegWithGps(), mime: "image/jpeg", day: dayAgo(0) })))?.code).toBe("minor_restricted");
+    expect(await ph.myProgressPhotos(u.id)).toMatchObject({ canUpload: false, eligibility: "minor" });
+  });
+
+  it("menor con fecha registrada y autorización del adulto: sigue sin peso, fotos ni calorías en 1.0; adulta sí", async () => {
+    const w = await world();
+    await db.update(schema.user).set({ birthDate: `${year - 16}-03-01` }).where(eq(schema.user.id, w.user));
+    await db.insert(schema.guardianConsent).values({ minorUserId: w.user, guardianName: "Padre", guardianEmail: `p${n}@test.repi.local`, relation: "father", tokenHash: `h${n}${Date.now()}`, status: "approved", policyVersion: "minors-v1", expiresAt: new Date(Date.now() + 86_400_000) });
+    const sid = await trained(w.user, { bench: [[40, 10]] });
+    expect((await sessionCalories(w.user, sid)).estimate).toEqual({ ok: false, reason: "minor" });
+    expect((await err(bd.saveWeight(w.user, { day: dayAgo(0), weightG: 55000 })))?.code).toBe("minor_restricted");
+    expect((await err(acc.declareBirthDate(w.user, "1990-01-01")))?.code).toBe("already_set");
+    const adult = await world();
+    await bd.saveWeight(adult.user, { day: dayAgo(0), weightG: 80000 });
+    const s2 = await trained(adult.user, { bench: [[60, 10]] });
+    expect((await sessionCalories(adult.user, s2)).estimate).toMatchObject({ ok: true });
   });
 });

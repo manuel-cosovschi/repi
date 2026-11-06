@@ -11,10 +11,11 @@ import { ProgressChart, type ChartPoint } from "./ProgressChart";
 import { RangePicker } from "./ProgressTraining";
 import { Sheet } from "./Sheet";
 import { useUnit } from "./units";
+import { AgeGate } from "./AgeGate";
 
 type Entry = { id: string; day: string; weightG: number; source: string; createdAt: string; updatedAt: string; edited: boolean };
 type Body =
-  | { available: false; reason: "minor" }
+  | { available: false; reason: "minor" | "age_unknown" }
   | { available: true; entries: Entry[]; summary: { first: { day: string; weightG: number }; last: { day: string; weightG: number }; count: number; netG: number } | null;
       current: { day: string; weightG: number } | null; start: { day: string; weightG: number; source: "manual" | "first_entry" } | null;
       goal: { targetG: number; targetOn: string | null; startSource: string; revision: number } | null; progress: BodyGoalProgress | null };
@@ -57,7 +58,8 @@ export function BodyWeight({ flash, offline }: { flash: (t: string) => void; off
   if (offline) return <div className="pc-empty" role="status">Sin conexión: tu peso se muestra y se guarda con conexión, para no marcar como guardado algo que todavía no llegó.</div>;
   if (err) return <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={() => void load()}>Reintentar</button></p>;
   if (!b) return <span className="mb-muted">Cargando…</span>;
-  if (!b.available) return <div className="pc-empty" role="note">El seguimiento del peso corporal no está disponible para menores de 18 años.</div>;
+  if (!b.available) return b.reason === "age_unknown" ? <AgeGate what="El seguimiento del peso corporal" onDone={() => void load()} />
+    : <div className="pc-empty" role="note">El seguimiento del peso corporal no está disponible para menores de 18 años.</div>;
   const pct = b.progress && "pct" in b.progress ? b.progress.pct : null;
   return (
     <>

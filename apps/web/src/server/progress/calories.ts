@@ -8,7 +8,7 @@ import { estimateCalories, localDate, weightAt } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
 import { timedPeIds } from "../training/services";
-import { isMinor, weightsUpTo } from "./body";
+import { bodyEligibility, weightsUpTo } from "./body";
 
 const { workoutSession, setLog, exercise } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos ese entrenamiento.", 404);
@@ -27,8 +27,10 @@ export async function sessionCalories(userId: string, sessionId: string, now = n
     .reduce((a, x) => a + (x.l.reps ?? 0), 0);
   const [y, m, d] = day.split("-").map(Number);
   const since = new Date(Date.UTC(y, m - 1, d - WEIGHT_MAX_AGE_DAYS)).toISOString().slice(0, 10);
-  const minor = await isMinor(userId, now);
-  const w = minor ? null : weightAt(await weightsUpTo(userId, day, since), day, WEIGHT_MAX_AGE_DAYS);
-  const est = estimateCalories({ activeSec: Math.floor(s.activeMs / 1000), cardioSec, bodyWeightG: w?.weightG ?? null, rpe: s.rpe, minor, voided: s.status === "voided" });
+  // D203: sólo adultos confirmados. Edad desconocida no se supone adulta (los MET de adultos no valen para menores).
+  const elig = await bodyEligibility(userId, now);
+  const w = elig === "adult" ? weightAt(await weightsUpTo(userId, day, since), day, WEIGHT_MAX_AGE_DAYS) : null;
+  const est = elig === "unknown" && s.status !== "voided" ? { ok: false as const, reason: "age_unknown" as const }
+    : estimateCalories({ activeSec: Math.floor(s.activeMs / 1000), cardioSec, bodyWeightG: w?.weightG ?? null, rpe: s.rpe, minor: elig === "minor", voided: s.status === "voided" });
   return { sessionId: s.id, day, weight: w ? { day: w.day } : null, rpe: s.rpe, estimate: est };
 }

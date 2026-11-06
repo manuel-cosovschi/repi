@@ -48,7 +48,9 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     const email = `${slug}@${sandboxDomain(tag)}`;
     const r = await auth.api.signUpEmail({ body: { name, email, password: pw } });
     // 2FA marcado (los servicios del personal lo exigen). A quien abre la sesión se le quita un instante y se sella al entrar.
-    await db.update(schema.user).set({ emailVerified: true, twoFactorEnabled: true }).where(eq(schema.user.id, r.user.id));
+    // D203: las personas de la demo son adultas ficticias con fecha registrada (las funciones sólo para adultos no suponen
+    // la edad de una cuenta sin fecha). Fecha fija y ficticia; nunca se usa para cuentas reales.
+    await db.update(schema.user).set({ emailVerified: true, twoFactorEnabled: true, birthDate: "1994-06-15" }).where(eq(schema.user.id, r.user.id));
     userIds.push(r.user.id);
     return { id: r.user.id, email };
   };

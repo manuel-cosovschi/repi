@@ -25,7 +25,7 @@ export function SessionCalories({ sessionId, onRegisterWeight, refresh = 0 }: { 
     return (
       <div className="pp-kcal" role="note">
         <span>{CALORIE_REASON[e.reason]}</span>
-        {e.reason === "no_weight" && onRegisterWeight && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start", height: 32, padding: 0 }} onClick={onRegisterWeight}>Registrar mi peso</button>}
+        {(e.reason === "no_weight" || e.reason === "age_unknown") && onRegisterWeight && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start", height: 32, padding: 0 }} onClick={onRegisterWeight}>{e.reason === "age_unknown" ? "Confirmar en Mi cuerpo" : "Registrar mi peso"}</button>}
       </div>
     );
   }

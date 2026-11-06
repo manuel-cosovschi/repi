@@ -25,3 +25,11 @@ Los backups (cuando existan: plan pago de Supabase o exportación programada) co
 ## Pendiente (V1.1)
 
 Borrado automatizado con verificación, plazos legales, exportación de archivos (videos/imágenes) en el paquete y aviso por email.
+
+## Fecha de nacimiento declarada después del registro (D203)
+
+**Quién la declara:** si una cuenta no tiene fecha de nacimiento, la persona la declara una vez desde Progreso (Mi cuerpo o Fotos), con `POST /api/me/birth-date`. Es necesaria para usar el peso corporal, las fotos de progreso y las calorías.
+
+**Qué queda registrado:** `audit_event` `account.birth_date_declared` con la elegibilidad resultante, sin la fecha.
+
+**Corrección:** si la fecha es incorrecta, la corrige REPI desde soporte, con evidencia y registro. La app no permite reemplazarla, para que una persona menor no pueda pasar como adulta.

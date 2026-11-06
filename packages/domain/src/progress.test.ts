@@ -126,3 +126,18 @@ describe("novedades", () => {
     expect(announcementFor(["gym_admin"], new Set(["member"]))).toBe(false);
   });
 });
+
+describe("elegibilidad por edad (D203)", () => {
+  it("sin fecha o con fecha inválida es «unknown», nunca adulta; menos de 13 es menor", async () => {
+    const { ageEligibility } = await import("./access");
+    expect(ageEligibility(null, "2026-11-06")).toBe("unknown");
+    expect(ageEligibility(undefined, "2026-11-06")).toBe("unknown");
+    expect(ageEligibility("", "2026-11-06")).toBe("unknown");
+    expect(ageEligibility("2030-01-01", "2026-11-06")).toBe("unknown"); // futura
+    expect(ageEligibility("1800-01-01", "2026-11-06")).toBe("unknown"); // más de 120 años
+    expect(ageEligibility("1990-01-01", "2026-11-06")).toBe("adult");
+    expect(ageEligibility("2008-11-06", "2026-11-06")).toBe("adult"); // cumple 18 hoy
+    expect(ageEligibility("2008-11-07", "2026-11-06")).toBe("minor"); // le falta un día
+    expect(ageEligibility("2016-01-01", "2026-11-06")).toBe("minor"); // menos de 13
+  });
+});

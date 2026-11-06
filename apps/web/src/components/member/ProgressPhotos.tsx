@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PROGRESS_POSES, localDate, type ProgressPose } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
+import { AgeGate } from "./AgeGate";
 
 type Photo = { id: string; day: string; pose: ProgressPose | null; width: number; height: number; createdAt: string };
 const src = (id: string) => `/api/me/photo-file/${encodeURIComponent(id)}`;
@@ -30,13 +31,13 @@ async function prepare(file: File): Promise<Blob> {
 }
 
 export function ProgressPhotos({ flash, offline }: { flash: (t: string) => void; offline?: boolean }) {
-  const [list, setList] = useState<{ photos: Photo[]; limit: number; canUpload: boolean } | null>(null);
+  const [list, setList] = useState<{ photos: Photo[]; limit: number; canUpload: boolean; eligibility: "adult" | "minor" | "unknown" } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [sel, setSel] = useState<string[]>([]);
   const [view, setView] = useState<Photo | null>(null);
   const [cmp, setCmp] = useState(false);
   const [up, setUp] = useState<{ file: File; day: string; pose: ProgressPose | "" } | null>(null);
-  const load = useCallback(() => api<{ photos: Photo[]; limit: number; canUpload: boolean }>("/api/me/progress/photos").then((r) => { setList(r); setErr(null); setSel((s) => s.filter((id) => r.photos.some((p) => p.id === id))); }).catch((e) => setErr((e as Error).message)), []);
+  const load = useCallback(() => api<{ photos: Photo[]; limit: number; canUpload: boolean; eligibility: "adult" | "minor" | "unknown" }>("/api/me/progress/photos").then((r) => { setList(r); setErr(null); setSel((s) => s.filter((id) => r.photos.some((p) => p.id === id))); }).catch((e) => setErr((e as Error).message)), []);
   useEffect(() => { if (!offline) void load(); }, [load, offline]);
   const fileRef = useRef<HTMLInputElement>(null);
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s.slice(-1), id]));
@@ -56,7 +57,8 @@ export function ProgressPhotos({ flash, offline }: { flash: (t: string) => void;
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setUp({ file: f, day: localDate(new Date()), pose: "" }); }} />
             <button type="button" className="cta" disabled={photos.length >= list.limit} onClick={() => fileRef.current?.click()}>Agregar foto</button>
           </>
-        ) : <div className="pc-empty" role="note">Las fotos de progreso no están disponibles para menores de 18 años.</div>}
+        ) : list.eligibility === "unknown" ? <AgeGate what="Subir fotos de progreso" onDone={() => void load()} />
+          : <div className="pc-empty" role="note">Las fotos de progreso no están disponibles para menores de 18 años.</div>}
         {!photos.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no subiste fotos. No hace falta hacer todos los ángulos: subí las que quieras, cuando quieras.</span> : (
           <>
             <span className="mb-muted" style={{ fontSize: 13 }}>{sel.length < 2 ? "Elegí dos fotos para compararlas, o abrí una para verla." : "Listo: compará las dos fotos elegidas."}</span>

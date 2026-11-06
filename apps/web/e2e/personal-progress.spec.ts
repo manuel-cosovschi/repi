@@ -201,3 +201,31 @@ test("Urko: agregar un reemplazo cierra el panel; con error queda abierto para r
   await expect(panel.getByRole("button", { name: `Quitar ${candName} de los reemplazos` })).toHaveCount(0);
   expect(errors.filter((e) => !/net::ERR_FAILED|Failed to fetch/.test(e))).toEqual([]);
 });
+
+test("edad desconocida (D203): Mi cuerpo pide confirmar la fecha una vez; entrenar no se bloquea; adulta habilita", async ({ page }, info) => {
+  const url = process.env.DATABASE_URL ?? "postgres://repi:repi-local-test@127.0.0.1:5432/repi_dev";
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  const [{ db }] = await sql<{ db: string }[]>`select current_database() as db`;
+  expect(db).toBe("repi_dev"); // sólo la base local de desarrollo, sobre la persona ficticia de esta demo
+  try {
+    const errors = watchErrors(page);
+    await openDemo(page, "member");
+    const [u] = await sql<{ id: string }[]>`update "user" set birth_date = null where id = (select id from "user" where email like 'valentina.gomez@%' order by created_at desc limit 1) returning id`;
+    await openProgress(page);
+    await expect(page.getByRole("heading", { name: "Tu período" })).toBeVisible(); // Progreso general sigue
+    await page.getByRole("tab", { name: /Mi cuerpo/ }).click();
+    const gate = page.getByRole("region", { name: "Confirmá tu fecha de nacimiento" });
+    await expect(gate).toBeVisible();
+    expect((await page.request.post("/api/me/progress/body/weights", { data: { day: "2026-11-01", weightG: 80000 } })).status()).toBe(403);
+    await expect(gate.getByRole("button", { name: "Confirmar" })).toBeDisabled();
+    await gate.getByLabel("Fecha de nacimiento").fill("1992-03-04");
+    await gate.getByRole("checkbox").check();
+    await expectAccessible(page, info, "confirmar edad");
+    await gate.getByRole("button", { name: "Confirmar" }).click();
+    await expect(page.getByRole("heading", { name: "Registrar peso" })).toBeVisible();
+    expect((await page.request.post("/api/me/birth-date", { data: { birth: "2012-01-01" } })).status()).toBe(409); // no se reemplaza
+    const [after] = await sql<{ b: string }[]>`select birth_date as b from "user" where id = ${u.id}`;
+    expect(after.b).toBe("1992-03-04");
+    expect(errors.filter((e) => !/ 403 | 409 /.test(e))).toEqual([]);
+  } finally { await sql.end(); }
+});

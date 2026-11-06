@@ -57,6 +57,18 @@ export function classifyAge(birthIso: string | null, todayIso: string): AgeClass
   return a < MINORS_POLICY.adult ? "minor" : "adult";
 }
 
+/**
+ * PP1 (D203): elegibilidad para funciones sólo de adultos (peso corporal, fotos de progreso, calorías). Sin fecha de
+ * nacimiento (o con una inválida) es «unknown»: nunca se supone adulta. Menos de 13 (cuenta que debió crear un adulto)
+ * cuenta como menor.
+ */
+export type AgeEligibility = "adult" | "minor" | "unknown";
+export function ageEligibility(birthIso: string | null | undefined, todayIso: string): AgeEligibility {
+  if (!birthIso) return "unknown";
+  const c = classifyAge(birthIso, todayIso);
+  return c === "adult" ? "adult" : c === "invalid" ? "unknown" : "minor";
+}
+
 /** Capacidades restringidas hasta que un adulto responsable autoriza (tutorWait del prototipo). */
 export const MINOR_RESTRICTED = ["progress_photos", "record_videos", "health_data", "ranking_name"] as const;
 

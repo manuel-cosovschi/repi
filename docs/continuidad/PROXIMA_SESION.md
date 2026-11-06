@@ -12,6 +12,17 @@ Actualizado: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en 
 
 **Producción:** sin cambios. Sigue en `8f158b1`, con 46 migraciones, sin 0046 y sin deploy.
 
+**Corrección pedida en la revisión (D203, 06/11):**
+- **Problema:** `isMinor()` devolvía false sin fecha de nacimiento, así que una cuenta de edad desconocida accedía a peso, fotos y calorías.
+- **Ahora:** la elegibilidad tiene tres estados (adulta, menor, desconocida); la desconocida nunca se supone adulta. La persona confirma su fecha una vez (`POST /api/me/birth-date`); no reemplaza una existente, y una fecha de menor activa el flujo del adulto responsable. Entrenar no se bloquea.
+- **Impacto real**, medido en producción con un conteo de sólo lectura: 16 de 54 cuentas que no son demo no tienen fecha. Verían «Confirmá tu fecha de nacimiento» en Mi cuerpo y Fotos.
+- **Demos:** adultas ficticias con fecha registrada.
+- **Pruebas:**
+  - dominio 400/400;
+  - integración 436/436 (4 nuevas de edad);
+  - E2E de Personal Progress 12/12 (1 nueva de edad desconocida);
+  - guardas 24/24, typecheck OK y ensayo de 0046 OK.
+
 **Qué agrega:**
 - **Progreso con secciones:** Entrenamiento · Mi cuerpo · Fotos · Historial.
   - Resumen del período, útil desde la primera sesión.

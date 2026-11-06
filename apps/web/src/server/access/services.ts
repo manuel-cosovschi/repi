@@ -1,7 +1,7 @@
 // Servicios de Acceso. Toda regla se valida aquí (servidor), aunque el cliente ya la haya validado.
 import { and, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
-  CONSENT_CATALOG, classifyAge, orgOperational, GYM_ROLE_LABEL, INVITABLE_GYM_ROLES, INVITE_TTL_DAYS, MINORS_POLICY, TERMS_VERSION,
+  CONSENT_CATALOG, ageEligibility, classifyAge, orgOperational, GYM_ROLE_LABEL, INVITABLE_GYM_ROLES, INVITE_TTL_DAYS, MINORS_POLICY, TERMS_VERSION,
   invitationState, isCuit, isDni, isEmail, maskEmail, normalizeCode, normalizeEmail, parseBirthDate, passwordOk, requiresTwoFactor,
   resolveGrants, formatCuit, type ConsentScope, type GymRole,
 } from "@repi/domain";
@@ -401,6 +401,27 @@ export async function requestGuardianConsent(userId: string, p: { name: string; 
     body: `Revisá y decidí en ${appUrl()}/tutor/${token}\nVence en 7 días.`,
   });
   return { guardianName: p.name.trim() };
+}
+
+/**
+ * D203: fecha de nacimiento declarada por la propia persona cuando su cuenta no la tiene (registros donde era opcional).
+ * Es la misma declaración que pide el registro y se hace UNA vez: si ya hay una fecha, no se reemplaza desde la app (un
+ * cambio va por soporte). Una fecha de menor activa los mecanismos existentes (consentimiento del adulto responsable y
+ * restricciones de MINOR_RESTRICTED). Auditoría sin la fecha.
+ */
+export async function declareBirthDate(userId: string, birth: string) {
+  const iso = parseBirthDate(birth);
+  const cls = iso ? classifyAge(iso, todayIso()) : "invalid";
+  if (!iso || cls === "invalid") throw new AccessError("invalid_birth", "Revisá la fecha de nacimiento: elegila en el calendario (día, mes y año).");
+  const [row] = await db.update(user).set({ birthDate: iso, updatedAt: new Date() }).where(and(eq(user.id, userId), isNull(user.birthDate))).returning({ id: user.id });
+  if (!row) {
+    const [u] = await db.select({ id: user.id }).from(user).where(eq(user.id, userId));
+    if (!u) throw new AccessError("unauthorized", "Ingresá para continuar.", 401);
+    throw new AccessError("already_set", "Tu fecha de nacimiento ya está registrada. Si hay un error, escribinos desde Ayuda.", 409);
+  }
+  const eligibility = ageEligibility(iso, todayIso());
+  await audit(db, { actorUserId: userId, action: "account.birth_date_declared", resourceType: "user", resourceId: userId, meta: { eligibility } });
+  return { eligibility, guardian: eligibility === "minor" ? await guardianStatus(userId) : null };
 }
 
 export async function guardianStatus(userId: string) {
