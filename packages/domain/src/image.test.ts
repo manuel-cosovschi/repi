@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasImageMetadata, imageInfo, stripImageMetadata } from "./image";
-import { cat, enc, jpegWithGps, pngWithText, webpWithExif } from "./image-fixtures";
+import { cat, dec, enc, jpegWithGps, pngWithText, webpWithExif } from "./image-fixtures";
 
 describe("imágenes privadas", () => {
   it("detecta tipo real y dimensiones por contenido", () => {
@@ -18,7 +18,7 @@ describe("imágenes privadas", () => {
     expect(hasImageMetadata(src)).toBe(true);
     const out = stripImageMetadata(src);
     expect(hasImageMetadata(out)).toBe(false);
-    const s = new TextDecoder("latin1").decode(out);
+    const s = dec(out);
     expect(s).not.toContain("GPS");
     expect(s).not.toContain("casa");
     expect(s).not.toContain("comentario");
@@ -29,13 +29,13 @@ describe("imágenes privadas", () => {
   });
   it("PNG: quita texto y eXIf sin romper los demás bloques", () => {
     const out = stripImageMetadata(pngWithText());
-    expect(new TextDecoder("latin1").decode(out)).not.toMatch(/GPS|eXIf|tEXt/);
-    expect(new TextDecoder("latin1").decode(out)).toMatch(/IHDR[\s\S]*IDAT[\s\S]*IEND/);
+    expect(dec(out)).not.toMatch(/GPS|eXIf|tEXt/);
+    expect(dec(out)).toMatch(/IHDR[\s\S]*IDAT[\s\S]*IEND/);
     expect(imageInfo(out)).toEqual({ mime: "image/png", width: 768, height: 512 });
   });
   it("WebP: quita EXIF y XMP, apaga sus marcas y corrige el tamaño", () => {
     const out = stripImageMetadata(webpWithExif());
-    const s = new TextDecoder("latin1").decode(out);
+    const s = dec(out);
     expect(s).not.toMatch(/EXIF|XMP |GPS/);
     expect(out[20] & 0x0c).toBe(0);
     const size = out[4] | (out[5] << 8) | (out[6] << 16) | (out[7] << 24);

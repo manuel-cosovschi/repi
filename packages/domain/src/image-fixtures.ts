@@ -1,7 +1,15 @@
 // Imágenes mínimas con metadatos sensibles para las pruebas (no se exporta desde index.ts).
-import { crc32 } from "node:zlib";
 
-export const enc = (s: string) => new TextEncoder().encode(s);
+/** Texto latin1 → bytes (sin TextEncoder: el paquete de dominio no tiene tipos del navegador ni de Node). */
+export const enc = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0) & 0xff);
+/** Bytes → texto latin1, para buscar marcas en las pruebas. */
+export const dec = (b: Uint8Array) => Array.from(b, (x) => String.fromCharCode(x)).join("");
+/** CRC-32 (PNG) sin zlib. */
+function crc32(b: Uint8Array) {
+  let c = ~0;
+  for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); }
+  return ~c >>> 0;
+}
 export const cat = (...p: (Uint8Array | number[])[]) => { const a = p.map((x) => (x instanceof Uint8Array ? x : Uint8Array.from(x))); const o = new Uint8Array(a.reduce((s, x) => s + x.length, 0)); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
 const seg = (m: number, data: Uint8Array) => cat([0xff, m, (data.length + 2) >> 8, (data.length + 2) & 0xff], data);
 
