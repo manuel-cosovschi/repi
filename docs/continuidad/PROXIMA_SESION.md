@@ -8,7 +8,7 @@ Actualizado: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en 
 
 **Documento principal:** `docs/PERSONAL_PROGRESS_BODY_TRACKING_1.md`. Tiene arquitectura, modelo, privacidad, metodología de calorías, fotos, novedades, Urko, pruebas, costos, publicación y reversión.
 
-**Rama:** `feat/repi-personal-progress-1`, desde `main` `8f158b1`. PR en borrador; **no integrar sin autorización del titular**.
+**Rama:** `feat/repi-personal-progress-1`, desde `main` `8f158b1`. **PR #43**, con CI en verde («check» y la autoprueba del respaldo, en `3d7a414`). **No integrar sin autorización del titular.**
 
 **Producción:** sin cambios. Sigue en `8f158b1`, con 46 migraciones, sin 0046 y sin deploy.
 
