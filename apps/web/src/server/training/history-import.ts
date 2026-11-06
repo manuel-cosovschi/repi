@@ -3,11 +3,12 @@
 // persona confirma. El archivo no se guarda. Lo importado aparece en Progreso («Antes de REPI») y sugiere pesos iniciales.
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, normalizeImport, parseHistoryCsv, IMPORT_MAX_TEXT_LENGTH, type ImportSet, type NormalizedSet } from "@repi/domain";
+import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, makeExerciseMatcher, normalizeImport, IMPORT_MAX_TEXT_LENGTH, type NormalizedSet } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
-import { aiJson, aiModel, aiOn } from "../ai/openai";
-import { readHistoryWithAi } from "./history-import-read";
+import { aiJson, aiModel, aiFastModel, aiOn } from "../ai/openai";
+import type { HistoryImportProgress } from "@/lib/history-import-stream";
+import { readHistoryInput } from "./history-import-read";
 import { catalogOnly, ensureExerciseCatalog } from "./library";
 
 const { historyImport, historyEntry, exercise, coachClient, gymMember } = schema;
@@ -39,9 +40,6 @@ async function libraryFor(userId: string) {
   return db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(or(catalogOnly(), orgs.length ? inArray(exercise.orgId, orgs) : undefined, eq(exercise.ownerUserId, userId)));
 }
 
-/** Sin conectores ni abreviaturas comunes: «Press banca» = «Press de banca», «Remo c/ barra» = «Remo con barra». */
-const looseKey = (s: string) => exerciseKey(s.replace(/\bc\//gi, "con ")).split(" ").filter((w) => !["de", "del", "con", "en", "la", "el", "los", "las", "a", "al"].includes(w)).join(" ");
-
 const MAP_SCHEMA = {
   type: "object", additionalProperties: false, required: ["map"],
   properties: { map: { type: "array", items: { type: "object", additionalProperties: false, required: ["written", "catalog"], properties: { written: { type: "string" }, catalog: { type: ["string", "null"] } } } } },
@@ -50,16 +48,16 @@ const MAP_SCHEMA = {
 /** Empareja los nombres escritos con la biblioteca: igual sin tildes; si no, la IA propone el equivalente (o ninguno). */
 export async function matchExercises(names: string[], lib: { id: string; name: string }[]) {
   const byKey = new Map(lib.map((e) => [exerciseKey(e.name), e]));
-  const byLoose = new Map(lib.map((e) => [looseKey(e.name), e]));
+  const localMatch = makeExerciseMatcher(lib);
   const out: Parsed["matches"] = {};
   const pending: string[] = [];
-  for (const n of names) { const hit = byKey.get(exerciseKey(n)) ?? byLoose.get(looseKey(n)); if (hit) out[n] = hit; else pending.push(n); }
+  for (const n of names) { const hit = localMatch(n); if (hit) out[n] = hit; else pending.push(n); }
   if (pending.length && aiOn()) {
     try {
       const catalog = [...new Set(lib.map((e) => e.name))];
       const r = await aiJson<{ map: { written: string; catalog: string | null }[] }>({
-        name: "emparejar_ejercicios", fast: true, maxTokens: 3000, timeoutMs: 20_000,
-        system: "Emparejás nombres de ejercicios escritos por una persona (con abreviaturas, sin tildes o en inglés) con un catálogo en español. Para cada nombre escrito devolvé el nombre exacto del catálogo si es el mismo ejercicio; si no dice el implemento, elegí la variante con barra o la más común. Si es otro ejercicio o dudás, null.",
+        name: "emparejar_ejercicios", fast: true, maxTokens: 3000, timeoutMs: 5_000,
+        system: "Emparejás nombres de ejercicios escritos por una persona (con abreviaturas, sin tildes o en inglés) con un catálogo en español. Para cada nombre escrito devolvé el nombre exacto del catálogo si es el mismo ejercicio; no inventes el implemento ni la variante. Si el nombre es genérico y hay varias opciones (por ejemplo «Polea» o «Press inclinado» sin implemento), null. Si es otro ejercicio o dudás, null.",
         parts: [{ type: "text", text: `Catálogo:\n${catalog.join("\n")}\n\nEscritos:\n${pending.slice(0, 120).join("\n")}` }],
         schema: MAP_SCHEMA,
       });
@@ -74,35 +72,31 @@ export async function matchExercises(names: string[], lib: { id: string; name: s
   return out;
 }
 
-export async function previewHistoryImport(userId: string, f: ImportFile, now = new Date()) {
+export async function previewHistoryImport(userId: string, f: ImportFile, now = new Date(), onProgress?: (p: HistoryImportProgress) => void) {
   const today = localDate(now);
   if (!["text", "image", "pdf"].includes(f.kind)) throw new AccessError("invalid", "Formato no admitido.");
   if (f.kind === "text" && (f.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) throw new AccessError("too_large", "El historial supera los 400.000 caracteres. Dividilo en partes; no se cargó ningún dato.", 413);
   if (f.kind === "text" && !(f.text ?? "").trim()) throw new AccessError("invalid", "El archivo está vacío.");
   if (f.kind !== "text" && !/^data:(image\/(jpeg|png|webp|gif)|application\/pdf);base64,/.test(f.dataUrl ?? "")) throw new AccessError("invalid", "Subí una foto (JPG o PNG), un PDF o una planilla CSV.");
-  let raw: ImportSet[] | null = f.kind === "text" ? parseHistoryCsv(f.text!) : null;
-  let notes: string[] = [];
-  const source: "csv" | "ai" = raw ? "csv" : "ai";
-  if (!raw) {
-    if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora sólo podemos leer planillas con columnas Fecha, Ejercicio, Series, Reps y Peso.", 503);
-    ({ sets: raw, notes } = await readHistoryWithAi(f, today));
-  }
+  const { sets: raw, notes, source } = await readHistoryInput(f, today, onProgress);
   const n = normalizeImport(raw, today);
   if (!n.sets.length) throw new AccessError("empty", "No encontramos entrenamientos con fecha, ejercicio y peso o repeticiones. Probá con otra foto o una planilla.", 422);
+  onProgress?.({ stage: "matching" });
   const names = [...new Set(n.sets.map((s) => s.exercise))];
   const matches = await matchExercises(names, await libraryFor(userId));
   const parsed: Parsed = { sets: n.sets, matches, notes, dropped: n.dropped, capped: n.capped };
   parsed.hash = fingerprint(parsed);
   const [row] = await db.insert(historyImport).values({
-    userId, source, fileName: f.fileName.slice(0, 200), parsed, sessions: n.summary.sessions, sets: n.summary.sets, fromDay: n.summary.from, toDay: n.summary.to, model: source === "ai" ? aiModel() : null,
+    userId, source, fileName: f.fileName.slice(0, 200), parsed, sessions: n.summary.sessions, sets: n.summary.sets, fromDay: n.summary.from, toDay: n.summary.to, model: source === "ai" ? (f.kind === "text" ? aiFastModel() : aiModel()) : null,
   }).returning();
   await audit(db, { actorUserId: userId, action: "history_import.previewed", resourceType: "history_import", resourceId: row.id, meta: { source, sets: n.summary.sets } });
   const [dup, ov] = await Promise.all([priorImport(userId, parsed.hash), overlapOf(userId, parsed)]);
+  onProgress?.({ stage: "review" });
   return { ...previewOut(row.id, source, parsed, n.summary), duplicateOf: dup ? { fileName: dup.fileName, confirmedAt: dup.confirmedAt } : null,
     overlap: { sets: ov.overlap, days: ov.days.length, from: ov.days[0] ?? null, to: ov.days.at(-1) ?? null } };
 }
 
-function previewOut(id: string, source: "csv" | "ai", p: Parsed, summary: ReturnType<typeof normalizeImport>["summary"]) {
+function previewOut(id: string, source: "csv" | "notes" | "ai", p: Parsed, summary: ReturnType<typeof normalizeImport>["summary"]) {
   const exercises = Object.entries(p.matches).map(([name, m]) => ({ name, matched: m?.name ?? null, sets: p.sets.filter((s) => s.exercise === name).length }))
     .sort((a, b) => b.sets - a.sets);
   const days = [...new Set(p.sets.map((s) => s.day))].slice(-3).reverse();

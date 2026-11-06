@@ -1,23 +1,53 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { splitHistoryText } from "@repi/domain";
 
-vi.mock("@/server/ai/openai", () => ({ aiJson: vi.fn() }));
+vi.mock("@/server/ai/openai", () => ({ aiJson: vi.fn(), aiOn: vi.fn(() => true) }));
 vi.mock("@/server/access/util", () => ({ AccessError: class extends Error {
   constructor(public code: string, message: string, public status = 400) { super(message); }
 } }));
-import { aiJson } from "@/server/ai/openai";
+import { aiJson, aiOn } from "@/server/ai/openai";
 import { AccessError } from "@/server/access/util";
-import { readHistoryWithAi } from "@/server/training/history-import-read";
+import { readHistoryInput, readHistoryWithAi } from "@/server/training/history-import-read";
 
-const response = (reps: number) => ({ sessions: [{ date: "2024-03-12", exercises: [{ name: "Press plano", sets: [{ weight_kg: 105, reps, seconds: null }] }] }], notes: [] });
+const response = (reps: number) => ({ sessions: [{ date: "2024-03-12", exercises: [{ name: "Press plano", sets: [{ weight_kg: 105, reps: [reps], seconds: [] }] }] }], notes: [] });
 const mockAi = vi.mocked(aiJson);
-beforeEach(() => { mockAi.mockReset(); });
+beforeEach(() => { mockAi.mockReset(); vi.mocked(aiOn).mockReturnValue(true); });
 
 describe("lectura completa del historial largo", () => {
+  it("estructura notas claras de más de 60.000 caracteres sin ninguna consulta externa", async () => {
+    vi.mocked(aiOn).mockReturnValue(false);
+    const text = "12/03/2024\nPress plano con barra para pecho (105kg)\n5;5;5;4\n".repeat(1200);
+    expect(text.length).toBeGreaterThan(60_000);
+    const out = await readHistoryInput({ fileName: "Notas", kind: "text", text }, "2026-11-06");
+    expect(out.source).toBe("notes");
+    expect(out.sets).toHaveLength(4800);
+    expect(out.sets.at(-1)).toMatchObject({ weightKg: 105, reps: 4 });
+    expect(mockAi).not.toHaveBeenCalled();
+  });
+
+  it("expande la salida compacta preservando cada serie, su peso y su duración", async () => {
+    mockAi.mockResolvedValue({ sessions: [{ date: "2024-03-12", exercises: [{ name: "Press plano", sets: [
+      { weight_kg: 105, reps: [5, 5, 5, 4], seconds: [] },
+      { weight_kg: 80, reps: [6, 5], seconds: [30, 40] },
+      { weight_kg: null, reps: [], seconds: [60, 45] },
+    ] }] }], notes: [] });
+    const updates: { stage: string; completed?: number; total?: number }[] = [];
+    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text: "notas complejas" }, "2026-11-06", (p) => updates.push(p));
+    expect(out.sets.map((s) => [s.weightKg, s.reps, s.seconds])).toEqual([
+      [105, 5, null], [105, 5, null], [105, 5, null], [105, 4, null], [80, 6, 30], [80, 5, 40], [null, null, 60], [null, null, 45],
+    ]);
+    expect(updates).toEqual([{ stage: "reading", completed: 0, total: 1 }, { stage: "reading", completed: 1, total: 1 }]);
+  });
+
+  it("no acepta arrays de series desalineados como una lectura completa", async () => {
+    mockAi.mockResolvedValue({ sessions: [{ date: "2024-03-12", exercises: [{ name: "Press", sets: [{ weight_kg: 60, reps: [10, 8], seconds: [30] }] }] }], notes: [] });
+    await expect(readHistoryWithAi({ fileName: "Notas", kind: "text", text: "nota" }, "2026-11-06")).rejects.toMatchObject({ code: "ai_bad_output" });
+  });
+
   it("envía todo el texto, incluso el último número después de 60.000 caracteres, y reúne las partes en orden", async () => {
     const text = "12/03/2024\n" + "Press plano (105kg)\n5;5;5;4\n".repeat(2700) + "Polea (5 ladrillos)\n17;16;13";
     expect(text.length).toBeGreaterThan(60_000);
-    const chunks = splitHistoryText(text);
+    const chunks = splitHistoryText(text, 12_000);
     let active = 0, peak = 0;
     mockAi.mockImplementation(async (p) => {
       const index = mockAi.mock.calls.findIndex(([arg]) => arg === p);
@@ -39,7 +69,7 @@ describe("lectura completa del historial largo", () => {
 
   it("si falla una parte rechaza toda la lectura", async () => {
     mockAi.mockResolvedValueOnce(response(5)).mockRejectedValueOnce(new Error("lectura incompleta"));
-    await expect(readHistoryWithAi({ fileName: "Notas", kind: "text", text: "12/03/2024\nPress plano 105 kg\n5;5;5;4\n".repeat(200) }, "2026-11-06")).rejects.toThrow("lectura incompleta");
+    await expect(readHistoryWithAi({ fileName: "Notas", kind: "text", text: "12/03/2024\nPress plano 105 kg\n5;5;5;4\n".repeat(500) }, "2026-11-06")).rejects.toThrow("lectura incompleta");
   });
 
   it("si la salida se corta, relee el bloque entero en partes menores sin aceptar sus datos parciales", async () => {

@@ -8,6 +8,7 @@ import * as hi from "@/server/training/history-import";
 import { ensureExerciseCatalog } from "@/server/training/library";
 import { aiSoloAdvice } from "@/server/training/ai-coach";
 import { AccessError, resetRateLimits } from "@/server/access/util";
+import { myExerciseProgress, myProgressExercises } from "@/server/progress/exercises";
 
 beforeAll(() => { delete process.env.OPENAI_API_KEY; });
 beforeEach(() => resetRateLimits());
@@ -22,6 +23,37 @@ async function verified(name = "Persona Historial") {
 const err = async (p: Promise<unknown>) => p.then(() => null, (e) => e as AccessError);
 
 describe("historial anterior", () => {
+  it("notas del celular sin IA: las series completas alimentan progreso y pesos iniciales de la rutina", async () => {
+    await ensureExerciseCatalog();
+    const u = await verified();
+    const text = "12/03/2024\nPress plano (105kg)\n5;5;5;4\n\n19/03/2024\nPress plano (107,5kg)\n6;5;5\nPolea (5 ladrillos)\n17;16;13";
+    const p = await hi.previewHistoryImport(u, { fileName: "Notas del celular", kind: "text", text });
+    expect(p).toMatchObject({ source: "notes", dropped: 0, capped: false, summary: { sessions: 2, exercises: 2, sets: 10, from: "2024-03-12", to: "2024-03-19" } });
+    expect(p.exercises.find((e) => e.name === "Press plano")).toMatchObject({ matched: "Press de banca", sets: 7 });
+    expect(p.exercises.find((e) => e.name === "Polea")).toMatchObject({ matched: null, sets: 3 });
+    expect((await hi.myHistoryImports(u)).imports).toHaveLength(0);
+
+    await hi.confirmHistoryImport(u, p.id);
+    const rows = await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.importId, p.id));
+    expect(rows).toHaveLength(10);
+    const unknown = rows.filter((r) => r.exerciseName === "Polea");
+    expect(unknown.map((r) => r.reps).sort((a, b) => a! - b!)).toEqual([13, 16, 17]);
+    for (const row of unknown) expect(row).toMatchObject({ exerciseId: null, weightKg: null });
+
+    const list = await myProgressExercises(u);
+    const bench = list.exercises.find((e) => e.name === "Press de banca")!;
+    expect(bench).toMatchObject({ imported: true, sessions: 2, lastDay: "2024-03-19" });
+    const graph = await myExerciseProgress(u, bench.id, "all");
+    expect(graph.totals).toMatchObject({ sessions: 2, sets: 7, volumeKg: 3715, firstDay: "2024-03-12" });
+    expect(graph.points.map((point) => ({ day: point.day, source: point.source, sets: point.sets, topKg: point.topKg }))).toEqual([
+      { day: "2024-03-12", source: "import", sets: 4, topKg: 105 },
+      { day: "2024-03-19", source: "import", sets: 3, topKg: 107.5 },
+    ]);
+    expect((await hi.importedLastSets(u, [bench.id])).get(bench.id)).toEqual({ day: "2024-03-19", weightKg: 107.5, reps: 5 });
+    await hi.removeHistoryImport(u, p.id);
+    expect((await myProgressExercises(u)).exercises).toHaveLength(0);
+  });
+
   it("planilla: vista previa sin guardar, confirmar suma al progreso, otra persona no la ve y se puede quitar", async () => {
     await ensureExerciseCatalog();
     const u = await verified();

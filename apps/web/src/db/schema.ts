@@ -625,7 +625,7 @@ export const historyImport = pgTable("history_import", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   status: text("status", { enum: ["draft", "confirmed", "discarded"] }).notNull().default("draft"),
-  source: text("source", { enum: ["csv", "ai"] }).notNull(),
+  source: text("source", { enum: ["csv", "notes", "ai"] }).notNull(),
   fileName: text("file_name"),
   parsed: jsonb("parsed").notNull(), // vista previa: series normalizadas, coincidencias con la biblioteca y avisos
   sessions: integer("sessions").notNull().default(0),

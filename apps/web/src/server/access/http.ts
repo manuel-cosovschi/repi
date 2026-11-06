@@ -64,6 +64,7 @@ export function handle<C = unknown>(fn: (req: Request, ctx: C) => Promise<unknow
     if (crossSiteWrite(req)) return NextResponse.json({ error: "Esta acción tiene que hacerse desde REPI.", code: "cross_site" }, { status: 403 });
     try {
       const data = await fn(req, ctx);
+      if (data instanceof Response) return data;
       return NextResponse.json(data ?? { ok: true });
     } catch (e) {
       if (e instanceof AccessError) {
