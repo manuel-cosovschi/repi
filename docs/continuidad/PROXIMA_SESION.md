@@ -1,8 +1,75 @@
 # REPI — Retomar acá
 
-Actualizado: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
+
+## Personal Progress & Body Tracking 1.0 + Product Updates & Trainer UX (D199–D202) — 06/11/2026 · EN REVISIÓN, SIN PUBLICAR
+
+**Documento principal:** `docs/PERSONAL_PROGRESS_BODY_TRACKING_1.md`. Tiene arquitectura, modelo, privacidad, metodología de calorías, fotos, novedades, Urko, pruebas, costos, publicación y reversión.
+
+**Rama:** `feat/repi-personal-progress-1`, desde `main` `8f158b1`. PR en borrador; **no integrar sin autorización del titular**.
+
+**Producción:** sin cambios. Sigue en `8f158b1`, con 46 migraciones, sin 0046 y sin deploy.
+
+**Qué agrega:**
+- **Progreso con secciones:** Entrenamiento · Mi cuerpo · Fotos · Historial.
+  - Resumen del período, útil desde la primera sesión.
+  - Evolución por ejercicio: 1RM estimado, carga máxima, reps con esa carga, volumen; reps para peso corporal y tiempo para series por tiempo.
+  - Récords contra todo el historial. Gráfico SVG sin librerías, con dato exacto al tocar y vista de registros.
+- **Mi cuerpo:**
+  - Peso en gramos, una medición por día (guardar otra ese día la reemplaza), edición y borrado.
+  - Objetivo con punto de partida (primera medición o histórico).
+  - Recorrido hacia la meta sin porcentajes absurdos, y gráfico con línea de objetivo.
+  - Privado del dueño. No disponible para menores de 18.
+- **Calorías:** rango con MET del Compendium × peso del día × tiempo activo. Aparecen al terminar y en el historial. Interruptor `calories` **apagado**.
+- **Fotos privadas:**
+  - Re-codificadas en el teléfono, tipo real y EXIF/GPS quitados en el servidor, guardado verificado.
+  - Comparador lado a lado y deslizador.
+  - Borrado con reintento por la purga. Interruptor `progress_photos` **apagado**.
+- **Novedades de REPI:**
+  - En la campanita del alumno (sello REPI y destino exacto) y en «Novedades de REPI» de coach y gimnasio.
+  - Lectura por persona y anuncio. REPI Admin crea borradores, previsualiza, publica o programa y archiva.
+  - Interruptor `announcements` **apagado**.
+- **Urko:** el panel de reemplazos se cierra al guardar (confirmado por el servidor) y no queda abierto al cambiar de programa, socio o día; con error queda abierto para reintentar.
+- **Seguridad:** pedidos al coach y tareas del gimnasio aceptaban cualquier archivo propio por id; ahora sólo `request_video`. Una foto de progreso no puede terminar visible para otro.
+
+**Migración 0046 (aditiva, NO aplicada):** 5 tablas con RLS: `body_weight_entry`, `body_goal`, `progress_photo`, `product_announcement` y `announcement_read`.
+- Archivos: `drizzle/0046_personal_progress.sql`, `scripts/operations/hosted-0046.sql`, `scripts/rollback/0046_personal_progress.down.sql` y `scripts/operations/verify-0046.sh`.
+- Ensayo en `repi_verify_0046` (copia de `repi_dev`):
+  - huella de `set_log`, `workout_session`, `program_version`, `media_object`, `member_notice` y `user_pref` idéntica antes y después;
+  - 47 migraciones con el hash del archivo; RLS, dueño `repi_app` y sin permisos para `anon`;
+  - restricciones: un peso por día, rango y fecha de publicación;
+  - el reintento falla entero y no deja nada;
+  - la reversión se niega con datos de personas, revierte limpia sin ellos y la reaplicación da OK.
+
+**Pruebas (aislado):**
+- Typecheck y build: OK.
+- Dominio: 399/399 (36 archivos, +28 nuevas).
+- Guardas: 24/24.
+- Integración completa: 432/432 (65 archivos; nuevas `personal-progress.test.ts` 19 y `urko-subs-panel.test.ts` 5).
+- E2E nuevas (`e2e/personal-progress.spec.ts`): 10/10 en Pixel 7 y escritorio, con axe y sin scroll horizontal.
+- **E2E completa** (servidor local con los tres interruptores encendidos): 127 pasaron, 0 fallaron, 29 omitidas por diseño del proyecto.
+  - En la primera pasada fallaron 19 por el entorno local: `repi_dev` llegó al tope de 300 demos (503 «Hay muchas demos abiertas»), y una prueba lee `apps/web/.env.local`, que no existía en el contenedor.
+  - Se purgaron las demos sólo en `repi_dev` y se creó un `.env.local` temporal (ignorado por git) apuntando a `repi_dev`. Con eso las 19 pasaron sin cambiar ninguna prueba.
+  - Única prueba existente adaptada: `experience-ux.spec.ts` abre ahora la sección «Historial» de Progreso.
+
+**Rendimiento:** dev con 28.925 series: < 1 ms por consulta. Persona sintética con 18.000 series: 24 ms por ejercicio y 40 ms la lista. Sin índices nuevos.
+
+**Prueba intermitente `tests/gym.test.ts` «métricas desde eventos reales» (06/06):**
+- Pasó en la corrida completa de hoy.
+- Causa probable sin reproducir: la ventana de métricas usa `completedAt < now` estricto con el mismo reloj que sella la tarea. Una tarea completada en el mismo milisegundo que la consulta, o un ajuste del reloj del runner hacia atrás, quedaría afuera (2 en vez de 3).
+- **Intermitente:** 15 corridas seguidas aisladas, 15 pasaron, más la corrida completa en verde. No se reprodujo. No se cambió la expectativa ni el código: sigue P2, con la hipótesis anotada.
+- Si vuelve a fallar, comparar `completed_at` de la tercera tarea con el `now` de `performanceCenter`.
+
+**Próxima acción (titular):**
+1. Revisar el PR.
+2. Respaldo «Respaldo: antes de 0046».
+3. Aplicar `hosted-0046.sql`.
+4. Integrar y desplegar.
+5. Smoke con demos.
+6. Encender `calories`, `announcements` y `progress_photos` de a uno (§14 del documento).
+7. Decidir LB-11 (Storage y respaldo para fotos).
 
 ## Publicación del bloque 06/06 — 05/11/2026 · PUBLICADO Y VALIDADO (autorizado por el titular)
 

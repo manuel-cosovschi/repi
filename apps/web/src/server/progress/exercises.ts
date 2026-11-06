@@ -151,8 +151,9 @@ export async function myProgressSummary(userId: string, range: ProgressRange, no
   // Frecuencia: sesiones por semana (lunes) en las últimas 12 semanas del período; una semana sin sesiones es un 0 real.
   const monday = (d: string) => { const t = new Date(`${d}T12:00:00Z`); return new Date(t.getTime() - ((t.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10); };
   const weeks: { from: string; sessions: number }[] = [];
+  // Desde la semana de la primera sesión del período: las semanas anteriores a empezar no son semanas «sin entrenar».
   const firstWeek = sessions.length ? monday(localDate(sessions[sessions.length - 1].endedAt!)) : monday(today);
-  for (let w = monday(today), i = 0; i < 12 && w >= (from ? monday(from) : firstWeek); i++, w = new Date(new Date(`${w}T12:00:00Z`).getTime() - 7 * 86_400_000).toISOString().slice(0, 10)) weeks.unshift({ from: w, sessions: 0 });
+  for (let w = monday(today), i = 0; i < 12 && w >= firstWeek; i++, w = new Date(new Date(`${w}T12:00:00Z`).getTime() - 7 * 86_400_000).toISOString().slice(0, 10)) weeks.unshift({ from: w, sessions: 0 });
   for (const s of sessions) { const w = weeks.find((x) => x.from === monday(localDate(s.endedAt!))); if (w) w.sessions++; }
   const last = sessions[0];
   return {

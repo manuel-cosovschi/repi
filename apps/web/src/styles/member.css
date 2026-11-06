@@ -986,7 +986,8 @@
 .pp-form { display: flex; flex-direction: column; gap: 10px; }
 .pp-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ui-text-2); }
 .pp-form input, .pp-form select { height: 44px; border-radius: 10px; border: 1px solid var(--ui-control-border); background: var(--ui-input-bg); color: var(--ui-text); padding: 0 12px; font: 500 16px var(--font-ui); }
-.pp-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pp-row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.pp-form input, .pp-form select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pp-kcal { display: flex; flex-direction: column; gap: 4px; background: var(--ui-surface-2); border-radius: 12px; padding: 12px; font-size: 14px; }
 .pp-kcal strong { font-size: 17px; }
 .pp-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }

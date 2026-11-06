@@ -4,7 +4,7 @@ Actualizado: 27/10/2026. Requisito: F-PR-02 / N-O12 (docs/continuidad/CATALOGO_C
 
 ## Qué puede hacer la persona (autoservicio)
 
-- **Descargar sus datos**: Perfil → «Tus datos» → «Descargar mis datos» (`GET /api/me/export`). JSON inmediato con cuenta, vínculos, aceptaciones, permisos compartidos, entrenamientos y series, check-ins, molestias, lesiones, pedidos, mensajes que envió, publicaciones del Club y lista de archivos (sin el archivo). Nunca incluye mensajes ni notas de otras personas. Cada descarga queda en `audit_event` (`privacy.export`).
+- **Descargar sus datos**: Perfil → «Tus datos» → «Descargar mis datos» (`GET /api/me/export`). JSON inmediato con cuenta, vínculos, aceptaciones, permisos compartidos, entrenamientos y series, check-ins, molestias, lesiones, pedidos, mensajes que envió, publicaciones del Club, peso corporal y objetivo, lista de fotos de progreso (cada foto se descarga desde Progreso › Fotos) y lista de archivos (sin el archivo). Nunca incluye mensajes ni notas de otras personas. Cada descarga queda en `audit_event` (`privacy.export`).
 - **Pedir la eliminación**: Perfil → «Pedir que eliminen mi cuenta» (`POST /api/me/deletion`). Queda un `privacy_request` pendiente; puede cancelarlo mientras siga pendiente. Pedirla **no** corta el acceso ni borra nada.
 
 ## Qué hace REPI (operador con REPI Admin + 2FA)
@@ -14,7 +14,7 @@ Actualizado: 27/10/2026. Requisito: F-PR-02 / N-O12 (docs/continuidad/CATALOGO_C
 3. Revisar dependencias antes de borrar:
    - ¿Es responsable de un gimnasio/coach con contrato vigente? Coordinar traspaso de responsable antes (no dejar una organización sin titular).
    - ¿Hay obligación de conservar algo (facturación, disputas, auditoría)? Conservarlo y anotarlo.
-4. Ejecutar el borrado con una herramienta controlada (SQL en el editor de Supabase o script revisado), dentro de una transacción. Borrar el usuario (`delete from "user" where id = …`) elimina en cascada sesiones, cuentas de acceso, entrenamientos, series, check-ins, molestias, lesiones, pedidos, archivos registrados y mensajes de sus conversaciones como socio. Después borrar del bucket privado los objetos de `media_object` de esa persona (las claves están en `storage_key`; listarlas **antes** del borrado).
+4. Ejecutar el borrado con una herramienta controlada (SQL en el editor de Supabase o script revisado), dentro de una transacción. Borrar el usuario (`delete from "user" where id = …`) elimina en cascada sesiones, cuentas de acceso, entrenamientos, series, check-ins, molestias, lesiones, pedidos, archivos registrados y mensajes de sus conversaciones como socio. Después borrar del bucket privado los objetos de `media_object` de esa persona (las claves están en `storage_key`; listarlas **antes** del borrado). Desde 0046 incluye las fotos de progreso (`progress/<usuario>/…`); peso, objetivo y fotos se borran en cascada con el usuario.
 5. Registrar el resultado en Privacidad → «Registrar como resuelto» (qué se borró y qué se conservó y por qué) o «Rechazar» (motivo). Queda `resolved_by`, `resolved_at` y `audit_event`.
 6. Avisar a la persona por email cuando haya proveedor de correo (D24/D70). Hasta entonces, por el canal acordado.
 

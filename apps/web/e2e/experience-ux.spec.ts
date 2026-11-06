@@ -61,6 +61,7 @@ test("alumno: sesión con lista de ejercicios, salir un momento y volver; histor
   const before = firstLog(await hx(page, sid));
   await page.goto("/app?tab=prog");
   await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: /Progreso/ }).click();
+  await page.getByRole("tab", { name: "Historial" }).click(); // PP1: el historial es una sección de Progreso
   await page.getByRole("button", { name: /Abrir detalle$/ }).first().click();
   const sheet = page.getByRole("dialog").filter({ has: page.getByText("Repeticiones", { exact: true }) }).first();
   await expect(sheet).toBeVisible();

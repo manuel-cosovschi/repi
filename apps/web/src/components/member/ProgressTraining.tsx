@@ -71,13 +71,15 @@ export function ProgressTraining({ onOpenSession, offline }: { onOpenSession: (i
   const [metric, setMetric] = useState<Metric>("e1rm");
   const [pick, setPick] = useState(false);
 
+  // Ejercicio inicial: el más entrenado del período (primera de «tus marcas»); si no, el más reciente de la lista.
   const loadSum = useCallback(() => { setErr(null); api<Summary>(`/api/me/progress/summary?range=${range}`).then(setSum).catch((e) => setErr((e as Error).message)); }, [range]);
   useEffect(() => { if (!offline) loadSum(); }, [loadSum, offline]);
   useEffect(() => {
     if (offline) return;
-    const t = setTimeout(() => { api<{ exercises: ExItem[] }>(`/api/me/progress/exercises?q=${encodeURIComponent(q.trim())}`).then((r) => { setList(r.exercises); setExId((cur) => cur ?? r.exercises[0]?.id ?? null); }).catch(() => setList([])); }, q ? 250 : 0);
+    const t = setTimeout(() => { api<{ exercises: ExItem[] }>(`/api/me/progress/exercises?q=${encodeURIComponent(q.trim())}`).then((r) => setList(r.exercises)).catch(() => setList([])); }, q ? 250 : 0);
     return () => clearTimeout(t);
   }, [q, offline]);
+  useEffect(() => { if (!exId && sum && list?.length && !q) setExId(sum.marks[0]?.id ?? list[0].id); }, [exId, sum, list, q]);
   useEffect(() => {
     if (!exId || offline) return;
     let off = false;
