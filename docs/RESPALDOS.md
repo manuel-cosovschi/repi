@@ -76,6 +76,19 @@ Nada sin cifrar sale del runner: no hay caché de datos ni commits. El único ar
 
 Tiene que terminar en «Respaldo íntegro», con el mismo hash de base que figura en las notas del release.
 
+## Respaldos de más de 1900 MiB (LB-11, 06/11)
+
+GitHub Releases admite hasta 2 GiB por archivo. Si el cifrado pasa de 1900 MiB (`REPI_BACKUP_PART_BYTES`), `backup-ci.sh split` lo publica en partes:
+- `<nombre>.tar.gz.age.part-000`, `-001`, …;
+- el índice `<nombre>.tar.gz.age.parts`, con el SHA-256 de cada parte;
+- el `.sha256` del archivo entero, igual que siempre.
+
+Al bajar, `release-download` y `restore-from-release.sh` comprueban cada parte, las unen y comparan el archivo entero con su SHA-256. Una parte alterada, faltante o de más se rechaza antes de descifrar.
+
+La autoprueba de cada PR publica la misma cadena en 3 partes chicas, la baja, la une, la restaura con la clave «del titular» y rechaza una parte alterada y otra faltante.
+
+**Límite que queda:** el job necesita en disco unas 3 veces el tamaño del respaldo (el runner de GitHub tiene ~14 GB libres). Hoy no aplica: el tope de Storage para fotos (800 MB, ver PERSONAL_PROGRESS_BODY_TRACKING_1.md §8.5) mantiene el respaldo por debajo de 1 GB.
+
 ## Antes de cada migración productiva
 
 1. Pedir el respaldo de una de estas dos formas:

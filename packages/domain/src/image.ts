@@ -129,6 +129,6 @@ export function hasImageMetadata(b: Uint8Array): boolean {
 }
 
 /** Fotos de progreso: hasta 3 MB y entre 200 y 6000 px por lado (la app las manda a ≤ 2048 px y ~0,5 MB). */
-export const PROGRESS_PHOTO_LIMITS = { maxBytes: 3 * 1024 * 1024, minSide: 200, maxSide: 6000, maxPerUser: 200, maxPerDay: 30 } as const;
+export const PROGRESS_PHOTO_LIMITS = { maxBytes: 3 * 1024 * 1024, minSide: 200, maxSide: 6000, maxPerUser: 200, maxPerDay: 30, maxBytesPerUser: 150 * 1024 * 1024 } as const;
 export const PROGRESS_POSES = { front: "Frente", side: "Perfil", back: "Espalda", other: "Otra" } as const;
 export type ProgressPose = keyof typeof PROGRESS_POSES;

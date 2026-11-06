@@ -177,7 +177,10 @@ jobs:
               "", "Recuperación: docs/RESPALDOS.md. Nunca se restaura sobre producción.", "", "<!-- repi-backup:verified -->", ""].join("\n"));
           ' "$R/informe.json" "$F" "$R/destinatarios.txt" "$R/notas.md"
           # Borrador primero: hasta que la descarga coincide byte a byte no cuenta como respaldo válido.
-          ID="$(apps/web/scripts/operations/backup-ci.sh release-draft "$TAG" "Respaldo $(date -u +%Y-%m-%d) · $TAG" "$R/notas.md" "$GITHUB_SHA" "$F" "$F.sha256")"
+          # LB-11: por encima de 1900 MiB se publica en partes (GitHub admite 2 GiB por archivo); la descarga las une y compara.
+          mapfile -t FILES < <(apps/web/scripts/operations/backup-ci.sh split "$F")
+          [ "${#FILES[@]}" -gt 2 ] && echo "- Publicado en $(( ${#FILES[@]} - 2 )) partes con su SHA-256 (índice \`$(basename "$F").parts\`); \`restore-from-release.sh\` las une." >> "$R/notas.md"
+          ID="$(apps/web/scripts/operations/backup-ci.sh release-draft "$TAG" "Respaldo $(date -u +%Y-%m-%d) · $TAG" "$R/notas.md" "$GITHUB_SHA" "${FILES[@]}")"
           apps/web/scripts/operations/backup-ci.sh release-download "$ID" "$R/descarga"
           cmp "$F" "$R/descarga/$(basename "$F")" && cmp "$F.sha256" "$R/descarga/$(basename "$F").sha256" || { echo "::error::La descarga del release no coincide con lo subido."; exit 1; }
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=false >/dev/null
@@ -212,7 +215,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: respaldo-cifrado-${{ github.run_id }}
-          path: ${{ runner.temp }}/respaldo/cifrado/*.tar.gz.age*
+          path: |
+            ${{ runner.temp }}/respaldo/cifrado/*.tar.gz.age
+            ${{ runner.temp }}/respaldo/cifrado/*.tar.gz.age.sha256
           retention-days: 1
           if-no-files-found: error
       - name: Retención
@@ -353,6 +358,22 @@ jobs:
           for X in a b; do printf '\x00' | dd of="$R/alterado/$X.tar.gz.age" bs=1 seek=4096 conv=notrunc 2>/dev/null; done
           rechaza alterado-con-sha256 "$R/alterado/a.tar.gz.age" "$R/titular/clave.txt"
           rechaza alterado-sin-sha256 "$R/alterado/b.tar.gz.age" "$R/titular/clave.txt"
+          # LB-11: el mismo archivo en partes chicas (como uno de más de 1900 MiB): publicar, bajar, unir y recuperar.
+          mkdir "$R/partes"; cp "$F" "$F.sha256" "$R/partes/"; P="$R/partes/$(basename "$F")"
+          mapfile -t FILES < <(REPI_BACKUP_PART_BYTES=$(( $(stat -c %s "$F") / 3 + 1 )) ./scripts/operations/backup-ci.sh split "$P")
+          [ "${#FILES[@]}" -eq 5 ] || { echo "::error::Se esperaban 3 partes + índice + sha256 (${#FILES[@]})."; exit 1; }
+          ID2="$(./scripts/operations/backup-ci.sh release-draft "$TAG-partes" "Autoprueba de respaldo en partes (sin datos reales)" "$R/notas.md" "$GITHUB_SHA" "${FILES[@]:0:4}" "$P.sha256")"
+          echo "$ID2" >> "$R/release-id"
+          ./scripts/operations/backup-ci.sh release-download "$ID2" "$R/descarga-partes"
+          cmp "$F" "$R/descarga-partes/$(basename "$F")"
+          mkdir "$R/solo-partes"; cp "$R"/descarga-partes/*.part-* "$R"/descarga-partes/*.parts "$R"/descarga-partes/*.sha256 "$R/solo-partes/"
+          REPI_RESTORE_DIR="$R/recuperacion-partes" ./scripts/operations/restore-from-release.sh --archivo "$R/solo-partes/$(basename "$F")" "$R/titular/clave.txt"
+          # Una parte alterada o faltante se rechaza antes de descifrar.
+          mkdir "$R/parte-alterada" "$R/parte-faltante"
+          cp "$R"/solo-partes/*.part-* "$R"/solo-partes/*.parts "$R/parte-alterada/"; printf '\x00' | dd of="$(ls "$R"/parte-alterada/*.part-001)" bs=1 seek=10 conv=notrunc 2>/dev/null
+          cp "$R"/solo-partes/*.part-000 "$R"/solo-partes/*.part-002 "$R"/solo-partes/*.parts "$R/parte-faltante/"
+          rechaza parte-alterada "$R/parte-alterada/$(basename "$F")" "$R/titular/clave.txt"
+          rechaza parte-faltante "$R/parte-faltante/$(basename "$F")" "$R/titular/clave.txt"
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | {tag: .tag_name, createdAt: (.published_at // .created_at), draft, body}' | pnpm -s ops:retention > /dev/null
           echo "Autoprueba completa."
       - name: Borrar el release de prueba

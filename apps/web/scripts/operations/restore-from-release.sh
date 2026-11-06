@@ -4,6 +4,7 @@
 #
 #   restore-from-release.sh <etiqueta | último> <clave privada age> [--sin-base]
 #   restore-from-release.sh --archivo <respaldo.tar.gz.age> <clave privada age> [--sin-base]
+#   (un respaldo publicado en partes —.part-000…, .parts— se une solo: pasá la ruta del .tar.gz.age aunque no exista entero)
 #
 #   - Descarga con `gh` (sesión de GitHub con acceso al repositorio), o usa un archivo ya bajado desde la página del release.
 #   - Comprueba el SHA-256 publicado, descifra con la clave del titular y recalcula el hash de cada archivo del manifiesto.
@@ -34,10 +35,13 @@ if [[ -n "$tag" ]]; then
   fi
   dl="$base/$tag-$stamp-descarga"
   mkdir -p "$dl"
-  gh release download "$tag" -R "$repo" -p '*.tar.gz.age' -p '*.tar.gz.age.sha256' -D "$dl"
+  gh release download "$tag" -R "$repo" -p '*.tar.gz.age' -p '*.tar.gz.age.sha256' -p '*.tar.gz.age.part-*' -p '*.tar.gz.age.parts' -D "$dl"
+  "$here/backup-ci.sh" join "$dl"
   file="$(ls "$dl"/*.tar.gz.age | head -1)"
   echo "Descargado $tag."
 fi
+[[ "$file" == *.parts ]] && file="${file%.parts}"
+if [[ ! -f "$file" && -f "$file.parts" ]]; then "$here/backup-ci.sh" join "$(dirname "$file")"; fi
 [[ -f "$file" ]] || die "no encuentro el archivo cifrado."
 [[ -f "$file.sha256" ]] || echo "Aviso: no está el .sha256 junto al archivo; se confía en la autenticación de age y en el manifiesto." >&2
 work="$base/$(basename "$file" .tar.gz.age)-$stamp"

@@ -5,7 +5,9 @@
 #   backup-ci.sh pack   <carpeta del respaldo> <carpeta de salida> <destinatarios age>   → <salida>/<nombre>.tar.gz.age
 #   backup-ci.sh verify <archivo .age> <identidad age> <carpeta de trabajo> [informe.json] → descifra, comprueba y restaura
 #   backup-ci.sh release-draft <etiqueta> <título> <notas.md> <commit> <archivo>…   → crea el release BORRADOR, sube, imprime el id
-#   backup-ci.sh release-download <id> <carpeta>                                     → baja los archivos de ese release por id
+#   backup-ci.sh release-download <id> <carpeta>                                     → baja los archivos de ese release por id (y une partes)
+#   backup-ci.sh split <archivo .age>   → imprime los archivos a publicar: el .age entero o, si pasa el límite, sus partes
+#   backup-ci.sh join  <carpeta>        → si hay <nombre>.tar.gz.age.parts, comprueba cada parte y las une en <nombre>.tar.gz.age
 # (release-*: con `gh` autenticado y GITHUB_REPOSITORY; todo por id, porque un borrador recién creado tarda en listarse)
 #
 # pack cifra para los destinatarios del titular (clave privada fuera de GitHub) y para una clave EFÍMERA creada acá.
@@ -13,6 +15,10 @@
 # archivo que se publica, no una copia anterior. La efímera nunca sale del job ni se guarda (ver docs/RESPALDOS.md).
 set -euo pipefail
 umask 077
+# GitHub Releases admite hasta 2 GiB por archivo (LB-11): por encima de 1900 MiB el cifrado se publica en partes con su propio
+# SHA-256 cada una (<nombre>.part-000, …) y un índice <nombre>.parts; el .sha256 sigue siendo el del archivo entero.
+PART_BYTES="${REPI_BACKUP_PART_BYTES:-1992294400}"
+[[ "$PART_BYTES" =~ ^[0-9]+$ ]] && (( PART_BYTES >= 1024 && PART_BYTES <= 2000000000 )) || { echo "backup-ci: REPI_BACKUP_PART_BYTES inválido." >&2; exit 1; }
 here="$(cd "$(dirname "$0")" && pwd)"
 web="$(cd "$here/../.." && pwd)"
 die() { echo "backup-ci: $*" >&2; exit 1; }
@@ -30,6 +36,35 @@ check_recipients() {
   done < "$file"
   (( n > 0 )) || die "no hay destinatarios age."
   echo "$n"
+}
+
+
+size_of() { stat -c %s "$1" 2>/dev/null || stat -f %z "$1"; }
+# Une las partes de cada índice .parts de la carpeta. Cada parte se comprueba contra el índice antes de unir; después el
+# archivo entero se compara con su .sha256 (si está). Una parte faltante, de más o alterada se rechaza.
+join_parts() {
+  local dir="$1" idx base n=0 line h name
+  for idx in "$dir"/*.tar.gz.age.parts; do
+    [[ -f "$idx" ]] || continue
+    base="${idx%.parts}"
+    [[ ! -e "$base" ]] || { echo "Ya está el archivo entero: $(basename "$base")."; continue; }
+    : > "$base.joining"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -z "$line" ]] && continue
+      h="${line%% *}"; name="${line##* }"
+      [[ "$h" =~ ^[0-9a-f]{64}$ && "$name" == "$(basename "$base").part-$(printf '%03d' "$n")" ]] || { rm -f "$base.joining"; die "índice de partes inválido."; }
+      [[ -f "$dir/$name" ]] || { rm -f "$base.joining"; die "falta la parte $name."; }
+      [[ "$(sha256 "$dir/$name" | cut -d' ' -f1)" == "$h" ]] || { rm -f "$base.joining"; die "la parte $name no coincide con su SHA-256."; }
+      cat "$dir/$name" >> "$base.joining"; n=$((n + 1))
+    done < "$idx"
+    (( n > 0 )) || { rm -f "$base.joining"; die "índice de partes vacío."; }
+    if ls "$dir/$(basename "$base").part-$(printf '%03d' "$n")" >/dev/null 2>&1; then rm -f "$base.joining"; die "hay partes de más."; fi
+    mv "$base.joining" "$base"
+    if [[ -f "$base.sha256" ]]; then
+      (cd "$dir" && [[ "$(sha256 "$(basename "$base")" | cut -d' ' -f1)" == "$(cut -d' ' -f1 "$(basename "$base").sha256")" ]]) || { rm -f "$base"; die "las partes unidas no coinciden con el SHA-256 del archivo."; }
+    fi
+    echo "Unidas $n partes en $(basename "$base") ($(size_of "$base") bytes)."
+  done
 }
 
 case "${1:-}" in
@@ -90,6 +125,19 @@ case "${1:-}" in
       gh api -H "Accept: application/octet-stream" "repos/$repo/releases/assets/$aid" > "$dir/$name"
     done < "$dir/.assets"
     rm -f "$dir/.assets"
+    join_parts "$dir"
     ;;
-  *) die "uso: backup-ci.sh pack|verify|release-draft|release-download …" ;;
+  split)
+    file="${2:?archivo}"; [[ -f "$file" && -f "$file.sha256" ]] || die "falta el archivo cifrado o su .sha256."
+    rm -f "$file".part-* "$file.parts"
+    if (( $(size_of "$file") <= PART_BYTES )); then printf '%s\n%s\n' "$file" "$file.sha256"; exit 0; fi
+    split -b "$PART_BYTES" -d -a 3 "$file" "$file.part-"
+    (cd "$(dirname "$file")" && for p in "$(basename "$file")".part-*; do sha256 "$p"; done) | sed 's/  */ /' > "$file.parts"
+    echo "Dividido en $(wc -l < "$file.parts" | tr -d ' ') partes de hasta $PART_BYTES bytes." >&2
+    ls "$file".part-* ; printf '%s\n%s\n' "$file.parts" "$file.sha256"
+    ;;
+  join)
+    join_parts "${2:?carpeta}"
+    ;;
+  *) die "uso: backup-ci.sh pack|verify|release-draft|release-download|split|join …" ;;
 esac

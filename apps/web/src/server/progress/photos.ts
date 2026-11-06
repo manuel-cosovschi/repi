@@ -24,6 +24,14 @@ const { progressPhoto, mediaObject } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos esa foto.", 404);
 const BAD_FILE = () => new AccessError("invalid_file", "La foto tiene que ser JPG, PNG o WebP de hasta 3 MB.");
 const POSES = new Set<ProgressPose>(["front", "side", "back", "other"]);
+// LB-11: tope de Storage para no pasar el plan vigente sin una decisión de gasto. Supabase Free trae 1 GB: por defecto se
+// aceptan fotos mientras todos los archivos vigentes (videos, Club y fotos) sumen menos de 800 MB. Con un plan mayor se sube
+// con REPI_STORAGE_BUDGET_BYTES. Al llegar, la subida se rechaza con un mensaje claro; lo ya guardado no se toca.
+const DEFAULT_STORAGE_BUDGET = 800 * 1000 * 1000;
+export function storageBudgetBytes() {
+  const n = Number(process.env.REPI_STORAGE_BUDGET_BYTES);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_STORAGE_BUDGET;
+}
 
 function requireOn() {
   if (!featureOn("progress_photos")) throw new AccessError("not_found", "No encontrado.", 404);
@@ -51,6 +59,15 @@ export async function uploadProgressPhoto(userId: string, p: { bytes: Uint8Array
   if (total >= L.maxPerUser) throw new AccessError("limit", `Llegaste al máximo de ${L.maxPerUser} fotos. Borrá alguna para subir otra.`, 409);
   const [{ today }] = await db.select({ today: sql<number>`count(*)::int` }).from(progressPhoto).where(and(eq(progressPhoto.userId, userId), gte(progressPhoto.createdAt, new Date(now.getTime() - 86_400_000))));
   if (today >= L.maxPerDay) throw new AccessError("rate_limited", "Llegaste al límite de fotos por día. Probá mañana.", 429);
+
+  const [{ mine }] = await db.select({ mine: sql<number>`coalesce(sum(${mediaObject.sizeBytes}), 0)::bigint` }).from(mediaObject)
+    .where(and(eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "progress_photo"), isNull(mediaObject.deletedAt)));
+  if (Number(mine) + clean.byteLength > L.maxBytesPerUser) throw new AccessError("limit", "Llegaste al espacio máximo para tus fotos. Borrá alguna para subir otra.", 409);
+  const [{ used }] = await db.select({ used: sql<number>`coalesce(sum(${mediaObject.sizeBytes}), 0)::bigint` }).from(mediaObject).where(isNull(mediaObject.deletedAt));
+  if (Number(used) + clean.byteLength > storageBudgetBytes()) {
+    console.warn(JSON.stringify({ level: "warn", event: "storage_budget_reached", usedBytes: Number(used), budgetBytes: storageBudgetBytes() }));
+    throw new AccessError("storage_full", "Por ahora no hay lugar para más fotos en REPI. Las que ya subiste siguen guardadas.", 409);
+  }
 
   const id = randomUUID(), mediaId = randomUUID();
   const key = `progress/${userId.replace(/[^a-z0-9]/gi, "")}/${randomUUID()}`; // no deriva de la foto ni de la fecha

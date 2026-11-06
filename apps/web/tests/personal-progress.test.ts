@@ -343,6 +343,24 @@ describe("fotos de progreso privadas", () => {
   });
 });
 
+describe("fotos de progreso: tope de espacio (LB-11)", () => {
+  it("con el Storage en el tope, la subida se rechaza sin guardar nada; lo ya subido sigue; tope por persona", async () => {
+    const u = await verified();
+    const kept = await ph.uploadProgressPhoto(u.id, { bytes: jpegWithGps(), mime: "image/jpeg", day: dayAgo(2) });
+    const prev = process.env.REPI_STORAGE_BUDGET_BYTES;
+    const [{ used }] = await db.select({ used: sql<number>`coalesce(sum(size_bytes), 0)::bigint` }).from(schema.mediaObject).where(sql`deleted_at is null`);
+    process.env.REPI_STORAGE_BUDGET_BYTES = String(Number(used) + 10); // queda menos lugar que una foto
+    try {
+      expect((await err(ph.uploadProgressPhoto(u.id, { bytes: jpegWithGps(), mime: "image/jpeg", day: dayAgo(1) })))).toMatchObject({ code: "storage_full", status: 409 });
+    } finally { if (prev === undefined) delete process.env.REPI_STORAGE_BUDGET_BYTES; else process.env.REPI_STORAGE_BUDGET_BYTES = prev; }
+    expect((await ph.myProgressPhotos(u.id)).photos.map((p) => p.id)).toEqual([kept.photo.id]);
+    expect(await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.ownerUserId, u.id))).toHaveLength(1);
+    // Tope por persona: con sus archivos ya cerca del máximo, la siguiente no entra.
+    await db.update(schema.mediaObject).set({ sizeBytes: 150 * 1024 * 1024 - 10 }).where(eq(schema.mediaObject.ownerUserId, u.id));
+    expect((await err(ph.uploadProgressPhoto(u.id, { bytes: jpegWithGps(), mime: "image/jpeg", day: dayAgo(1) })))?.code).toBe("limit");
+  });
+});
+
 describe("novedades de REPI", () => {
   async function admin() {
     const a = await verified("Admin PP");
