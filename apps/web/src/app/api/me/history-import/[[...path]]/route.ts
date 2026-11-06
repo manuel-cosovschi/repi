@@ -1,10 +1,11 @@
 // Historial anterior a REPI (D132): vista previa de un archivo (planilla, texto, foto o PDF), confirmar, quitar y ver la evolución.
 import { z } from "zod";
+import { IMPORT_MAX_TEXT_LENGTH } from "@repi/domain";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";
 import { AccessError } from "@/server/access/util";
 import * as hi from "@/server/training/history-import";
 
-export const maxDuration = 120; // la lectura con IA de una foto o un PDF puede tardar
+export const maxDuration = 300; // la lectura con IA de una foto o un PDF puede tardar
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 
@@ -12,7 +13,7 @@ export const GET = handle<Ctx>(async () => hi.myHistoryImports(await sessionUser
 
 const File = z.object({
   fileName: z.string().max(200), kind: z.enum(["text", "image", "pdf"]),
-  text: z.string().max(400_000).optional(), dataUrl: z.string().max(4_200_000).optional(),
+  text: z.string().max(IMPORT_MAX_TEXT_LENGTH, "El historial supera los 400.000 caracteres. Dividilo en partes; no se cargó ningún dato.").optional(), dataUrl: z.string().max(4_200_000).optional(),
 });
 const Confirm = z.object({ mode: z.enum(["all", "new_only"]).optional() });
 export const POST = handle<Ctx>(async (req, { params }) => {

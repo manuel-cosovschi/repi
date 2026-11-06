@@ -14,7 +14,7 @@ export type AiPart = { type: "text"; text: string } | { type: "image_url"; image
   | { type: "file"; file: { filename: string; file_data: string } };
 
 /** Pide un objeto JSON que cumpla `schema`. Lanza AccessError «ai_unavailable» si no hay clave o el servicio falla. */
-export async function aiJson<T>(p: { name: string; system: string; parts: AiPart[]; schema: object; maxTokens?: number; effort?: "minimal" | "low" | "medium"; timeoutMs?: number; fast?: boolean }): Promise<T> {
+export async function aiJson<T>(p: { name: string; system: string; parts: AiPart[]; schema: object; maxTokens?: number; effort?: "minimal" | "low" | "medium"; timeoutMs?: number; fast?: boolean; requireComplete?: boolean }): Promise<T> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new AccessError("ai_unavailable", "La lectura automática no está disponible en este momento.", 503);
   let res: Response;
@@ -40,6 +40,7 @@ export async function aiJson<T>(p: { name: string; system: string; parts: AiPart
     logError(`ai.response.${p.name}`, new Error(`OpenAI ${res.status} ${j?.error?.code ?? ""}`));
     throw new AccessError("ai_unavailable", "El servicio de lectura no respondió bien. Probá de nuevo en un rato.", 503);
   }
+  if (p.requireComplete && j.choices[0].finish_reason !== "stop") throw new AccessError("ai_incomplete", "La lectura quedó incompleta. No se cargó ninguna parte. Probá dividir el historial en archivos más chicos.", 422);
   const msg = j.choices[0].message;
   if (msg.refusal || !msg.content) throw new AccessError("ai_refused", "No pudimos leer ese archivo. Probá con otra foto o con una planilla.", 422);
   try { return JSON.parse(msg.content) as T; }
