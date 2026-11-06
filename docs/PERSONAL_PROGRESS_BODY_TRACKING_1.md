@@ -324,15 +324,14 @@ Peso corporal, objetivo, fotos de progreso y calorías son **sólo para adultos 
 
 **Respaldos**
 - Entran solas: el respaldo copia todo `media_object` vigente. Se restauran con el resto.
-- **Riesgo de tamaño:** el respaldo es un único `.tar.gz.age` por día, y GitHub admite hasta 2 GiB por archivo de Release.
-- Con fotos de ~0,4–0,8 MB:
-  - 1.000 fotos ≈ 0,6 GB;
-  - el límite estaría en unas 2.500–3.000 fotos sumadas a los videos.
-- Antes de encender `progress_photos` para todos, o al pasar 1 GB de Storage, hay que separar archivos y base en el respaldo (LB-11).
+- **Tamaño (LB-11, resuelto 06/11):** GitHub admite hasta 2 GiB por archivo de Release. Por encima de 1900 MiB el respaldo cifrado se publica en partes con SHA-256 propio, y se unen y verifican al bajar (docs/RESPALDOS.md). La autoprueba de cada PR ensaya la cadena en partes, la restauración y el rechazo de una parte alterada o faltante.
 
-**Supabase Free**
-- Storage de 1 GB. Con 200 alumnos × 20 fotos × 0,6 MB ≈ 2,4 GB, hace falta el plan Pro (100 GB incluidos).
-- **No se contrató nada**: es decisión del titular (LB-11).
+**Supabase Free y tope de Storage (D204)**
+- Storage de 1 GB (medido el 06/11: 1 archivo, 74.565 bytes; base de 29,7 MB de 500 MB).
+- Las subidas se rechazan, con un mensaje claro, cuando los archivos vigentes llegan a **800 MB** (`REPI_STORAGE_BUDGET_BYTES`) o una persona llega a **150 MB** de fotos. Lo ya guardado no se toca y no se genera ningún gasto.
+- Con fotos de ~0,4–0,8 MB (el teléfono las achica a 2048 px) entran unas 1.000–2.000 fotos en total.
+- Para crecer: plan Pro de Supabase (100 GB) y subir `REPI_STORAGE_BUDGET_BYTES`. **Es una decisión de gasto del titular; no se contrató nada.**
+- Seguimiento: `select sum(size_bytes) from media_object where deleted_at is null`. Al llegar al tope queda en los logs `storage_budget_reached`.
 
 ## 9. Novedades de REPI (D202)
 
@@ -476,9 +475,9 @@ Detalle en `docs/continuidad/PROXIMA_SESION.md`.
 
 | Riesgo | Impacto | Mitigación o decisión pendiente |
 | --- | --- | --- |
-| Respaldo único > 2 GiB con muchas fotos | El respaldo diario fallaría | Separar archivos y base antes de 1 GB de Storage (LB-11) |
-| Storage Free de 1 GB | Subidas fallan al llenarse | Plan Pro: decisión de gasto del titular (LB-11) |
-| Calorías: precisión individual limitada | Expectativas | Rango, texto explícito, interruptor apagado hasta que el titular lo apruebe |
+| Respaldo único > 2 GiB con muchas fotos | El respaldo diario fallaría | Resuelto: respaldo en partes (LB-11, 06/11) |
+| Storage Free de 1 GB | Subidas rechazadas al llegar al tope | Tope de 800 MB y 150 MB por persona (D204); para crecer, plan Pro: decisión de gasto del titular |
+| Calorías: precisión individual limitada | Expectativas | Rango, texto explícito y «Cómo se calcula»; sin peso o sin edad confirmada no se estima |
 | Menores: sin peso, fotos ni calorías | Funcionalidad parcial para ese grupo | Política con el adulto responsable (decisión del titular y legal) |
 | Fecha de nacimiento autodeclarada (D203) | Un adulto puede mentir sobre su edad, como en el registro | Igual que el registro vigente; no se puede cambiar desde la app una vez guardada. Verificación documental fuera de alcance |
 | El consentimiento «medidas o fotos» para el coach existe en el dominio | Si alguien enciende `body`, el coach vería una pestaña vacía | No da acceso a estas tablas; compartir con el coach queda para un bloque con consentimiento granular propio |
