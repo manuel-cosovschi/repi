@@ -13,14 +13,22 @@ import { myReviewInvites } from "../gym/reviews";
 import { myThreads } from "../messages/services";
 import { myCharges } from "../coachpay/services";
 import { myAppointments } from "../training/agenda";
+import { markAnnouncementsRead, myAnnouncements } from "../announcements/services";
 
 const { memberNotice, communityPost, userPref } = schema;
 
 export type NotifDest =
-  | { tab: "home" | "msgs" | "perfil" }
+  | { tab: "home" | "msgs" | "perfil" | "train" }
+  | { tab: "prog"; seg?: "train" | "body" | "photos" }
   | { tab: "gym"; gymTab: "news" | "ch" | "logros" }
   | { tab: "review"; invite: { id: string; trainer: string; kind: string; place: string } };
-export type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean };
+// `origin: "repi"`: novedad del producto (D202), se distingue de los avisos del gimnasio y del coach.
+export type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean; origin?: "repi"; cta?: string | null };
+/** Destino de una novedad de REPI dentro de la app del alumno (lista cerrada). */
+const ANN_DEST: Record<string, NotifDest> = {
+  "member.progress": { tab: "prog", seg: "train" }, "member.progress.body": { tab: "prog", seg: "body" }, "member.progress.photos": { tab: "prog", seg: "photos" },
+  "member.train": { tab: "train" }, "member.perfil": { tab: "perfil" },
+};
 
 const WINDOW_DAYS = 30, MAX = 40;
 const iso = (d: Date | string) => (typeof d === "string" ? new Date(d) : d).toISOString();
@@ -30,11 +38,12 @@ const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 export async function myNotifications(userId: string, now = new Date()) {
   const since = addDays(now, -WINDOW_DAYS);
-  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts] = await Promise.all([
+  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts, ann] = await Promise.all([
     db.select({ seenAt: userPref.notificationsSeenAt }).from(userPref).where(eq(userPref.userId, userId)),
     myInbox(userId), myGymRelations(userId), myGymTasks(userId), myReviewInvites(userId), myThreads(userId), myCharges(userId, now),
     db.select().from(memberNotice).where(and(eq(memberNotice.userId, userId), gte(memberNotice.createdAt, since))).orderBy(desc(memberNotice.createdAt)).limit(20),
     myAppointments(userId, now),
+    myAnnouncements(userId, "member", { now }),
   ]);
   const posts = gymRels.length ? await db.select({ p: communityPost }).from(communityPost).where(and(
     inArray(communityPost.orgId, gymRels.map((r) => r.org.id)), isNull(communityPost.deletedAt), gte(communityPost.createdAt, since),
@@ -97,12 +106,16 @@ export async function myNotifications(userId: string, now = new Date()) {
     }
   }
   const seen = pref?.seenAt ?? null;
-  const list = items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX).map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen }));
+  // Novedades de REPI (D202): su estado de lectura es por anuncio (announcement_read), compartido con coach y gimnasio.
+  const annItems: Notif[] = ann.items.map((a) => ({ id: `ann:${a.id}`, title: a.title, body: clip(a.summary, 160), at: a.at, tone: "cyan", origin: "repi", cta: a.destination !== "none" ? a.ctaLabel : null,
+    dest: ANN_DEST[a.destination] ?? { tab: "home" }, unread: a.unread }));
+  const list = [...items.map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen })), ...annItems].sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX);
   return { items: list, unread: list.filter((x) => x.unread).length, seenAt: seen ? seen.toISOString() : null };
 }
 
 /** Abrir el centro marca todo como leído hasta ahora. No resuelve pedidos ni marca mensajes. */
 export async function markNotificationsSeen(userId: string, now = new Date()) {
+  await markAnnouncementsRead(userId, "member", { now }); // sólo las ya publicadas y visibles para esta persona
   await db.insert(userPref).values({ userId, notificationsSeenAt: now }).onConflictDoUpdate({ target: userPref.userId, set: { notificationsSeenAt: now, updatedAt: now } });
   return { seenAt: now.toISOString() };
 }

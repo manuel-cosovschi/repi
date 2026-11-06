@@ -851,7 +851,8 @@ export async function createMemberTask(userId: string, p: { gymMemberId?: string
   const text = (p.text ?? "").trim();
   if (!category || text.length < 3) throw new AccessError("invalid", "Contá qué necesitás.");
   if (p.videoId) {
-    const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, p.videoId), eq(mediaObject.ownerUserId, userId), isNull(mediaObject.deletedAt)));
+    // D200: sólo un video de pedido propio; nunca otro archivo (p. ej. una foto de progreso) con su id.
+    const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, p.videoId), eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "request_video"), isNull(mediaObject.deletedAt)));
     const used = await db.select({ id: gymTask.id }).from(gymTask).where(eq(gymTask.videoId, p.videoId));
     const usedReq = await db.select({ id: schema.studentRequest.id }).from(schema.studentRequest).where(eq(schema.studentRequest.videoId, p.videoId));
     if (!v || used.length || usedReq.length) throw new AccessError("invalid", "El video no es válido.");
