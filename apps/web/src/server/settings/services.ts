@@ -55,7 +55,7 @@ export async function updateSettings(userId: string, p: { weightUnit?: unknown; 
 
 // ── D195: ayudas de primera vez (onboarding contextual) ─────────────────────
 // Sólo la clave de cada ayuda y cuándo se vio u omitió (nada personal). Sirve para no repetirlas en otro dispositivo.
-export const HINT_KEYS = ["start_guide", "ti_intro", "history_edit", "workout_nav", "coach_start", "gym_equipment", "rest_intel"] as const;
+export const HINT_KEYS = ["start_guide", "ti_intro", "history_edit", "workout_nav", "coach_start", "gym_equipment", "rest_intel", "new_progress_body", "new_progress_photos"] as const;
 export type HintKey = (typeof HINT_KEYS)[number];
 export const isHintKey = (k: unknown): k is HintKey => typeof k === "string" && (HINT_KEYS as readonly string[]).includes(k);
 

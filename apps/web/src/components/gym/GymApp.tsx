@@ -26,11 +26,13 @@ import { ExerciseVideos } from "@/components/coach/ExerciseVideos";
 import { EquipmentScreen } from "./Equipment";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
-import { ArrowsLeftRight, Barbell, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, VideoCamera, type Icon } from "@phosphor-icons/react";
+import { featureOn } from "@/lib/features";
+import { RepiNews, useRepiNewsUnread } from "@/components/announcements/RepiNews";
+import { ArrowsLeftRight, Barbell, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, VideoCamera, Megaphone, type Icon } from "@phosphor-icons/react";
 
 const IC = {
   home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
-  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen, qr: QrCode, video: VideoCamera, barbell: Barbell,
+  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen, qr: QrCode, video: VideoCamera, barbell: Barbell, megaphone: Megaphone,
 };
 type NavItem = [GymScreen, string, Icon, string | null];
 
@@ -73,6 +75,8 @@ function navFor(ctx: GymCtxView): NavItem[] {
   if (r.includes("owner") || r.includes("manager") || can(ctx, "program.edit")) add(["videos", "Videos de ejercicios", IC.video, null]);
   // D195: equipamiento de la sede (administran dueño, gerencia y coordinación; consulta quien arma programas).
   if (can(ctx, "equipment.manage") || can(ctx, "program.edit")) add(["equipment", "Equipamiento", IC.barbell, null]);
+  // D202: novedades del producto para el equipo (dueño, gerencia, coordinación, sala y recepción), con el módulo encendido.
+  if (featureOn("announcements") && r.some((x) => ["owner", "manager", "coordinator", "floor_trainer", "reception"].includes(x))) add(["repinews", "Novedades de REPI", IC.megaphone, null]);
   out.push(["guide", "Guía", IC.book, null]); // D115: cada rol ve su parte
   return out;
 }
@@ -89,6 +93,8 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mainRef = useRef<HTMLDivElement>(null);
   const flash = useCallback((t: string) => { clearTimeout(tt.current); setToast(t); tt.current = setTimeout(() => setToast(null), 3500); }, []);
+  const [newsTick, setNewsTick] = useState(0);
+  const newsUnread = useRepiNewsUnread("gym", orgId, `${screen}:${newsTick}`);
 
   useEffect(() => {
     api<GymCtxView>(`/api/gym/${orgId}/context`).then((c) => {
@@ -167,6 +173,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
               <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "billing" && badges.billing > 0 && <span className="nbadge" aria-label={`${badges.billing} cambios de condiciones sin revisar`}>{badges.billing}</span>}
+              {k === "repinews" && newsUnread > 0 && <span className="nbadge" aria-label={`${newsUnread} novedades sin leer`}>{newsUnread}</span>}
               {k === "notices" && badges.notices > 0 && <span className="nbadge" aria-label={`${badges.notices} avisos sin leer`}>{badges.notices}</span>}
               {k === "queue" && badges.queue > 0 && <span className="nbadge" aria-label={`${badges.queue} pendientes`}>{badges.queue}</span>}
               {k === "msgs" && badges.msgs > 0 && <span className="nbadge" aria-label={`${badges.msgs} conversaciones sin leer`}>{badges.msgs}</span>}
@@ -218,6 +225,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "billing" && <ConditionsScreen orgId={orgId} flash={flash} unit="socios" onSeen={refreshBadges} />}
           {screen === "joins" && <JoinsScreen shell={shell} />}
           {screen === "accesses" && <AccessesScreen shell={shell} />}
+          {screen === "repinews" && <RepiNews area="gym" orgId={orgId} onSeen={() => setNewsTick((x) => x + 1)} onGo={(d) => go(d === "gym.equipment" && nav.some((n) => n[0] === "equipment") ? "equipment" : d === "gym.members" && nav.some((n) => n[0] === "members") ? "members" : nav[0][0])} />}
           {(screen === "shift" || screen === "exec" || screen === "mdash" || screen === "reception" || screen === "queue") && <FloorNowCard shell={shell} />}
         </div>
       </main>

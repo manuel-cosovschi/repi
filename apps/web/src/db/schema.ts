@@ -735,7 +735,7 @@ export const injury = pgTable("injury", {
 export const mediaObject = pgTable("media_object", {
   id: id(),
   ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image", "exercise_video", "club_image"] }).notNull(), // club_image: fotos del Club y de perfil (D169); request_video también para tareas del equipo de sala (D41); exercise_video: D164
+  purpose: text("purpose", { enum: ["request_video", "attempt_video", "community_image", "exercise_video", "club_image", "progress_photo"] }).notNull(), // club_image: fotos del Club y de perfil (D169); request_video también para tareas del equipo de sala (D41); exercise_video: D164; progress_photo: foto corporal privada, sólo su dueño (D200)
   orgId: text("org_id"), // imágenes de comunidad: las ven los socios y el staff de esa organización
   storageKey: text("storage_key").notNull(),
   mime: text("mime").notNull(),
@@ -1630,3 +1630,91 @@ export const gymCheckin = pgTable("gym_checkin", {
   index("gym_checkin_org_idx").on(t.orgId, t.createdAt),
   index("gym_checkin_user_idx").on(t.userId, t.expiresAt),
 ]);
+
+// ── Personal Progress & Body Tracking 1.0 (D199–D202) ───────────────────────
+// Peso corporal (D199): dato sensible y PERSONAL. Sólo lo lee su dueño: ni el coach, ni el gimnasio, ni REPI Admin en la
+// operación ordinaria. Una medición por día (guardar otro valor ese día lo reemplaza: no hay duplicados por doble toque o
+// reintento). Gramos enteros: exacto en kg y lb (la unidad es sólo presentación, F-HX-23). Borrar es definitivo.
+export const bodyWeightEntry = pgTable("body_weight_entry", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  measuredOn: text("measured_on").notNull(), // AAAA-MM-DD, fecha local de la medición (la elige la persona)
+  weightG: integer("weight_g").notNull(),
+  source: text("source", { enum: ["manual"] }).notNull().default("manual"), // origen; otros (balanza, importación) en el futuro
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  uniqueIndex("body_weight_user_day_unique").on(t.userId, t.measuredOn),
+  check("body_weight_range", sql`${t.weightG} between 20000 and 400000`),
+  check("body_weight_day_valid", sql`${t.measuredOn} ~ '^\\d{4}-\\d{2}-\\d{2}$'`),
+  check("body_weight_source_valid", sql`${t.source} in ('manual')`),
+]);
+
+// Objetivo de peso (D199): uno vigente por persona. El punto de partida es la primera medición salvo que la persona indique
+// otro (start_source = 'manual', con su fecha): se conserva la procedencia. Cambiar la meta reemplaza la fila (revision + 1).
+export const bodyGoal = pgTable("body_goal", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  startSource: text("start_source", { enum: ["first_entry", "manual"] }).notNull().default("first_entry"),
+  startWeightG: integer("start_weight_g"), // sólo con start_source = 'manual'
+  startOn: text("start_on"),
+  targetWeightG: integer("target_weight_g").notNull(),
+  targetOn: text("target_on"), // fecha objetivo opcional
+  revision: integer("revision").notNull().default(1),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  check("body_goal_target_range", sql`${t.targetWeightG} between 20000 and 400000`),
+  check("body_goal_start_range", sql`${t.startWeightG} is null or ${t.startWeightG} between 20000 and 400000`),
+  check("body_goal_start_valid", sql`${t.startSource} = 'first_entry' or (${t.startWeightG} is not null and ${t.startOn} is not null)`),
+]);
+
+// Fotos de progreso (D200): privadas, sin IA ni análisis. El archivo es un media_object «progress_photo» que sólo su dueño
+// puede leer; nunca aparecen en comunidad, Club, mensajes, pedidos, notificaciones ni informes. La clave foránea hace que la
+// purga de archivos la reconozca como referencia (D196). Borrar la foto borra la fila y el archivo (con reintento por la purga).
+export const progressPhoto = pgTable("progress_photo", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  mediaId: text("media_id").notNull().unique().references(() => mediaObject.id),
+  takenOn: text("taken_on").notNull(), // AAAA-MM-DD elegida por la persona
+  pose: text("pose", { enum: ["front", "side", "back", "other"] }), // etiqueta de organización, no un resultado
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  createdAt: now("created_at"),
+}, (t) => [
+  index("progress_photo_user_idx").on(t.userId, t.takenOn),
+  check("progress_photo_pose_valid", sql`${t.pose} is null or ${t.pose} in ('front', 'side', 'back', 'other')`),
+  check("progress_photo_day_valid", sql`${t.takenOn} ~ '^\\d{4}-\\d{2}-\\d{2}$'`),
+]);
+
+// Novedades de REPI (D202): comunicados del producto que publica REPI Admin sin desplegar. Se muestran en la campanita del
+// alumno y en «Novedades de REPI» de coach y gimnasio, según la audiencia (verificada en el servidor). Texto plano y destino
+// de una lista cerrada: sin HTML ni enlaces externos. Editar un anuncio publicado conserva su id (no genera otro aviso).
+export const productAnnouncement = pgTable("product_announcement", {
+  id: id(),
+  kind: text("kind", { enum: ["feature", "improvement", "important", "guide", "notice"] }).notNull(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  ctaLabel: text("cta_label"),
+  destination: text("destination").notNull().default("none"),
+  audience: text("audience").array().notNull(),
+  status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
+  publishAt: ts("publish_at"), // visible desde (publicar ahora o programado)
+  archivedAt: ts("archived_at"),
+  revision: integer("revision").notNull().default(1),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  index("announcement_status_idx").on(t.status, t.publishAt),
+  check("announcement_kind_valid", sql`${t.kind} in ('feature', 'improvement', 'important', 'guide', 'notice')`),
+  check("announcement_status_valid", sql`${t.status} in ('draft', 'published', 'archived')`),
+  check("announcement_published_at", sql`${t.status} = 'draft' or ${t.publishAt} is not null`),
+]);
+
+// Lectura por persona y anuncio (D202): una fila por persona aunque tenga varios roles (no se duplica ni reaparece).
+export const announcementRead = pgTable("announcement_read", {
+  announcementId: text("announcement_id").notNull().references(() => productAnnouncement.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  readAt: now("read_at"),
+}, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index("announcement_read_user_idx").on(t.userId)]);

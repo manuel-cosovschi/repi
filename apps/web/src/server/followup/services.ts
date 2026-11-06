@@ -98,7 +98,8 @@ export async function createRequest(userId: string, p: { kind: RequestKind; text
   const rel = await myRelation(userId);
   if (!rel) throw new AccessError("no_coach", "Todavía no tenés coach. Los pedidos al equipo de sala del gym llegan pronto.", 409);
   if (p.videoId) {
-    const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, p.videoId), eq(mediaObject.ownerUserId, userId), isNull(mediaObject.deletedAt)));
+    // D200: sólo un video de pedido propio; nunca otro archivo (p. ej. una foto de progreso) con su id.
+    const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, p.videoId), eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "request_video"), isNull(mediaObject.deletedAt)));
     const used = await db.select({ id: studentRequest.id }).from(studentRequest).where(eq(studentRequest.videoId, p.videoId));
     if (!v || used.length) throw new AccessError("invalid", "El video no es válido.");
   }
@@ -316,6 +317,8 @@ export async function authorizeVideo(actorId: string, videoId: string) {
   const [v] = await db.select().from(mediaObject).where(and(eq(mediaObject.id, videoId), isNull(mediaObject.deletedAt)));
   if (!v) throw NOT_FOUND();
   if (v.ownerUserId === actorId) return v;
+  // D200: una foto de progreso es sólo de su dueño. Nadie más la lee por ninguna vía, aunque alguien la haya referenciado.
+  if (v.purpose === "progress_photo") throw NOT_FOUND();
   const [ok] = await db.select({ id: studentRequest.id }).from(studentRequest).innerJoin(coachClient, eq(coachClient.id, studentRequest.coachClientId))
     .innerJoin(staffMembership, and(eq(staffMembership.orgId, coachClient.coachOrgId), eq(staffMembership.userId, actorId), eq(staffMembership.role, "coach_owner"), eq(staffMembership.status, "active")))
     .where(and(eq(studentRequest.videoId, videoId), ne(coachClient.status, "ended")));
@@ -349,7 +352,7 @@ const RETENTION_SOURCES = ["student_request.video_id", "gym_task.video_id", "cha
 const SOFT_DELETED: Record<string, string> = { "community_post.image_id": "deleted_at", "catalog_item.image_id": "deleted_at" };
 /** Las que el esquema conocido declara hoy: si el catálogo no las devuelve todas, algo no cuadra y no se purga nada. */
 export const KNOWN_MEDIA_REFERENCES = ["exercise_media.media_id", "student_request.video_id", "gym_task.video_id", "community_post.image_id",
-  "challenge_attempt.video_id", "catalog_item.image_id", "club_post.image_id", "club_profile.avatar_id"];
+  "challenge_attempt.video_id", "catalog_item.image_id", "club_post.image_id", "club_profile.avatar_id", "progress_photo.media_id"];
 
 type MediaRef = { table: string; column: string };
 

@@ -6,6 +6,7 @@ import * as cm from "@/server/commercial/services";
 import * as pv from "@/server/privacy/services";
 import * as sp from "@/server/support/services";
 import * as bp from "@/server/commercial/payments";
+import * as an from "@/server/announcements/services";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -17,6 +18,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   const u = new URL(req.url);
   if (a === "summary") return cm.adminSummary(me);
+  if (a === "announcements") return an.adminAnnouncements(me); // D202
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" || f === "ideas" ? f : "active"); }
@@ -74,6 +76,16 @@ export const POST = handle<Ctx>(async (req, { params }) => {
       case "delete": return cm.deleteClient(me, b, (await body(req, z.object({ confirmName: z.string().max(160) }))).confirmName);
       case "responsible": return cm.changeResponsible(me, b, await body(req, z.object({ name: z.string().max(80), email: z.string().max(200) })));
     }
+  }
+  // Novedades de REPI (D202): borrador, edición, publicación (ahora o programada), archivo.
+  if (a === "announcements") {
+    const draft = z.object({ kind: z.enum(["feature", "improvement", "important", "guide", "notice"]), title: z.string().max(200), summary: z.string().max(600), ctaLabel: z.string().max(60).nullable().optional(),
+      destination: z.string().max(40), audience: z.array(z.enum(["all", "member", "coach", "floor", "gym_admin", "admin"])).min(1).max(6) });
+    if (!b) return an.createAnnouncement(me, await body(req, draft));
+    if (!c) return an.updateAnnouncement(me, b, await body(req, draft.extend({ revision: z.number().int().positive() })));
+    if (c === "publish") return an.publishAnnouncement(me, b, await body(req, z.object({ at: z.string().max(40).nullable().optional() })));
+    if (c === "archive") return an.archiveAnnouncement(me, b);
+    if (c === "unschedule") return an.unscheduleAnnouncement(me, b);
   }
   if (a === "leads" && b) return cm.setLeadStatus(me, b, (await body(req, z.object({ status: z.enum(["contacted", "converted", "discarded"]) }))).status);
   if (a === "corrections" && b) return cm.answerCorrection(me, b, (await body(req, z.object({ answer: z.string().max(800) }))).answer);

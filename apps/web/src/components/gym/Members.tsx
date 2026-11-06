@@ -10,7 +10,7 @@ import { ExerciseDetailEditor, detailSummary } from "@/components/coach/Exercise
 import { DayMenu, GymDayPaste, readClip, writeClip, type DayClip } from "@/components/coach/DayCopy";
 import { NoteButton, NoteField } from "@/components/coach/ExerciseNote";
 import { Modal } from "@/components/ui/Modal";
-import { ApprovedSubs, subsLabel, useSubstitutions } from "@/components/coach/ApprovedSubs";
+import { ApprovedSubs, subsLabel, subsRow, useSubsPanel, useSubstitutions } from "@/components/coach/ApprovedSubs";
 import { LoadSuggestion, useLastTimes } from "@/components/coach/LoadSuggestion";
 import { featureOn } from "@/lib/features";
 import { NewTaskModal, TaskCard } from "./Floor";
@@ -182,13 +182,14 @@ type Ex = ProgramDoc["days"][number]["exercises"][number];
 function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: Detail; onClose: (ok: boolean) => void }) {
   const lib = useLoad<Lib>(`/api/gym/${shell.orgId}/library`);
   const { subs, setSubs } = useSubstitutions(shell.orgId);
-  const [subsFor, setSubsFor] = useState<string | null>(null); // ejercicio con el panel de reemplazos abierto
   const [detailFor, setDetailFor] = useState<number | null>(null); // D134: ejercicio con el editor de series abierto
   const base: ProgramDoc = member.program
     ? { name: member.program.doc.name, weeks: member.program.doc.weeks, note: member.program.doc.note, days: member.program.doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) }
     : { name: "Programa inicial", weeks: 6, note: "", days: [{ name: "Día A", exercises: [] }] };
   const [doc, setDoc] = useState<ProgramDoc>(base);
   const [day, setDay] = useState(0);
+  // D201 (Urko): el panel de reemplazos es de este socio y este día; cambiar de socio o de día lo cierra.
+  const subsPanel = useSubsPanel(`${shell.orgId}|${member.id}|${day}`);
   // D154: lo que el socio hizo la última vez con el gym en cada ejercicio, para la carga sugerida.
   const lastTimes = useLastTimes(`/api/gym/${shell.orgId}/members/${member.id}/last`, doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)));
   const [reason, setReason] = useState("");
@@ -273,8 +274,8 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         <div className="exrow">
           <span className="c-name">{labels[i] && <code>{labels[i]}</code>}{e.name}
             <button type="button" className="ex-edit" onClick={() => setDetailFor(i)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
-            {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsFor === `${i}:${e.exerciseId}`} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
-              onClick={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}
+            {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsPanel.isOpen(subsRow(i, e.exerciseId))} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
+              onClick={() => subsPanel.toggle(subsRow(i, e.exerciseId))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}
             {!e.note && noteOpen !== `${day}:${i}` && <NoteButton name={e.name} onOpen={() => setNoteOpen(`${day}:${i}`)} />}</span>
           {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
           <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan && !isStraightPlan(e.detail)} aria-label={`Series de ${e.name}`} min={1} max={20} value={!!e.detail?.setPlan && !isStraightPlan(e.detail) ? mainSets(e.detail, e.sets) : e.sets} onChange={(n) => n != null && setEx(i, straightRow(e.detail, { sets: n }))} /></span>
@@ -285,7 +286,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
           {(!!e.note || noteOpen === `${day}:${i}`) && <NoteField name={e.name} value={e.note ?? ""} who="el socio" onChange={(v) => setEx(i, { note: v })} onEmpty={() => setNoteOpen(null)} />}
         </div>
         <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setEx(i, { detail })} />
-        {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} />}
+        {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} onAdded={subsPanel.close} />}
         </Fragment>
       ))}
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca.</span>}

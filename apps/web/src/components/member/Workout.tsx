@@ -2,6 +2,7 @@
 // Sesión activa y resumen (App Alumno v4 · «Entrenamiento activo» / «Entrenamiento completado»).
 // Fuente de verdad en el dispositivo: IndexedDB. Cada cambio se guarda localmente y se sincroniza por la cola;
 // reloj y descanso por timestamp; conflictos visibles con las dos versiones (Etapa 3).
+import { SessionCalories } from "./SessionCalories";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, localizeWeights, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
@@ -839,6 +840,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
             <span>Anterior: {kg(pr.previous.weightKg, unit)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {kgTo(pr.previous.e1rm, unit).toLocaleString("es-AR")} → {kgTo(pr.current.e1rm, unit).toLocaleString("es-AR")} {unit}</span></div>
         </div>
       )}
+      {!sum.local && <SessionCalories sessionId={sum.id} refresh={sent === "server" ? 1 : 0} />}
       {/* D168: con lo que acaba de levantar, dónde entraría en desafíos y rankings del gym. */}
       {onNudge && !sum.local && <Nudges go={onNudge} flash={flash} only={["challenge", "ranking_optin", "club"]} max={1} title="Con lo que venís levantando" />}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

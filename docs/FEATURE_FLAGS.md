@@ -12,6 +12,11 @@ Un módulo apagado no se muestra: no hay botones hacia pantallas vacías ni capa
 | `club` | encendido | Pestaña «Club» del socio en su gimnasio | Publicación voluntaria con moderación, probado |
 | `nutrition` | apagado | Pestaña «Nutrición» en la ficha del coach | Falta la carga desde la app del alumno: sería una pantalla vacía |
 | `body` | apagado | Pestaña «Mi cuerpo» en la ficha del coach | Body Intelligence sin implementar (BI-1) |
+| `progress` | encendido | Progreso › Entrenamiento: resumen del período y evolución por ejercicio (D199) | Lee el historial existente; sin datos nuevos |
+| `body_weight` | encendido | Progreso › Mi cuerpo: peso corporal, objetivo y gráfico (D199) | Privado del alumno; requiere 0046 aplicada |
+| `calories` | **apagado** | Calorías estimadas al terminar y en el historial (D199) | Hasta que el titular apruebe la metodología (docs/PERSONAL_PROGRESS_BODY_TRACKING_1.md §7) |
+| `progress_photos` | **apagado** | Progreso › Fotos: galería privada y comparador (D200). La API responde 404 apagado | Hasta el control de permisos en producción y LB-11 (Storage y respaldo) |
+| `announcements` | **apagado** | Novedades de REPI en la campanita, coach y gimnasio; publicar desde REPI Admin (D202). Apagado: nadie las ve y no se publican | Hasta el control en producción |
 | `exercise_video` | apagado | Recuadro de video en la sesión activa | Faltan medios licenciados |
 
 ## Cambiar sin tocar código

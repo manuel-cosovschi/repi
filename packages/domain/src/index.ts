@@ -34,3 +34,5 @@ export * from "./coach-workflow";
 export * from "./template-rollout";
 export * from "./corrections";
 export * from "./equipment";
+export * from "./progress";
+export * from "./image";

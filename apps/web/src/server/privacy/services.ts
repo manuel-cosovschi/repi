@@ -2,7 +2,7 @@
 // verificable. La exportación es inmediata y sólo incluye lo que la persona aportó o se registró sobre ella; nunca datos
 // privados de otras personas (mensajes ajenos, notas del equipo). La eliminación queda como pedido registrado que REPI
 // atiende con docs/PRIVACIDAD_OPERACION.md: no hay borrado automático hasta definir retención y responsables.
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { requireAdmin } from "../commercial/services";
@@ -10,7 +10,7 @@ import { mySettings } from "../settings/services";
 
 const {
   user, coachClient, gymMember, organization, gymLocation, legalAcceptance, consentGrant, workoutSession, setLog, checkin, painReport, injury,
-  studentRequest, message, clubPost, mediaObject, privacyRequest,
+  studentRequest, message, clubPost, mediaObject, privacyRequest, bodyWeightEntry, bodyGoal, progressPhoto,
 } = schema;
 
 export async function exportMyData(userId: string, now = new Date()) {
@@ -43,6 +43,10 @@ export async function exportMyData(userId: string, now = new Date()) {
     messagesSent: await db.select({ body: message.body, createdAt: message.createdAt }).from(message).where(eq(message.senderUserId, userId)),
     clubPosts: await db.select({ kind: clubPost.kind, text: clubPost.text, status: clubPost.status, createdAt: clubPost.createdAt }).from(clubPost).where(eq(clubPost.userId, userId)),
     files: await db.select({ purpose: mediaObject.purpose, mime: mediaObject.mime, sizeBytes: mediaObject.sizeBytes, createdAt: mediaObject.createdAt, deletedAt: mediaObject.deletedAt }).from(mediaObject).where(eq(mediaObject.ownerUserId, userId)),
+    // PP1 (D199, D200): peso corporal, objetivo y fotos de progreso (las fotos se listan; cada una se descarga desde Progreso).
+    bodyWeight: await db.select({ day: bodyWeightEntry.measuredOn, weightKg: sql<number>`${bodyWeightEntry.weightG}::float / 1000`, source: bodyWeightEntry.source, createdAt: bodyWeightEntry.createdAt, updatedAt: bodyWeightEntry.updatedAt }).from(bodyWeightEntry).where(eq(bodyWeightEntry.userId, userId)).orderBy(bodyWeightEntry.measuredOn),
+    bodyGoal: (await db.select({ targetKg: sql<number>`${bodyGoal.targetWeightG}::float / 1000`, targetOn: bodyGoal.targetOn, startSource: bodyGoal.startSource, startKg: sql<number | null>`${bodyGoal.startWeightG}::float / 1000`, startOn: bodyGoal.startOn, updatedAt: bodyGoal.updatedAt }).from(bodyGoal).where(eq(bodyGoal.userId, userId)))[0] ?? null,
+    progressPhotos: await db.select({ id: progressPhoto.id, day: progressPhoto.takenOn, pose: progressPhoto.pose, width: progressPhoto.width, height: progressPhoto.height, createdAt: progressPhoto.createdAt }).from(progressPhoto).where(eq(progressPhoto.userId, userId)).orderBy(progressPhoto.takenOn),
     privacyRequests: await db.select({ kind: privacyRequest.kind, status: privacyRequest.status, createdAt: privacyRequest.createdAt, resolvedAt: privacyRequest.resolvedAt }).from(privacyRequest).where(eq(privacyRequest.userId, userId)),
   };
   await audit(db, { actorUserId: userId, action: "privacy.export", resourceType: "user", resourceId: userId });

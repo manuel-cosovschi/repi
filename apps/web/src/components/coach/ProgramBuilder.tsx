@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatRest, parseRest } from "@repi/domain";
 import { api } from "@/lib/api";
-import { ApprovedSubs, subsLabel, useSubstitutions } from "./ApprovedSubs";
+import { ApprovedSubs, subsLabel, subsRow, useSubsPanel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
 import { Modal } from "@/components/ui/Modal";
 import { featureOn } from "@/lib/features";
@@ -34,12 +34,13 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   // D154: en la copia de un cliente, lo que hizo la última vez en cada ejercicio (para la carga sugerida).
   const lastTimes = useLastTimes(prog?.kind === "client_copy" ? `/api/coach/${orgId}/programs/${prog.id}/last` : null, doc?.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)) ?? []);
   const [day, setDay] = useState(0);
+  // D201 (Urko): el panel de reemplazos es de este programa y este día; cambiar de programa o de día lo cierra.
+  const subsPanel = useSubsPanel(`${orgId}|${prog?.id ?? ""}|${day}`);
   const [lib, setLib] = useState<LibEx[]>([]);
   const [libQ, setLibQ] = useState("");
   const [save, setSave] = useState<Save>({ s: "idle" });
   const [assign, setAssign] = useState(false);
   const [del, setDel] = useState(false);
-  const [subsFor, setSubsFor] = useState<string | null>(null); // ejercicio con el panel de reemplazos abierto
   const { subs, setSubs } = useSubstitutions(orgId);
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -276,14 +277,14 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             <div className="exhead" aria-hidden="true"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Descanso</span><span className="c-act" /></div>
             {(() => { const labels = groupLabels(cur.exercises); return cur.exercises.map((e, i) => (
               <div key={`${prog?.id}-${prog?.version}-${day}-${i}-${e.exerciseId}`}>
-                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsFor === `${i}:${e.exerciseId}`}
-                  onSubs={() => setSubsFor((v) => (v === `${i}:${e.exerciseId}` ? null : `${i}:${e.exerciseId}`))}
+                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsPanel.isOpen(subsRow(i, e.exerciseId))}
+                  onSubs={() => subsPanel.toggle(subsRow(i, e.exerciseId))}
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
                   onDetail={(p) => saveDetail(i, p)}
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
                 <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />
-                {subsFor === `${i}:${e.exerciseId}` && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} />}
+                {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} onAdded={subsPanel.close} />}
               </div>
             )); })()}
             {!cur.exercises.length && <div className="empty" role="note">Este día no tiene ejercicios: hasta que los agregues desde la biblioteca, no aparece para empezar (D185).</div>}

@@ -29,7 +29,10 @@ import { PresenceChip, PresenceSheet, type GymPresence } from "./Presence";
 import { FloorNow } from "./FloorNow";
 import { BeforeRepi } from "./HistoryImport";
 import { HistoryList, HistorySession, type HistoryItem } from "./History";
-import { resetHints } from "./Hint";
+import { resetHints, useHintSeen } from "./Hint";
+import { ProgressTraining } from "./ProgressTraining";
+import { BodyWeight } from "./BodyWeight";
+import { ProgressPhotos } from "./ProgressPhotos";
 import { Wishes } from "./Wishes";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
@@ -51,8 +54,10 @@ type Inbox = {
   gymUnseen: number;
 };
 // Centro de notificaciones (F-NT-01, D94). El servidor arma la lista; el aviso de programa se suma acá desde el programa.
-type NotifDest = { tab: "home" | "msgs" | "perfil" } | { tab: "gym"; gymTab: "news" | "ch" | "logros" } | { tab: "review"; invite: Inbox["reviewInvites"][number] };
-type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean };
+type ProgSeg = "train" | "body" | "photos" | "hist";
+type NotifDest = { tab: "home" | "msgs" | "perfil" | "train" } | { tab: "prog"; seg?: "train" | "body" | "photos" } | { tab: "gym"; gymTab: "news" | "ch" | "logros" } | { tab: "review"; invite: Inbox["reviewInvites"][number] };
+// origin «repi»: novedad del producto (D202), distinta de los avisos del gimnasio o del coach.
+type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean; origin?: "repi"; cta?: string | null };
 type Feed = { items: Notif[]; unread: number; seenAt: string | null };
 type SheetState = null | { type: "checkin"; dayId: string } | { type: "pain" } | { type: "help"; kind?: RequestKind; to?: "coach" | "gym" } | { type: "injury" } | { type: "review"; invite: Inbox["reviewInvites"][number] }
   | { type: "connect"; context?: ConnectContext | null } | { type: "connectPanel"; id?: string | null } | { type: "presence"; dayId?: string };
@@ -64,6 +69,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [day, setDay] = useState<number | null>(null);
   const [workout, setWorkout] = useState<string | null>(null);
   const [hist, setHist] = useState<History | null>(null);
+  const [progSeg, setProgSeg] = useState<ProgSeg>("train"); // PP1: sección de Progreso (también desde una novedad)
   const [toast, setToast] = useState<string | null>(null);
   // D166: trofeos nuevos se muestran con su desbloqueo 3D al abrir la app o al volver de entrenar. En la demo no salta
   // solo (taparía la guía): se ve tocando un trofeo de la vitrina.
@@ -202,6 +208,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (d.tab === "review") { setSheet({ type: "review", invite: d.invite }); return; }
     go(d.tab);
     if (d.tab === "gym") setGymTab(d.gymTab);
+    if (d.tab === "prog") setProgSeg(d.seg ?? "train");
   };
   // Con el programa institucional activo, quien indica es el equipo de sala (D11).
   const coachFirst = t?.relation?.kind === "gym" ? "el equipo de sala" : t?.coach?.name.split(" ")[0] ?? "tu coach";
@@ -333,7 +340,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
               own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
-            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} />}
+            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
             {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
@@ -435,7 +442,7 @@ function NotifSheet({ items, offline, loaded, onPick, onClose }: { items: Notif[
             <li key={n.id}>
               <button type="button" className="notif" onClick={() => onPick(n.dest)}>
                 <span className="notif-dot" style={{ background: TONE[n.tone] }} aria-hidden="true" />
-                <span className="notif-txt"><b>{n.title}</b><small>{n.body}</small></span>
+                <span className="notif-txt"><b>{n.origin === "repi" && <span className="notif-origin">REPI</span>}{n.title}</b><small>{n.body}</small>{n.cta && <span className="notif-cta">{n.cta} →</span>}</span>
                 <span className="notif-at">{n.unread && <span className="sr-only">Sin leer · </span>}{whenTxt(n.at)}{n.unread && <i className="notif-new" aria-hidden="true" />}</span>
               </button>
             </li>
@@ -717,7 +724,16 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
   );
 }
 
-function Progress({ t, hist, err, retry, onChanged, flash, offline }: { t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean }) {
+// PP1 (D199, D200): «Nuevo» en las secciones recién incorporadas. Se va al abrirlas o, para todos, al vencer esta fecha.
+const PP1_NEW_UNTIL = "2027-01-31";
+function NewTag({ id, open }: { id: "new_progress_body" | "new_progress_photos"; open: boolean }) {
+  const [seen, mark] = useHintSeen(id);
+  useEffect(() => { if (open && seen === false) mark(); }, [open, seen]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (seen !== false || open || new Date().toISOString().slice(0, 10) > PP1_NEW_UNTIL) return null;
+  return <span className="pp-new">Nuevo</span>;
+}
+
+function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg }: { t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
   const [open, setOpen] = useState<string | null>(null);
@@ -729,34 +745,50 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline }: { t: Train
   }
   const entries = [...weeks.entries()].reverse().slice(-8);
   const max = Math.max(1, ...entries.map((e) => e[1]));
+  const segs = ([["train", "Entrenamiento"], ...(featureOn("body_weight") ? [["body", "Mi cuerpo"]] : []), ...(featureOn("progress_photos") ? [["photos", "Fotos"]] : []), ["hist", "Historial"]] as [ProgSeg, string][]);
+  const cur = segs.some(([k]) => k === seg) ? seg : "train";
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Progreso</h1>
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2>Volumen por semana</h2>
-        {entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
-          <div className="volbars" role="img" aria-label={`Volumen semanal: ${entries.map(([k, v]) => `${k} ${volumeIn(v, unit).toLocaleString("es-AR")} ${unit}`).join(", ")}`}>
-            {entries.map(([k, v]) => <div key={k}><i style={{ height: `${(v / max) * 100}%` }} /><span>{k}</span></div>)}
-          </div>
-        )}
-        <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
-      </section>
-      {!offline && <LevelPanel />}
-      <MyGoals />
-      <BeforeRepi flash={flash} offline={offline} />
-      <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
-      <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <h2>Historial</h2>
-        {err ? <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu historial (necesita conexión). <button type="button" className="linkbtn" onClick={retry}>Reintentar</button></span>
-          : !hist ? (rv.ambient ? <Ambient label="Cargando tu historial" /> : null)
-          : !hist.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no completaste entrenamientos.</span> : (
-          <div className={rv.leaving ? "m03-in" : undefined} style={{ position: "relative" }}>{rv.leaving && <Ambient label="Cargando tu historial" leaving />}
-            <HistoryList items={hist} onOpen={setOpen} />
-          </div>
-        )}
-      </section>
-      {open && <HistorySession id={open} flash={flash} offline={offline} onClose={() => setOpen(null)} onChanged={onChanged} />}
-      {t.stats.weekDone === 0 && <span className="mb-muted" style={{ fontSize: 13 }}>Fuerza, constancia y medidas se agregan en la Etapa 4.</span>}
+      <div className="gtabs" role="tablist" aria-label="Secciones de Progreso">
+        {segs.map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={cur === k} onClick={() => setSeg(k)}>{l}
+            {k === "body" && <NewTag id="new_progress_body" open={cur === "body"} />}{k === "photos" && <NewTag id="new_progress_photos" open={cur === "photos"} />}</button>
+        ))}
+      </div>
+      {cur === "train" && (
+        <>
+          {featureOn("progress") && <ProgressTraining onOpenSession={setOpen} offline={offline} />}
+          <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <h2>Volumen por semana</h2>
+            {entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
+              <div className="volbars" role="img" aria-label={`Volumen semanal: ${entries.map(([k, v]) => `${k} ${volumeIn(v, unit).toLocaleString("es-AR")} ${unit}`).join(", ")}`}>
+                {entries.map(([k, v]) => <div key={k}><i style={{ height: `${(v / max) * 100}%` }} /><span>{k}</span></div>)}
+              </div>
+            )}
+            <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
+          </section>
+          {!offline && <LevelPanel />}
+          <MyGoals />
+          <BeforeRepi flash={flash} offline={offline} />
+          <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
+        </>
+      )}
+      {cur === "body" && <BodyWeight flash={flash} offline={offline} />}
+      {cur === "photos" && <ProgressPhotos flash={flash} offline={offline} />}
+      {cur === "hist" && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <h2>Historial</h2>
+          {err ? <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu historial (necesita conexión). <button type="button" className="linkbtn" onClick={retry}>Reintentar</button></span>
+            : !hist ? (rv.ambient ? <Ambient label="Cargando tu historial" /> : null)
+            : !hist.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Todavía no completaste entrenamientos.</span> : (
+            <div className={rv.leaving ? "m03-in" : undefined} style={{ position: "relative" }}>{rv.leaving && <Ambient label="Cargando tu historial" leaving />}
+              <HistoryList items={hist} onOpen={setOpen} />
+            </div>
+          )}
+        </section>
+      )}
+      {open && <HistorySession id={open} flash={flash} offline={offline} onClose={() => setOpen(null)} onChanged={onChanged} onRegisterWeight={featureOn("body_weight") ? () => { setOpen(null); setSeg("body"); } : undefined} />}
     </>
   );
 }

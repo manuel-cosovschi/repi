@@ -9,6 +9,11 @@ export const FEATURES = {
   club: { on: true, what: "Repi Club del gimnasio: publicaciones voluntarias, ranking y moderación" },
   nutrition: { on: false, what: "Pestaña Nutrición en la ficha del coach: falta la carga desde la app del alumno" },
   body: { on: false, what: "Mi cuerpo (Body Intelligence): faltan registro de medidas y fotos, y el visor" },
+  progress: { on: true, what: "Progreso 1.0: resumen del período y evolución por ejercicio (fuerza, cargas, repeticiones, volumen y récords) desde el historial (D199)" },
+  body_weight: { on: true, what: "Mi cuerpo: peso corporal, objetivo y su gráfico. Privado del alumno; no se ofrece a menores (D199)" },
+  calories: { on: false, what: "Calorías estimadas por entrenamiento (rango con MET del Compendium). Apagado hasta validar la metodología con el titular (D199)" },
+  progress_photos: { on: false, what: "Fotos de progreso privadas con comparador. Apagado hasta el control de permisos en producción (D200)" },
+  announcements: { on: false, what: "Novedades de REPI en la campanita y en coach/gimnasio, publicadas desde REPI Admin. Apagado hasta el control en producción (D202)" },
   exercise_video: { on: true, what: "Cómo se hace cada ejercicio en la sesión: video o enlace del gimnasio o del coach (D164); si no hay, búsqueda en YouTube" },
 } as const;
 export type Feature = keyof typeof FEATURES;
@@ -22,8 +27,14 @@ export function parseFeatures(raw: string | undefined): Partial<Record<Feature, 
   }
   return out;
 }
-const OVERRIDES = parseFeatures(process.env.NEXT_PUBLIC_REPI_FEATURES);
-export const featureOn = (f: Feature) => OVERRIDES[f] ?? FEATURES[f].on;
+// Se lee en cada consulta (en el navegador Next la reemplaza por el valor del build; en el servidor y en las pruebas sigue
+// la variable de entorno vigente).
+let memo: { raw: string | undefined; o: Partial<Record<Feature, boolean>> } | null = null;
+export const featureOn = (f: Feature) => {
+  const raw = process.env.NEXT_PUBLIC_REPI_FEATURES;
+  if (!memo || memo.raw !== raw) memo = { raw, o: parseFeatures(raw) };
+  return memo.o[f] ?? FEATURES[f].on;
+};
 
 // Consentimientos que dependen de un módulo (D117): con el módulo apagado no se ofrecen. Lo ya compartido se sigue mostrando
 // donde el alumno administra su privacidad, para que pueda revocarlo.
