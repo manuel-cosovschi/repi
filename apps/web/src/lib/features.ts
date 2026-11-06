@@ -11,9 +11,9 @@ export const FEATURES = {
   body: { on: false, what: "Mi cuerpo (Body Intelligence): faltan registro de medidas y fotos, y el visor" },
   progress: { on: true, what: "Progreso 1.0: resumen del período y evolución por ejercicio (fuerza, cargas, repeticiones, volumen y récords) desde el historial (D199)" },
   body_weight: { on: true, what: "Mi cuerpo: peso corporal, objetivo y su gráfico. Privado del alumno; no se ofrece a menores (D199)" },
-  calories: { on: false, what: "Calorías estimadas por entrenamiento (rango con MET del Compendium). Apagado hasta validar la metodología con el titular (D199)" },
-  progress_photos: { on: false, what: "Fotos de progreso privadas con comparador. Apagado hasta el control de permisos en producción (D200)" },
-  announcements: { on: false, what: "Novedades de REPI en la campanita y en coach/gimnasio, publicadas desde REPI Admin. Apagado hasta el control en producción (D202)" },
+  calories: { on: true, what: "Calorías estimadas por entrenamiento (rango con MET del Compendium), sólo adultos confirmados y con peso registrado (D199, D203)" },
+  progress_photos: { on: true, what: "Fotos de progreso privadas con comparador, sólo adultos confirmados; tope de Storage 800 MB y 150 MB por persona (D200, LB-11)" },
+  announcements: { on: true, what: "Novedades de REPI en la campanita y en coach/gimnasio, publicadas desde REPI Admin (D202)" },
   exercise_video: { on: true, what: "Cómo se hace cada ejercicio en la sesión: video o enlace del gimnasio o del coach (D164); si no hay, búsqueda en YouTube" },
 } as const;
 export type Feature = keyof typeof FEATURES;

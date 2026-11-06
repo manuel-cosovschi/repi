@@ -14,9 +14,9 @@ Un módulo apagado no se muestra: no hay botones hacia pantallas vacías ni capa
 | `body` | apagado | Pestaña «Mi cuerpo» en la ficha del coach | Body Intelligence sin implementar (BI-1) |
 | `progress` | encendido | Progreso › Entrenamiento: resumen del período y evolución por ejercicio (D199) | Lee el historial existente; sin datos nuevos |
 | `body_weight` | encendido | Progreso › Mi cuerpo: peso corporal, objetivo y gráfico (D199) | Privado del alumno; requiere 0046 aplicada |
-| `calories` | **apagado** | Calorías estimadas al terminar y en el historial (D199) | Hasta que el titular apruebe la metodología (docs/PERSONAL_PROGRESS_BODY_TRACKING_1.md §7) |
-| `progress_photos` | **apagado** | Progreso › Fotos: galería privada y comparador (D200). La API responde 404 apagado | Hasta el control de permisos en producción y LB-11 (Storage y respaldo) |
-| `announcements` | **apagado** | Novedades de REPI en la campanita, coach y gimnasio; publicar desde REPI Admin (D202). Apagado: nadie las ve y no se publican | Hasta el control en producción |
+| `calories` | encendido (06/11) | Calorías estimadas al terminar y en el historial (D199): rango con MET del Compendium, sólo adultos confirmados con peso registrado; sin peso o sin edad no se estima | Metodología revisada en la publicación (§7) |
+| `progress_photos` | encendido (06/11) | Progreso › Fotos: galería privada y comparador (D200). La API responde 404 apagado. Tope de Storage: 800 MB de archivos vigentes (`REPI_STORAGE_BUDGET_BYTES`) y 150 MB por persona | Permisos comprobados en producción; respaldo en partes (LB-11) |
+| `announcements` | encendido (06/11) | Novedades de REPI en la campanita, coach y gimnasio; publicar desde REPI Admin (D202). Sin novedades publicadas no aparece nada | Audiencia y campanita comprobadas en producción sin publicar a personas reales |
 | `exercise_video` | apagado | Recuadro de video en la sesión activa | Faltan medios licenciados |
 
 ## Cambiar sin tocar código
