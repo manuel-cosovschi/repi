@@ -8,8 +8,8 @@ export type ImportSet = { day: string; exercise: string; weightKg: number | null
 export type NormalizedSet = ImportSet & { setIndex: number };
 export type ImportSummary = { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
 
-export const IMPORT_MAX_SETS = 5000;
-export const IMPORT_MAX_TEXT_LENGTH = 400_000;
+export const IMPORT_MAX_SETS = 100_000;
+export const IMPORT_MAX_TEXT_LENGTH = 1_000_000;
 export const IMPORT_MIN_DAY = "1990-01-01";
 
 export type HistoryTextChunk = { text: string; context: string };
@@ -159,7 +159,11 @@ export function summarize(sets: { day: string; exercise: string }[]): ImportSumm
 /** Evolución por ejercicio: primera marca, mejor marca (más peso; a igual peso, más repeticiones) y última. */
 export function exerciseEvolution(sets: { day: string; exercise: string; weightKg: number | null; reps: number | null; seconds: number | null }[]) {
   const by = new Map<string, typeof sets>();
-  for (const s of sets) { const k = s.exercise; by.set(k, [...(by.get(k) ?? []), s]); }
+  for (const s of sets) {
+    const rows = by.get(s.exercise);
+    if (rows) rows.push(s);
+    else by.set(s.exercise, [s]);
+  }
   const better = (a: (typeof sets)[number], b: (typeof sets)[number]) => (a.weightKg ?? 0) > (b.weightKg ?? 0) || ((a.weightKg ?? 0) === (b.weightKg ?? 0) && ((a.reps ?? 0) > (b.reps ?? 0) || (a.seconds ?? 0) > (b.seconds ?? 0)));
   return [...by.entries()].map(([exercise, xs]) => {
     const sorted = [...xs].sort((a, b) => a.day.localeCompare(b.day));

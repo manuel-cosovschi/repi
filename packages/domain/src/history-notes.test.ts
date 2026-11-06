@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { parseHistoryNotes } from "./history-notes";
+import { parseHistoryNotes, partitionHistoryNotes } from "./history-notes";
 
 const today = "2026-11-06";
 const read = (text: string) => parseHistoryNotes(text, today);
 
 describe("lectura rápida y completa de notas de entrenamiento", () => {
   it("lee el formato de la captura, hasta la última repetición, sin convertir ladrillos en kg", () => {
-    const parsed = read("12/03/2024\nPress plano (105kg)\n5;5;5;4\nPress inclinado80kg\n6;5;5;5\nPolea (5 ladrillos)\n17;16;13")!;
+    const parsed = read("12/03/2024\nPress plano (105kg)\n5;5;5;4\nPress inclinado80kg\n6;5;5;5\nPolea (5 ladrillos)\n17;16;1")!;
     expect(parsed.sets).toHaveLength(11);
     expect(parsed.sets.slice(0, 4).map((set) => [set.exercise, set.weightKg, set.reps])).toEqual([
       ["Press plano", 105, 5], ["Press plano", 105, 5], ["Press plano", 105, 5], ["Press plano", 105, 4],
     ]);
-    expect(parsed.sets.at(-1)).toEqual({ day: "2024-03-12", exercise: "Polea", weightKg: null, reps: 13, seconds: null });
+    expect(parsed.sets.at(-1)).toEqual({ day: "2024-03-12", exercise: "Polea", weightKg: null, reps: 1, seconds: null });
     expect(parsed.notes).toEqual([expect.stringContaining("5 ladrillos")]);
   });
 
@@ -120,5 +120,59 @@ describe("lectura rápida y completa de notas de entrenamiento", () => {
 
   it("una expansión abusiva vuelve al lector completo; no devuelve un subconjunto", () => {
     expect(read("12/03/2024\nPress 200x10 80kg\n" + "200x10\n".repeat(1000))).toBeNull();
+  });
+});
+
+describe("partición de historial con fechas resueltas una sola vez", () => {
+  it("aísla una sesión ambigua y conserva sus líneas originales y el año de las abreviadas", () => {
+    const parsed = partitionHistoryNotes("31/12/2023\nPress 1x5 80kg\n01/01\nRemo 1x10 20kg\nMe dolió el hombro\n02/01/2024\nPress 1x4 80kg", today)!;
+    expect(parsed.blocks.map((block) => block.day)).toEqual(["2023-12-31", "2024-01-01", "2024-01-02"]);
+    expect(parsed.blocks.map((block) => block.parsed !== null)).toEqual([true, false, true]);
+    expect(parsed.blocks[1].text).toBe("2024-01-01\nRemo 1x10 20kg\nMe dolió el hombro");
+    expect(parsed.blocks[2].parsed?.sets[0]).toMatchObject({ day: "2024-01-02", reps: 4 });
+  });
+
+  it("preserva todas las 16.800 series de tres años y deja sólo una sesión para interpretar", () => {
+    const source: string[] = [];
+    for (const year of [2023, 2024, 2025]) {
+      source.push(`Año: ${year}`);
+      for (let index = 0; index < 200; index++) {
+        const date = new Date(Date.UTC(year, 0, index + 1));
+        source.push(`${date.getUTCDate()}/${date.getUTCMonth() + 1}`);
+        for (let exercise = 0; exercise < 7; exercise++) source.push(`Press variante ${String.fromCharCode(65 + exercise)} (80kg)\n5;5;5;4`);
+        if (year === 2024 && index === 99) source.push("Observación: bajé el peso por molestia");
+      }
+    }
+    const partition = partitionHistoryNotes(source.join("\n"), today)!;
+    expect(partition.blocks).toHaveLength(600);
+    expect(partition.blocks.filter((block) => block.parsed === null)).toHaveLength(1);
+    expect(partition.blocks.reduce((count, block) => count + (block.parsed?.sets.length ?? 0), 0)).toBe(16_800 - 28);
+    expect(partition.blocks[0].day).toBe("2023-01-01");
+    expect(partition.blocks[299]).toMatchObject({ day: "2024-04-09", parsed: null });
+    expect(partition.blocks.at(-1)?.parsed?.sets.at(-1)).toMatchObject({ day: "2025-07-19", exercise: "Press variante G", reps: 4 });
+    // Al retirar únicamente la línea no interpretable, la sesión conserva sus 28 series.
+    const recovered = parseHistoryNotes(partition.blocks[299].text.replace(/\nObservación:.*$/, ""), today)!;
+    expect(recovered.sets).toHaveLength(28);
+    expect(recovered.sets[0].day).toBe("2024-04-09");
+  });
+
+  it("no descarta preámbulos ni inventa fechas frente a años ambiguos o inválidos", () => {
+    for (const source of [
+      "Mi historial\n12/03/2024\nPress 1x5 80kg",
+      "31/12\nPress 1x5 80kg\n01/01\nPress 1x4 80kg",
+      "2024\n12/03/2025\nPress 1x5 80kg",
+      "31/02/2024\nPress 1x5 80kg",
+      "12/03/2024\nPress 1x5 80kg\n2025",
+      "2024\n2025\n12/03\nPress 1x5 80kg",
+      "2024\nTítulo desconocido\n12/03\nPress 1x5 80kg",
+    ]) expect(partitionHistoryNotes(source, today), source).toBeNull();
+    expect(partitionHistoryNotes("12/03/2024\nPress 1x5 80kg", "inválido")).toBeNull();
+  });
+
+  it("normaliza bullets y consume encabezados de año sin anexarlos a la sesión anterior", () => {
+    const partition = partitionHistoryNotes("\uFEFF\r\n• Año: 2023\r\n• 31/12\r\n- Press 1x5 80kg\r\n2024\r\n01/01\r\nRemo 1x10 20kg", today)!;
+    expect(partition.blocks.map((block) => block.day)).toEqual(["2023-12-31", "2024-01-01"]);
+    expect(partition.blocks.every((block) => block.parsed !== null)).toBe(true);
+    expect(partition.blocks[0].text).not.toContain("2024");
   });
 });

@@ -6,6 +6,18 @@ Actualizado: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUB
 
 
 
+
+## Historial de varios años completo y reanudable — 06/11/2026
+
+Rama `fix/historial-varios-anios`, desde `163eb72` (PR #53 publicado). La prueba anterior de 4.800 series no cubría tres años: seguían los topes de 5.000 series en normalización y gráficos. Ahora se admiten 100.000 series y 1.000.000 de caracteres; superar el límite se rechaza sin habilitar una confirmación parcial. Los gráficos importados leen hasta 100.000 series recientes y señalan un corte real; no conservan sólo las primeras 5.000. Evolución agrupa con push para evitar copias cuadráticas.
+
+Las fechas se resuelven globalmente antes de partir el texto. Las sesiones claras se leen localmente; sólo las desconocidas se transcriben, conservando el orden. Una sola anotación desconocida no envía tres años a OpenAI. Los textos largos usan un único borrador por partes (hasta cuatro peticiones simultáneas, 60 s por lectura de parte): cada parte guarda sólo sus series y huella, con bloqueo para fusionar resultados concurrentes. Un reintento consulta qué partes llegaron y continúa; confirmar queda bloqueado hasta finalizar todas. Cancelar descarta el borrador y una respuesta tardía no lo revive. Sin texto fuente en DB ni almacenamiento del navegador; el plan de lectura queda en memoria mientras está abierto el diálogo. JSON/stream existentes se conservan para archivos pequeños y CSV.
+
+Pruebas locales: 39 de dominio y 42 de lector/cliente/trabajos (más integración DB en CI), TypeScript. Capacidad: 730 sesiones con fechas sintéticas distintas de 2023-01-01 a 2025-12-29, 21.900 series, última marca única retenida. Otra prueba repite el texto visible de la foto en fechas sintéticas: 8.030 series, sin completar el último `1` cortado de la imagen. Navegador móvil: 21.900 series, 16 partes, fallo transitorio, continuación sin repetir lo recibido, confirmación única y cancelación. La integración comprueba guardado y gráfico de 21.900 series de un mismo ejercicio para superar también el antiguo corte del gráfico.
+
+No hay migración SQL ni dependencias nuevas: los borradores usan el JSON existente de `history_import`, con fase de lectura/revisión, índices y huellas por parte. No se pudo recuperar el texto real del tercero; la evidencia del formato proviene sólo de la foto. Antes de afirmar que está publicado, comprobar PR de esta rama, CI y `/api/version`; medir una demo aislada de tres años y quitar la importación de prueba.
+
+
 ## Importación rápida y destino de las notas — 06/11/2026
 
 Rama `fix/importacion-rapida`, desde `f7f1f60` (corrección del recorte #52, ya publicada y verificada en repiclub.com). Notas claras con fecha se estructuran directamente, sin transcripción externa; las rutinas claras sin fechas van a la revisión editable de «Mis rutinas», sin guardado automático. Los formatos ambiguos conservan el lector completo. La salida IA agrupa repeticiones del mismo peso en arrays, con bloques de 12.000 caracteres y reintentos íntegros; evita generar un objeto por cada serie. Emparejamiento local por alias conservadores y fallback externo de hasta 5 s.

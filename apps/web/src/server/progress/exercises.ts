@@ -9,7 +9,7 @@
 // - Historial importado (D162) aparece como «importado», sin sesión de origen.
 // Sólo la persona dueña: todo filtra por user_id en el servidor; no hay parámetro de usuario.
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from "drizzle-orm";
-import { bestE1rm, localDate, rangeStart, volumeKg, type ProgressRange } from "@repi/domain";
+import { bestE1rm, localDate, rangeStart, volumeKg, IMPORT_MAX_SETS, type ProgressRange } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
 import { timedPeIds, toLogged } from "../training/services";
@@ -87,11 +87,16 @@ export async function myProgressExercises(userId: string, o: { q?: string | null
 export async function myExerciseProgress(userId: string, exerciseId: string, range: ProgressRange, now = new Date()) {
   const [ex] = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, orgId: exercise.orgId, ownerUserId: exercise.ownerUserId }).from(exercise).where(eq(exercise.id, exerciseId));
   if (!ex || (ex.ownerUserId && ex.ownerUserId !== userId)) throw NOT_FOUND();
-  const sets = await db.select({ l: setLog, s: { id: workoutSession.id, endedAt: workoutSession.endedAt, dayName: workoutSession.dayName } }).from(setLog)
+  const readSets = await db.select({ l: setLog, s: { id: workoutSession.id, endedAt: workoutSession.endedAt, dayName: workoutSession.dayName } }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
     .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), eq(setLog.exerciseId, exerciseId), isNull(setLog.voidedAt)))
-    .orderBy(desc(workoutSession.endedAt)).limit(EXERCISE_SET_CAP);
-  const imports = await db.select().from(historyEntry).where(and(eq(historyEntry.userId, userId), eq(historyEntry.exerciseId, exerciseId))).orderBy(asc(historyEntry.day)).limit(EXERCISE_SET_CAP);
+    .orderBy(desc(workoutSession.endedAt)).limit(EXERCISE_SET_CAP + 1);
+  // Los importados abarcan varios años y tienen su propio tope. El registro extra detecta un corte real;
+  // se conservan los más recientes y los puntos se ordenan cronológicamente después de agruparlos.
+  const readImports = await db.select().from(historyEntry).where(and(eq(historyEntry.userId, userId), eq(historyEntry.exerciseId, exerciseId)))
+    .orderBy(desc(historyEntry.day), desc(historyEntry.setIndex)).limit(IMPORT_MAX_SETS + 1);
+  const truncated = readSets.length > EXERCISE_SET_CAP || readImports.length > IMPORT_MAX_SETS;
+  const sets = readSets.slice(0, EXERCISE_SET_CAP), imports = readImports.slice(0, IMPORT_MAX_SETS);
   if (!sets.length && !imports.length) throw NOT_FOUND();
   const flags = await timedPeIds(sets.map((x) => x.l.programExerciseId));
 
@@ -125,7 +130,7 @@ export async function myExerciseProgress(userId: string, exerciseId: string, ran
   const points = from ? all.filter((p) => p.day >= from) : all;
   return {
     exercise: { id: ex.id, name: ex.name, group: ex.group, kind: ex.kind }, metric, range, from,
-    points, records: points.filter((p) => p.record).length, truncated: sets.length >= EXERCISE_SET_CAP,
+    points, records: points.filter((p) => p.record).length, truncated,
     totals: { sessions: points.length, sets: points.reduce((a, p) => a + p.sets, 0), volumeKg: r1(points.reduce((a, p) => a + p.volumeKg, 0)), firstDay: all[0]?.day ?? null },
     best: metric === "load" ? (() => { const b = points.filter((p) => p.e1rm != null).sort((a, c) => c.e1rm! - a.e1rm!)[0]; return b ? { day: b.day, e1rm: b.e1rm, set: b.best } : null; })() : null,
   };

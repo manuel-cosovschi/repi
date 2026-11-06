@@ -1,5 +1,5 @@
 // Historial anterior a REPI (D132): vista previa, confirmar, evolución, peso sugerido y quitar. Sin IA en las pruebas.
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
@@ -9,6 +9,7 @@ import { ensureExerciseCatalog } from "@/server/training/library";
 import { aiSoloAdvice } from "@/server/training/ai-coach";
 import { AccessError, resetRateLimits } from "@/server/access/util";
 import { myExerciseProgress, myProgressExercises } from "@/server/progress/exercises";
+import { createThreeYearHistory } from "../../../packages/domain/tests/fixtures/three-year-history";
 
 beforeAll(() => { delete process.env.OPENAI_API_KEY; });
 beforeEach(() => resetRateLimits());
@@ -23,6 +24,47 @@ async function verified(name = "Persona Historial") {
 const err = async (p: Promise<unknown>) => p.then(() => null, (e) => e as AccessError);
 
 describe("historial anterior", () => {
+  it("una vista previa antigua recortada no puede confirmarse como si estuviera completa", async () => {
+    const u = await verified();
+    const preview = await hi.previewHistoryImport(u, { fileName: "Historial antiguo", kind: "text", text: "Fecha,Ejercicio,Reps,Peso\n01/01/2024,Sentadilla,10,60" });
+    const [draft] = await db.select().from(schema.historyImport).where(eq(schema.historyImport.id, preview.id));
+    await db.update(schema.historyImport).set({ parsed: { ...(draft.parsed as object), capped: true } }).where(eq(schema.historyImport.id, preview.id));
+    await expect(hi.confirmHistoryImport(u, preview.id)).rejects.toMatchObject({ code: "incomplete" });
+    expect(await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.importId, preview.id))).toHaveLength(0);
+    await hi.removeHistoryImport(u, preview.id);
+  });
+
+  it("importa tres años y 21.900 series; el gráfico conserva también las posteriores a las primeras 5000", async () => {
+    await ensureExerciseCatalog();
+    const u = await verified("Historial de tres años");
+    const fixture = createThreeYearHistory();
+    // Todas las series pertenecen al mismo ejercicio para superar también el antiguo límite del gráfico por ejercicio.
+    const text = fixture.text.replace(/^(?:Press plano|Sentadilla|Remo|Peso muerto|Dominadas|Polea)(?= \()/gm, "Press de banca");
+    const p = await hi.previewHistoryImport(u, { fileName: "Tres años de notas", kind: "text", text });
+    try {
+      expect(p).toMatchObject({ source: "notes", capped: false, dropped: 0, summary: { sessions: 730, exercises: 1, sets: 21_900, from: "2023-01-01", to: "2025-12-29" } });
+      expect(p.sample[0].day).toBe("2025-12-29");
+      await hi.confirmHistoryImport(u, p.id);
+      await hi.confirmHistoryImport(u, p.id); // Un reintento tampoco duplica una importación grande.
+      const [stored] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.historyEntry).where(eq(schema.historyEntry.importId, p.id));
+      expect(stored.count).toBe(21_900);
+      const [last] = await db.select().from(schema.historyEntry).where(eq(schema.historyEntry.importId, p.id))
+        .orderBy(desc(schema.historyEntry.day), desc(schema.historyEntry.setIndex)).limit(1);
+      expect(last).toMatchObject({ day: "2025-12-29", weightKg: "99.75", reps: 17, setIndex: 29 });
+      const mine = await hi.myHistoryImports(u);
+      expect(mine.imports[0]).toMatchObject({ sets: 21_900, fromDay: "2023-01-01", toDay: "2025-12-29" });
+      expect(mine.evolution[0]).toMatchObject({ sessions: 730, first: { day: "2023-01-01" }, last: { day: "2025-12-29", weightKg: 99.75, reps: 17 } });
+      const list = await myProgressExercises(u);
+      const bench = list.exercises.find((exercise) => exercise.name === "Press de banca")!;
+      const graph = await myExerciseProgress(u, bench.id, "all");
+      expect(graph).toMatchObject({ truncated: false, totals: { sessions: 730, sets: 21_900, firstDay: "2023-01-01" } });
+      expect(graph.points[0].day).toBe("2023-01-01");
+      expect(graph.points.at(-1)).toMatchObject({ day: "2025-12-29", sets: 30, topKg: 99.75, repsAtTop: 17 });
+      expect((await hi.importedLastSets(u, [bench.id])).get(bench.id)).toEqual({ day: "2025-12-29", weightKg: 99.75, reps: 17 });
+    } finally { await hi.removeHistoryImport(u, p.id); }
+    expect((await hi.myHistoryImports(u)).imports).toHaveLength(0);
+  }, 60_000);
+
   it("notas del celular sin IA: las series completas alimentan progreso y pesos iniciales de la rutina", async () => {
     await ensureExerciseCatalog();
     const u = await verified();

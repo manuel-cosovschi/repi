@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { exerciseEvolution, importCanonical, importOverlap, normalizeImport, parseDay, parseHistoryCsv, splitHistoryText } from "./history-import";
+import { parseHistoryNotes } from "./history-notes";
+import { createThreeYearHistory, createThreeYearPhotoHistory } from "../tests/fixtures/three-year-history";
 
 describe("historial pegado · bloques completos", () => {
   const exactChunks = (text: string) => {
@@ -104,6 +106,30 @@ describe("historial anterior · lectura", () => {
 });
 
 describe("historial anterior · validación y evolución", () => {
+  it("conserva tres años sintéticos con el texto visible de la foto, sin completar el último 1", () => {
+    const fixture = createThreeYearPhotoHistory();
+    const parsed = parseHistoryNotes(fixture.text, "2026-11-06")!;
+    expect(parsed.sets).toEqual(fixture.sets);
+    expect(parsed.notes).toEqual([expect.stringContaining("5 ladrillos")]);
+    const normalized = normalizeImport(parsed.sets, "2026-11-06");
+    expect(normalized).toMatchObject({ capped: false, dropped: 0, summary: { sessions: 730, exercises: 3, sets: 8030, from: "2023-01-01", to: "2025-12-29" } });
+    expect(normalized.sets.at(-1)).toMatchObject({ day: "2025-12-29", exercise: "Polea", weightKg: null, reps: 1, setIndex: 2 });
+    expect(normalized.sets.slice(-3).map((set) => set.reps)).toEqual([17, 16, 1]);
+  });
+
+  it("conserva tres años calendario sintéticos y las 21.900 series, incluida la última marca", () => {
+    const fixture = createThreeYearHistory();
+    const parsed = parseHistoryNotes(fixture.text, "2026-11-06")!;
+    expect(parsed.sets).toEqual(fixture.sets);
+    const normalized = normalizeImport(parsed.sets, "2026-11-06");
+    expect(normalized).toMatchObject({ capped: false, dropped: 0, summary: { sessions: 730, exercises: 6, sets: 21_900, from: "2023-01-01", to: "2025-12-29" } });
+    expect(normalized.sets).toHaveLength(21_900);
+    expect(normalized.sets[0].day).toBe("2023-01-01");
+    expect(normalized.sets.at(-1)).toMatchObject({ day: "2025-12-29", exercise: "Polea", weightKg: 99.75, reps: 17, setIndex: 4 });
+    const evolution = exerciseEvolution(normalized.sets);
+    expect(evolution).toHaveLength(6);
+    expect(evolution.find((exercise) => exercise.exercise === "Polea")).toMatchObject({ sessions: 730, first: { day: "2023-01-01" }, last: { day: "2025-12-29", weightKg: 99.75, reps: 17 } });
+  });
   it("descarta lo imposible, numera series y resume", () => {
     const r = normalizeImport([
       { day: "2024-03-01", exercise: "sentadilla", weightKg: 60, reps: 10, seconds: null },

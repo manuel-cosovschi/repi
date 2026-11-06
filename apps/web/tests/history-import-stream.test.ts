@@ -31,3 +31,135 @@ describe("historial · progreso transmitido", () => {
     } finally { fetchMock.mockRestore(); }
   });
 });
+
+describe("historial largo · peticiones reanudables", () => {
+  it("retoma desde el estado del servidor, no reenvía partes recibidas y prepara una sola vista previa completa", async () => {
+    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+    const parts = Array.from({ length: 7 }, (_, index) => ({ text: `2024-01-0${index + 1}\nPress plano 4x10 50kg`, context: "" }));
+    const completed = new Set<number>();
+    const calls = new Map<number, number>();
+    let starts = 0, statuses = 0, finishes = 0, fail = true;
+    const status = () => ({ id: "job", completed: [...completed], total: parts.length, phase: "reading" });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (path, init) => {
+      const url = String(path);
+      if (url === "/api/me/history-import-job") { starts++; return Response.json(status()); }
+      if (url.endsWith("/status")) { statuses++; return Response.json(status()); }
+      if (url.endsWith("/part")) {
+        const { index, text, context } = JSON.parse(String(init?.body));
+        expect(text).toBe(parts[index].text); expect(context).toBe(parts[index].context);
+        calls.set(index, (calls.get(index) ?? 0) + 1);
+        if (index === 1 && fail) { fail = false; return Response.json({ error: "Falló esta parte", code: "unavailable" }, { status: 503 }); }
+        completed.add(index); return Response.json(status());
+      }
+      if (url.endsWith("/finish")) { expect(completed.size).toBe(parts.length); finishes++; return Response.json({ id: "preview", sets: 28 }); }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    try {
+      const job = new HistoryImportReadJob<{ id: string; sets: number }>("Tres años.txt", parts, parts.map((p) => p.text).join("\n"));
+      await expect(job.read(() => {})).rejects.toMatchObject({ code: "unavailable" });
+      expect(finishes).toBe(0);
+      const saved = [...completed], priorCalls = new Map(calls);
+      const progress = vi.fn();
+      expect(await job.read(progress)).toEqual({ id: "preview", sets: 28 });
+      expect(starts).toBe(1); expect(statuses).toBe(1); expect(finishes).toBe(1);
+      for (const index of saved) expect(calls.get(index)).toBe(priorCalls.get(index));
+      expect(calls.get(1)).toBe(2);
+      expect(progress).toHaveBeenCalledWith({ stage: "reading", completed: 7, total: 7 });
+      await job.read(() => {});
+      expect(finishes).toBe(1); // doble toque después del éxito tampoco crea otra vista previa
+    } finally { fetchMock.mockRestore(); }
+  });
+
+  it("cancela las peticiones en curso y permite descartar el borrador sin preparar ni confirmar datos", async () => {
+    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+    let started!: () => void;
+    const partStarted = new Promise<void>((resolve) => { started = resolve; });
+    let removed = false, finishes = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (path, init) => {
+      const url = String(path);
+      if (url === "/api/me/history-import-job") return Response.json({ id: "cancel-job", completed: [], total: 1, phase: "reading" });
+      if (url.endsWith("/part")) return new Promise<Response>((_resolve, reject) => { started(); init!.signal!.addEventListener("abort", () => reject(new DOMException("Cancelado", "AbortError")), { once: true }); });
+      if (url.endsWith("/remove")) { removed = true; return Response.json({ ok: true }); }
+      if (url.endsWith("/finish")) finishes++;
+      throw new Error(`Unexpected request ${url}`);
+    });
+    try {
+      const job = new HistoryImportReadJob("notas.txt", [{ text: "texto", context: "" }], "texto");
+      const controller = new AbortController();
+      const reading = job.read(() => {}, controller.signal);
+      await partStarted; controller.abort();
+      await expect(reading).rejects.toMatchObject({ name: "AbortError" });
+      await job.remove();
+      expect(removed).toBe(true); expect(finishes).toBe(0);
+    } finally { fetchMock.mockRestore(); }
+  });
+
+  it("un finish cuya respuesta se perdió se puede repetir usando el mismo borrador completo", async () => {
+    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+    let finishes = 0, parts = 0, starts = 0;
+    const status = { id: "complete", completed: [0], total: 1, phase: "review" };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (path) => {
+      const url = String(path);
+      if (url === "/api/me/history-import-job") { starts++; return Response.json(status); }
+      if (url.endsWith("/status")) return Response.json(status);
+      if (url.endsWith("/part")) parts++;
+      if (url.endsWith("/finish")) { if (++finishes === 1) throw new TypeError("Respuesta perdida"); return Response.json({ id: "same-preview" }); }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    try {
+      const job = new HistoryImportReadJob("notas.txt", [{ text: "texto", context: "" }], "texto");
+      await expect(job.read(() => {})).rejects.toMatchObject({ code: "network" });
+      expect(await job.read(() => {})).toEqual({ id: "same-preview" });
+      expect(starts).toBe(1); expect(parts).toBe(0); expect(finishes).toBe(2);
+    } finally { fetchMock.mockRestore(); }
+  });
+});
+
+describe("historial largo · límites por petición", () => {
+  it("mantiene como máximo cuatro peticiones de partes simultáneas", async () => {
+    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+    let ready!: () => void;
+    const firstWave = new Promise<void>((resolve) => { ready = resolve; });
+    const completed = new Set<number>(), release: (() => void)[] = [];
+    let active = 0, maximum = 0, immediate = false;
+    const status = () => ({ id: "parallel", total: 9, completed: [...completed], phase: "reading" });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (path, init) => {
+      if (String(path) === "/api/me/history-import-job") return Response.json(status());
+      if (String(path).endsWith("/finish")) return Response.json({ id: "parallel" });
+      const { index } = JSON.parse(String(init?.body));
+      active++; maximum = Math.max(maximum, active);
+      if (active === 4) ready();
+      return new Promise<Response>((resolve) => {
+        const finish = () => { completed.add(index); active--; resolve(Response.json(status())); };
+        if (immediate) finish(); else release.push(finish);
+      });
+    });
+    try {
+      const job = new HistoryImportReadJob("notas.txt", Array.from({ length: 9 }, () => ({ text: "texto", context: "" })), "texto");
+      const reading = job.read(() => {});
+      await firstWave; expect(active).toBe(4);
+      immediate = true; release.forEach((finish) => finish());
+      await reading;
+      expect(maximum).toBe(4); expect(completed.size).toBe(9);
+    } finally { fetchMock.mockRestore(); }
+  });
+  it("corta una parte que no responde y deja el borrador disponible para continuar", async () => {
+    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+    vi.useFakeTimers();
+    let started!: () => void;
+    const partStarted = new Promise<void>((resolve) => { started = resolve; });
+    let finishCalls = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (path, init) => {
+      if (String(path) === "/api/me/history-import-job") return Response.json({ id: "timeout", total: 1, completed: [], phase: "reading" });
+      if (String(path).endsWith("/finish")) finishCalls++;
+      return new Promise<Response>((_resolve, reject) => { started(); init!.signal!.addEventListener("abort", () => reject(new DOMException("Cancelado", "AbortError")), { once: true }); });
+    });
+    try {
+      const job = new HistoryImportReadJob("notas.txt", [{ text: "texto", context: "" }], "texto");
+      const reading = job.read(() => {});
+      const rejection = expect(reading).rejects.toMatchObject({ code: "timeout", status: 408 });
+      await partStarted; await vi.advanceTimersByTimeAsync(75_001); await rejection;
+      expect(finishCalls).toBe(0);
+    } finally { fetchMock.mockRestore(); vi.useRealTimers(); }
+  });
+});
