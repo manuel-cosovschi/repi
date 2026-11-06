@@ -1,8 +1,9 @@
 # REPI — Personal Progress & Body Tracking 1.0 + Product Updates & Trainer UX
 
-**Bloque:** posterior a la serie 01/06–06/06. **Decisiones:** D199 (progreso, peso y calorías), D200 (fotos privadas), D201 (corrección de Urko), D202 (novedades de REPI) y D203 (edad desconocida no es adulta, §6.1).
+**Bloque:** posterior a la serie 01/06–06/06. **Estado: PUBLICADO Y VERIFICADO en producción el 06/11/2026** (`fe469cb`; 0046 aplicada; calorías, fotos y novedades encendidas). Detalle de la publicación y del smoke en docs/continuidad/PROXIMA_SESION.md.
+**Decisiones:** D199 (progreso, peso y calorías), D200 (fotos privadas), D201 (corrección de Urko), D202 (novedades de REPI), D203 (edad desconocida no es adulta, §6.1) y D204 (tope de Storage y respaldo en partes, §8.5).
 **Rama:** `feat/repi-personal-progress-1`, creada desde `main` `8f158b1`.
-**Migración:** `0046_personal_progress` (aditiva). **No está aplicada en producción** y no hay despliegue sin autorización del titular.
+**Migración:** `0046_personal_progress` (aditiva), aplicada en producción el 06/11/2026 con `hosted-0046.sql`, después del respaldo verificado `backup-20261106-012447-42143409784`.
 
 ## 1. Objetivo
 

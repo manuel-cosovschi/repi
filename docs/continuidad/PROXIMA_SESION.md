@@ -1,10 +1,79 @@
 # REPI — Retomar acá
 
-Actualizado: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
-## Personal Progress & Body Tracking 1.0 + Product Updates & Trainer UX (D199–D202) — 06/11/2026 · EN REVISIÓN, SIN PUBLICAR
+## Personal Progress & Body Tracking 1.0 (D199–D204) — 06/11/2026 · PUBLICADO Y VERIFICADO
+
+**Producción:** `fe469cb05991` (repiclub.com `/api/version`). Vercel en verde para `8efa596` (#43), `c99b582` (#45) y `fe469cb` (#46). La conexión MCP de Vercel sigue con 403 para el equipo, así que el estado se verificó con los estados de despliegue en GitHub y `/api/version`.
+
+### Publicación (autorizada por el titular)
+1. **Respaldo previo:** issue #44 → corrida 42143409784 en verde → `backup-20261106-012447-42143409784`.
+   - 104 tablas, 7268 filas, 46 migraciones y 1 archivo de Storage.
+   - Cifrado con la clave del titular; descifrado, hashes del manifiesto y restauración en PostgreSQL descartable: 278 claves foráneas sin huérfanos y 0 restricciones sin validar.
+   - Señal al vigilante registrada (01:24 UTC): `armed: true`.
+2. **0046 aplicada** (~01:27 UTC) con `hosted-0046.sql`, en una transacción como `repi_app`.
+   - 47 migraciones; la última es `322f74f7…` (`when` 1793922541616), sin hashes duplicados.
+   - Las 5 tablas son de `repi_app`, con RLS sin `FORCE`. `anon` y `authenticated` no tienen permisos; `repi_backup` sólo lectura (privilegios por defecto).
+   - Columnas, las 25 restricciones (todas validadas) e índices: hash idéntico al de la base local migrada desde el código.
+   - RLS en las 109 tablas de `public`. El permiso temporal de `postgres` sobre `repi_app` quedó revocado.
+3. **Huella de datos reales** (sin demos), igual antes y después de migrar y después de todas las pruebas (13:30 UTC):
+   - `set_log` 217 y `workout_session` 22 (los anteriores a la publicación);
+   - programas 41, versiones 64 y objetivos de Training Intelligence 94, con hashes idénticos.
+   - Ninguna persona real tiene peso, fotos ni novedades: 0 novedades en la base.
+4. **PR #43 integrado** (squash) como `8efa596`.
+   - Incluye D203 y el commit `062f5dc`, con el respaldo en partes y el tope de Storage (LB-11).
+   - CI y autoprueba en verde. La autoprueba ensayó 3 partes, la restauración y el rechazo de una parte alterada o faltante.
+5. **PR #45** (`c99b582`): `calories`, `progress_photos` y `announcements` encendidos por defecto.
+   - Una prueba suponía que vacío = apagado; ahora apaga el módulo explícitamente, sin cambiar lo que verifica.
+   - La primera corrida de CI se colgó 25 min creando la base del runner. No se pudo relanzar (403 de la integración), así que el CI corrió con el commit de documentación de LB-11 y quedó en verde.
+6. **Hotfix #46** (`fe469cb`): la subida de fotos quedaba colgada en producción.
+   - La comprobación posterior a la subida (`probeObject`) leía por la URL firmada del proxy. Esa URL ignora `Range` y responde 200 con el archivo entero; cortar la lectura con `reader.cancel()` colgaba la función dentro de Next.
+   - Reproducido con `next start`, la base local y un proxy falso: más de 30 s antes, 85 ms después.
+   - Arreglo: `AbortController`, `cache: "no-store"` y 15 s como máximo. Las lecturas privadas también van sin caché. Corrige también la confirmación de subidas directas de videos.
+   - Prueba `tests/storage-probe.test.ts`; documenta el contrato, porque el cuelgue sólo aparece dentro de Next.
+
+### Smoke productivo (sólo demos `is_demo`, Chromium emulado, Pixel 7 y escritorio)
+El script está fuera del repositorio (scratchpad de la sesión).
+
+- **Alumno:**
+  - Entrenar una serie y finalizar (completed); la sesión aparece en el historial.
+  - Progreso con sus secciones y el resumen del período.
+  - **Gráfico de Press de banca idéntico a la base:** series, repeticiones, volumen, carga máxima y e1RM Epley de las 3 sesiones, con el récord en la correcta.
+  - Peso 82,4: guardar dos veces el mismo día no duplica. Objetivo 78 kg y gráfico con su línea.
+  - axe sin violaciones serias ni críticas y sin scroll horizontal.
+- **Calorías:**
+  - Sin peso: `no_weight`, sin peso supuesto.
+  - Con un peso de hace 40 días: 360–440 kcal para 52 min × 83,6 kg × MET 5–6 (RPE 8). El cálculo a mano da 362–435, redondeado a 10.
+  - El historial muestra el rango y la advertencia.
+- **Fotos (después del hotfix):**
+  - Subir 2 (≤ 2048 px y el archivo entregado sin EXIF) y `cache-control: no-store`.
+  - Comparador con deslizador y borrado.
+  - Coach y dueño de gimnasio: 404 en la foto y en el borrado. Sin sesión: 401. `/api/media` la niega.
+- **Edad desconocida → menor:**
+  - Se usó una demo con la fecha vaciada (persona ficticia, en una transacción como `repi_app`, con el permiso revocado al terminar).
+  - Mi cuerpo muestra «Confirmá tu fecha de nacimiento» y el peso responde 403 `age_required`.
+  - Al confirmar una fecha de menor: peso y objetivo responden 403 `minor_restricted`, un segundo cambio de fecha 409 `already_set` y entrenar 200.
+  - Auditoría `account.birth_date_declared` con `{"eligibility":"minor"}`, sin la fecha.
+- **Urko (coach):** aprobar un reemplazo cierra el panel con el aviso, `aria-expanded` vuelve a false, cambiar de día no deja paneles abiertos y quitarlo deja el programa igual.
+- **Novedades:**
+  - Campanita del alumno, «Novedades de REPI» del coach y del gimnasio: 200 y sin elementos, porque no se publicó nada.
+  - REPI Admin niega el panel a un coach.
+  - **No se publicó ningún anuncio de prueba.** `postgres` no puede escribir `product_announcement` (es de `repi_app`); el caso borrador está cubierto por la integración.
+- **Gimnasio y autenticación:** el panel del dueño carga; sin sesión, `/api/me/*` responde 401.
+
+### Pendientes y observaciones
+- **Dos archivos huérfanos de demo en Storage** (`progress/YyA7…/af952c1d…` y `…/d71bcd0b…`, 31 KB): son de las subidas colgadas antes del hotfix, no tienen fila en la base y no entran en los respaldos. La purga sólo recorre `media_object`, así que no los borra. Se pueden borrar desde el panel de Supabase (bucket `repi-private`) o con un barrido de huérfanos del bucket (pendiente menor).
+- **Cronograma del respaldo:** no hubo ejecución `schedule` el 06/11 hasta las 13:30 UTC. Sigue pendiente la acción del titular (Disable/Enable del workflow). Se pidió un respaldo posterior a la publicación (issue #47).
+- **Clave antigua del vigilante** (`BACKUP_HEARTBEAT_SECRET` en Vercel): pendiente independiente, sin tocar.
+- **Vercel MCP:** 403 en el equipo `manuel-cosovschis-projects`. Hace falta que el titular autorice el acceso del conector para ver logs de ejecución.
+- **Storage:** tope de 800 MB de archivos vigentes y 150 MB por persona (D204). Para crecer, plan Pro de Supabase (decisión de gasto del titular).
+- **Prueba intermitente** `tests/gym.test.ts` «métricas desde eventos reales» (P2): sin cambios.
+
+**Próximo bloque:** REPI — Smart Program Import 2.0 (no empezado).
+
+## Personal Progress & Body Tracking 1.0 — registro de la revisión previa (histórico; ya publicado, ver arriba)
 
 **Documento principal:** `docs/PERSONAL_PROGRESS_BODY_TRACKING_1.md`. Tiene arquitectura, modelo, privacidad, metodología de calorías, fotos, novedades, Urko, pruebas, costos, publicación y reversión.
 
