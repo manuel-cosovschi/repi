@@ -12,10 +12,10 @@ Actualizado: 05/11/2026 (06/06 publicado, `ab4e1ad`; D197–D198; evaluación co
 | LB-08 | — | ~~Vercel no desplegó `70e7779`~~ **Resuelto 05/11 18:32 UTC:** el deploy llegó ~29 min después del merge | — | — | Revisar la causa cuando haya acceso a Vercel (LB-09) |
 | LB-09 | Expansión comercial | Acceso de lectura a deployments y logs de Vercel (403 hoy) | Sin logs no hay diagnóstico de errores productivos | Titular | Aprobar el enlace de `authorize_team_access` del equipo `manuel-cosovschis-projects` |
 | LB-10 | Expansión comercial | 2FA obligatoria al menos para REPI Admin (hoy optativa, D119) | Una cuenta Admin sin 2FA expone datos comerciales y pedidos de privacidad | Titular decide | Cambiar `TWO_FACTOR_REQUIRED` para `admin` (una línea) |
-| LB-11 | Antes de encender `progress_photos` para todos | Storage y respaldo para fotos de progreso (D200): Supabase Free tiene 1 GB y el respaldo diario es un solo archivo cifrado (GitHub admite 2 GiB por archivo) | Con unas 2.500 fotos (o 1 GB en Storage) fallarían las subidas o el respaldo | Titular decide el plan (Supabase Pro); técnico separa base y archivos en el respaldo | Medir `select sum(size_bytes) from media_object where deleted_at is null` cada semana; detalle en PERSONAL_PROGRESS_BODY_TRACKING_1.md §8.5 |
 
 ## Ya cerrados en este corte
 
+- LB-11 (06/11): respaldo en partes de hasta 1900 MiB con restauración probada en CI, y tope de Storage para fotos (800 MB vigentes, 150 MB por persona) dentro del plan gratuito. Crecer más allá requiere el plan Pro (decisión de gasto del titular).
 - LB-01 (27/10, autorizado por el titular): se borró la única copia de correo real de `dev_mailbox` en producción sin leerla; quedan 0.
 - LB-07 (27/10, autorizado por el titular): `REPI_DEPLOY` eliminada de Vercel production; `/dev/mailbox` responde 404 y el correo sin proveedor falla de forma explícita.
 - LR-14: los correos reales ya no se copian al buzón DEV (D111, `mailer.test.ts`).
