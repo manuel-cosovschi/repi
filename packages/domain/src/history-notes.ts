@@ -214,3 +214,53 @@ export function parseHistoryNotes(text: string, today: string): { sets: ImportSe
   const sets = sessions.flatMap((session, i) => session.sets.map((set) => ({ ...set, day: days[i] })));
   return { sets, notes: [...notes] };
 }
+
+export type HistoryNotesBlock = {
+  day: string;
+  text: string;
+  parsed: { sets: ImportSet[]; notes: string[] } | null;
+};
+
+/** Resuelve los años en el original completo antes de aislar las sesiones que necesitan otra lectura. */
+export function partitionHistoryNotes(text: string, today: string): { blocks: HistoryNotesBlock[] } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || parseDay(today) !== today) return null;
+  const sessions: { date: DateSpec; body: string[] }[] = [];
+  let current: typeof sessions[number] | undefined;
+  let headingYear: number | null = null, unusedYear = false;
+  for (const original of text.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/)) {
+    const line = original.trim().replace(/^[•*-]\s+/, "");
+    if (!line) {
+      if (current && !unusedYear) current.body.push(original);
+      continue;
+    }
+    const year = yearPattern.exec(line);
+    if (year) {
+      if (unusedYear) return null;
+      headingYear = Number(year[1]); unusedYear = true; current = undefined;
+      continue;
+    }
+    const header = datePattern.exec(line);
+    if (header) {
+      const parts = header[1].split(/[-/.]/).map(Number);
+      const iso = /^\d{4}/.test(header[1]);
+      let explicitYear = parts.length === 3 ? (iso ? parts[0] : parts[2]) : null;
+      if (explicitYear != null && explicitYear < 100) explicitYear += explicitYear > 50 ? 1900 : 2000;
+      if (explicitYear != null && headingYear != null && headingYear !== explicitYear) return null;
+      current = { date: { day: iso ? parts[2] : parts[0], month: parts[1], year: explicitYear ?? headingYear }, body: [] };
+      sessions.push(current); unusedYear = false;
+      continue;
+    }
+    // No se omiten títulos, comentarios ni texto anterior a una fecha interpretable.
+    if (!current || unusedYear) return null;
+    current.body.push(original);
+  }
+  if (!sessions.length || unusedYear) return null;
+  const days = resolveDates(sessions.map(({ date }) => ({ date, sets: [] })), today);
+  if (!days) return null;
+  return {
+    blocks: sessions.map((session, index) => {
+      const day = days[index], canonical = `${day}\n${session.body.join("\n")}`;
+      return { day, text: canonical, parsed: parseHistoryNotes(canonical, today) };
+    }),
+  };
+}

@@ -19,6 +19,7 @@ export * from "./gym-access";
 export * from "./exercise-catalog";
 export * from "./history-import";
 export * from "./history-notes";
+export * from "./history-read-plan";
 export * from "./prescription";
 export * from "./wishes";
 export * from "./progression";

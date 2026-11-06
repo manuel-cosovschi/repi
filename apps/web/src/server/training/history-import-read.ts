@@ -1,5 +1,5 @@
 // Lectura completa del historial: bloques de texto con contexto, sin recortar el original.
-import { parseHistoryCsv, parseHistoryNotes, splitHistoryText, type HistoryTextChunk, type ImportSet } from "@repi/domain";
+import { parseHistoryCsv, parseHistoryNotes, partitionHistoryNotes, splitHistoryText, type HistoryTextChunk, type ImportSet } from "@repi/domain";
 import { aiJson, aiOn, type AiPart } from "../ai/openai";
 import { AccessError } from "../access/util";
 import type { ImportFile } from "./history-import";
@@ -23,6 +23,12 @@ const AI_SCHEMA = {
   },
 };
 type AiOut = { sessions: { date: string; exercises: { name: string; sets: { weight_kg: number | null; reps: (number | null)[]; seconds: (number | null)[] }[] }[] }[]; notes: string[] };
+
+// Una fecha con números de entrenamiento no puede desaparecer de una respuesta JSON aparentemente completa.
+function numericDatedDays(text: string): string[] {
+  const headers = [...text.matchAll(/^(\d{4}-\d{2}-\d{2})[ \t]*$/gm)];
+  return [...new Set(headers.filter((header, index) => /\d/.test(text.slice(header.index! + header[0].length, headers[index + 1]?.index ?? text.length))).map((header) => header[1]))];
+}
 
 const SYSTEM = (today: string) => `Sos un asistente que transcribe registros de entrenamiento de fuerza (planillas, notas, cuadernos fotografiados, PDF) a datos.
 Hoy es ${today}. Reglas:
@@ -51,6 +57,11 @@ async function readPart(f: ImportFile, today: string, context = "", timeoutMs = 
       sets.push({ day: s.date, exercise: e.name, weightKg: x.weight_kg, reps: x.reps[i] ?? null, seconds: x.seconds[i] ?? null });
     }
   }
+  if (f.kind === "text") {
+    const expectedDays = numericDatedDays(f.text ?? "");
+    const covered = new Set(sets.map((set) => set.day));
+    if (expectedDays.some((day) => !covered.has(day))) throw new AccessError("ai_bad_output", "La lectura omitió una fecha del historial. Reintentá esa parte para completarla.", 422);
+  }
   return { sets, notes: (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 10) };
 }
 
@@ -71,17 +82,16 @@ async function readTextChunk(f: ImportFile, today: string, chunk: HistoryTextChu
 }
 
 /** Si falla una parte no se devuelve una lectura parcial ni se crea la vista previa. */
-export async function readHistoryWithAi(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void): Promise<{ sets: ImportSet[]; notes: string[] }> {
+export async function readHistoryWithAi(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 120_000): Promise<{ sets: ImportSet[]; notes: string[] }> {
   if (f.kind !== "text") {
     onProgress?.({ stage: "reading", completed: 0, total: 1 });
-    const result = await readPart(f, today);
+    const result = await readPart(f, today, "", Math.min(60_000, Math.max(1, deadline - Date.now())));
     onProgress?.({ stage: "reading", completed: 1, total: 1 });
     return result;
   }
-  const chunks = splitHistoryText(f.text ?? "", 12_000);
+  const chunks = splitHistoryText(f.text ?? "", 12_000).map((chunk) => ({ ...chunk, context: [context, chunk.context].filter(Boolean).join("\n") }));
   onProgress?.({ stage: "reading", completed: 0, total: chunks.length });
   const results: Awaited<ReturnType<typeof readPart>>[] = new Array(chunks.length);
-  const deadline = Date.now() + 120_000;
   let next = 0;
   let completed = 0;
   let failed = false;
@@ -98,15 +108,49 @@ export async function readHistoryWithAi(f: ImportFile, today: string, onProgress
   return { sets: results.flatMap((r) => r.sets), notes: [...new Set(results.flatMap((r) => r.notes))] };
 }
 
-/** Formatos claros se estructuran en el servidor; sólo el texto no reconocido necesita transcripción externa. */
-export async function readHistoryInput(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void) {
+/** Formatos claros se estructuran en el servidor; sólo las sesiones desconocidas requieren transcripción. */
+export async function readHistoryInput(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 120_000) {
   onProgress?.({ stage: "reading" });
-  if (f.kind === "text") {
+  if (f.kind === "text" && !context) {
     const csv = parseHistoryCsv(f.text ?? "");
     if (csv) return { sets: csv, notes: [], source: "csv" as const };
     const notes = parseHistoryNotes(f.text ?? "", today);
     if (notes) return { ...notes, source: "notes" as const };
+    const partitioned = partitionHistoryNotes(f.text ?? "", today);
+    if (partitioned) {
+      type Segment = { text: string; days: Set<string>; requiredDays: Set<string>; count: number; result?: { sets: ImportSet[]; notes: string[] } };
+      const segments: Segment[] = [];
+      for (const block of partitioned.blocks) {
+        if (block.parsed) segments.push({ text: "", days: new Set([block.day]), requiredDays: new Set([block.day]), count: 1, result: block.parsed });
+        else {
+          const last = segments.at(-1);
+          if (last && !last.result && last.text.length + block.text.length + 1 <= 12_000) {
+            last.text += `\n${block.text}`; last.days.add(block.day); for (const day of numericDatedDays(block.text)) last.requiredDays.add(day); last.count++;
+          } else segments.push({ text: block.text, days: new Set([block.day]), requiredDays: new Set(numericDatedDays(block.text)), count: 1 });
+        }
+      }
+      const pending = segments.filter((segment) => !segment.result);
+      let completed = partitioned.blocks.length - pending.reduce((count, segment) => count + segment.count, 0);
+      const report = () => onProgress?.({ stage: "reading", completed, total: partitioned.blocks.length });
+      report();
+      let next = 0, failed = false;
+      async function worker() {
+        while (!failed && next < pending.length) {
+          const segment = pending[next++];
+          try {
+            if (!aiOn()) throw new AccessError("ai_unavailable", "Hay sesiones que necesitan lectura automática. No se cargó una parte incompleta; podés continuar cuando el servicio esté disponible.", 503);
+            const result = await readHistoryWithAi({ ...f, text: segment.text }, today, undefined, "", deadline);
+            if (result.sets.some((set) => !segment.days.has(set.day)) || [...segment.requiredDays].some((day) => !result.sets.some((set) => set.day === day))) throw new AccessError("ai_bad_output", "La lectura cambió una fecha del historial. Probá de nuevo para revisarla.", 422);
+            const emptyDays = [...segment.days].filter((day) => !result.sets.some((set) => set.day === day));
+            segment.result = { ...result, notes: [...result.notes, ...emptyDays.map((day) => `${day}: no había series con números que se pudieran incorporar al progreso.`)] };
+            completed += segment.count; report();
+          } catch (e) { failed = true; throw e; }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(4, pending.length) }, () => worker()));
+      return { sets: segments.flatMap((segment) => segment.result!.sets), notes: [...new Set(segments.flatMap((segment) => segment.result!.notes))], source: pending.length ? "ai" as const : "notes" as const };
+    }
   }
   if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora podemos leer planillas y notas con fechas, ejercicios y series claras. Revisá el formato o probá de nuevo en un rato.", 503);
-  return { ...await readHistoryWithAi(f, today, onProgress), source: "ai" as const };
+  return { ...await readHistoryWithAi(f, today, onProgress, context, deadline), source: "ai" as const };
 }

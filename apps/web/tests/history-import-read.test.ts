@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { splitHistoryText } from "@repi/domain";
+import { createThreeYearHistory } from "../../../packages/domain/tests/fixtures/three-year-history";
 
 vi.mock("@/server/ai/openai", () => ({ aiJson: vi.fn(), aiOn: vi.fn(() => true) }));
 vi.mock("@/server/access/util", () => ({ AccessError: class extends Error {
@@ -14,6 +15,41 @@ const mockAi = vi.mocked(aiJson);
 beforeEach(() => { mockAi.mockReset(); vi.mocked(aiOn).mockReturnValue(true); });
 
 describe("lectura completa del historial largo", () => {
+  it("lee tres años y 21.900 series completas, sin pedir una transcripción externa", async () => {
+    const fixture = createThreeYearHistory();
+    vi.mocked(aiOn).mockReturnValue(false);
+    const out = await readHistoryInput({ fileName: "Tres años de prueba", kind: "text", text: fixture.text }, "2026-11-06");
+    expect(out.source).toBe("notes");
+    expect(out.sets).toEqual(fixture.sets);
+    expect(out.sets.at(-1)).toMatchObject({ day: fixture.lastDay, reps: 17, weightKg: 99.75 });
+    expect(mockAi).not.toHaveBeenCalled();
+  });
+
+  it("un comentario en una sesión de tres años manda sólo esa sesión a transcribir", async () => {
+    const fixture = createThreeYearHistory();
+    const badDay = fixture.sets[300 * 30].day;
+    const text = fixture.text.replace(`${badDay}\n`, `${badDay}\nNota: el equipo estaba ocupado.\n`);
+    const expected = fixture.sets.filter((set) => set.day === badDay);
+    mockAi.mockResolvedValue({ sessions: [{ date: badDay, exercises: [...new Set(expected.map((set) => set.exercise))].map((name) => ({
+      name, sets: [{ weight_kg: expected.find((set) => set.exercise === name)!.weightKg, reps: expected.filter((set) => set.exercise === name).map((set) => set.reps), seconds: [] }],
+    })) }], notes: ["Se conservó la anotación de esa sesión."] });
+    const out = await readHistoryInput({ fileName: "Tres años con comentario", kind: "text", text }, "2026-11-06");
+    expect(out.source).toBe("ai");
+    expect(out.sets).toEqual(fixture.sets);
+    expect(mockAi).toHaveBeenCalledTimes(1);
+    const sent = mockAi.mock.calls[0][0].parts.filter((part) => part.type === "text").map((part) => part.text).join("\n");
+    expect(sent).toContain(badDay);
+    expect(sent).toContain("el equipo estaba ocupado");
+    expect(sent).not.toContain(fixture.firstDay);
+    expect(sent).not.toContain(fixture.lastDay);
+    expect(sent.length).toBeLessThan(1000);
+  });
+
+  it("no acepta una fecha numérica que desaparezca de la lectura automática", async () => {
+    mockAi.mockResolvedValue({ sessions: [], notes: [] });
+    await expect(readHistoryInput({ fileName: "Una sesión", kind: "text", text: "2024-03-12\nComentario: carga variable\nPress plano 3x10 50kg" }, "2026-11-06")).rejects.toMatchObject({ code: "ai_bad_output" });
+  });
+
   it("estructura notas claras de más de 60.000 caracteres sin ninguna consulta externa", async () => {
     vi.mocked(aiOn).mockReturnValue(false);
     const text = "12/03/2024\nPress plano con barra para pecho (105kg)\n5;5;5;4\n".repeat(1200);

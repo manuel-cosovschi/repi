@@ -184,7 +184,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
               empty={ex.points.length ? `No hay registros de ${METRIC_TXT[metric].toLowerCase()} en este período.` : "Sin registros de este ejercicio en el período elegido."} />
             <small className="mb-muted">{METRIC_HELP[metric]}</small>
             {ex.best && metric !== "volume" && <small className="mb-muted">Mejor 1RM estimado del período: {n1(kgTo(ex.best.e1rm, unit))} {unit} ({n1(kgTo(ex.best.set.weightKg, unit))} {unit} × {ex.best.set.reps}, {dayTxt(ex.best.day)}).</small>}
-            {ex.truncated && <small className="mb-muted">Se muestran tus últimas 5.000 series de este ejercicio.</small>}
+            {ex.truncated && <small className="mb-muted">Se muestran las series más recientes; se alcanzó el límite de lectura.</small>}
             {pts.length > 0 && (
               <details>
                 <summary style={{ cursor: "pointer", fontSize: 14 }}>Ver todos los registros ({pts.length})</summary>

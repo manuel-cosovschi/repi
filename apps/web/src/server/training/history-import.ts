@@ -3,7 +3,7 @@
 // persona confirma. El archivo no se guarda. Lo importado aparece en Progreso («Antes de REPI») y sugiere pesos iniciales.
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, makeExerciseMatcher, normalizeImport, IMPORT_MAX_TEXT_LENGTH, type NormalizedSet } from "@repi/domain";
+import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, makeExerciseMatcher, normalizeImport, IMPORT_MAX_SETS, IMPORT_MAX_TEXT_LENGTH, type ImportSet, type NormalizedSet } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiModel, aiFastModel, aiOn } from "../ai/openai";
@@ -14,7 +14,7 @@ import { catalogOnly, ensureExerciseCatalog } from "./library";
 const { historyImport, historyEntry, exercise, coachClient, gymMember } = schema;
 
 export type ImportFile = { fileName: string; kind: "text" | "image" | "pdf"; text?: string; dataUrl?: string };
-type Parsed = { sets: NormalizedSet[]; matches: Record<string, { id: string; name: string } | null>; notes: string[]; dropped: number; capped: boolean; hash?: string };
+type Parsed = { phase?: "reading" | "review"; total?: number; inputHash?: string; today?: string; partHashes?: Record<string, string>; sets: NormalizedSet[]; matches: Record<string, { id: string; name: string } | null>; notes: string[]; dropped: number; capped: boolean; hash?: string };
 
 // D182: lo que se guardaría (con el nombre de la biblioteca si coincidió), su huella y lo que ya está en el historial importado.
 const toStored = (p: Parsed) => p.sets.map((s) => ({ day: s.day, exercise: p.matches[s.exercise]?.name ?? s.exercise, weightKg: s.weightKg, reps: s.reps, seconds: s.seconds }));
@@ -75,24 +75,50 @@ export async function matchExercises(names: string[], lib: { id: string; name: s
 export async function previewHistoryImport(userId: string, f: ImportFile, now = new Date(), onProgress?: (p: HistoryImportProgress) => void) {
   const today = localDate(now);
   if (!["text", "image", "pdf"].includes(f.kind)) throw new AccessError("invalid", "Formato no admitido.");
-  if (f.kind === "text" && (f.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) throw new AccessError("too_large", "El historial supera los 400.000 caracteres. Dividilo en partes; no se cargó ningún dato.", 413);
+  if (f.kind === "text" && (f.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) throw new AccessError("too_large", "El historial supera 1.000.000 de caracteres. No se cargó ningún dato.", 413);
   if (f.kind === "text" && !(f.text ?? "").trim()) throw new AccessError("invalid", "El archivo está vacío.");
   if (f.kind !== "text" && !/^data:(image\/(jpeg|png|webp|gif)|application\/pdf);base64,/.test(f.dataUrl ?? "")) throw new AccessError("invalid", "Subí una foto (JPG o PNG), un PDF o una planilla CSV.");
-  const { sets: raw, notes, source } = await readHistoryInput(f, today, onProgress);
-  const n = normalizeImport(raw, today);
-  if (!n.sets.length) throw new AccessError("empty", "No encontramos entrenamientos con fecha, ejercicio y peso o repeticiones. Probá con otra foto o una planilla.", 422);
+  const result = await readHistoryInput(f, today, onProgress);
+  return prepareHistoryPreview(userId, { ...result, fileName: f.fileName,
+    model: result.source === "ai" ? (f.kind === "text" ? aiFastModel() : aiModel()) : null }, now, onProgress);
+}
+
+/** Una única vista previa completa, también para trabajos por partes. Nunca habilita un borrador incompleto. */
+export async function prepareHistoryPreview(userId: string, input: { fileName: string; sets: ImportSet[]; notes: string[]; source: "csv" | "notes" | "ai"; model?: string | null },
+  now = new Date(), onProgress?: (p: HistoryImportProgress) => void, draftId?: string) {
+  const n = normalizeImport(input.sets, localDate(now));
+  if (n.capped) throw new AccessError("too_many_sets", `El historial supera las ${IMPORT_MAX_SETS.toLocaleString("es-AR")} series admitidas. No se cargó ninguna parte.`, 413);
+  if (!n.sets.length) throw new AccessError("empty", "No encontramos entrenamientos con fecha, ejercicio y peso o repeticiones. Revisá las fechas y las series.", 422);
   onProgress?.({ stage: "matching" });
   const names = [...new Set(n.sets.map((s) => s.exercise))];
   const matches = await matchExercises(names, await libraryFor(userId));
-  const parsed: Parsed = { sets: n.sets, matches, notes, dropped: n.dropped, capped: n.capped };
+  let parsed: Parsed = { phase: "review", sets: n.sets, matches, notes: input.notes, dropped: n.dropped, capped: false };
   parsed.hash = fingerprint(parsed);
-  const [row] = await db.insert(historyImport).values({
-    userId, source, fileName: f.fileName.slice(0, 200), parsed, sessions: n.summary.sessions, sets: n.summary.sets, fromDay: n.summary.from, toDay: n.summary.to, model: source === "ai" ? (f.kind === "text" ? aiFastModel() : aiModel()) : null,
-  }).returning();
-  await audit(db, { actorUserId: userId, action: "history_import.previewed", resourceType: "history_import", resourceId: row.id, meta: { source, sets: n.summary.sets } });
-  const [dup, ov] = await Promise.all([priorImport(userId, parsed.hash), overlapOf(userId, parsed)]);
+  let summary = n.summary;
+  let source = input.source;
+  const values = { source, fileName: input.fileName.slice(0, 200), parsed, sessions: summary.sessions, sets: summary.sets, fromDay: summary.from, toDay: summary.to, model: input.model ?? null };
+  const row = draftId ? await db.transaction(async (tx) => {
+    const [current] = await tx.select().from(historyImport).where(and(eq(historyImport.id, draftId), eq(historyImport.userId, userId))).for("update");
+    if (!current) throw new AccessError("not_found", "No encontramos esa importación.", 404);
+    if (current.status !== "draft") throw new AccessError("closed", "Esa importación ya no se está leyendo.", 409);
+    if ((current.parsed as Parsed).phase === "review") {
+      parsed = current.parsed as Parsed;
+      summary = normalizeImport(parsed.sets, localDate(now)).summary;
+      source = current.source;
+      return current;
+    }
+    const job = current.parsed as { total?: number; inputHash?: string; today?: string; parts?: Record<string, { hash: string }> };
+    if (job.total != null) parsed.total = job.total;
+    if (job.inputHash != null) parsed.inputHash = job.inputHash;
+    if (job.today != null) parsed.today = job.today;
+    if (job.parts) parsed.partHashes = Object.fromEntries(Object.entries(job.parts).map(([index, part]) => [index, part.hash]));
+    const [updated] = await tx.update(historyImport).set(values).where(and(eq(historyImport.id, draftId), eq(historyImport.status, "draft"))).returning();
+    return updated;
+  }) : (await db.insert(historyImport).values({ userId, ...values }).returning())[0];
+  await audit(db, { actorUserId: userId, action: "history_import.previewed", resourceType: "history_import", resourceId: row.id, meta: { source, sets: summary.sets } });
+  const [dup, ov] = await Promise.all([priorImport(userId, parsed.hash!), overlapOf(userId, parsed)]);
   onProgress?.({ stage: "review" });
-  return { ...previewOut(row.id, source, parsed, n.summary), duplicateOf: dup ? { fileName: dup.fileName, confirmedAt: dup.confirmedAt } : null,
+  return { ...previewOut(row.id, source, parsed, summary), duplicateOf: dup ? { fileName: dup.fileName, confirmedAt: dup.confirmedAt } : null,
     overlap: { sets: ov.overlap, days: ov.days.length, from: ov.days[0] ?? null, to: ov.days.at(-1) ?? null } };
 }
 
@@ -120,6 +146,8 @@ export async function confirmHistoryImport(userId: string, id: string, mode?: "a
   if (r.status === "confirmed") return { ok: true, sets: r.sets };
   if (r.status !== "draft") throw new AccessError("closed", "Esa importación se descartó. Subí el archivo de nuevo.", 409);
   const p = r.parsed as Parsed;
+  if (p.capped) throw new AccessError("incomplete", "Esta vista previa anterior quedó recortada. Volvé a leer el historial completo antes de confirmar.", 409);
+  if (p.phase && p.phase !== "review") throw new AccessError("incomplete", "Todavía faltan partes del historial por leer. Continuá la lectura antes de confirmar.", 409);
   const hash = p.hash ?? fingerprint(p); // borradores anteriores a D182 no traen la huella
   const res = await db.transaction(async (tx) => {
     // Una persona confirma de a una importación por vez (dos archivos iguales a la vez no se cargan dos veces).
