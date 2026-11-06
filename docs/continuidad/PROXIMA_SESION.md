@@ -65,7 +65,15 @@ El script está fuera del repositorio (scratchpad de la sesión).
 
 ### Pendientes y observaciones
 - **Dos archivos huérfanos de demo en Storage** (`progress/YyA7…/af952c1d…` y `…/d71bcd0b…`, 31 KB): son de las subidas colgadas antes del hotfix, no tienen fila en la base y no entran en los respaldos. La purga sólo recorre `media_object`, así que no los borra. Se pueden borrar desde el panel de Supabase (bucket `repi-private`) o con un barrido de huérfanos del bucket (pendiente menor).
-- **Cronograma del respaldo:** no hubo ejecución `schedule` el 06/11 hasta las 13:30 UTC. Sigue pendiente la acción del titular (Disable/Enable del workflow). Se pidió un respaldo posterior a la publicación (issue #47).
+- **Respaldo posterior a la publicación: verificado.**
+  - Issue #47, corrida 42226052535: se cortó a los 40 min en «PostgreSQL descartable y age», porque `apt-get update` del runner no respondió. No llegó a leer la base, la credencial temporal quedó revocada y se abrió la alerta #49.
+  - El mismo problema del runner colgó un CI de #45 a las 01:43.
+  - Reintento (issue #50, corrida 42231737229) en verde: `backup-20261106-141405-42231737229`, con 109 tablas, 47 migraciones, 4 archivos de Storage, 286 claves foráneas sin huérfanos y 0 restricciones sin validar.
+  - Cerró la alerta #49. El vigilante registró la señal OIDC (14:14 UTC).
+  - La retención («último de cada día») reemplazó el respaldo previo a la 0046 por este.
+  - **Mejora sugerida:** límite y reintento para `apt-get` en `backup.yml`, para que un espejo caído falle rápido y se reintente.
+- **Cronograma del respaldo:** no hubo ejecución `schedule` el 06/11 hasta las 14:15 UTC. Sigue pendiente la acción del titular (Disable/Enable del workflow).
+- **Script temporal en `main`:** `apps/web/.tmp-fetch.mjs` (5 líneas, sin secretos) entró por error en #45 y se quitó en #48.
 - **Clave antigua del vigilante** (`BACKUP_HEARTBEAT_SECRET` en Vercel): pendiente independiente, sin tocar.
 - **Vercel MCP:** 403 en el equipo `manuel-cosovschis-projects`. Hace falta que el titular autorice el acceso del conector para ver logs de ejecución.
 - **Storage:** tope de 800 MB de archivos vigentes y 150 MB por persona (D204). Para crecer, plan Pro de Supabase (decisión de gasto del titular).
