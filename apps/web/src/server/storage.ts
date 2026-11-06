@@ -83,13 +83,13 @@ export async function readObject(key: string, range?: string | null): Promise<Ob
   const rangeHeader: Record<string, string> = range ? { Range: range } : {};
   const s = supabase();
   if (s) {
-    return remoteRead(await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, ...rangeHeader } }));
+    return remoteRead(await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, ...rangeHeader }, cache: "no-store" }));
   }
   const px = proxy();
   if (px) {
     const url = await proxyReadUrl(px, key);
     if (!url) throw new Error("almacenamiento: objeto inexistente");
-    return remoteRead(await fetch(url, { headers: rangeHeader }));
+    return remoteRead(await fetch(url, { headers: rangeHeader, cache: "no-store" }));
   }
   const p = safe(key);
   const st = await stat(p);
@@ -126,25 +126,34 @@ export async function directUploadTarget(key: string): Promise<{ url: string; me
   return { url: `${s.base.replace(/\/object$/, "")}${url}`, method: "PUT" };
 }
 
+const PROBE_TIMEOUT_MS = 15_000;
 /** Tamaño real y primeros bytes de un objeto (para validar la firma del archivo sin descargarlo entero). Null si no existe. */
 export async function probeObject(key: string, n = 64): Promise<{ size: number; head: Uint8Array } | null> {
   const s = supabase(), px = s ? null : proxy();
   if (s || px) {
     const url = s ? `${s.base}/authenticated/${s.bucket}/${checkKey(key)}` : await proxyReadUrl(px!, key);
     if (!url) return null;
-    const r = await fetch(url, { headers: { ...(s?.headers ?? {}), Range: `bytes=0-${n - 1}` } });
-    if (r.status === 400 || r.status === 404) return null;
-    await expectOk(r, "lectura");
-    const total = Number(r.headers.get("content-range")?.split("/")[1] ?? r.headers.get("content-length") ?? 0);
-    const reader = r.body!.getReader();
-    const parts: Uint8Array[] = [];
-    let got = 0;
-    while (got < n) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.byteLength; }
-    await reader.cancel().catch(() => {});
-    const head = new Uint8Array(Math.min(got, n));
-    let o = 0;
-    for (const p of parts) { const take = Math.min(p.byteLength, head.byteLength - o); head.set(p.subarray(0, take), o); o += take; if (o >= head.byteLength) break; }
-    return { size: total, head };
+    // La URL firmada del proxy ignora Range y responde 200 con el archivo entero. Cortar la lectura con reader.cancel()
+    // colgaba la función dentro de Next (fetch envuelto): se corta con AbortController, sin caché y con un tiempo máximo.
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS);
+    try {
+      const r = await fetch(url, { headers: { ...(s?.headers ?? {}), Range: `bytes=0-${n - 1}` }, cache: "no-store", signal: ctl.signal });
+      if (r.status === 400 || r.status === 404) { ctl.abort(); return null; }
+      await expectOk(r, "lectura");
+      const total = Number(r.headers.get("content-range")?.split("/")[1] ?? r.headers.get("content-length") ?? 0);
+      const reader = r.body!.getReader();
+      const parts: Uint8Array[] = [];
+      let got = 0;
+      while (got < n) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.byteLength; }
+      const head = new Uint8Array(Math.min(got, n));
+      let o = 0;
+      for (const p of parts) { const take = Math.min(p.byteLength, head.byteLength - o); head.set(p.subarray(0, take), o); o += take; if (o >= head.byteLength) break; }
+      return { size: total, head };
+    } catch (e) {
+      if (ctl.signal.aborted) throw new Error("almacenamiento: lectura de comprobación sin respuesta");
+      throw e;
+    } finally { clearTimeout(timer); ctl.abort(); }
   }
   try {
     const p = safe(key);
