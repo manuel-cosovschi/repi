@@ -437,7 +437,7 @@ describe("novedades de REPI", () => {
     expect((await err(an.createAnnouncement(adm, { ...draft, summary: "Entrá ya a www.otro-sitio.com para ver" })))?.code).toBe("invalid");
     expect((await err(an.createAnnouncement(adm, { ...draft, audience: ["coach"] })))?.code).toBe("invalid");
     const prev = process.env.NEXT_PUBLIC_REPI_FEATURES;
-    process.env.NEXT_PUBLIC_REPI_FEATURES = "";
+    process.env.NEXT_PUBLIC_REPI_FEATURES = "-announcements";
     try {
       const d = await an.createAnnouncement(adm, draft);
       expect((await err(an.publishAnnouncement(adm, d.id)))?.code).toBe("module_off");
