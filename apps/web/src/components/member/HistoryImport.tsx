@@ -3,13 +3,15 @@
 // leyó y cargarlo al progreso. Una planilla con columnas claras se lee sin IA; lo demás lo lee un servicio de IA (OpenAI).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { previewHistoryImport, type HistoryImportProgress } from "@/lib/history-import-stream";
 import { Sheet } from "./Sheet";
 import { spreadsheetToCsv } from "@/lib/spreadsheet";
-import { fmtWeight, IMPORT_MAX_TEXT_LENGTH, type WeightUnit } from "@repi/domain";
+import { fmtWeight, IMPORT_MAX_TEXT_LENGTH, parseRoutineNotes, type WeightUnit } from "@repi/domain";
 import { useUnit } from "./units";
+import { RoutineImportSheet } from "./RoutineImport";
 
 type Preview = {
-  id: string; source: "csv" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
+  id: string; source: "csv" | "notes" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
   exercises: { name: string; matched: string | null; sets: number }[]; sample: { day: string; items: { exercise: string; weightKg: number | null; reps: number | null; seconds: number | null }[] }[];
   notes: string[]; dropped: number; capped: boolean;
   duplicateOf?: { fileName: string | null; confirmedAt: string | null } | null; overlap?: { sets: number; days: number; from: string | null; to: string | null };
@@ -56,15 +58,16 @@ export async function readImportFile(f: File): Promise<ImportBody | string> {
   } catch { return "No pudimos abrir ese archivo. Probá con otro formato o una foto."; }
 }
 
-export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; offline?: boolean }) {
+export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void }) {
   const unit = useUnit();
   const [mine, setMine] = useState<Mine | null>(null);
   const [open, setOpen] = useState(false);
+  const [routineBody, setRoutineBody] = useState<ImportBody | null>(null);
   const load = useCallback(() => { api<Mine>("/api/me/history-import").then(setMine).catch(() => {}); }, []);
   useEffect(() => { if (!offline) load(); }, [load, offline]);
   const remove = async (id: string) => {
     if (!confirm("¿Quitar esta importación? Se borran esas series del progreso. Lo que registraste en REPI no se toca.")) return;
-    try { await api(`/api/me/history-import/${id}/remove`, { body: {} }); flash("Importación quitada."); load(); } catch (e) { flash((e as Error).message); }
+    try { await api(`/api/me/history-import/${id}/remove`, { body: {} }); flash("Importación quitada."); load(); onChanged?.(); } catch (e) { flash((e as Error).message); }
   };
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -83,48 +86,67 @@ export function BeforeRepi({ flash, offline }: { flash: (t: string) => void; off
           </>
         )}
       <button type="button" className="ghost" disabled={offline} onClick={() => setOpen(true)}>Cargar historial anterior</button>
-      {open && <ImportSheet flash={flash} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); }} />}
+      {routineBody && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
+      {open && <ImportSheet flash={flash} onRoutine={(body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}
     </section>
   );
 }
 
-function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; onClose: () => void; onDone: () => void }) {
+function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string) => void; onClose: () => void; onDone: () => void; onRoutine: (body: ImportBody) => void }) {
   const unit = useUnit();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [p, setP] = useState<Preview | null>(null);
-  const send = async (body: ImportBody) => {
-    if (body.kind === "text" && (body.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) { setErr("El historial supera los 400.000 caracteres. Dividilo en partes; el texto pegado se conserva completo."); return; }
-    setBusy("read"); setErr(null);
-    try { setP(await api<Preview>("/api/me/history-import", { body })); } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+  const [progress, setProgress] = useState<HistoryImportProgress | null>(null);
+  const inFlight = useRef(false);
+  const read = async (getBody: () => Promise<ImportBody | string>, preparingFile = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(preparingFile ? "file" : "read"); setErr(null); setProgress(null);
+    try {
+      const body = await getBody();
+      if (typeof body === "string") { setErr(body); return; }
+      if (body.kind === "text" && (body.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) { setErr("El historial supera los 400.000 caracteres. Dividilo en partes; el texto pegado se conserva completo."); return; }
+      // Las notas sin fechas que describen una rutina van a la revisión editable de «Mis rutinas».
+      if (body.kind === "text" && parseRoutineNotes(body.text ?? "")) { onRoutine(body); return; }
+      setBusy("read");
+      setP(await previewHistoryImport<Preview>(body, setProgress));
+    } catch (e) { setErr((e as Error).message); }
+    finally { inFlight.current = false; setBusy(null); }
   };
-  const pick = async (f: File | undefined) => {
-    if (!f) return;
-    // D140: Excel (.xlsx) y OpenDocument (.ods) se leen acá y viajan como CSV. Numbers y .xls viejos, a exportar.
-    const b = await readImportFile(f);
-    if (typeof b === "string") setErr(b); else void send(b);
-  };
+  const send = (body: ImportBody) => read(async () => body);
+  const pick = (f: File | undefined) => f ? read(() => readImportFile(f), true) : undefined;
+  const readingLabel = progress?.stage === "matching" ? "Relacionando ejercicios…"
+    : progress?.stage === "review" ? "Preparando vista previa…"
+    : progress?.total ? `Leyendo historial: ${progress.completed ?? 0} de ${progress.total} partes` : "Leyendo historial…";
   // D182: el mismo archivo ya cargado no se vuelve a cargar; si parte coincide con lo importado antes, se elige qué cargar.
   const confirmIt = async (mode?: "all" | "new_only") => {
-    if (!p) return;
-    setBusy("save");
+    if (!p || inFlight.current) return;
+    inFlight.current = true;
+    setBusy("save"); setErr(null);
     try {
       const r = await api<{ sets: number; duplicate?: boolean; skipped?: number }>(`/api/me/history-import/${p.id}/confirm`, { body: mode ? { mode } : {} });
       flash(r.duplicate ? "Ese historial ya estaba cargado: no se sumó otra vez." : r.skipped ? `Listo: ${r.sets} series nuevas sumadas; ${r.skipped} ya estaban.` : `Listo: ${p.summary.sessions} días de historial sumados a tu progreso.`);
       onDone();
-    } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+    } catch (e) { setErr((e as Error).message); } finally { inFlight.current = false; setBusy(null); }
   };
   const ov = p?.overlap && p.overlap.sets > 0 && !p.duplicateOf ? p.overlap : null;
-  const discard = async () => { if (p) await api(`/api/me/history-import/${p.id}/remove`, { body: {} }).catch(() => {}); setP(null); };
+  const discard = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy("discard");
+    try { if (p) await api(`/api/me/history-import/${p.id}/remove`, { body: {} }); setP(null); }
+    catch (e) { setErr((e as Error).message); }
+    finally { inFlight.current = false; setBusy(null); }
+  };
 
   if (p) return (
-    <Sheet title="Revisá lo que leímos" sub={`${p.summary.sessions} días de entrenamiento, ${p.summary.exercises} ejercicios y ${p.summary.sets} series, del ${d(p.summary.from)} al ${d(p.summary.to)}.`} closeLabel="Cancelar" onClose={() => { void discard(); onClose(); }}
-      action={{ label: p.duplicateOf ? "Listo" : ov ? "Cargar sólo lo nuevo" : "Cargar a mi progreso", ready: true, busy: busy === "save", onSubmit: () => void confirmIt(ov ? "new_only" : undefined) }}>
+    <Sheet title="Revisá lo que leímos" sub={`${p.summary.sessions} días de entrenamiento, ${p.summary.exercises} ejercicios y ${p.summary.sets} series, del ${d(p.summary.from)} al ${d(p.summary.to)}.`} closeLabel="Cancelar" onClose={() => { if (!inFlight.current) { void discard(); onClose(); } }}
+      action={{ label: p.duplicateOf ? "Listo" : ov ? "Cargar sólo lo nuevo" : "Cargar a mi progreso", ready: !busy, busy: busy === "save", onSubmit: () => void confirmIt(ov ? "new_only" : undefined) }}>
       {p.duplicateOf && <p className="sheet-warn" role="alert">Este historial ya lo cargaste{p.duplicateOf.fileName ? ` («${p.duplicateOf.fileName}»)` : ""}. No se va a sumar dos veces.</p>}
       {ov && <p className="sheet-warn" role="alert">{ov.sets} de estas series ya están en tu historial importado ({ov.days === 1 ? `el ${d(ov.from)}` : `${ov.days} días, del ${d(ov.from)} al ${d(ov.to)}`}). «Cargar sólo lo nuevo» suma lo que falta sin repetir.
-        {" "}<button type="button" className="linkbtn" onClick={() => void confirmIt("all")}>Cargar todo igual</button></p>}
+        {" "}<button type="button" className="linkbtn" disabled={!!busy} onClick={() => void confirmIt("all")}>Cargar todo igual</button></p>}
       {p.source === "ai" && <p className="sheet-sub">Lo leyó REPI automáticamente: revisá que los pesos y las fechas estén bien antes de cargarlo.</p>}
       {(p.dropped > 0 || p.capped) && <p className="sheet-warn">{p.dropped > 0 ? `${p.dropped} filas no tenían fecha, ejercicio o números válidos y no se cargan. ` : ""}{p.capped ? "Se cargan las primeras 5000 series." : ""}</p>}
       {p.notes.map((n, i) => <p key={i} className="sheet-warn">{n}</p>)}
@@ -134,19 +156,20 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
       {p.sample.map((s) => (
         <p key={s.day} className="sheet-sub"><b>{d(s.day)}:</b> {s.items.map((x) => `${x.exercise} ${mark({ day: s.day, ...x }, unit)}`).join(" · ")}</p>
       ))}
-      <button type="button" className="ghost" onClick={() => void discard()}>Subir otro archivo</button>
+      {err && <p className="sheet-warn" role="alert">{err}</p>}
+      <button type="button" className="ghost" disabled={!!busy} onClick={() => void discard()}>Subir otro archivo</button>
     </Sheet>
   );
   return (
-    <Sheet title="Cargar historial anterior" sub="Una planilla (Excel, CSV u OpenDocument), una foto de tu cuaderno, una captura o un PDF con fechas, ejercicios, pesos y repeticiones. Antes de guardar te mostramos lo que leímos." closeLabel="Cerrar" onClose={onClose}>
-      <input ref={input} type="file" hidden accept=".csv,.txt,.tsv,.pdf,image/*,.xlsx,.ods,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
-      <button type="button" className="cta" aria-busy={busy === "read" || undefined} disabled={!!busy} onClick={() => input.current?.click()}>{busy === "read" ? "Leyendo el archivo…" : "Elegir archivo o foto"}</button>
+    <Sheet title="Cargar historial anterior" sub="Una planilla (Excel, CSV u OpenDocument), una foto de tu cuaderno, una captura o un PDF con fechas, ejercicios, pesos y repeticiones. Antes de guardar te mostramos lo que leímos." closeLabel={busy ? "Leyendo…" : "Cerrar"} onClose={() => { if (!inFlight.current) onClose(); }}>
+      <input ref={input} type="file" disabled={!!busy} hidden accept=".csv,.txt,.tsv,.pdf,image/*,.xlsx,.ods,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+      <button type="button" className="cta" aria-busy={busy === "read" || busy === "file" || undefined} disabled={!!busy} onClick={() => input.current?.click()}>{busy === "file" ? "Preparando archivo…" : "Elegir archivo o foto"}</button>
       <label className="sheet-sub" htmlFor="hi-text">O pegá el texto (por ejemplo, tus notas del celular):</label>
-      <textarea id="hi-text" className="note" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={"12/03/2024\nSentadilla 3x10 60 kg\nPress banca 4x8 50 kg"} />
-      <button type="button" className="ghost" disabled={!!busy || text.trim().length < 10} onClick={() => void send({ fileName: "Texto pegado", kind: "text", text })}>Leer el texto</button>
-      {busy === "read" && <p className="sheet-sub" role="status">Puede tardar unos minutos con historiales largos, fotos o PDF.</p>}
+      <textarea id="hi-text" className="note" rows={5} disabled={!!busy} value={text} onChange={(e) => setText(e.target.value)} placeholder={"12/03/2024\nSentadilla 3x10 60 kg\nPress banca 4x8 50 kg"} />
+      <button type="button" className="ghost" disabled={!!busy || text.trim().length < 10} onClick={() => void send({ fileName: "Texto pegado", kind: "text", text })}>{busy === "read" ? "Leyendo historial…" : "Leer el texto"}</button>
+      {busy && busy !== "save" && <p className="sheet-sub" role="status" aria-live="polite">{busy === "file" ? "Preparando archivo…" : readingLabel}</p>}
       {err && <p className="sheet-warn" role="alert">{err}</p>}
-      <p className="sheet-sub" style={{ fontSize: 12 }}>Si no es una planilla con columnas Fecha, Ejercicio, Series, Reps y Peso, REPI lo lee automáticamente (con OpenAI) sólo para transcribirlo. No guardamos el archivo: sólo las series que confirmes. Podés quitarlas cuando quieras.</p>
+      <p className="sheet-sub" style={{ fontSize: 12 }}>REPI lee las planillas y las notas con formato claro. Si hace falta lectura automática (con OpenAI), se usa sólo para transcribirlas. No guardamos el archivo: sólo las series que confirmes. Podés quitarlas cuando quieras.</p>
     </Sheet>
   );
 }

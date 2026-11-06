@@ -58,9 +58,9 @@ function fmtFor(m: Metric, unit: WeightUnit) {
   return (v: number) => `${Math.round(v)} reps`;
 }
 
-export function ProgressTraining({ onOpenSession, offline }: { onOpenSession: (id: string) => void; offline?: boolean }) {
+export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" }: { onOpenSession: (id: string) => void; offline?: boolean; initialRange?: ProgressRange }) {
   const unit = useUnit();
-  const [range, setRange] = useState<ProgressRange>("90d");
+  const [range, setRange] = useState<ProgressRange>(initialRange);
   const [sum, setSum] = useState<Summary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");

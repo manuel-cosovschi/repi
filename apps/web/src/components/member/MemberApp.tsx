@@ -737,6 +737,8 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
   const [open, setOpen] = useState<string | null>(null);
+  const [trainingRevision, setTrainingRevision] = useState(0);
+  const importedChanged = () => { setTrainingRevision((n) => n + 1); onChanged(); };
   // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico. Lo anulado no cuenta (D195).
   const weeks = new Map<string, number>();
   for (const s of (hist ?? []).filter((x) => x.status !== "voided")) {
@@ -758,7 +760,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
       </div>
       {cur === "train" && (
         <>
-          {featureOn("progress") && <ProgressTraining onOpenSession={setOpen} offline={offline} />}
+          {featureOn("progress") && <ProgressTraining key={trainingRevision} initialRange={trainingRevision > 0 ? "all" : "90d"} onOpenSession={setOpen} offline={offline} />}
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <h2>Volumen por semana</h2>
             {entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
@@ -770,7 +772,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
           </section>
           {!offline && <LevelPanel />}
           <MyGoals />
-          <BeforeRepi flash={flash} offline={offline} />
+          <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} />
           <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
         </>
       )}

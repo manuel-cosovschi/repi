@@ -5,6 +5,18 @@ Actualizado: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUB
 
 
 
+
+## Importación rápida y destino de las notas — 06/11/2026
+
+Rama `fix/importacion-rapida`, desde `f7f1f60` (corrección del recorte #52, ya publicada y verificada en repiclub.com). Notas claras con fecha se estructuran directamente, sin transcripción externa; las rutinas claras sin fechas van a la revisión editable de «Mis rutinas», sin guardado automático. Los formatos ambiguos conservan el lector completo. La salida IA agrupa repeticiones del mismo peso en arrays, con bloques de 12.000 caracteres y reintentos íntegros; evita generar un objeto por cada serie. Emparejamiento local por alias conservadores y fallback externo de hasta 5 s.
+
+La lectura muestra progreso real por streaming (partes, relación de ejercicios, vista previa), conserva JSON para otros clientes y valida sesión, CSRF, límites y archivo antes de abrir el stream. Un error tardío o respuesta incompleta no muestra una vista previa válida. Al confirmar/quitar se refrescan los gráficos y se abre todo el período para mostrar importaciones antiguas. Los ejercicios reconocidos alimentan progreso y cargas iniciales existentes; no se modifican programas de coach ni se convierte el historial fechado en rutinas.
+
+Pruebas locales: 40 de dominio y 18 de lector/stream; TypeScript correcto. Benchmark del parser solo, sin red/DB: 72.000 caracteres y 4.800 series en 60,58 ms (una ejecución). Chromium escritorio/móvil: etapas reales, dobles clics, confirmación/eliminación, recuperación de error tardío y rutina sin fechas a revisión, sin guardar automáticamente. Regresiones de DB añadidas para gráficos/cargas iniciales y rutina directa; las ejecuta CI en base descartable. Sin nuevas dependencias ni migración SQL; `source: notes` amplía sólo el tipo de una columna de texto existente.
+
+Estado: código preparado para CI, integración y publicación dentro de la autorización vigente del titular. Primera acción al retomar: comprobar PR de esta rama y versión en `/api/version` antes de repetir cambios.
+
+
 ## Corrección puntual: historial pegado completo — 06/11/2026
 
 Rama `fix/historial-texto-completo`, desde `2afc599`. Se quitaron los recortes silenciosos de 60.000 caracteres del textarea y de la lectura IA. El máximo existente de 400.000 se valida sin recortar lo pegado. Las notas largas se leen por bloques con contexto de fecha/año/ejercicio; si la salida IA se corta, se relee ese bloque en partes menores. Un fallo no crea una vista previa parcial. La ruta dispone de 300 s (lectura hasta 240 s). La revisión y confirmación existentes se conservan.
@@ -13,7 +25,7 @@ Archivos: `HistoryImport.tsx`, ruta `api/me/history-import`, `server/training/hi
 
 Verificación local: 14 pruebas de dominio y 6 de lectura IA simulada, TypeScript de dominio/web y build Next correctos. Build con configuración ficticia local, sin conexión a datos reales. Chromium escritorio/móvil con el componente real y API simulada: 98.039 caracteres enviados íntegros, incluido el último `17;16;13`; 400.013 conservados y rechazados con aviso, sin POST. No se ejecutó la suite de integración con DB, OpenAI real ni Safari físico. El harness temporal no forma parte del repositorio.
 
-Estado: corrección preparada en rama para revisión e integración; sin publicación productiva desde esta sesión. Próxima acción: revisar/integrar el PR de esta rama y comprobar el mismo pegado en Safari del iPhone.
+Estado posterior: PR #52 integrado como `f7f1f60` y publicado; Vercel en verde y `/api/version` = `f7f1f600408d`. Safari físico sigue sin probar.
 
 
 ## Personal Progress & Body Tracking 1.0 (D199–D204) — 06/11/2026 · PUBLICADO Y VERIFICADO

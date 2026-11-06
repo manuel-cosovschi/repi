@@ -3,7 +3,7 @@
 // como la de D153: registra pesos, repeticiones, RIR, sensación y notas por serie, y el esfuerzo y la nota de la sesión.
 // Las rutinas son sólo del alumno; lo que entrena queda en su historial como cualquier sesión.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { circuitIssues, detectGroupLabel, detectGroupWord, detectMethod, detectedLabel, mainSets, parseRoutineCsv, validateDetail, type DetectedMethod, type ExerciseDetail, type ImportedRoutineDay } from "@repi/domain";
+import { circuitIssues, detectGroupLabel, detectGroupWord, detectMethod, detectedLabel, mainSets, parseRoutineCsv, parseRoutineNotes, validateDetail, type DetectedMethod, type ExerciseDetail, type ImportedRoutineDay } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiOn, type AiPart } from "../ai/openai";
@@ -181,7 +181,11 @@ export async function previewRoutineImport(userId: string, f: ImportFile) {
   const lib = await myExerciseLibrary(userId);
   let days: ImportedRoutineDay[] | null = f.kind === "text" ? parseRoutineCsv(f.text!) : null;
   let notes: string[] = [];
-  const source: "csv" | "ai" = days ? "csv" : "ai";
+  let source: "csv" | "notes" | "ai" = days ? "csv" : "ai";
+  if (!days && f.kind === "text") {
+    const direct = parseRoutineNotes(f.text!);
+    if (direct) { days = direct.days; notes = direct.notes; source = "notes"; }
+  }
   if (!days) {
     if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora sólo podemos leer planillas con columnas Día, Ejercicio, Series, Reps y Peso. Cargala a mano con «Nueva».", 503);
     const parts: AiPart[] = [{ type: "text", text: `Archivo: ${f.fileName.slice(0, 120)}. Transcribí la rutina.` }];

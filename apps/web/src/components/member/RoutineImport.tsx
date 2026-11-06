@@ -6,7 +6,7 @@
 // D184: los métodos escritos («drop set en la última», «rest-pause», «EMOM», «A1/A2») se interpretan con las mismas reglas que
 // el constructor del coach. Lo claro se aplica a la vista y se puede volver a «dejar como nota»; lo ambiguo se pregunta y,
 // mientras tanto, queda como estaba escrito (en la nota). Cada ejercicio se puede ajustar en «Método y series» antes de guardar.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GROUP_LETTERS, circuitIssues, cleanDecimalDraft, emptyDetail, groupLabels, isStraightPlan, kgTo, mainSets, methodDetail, parseWeightIn, resizeBlocks, type DetectedMethod, type ExerciseDetail, type GroupKind, type WeightUnit } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { IntInput } from "@/components/ui/IntInput";
@@ -21,7 +21,7 @@ type Ex = { written: string; exerciseId: string | null; name: string | null; gro
   method: Found | null; groupLabel: { letter: string; order: number } | null; groupWord: { kind: GroupKind; matched: string } | null;
   detail: ExerciseDetail | null; mstate: "applied" | "ask" | "kept" | null; gask: boolean };
 type Day = { name: string; exercises: Ex[] };
-type Preview = { source: "csv" | "ai"; notes: string[]; days: { name: string; exercises: Omit<Ex, "w" | "detail" | "mstate" | "gask">[] }[] };
+type Preview = { source: "csv" | "notes" | "ai"; notes: string[]; days: { name: string; exercises: Omit<Ex, "w" | "detail" | "mstate" | "gask">[] }[] };
 
 /** D184: aplica lo que el archivo dice con claridad (método y combinados A1/A2); lo ambiguo queda para preguntar. */
 function interpret(d: Preview["days"][number], unit: WeightUnit): Day {
@@ -42,7 +42,7 @@ function interpret(d: Preview["days"][number], unit: WeightUnit): Day {
   }) };
 }
 
-export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; onClose: () => void; onDone: () => void }) {
+export function RoutineImportSheet({ flash, onClose, onDone, initialBody }: { flash: (t: string) => void; onClose: () => void; onDone: () => void; initialBody?: ImportBody }) {
   const unit = useUnit();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<"read" | "save" | null>(null);
@@ -51,6 +51,7 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
   const [p, setP] = useState<{ source: Preview["source"]; notes: string[] } | null>(null);
   const [days, setDays] = useState<Day[]>([]);
   const [picking, setPicking] = useState<{ d: number; e: number } | null>(null);
+  const initialRead = useRef(false);
 
   const send = async (body: ImportBody) => {
     setBusy("read"); setErr(null);
@@ -60,6 +61,12 @@ export function RoutineImportSheet({ flash, onClose, onDone }: { flash: (t: stri
       setDays(r.days.map((d) => interpret(d, unit)));
     } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   };
+  useEffect(() => {
+    if (!initialBody || initialRead.current) return;
+    initialRead.current = true;
+    if (initialBody.kind === "text") setText(initialBody.text ?? "");
+    void send(initialBody);
+  }, [initialBody]); // el cuerpo inicial se lee una vez, también con Strict Mode
   const pick = async (f: File | undefined) => {
     if (!f) return;
     const b = await readImportFile(f);

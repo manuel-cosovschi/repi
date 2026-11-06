@@ -237,6 +237,20 @@ describe("entrenamientos olvidados (D160)", () => {
 });
 
 describe("subir la rutina propia (D162)", () => {
+  it("notas claras se estructuran sin IA y se revisan antes de guardar como rutinas", async () => {
+    const user = await member(false);
+    const text = "Día A\nSentadilla 4x8 60kg\nPress plano (105kg)\n5;5;5;4\nDía B\nRemo con barra 3x12 40kg";
+    const p = await withoutAi(() => own.previewRoutineImport(user, { fileName: "Notas", kind: "text", text }));
+    expect(p.source).toBe("notes");
+    expect(p.days.map((day) => day.name)).toEqual(["Día A", "Día B"]);
+    expect(p.days[0].exercises[0]).toMatchObject({ written: "Sentadilla", exerciseId: SQ, sets: 4, reps: "8", weightKg: 60 });
+    expect(p.days[0].exercises[1]).toMatchObject({ written: "Press plano", name: "Press de banca", sets: 4, reps: "5-5-5-4", weightKg: 105 });
+    expect((await own.listOwnRoutines(user))).toHaveLength(0);
+    await expect(withoutAi(() => own.previewRoutineImport(user, {
+      fileName: "Métodos", kind: "text", text: "Día A\nSentadilla 3x10 60kg\nDescanso 90 s",
+    }))).rejects.toMatchObject({ code: "ai_unavailable" });
+  });
+
   it("una planilla se lee sin IA, se empareja con la biblioteca y «Te toca hoy» sigue el orden de los días", async () => {
     const user = await member(false);
     const csv = "Día,Ejercicio,Series,Reps,Peso\nDía A,Sentadilla,4,8-10,60\nDía A,Ejercicio inventado xyz,3,12,\nDía B,Press de banca,3,10,40\n";
