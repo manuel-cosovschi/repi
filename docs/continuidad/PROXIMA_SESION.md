@@ -4,6 +4,18 @@ Actualizado: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUB
 
 
 
+
+## Corrección puntual: historial pegado completo — 06/11/2026
+
+Rama `fix/historial-texto-completo`, desde `2afc599`. Se quitaron los recortes silenciosos de 60.000 caracteres del textarea y de la lectura IA. El máximo existente de 400.000 se valida sin recortar lo pegado. Las notas largas se leen por bloques con contexto de fecha/año/ejercicio; si la salida IA se corta, se relee ese bloque en partes menores. Un fallo no crea una vista previa parcial. La ruta dispone de 300 s (lectura hasta 240 s). La revisión y confirmación existentes se conservan.
+
+Archivos: `HistoryImport.tsx`, ruta `api/me/history-import`, `server/training/history-import{,-read}.ts`, cliente `server/ai/openai.ts`, dominio `history-import.ts` y sus pruebas. Sin migraciones ni cambios de dependencias.
+
+Verificación local: 14 pruebas de dominio y 6 de lectura IA simulada, TypeScript de dominio/web y build Next correctos. Build con configuración ficticia local, sin conexión a datos reales. Chromium escritorio/móvil con el componente real y API simulada: 98.039 caracteres enviados íntegros, incluido el último `17;16;13`; 400.013 conservados y rechazados con aviso, sin POST. No se ejecutó la suite de integración con DB, OpenAI real ni Safari físico. El harness temporal no forma parte del repositorio.
+
+Estado: corrección preparada en rama para revisión e integración; sin publicación productiva desde esta sesión. Próxima acción: revisar/integrar el PR de esta rama y comprobar el mismo pegado en Safari del iPhone.
+
+
 ## Personal Progress & Body Tracking 1.0 (D199–D204) — 06/11/2026 · PUBLICADO Y VERIFICADO
 
 **Producción:** `fe469cb05991` (repiclub.com `/api/version`). Vercel en verde para `8efa596` (#43), `c99b582` (#45) y `fe469cb` (#46). La conexión MCP de Vercel sigue con 403 para el equipo, así que el estado se verificó con los estados de despliegue en GitHub y `/api/version`.

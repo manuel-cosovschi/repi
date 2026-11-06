@@ -9,7 +9,77 @@ export type NormalizedSet = ImportSet & { setIndex: number };
 export type ImportSummary = { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
 
 export const IMPORT_MAX_SETS = 5000;
+export const IMPORT_MAX_TEXT_LENGTH = 400_000;
 export const IMPORT_MIN_DAY = "1990-01-01";
+
+export type HistoryTextChunk = { text: string; context: string };
+
+/**
+ * Divide notas largas sin recortar caracteres. El contexto contiene únicamente fragmentos del original:
+ * sirve para interpretar una continuación (fecha, año y ejercicio), nunca para volver a transcribir esas series.
+ */
+export function splitHistoryText(text: string, maxChars = 6000): HistoryTextChunk[] {
+  if (!Number.isInteger(maxChars) || maxChars < 256) throw new RangeError("El tamaño de bloque debe ser un entero de al menos 256 caracteres.");
+  if (!text) return [];
+  const dateHeading = /^\s*(?:(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|fecha)\b[\s,.:–-]*)?(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}(?:[-/.]\d{2,4})?)(?=$|[\s,:;])/i;
+  const yearHeading = /^\s*(?:a[nñ]o\s*[:–-]?\s*)?(?:19|20)\d{2}\s*$/i;
+  const lines: { start: number; end: number; value: string; date: boolean; year: boolean; blank: boolean }[] = [];
+  const addLine = (start: number, end: number, contentEnd: number) => {
+    const value = text.slice(start, contentEnd);
+    const date = dateHeading.exec(value);
+    lines.push({ start, end, value, date: !!date, year: yearHeading.test(value) || !!date && date[1].split(/[-/.]/).length === 3, blank: !value.trim() });
+  };
+  let lineStart = 0;
+  for (const match of text.matchAll(/\r\n|\r|\n/g)) {
+    addLine(lineStart, match.index + match[0].length, match.index);
+    lineStart = match.index + match[0].length;
+  }
+  if (lineStart < text.length) addLine(lineStart, text.length, text.length);
+  // Un año puede estar escrito sólo al final de las notas. Estos anclajes siguen siendo referencia, no series del bloque.
+  const datedYears = lines.filter((line) => line.year);
+  const yearReferences = [datedYears[0]?.value, datedYears.at(-1)?.value].filter((value): value is string => !!value).map((value) => value.slice(0, 180));
+
+  const contextBefore = (start: number) => {
+    let date = "", year = "", exercise = "";
+    for (const line of lines) {
+      if (line.start >= start) break;
+      // Un renglón excepcionalmente largo también puede empezar con la fecha; sólo tomamos lo ya leído.
+      const value = text.slice(line.start, Math.min(line.start + line.value.length, start)).slice(0, 180);
+      if (line.year) year = value;
+      if (line.date) { date = value; exercise = ""; }
+      else if (yearHeading.test(line.value)) { date = ""; exercise = ""; }
+      else if (line.end <= start && /[a-záéíóúüñ]/i.test(line.value)) exercise = value;
+    }
+    let tailStart = Math.max(0, start - 800);
+    // Preferimos un renglón completo para que el contexto no empiece a mitad de un número o ejercicio.
+    const firstLine = lines.find((line) => line.start >= tailStart && line.start < start);
+    if (firstLine) tailStart = firstLine.start;
+    const tail = text.slice(tailStart, start);
+    const refs = [...new Set([year, date, exercise].filter((value) => value && !tail.includes(value)))];
+    const anchors = [...new Set(yearReferences.filter((value) => !refs.includes(value) && !tail.includes(value)))];
+    return [
+      anchors.length ? `Referencias de año (pueden ser posteriores; sólo para completar el año, nunca el día ni el ejercicio):\n${anchors.join("\n")}` : "",
+      refs.length || tail ? `Continuación anterior al bloque (sólo contexto):\n${[...refs, tail].filter(Boolean).join("\n")}` : "",
+    ].filter(Boolean).join("\n\n");
+  };
+
+  const chunks: HistoryTextChunk[] = [];
+  for (let start = 0; start < text.length;) {
+    let end = Math.min(start + maxChars, text.length);
+    if (end < text.length) {
+      const nearEnd = start + Math.floor(maxChars * 2 / 3);
+      const dates = lines.filter((line) => line.date && line.start >= nearEnd && line.start <= end);
+      const blanks = lines.filter((line) => line.blank && line.end >= nearEnd && line.end <= end);
+      const complete = lines.filter((line) => line.end > start && line.end <= end);
+      end = dates.at(-1)?.start ?? blanks.at(-1)?.end ?? complete.at(-1)?.end ?? end;
+      // No separar los dos códigos de un carácter Unicode ni un salto CRLF en un renglón gigante.
+      if (/[\uD800-\uDBFF]/.test(text[end - 1]) && /[\uDC00-\uDFFF]/.test(text[end]) || text[end - 1] === "\r" && text[end] === "\n") end--;
+    }
+    chunks.push({ text: text.slice(start, end), context: contextBefore(start) });
+    start = end;
+  }
+  return chunks;
+}
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 const num = (s: string | undefined | null) => {

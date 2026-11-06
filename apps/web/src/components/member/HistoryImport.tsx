@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 import { spreadsheetToCsv } from "@/lib/spreadsheet";
-import { fmtWeight, type WeightUnit } from "@repi/domain";
+import { fmtWeight, IMPORT_MAX_TEXT_LENGTH, type WeightUnit } from "@repi/domain";
 import { useUnit } from "./units";
 
 type Preview = {
@@ -96,6 +96,7 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
   const [text, setText] = useState("");
   const [p, setP] = useState<Preview | null>(null);
   const send = async (body: ImportBody) => {
+    if (body.kind === "text" && (body.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) { setErr("El historial supera los 400.000 caracteres. Dividilo en partes; el texto pegado se conserva completo."); return; }
     setBusy("read"); setErr(null);
     try { setP(await api<Preview>("/api/me/history-import", { body })); } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   };
@@ -141,9 +142,9 @@ function ImportSheet({ flash, onClose, onDone }: { flash: (t: string) => void; o
       <input ref={input} type="file" hidden accept=".csv,.txt,.tsv,.pdf,image/*,.xlsx,.ods,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
       <button type="button" className="cta" aria-busy={busy === "read" || undefined} disabled={!!busy} onClick={() => input.current?.click()}>{busy === "read" ? "Leyendo el archivo…" : "Elegir archivo o foto"}</button>
       <label className="sheet-sub" htmlFor="hi-text">O pegá el texto (por ejemplo, tus notas del celular):</label>
-      <textarea id="hi-text" className="note" rows={5} maxLength={60_000} value={text} onChange={(e) => setText(e.target.value)} placeholder={"12/03/2024\nSentadilla 3x10 60 kg\nPress banca 4x8 50 kg"} />
+      <textarea id="hi-text" className="note" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={"12/03/2024\nSentadilla 3x10 60 kg\nPress banca 4x8 50 kg"} />
       <button type="button" className="ghost" disabled={!!busy || text.trim().length < 10} onClick={() => void send({ fileName: "Texto pegado", kind: "text", text })}>Leer el texto</button>
-      {busy === "read" && <p className="sheet-sub" role="status">Puede tardar hasta un minuto con fotos o PDF.</p>}
+      {busy === "read" && <p className="sheet-sub" role="status">Puede tardar unos minutos con historiales largos, fotos o PDF.</p>}
       {err && <p className="sheet-warn" role="alert">{err}</p>}
       <p className="sheet-sub" style={{ fontSize: 12 }}>Si no es una planilla con columnas Fecha, Ejercicio, Series, Reps y Peso, REPI lo lee automáticamente (con OpenAI) sólo para transcribirlo. No guardamos el archivo: sólo las series que confirmes. Podés quitarlas cuando quieras.</p>
     </Sheet>

@@ -3,10 +3,11 @@
 // persona confirma. El archivo no se guarda. Lo importado aparece en Progreso («Antes de REPI») y sugiere pesos iniciales.
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, normalizeImport, parseHistoryCsv, type ImportSet, type NormalizedSet } from "@repi/domain";
+import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, normalizeImport, parseHistoryCsv, IMPORT_MAX_TEXT_LENGTH, type ImportSet, type NormalizedSet } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
-import { aiJson, aiModel, aiOn, type AiPart } from "../ai/openai";
+import { aiJson, aiModel, aiOn } from "../ai/openai";
+import { readHistoryWithAi } from "./history-import-read";
 import { catalogOnly, ensureExerciseCatalog } from "./library";
 
 const { historyImport, historyEntry, exercise, coachClient, gymMember } = schema;
@@ -26,44 +27,6 @@ async function overlapOf(userId: string, p: Parsed, tx: typeof db | Parameters<P
   const existing = await tx.select({ day: historyEntry.day, exercise: historyEntry.exerciseName, weightKg: historyEntry.weightKg, reps: historyEntry.reps, seconds: historyEntry.seconds })
     .from(historyEntry).where(eq(historyEntry.userId, userId));
   return importOverlap(toStored(p), existing);
-}
-
-const AI_SCHEMA = {
-  type: "object", additionalProperties: false, required: ["sessions", "notes"],
-  properties: {
-    sessions: { type: "array", items: { type: "object", additionalProperties: false, required: ["date", "exercises"], properties: {
-      date: { type: "string", description: "AAAA-MM-DD" },
-      exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "sets"], properties: {
-        name: { type: "string" },
-        sets: { type: "array", items: { type: "object", additionalProperties: false, required: ["weight_kg", "reps", "seconds"], properties: {
-          weight_kg: { type: ["number", "null"] }, reps: { type: ["integer", "null"] }, seconds: { type: ["integer", "null"] },
-        } } },
-      } } },
-    } } },
-    notes: { type: "array", items: { type: "string" } },
-  },
-};
-type AiOut = { sessions: { date: string; exercises: { name: string; sets: { weight_kg: number | null; reps: number | null; seconds: number | null }[] }[] }[]; notes: string[] };
-
-const SYSTEM = (today: string) => `Sos un asistente que transcribe registros de entrenamiento de fuerza (planillas, notas, cuadernos fotografiados, PDF) a datos.
-Hoy es ${today}. Reglas:
-- Devolvé cada día entrenado con su fecha en formato AAAA-MM-DD. Las fechas escritas DD/MM son de Argentina (día primero). Si falta el año, usá el de las fechas cercanas del mismo registro; sólo si no hay ninguna, el año más reciente que no quede en el futuro.
-- Cada serie va por separado: «3x10 con 60» son 3 series de 10 repeticiones con 60 kg. Libras a kilos (× 0,4536). Peso corporal o sin peso: weight_kg null.
-- Ejercicios por tiempo (plancha, cardio): seconds. Sin dato, null.
-- Nombres de ejercicios en español, como los escribió la persona (corregí sólo errores evidentes de tipeo).
-- No inventes nada. Si algo no se lee o es ambiguo, omitilo y explicalo brevemente en notes (en español). Sin fecha legible, no se incluye.`;
-
-async function readWithAi(f: ImportFile, today: string): Promise<{ sets: ImportSet[]; notes: string[] }> {
-  const parts: AiPart[] = [{ type: "text", text: `Archivo: ${f.fileName.slice(0, 120)}. Transcribí el historial de entrenamiento.` }];
-  if (f.kind === "text") parts.push({ type: "text", text: (f.text ?? "").slice(0, 60_000) });
-  else if (f.kind === "image") parts.push({ type: "image_url", image_url: { url: f.dataUrl!, detail: "high" } });
-  else parts.push({ type: "file", file: { filename: f.fileName.slice(0, 120) || "historial.pdf", file_data: f.dataUrl! } });
-  const out = await aiJson<AiOut>({ name: "historial_entrenamiento", system: SYSTEM(today), parts, schema: AI_SCHEMA, maxTokens: 16_000 });
-  const sets: ImportSet[] = [];
-  for (const s of out.sessions ?? []) for (const e of s.exercises ?? []) for (const x of e.sets ?? []) {
-    sets.push({ day: s.date, exercise: e.name, weightKg: x.weight_kg, reps: x.reps, seconds: x.seconds });
-  }
-  return { sets, notes: (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 10) };
 }
 
 /** Biblioteca visible para la persona: catálogo base y ejercicios propios de sus coaches y gimnasios. */
@@ -114,6 +77,7 @@ export async function matchExercises(names: string[], lib: { id: string; name: s
 export async function previewHistoryImport(userId: string, f: ImportFile, now = new Date()) {
   const today = localDate(now);
   if (!["text", "image", "pdf"].includes(f.kind)) throw new AccessError("invalid", "Formato no admitido.");
+  if (f.kind === "text" && (f.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) throw new AccessError("too_large", "El historial supera los 400.000 caracteres. Dividilo en partes; no se cargó ningún dato.", 413);
   if (f.kind === "text" && !(f.text ?? "").trim()) throw new AccessError("invalid", "El archivo está vacío.");
   if (f.kind !== "text" && !/^data:(image\/(jpeg|png|webp|gif)|application\/pdf);base64,/.test(f.dataUrl ?? "")) throw new AccessError("invalid", "Subí una foto (JPG o PNG), un PDF o una planilla CSV.");
   let raw: ImportSet[] | null = f.kind === "text" ? parseHistoryCsv(f.text!) : null;
@@ -121,7 +85,7 @@ export async function previewHistoryImport(userId: string, f: ImportFile, now = 
   const source: "csv" | "ai" = raw ? "csv" : "ai";
   if (!raw) {
     if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora sólo podemos leer planillas con columnas Fecha, Ejercicio, Series, Reps y Peso.", 503);
-    ({ sets: raw, notes } = await readWithAi(f, today));
+    ({ sets: raw, notes } = await readHistoryWithAi(f, today));
   }
   const n = normalizeImport(raw, today);
   if (!n.sets.length) throw new AccessError("empty", "No encontramos entrenamientos con fecha, ejercicio y peso o repeticiones. Probá con otra foto o una planilla.", 422);
