@@ -78,7 +78,7 @@ export async function myProgressPhotos(userId: string) {
   const rows = await db.select().from(progressPhoto).innerJoin(mediaObject, eq(mediaObject.id, progressPhoto.mediaId))
     .where(and(eq(progressPhoto.userId, userId), eq(mediaObject.ownerUserId, userId), isNull(mediaObject.deletedAt)))
     .orderBy(desc(progressPhoto.takenOn), desc(progressPhoto.createdAt)).limit(PROGRESS_PHOTO_LIMITS.maxPerUser);
-  return { photos: rows.map((r) => view(r.progress_photo)), limit: PROGRESS_PHOTO_LIMITS.maxPerUser };
+  return { photos: rows.map((r) => view(r.progress_photo)), limit: PROGRESS_PHOTO_LIMITS.maxPerUser, canUpload: !(await isMinor(userId)) };
 }
 
 /** Archivo de una foto propia (para el endpoint que lo entrega). Ajena o inexistente: 404. */

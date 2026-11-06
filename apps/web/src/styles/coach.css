@@ -387,3 +387,7 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 .sp-sets li.stage > span:first-child { padding-left: 12px; }
 .sp-sets li small { flex-basis: 100%; color: var(--ui-text-2); }
 .sp-exnote { margin: 0; font-size: 13px; color: var(--ui-text-2); }
+
+/* PP1 · Novedades de REPI (D202) */
+.repinews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+.repinews .card { padding: 16px 18px; }

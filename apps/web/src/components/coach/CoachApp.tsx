@@ -20,6 +20,9 @@ import { CoachGuide } from "./CoachGuide";
 import { Ic } from "@/components/ui/Ic";
 import { BookOpen, CalendarBlank, CaretUpDown, ChatCircle, ClipboardText, House, List, Money, Receipt, Tray, Users, VideoCamera, type Icon } from "@phosphor-icons/react";
 import { ExerciseVideos } from "./ExerciseVideos";
+import { RepiNews, useRepiNewsUnread } from "@/components/announcements/RepiNews";
+import { featureOn } from "@/lib/features";
+import { Megaphone } from "@phosphor-icons/react";
 
 const IC = { home: House, users: Users, cal: CalendarBlank, build: ClipboardText, msg: ChatCircle, inbox: Tray, money: Money, receipt: Receipt, book: BookOpen, video: VideoCamera };
 
@@ -29,9 +32,11 @@ const NAV: [Screen, string, Icon, string | null][] = [
   ["msgs", "Mensajes", IC.msg, null], ["inbox", "Solicitudes", IC.inbox, null], ["pay", "Cobros a alumnos", IC.money, null],
   ["terms", "Condiciones REPI", IC.receipt, null], ["guide", "Guía", IC.book, null],
 ];
+// D202: «Novedades de REPI» sólo con el módulo encendido.
+const navItems = () => (featureOn("announcements") ? [...NAV.slice(0, -1), ["repinews", "Novedades de REPI", Megaphone, null] as [Screen, string, Icon, string | null], NAV[NAV.length - 1]] : NAV);
 
 export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: string }; initial: { s?: string; c?: string; p?: string } }) {
-  const [screen, setScreen] = useState<Screen>(NAV.some((n) => n[0] === initial.s) ? (initial.s as Screen) : "dash");
+  const [screen, setScreen] = useState<Screen>(navItems().some((n) => n[0] === initial.s) ? (initial.s as Screen) : "dash");
   const [sel, setSel] = useState<string | null>(initial.c ?? null);
   const [pid, setPid] = useState<string | null>(initial.p ?? null);
   const [ov, setOv] = useState<Overview | null>(null);
@@ -49,6 +54,9 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
   const [termsNew, setTermsNew] = useState(0);
   const termsSeen = useCallback(() => { api<{ unacked: number }>(`/api/conditions/${orgId}`).then((x) => setTermsNew(x.unacked)).catch(() => setTermsNew(0)); }, [orgId]);
   useEffect(() => { termsSeen(); }, [termsSeen, screen]);
+  const [newsTick, setNewsTick] = useState(0);
+  const newsUnread = useRepiNewsUnread("coach", orgId, `${screen}:${newsTick}`);
+  const newsSeen = useCallback(() => setNewsTick((n) => n + 1), []);
 
   // Estado de navegación en la URL: recargar conserva pantalla, cliente y programa (lectura inicial desde el servidor).
   useEffect(() => {
@@ -88,13 +96,14 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
           <Ic i={CaretUpDown} size={16} color="var(--ui-muted)" />
         </a>
         <nav className="co-nav" aria-label="Principal">
-          {NAV.map(([k, l, ic, soon]) => (
+          {navItems().map(([k, l, ic, soon]) => (
             <button key={k} type="button" title={l} aria-current={screen === k ? "page" : undefined} onClick={() => go(k)}>
               <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "inbox" && !!ov?.inbox && <span className="nbadge" aria-label={`${ov.inbox} sin ver`}>{ov.inbox}</span>}
               {k === "msgs" && !!ov?.msgs && <span className="nbadge" aria-label={`${ov.msgs} conversaciones sin leer`}>{ov.msgs}</span>}
               {k === "terms" && termsNew > 0 && <span className="nbadge" aria-label={`${termsNew} cambios de condiciones sin revisar`}>{termsNew}</span>}
+              {k === "repinews" && newsUnread > 0 && <span className="nbadge" aria-label={`${newsUnread} novedades sin leer`}>{newsUnread}</span>}
             </button>
           ))}
         </nav>
@@ -126,6 +135,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
               {screen === "pay" && <CoachPayments orgId={orgId} flash={flash} openClient={(id) => go("clients", { sel: id })} />}
               {screen === "terms" && <ConditionsScreen orgId={orgId} flash={flash} unit="alumnos" onSeen={termsSeen} />}
               {screen === "guide" && <CoachGuide />}
+              {screen === "repinews" && <RepiNews area="coach" orgId={orgId} onSeen={newsSeen} onGo={(d) => go(d === "coach.clients" ? "clients" : d === "coach.builder" ? "builder" : "dash")} />}
             </>
           )}
         </div>

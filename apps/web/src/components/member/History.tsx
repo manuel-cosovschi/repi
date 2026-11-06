@@ -12,6 +12,7 @@ import { Sheet } from "./Sheet";
 import { kg } from "./types";
 import { useUnit } from "./units";
 import { Hint } from "./Hint";
+import { SessionCalories } from "./SessionCalories";
 
 export type HistoryItem = {
   id: string; dayName: string; startedAt: string; endedAt: string; durationSec: number; status: "completed" | "voided";
@@ -58,7 +59,7 @@ export function HistoryList({ items, onOpen }: { items: HistoryItem[]; onOpen: (
 }
 
 /** Detalle de una sesión del historial con sus acciones. `onChanged` recarga la lista y el progreso. */
-export function HistorySession({ id, flash, onClose, onChanged, offline }: { id: string; flash: (t: string) => void; onClose: () => void; onChanged: () => void; offline?: boolean }) {
+export function HistorySession({ id, flash, onClose, onChanged, offline, onRegisterWeight }: { id: string; flash: (t: string) => void; onClose: () => void; onChanged: () => void; offline?: boolean; onRegisterWeight?: () => void }) {
   const unit = useUnit();
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export function HistorySession({ id, flash, onClose, onChanged, offline }: { id:
             <div><strong>{d.metrics.reps}</strong><span>Repeticiones</span></div>
             <div><strong>{volumeIn(d.metrics.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>
           </div>
+          {d.status === "completed" && !offline && <SessionCalories sessionId={d.id} refresh={d.revision} onRegisterWeight={onRegisterWeight} />}
           {d.prs.length > 0 && <p className="hx-pr" role="note">Récord: {d.prs.map((p) => `${p.exercise} ${kg(p.current.weightKg, unit)} × ${p.current.reps}`).join(" · ")}</p>}
           {d.actions.edit && <Hint id="history_edit" text="Tocá una serie para corregir peso, repeticiones o RIR, o anularla si la marcaste por error. Tus récords y recomendaciones se recalculan con lo corregido." />}
           {d.exercises.map((e) => (
