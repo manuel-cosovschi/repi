@@ -52,6 +52,11 @@ La activación productiva depende de credenciales, dominio/hosting, políticas y
 
 ## Después del lanzamiento: no descartar nada
 
+**Cortes posteriores publicados:**
+- **06/11/2026 · Personal Progress & Body Tracking 1.0 (D199–D204):** gráficos por ejercicio, peso y objetivo, calorías estimadas, fotos privadas con comparador, Novedades de REPI y la corrección de reemplazos de Urko. Cubre «objetivos/progreso extendido» de V1.1 y la parte de registro de BI-1: medidas de peso y fotos privadas, sin visor, sin IA y sin compartir con el coach.
+
+**Próximo:** REPI — Smart Program Import 2.0.
+
 ### V1.1 — Completar la operación diaria
 
 Cobros manuales Coach→alumno con saldo/nota/anulación y vista del alumno; esperado vs cobrado; avisos contractuales y portal; objetivos/progreso extendido; informe mensual PDF; calendario/asistencia del coach; importación CSV; configuración y perfil; centros de notificaciones; exportación/borrado autoservicio completo; sitio público/comercial. Completar biblioteca/medios y áreas que V1 dejó deliberadamente mínimas. Cobros SaaS manuales sólo si se aprobaron; no confundir ese registro con facturación fiscal.

@@ -1,10 +1,10 @@
 # REPI — Matriz de preparación para el lanzamiento
 
-> **06/11/2026 · Personal Progress & Body Tracking 1.0 (D199–D202), en revisión (sin publicar):** detalle en [PERSONAL_PROGRESS_BODY_TRACKING_1.md](PERSONAL_PROGRESS_BODY_TRACKING_1.md).
+> **06/11/2026 · Personal Progress & Body Tracking 1.0 (D199–D204), PUBLICADO Y VERIFICADO** (`fe469cb`): detalle en [PERSONAL_PROGRESS_BODY_TRACKING_1.md](PERSONAL_PROGRESS_BODY_TRACKING_1.md) y en docs/continuidad/PROXIMA_SESION.md.
 > - El veredicto por etapa no cambia.
-> - Requiere la 0046 y la autorización del titular.
-> - Calorías, fotos y novedades quedan apagadas hasta su control.
-> - Nuevo bloqueante para encender fotos a escala: LB-11.
+> - 0046 aplicada después de un respaldo verificado.
+> - Gráficos, peso y objetivo, calorías, fotos privadas y novedades están encendidos.
+> - LB-11 está cerrado con un tope de Storage y el respaldo en partes. Crecer más allá requiere el plan Pro (decisión de gasto).
 
 > **05/11/2026 · cierre 06/06 (D197–D198), publicado 21:06 UTC (`ab4e1ad`):** la matriz vigente, con estados y evidencia por requisito, está en [FINAL_RELEASE_HARDENING_06.md](FINAL_RELEASE_HARDENING_06.md) §2.
 >
