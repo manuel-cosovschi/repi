@@ -24,22 +24,28 @@ export function usePoll(fn: () => void, ms = 10_000) {
   }, [ms]);
 }
 
-export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile }: {
+/**
+ * `includeSelected`: la lista pide también la conversación elegida aunque no tenga mensajes (`with=`), para escribir el primero.
+ * `action`: botón del encabezado (p. ej. «Nuevo mensaje»); recibe `open(id)` para mostrar la conversación que abrió.
+ */
+export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile, includeSelected, action }: {
   listUrl: string; kicker: string; emptyText: string; initial?: string | null; onSeen?: () => void; profile?: (t: ThreadRow) => React.ReactNode;
+  includeSelected?: boolean; action?: (open: (id: string) => void) => React.ReactNode;
 }) {
   const [threads, setThreads] = useState<ThreadRow[] | null>(null);
   const [sel, setSel] = useState<string | null>(initial ?? null);
   // M06: la pantalla queda viva entre visitas; abrir Mensajes con una conversación elegida (desde una ficha) la selecciona.
   useEffect(() => { if (initial) setSel(initial); }, [initial]);
   const [err, setErr] = useState<string | null>(null);
-  const loadList = useCallback(() => api<ThreadRow[]>(listUrl).then((t) => { setThreads(t); setErr(null); }).catch((e) => setErr(e.message)), [listUrl]);
+  const url = includeSelected && sel ? `${listUrl}${listUrl.includes("?") ? "&" : "?"}with=${encodeURIComponent(sel)}` : listUrl;
+  const loadList = useCallback(() => api<ThreadRow[]>(url).then((t) => { setThreads(t); setErr(null); }).catch((e) => setErr(e.message)), [url]);
   useEffect(() => { void loadList(); }, [loadList]);
   usePoll(loadList);
   const current = sel ?? threads?.find((t) => t.last)?.id ?? threads?.[0]?.id ?? null;
   const row = threads?.find((t) => t.id === current);
   return (
     <>
-      <div className="co-head"><div><span className="co-kicker">{kicker}</span><h1 tabIndex={-1}>Mensajes</h1></div></div>
+      <div className="co-head"><div><span className="co-kicker">{kicker}</span><h1 tabIndex={-1}>Mensajes</h1></div>{action && <div className="co-actions">{action(setSel)}</div>}</div>
       {err && <p role="alert" className="err-box">{err}</p>}
       {threads && !threads.length ? <div className="empty">{emptyText}</div> : (
         <div className="split" style={{ alignItems: "stretch" }}>
@@ -60,9 +66,12 @@ export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile 
   );
 }
 
-export function Conversation({ id, title, extra, onChanged, dark }: { id: string; title: string; extra?: React.ReactNode; onChanged?: () => void; dark?: boolean }) {
+export function Conversation({ id, title, extra, onChanged, dark, seed, onSeedUsed }: { id: string; title: string; extra?: React.ReactNode; onChanged?: () => void; dark?: boolean;
+  /** D210: borrador preparado con REPI. Sólo llena el campo (cada `n` nuevo); nunca envía: lo manda la persona. */
+  seed?: { text: string; n: number } | null; onSeedUsed?: () => void }) {
   const [t, setT] = useState<Thread | null>(null);
   const [draft, setDraft] = useState("");
+  useEffect(() => { if (seed?.text) { setDraft(seed.text); onSeedUsed?.(); } }, [seed?.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const [err, setErr] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const box = useRef<HTMLDivElement>(null);

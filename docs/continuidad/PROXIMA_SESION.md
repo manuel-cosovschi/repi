@@ -1,7 +1,92 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-transiciones`, sin publicar; hasta D209; **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-transiciones`, con `main` `7f30a06` integrado, sin publicar; hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
+## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
+
+- **Pedido:** máster del titular, guardado en `docs/adaptive/AC3_MASTER_PROMPT.md`.
+  - Autoriza el bloque de punta a punta: migraciones aditivas, merge y deploy con respaldo y pruebas críticas en verde.
+  - Prohíbe gastos nuevos sin aprobación, borrar o modificar datos reales, migraciones destructivas y notificaciones masivas sin consentimiento.
+- **Gasto de IA:** aprobado por el titular el 07/11 con los topes previstos: 30 mensajes por persona por día, US$2 por día en total y US$20 por mes por organización. Se cambia en Admin → Coaching IA. Sin IA o al tope, responde por reglas.
+- **Publicación** (en este orden):
+  1. CI en verde sobre `f76a19c`. Antes falló una vez `brain-push`, una prueba intermitente: con más de 1000 avisos pendientes de otras pruebas, la fila quedaba fuera de la tanda. Se corrigió aislando la cola en la prueba, sin tocar código de la aplicación.
+  2. Respaldo `backup-20261107-165801-42393734774` en verde (issue #76).
+  3. `hosted-0051.sql` aplicado en producción y verificado: 52 migraciones, nueve tablas con dueño `repi_app`, RLS activo y ningún permiso público.
+  4. Squash merge `ef22c73`; producción en `ef22c73adb15` desde las 17:26 UTC.
+- **Verificación en producción** (demos ficticias):
+  - **Alumno, en teléfono:**
+    - la tarjeta de Inicio funciona;
+    - «¿Qué me toca hoy?» responde con el día y el atajo;
+    - «me duele mucho el pecho» da la respuesta fija con 107/911;
+    - «me duele la rodilla» propone registrar la molestia, con confirmación.
+  - **Coach:** «Señales de REPI» se ve en Rendimiento.
+  - **Errores:** ninguno, ni 5xx ni errores de ejecución.
+  - **Base:** 0 llamadas de IA. El único hilo es el de la cuenta demo.
+  - El detalle está en §10 del contrato.
+- **Contrato:** `docs/adaptive/ADAPTIVE_COACHING_3.md`.
+- **Matriz de pruebas:** `docs/adaptive/AC3_PRUEBAS.md`.
+- **Decisión:** D210 en `docs/DECISIONS.md`.
+- **Privacidad:** sección «Asistente REPI» en `docs/PRIVACIDAD_OPERACION.md`.
+- **Migración 0051 `brain`** (aditiva, nueve tablas):
+  - Archivos: `hosted-0051.sql`, `verify-0051.sh` y `rollback/0051_brain.down.sql`.
+  - Mismo SQL y mismo sha256 que la 0050 original; `when` nuevo en el journal, posterior al de 0050.
+  - Ensayo local en una copia descartable, todo correcto: aplicación, RLS, restricciones, cascada, reintento, reversión negada con datos y reaplicación.
+- **Revisión independiente y correcciones:**
+  - Confirmados: 8 de dominio, 13 de servidor y 11 de interfaz, más los conocidos K1–K3. Todos corregidos, con pruebas de regresión.
+  - Destacado: alarmas de salud que se escapaban («me duele mucho el pecho», «me bajó la presión»).
+  - Una verificación independiente encontró 5 problemas bajos nuevos, también corregidos:
+    - duración máxima de las rutas frente al reclamo;
+    - una falla después del efecto ya no duplica la acción;
+    - alimentación sin falsos positivos;
+    - una molestia propuesta vale todo el día;
+    - el panel pasa a hoja cuando no entra arriba del dock.
+- **Pruebas (local):**
+  - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
+  - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
+- **Queda por ver en producción:**
+  - **Primera franja proactiva**, hoy a las 18 h de Argentina. Fuera de franja, el paso responde `brain: null`.
+  - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
+  - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
+- **Próximo:** ejercicios por tiempo (cinta: duración, velocidad e inclinación), en `claude/ejercicios-por-tiempo`. Lleva la migración 0052 aditiva, que requiere respaldo antes de aplicarse.
+
+## Sala · Mensajes: «Nuevo mensaje» para elegir un socio y escribirle — 07/11/2026 · PUBLICADO Y VERIFICADO (#74, `38e500c`)
+
+- **Pedido del titular:** «vos deberías poder seleccionar un socio y mandarle mensaje. No le deja al entrenador».
+- **Problema:** «Mensajes» de sala listaba sólo las conversaciones que ya tenían mensajes, y no había forma de empezar una.
+- **Cambio:**
+  - **Botón:** «Nuevo mensaje» (`components/gym/NewMessage.tsx`). Abre un buscador de socios de la sede y abre o crea la conversación (`POST /members/{id}/conversation`).
+  - **Permiso:** el botón sólo aparece con `floor.work`.
+  - **Lista:** `floorThreads(..., withId)` incluye la conversación elegida aunque todavía no tenga mensajes (`ChatPane` con `includeSelected`).
+- **E2E:** `gym-new-message.spec.ts`.
+- **Producción (demo de sala):** se elige un socio, la conversación aparece seleccionada con su caja de texto y no hay errores.
+- **Sin migraciones.**
+
+
+## Sala: combinar, guía de demo, ficha del socio y editor a la par del coach — 07/11/2026 · PUBLICADO Y VERIFICADO (#68–#71)
+
+- **#68 · Combinar ejercicios** (pedido urgente de un entrenador de sala, «hacelo ya… y lanzalo»):
+  - «Combinar con el siguiente» y «Separar» en la fila de cada ejercicio, en el editor de sala y en el constructor del coach. Antes la opción estaba escondida dentro de «Series y técnica».
+  - La lógica está en el dominio (`combineWithNext`, `separateFromGroup`, `combinedWithNext` en `packages/domain/src/prescription.ts`).
+  - «Editar programa» espera la versión nueva después de guardar.
+  - Producción: demo de sala, A1/A2 guardado y reabierto, sin errores.
+- **#69 · Guía de demo:** `DemoTour` (layout raíz) se muestra sólo en `/app`, `/coach` y `/gym`. Antes la píldora «Demo · Guía · Otro perfil» quedaba flotando en /conoce y /demo durante las 6 h de la sesión de demo.
+  - Producción: antes 1 píldora en cada página; después 0.
+  - E2E: `demo-tour-scope.spec.ts`.
+- **#70 · Ficha del socio como página:** pantalla nueva `member` (`?s=member&sel=…`, `MemberPage` en `components/gym/Members.tsx`).
+  - Sala, Mi turno y Tus pendientes abren sólo la ficha, con el nombre como título, «Volver a Sala» y «Todos los socios».
+  - En «Socios», por debajo de 836 px se ve la lista o la ficha, una por vez (container query sobre `.gy-members`).
+  - Producción: escritorio y teléfono, sin lista y con el programa a la vista, sin errores.
+  - E2E: `gym-member-page.spec.ts`.
+- **#71 · Editor de sala a la par del coach** (pedido: «tiene que aparecer ahí también… revisá todo»). La revisión función por función mostró que ya estaban las piezas de Urko: series y técnica, reemplazos, notas, carga sugerida, copiar/pegar días, asistente, importar y TI. Faltaba:
+  - borrador local por socio y revisión: cerrar con ×, Escape o tocando afuera ya no pierde lo armado; «Descartar cambios»; «Cancelar» pregunta antes;
+  - subir ejercicio ↑ y quitar día;
+  - «Indicación para el socio»;
+  - aviso de circuito con «Igualar a N vueltas»;
+  - filas numeradas 01, 02…
+  - E2E: `gym-editor-parity.spec.ts`.
+- **Pruebas locales del conjunto** (servidor de producción local, demos ficticias): 21 E2E en verde y 1 omitida (sólo corre en teléfono). Archivos: gym-editor-parity, gym-member-page, demo-tour-scope, combine-exercises, connect-program y coach-workflow.
+- **Pendiente conocido, no relacionado:** `e2e/mobile-layout.spec.ts` «alumno: importa una rutina con métodos escritos» falla en local (no encuentra «Método: … Drop set» en «Revisá tu rutina»). La E2E no corre en CI; revisar contra SI2.
+- **Sin migraciones.**
 
 ## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 07/11/2026 · EN RAMA, SIN PUBLICAR (D211)
 
@@ -28,7 +113,15 @@ Actualizado: 07/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-trans
   - Pruebas nuevas en `gym-member-page.spec.ts` («con movimiento») y `motion-nav.spec.ts` («primera visita con latencia»). Corridas: 23 + 56 + 47 ✓; sólo los 2 fallos ya conocidos (importar métodos escritos, también en `main`; fotos en el puerto 3000). `tsc` ✓ y `pnpm build` ✓.
   - Tope de demos en `repi_dev`: se purgaron sólo demos `is_demo` con más de 30 min (`scratchpad/tx-fix/purge-old.ts`, corrige la lectura del valor devuelto del guion anterior).
 - **No hecho / pendiente:** vuelo FLIP del nombre hacia la ficha; videos antes/después y prueba en el iPhone del titular (iOS 26, PWA; lista en §16 del documento); PR. Fase 2 en `MemberApp.tsx` después de fusionar AC3 (§14), que incluye «Volumen por semana» sin el vacío falso (debajo del pliegue en Progreso; no entra en el layout-shift medido).
-- **Rebase pendiente:** mientras se trabajaba, `main` avanzó a `ef22c73` (AC3 #75, que tomó D210, y «Nuevo mensaje» en Sala #74). `git merge-tree` marca conflictos en 10 archivos: `AdminApp`, `CoachApp`, `CoachClients`, `CoachDash`, `GymApp`, `Members`, `MemberApp`, `Messages` (alumno), `OwnRoutines` y `ProgressTraining`. Esta rama es la segunda en fusionarse: hace el rebase y vuelve a correr `motion-nav`, `gym-member-page` y las suites de alumno y staff. La decisión quedó como D211.
+- **`main` integrado (merge de `7f30a06`, 07/11):** AC3 #75, «Nuevo mensaje» #74 y el editor de sala #71. Conflictos en 12 archivos resueltos conservando las dos cosas:
+  - **Alumno:** `BrainProvider` sigue por encima de las dos ramas (pestañas y entrenamiento); `RepiPanel` y `RepiWhy` se montan una sola vez ahí, fuera de las secciones vivas. `onCardOpen`, el borrador de Mensajes (`draft`), `RepiAsk` en Progreso y en rutinas propias van dentro de `SectionStage`. Mensajes del alumno: caché M06 más el borrador de REPI.
+  - **Coach:** «Revisar» de «Pendientes» (señales de REPI) abre la **ficha sola** del cliente en Rendimiento (`openClient(id, "rend")`, con «Volver a Panel»). `CoachClients` aplica un pedido de pestaña nuevo aunque la pantalla siga viva. `RepiSignals` en Rendimiento.
+  - **Gym:** «Nuevo mensaje» en `ChatPane` (`includeSelected`, `action`) con la selección por pantalla (`shell.sel`). Esqueleto de la ficha y borrador local del editor (#71), los dos.
+  - **Admin:** «Coaching IA» entra en el menú y en el escenario (verificado con `tsc` y la build; la E2E de Admin necesita una cuenta de administración real y se omite).
+  - **Pruebas:** `pnpm typecheck` ✓; migraciones en `repi_dev` (0051) y `pnpm build` ✓. E2E en 3104:
+    - pasan `brain`, `brain-staff` (Pendientes, con `DATABASE_URL` de `repi_dev`), `gym-new-message`, `gym-editor-parity`, `motion-nav` y `gym-member-page`;
+    - en `gym-new-message`, «Escribir desde la ficha» miraba la fila oculta de Socios (que sigue viva): ahora mira la fila visible;
+    - prueba propia (fuera del repositorio): pestañas, `RepiCard` visible en Inicio, «Hablar con REPI», el panel se reabre con la conversación después de cambiar de pestaña (teléfono) o sigue abierto (escritorio ancho) y sobrevive al entrenamiento. Pedidos del cerebro sin duplicar: un `GET /api/me/brain` y una sola carga del hilo tras muchos cambios de pestaña.
 - **Próxima acción:** revisar con el titular (videos y su iPhone) y, con su aprobación, abrir el PR.
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)

@@ -15,7 +15,8 @@ import { useLoad } from "@/components/gym/shared";
 import { featureOn } from "@/lib/features";
 import { SessionLog, type LoggedExercise } from "./SessionLog";
 import { IntelSection } from "./CoachIntelligence";
-import { stashTiDraft } from "./ProposalDraft";
+import { stashTiDraft, type TiDraft } from "./ProposalDraft";
+import { RepiSignals } from "./RepiSignals";
 import { useCached } from "@/lib/cache";
 import { Skel } from "@/components/motion/Skeleton";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
@@ -33,8 +34,8 @@ const TABS: [string, string][] = ([["res", "Resumen"], ["rend", "Rendimiento"], 
 const FILTERS: [string, string][] = [["all", "Todos"], ["active", "Activos"], ["noprog", "Sin programa"], ["paused", "En pausa"]];
 const SORTS: [string, string][] = [["name", "Nombre"], ["adh", "Adherencia"], ["last", "Actividad"]];
 
-export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go, flash, solo, onOpen }: {
-  orgId: string; ov: Overview; sel: string | null; setSel: (id: string | null) => void; onInvite: () => void; onImported: () => void; flash: (t: string) => void;
+export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onImported, go, flash, solo, onOpen }: {
+  orgId: string; ov: Overview; sel: string | null; setSel: (id: string | null) => void; initialTab?: string | null; onInvite: () => void; onImported: () => void; flash: (t: string) => void;
   go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
   /** Ficha sola (pedido del titular, 07/11/2026): sin la lista, con «Volver» a la pantalla de origen. */
   solo?: { back: { label: string; go: () => void } | null };
@@ -45,7 +46,12 @@ export function CoachClients({ orgId, ov, sel, setSel, onInvite, onImported, go,
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("name");
   const [importing, setImporting] = useState(false);
-  const [tab, setTab] = useState("res");
+  const okTab = (t?: string | null): t is string => !!t && TABS.some(([k]) => k === t);
+  const [tab, setTab] = useState(() => (okTab(initialTab) ? initialTab : "res"));
+  // M06: la pantalla queda viva entre visitas, así que un pedido nuevo de pestaña (D210: «Revisar» → Rendimiento) se aplica
+  // también sin volver a montar.
+  const [askedTab, setAskedTab] = useState(initialTab);
+  if (initialTab !== askedTab) { setAskedTab(initialTab); if (okTab(initialTab)) setTab(initialTab); }
   const [preview, setPreview] = useState(false); // D195: vista previa de sólo lectura
 
   const list = useMemo(() => {
@@ -167,7 +173,7 @@ function Tab({ tab, det, row, orgId, flash, go }: { tab: string; det: Detail; ro
       ))}
     </section>
   ) : <div className="empty">Sin programa asignado.</div>;
-  if (tab === "rend") return <PerfTab key={det.id} orgId={orgId} relId={det.id} go={go} />;
+  if (tab === "rend") return <PerfTab key={det.id} orgId={orgId} relId={det.id} programId={det.program?.programId ?? null} go={go} />;
   if (tab === "pay") return <ClientPayTab key={det.id} orgId={orgId} relId={det.id} name={det.name} flash={flash} />;
   const SENS: Record<string, "health" | "nutrition" | "measurements"> = { salud: "health", nutri: "nutrition", body: "measurements" };
   if (SENS[tab]) return <SensitiveTab key={`${det.id}-${tab}`} orgId={orgId} relId={det.id} name={det.name} item={SENS[tab]} flash={flash} />;
@@ -191,10 +197,16 @@ function Sessions({ det }: { det: Detail }) {
 // F-CO-04: rendimiento desde series reales. Fórmula visible; tendencia contra las 4 semanas previas.
 type Perf = { formula: string; exercises: { name: string; group: string; best: { e1rm: number; weightKg: number; reps: number } | null; previous: { e1rm: number } | null; sets: number }[];
   groups: { group: string; thisWeek: number; lastWeek: number }[] };
-function PerfTab({ orgId, relId, go }: { orgId: string; relId: string; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void }) {
+function PerfTab({ orgId, relId, programId, go }: { orgId: string; relId: string; programId: string | null; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void }) {
   // D191: la propuesta se revisa en el constructor de siempre (programa del cliente), donde sólo cambia el borrador si se aplica.
-  const intel = <IntelSection kind="coach" relId={relId} load={`/api/coach/${orgId}/clients/${relId}/intelligence`} decideUrl={(id) => `/api/coach/${orgId}/proposals/${id}`}
-    onReview={(t) => { stashTiDraft(t); go("builder", { pid: t.programId }); }} />;
+  const review = (t: TiDraft) => { stashTiDraft(t); go("builder", { pid: t.programId }); };
+  const decideUrl = (id: string) => `/api/coach/${orgId}/proposals/${id}`;
+  // D210: «Señales de REPI» arriba (análisis de lo registrado con vos; nunca su conversación ni su memoria) y, debajo, Training Intelligence.
+  const [tick, setTick] = useState(0);
+  const intel = <>
+    <RepiSignals kind="coach" relId={relId} programId={programId} load={`/api/coach/${orgId}/clients/${relId}/brain`} decideUrl={decideUrl} onReview={review} refresh={tick} />
+    <IntelSection kind="coach" relId={relId} load={`/api/coach/${orgId}/clients/${relId}/intelligence`} decideUrl={decideUrl} onReview={review} onLoaded={() => setTick((n) => n + 1)} />
+  </>;
   const d = useLoad<Perf>(`/api/coach/${orgId}/clients/${relId}/performance`);
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
   if (!d.data) return <p className="muted">Cargando…</p>;

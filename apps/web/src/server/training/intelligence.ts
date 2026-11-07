@@ -4,7 +4,7 @@
 //
 // Garantías: nunca escribe en set_log ni en el programa; un objetivo emitido no se reescribe (se reemplaza con seq + 1 y
 // queda trazado); una falla acá nunca impide registrar una serie (quien llama la atrapa); no llama a ningún LLM.
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
   TI_VERSION, TI_WINDOW, adjustAfterSet, labelAt, loadIncrement, fitTargetsToLoads, resolveLadder, type LoadLadder, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
   type ExCtx, type ExerciseDetail, type HistRow, type IntelEvent, type Proposal, type RowTarget, type SetKind, type Trend,
@@ -213,6 +213,13 @@ export async function clientIntelligence(actorId: string, orgId: string, coachCl
   return relationIntelligence({ kind: "coach", id: coachClientId, userId: rel.userId }, now);
 }
 
+/**
+ * D210: pedidos del alumno al entrenador hechos desde REPI (propose_to_coach) en training_proposal. Comparten la tabla y el lugar
+ * «abierta por ejercicio y tipo» con Training Intelligence: TI no los toma como propios (ni para «ya decidida» ni para pisarlos).
+ */
+export const STUDENT_REQUEST_VERSION = "brain-1";
+const tiRow = ne(trainingProposal.algoVersion, STUDENT_REQUEST_VERSION);
+
 /** Relación ya autorizada por quien llama: coach privado (`coach_client`) o socio de la sede (`gym_member`). */
 export type IntelRel = { kind: "coach" | "gym"; id: string; userId: string };
 const relCol = (k: IntelRel["kind"]) => ({
@@ -255,15 +262,18 @@ export async function relationIntelligence(rel: IntelRel, now = new Date()) {
     if (o?.proposal && (o.proposal.requiresCoach || o.proposal.kind === "load" || o.proposal.kind === "review" || o.proposal.kind === "deload")) {
       const pl = { text: o.proposal.text, weightKg: o.proposal.weightKg, reps: o.proposal.reps, basis: o.proposal.basis, trend: o.trend.kind, sessions: o.trend.sessions };
       const relVals = rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id };
-      // Ya decidida y sin sesiones nuevas desde entonces: se muestra la decisión (no se vuelve a proponer lo mismo).
-      const [lastP] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind)))
+      // Ya decidida y sin sesiones nuevas desde entonces: se muestra la decisión (no se vuelve a proponer lo mismo). Sólo cuentan
+      // las propuestas de TI: un pedido del alumno rechazado no es una decisión sobre la propuesta de TI.
+      const [lastP] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), tiRow))
         .orderBy(sql`${trainingProposal.createdAt} desc`).limit(1);
       if (lastP && lastP.status !== "open" && lastP.decidedAt && rows[0] && lastP.decidedAt.getTime() >= Date.parse(rows[0].at)) {
         proposal = { id: lastP.id, status: lastP.status, ...o.proposal };
       } else {
+        // Un pedido del alumno abierto en el mismo lugar no se pisa (setWhere): mientras esté abierto, TI no abre la suya ahí.
         await db.insert(trainingProposal).values({ ...relVals, exerciseId: e.exerciseId, kind: o.proposal.kind, payload: pl, algoVersion: TI_VERSION })
-          .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`), set: { payload: pl, algoVersion: TI_VERSION } });
-        const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open")));
+          .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`),
+            set: { payload: pl, algoVersion: TI_VERSION }, setWhere: sql`${trainingProposal.algoVersion} <> ${STUDENT_REQUEST_VERSION}` });
+        const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open"), tiRow));
         if (row) proposal = { id: row.id, status: row.status, ...o.proposal };
       }
     }

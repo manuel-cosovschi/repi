@@ -9,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
 import { ChatPane } from "@/components/messages/ChatPane";
+import { NewMessageButton } from "./NewMessage";
 import { HandoffScreen, NewTaskModal, QueueScreen, ShiftScreen } from "./Floor";
 import { MemberPage, MembersScreen } from "./Members";
 import { MyPerfScreen, PerfCenterScreen } from "./Perf";
@@ -295,7 +296,9 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
             {k === "members" && <MembersScreen shell={shell} />}
             {k === "member" && <MemberPage shell={shell} name={memberName} back={from && from !== "members" ? { to: from, label: nav.find((n) => n[0] === from)?.[1] ?? "Atrás", go: back } : null} />}
             {k === "handoff" && <HandoffScreen shell={shell} />}
-            {k === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido." emptyText="Todavía no hay conversaciones. Se abren cuando un socio escribe o desde su ficha con «Escribir»." initial={shell.sel} onSeen={refreshBadges} />}
+            {k === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido."
+              emptyText={can(ctx, "floor.work") ? "Todavía no hay conversaciones. Tocá «Nuevo mensaje» para escribirle a un socio, o esperá a que un socio te escriba." : "Todavía no hay conversaciones. Se abren cuando un socio escribe o el equipo le escribe desde su ficha."}
+              initial={shell.sel} onSeen={refreshBadges} includeSelected action={can(ctx, "floor.work") ? (open) => <NewMessageButton shell={shell} onOpen={open} /> : undefined} />}
             {k === "perf" && <MyPerfScreen shell={shell} />}
             {k === "mdash" && <PanelScreen shell={shell} />}
             {k === "pc" && <PerfCenterScreen shell={shell} />}

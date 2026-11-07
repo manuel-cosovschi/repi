@@ -103,18 +103,20 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
   const cur = useRef({ screen, from });
   cur.current = { screen, from };
   const pushed = useRef(false);
-  const go = useCallback((s: Screen, extra?: { sel?: string; pid?: string | null }) => {
+  // D210: abrir la ficha directo en una pestaña (p. ej. «Rendimiento» desde «Pendientes» con señales de REPI).
+  const [ctab, setCtab] = useState<string | null>(null);
+  const go = useCallback((s: Screen, extra?: { sel?: string; pid?: string | null; tab?: string }) => {
     setDrawer(false); setNavSel(s);
     if (s !== "client") pushed.current = false;
     startTransition(() => {
-      setScreen(s);
+      setScreen(s); setCtab(extra?.tab ?? null);
       if (s !== "client") setFrom(null);
       if (extra?.sel !== undefined) setSels((p) => ({ ...p, [s]: extra.sel }));
       if (extra?.pid !== undefined) setPid(extra.pid);
     });
   }, []);
   // «Ver ficha» desde Solicitudes, Mensajes, Cobros o la lista angosta: sólo la ficha de ese cliente, con «Volver».
-  const openClient = useCallback((id: string) => {
+  const openClient = useCallback((id: string, tab?: string) => {
     const { screen: sc, from: fr } = cur.current;
     const origin = sc === "client" ? fr : sc;
     setFrom(origin);
@@ -124,7 +126,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
       window.history.pushState({ repiClient: true }, "", `?${q}`);
       pushed.current = true;
     }
-    go("client", { sel: id });
+    go("client", { sel: id, tab });
   }, [go]);
   const back = useCallback(() => { const fr = cur.current.from ?? "clients"; if (pushed.current) window.history.back(); else go(fr); }, [go]);
   useEffect(() => {
@@ -193,8 +195,8 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
             <SectionStage active={screen} order={navItems().map((n) => n[0])} axis="auto" focus="title" paneClass="co-pane" top={(k) => k === "client"} render={(k) => <>
               {k === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}
               {k === "dash" && <CoachDash orgId={orgId} ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} openClient={openClient} />}
-              {k === "clients" && <CoachClients orgId={orgId} ov={ov} sel={selOf("clients")} setSel={setSelFor("clients")} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} onOpen={openClient} />}
-              {k === "client" && <CoachClients key={selOf("client") ?? ""} orgId={orgId} ov={ov} sel={selOf("client")} setSel={setSelFor("client")} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash}
+              {k === "clients" && <CoachClients orgId={orgId} ov={ov} sel={selOf("clients")} setSel={setSelFor("clients")} initialTab={screen === "clients" ? ctab : null} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} onOpen={openClient} />}
+              {k === "client" && <CoachClients key={selOf("client") ?? ""} orgId={orgId} ov={ov} sel={selOf("client")} setSel={setSelFor("client")} initialTab={screen === "client" ? ctab : null} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash}
                 solo={{ back: from ? { label: navItems().find((n) => n[0] === from)?.[1] ?? "Atrás", go: back } : { label: "Clientes", go: () => go("clients") } }} />}
               {k === "videos" && <ExerciseVideos orgId={orgId} flash={flash} />}
               {k === "builder" && <ProgramBuilder orgId={orgId} ov={ov} pid={pid} setPid={setPid} flash={flash} onNewProgram={newProgram} onAssigned={reload} />}

@@ -25,7 +25,8 @@ test("sala: «Combinar con el siguiente» arma la superserie, se guarda y «Sepa
   await page.getByRole("button", { name: "Editar programa" }).click();
   await expect(ed.locator(".exrow").nth(0).locator("code")).toHaveText("A1");
   await ed.locator(".exrow").nth(0).getByRole("button", { name: /^Separar / }).click();
-  await expect(ed.locator(".exrow code")).toHaveCount(0);
+  await expect(ed.locator(".exrow code").nth(0)).toHaveText("01"); // sueltos: numerados, como en el constructor del coach
+  await expect(ed.locator(".exrow code").nth(1)).toHaveText("02");
   expect(a && b).toBeTruthy();
   expect(errors).toEqual([]);
 });
