@@ -31,7 +31,7 @@ type Fields = Record<string, string | boolean | number | undefined>;
 type Invite = { code: string; kind: "coach_client" | "gym_staff"; orgName: string; orgInitials: string; detail: string; inviter: string | null; emailHint?: string | null };
 type JoinInfo = { orgName: string; locationName: string; operational: boolean };
 type JoinReq = { id: string; code: string; kind: string; status: "pending" | "approved" | "rejected" | "cancelled" | "expired"; orgName: string; locationName: string; reason: string | null; message: string | null };
-type ActInfo = { state: string; orgName: string; kind: "gym" | "coach"; emailHint: string };
+type ActInfo = { state: string; orgName: string; kind: "gym" | "coach" | "seller"; emailHint: string };
 const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 type Workspace = { key: string; ini: string; title: string; detail: string; href: string; needs2fa: boolean };
 type Me = { user: { name: string; email: string; twoFactorEnabled: boolean }; minor: boolean; guardian: "approved" | "pending" | "none" | null;
@@ -50,7 +50,7 @@ type View = {
   social?: boolean; secondary?: Btn[]; links?: { pre: string; label: string; go: () => void }[]; extra?: React.ReactNode;
 };
 
-export type AccessInitial = { code?: string; proof?: string; sede?: string; step?: string; next?: string; join?: string; activate?: string };
+export type AccessInitial = { code?: string; proof?: string; sede?: string; step?: string; next?: string; join?: string; activate?: string; activateKind?: "seller" };
 
 export function AccessFlow({ initial, social }: { initial: AccessInitial; social: { google: boolean; apple: boolean } }) {
   const [step, setStep] = useState<Step>("login");
@@ -76,6 +76,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const [resume, setResume] = useState<Entry | null>(null);
   const entry = initial.join ? { k: "join" as const, v: initial.join } : initial.code ? { k: "code" as const, v: normalizeCode(initial.code) }
     : initial.activate ? { k: "activate" as const, v: initial.activate } : null;
+  // D207: la invitación de vendedor usa el mismo recorrido que la bienvenida del responsable, con su propia API.
+  const actApi = initial.activateKind === "seller" ? `/api/ventas/activar/${initial.activate}` : `/api/activate/${initial.activate}`;
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const headRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
@@ -201,7 +203,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
         }
         if (initial.activate) {
           setFlow("activate"); setStep("activate");
-          const [info, session] = await Promise.all([api<ActInfo>(`/api/activate/${initial.activate}`), authClient.getSession()]);
+          const [info, session] = await Promise.all([api<ActInfo>(actApi), authClient.getSession()]);
           setActInfo(info);
           if (session.data) { setSignedIn(true); await loadMe(); }
           return;
@@ -245,7 +247,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     return cur;
   }
   async function acceptActivation() {
-    const r = await api<{ href: string }>(`/api/activate/${initial.activate}`, { body: {} });
+    const r = await api<{ href: string }>(actApi, { body: {} });
     clearEntry();
     const m = await loadMe();
     const w = m.workspaces.find((x) => x.href === r.href);
@@ -576,16 +578,16 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     activate: () => {
       const a = actInfo;
       if (!a) return { title: "Cargando tu invitación…" };
-      const info = { ini: initials(a.orgName), t: a.orgName, d: a.kind === "gym" ? "Gimnasio" : "Coach" };
+      const info = { ini: initials(a.orgName), t: a.orgName, d: a.kind === "gym" ? "Gimnasio" : a.kind === "seller" ? "Vendedor REPI" : "Coach" };
       if (a.state !== "pending") return { info, title: a.state === "accepted" ? "Esta invitación ya se usó" : "La invitación no está vigente", sub: a.state === "accepted" ? "Ingresá con tu cuenta para entrar a tu espacio." : "Pedí una nueva al equipo de REPI.", secondary: [{ label: "Ir a ingresar", go: () => start("login", "login") }] };
       if (signedIn) return {
-        info, title: "Activá tu espacio", sub: `La invitación es para ${a.emailHint}. Tenés que estar con la cuenta de ese email.`,
-        note: a.kind === "gym" ? "Como responsable vas a configurar sedes, equipo y el QR de recepción." : undefined,
+        info, title: a.kind === "seller" ? "Sumate al equipo comercial" : "Activá tu espacio", sub: `La invitación es para ${a.emailHint}. Tenés que estar con la cuenta de ese email.`,
+        note: a.kind === "gym" ? "Como responsable vas a configurar sedes, equipo y el QR de recepción." : a.kind === "seller" ? "Vas a entrar a tu panel de ventas. No da acceso a datos de entrenamiento ni de socios." : undefined,
         cta: { label: "Aceptar y entrar", go: run(acceptActivation) },
         links: [{ pre: "¿Otra cuenta?", label: "Cerrar sesión", go: run(async () => { if (!await signOutSafely()) return; setSignedIn(false); setMe(null); }) }],
       };
       return {
-        info, title: "Bienvenido/a a REPI", sub: `REPI habilitó ${a.orgName}. La invitación es para ${a.emailHint}: creá tu cuenta o ingresá con ese email.`,
+        info, title: "Bienvenido/a a REPI", sub: a.kind === "seller" ? `REPI te invitó a vender REPI. La invitación es para ${a.emailHint}: creá tu cuenta o ingresá con ese email.` : `REPI habilitó ${a.orgName}. La invitación es para ${a.emailHint}: creá tu cuenta o ingresá con ese email.`,
         cta: { label: "Crear mi cuenta", go: () => to("actAcct") },
         secondary: [{ label: "Ya tengo cuenta REPI", go: () => to("login") }],
       };
@@ -593,14 +595,14 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     actAcct: () => {
       const ready = !!s("name") && isEmail(s("email")) && passwordOk(s("pw")) && !!f.terms;
       return {
-        title: "Tu cuenta de responsable",
+        title: actInfo?.kind === "seller" ? "Tu cuenta de vendedor" : "Tu cuenta de responsable",
         fields: [{ k: "name", label: "Nombre y apellido", ac: "name" }, { k: "email", label: "Email (el de la invitación)", mode: "email", ac: "email", bad: !!s("email") && !isEmail(s("email")) }, pwHintField()],
         checks: [{ k: "terms", t: actInfo?.kind === "gym" ? "Acepto los Términos, la Política de privacidad y el Acuerdo de tratamiento de datos para organizaciones." : "Acepto los Términos y la Política de privacidad." }],
         cta: { label: "Crear cuenta", ready, go: () => {
           const gap = signupGap(false);
           if (gap) return fail(gap);
           return run(async () => {
-            await api("sign-up", { body: { flow: "owner", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms } });
+            await api("sign-up", { body: { flow: actInfo?.kind === "seller" ? "seller" : "owner", name: s("name"), email: s("email"), password: s("pw"), terms: !!f.terms } });
             to("verify");
           })();
         } },

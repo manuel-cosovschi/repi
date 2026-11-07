@@ -1,12 +1,39 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D206; **pedido de programa con preferencias PUBLICADO**, Experience Hub publicado; ver primeras secciones). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 07/11/2026 (hasta D207; **REPI Sales Force & Commission OS en revisión, sin publicar, 0049 sin aplicar**; antes: D206 **pedido de programa con preferencias PUBLICADO**, Experience Hub publicado; ver primeras secciones). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
 
 
 
+
+## REPI Sales Force & Commission OS 1.0 (D207) — 07/11/2026 · EN REVISIÓN, SIN PUBLICAR
+
+- **Pedido:** master prompt del titular «REPI Sales Force & Commission OS 1.0»: vendedores en todo el país con panel propio, CRM, registro de ventas, comisiones y liquidaciones, todo administrado desde REPI Admin y sobre los clientes y contratos reales.
+- **Rama:** `claude/tender-cerf-0cm7r9`, desde `main` `5e2c94d`. Detalle completo en `docs/comercial/SALES_FORCE.md`; decisión D207 en `docs/DECISIONS.md`.
+- **Hecho (bloques 1 y 2 completos, bloque 3 parcial):**
+  - Dominio `packages/domain/src/sales.ts`: estados y capacidades del vendedor, pipeline con transiciones, duplicados, vista previa del cierre, planes (fijo, % primer cobro, % recurrente, por socio, híbrido, escalonado), motor idempotente `desiredEntries` + `diffLedger`, cortes por frecuencia.
+  - Servidor `apps/web/src/server/sales/*`, API `/api/ventas/*` y `/api/admin/sales/*`.
+  - Interfaz: `/ventas` (mobile-first, barra inferior), `/ventas/activar/[token]` (reutiliza `AccessFlow` y la guía PWA), `/ventas/liquidacion/[id]` (imprimible, «no es comprobante fiscal»), Admin › Ventas (panel, cierres, pipeline, comisiones, liquidaciones, solicitudes, material) y Admin › Vendedores (lista con filtros, paginación y acciones masivas; ficha completa).
+  - Objetivos, material de ventas versionado con vencimiento, avisos internos (vendedor y Admin) y enlace personal `/conoce?ref=V-XXXXXX` (origen del contacto, nunca venta atribuida).
+- **Tocado en código existente (sin cambiar comportamiento):**
+  - `commercial/services.ts`: `createClientTx`, `addTermTx`, `publishTermNotice`; sincroniza comisiones al habilitar o suspender; no borra clientes con venta aprobada o comisiones; `createLead` guarda `referralCode` sólo de vendedores activos.
+  - `commercial/payments.ts`: sincroniza comisiones al registrar o anular un pago.
+  - `access/services.ts` (espacio «REPI Ventas»), `api/access/sign-up` (flujo `seller`), `AccessFlow.tsx` (activación de vendedor), `AdminApp.tsx` (dos entradas y «Pasar a ventas» en Contactos), `admin/page.tsx` (parámetros de aviso), `ContactForm.tsx` (`?ref=`).
+- **Migración 0049 (aditiva, NO aplicada en producción):**
+  - 19 tablas nuevas, `commercial_lead.referral_code` y trigger de inmutabilidad de `commission_entry`.
+  - `apps/web/scripts/operations/hosted-0049.sql` y `scripts/rollback/0049_sales_force.down.sql`.
+  - Ensayo en base descartable local: huella igual a `migrate.ts`, RLS en las 19 tablas, dueño `repi_app`, reintento falla entero, reversión que se niega con datos, revertir y reaplicar.
+  - Orden: respaldo verde → `hosted-0049.sql` → merge → smoke con datos `*.invalid`.
+- **Pruebas:**
+  - Dominio `sales.test.ts` (17 ✓); dominio completo 464 ✓.
+  - Integración `tests/sales-force.test.ts` (13 ✓) sobre `repi_test` local: flujos A–J (alta e invitación, captación y duplicados, cierre con corrección y aprobación, aprobación concurrente única, habilitación, comisiones por cobros, reversión por anulación, inmutabilidad, liquidación idempotente con pago parcial y sin sobrepago, renegociación, desvinculación, aislamiento entre vendedores, reintentos, frecuencia, enlace personal, material).
+  - Suite web completa: 75 archivos, 513 ✓ (antes de los últimos ajustes de interfaz); typecheck ✓, guardas ✓ (24), build ✓.
+  - Navegador (build local + `repi_dev`, iPhone 13 y escritorio 1366): recorrido completo Admin ↔ vendedor sin errores de consola ni 5xx; accesos a Admin y a recursos ajenos 404 y auditados; sin scroll horizontal. El script quedó fuera del repo (usa `psql` sobre `repi_dev`).
+- **Corregido en el camino:** abrir un modal desde la URL (`?deal=`, `?rep=`, `?p=`, `?b=`) rompía el render del servidor (`Modal` usa `document`): ahora se abre tras montar.
+- **Decisiones pendientes del titular:** planes reales y moneda; regla de renegociación con otro vendedor (hoy el cobro va a la última venta aprobada vigente); visibilidad del responsable comercial sobre su equipo; evidencia como archivo y PDF del servidor; IA comercial (no implementada).
+- **Primera acción al retomar:** revisar el PR de esta rama; con aprobación del titular, respaldo → `hosted-0049.sql` → merge → smoke.
 
 ## Pedido de programa con preferencias (D206) — 07/11/2026 · PUBLICADO Y VERIFICADO (#58, 297a936)
 
