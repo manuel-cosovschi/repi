@@ -12,13 +12,16 @@ export type Video = {
   id: string; title: string; audience: string; src: string | null; poster: string | null; captions: string | null;
   /** «0:45». Sólo si el archivo existe. */
   duration: string | null; vertical?: boolean;
+  /** Con locución. Sin esto, el video es sin audio (con subtítulos en pantalla). */
+  audio?: boolean;
 };
 export const VIDEOS: Record<string, Video> = {
   // Grabaciones reales de la demo guiada (datos ficticios) con subtítulos en pantalla; sin audio. Ver VIDEOS_PENDIENTES.md.
   "perfil-gimnasios": { id: "perfil-gimnasios", title: "REPI para gimnasios", audience: "Dueños y gerencia", src: "/conoce/videos/perfil-gimnasios.mp4", poster: "/conoce/videos/perfil-gimnasios.webp", captions: null, duration: "0:50", vertical: true },
   "perfil-entrenadores": { id: "perfil-entrenadores", title: "REPI para entrenadores personales", audience: "Personal trainers", src: "/conoce/videos/perfil-entrenadores.mp4", poster: "/conoce/videos/perfil-entrenadores.webp", captions: null, duration: "0:34", vertical: true },
   "perfil-deportistas": { id: "perfil-deportistas", title: "REPI para alumnos y deportistas", audience: "Quien entrena", src: "/conoce/videos/perfil-deportistas.mp4", poster: "/conoce/videos/perfil-deportistas.webp", captions: null, duration: "0:42", vertical: true },
-  "perfil-aliados": { id: "perfil-aliados", title: "REPI, empresa de tecnología deportiva", audience: "Empresas, inversores y aliados", src: null, poster: null, captions: null, duration: null },
+  // Con locución (ElevenLabs, voz «Eric», multilingüe) y subtítulos en pantalla; escenas de marca y grabaciones reales de la demo.
+  "perfil-aliados": { id: "perfil-aliados", title: "REPI, empresa de tecnología deportiva", audience: "Empresas, inversores y aliados", src: "/conoce/videos/perfil-aliados.mp4", poster: "/conoce/videos/perfil-aliados.webp", captions: null, duration: "0:59", vertical: true, audio: true },
   "f-intelligence": { id: "f-intelligence", title: "Training Intelligence en una serie", audience: "Todos", src: "/conoce/videos/f-intelligence.mp4", poster: "/conoce/videos/f-intelligence.webp", captions: null, duration: "0:33", vertical: true },
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */

@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { PAIN_CONTEXT, PAIN_WARN_LEVEL, REQUEST_KIND, type RequestKind } from "@repi/domain";
 import { api } from "@/lib/api";
 import { fmtDate, type Screen } from "./types";
+import { BriefBlock, type BriefViewData } from "@/components/shared/BriefBlock";
 
 type Inbox = {
-  requests: { id: string; relId: string; member: string; kind: RequestKind; text: string; status: "open" | "done"; createdAt: string; videoId: string | null; videoDeleted: boolean }[];
+  requests: { id: string; relId: string; member: string; kind: RequestKind; text: string; status: "open" | "done"; createdAt: string; videoId: string | null; videoDeleted: boolean; brief?: BriefViewData }[];
   pains: { id: string; relId: string; member: string; zone: string; level: number; context: keyof typeof PAIN_CONTEXT; exerciseName: string | null; note: string | null; createdAt: string; shared: boolean }[];
   checkins: { id: string; relId: string; member: string; date: string; energy: number; sleep: number; mood: number }[];
   access: { id: string; relId: string; member: string; label: string; status: "pending" | "granted" | "denied" | "expired"; createdAt: string }[];
@@ -40,7 +41,7 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
                   <span className="chip info">{REQUEST_KIND[r.kind]}</span><b style={{ fontSize: 13 }}>{r.member}</b><span className="muted">{when(r.createdAt)}</span>
                   {r.status === "done" && <span className="chip ok">Resuelto</span>}
                 </div>
-                <span style={{ fontSize: 14, lineHeight: 1.45 }}>{r.text}</span>
+                {r.brief ? <BriefBlock brief={r.brief} /> : <span style={{ fontSize: 14, lineHeight: 1.45 }}>{r.text}</span>}
                 {r.videoDeleted && <span className="muted">Video eliminado: se borra 90 días después de resolver el pedido.</span>}
                 {r.videoId && <video src={`/api/media/${r.videoId}`} controls preload="metadata" style={{ width: "100%", maxHeight: 260, borderRadius: 10, background: "var(--ui-border)" }} aria-label={`Video de técnica de ${r.member}`} />}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

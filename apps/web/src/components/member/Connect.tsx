@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CONNECT_EXERCISE_REASONS, CONNECT_REASONS, CONNECT_SAFETY, mentionsRisk, type ConnectReason } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
+import { ProgramRequestSheet } from "./ProgramRequest";
 
 export type ConnectContext = { sessionId: string; programExerciseId: string; exerciseId: string; exerciseName: string; setIndex: number | null };
 type Req = {
@@ -47,6 +48,11 @@ export function ConnectHelpSheet({ place, context, coachName, onCoach, onClose, 
       onClose();
     } catch (e) { flash((e as Error).message); } finally { setBusy(false); }
   };
+  // D206: una rutina nueva necesita objetivo, días, experiencia y lesiones: se pide con el formulario del pedido de programa.
+  if (reason === "rutina_nueva") {
+    return <ProgramRequestSheet mode="new" to={`el equipo de sala de ${gymName}`} url="/api/me/gym/connect" extra={{ reason, clientKey: key.current, comment: null, context: null }}
+      offline={!navigator.onLine} onClose={onClose} onDone={(msg) => { flash(msg); onSent?.(); onClose(); }} />;
+  }
   return (
     <Sheet title="Pedir ayuda" sub={context ? `Sobre ${context.exerciseName}${context.setIndex != null ? ` · serie ${context.setIndex + 1}` : ""}. Le llega al equipo de sala de ${gymName}.` : `Le llega al equipo de sala de ${gymName}. No incluye tus mensajes con tu coach.`}
       closeLabel="Cancelar" onClose={onClose}

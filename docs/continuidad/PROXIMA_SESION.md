@@ -1,15 +1,62 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D205; **Experience Hub /conoce y /qr en PR, sin publicar**, ver primera sección). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 07/11/2026 (hasta D206; **pedido de programa con preferencias en PR**, Experience Hub publicado; ver primeras secciones). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
 
 
 
-## REPI Experience Hub (/conoce y /qr, D205) — 07/11/2026 · EN PR, SIN PUBLICAR
 
-- **Pedido:** master prompt «REPI Experience Hub»: landing comercial con QR permanente para la remera de los ATICMA Awards 2026. **No publicar sin aprobación del titular.**
+## Pedido de programa con preferencias (D206) — 07/11/2026 · EN PR
+
+- **Pedido del titular:**
+  - A los profes de Smart Center les llegaba «Quiero que me armen un programa.» sin nada.
+  - Pidió preferencias obligatorias al pedir rutina y avisar a quienes ya pidieron sin completarlas, a nivel sistema.
+- **Rama:** `feat/pedido-rutina-preferencias`, desde `main` `bec8bea`.
+- **Hecho:**
+  - **Dominio:** `packages/domain/src/program-request.ts` (validación, filas para el profe, resumen, precarga del asistente).
+  - **Servidor:**
+    - `server/training/program-request.ts` (pendientes, precarga, completar, recordatorio push).
+    - Exigido en `createRequest` (coach), `createMemberTask` (gym) y `memberCreate` de Connect (`rutina_nueva`).
+    - Ruta `/api/me/program-request`.
+    - Aviso en la campanita (`feed.ts`) y push en el cron `notifications` (de 10 a 21, uno por pedido).
+  - **Interfaz:**
+    - `components/member/ProgramRequest.tsx` (formulario y aviso en Inicio; `/app?completar=programa` lo abre).
+    - Connect «Necesito una rutina nueva» → formulario.
+    - `components/shared/BriefBlock.tsx` en Sala (Connect), cola clásica y Solicitudes del coach.
+    - `ProgramAssistant` precargado desde la ficha del socio.
+  - **Demo:** Martina tiene un «Programa nuevo» con preferencias completas (ficticias).
+- **Migración 0048 (aditiva, NO aplicada):**
+  - `student_request.brief jsonb`.
+  - `scripts/operations/hosted-0048.sql`, rollback y `verify-0048.sh` ✓ (huella igual, reintento falla entero, revertir y reaplicar).
+  - Orden: respaldo → `hosted-0048.sql` → merge.
+- **Pruebas:**
+  - Domain `program-request.test.ts` (3 ✓).
+  - gym y followup con D206: obligatoriedad, vista del equipo, precarga, aviso, push una vez y de día, completar sin duplicar, aviso a quien lo tomó, coach.
+  - Pruebas anteriores actualizadas con preferencias (`tests/fixtures/brief.ts`).
+  - Navegador local:
+    - aviso en Inicio y en la campanita; validación; envío; el aviso desaparece y se guarda en el pedido;
+    - Connect abre el formulario;
+    - la tarjeta de Sala muestra las preferencias.
+- **Privacidad:** las lesiones viajan sólo con el pedido (las ve quien lo atiende). No van a «lo que buscás entrenando» ni a lo compartido con otros.
+
+## REPI Experience Hub (/conoce y /qr, D205) — 07/11/2026 · PUBLICADO Y VERIFICADO (#55, bec8bea)
+
+- **Publicado:**
+  - Con aprobación del titular («Te doy permisos para todo»).
+  - Respaldo `backup-20261107-001833-42317208744` (#56) y 0047 aplicada (48 migraciones).
+  - Merge #55 → `bec8bea` en producción.
+- **Smoke de producción ✓:**
+  - `/qr` 307 sin caché y redirección externa rechazada.
+  - robots, sitemap, OG, video con Range 206.
+  - Perfil, video, simulador, formulario y demo.
+  - Contacto y eventos de prueba borrados después.
+- **Después de publicar:**
+  - 4 videos reales de la demo con subtítulos.
+  - QR imprimible en `marketing/qr-remera/`.
+  - Logo de Smart Center (autorizado) en «Caso real», que se publica con D206.
+- **Pedido original:** master prompt «REPI Experience Hub»: landing comercial con QR permanente para la remera de los ATICMA Awards 2026.
 - **Rama:** `feat/experience-hub`, desde `main` `163eb72`.
 - **Qué hay** (detalle en `docs/comercial/EXPERIENCE_HUB.md`):
   - `/conoce` estática y `/conoce/{gimnasios,entrenadores,deportistas,aliados}`.

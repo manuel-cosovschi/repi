@@ -6,10 +6,11 @@ import { CONNECT_PRIORITY_RULE, TASK_PRIORITY, fmtMinutes, mentionsHealth } from
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Bars, Head, HBar, LocSelect, PRI_CHIP, Seg, SOURCE, can, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
+import { BriefBlock, type BriefViewData } from "@/components/shared/BriefBlock";
 
 type Card = {
   id: string; ref: string; member: string | null; gymMemberId: string | null; label: string; reason: string | null; priority: keyof typeof TASK_PRIORITY; source: string;
-  summary: string; exercise: string | null; fromSession: boolean; state: string; stateLabel: string; status: string;
+  summary: string; exercise: string | null; brief?: BriefViewData; fromSession: boolean; state: string; stateLabel: string; status: string;
   assignee: { id: string; name: string } | null; completedBy: string | null; createdAt: string; takenAt: string | null; completedAt: string | null; dueAt: string | null;
   ageMin: number; overdue: boolean; lastNote: { kind: string; text: string | null; by: string | null; at: string } | null;
 };
@@ -50,7 +51,7 @@ function ConnectCard({ c, onOpen, onTake, busy }: { c: Card; onOpen: () => void;
           {c.overdue && <span className="chip bad">Seguimiento vencido</span>}
         </div>
         <span style={{ fontSize: 15, fontWeight: 600 }}>{c.member ?? "Sin socio asociado"} · {c.label}{c.exercise ? ` · ${c.exercise}` : ""}</span>
-        {c.summary && c.summary !== `${c.label}${c.exercise ? ` · ${c.exercise}` : ""}` && <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>«{c.summary}»</span>}
+        {c.brief ? <BriefBlock brief={c.brief} compact /> : c.summary && c.summary !== `${c.label}${c.exercise ? ` · ${c.exercise}` : ""}` && <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>«{c.summary}»</span>}
         {c.lastNote?.text && <span style={{ fontSize: 13, color: "var(--ui-text-2)" }}><b>{c.lastNote.kind === "member_comment" ? "Socio" : c.lastNote.by?.split(" ")[0]}:</b> {c.lastNote.text}</span>}
       </div>
       <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
@@ -156,7 +157,7 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
           </div>
           <section className="cx-box">
             <b>{t.member ?? "Sin socio"}</b>{t.program && <small className="muted">Programa del gym: {t.program}</small>}
-            {t.summary !== `${t.label}${t.exercise ? ` · ${t.exercise}` : ""}` && <p style={{ margin: 0 }}>«{t.summary}»</p>}
+            {t.brief ? <BriefBlock brief={t.brief} /> : t.summary !== `${t.label}${t.exercise ? ` · ${t.exercise}` : ""}` && <p style={{ margin: 0 }}>«{t.summary}»</p>}
             {t.gymMemberId && <button type="button" className="btn sm" style={{ alignSelf: "flex-start" }} onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir ficha del socio</button>}
           </section>
           {t.context && (

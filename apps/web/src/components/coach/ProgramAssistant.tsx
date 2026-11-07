@@ -17,9 +17,15 @@ const LEVELS = [["beginner", "Principiante"], ["intermediate", "Intermedio"], ["
 const goalKey = (g: string | null | undefined) =>
   (Object.entries(TRAINING_WISH_GOALS).find(([k, v]) => k === g || v === g)?.[0] as TrainingWishGoal | undefined) ?? null;
 
-export function ProgramAssistant({ url, wishes, hasContent, library = [], onUse }: { url: string; wishes?: SharedWishesView | null; hasContent: boolean; library?: Lib; onUse: (doc: ProgramDoc) => void }) {
+/** D206: lo que pidió la persona en su pedido de programa (tiene prioridad sobre lo que busca entrenando). */
+export type BriefPrefill = { goal: string; daysPerWeek: number; minutes: number; level: string; likes: string; avoid: string; limitations: string; notes: string };
+
+export function ProgramAssistant({ url, wishes, brief, hasContent, library = [], onUse }: { url: string; wishes?: SharedWishesView | null; brief?: BriefPrefill | null; hasContent: boolean; library?: Lib; onUse: (doc: ProgramDoc) => void }) {
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({
+  const [f, setF] = useState(brief ? {
+    goal: goalKey(brief.goal), daysPerWeek: brief.daysPerWeek, minutes: brief.minutes as number | null,
+    level: (LEVELS.some(([k]) => k === brief.level) ? brief.level : "beginner") as (typeof LEVELS)[number][0], likes: brief.likes, avoid: brief.avoid, limitations: brief.limitations, notes: brief.notes,
+  } : {
     goal: goalKey(wishes?.goal), daysPerWeek: wishes?.daysPerWeek && wishes.daysPerWeek <= 6 ? wishes.daysPerWeek : 3, minutes: wishes?.minutes ?? 60 as number | null,
     level: "beginner" as (typeof LEVELS)[number][0], likes: wishes?.likes ?? "", avoid: wishes?.avoid ?? "", limitations: "", notes: "",
   });
@@ -70,6 +76,7 @@ export function ProgramAssistant({ url, wishes, hasContent, library = [], onUse 
     <section className="pa" aria-label="Armar el programa con REPI">
       <div className="pa-head"><b>Armar con REPI</b><button type="button" className="x" aria-label="Cerrar" onClick={() => setOpen(false)}>×</button></div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>Contale a REPI lo que sabés de la persona y te propone el programa completo con la biblioteca. Lo revisás y lo guardás vos.</p>
+      {brief && <p className="brief-missing" style={{ background: "var(--ui-chip-info-bg)", color: "var(--ui-chip-info-ink)" }}>Precargado con lo que pidió la persona en su pedido de programa. Revisalo antes de armar.</p>}
       <div className="pa-grid">
         <label className="field">Objetivo<select value={f.goal ?? ""} onChange={(e) => setF({ ...f, goal: (e.target.value || null) as TrainingWishGoal | null })}>
           <option value="">Sin definir</option>{Object.entries(TRAINING_WISH_GOALS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>

@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-o
 import {
   FOLLOWUP_DUE_DAYS, HANDOFF_ESCALATE_MIN, REVIEW_ELIGIBLE, REVIEW_INVITE_COOLDOWN_DAYS, REVIEW_INVITE_TTL_DAYS, SHIFT_CODES, TASK_CATEGORY,
   GYM_HOURS, coverage, floorActionAllowed, gymCan, gymOpenAt, shiftAutoEnd, gymCaps, requiresTwoFactor, sharedWishes, type TrainingWishes, type GymRole, isShiftCode, isTaskCategory, localDate, shiftHours, validateProgramDoc, weekOf,
-  type GymCap, type ProgramDoc, type ShiftCode, type TaskCategory, type TaskPriority,
+  type GymCap, type ProgramDoc, type ShiftCode, type TaskCategory, type TaskPriority, briefSummary, briefView, briefToAssistant, isCompleteBrief,
   fmtWeeklyHours, inWeeklyHours, slotOn, weeklyHoursOk, type WeeklyHours,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -13,6 +13,7 @@ import { addIso, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, pla
 import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 import { recordDecision, relationIntelligence, type ProposalDecision } from "../training/intelligence";
+import { afterBriefSaved, parseBrief } from "../training/program-request";
 
 const { staffHours, user, organization, gymLocation, staffMembership, gymMember, consentGrant, rosterEntry, program, programVersion, programAssignment,
   workoutSession, shiftPlan, shiftLog, gymTask, gymHandoff, gymHandoffItem, gymNote, reviewInvite, mediaObject, userPref } = schema;
@@ -277,7 +278,7 @@ const taskCols = {
   id: gymTask.id, number: gymTask.number, gymMemberId: gymTask.gymMemberId, category: gymTask.category, priority: gymTask.priority, status: gymTask.status,
   source: gymTask.source, summary: gymTask.summary, videoId: gymTask.videoId, assigneeUserId: gymTask.assigneeUserId, createdAt: gymTask.createdAt,
   dueAt: gymTask.dueAt, takenAt: gymTask.takenAt, completedAt: gymTask.completedAt, completedBy: gymTask.completedBy, completedOffShift: gymTask.completedOffShift,
-  locationId: gymTask.locationId,
+  locationId: gymTask.locationId, context: gymTask.context,
 };
 type TaskRow = { [K in keyof typeof taskCols]: (typeof gymTask.$inferSelect)[K extends "id" ? "id" : K] };
 
@@ -293,7 +294,7 @@ async function decorate(rows: TaskRow[], withSummary: boolean) {
     const h = handoffs.find((x) => x.taskId === r.id);
     return {
       id: r.id, ref: `T-${r.number}`, member: r.gymMemberId ? members.get(r.gymMemberId) ?? null : null, gymMemberId: r.gymMemberId,
-      category: r.category, priority: r.priority, status: r.status, source: r.source, ...(withSummary ? { summary: r.summary, hasVideo: !!r.videoId, videoId: r.videoId } : {}),
+      category: r.category, priority: r.priority, status: r.status, source: r.source, ...(withSummary ? { summary: r.summary, hasVideo: !!r.videoId, videoId: r.videoId, brief: briefView(r.category === "programa_nuevo", r.context?.brief) } : {}),
       assignee: r.assigneeUserId ? { id: r.assigneeUserId, name: names.get(r.assigneeUserId) ?? "" } : null,
       completedBy: r.completedBy ? names.get(r.completedBy) ?? null : null, completedOffShift: r.completedOffShift,
       createdAt: r.createdAt, dueAt: r.dueAt, takenAt: r.takenAt, completedAt: r.completedAt,
@@ -644,6 +645,8 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
   return {
     id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g,
     wishes: builds ? sharedWishes(pref?.wishes as TrainingWishes | null) : null,
+    // D206: lo que pidió el socio en su pedido de programa (se lo mandó al equipo): precarga «Armar con REPI».
+    programBrief: gymCan(rolesAt(ctx, m.m.locationId), "program.edit") ? (() => { const b = [...tasks].reverse().find((t) => t.category === "programa_nuevo" && isCompleteBrief(t.context?.brief))?.context?.brief; return b ? briefToAssistant(b) : null; })() : null,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
     log: recent.map((x) => ({ id: x.id, dayName: x.dayName, status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, rpe: x.rpe, note: x.note, exercises: logs.get(x.id) ?? [] })),
     program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
@@ -843,12 +846,14 @@ export async function myGymRelations(userId: string) {
 }
 
 /** Pedido del socio desde la app → tarea en la cola compartida de su sede. Sólo su texto: nunca mensajes con su coach. */
-export async function createMemberTask(userId: string, p: { gymMemberId?: string | null; kind: string; text: string; videoId?: string | null }) {
+export async function createMemberTask(userId: string, p: { gymMemberId?: string | null; kind: string; text: string; videoId?: string | null; brief?: unknown }) {
   const rels = await myGymRelations(userId);
   const r = p.gymMemberId ? rels.find((x) => x.m.id === p.gymMemberId) : rels[0];
   if (!r) throw new AccessError("no_gym", "No sos socio activo de un gym en REPI.", 409);
   const category = ({ rutina: "actualizar_programa", tecnica: "tecnica", consulta: "consulta", programa: "programa_nuevo" } as Record<string, TaskCategory>)[p.kind];
-  const text = (p.text ?? "").trim();
+  // D206: «Programa nuevo» exige objetivo, días, experiencia y lesiones; el texto del pedido pasa a ser ese resumen.
+  const brief = category === "programa_nuevo" ? parseBrief(p.brief) : null;
+  const text = brief ? briefSummary(brief, 500) : (p.text ?? "").trim();
   if (!category || text.length < 3) throw new AccessError("invalid", "Contá qué necesitás.");
   if (p.videoId) {
     // D200: sólo un video de pedido propio; nunca otro archivo (p. ej. una foto de progreso) con su id.
@@ -857,20 +862,26 @@ export async function createMemberTask(userId: string, p: { gymMemberId?: string
     const usedReq = await db.select({ id: schema.studentRequest.id }).from(schema.studentRequest).where(eq(schema.studentRequest.videoId, p.videoId));
     if (!v || used.length || usedReq.length) throw new AccessError("invalid", "El video no es válido.");
   }
-  if (category === "programa_nuevo") {
-    const [open] = await db.select({ id: gymTask.id }).from(gymTask).where(and(eq(gymTask.gymMemberId, r.m.id), eq(gymTask.category, "programa_nuevo"), inArray(gymTask.status, [...ACTIVE])));
-    if (open) return { id: open.id, place: `${r.org.name} · ${r.loc.name}`, duplicate: true };
+  if (brief) {
+    const [open] = await db.select().from(gymTask).where(and(eq(gymTask.gymMemberId, r.m.id), eq(gymTask.category, "programa_nuevo"), inArray(gymTask.status, [...ACTIVE])));
+    if (open) {
+      // Ya pedido (o lo creó el gimnasio): se adjuntan las preferencias al pedido abierto en lugar de duplicarlo.
+      await db.update(gymTask).set({ context: { ...(open.context ?? {}), brief }, summary: text }).where(eq(gymTask.id, open.id));
+      await addEvent(db, open, { actor: userId, kind: "member_comment", note: "Actualizó sus preferencias para el programa." });
+      await afterBriefSaved(userId, brief);
+      return { id: open.id, place: `${r.org.name} · ${r.loc.name}`, duplicate: true };
+    }
   }
   return db.transaction(async (tx) => {
     const number = await nextNumber(tx, "gym_task", r.org.id);
     const [t] = await tx.insert(gymTask).values({
       number, orgId: r.org.id, locationId: r.loc.id, gymMemberId: r.m.id, category, priority: category === "programa_nuevo" ? "alta" : "media", source: "app",
-      summary: text.slice(0, 500), videoId: p.videoId ?? null, createdBy: userId,
+      summary: text.slice(0, 500), videoId: p.videoId ?? null, createdBy: userId, ...(brief ? { context: { brief } } : {}),
     }).returning();
     await addEvent(tx, t, { actor: userId, kind: "created", to: "open", note: text.slice(0, 500) });
     await audit(tx, { actorUserId: userId, orgId: r.org.id, action: "task.created", resourceType: "gym_task", resourceId: t.id, meta: { source: "app", category } });
     return { id: t.id, place: `${r.org.name} · ${r.loc.name}`, duplicate: false };
-  });
+  }).then(async (x) => { if (brief) await afterBriefSaved(userId, brief); return x; });
 }
 
 /** Pedidos del socio al equipo de sala, con estado legible y sin datos de quién lo tomó más allá del nombre. */

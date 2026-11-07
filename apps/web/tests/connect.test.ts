@@ -9,6 +9,7 @@ import * as gym from "@/server/gym/services";
 import * as cn from "@/server/gym/connect";
 import * as tr from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
+import { BRIEF } from "./fixtures/brief";
 
 let n = 0;
 const mail = () => `cn${++n}.${Date.now()}@test.repi.local`;
@@ -229,7 +230,7 @@ describe("REPI Connect · permisos y privacidad", () => {
   it("la gerencia ve números y cancela con motivo, pero no lee pedidos; la bandera apagada no toca datos", async () => {
     const w = await world();
     await gym.startShift(w.t1, w.org, w.A);
-    const req = await cn.memberCreate(w.vale.userId, { reason: "rutina_nueva" });
+    const req = await cn.memberCreate(w.vale.userId, { reason: "rutina_nueva", brief: BRIEF });
     expect((await err(cn.staffBoard(w.manager, w.org, w.A)))?.code).toBe("forbidden");
     expect((await err(cn.staffAct(w.t1, w.org, req.id, "cancel", { note: "x" })))?.code).toBe("forbidden"); // el piso no cancela
     await db.update(schema.organization).set({ connectEnabled: false }).where(eq(schema.organization.id, w.org));

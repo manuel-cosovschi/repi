@@ -8,8 +8,10 @@ import {
   CONNECT_ACTIVE, CONNECT_AVAILABILITY, CONNECT_COMMENT_MAX, CONNECT_DUE_SOON_HOURS, CONNECT_FOLLOWUP_DEFAULT_DAYS, CONNECT_NOTE_MAX, CONNECT_REASONS,
   CONNECT_STATE_LABEL, CONNECT_WAIT_ALERT_MIN, TASK_CATEGORY, connectMetrics, connectNext, connectPriority, connectSort, connectState, gymCan, isConnectReason,
   localDate, type ConnectAction, type ConnectAvailability, type ConnectReason, type ConnectStatus, type TaskPriority,
+  briefSummary, briefView,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import { afterBriefSaved, parseBrief } from "../training/program-request";
 import { featureOn } from "@/lib/features";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { enqueue } from "../push/services";
@@ -34,7 +36,7 @@ const reasonLabel = (t: Pick<Task, "reason" | "category">) => (t.reason && isCon
 
 // ── Socio ───────────────────────────────────────────────────────────────────
 type CreateInput = {
-  reason: string; comment?: string | null; clientKey?: string | null; gymMemberId?: string | null;
+  reason: string; comment?: string | null; clientKey?: string | null; gymMemberId?: string | null; brief?: unknown;
   context?: { sessionId?: string | null; programExerciseId?: string | null; exerciseId?: string | null; setIndex?: number | null } | null;
 };
 
@@ -74,16 +76,25 @@ export async function memberCreate(userId: string, p: CreateInput, now = new Dat
     const [prev] = await db.select({ id: gymTask.id, number: gymTask.number }).from(gymTask).where(and(eq(gymTask.createdBy, userId), eq(gymTask.clientKey, clientKey)));
     if (prev) return { id: prev.id, ref: `T-${prev.number}`, duplicate: true, place: `${r.org.name} · ${r.loc.name}` };
   }
-  const context = p.context ? await resolveContext(userId, r.m.id, p.context) : null;
+  // D206: «Necesito una rutina nueva» lleva las preferencias para armarla (objetivo, días, experiencia, lesiones).
+  const brief = CONNECT_REASONS[reason].category === "programa_nuevo" ? parseBrief(p.brief) : null;
+  const resolved = p.context ? await resolveContext(userId, r.m.id, p.context) : null;
+  const context = brief ? { ...(resolved ?? {}), brief } : resolved;
   // Un pedido igual (mismo motivo y ejercicio) todavía abierto no se duplica: se devuelve el existente.
   const open = await db.select({ id: gymTask.id, number: gymTask.number, context: gymTask.context }).from(gymTask)
     .where(and(eq(gymTask.gymMemberId, r.m.id), eq(gymTask.reason, reason), inArray(gymTask.status, CONNECT_ACTIVE)));
   const same = open.find((o) => (o.context?.exerciseId ?? null) === (context?.exerciseId ?? null));
-  if (same) return { id: same.id, ref: `T-${same.number}`, duplicate: true, place: `${r.org.name} · ${r.loc.name}` };
+  if (same) {
+    if (brief) {
+      await db.update(gymTask).set({ context: { ...(same.context ?? {}), brief }, summary: briefSummary(brief, 500) }).where(eq(gymTask.id, same.id));
+      await afterBriefSaved(userId, brief);
+    }
+    return { id: same.id, ref: `T-${same.number}`, duplicate: true, place: `${r.org.name} · ${r.loc.name}` };
+  }
   const locationId = context?.fromSession ? await alertLocation({ id: r.m.id, orgId: r.org.id, locationId: r.loc.id }, now) : r.loc.id;
   const category = CONNECT_REASONS[reason].category;
   const priority: TaskPriority = connectPriority({ reason, fromSession: !!context?.fromSession });
-  const summary = comment || `${CONNECT_REASONS[reason].label}${context?.exerciseName ? ` · ${context.exerciseName}` : ""}`;
+  const summary = brief ? briefSummary(brief, 500) : comment || `${CONNECT_REASONS[reason].label}${context?.exerciseName ? ` · ${context.exerciseName}` : ""}`;
   const t = await db.transaction(async (tx) => {
     // QA 29/10 (DATA-11): dos toques casi juntos (otra clave) no crean dos pedidos iguales: se serializa por socio y se
     // vuelve a buscar el pedido abierto ya con el candado tomado.
@@ -257,6 +268,7 @@ async function decorateCards(rows: Card[], now = new Date()) {
     return {
       id: r.id, ref: `T-${r.number}`, member: r.gymMemberId ? members.get(r.gymMemberId) ?? null : null, gymMemberId: r.gymMemberId,
       label: reasonLabel(r), reason: r.reason, category: r.category, priority: r.priority, source: r.source, summary: r.summary, exercise: r.context?.exerciseName ?? null,
+      brief: briefView(r.category === "programa_nuevo", r.context?.brief), // D206
       fromSession: !!r.context?.fromSession, state: st, stateLabel: CONNECT_STATE_LABEL[st], status: r.status,
       assignee: r.assigneeUserId ? { id: r.assigneeUserId, name: names.get(r.assigneeUserId) ?? "" } : null, completedBy: r.completedBy ? names.get(r.completedBy) ?? null : null,
       createdAt: r.createdAt, takenAt: r.takenAt, startedAt: r.startedAt, completedAt: r.completedAt, dueAt: r.dueAt,
@@ -323,7 +335,7 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   const can = (a: ConnectAction) => connectNext(t, a, actorId).ok;
   return {
     ...card,
-    context: c ? { exercise: c.exerciseName ?? null, program: c.programName ?? null, setIndex: c.setIndex ?? null, fromSession: !!c.fromSession, sets, recent, privateSession } : null,
+    context: c && (c.exerciseId || c.exerciseName) ? { exercise: c.exerciseName ?? null, program: c.programName ?? null, setIndex: c.setIndex ?? null, fromSession: !!c.fromSession, sets, recent, privateSession } : null,
     program: prog[0] ? `${prog[0].name} · v${prog[0].n}` : null,
     events: ev.map(({ e, actor, to }) => ({ id: e.id, kind: e.kind, at: e.createdAt, by: actor, to, note: e.note, memberNote: e.memberNote, dueAt: e.dueAt, from: e.fromStatus, toStatus: e.toStatus })),
     previous: prev.map((p) => ({ id: p.id, ref: p.ref, label: p.label, stateLabel: p.stateLabel, createdAt: p.createdAt, completedBy: p.completedBy })),

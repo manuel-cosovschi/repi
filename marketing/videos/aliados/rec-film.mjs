@@ -1,0 +1,30 @@
+import { createRequire } from "node:module"; const { chromium } = createRequire("/home/user/repi/apps/web/package.json")("@playwright/test");
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs"; import { execFileSync } from "node:child_process";
+const S = process.argv[2]; const GAP = 0.45;
+const script = JSON.parse(readFileSync(`${S}/script.json`, "utf8")); const dur = JSON.parse(readFileSync(`${S}/durations.json`, "utf8"));
+const scenes = script.map((s) => ({ id: s.id, text: s.text.replace("repiclub punto com, barra conoce", "repiclub.com/conoce"), ms: Math.round((dur[s.id] + GAP) * 1000) }));
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+const p = await b.newPage({ viewport: { width: 720, height: 1280 }, deviceScaleFactor: 1 });
+await p.goto("http://localhost:3000/robots.txt");
+await p.setContent(readFileSync(`${S}/film.html`, "utf8"), { waitUntil: "networkidle" });
+await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(1500);
+// precarga los videos en sus posiciones
+await p.evaluate(async () => { for (const v of document.querySelectorAll("video")) { v.currentTime = Number(v.dataset.start || 0); await new Promise((r) => (v.readyState >= 3 ? r() : v.addEventListener("canplay", r, { once: true }))); } });
+const cdp = await p.context().newCDPSession(p); const frames = [];
+cdp.on("Page.screencastFrame", async (f) => { frames.push({ data: f.data, t: f.metadata.timestamp }); try { await cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }); } catch {} });
+await cdp.send("Page.startScreencast", { format: "jpeg", quality: 90, maxWidth: 720, maxHeight: 1280 });
+await p.waitForTimeout(300);
+const t0 = Date.now() / 1000;
+await p.evaluate((sc) => window.runFilm(sc), scenes);
+await cdp.send("Page.stopScreencast"); await b.close();
+const dir = `${S}/frames-${Date.now()}`; mkdirSync(dir);
+const start = frames.findIndex((f) => f.t >= t0 - 0.05); const fs = frames.slice(Math.max(0, start - 1));
+let list = ""; fs.forEach((f, i) => { const fn = `${dir}/${String(i).padStart(5, "0")}.jpg`; writeFileSync(fn, Buffer.from(f.data, "base64")); const d = i + 1 < fs.length ? Math.max(0.001, fs[i + 1].t - f.t) : 0.5; list += `file '${fn}'\nduration ${d.toFixed(4)}\n`; });
+list += `file '${dir}/${String(fs.length - 1).padStart(5, "0")}.jpg'\n`; writeFileSync(`${dir}/list.txt`, list);
+execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", `${dir}/list.txt`, "-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "slow", "-crf", "24", "-an", `${S}/video-only.mp4`]);
+// audio: cada escena + silencio hasta completar su duración (voz + pausa)
+const parts = scenes.map((s) => `${S}/${s.id}.mp3`);
+const filter = scenes.map((s, i) => `[${i}:a]apad=whole_dur=${(s.ms / 1000).toFixed(3)}[a${i}]`).join(";") + ";" + scenes.map((_, i) => `[a${i}]`).join("") + `concat=n=${scenes.length}:v=0:a=1,loudnorm=I=-16:TP=-1.5:LRA=11[out]`;
+execFileSync("ffmpeg", ["-y", "-loglevel", "error", ...parts.flatMap((x) => ["-i", x]), "-filter_complex", filter, "-map", "[out]", "-ar", "44100", "-c:a", "aac", "-b:a", "128k", `${S}/voice.m4a`]);
+execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", `${S}/video-only.mp4`, "-i", `${S}/voice.m4a`, "-c:v", "copy", "-c:a", "copy", "-shortest", "-movflags", "+faststart", `${S}/perfil-aliados.mp4`]);
+console.log("ok", fs.length, "cuadros", (fs.at(-1).t - fs[0].t).toFixed(1), "s");

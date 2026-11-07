@@ -18,7 +18,7 @@ import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task
 import { Ic } from "@/components/ui/Ic";
 import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
 import { IntInput } from "@/components/ui/IntInput";
-import { ProgramAssistant } from "@/components/coach/ProgramAssistant";
+import { ProgramAssistant, type BriefPrefill } from "@/components/coach/ProgramAssistant";
 import { SessionLog, type LoggedSession } from "@/components/coach/SessionLog";
 import { IntelSection } from "@/components/coach/CoachIntelligence";
 import { ProposalBanner, clearTiDraft, readTiDraft, stashTiDraft, type TiDraft } from "@/components/coach/ProposalDraft";
@@ -29,7 +29,7 @@ type Detail = {
   weeks: { label: string; n: number }[];
   program: { programId: string; startsOn: string; revision: number; doc: ProgramDoc & { days: (ProgramDoc["days"][number] & { id?: string })[] }; revisions: { number: number; author: string; reason: string | null; at: string }[] } | null;
   tasks: Task[]; programTaskId: string | null; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
-  canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null; log: LoggedSession[];
+  canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null; programBrief?: BriefPrefill | null; log: LoggedSession[];
   community: { attempts: { challenge: string; value: string; status: string; newRecord: boolean; at: string }[]; achievements: number; level: number; visits30: number } | null;
 };
 
@@ -237,7 +237,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   return (
     <Modal label={`Editar programa · ${member.name}`} onClose={() => onClose(false)} wide>
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
-      <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib.data ?? []}
+      <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} brief={member.programBrief} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib.data ?? []}
         onUse={(d) => { setDoc(d); setDay(0); if (reason.trim().length < 3) setReason("Programa armado con la propuesta de REPI"); }} />
       {tiDraft && <ProposalBanner draft={tiDraft} days={doc.days} onDismiss={() => { clearTiDraft(); setTiDraft(null); }}
         onApply={(ps) => {

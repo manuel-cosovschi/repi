@@ -22,6 +22,7 @@ export * from "./history-notes";
 export * from "./history-read-plan";
 export * from "./prescription";
 export * from "./wishes";
+export * from "./program-request";
 export * from "./progression";
 export * from "./load-safety";
 export * from "./routine-import";

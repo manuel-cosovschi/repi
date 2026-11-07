@@ -1,0 +1,1 @@
+ALTER TABLE "student_request" ADD COLUMN "brief" jsonb;
