@@ -1,12 +1,34 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 en rama, sin publicar: espera la aprobación del titular**, ver primera sección; después: REPI — Adaptive Coaching 3.0, máster ya recibido). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
 
-## Experience 3.0 (D208) — 07/11/2026 · EN RAMA, SIN PUBLICAR (espera aprobación explícita del titular)
+## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
+
+- **Pedido del titular** (captura de un pedido «Programa nuevo» en Smart Center): «que cuando te aparece una solicitud de un socio te permita desde ahí» crear el programa, sin ir hasta Socios.
+- **Hecho:**
+  - **Botón** (`components/gym/Connect.tsx`): en el detalle de un pedido `programa_nuevo` o `actualizar_programa`, quien tiene `program.edit` ve «Crear programa» (o «Editar programa») junto a «Abrir ficha del socio». En esos pedidos «Resolver» pasa a ser secundario.
+  - **Editor** (`MemberProgramModal` en `components/gym/Members.tsx`): abre el mismo editor de la ficha.
+  - **Servidor:** `memberDetail(…, { task })` y `?task=<id>` en `GET /api/gym/[orgId]/members/[id]` marcan esa solicitud para completarla al guardar, sólo si se cierra con el programa (`closesWithProgram`, la misma regla que valida `saveMemberProgram`).
+  - **Guía:** `GymGuide.tsx` lo explica.
+  - Sin migraciones ni permisos nuevos.
+- **Pruebas:**
+  - typecheck y 24 guards ✓;
+  - `gym.test` + `connect.test` 32/32, con un caso nuevo: preferencia de la solicitud, fallback y otro profesor;
+  - E2E `e2e/connect-program.spec.ts` 2/2 (teléfono y escritorio);
+  - CI ✓.
+- **Verificado en producción (`/api/version` = `6fa1a36c0572`)** con una demo de sala (organización `is_demo`, ficticia):
+  - T-1044 «Programa nuevo» muestra «Crear programa»;
+  - el editor marca T-1044 para completar;
+  - al guardar aparece «Programa guardado (revisión 1) y T-1044 completada»;
+  - la solicitud queda «Resuelta» y sin el botón;
+  - sin errores ni 5xx.
+- **Próxima acción:** ninguna. Si los profes lo piden, sumar el mismo atajo a «Revisión de técnica» u «Onboarding», que también se cierran con el programa.
+
+## Experience 3.0 (D208) — 07/11/2026 · PUBLICADO Y VERIFICADO (#64, 31a2e57)
 
 - **Pedido:** máster «REPI Experience 3.0»: reconstruir `/conoce` como experiencia interactiva premium y producir films sin voz (motion graphics + interfaz real + música instrumental con licencia). «No publicar en producción sin mi aprobación explícita»; revisión por grabaciones (sin preview de rama); «NO QUIERO LOCUCIONES DE ELEVENLABS».
-- **Rama y PR:** `claude/experience-3` (con `main` 08d4a50 integrado), **PR #64** abierta y sin integrar. Sin migraciones ni cambios de base.
+- **Rama y PR:** `claude/experience-3`, **PR #64**, integrada con squash el 07/11 con la aprobación explícita del titular («Publica todo lo que hiciste hasta ahora, la página, todas las correcciones, videos»). Sin migraciones ni cambios de base. Despliegue anterior para volver atrás: `dpl_Hv9pNbk4Qm61PJbUH7hjgDv95d2m` (08d4a50).
 - **Hecho:**
   - **Página** (`components/conoce/ConoceHub.tsx`, `x3/*`, `sala/*`, `styles/conoce3.css`): escenario fijo «la sala en vivo» (R3F con tres niveles y SVG de respaldo, `?sala=high|medium|low`), ocho escenas con GSAP ScrollTrigger reversibles y con movimiento reducido. Se conservan rutas, UTM, `/qr`, leads a REPI Admin, WhatsApp, demos guiadas y eventos; nuevos sólo `scene_view` y `film_open`. Contenido en `content/conoce.ts`. Spec: `docs/comercial/EXPERIENCE_3.md`; producto: `PRODUCT.md`.
   - **Films** (`design/films/`, generador `kit/build.py`, spec `SPEC.md`): marca, gimnasios, entrenadores, deportistas (+ 9:16), aliados, Training Intelligence, progreso, altas y sala. Música de Kevin MacLeod (CC BY 4.0, atribución en el reproductor) y efectos de Pixabay: `marketing/videos/LICENCIAS.md`. Versión web en `public/conoce/videos/`; masters fuera de Git y reproducibles con `kit/tools/render-all.sh`.
@@ -32,10 +54,16 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 en rama, sin publicar: esp
   - Films: 0 cuadros en blanco, de −13,9 a −14,7 LUFS, pico ≤ −2,2 dBTP.
   - Detalle en la PR.
 - **Para regenerar films y descripciones:** `design/films/SPEC.md` § Producción (`render-all.sh`, `describe.py`). Masters en el scratchpad de la sesión (no persisten): se rehacen con los medios.
-- **Próxima acción:**
-  1. El titular revisa las grabaciones y la PR #64 y aprueba (o pide cambios).
-  2. Con la aprobación: CI verde → squash merge → deploy (no hay migraciones). Smoke en producción: `/conoce`, perfiles, `/qr`, un film y el formulario con datos de prueba.
-  3. Después: Adaptive Coaching 3.0 (máster recibido el 07/11; empezar por la auditoría del código actual).
+- **Verificado en producción (07/11, `https://repiclub.com`, `/api/version` = `31a2e57c88e6`):** recorrido de sólo lectura en teléfono (Pixel 7) y escritorio (1440×900). Los eventos anónimos se interceptaron para no sumar visitas falsas a la medición.
+  - `/conoce` y los cuatro perfiles: 200, h1 «Cada repetición cuenta», nueve escenas con `data-shot`, sin scroll lateral, sin errores de consola ni 5xx.
+  - Botón «Pausar animaciones».
+  - Film de marca: 206 `video/mp4`, atribución de Kevin MacLeod y pista WebVTT de descripciones.
+  - Los diez `.mp4` responden (206).
+  - `/qr` → 307 a `/conoce?utm_source=qr…`; `/conoce/marcianos` → 404.
+  - CLS al recorrer la página: teléfono 0, escritorio 0,026.
+  - **El formulario no se envió en producción** para no crear un lead falso en REPI Admin; está cubierto por la E2E local.
+  - El navegador sin GPU del smoke usa el SVG, como corresponde con WebGL por software. El 3D en dispositivos reales queda por ver con Speed Insights.
+- **Próxima acción:** revisar en Speed Insights el LCP de campo de `/conoce` (objetivo ≤ 2,5 s) cuando junte visitas; si el 3D pesa en teléfonos de gama baja, bajar el nivel por defecto (D208).
 
 ## Smart Program Import 2.0 (D207) — 07/11/2026 · PUBLICADO Y VERIFICADO (#60, 3c2353c)
 
