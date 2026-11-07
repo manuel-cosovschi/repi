@@ -21,7 +21,8 @@ test("sala: «Crear programa» desde la solicitud del socio y la solicitud queda
   // La solicitud abierta es la que se completa (Martina tiene además un onboarding y un traspaso de programa).
   await expect(ed.getByRole("checkbox", { name: new RegExp(`Completar ${ref} · Programa nuevo`) })).toBeChecked();
   await expectNoHorizontalOverflow(page);
-  await ed.getByRole("button", { name: /^\+ / }).first().click();
+  // Un ejercicio de la biblioteca (no «+ Crear ejercicio propio», que está antes de que cargue la lista).
+  await ed.getByRole("button", { name: /^\+ (?!Crear ejercicio propio|Nota)/ }).first().click();
   await ed.getByLabel(/Motivo del cambio/).fill("Programa armado desde el pedido");
   await ed.getByRole("button", { name: "Guardar revisión" }).click();
 
