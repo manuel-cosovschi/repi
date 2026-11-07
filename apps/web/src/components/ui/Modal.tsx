@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBackdropClose } from "./backdrop";
 import { useScrollLock } from "./scrollLock";
+import { ghostOut } from "@/lib/ghost";
 
 // Modal accesible: foco inicial, trap con Tab, Esc y clic de fondo cierran, foco restaurado al cerrar.
 // D184: `className` en el fondo (p. ej. «dx-host», el editor de técnica con los tokens de la app del alumno).
@@ -11,6 +12,9 @@ export function Modal({ label, onClose, children, wide, className }: { label: st
   const close = useRef(onClose);
   close.current = onClose;
   useScrollLock();
+  // M06: al cerrar, el diálogo deja de existir en el acto y una copia inerte se achica y se desvanece (150 ms).
+  const bg = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { const n = bg.current; return () => ghostOut(n, "modal"); }, []);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const root = ref.current!;
@@ -35,7 +39,7 @@ export function Modal({ label, onClose, children, wide, className }: { label: st
   // Portal fuera de <main> para poder marcar el fondo como inerte.
   const backdrop = useBackdropClose(onClose);
   return createPortal(
-    <div className={className ? `modal-bg ${className}` : "modal-bg"} {...backdrop}>
+    <div ref={bg} className={className ? `modal-bg ${className}` : "modal-bg"} {...backdrop}>
       <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} style={wide ? { maxWidth: 760 } : undefined} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>

@@ -4,13 +4,14 @@
 import { useEffect, useState } from "react";
 import { TRAINING_WISH_GOALS, WISH_TEXT_MAX, emptyWishes, type TrainingWishGoal, type TrainingWishes } from "@repi/domain";
 import { api } from "@/lib/api";
+import { Reveal } from "@/components/motion/Skeleton";
 
 export function Wishes({ offline, flash }: { offline: boolean; flash: (m: string) => void }) {
   const [w, setW] = useState<TrainingWishes | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   useEffect(() => { api<{ wishes: TrainingWishes | null }>("/api/me/settings").then((r) => setW(r.wishes ?? emptyWishes())).catch(() => setW(emptyWishes())); }, []);
-  if (!w) return null;
+  if (!w) return <Reveal on={false} />; // M06: entra con alto 0 → real cuando llega (misma instancia de Reveal)
   const set = (p: Partial<TrainingWishes>) => { setW({ ...w, ...p }); setDirty(true); };
   const save = async () => {
     if (offline) { flash("Necesitás conexión para guardar."); return; }
@@ -20,6 +21,7 @@ export function Wishes({ offline, flash }: { offline: boolean; flash: (m: string
   };
   const num = (v: string) => (v === "" ? null : Number(v));
   return (
+    <Reveal on>
     <section className="wishes" aria-labelledby="wishes-h">
       <h2 id="wishes-h" style={{ fontSize: 16 }}>Lo que buscás entrenando</h2>
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>REPI lo usa en «No vino el profe» para ajustar tu rutina del día. Tu programa no cambia. Sólo lo ve tu coach o el gym si lo marcás abajo. No pongas datos de salud: para eso está «Molestia».</span>
@@ -37,5 +39,6 @@ export function Wishes({ offline, flash }: { offline: boolean; flash: (m: string
       <label className="sheet-check" style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}><input type="checkbox" checked={w.shareWithTrainers === true} onChange={(e) => set({ shareWithTrainers: e.target.checked })} style={{ width: 20, height: 20, flex: "none" }} />Que lo vea quien arma mi rutina (mi coach o el equipo del gym que me arma el programa).</label>
       {dirty && <button type="button" className="cta" disabled={busy} onClick={save}>{busy ? "Guardando…" : "Guardar"}</button>}
     </section>
+    </Reveal>
   );
 }

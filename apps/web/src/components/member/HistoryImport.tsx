@@ -3,6 +3,8 @@
 // leyó y cargarlo al progreso. Una planilla con columnas claras se lee sin IA; lo demás lo lee un servicio de IA (OpenAI).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useCached } from "@/lib/cache";
+import { Reveal } from "@/components/motion/Skeleton";
 import { HistoryImportReadJob, previewHistoryImport, type HistoryImportProgress } from "@/lib/history-import-stream";
 import { Sheet } from "./Sheet";
 import { buildHistoryReadParts, fmtWeight, IMPORT_MAX_TEXT_LENGTH, localDate, parseHistoryCsv, parseRoutineNotes, type WeightUnit } from "@repi/domain";
@@ -28,11 +30,12 @@ import { readImportFile, type ImportBody } from "@/lib/import-file";
 
 export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void }) {
   const unit = useUnit();
-  const [mine, setMine] = useState<Mine | null>(null);
+  // M06: caché en memoria; lo importado entra con alto 0 → real (bloque opcional, nunca de golpe).
+  const c = useCached<Mine>(offline ? null : "/api/me/history-import");
+  const mine = c.data;
   const [open, setOpen] = useState(false);
   const [routineBody, setRoutineBody] = useState<ImportBody | null>(null);
-  const load = useCallback(() => { api<Mine>("/api/me/history-import").then(setMine).catch(() => {}); }, []);
-  useEffect(() => { if (!offline) load(); }, [load, offline]);
+  const load = () => { void c.reload(); };
   const remove = async (id: string) => {
     if (!confirm("¿Quitar esta importación? Se borran esas series del progreso. Lo que registraste en REPI no se toca.")) return;
     try { await api(`/api/me/history-import/${id}/remove`, { body: {} }); flash("Importación quitada."); load(); onChanged?.(); } catch (e) { flash((e as Error).message); }
@@ -40,9 +43,9 @@ export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) =
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <h2>Antes de REPI</h2>
-      {!mine?.imports.length
-        ? <span className="mb-muted" style={{ fontSize: 14 }}>¿Anotabas tus pesos en una planilla, el celular o un cuaderno? Subilo y lo sumamos a tu progreso.</span>
-        : (
+      {!mine?.imports.length && <span className="mb-muted" style={{ fontSize: 14 }}>¿Anotabas tus pesos en una planilla, el celular o un cuaderno? Subilo y lo sumamos a tu progreso.</span>}
+      <Reveal on={!!mine?.imports.length} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {!!mine?.imports.length && (
           <>
             <div className="hist">{mine.evolution.slice(0, 12).map((e) => (
               <div key={e.exercise}><span><b>{e.exercise}</b><br /><small className="mb-muted">{e.sessions} {e.sessions === 1 ? "día" : "días"} · desde {d(e.first.day)}</small></span>
@@ -53,6 +56,7 @@ export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) =
             ))}
           </>
         )}
+      </Reveal>
       <button type="button" className="ghost" disabled={offline} onClick={() => setOpen(true)}>Cargar historial anterior</button>
       {routineBody && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
       {open && <ImportSheet flash={flash} onRoutine={(body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}

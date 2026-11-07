@@ -5,6 +5,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChartBar, Lightning, Medal, Trophy, X, type Icon } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
+import { useCached } from "@/lib/cache";
+import { Reveal } from "@/components/motion/Skeleton";
 import { Ic } from "@/components/ui/Ic";
 
 export type NudgeAction = "challenge" | "ranking_optin" | "club" | "progress";
@@ -22,15 +24,16 @@ const dismiss = (id: string) => { try { localStorage.setItem(KEY, JSON.stringify
  * se muestran. `refresh` recarga desde afuera (al volver de entrenar).
  */
 export function Nudges({ go, flash, only, exclude, max = 2, refresh = 0, title = "REPI te propone" }: { go: NudgeGo; flash: (t: string) => void; only?: NudgeAction[]; exclude?: string; max?: number; refresh?: number; title?: string }) {
-  const [list, setList] = useState<Nudge[] | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
+  // M06: caché en memoria (al volver, en el primer cuadro) y entrada con alto 0 → real cuando llega.
+  const c = useCached<{ orgId: string | null; nudges: Nudge[] }>("/api/me/gym/nudges");
+  const list = c.data?.nudges ?? [];
+  const orgId = c.data?.orgId ?? null;
   const [busy, setBusy] = useState<string | null>(null);
-  const load = useCallback(() => api<{ orgId: string | null; nudges: Nudge[] }>("/api/me/gym/nudges").then((x) => { setOrgId(x.orgId); setList(x.nudges); }).catch(() => setList([])), []);
-  useEffect(() => { void load(); }, [load, refresh]);
-  if (!list) return null;
+  const [, setTick] = useState(0);
+  const reload = c.reload;
+  useEffect(() => { if (refresh) void reload(); }, [refresh, reload]);
   const off = dismissed();
   const shown = list.filter((n) => !off.includes(n.id) && (!only || only.includes(n.action)) && !(exclude && n.id.startsWith(exclude))).slice(0, max);
-  if (!shown.length) return null;
   const act = async (n: Nudge) => {
     if (n.action !== "ranking_optin") { go(n); return; }
     if (!orgId) return;
@@ -42,6 +45,7 @@ export function Nudges({ go, flash, only, exclude, max = 2, refresh = 0, title =
     } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
   };
   return (
+    <Reveal on={shown.length > 0}>
     <section className="ndg" aria-label={title}>
       <h2><Ic i={Lightning} size={16} weight="fill" color="var(--ui-accent)" />{title}</h2>
       {shown.map((n) => (
@@ -50,9 +54,10 @@ export function Nudges({ go, flash, only, exclude, max = 2, refresh = 0, title =
           <span className="ndg-txt"><b>{n.title}</b><small>{n.body}</small>
             <button type="button" className="cta sm ndg-cta" aria-busy={busy === n.id || undefined} disabled={busy === n.id} onClick={() => void act(n)}>{n.cta}</button>
           </span>
-          <button type="button" className="ndg-x" aria-label={`Ahora no: ${n.title}`} onClick={() => { dismiss(n.id); setList((l) => (l ? [...l] : l)); }}><Ic i={X} size={16} /></button>
+          <button type="button" className="ndg-x" aria-label={`Ahora no: ${n.title}`} onClick={() => { dismiss(n.id); setTick((x) => x + 1); }}><Ic i={X} size={16} /></button>
         </div>
       ))}
     </section>
+    </Reveal>
   );
 }
