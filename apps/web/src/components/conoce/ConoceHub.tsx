@@ -23,6 +23,7 @@ import { Demos } from "./x3/Demos";
 import { Proof } from "./x3/Proof";
 import { Finale } from "./x3/Finale";
 import { SceneIndex } from "./x3/SceneIndex";
+import { MotionToggle } from "./x3/motion";
 
 const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 
@@ -40,6 +41,7 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
               <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
             </nav>
             <div className="x3-head-cta">
+              <MotionToggle />
               <Link className="x3-btn text sm x3-hide-sm" href="/acceso">Ingresar</Link>
               <a className="x3-btn pri sm" href="#contacto">Pedir una demo</a>
             </div>

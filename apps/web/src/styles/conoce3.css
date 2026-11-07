@@ -16,6 +16,8 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .x3-wrap { width: min(1240px, 100% - 2 * var(--x-gutter)); margin-inline: auto; position: relative; }
 .x3 main { position: relative; z-index: 1; }
+/* El pie también va por encima del escenario fijo (si no, la sala lo tapa y sus enlaces quedan invisibles al enfocarlos). */
+.x3 > .st-foot { position: relative; z-index: 1; background: var(--x-navy); }
 .x3 p, .x3 li { text-wrap: pretty; }
 
 /* ── Escenario: la sala ─────────────────────────────────────────────── */
@@ -31,9 +33,9 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .sala-qr { fill: none; stroke: var(--x-cyan); stroke-width: 2; }
 .sala-member { fill: var(--x-cyan); }
 .sala-staff { fill: var(--x-teal); }
-.sala-3d { position: absolute; inset: 0; animation: sala-in 1.4s var(--x-ease) both; }
+.sala-3d { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s var(--x-ease); }
+.sala[data-3d="1"] .sala-3d { opacity: 1; }
 .sala[data-3d="1"] .sala-svg { opacity: 0 !important; }
-@keyframes sala-in { from { opacity: 0; } }
 .sala-canvas { width: 100% !important; height: 100% !important; }
 /* Viñeta funcional: asegura contraste del texto sobre la sala (no es decoración). */
 .sala-vignette { position: absolute; inset: 0; background:
@@ -70,8 +72,9 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-btn.lg { min-height: 58px; padding: 0 30px; font-size: 18px; }
 .x3-btn[disabled], .x3-btn[aria-busy="true"] { opacity: .6; cursor: progress; }
 .x3 .cn-demo-act { display: contents; }
-.x3 .cn-err { flex-basis: 100%; margin: 6px 0 0; font-size: 14px; color: #FFB4A8; }
-.x3 .cn-err a { color: inherit; }
+/* Errores sobre fondo oscuro (botones de demo). Los del formulario, que es una tarjeta clara, conservan su color de error. */
+.x3 .cn-demo-act .cn-err { flex-basis: 100%; margin: 6px 0 0; font-size: 14px; color: #FFB4A8; }
+.x3 .cn-demo-act .cn-err a { color: inherit; }
 
 /* ── Cabecera e índice ──────────────────────────────────────────────── */
 .x3-head { position: sticky; top: 0; z-index: 20; background: var(--x-navy); border-bottom: 1px solid var(--x-line); }
@@ -80,6 +83,13 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-nav a { color: var(--x-muted); text-decoration: none; font-size: 15px; transition: color .2s; }
 .x3-nav a:hover { color: var(--x-white); }
 .x3-head-cta { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+/* «Saltar al contenido» por encima del encabezado fijo cuando recibe el foco. */
+.x3 .st-skip { z-index: 30; }
+.x3-motion { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--x-line); background: none; color: var(--x-muted); display: grid; place-items: center; cursor: pointer; transition: color .3s, border-color .3s; }
+.x3-motion:hover { color: var(--x-white); border-color: var(--x-edge); }
+.x3-motion[aria-pressed="true"] { color: var(--x-cyan); border-color: var(--x-cyan); }
+/* Animaciones pausadas por la persona: las CSS en bucle se detienen. */
+html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html[data-motion="paused"] .x3 *::after { animation-play-state: paused !important; }
 @media (max-width: 899px) { .x3-nav { display: none; } }
 @media (max-width: 520px) { .x3-hide-sm { display: none; } }
 .x3-index { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 15; }
@@ -90,6 +100,9 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-index a:hover span, .x3-index a:focus-visible span, .x3-index a[aria-current] span { opacity: 1; transform: none; }
 .x3-index a[aria-current] { color: var(--x-white); }
 .x3-index a[aria-current]::after { width: 28px; background: var(--x-cyan); }
+.x3-index { transition: opacity .4s, visibility .4s; }
+/* Sobre las secciones claras (caso real, contacto) el índice no se lee: se retira; el encabezado sigue navegando. */
+.x3-index[data-off] { opacity: 0; visibility: hidden; }
 @media (max-width: 1099px) { .x3-index { display: none; } }
 
 /* ── 01 · Apertura ─────────────────────────────────────────────────── */
@@ -113,6 +126,15 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 
 /* ── 02 · Del caos al orden ─────────────────────────────────────────── */
 .x3-prob-pin { position: relative; height: 100svh; overflow: hidden; }
+/* Escenas fijadas (02 y 03): sticky dentro de una sección más alta; el scroll extra es el recorrido del scrub. Sólo con
+   movimiento y alto suficiente (igual que PIN_MQ en x3/gsap.ts); si no, se apilan. */
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x3-prob { height: 360svh; }
+  .x3-prob-pin { position: sticky; top: 0; }
+  .x3-train-track { height: 440svh; }
+  .x3-train-pin { position: sticky; top: 0; }
+}
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-prob { height: 300svh; } }
 .x3-prob-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .x3-prob-lines line { stroke: var(--x-cyan); stroke-width: 1.5; stroke-linecap: round; opacity: .8; }
 .x3-frags { position: absolute; inset: 0; }
@@ -125,7 +147,7 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-frag small { color: var(--x-dim); font-size: 12px; }
 .x3-frag.paper { background: var(--x-cream); color: var(--x-ink); border-color: #DCD5C6; font-style: italic; }
 .x3-frag.paper b { color: var(--x-ink-2); font-style: normal; }
-.x3-frag.paper .smudge { color: #8A7F6E; text-decoration: line-through; }
+.x3-frag.paper .smudge { color: #706657; text-decoration: line-through; }
 .x3-frag.sheet .cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
 .x3-frag.sheet .cells i { height: 10px; background: var(--x-steel); border-radius: 2px; }
 .x3-frag.chat { border-radius: 14px 14px 14px 4px; background: #1F2D3F; }
@@ -186,7 +208,8 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
   .x3-phone { width: min(230px, 56vw); }
   .x3-set { left: -26%; right: -26%; bottom: 6%; }
   .x3-train-pin { padding: 70px 0 40px; align-items: flex-start; }
-  .x3-train-steps li:not([data-on="1"]) { display: none; }
+  /* Sólo se ve el paso activo, pero los demás siguen disponibles para lectores de pantalla. */
+  .x3-train-steps li:not([data-on="1"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
 /* ── Roll: dígitos con profundidad ──────────────────────────────────── */
@@ -280,11 +303,13 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-req-a b, .x3-req-b b { font: 700 22px var(--font-display); text-transform: uppercase; }
 .x3-req svg { position: absolute; z-index: 1; left: 12%; right: 12%; top: 30%; width: 76%; }
 .x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 2.5; stroke-dasharray: 300; stroke-dashoffset: 300; stroke-linecap: round; }
+@media (min-width: 960px) { .x3-sc-inline { display: none; } }
 @media (max-width: 959px) {
   .x3-sc-grid { grid-template-columns: 1fr; }
   .x3-sc-stage { display: none; }
   .x3-sc-mod { min-height: 0; opacity: 1; padding: 36px 0; border-top: 1px solid var(--x-line); }
-  .x3-sc-inline { margin-top: 16px; }
+  .x3-sc-inline { margin-top: 16px; min-height: 440px; }
+  .x3-sc-inline[data-v="chart"] { min-height: 0; aspect-ratio: 400 / 266; }
   .x3-sc-inline .x3-layers, .x3-sc-inline .x3-rest, .x3-sc-inline .x3-req { height: 440px; }
   .x3-sc-inline .x3-layers img:nth-child(2) { display: none; }
 }
@@ -355,7 +380,7 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 @media (max-width: 899px) { .x3-contact-grid { grid-template-columns: 1fr; } }
 
 /* ── Sala de proyección ─────────────────────────────────────────────── */
-.x3-film { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; width: 100%; height: 100%; color: var(--x-white); }
+.x3-film { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; width: 100%; height: 100%; overflow-y: auto; color: var(--x-white); }
 .x3-film::backdrop { background: rgba(5, 8, 12, .92); }
 .x3-film-box { width: min(1200px, 100% - 32px); margin: max(16px, 5vh) auto; display: flex; flex-direction: column; gap: 10px; }
 .x3-film-box.vertical { width: min(420px, 100% - 32px); }
@@ -365,6 +390,10 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-film small { color: var(--x-muted); }
 .x3-film-credit { font-size: 13px; }
 .x3-film-credit a { color: var(--x-white); text-decoration: underline; text-underline-offset: 3px; }
+.x3-film-desc { font-size: 14px; color: var(--x-muted); }
+.x3-film-desc summary { min-height: 32px; display: inline-flex; align-items: center; color: var(--x-white); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.x3-film-desc ol { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 8px; line-height: 1.45; max-width: 75ch; }
+.x3-film-desc li span { font-variant-numeric: tabular-nums; color: var(--x-dim); margin-right: 6px; }
 
 /* ── Teléfono: barra inferior que no tapa contenido ─────────────────── */
 .x3 .cn-sticky { z-index: 18; }
@@ -372,12 +401,15 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 /* ── Movimiento reducido: estados finales, sin cámara ni scrub ─────── */
 @media (prefers-reduced-motion: reduce) {
   .x3 *, .x3 *::before, .x3 *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+/* Movimiento reducido o pantalla baja (zoom fuerte, teléfono acostado): escenas apiladas, nada recortado. */
+@media (prefers-reduced-motion: reduce), (max-height: 559px) {
   .x3-prob-pin { height: auto; overflow: visible; padding: 90px 0; display: flex; flex-direction: column; gap: 40px; }
   .x3-frags, .x3-prob-lines, .x3-prob-core { display: none; }
   .x3-prob-copy { position: static; translate: none; margin: 0 auto; }
   .x3-prob-after { opacity: 1; }
   .x3-train-steps li span { max-height: none; opacity: 1; }
-  .x3-train-steps li:not([data-on="1"]) { display: flex; }
+  .x3-train-steps li:not([data-on="1"]) { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; display: flex; }
 }
 
 /* Simulador (IntelSim) dentro de la escena oscura: mismos componentes, tokens en oscuro. */

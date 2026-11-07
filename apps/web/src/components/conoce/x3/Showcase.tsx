@@ -10,6 +10,7 @@ import { stage } from "../sala/store";
 import { DemoButton } from "../DemoButton";
 import { useFilm } from "./FilmPlayer";
 import { gsap, reduced } from "./gsap";
+import { usePaused } from "./motion";
 import { Play } from "@phosphor-icons/react";
 
 type Mod = { id: string; title: string; value: string; points: string[]; status: FeatureStatus; demo: DemoRole; note?: string; video?: string; visual: string };
@@ -30,8 +31,17 @@ const SERIES = { carga: [60, 60, 62.5, 62.5, 65, 65, 67.5, 67.5], reps: [10, 10,
 const METRICS = { carga: { label: "Carga", unit: "kg", v: SERIES.carga }, reps: { label: "Repeticiones", unit: "reps", v: SERIES.reps }, volumen: { label: "Volumen", unit: "kg", v: SERIES.carga.map((c, i) => c * SERIES.reps[i] * 3) } } as const;
 type MetricId = keyof typeof METRICS;
 
-function Chart({ on }: { on: boolean }) {
-  const [m, setM] = useState<MetricId>("carga");
+/** Selector del indicador. Va dentro del texto del módulo (en el orden del teclado), también en escritorio, donde la gráfica
+ *  se ve en el escenario fijo del costado. */
+function MetricSwitch({ m, setM }: { m: MetricId; setM: (k: MetricId) => void }) {
+  return (
+    <div className="x3-chart-tabs" role="group" aria-label="Indicador de la gráfica">
+      {(Object.keys(METRICS) as MetricId[]).map((k) => <button key={k} type="button" aria-pressed={k === m} onClick={() => { setM(k); track("feature_click", { target: `progreso-${k}` }); }}>{METRICS[k].label}</button>)}
+    </div>
+  );
+}
+
+function Chart({ on, m }: { on: boolean; m: MetricId }) {
   const path = useRef<SVGPathElement>(null);
   const v = METRICS[m].v, max = Math.max(...v), min = Math.min(...v);
   const pts = v.map((y, i) => [20 + i * (360 / (v.length - 1)), 190 - ((y - min) / (max - min || 1)) * 150] as const);
@@ -44,9 +54,6 @@ function Chart({ on }: { on: boolean }) {
   }, [on, m]);
   return (
     <div className="x3-chart">
-      <div className="x3-chart-tabs" role="tablist" aria-label="Indicador">
-        {(Object.keys(METRICS) as MetricId[]).map((k) => <button key={k} role="tab" aria-selected={k === m} onClick={() => { setM(k); track("feature_click", { target: `progreso-${k}` }); }}>{METRICS[k].label}</button>)}
-      </div>
       <svg viewBox="0 0 400 210" role="img" aria-label={`${METRICS[m].label} en 8 sesiones de press de banca (ejemplo ficticio): de ${v[0]} a ${v[v.length - 1]} ${METRICS[m].unit}`}>
         {[40, 90, 140, 190].map((y) => <line key={y} x1={10} x2={390} y1={y} y2={y} className="x3-chart-grid" />)}
         <path ref={path} d={d} className="x3-chart-line" />
@@ -59,12 +66,13 @@ function Chart({ on }: { on: boolean }) {
 
 function Rest({ on }: { on: boolean }) {
   const [s, setS] = useState(120);
+  const paused = usePaused();
+  useEffect(() => { if (on) setS(120); }, [on]);
   useEffect(() => {
-    if (!on || reduced()) return;
-    setS(120);
+    if (!on || reduced() || paused) return; // pausado: el reloj queda donde estaba
     const id = window.setInterval(() => setS((x) => (x <= 75 ? 120 : x - 1)), 1000);
     return () => clearInterval(id);
-  }, [on]);
+  }, [on, paused]);
   return (
     <div className="x3-rest">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -76,12 +84,14 @@ function Rest({ on }: { on: boolean }) {
 
 function Request({ on }: { on: boolean }) {
   const root = useRef<HTMLDivElement>(null);
+  const paused = usePaused();
   useEffect(() => {
     if (!on) { stage.set({ request: null }); return; }
-    if (reduced()) { stage.set({ request: null }); return; }
+    const q = gsap.utils.selector(root);
+    // Movimiento reducido o animaciones pausadas: el pedido y la respuesta quedan a la vista, quietos.
+    if (reduced() || paused) { gsap.set(q(".x3-req-a, .x3-req-b"), { opacity: 1, y: 0 }); gsap.set(q(".x3-req-path"), { strokeDashoffset: 0 }); stage.set({ request: null }); return; }
     const o = { v: 0 };
     const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2 });
-    const q = gsap.utils.selector(root);
     tl.set(q(".x3-req-a, .x3-req-b"), { opacity: 0, y: 10 })
       .to(q(".x3-req-a"), { opacity: 1, y: 0, duration: 0.4 })
       .to(o, { v: 0.5, duration: 1.4, ease: "power1.inOut", onUpdate: () => stage.set({ request: o.v }) }, "<")
@@ -90,7 +100,7 @@ function Request({ on }: { on: boolean }) {
       .to(o, { v: 1, duration: 1.2, ease: "power1.inOut", onUpdate: () => stage.set({ request: o.v }) }, "<")
       .set(q(".x3-req-path"), { strokeDashoffset: 300 }, "+=1");
     return () => { tl.kill(); stage.set({ request: null }); };
-  }, [on]);
+  }, [on, paused]);
   return (
     <div ref={root} className="x3-req">
       <div className="x3-req-a"><small>Valentina · Press de banca</small><b>Que venga alguien</b></div>
@@ -102,10 +112,10 @@ function Request({ on }: { on: boolean }) {
   );
 }
 
-function Visual({ id, on }: { id: string; on: boolean }) {
+function Visual({ id, on, m }: { id: string; on: boolean; m: MetricId }) {
   const img = (src: string, alt: string) => <img src={src} alt={alt} width={390} height={844} loading="lazy" decoding="async" />; // eslint-disable-line @next/next/no-img-element
   switch (id) {
-    case "chart": return <Chart on={on} />;
+    case "chart": return <Chart on={on} m={m} />;
     case "rest": return <Rest on={on} />;
     case "request": return <Request on={on} />;
     case "coach": return <div className="x3-layers">{img("/conoce/shots/clients.webp", "Clientes del personal trainer en REPI")}{img("/conoce/shots/programs.webp", "Editor de programas en REPI")}</div>;
@@ -115,8 +125,10 @@ function Visual({ id, on }: { id: string; on: boolean }) {
   }
 }
 
+/** null hasta medir en el cliente: el contenedor del visual en línea ya ocupa su alto (CSS) desde el HTML del servidor, así
+ *  en teléfonos no hay salto cuando aparece. */
 function useWide() {
-  const [wide, setWide] = useState(true);
+  const [wide, setWide] = useState<boolean | null>(null);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 960px)");
     const upd = () => setWide(mq.matches); upd();
@@ -128,6 +140,7 @@ function useWide() {
 
 export function Showcase() {
   const [active, setActive] = useState(0);
+  const [metric, setMetric] = useState<MetricId>("carga");
   const wide = useWide();
   const blocks = useRef<(HTMLElement | null)[]>([]);
   const film = useFilm();
@@ -149,18 +162,19 @@ export function Showcase() {
                 <h3 id={`sc-${x.id}`}>{x.title}</h3>
                 <p className="x3-sc-value">{x.value}</p>
                 <ul>{x.points.map((pt) => <li key={pt}>{pt}</li>)}</ul>
+                {x.visual === "chart" && <MetricSwitch m={metric} setM={setMetric} />}
                 <p className="x3-sc-status" data-s={x.status}>{STATUS_LABEL[x.status]}{x.note ? ` · ${x.note}` : ""}</p>
                 <div className="x3-sc-act">
                   <DemoButton role={x.demo} label="Verlo en la demo" className="x3-btn ghost sm" target={`f-${x.id}`} />
                   {x.video && VIDEOS[x.video]?.src && <button type="button" className="x3-btn text sm" onClick={() => film(VIDEOS[x.video!])}><Play size={14} weight="fill" aria-hidden="true" />Video</button>}
                 </div>
-                {!wide && <div className="x3-sc-inline"><Visual id={x.visual} on={i === active} /></div>}
+                <div className="x3-sc-inline" data-v={x.visual}>{wide === false && <Visual id={x.visual} on={i === active} m={metric} />}</div>
               </article>
             ))}
           </div>
           <div className="x3-sc-stage" aria-live="polite">
             <ol className="x3-sc-index" aria-label="Módulos">{MODS.map((x, i) => <li key={x.id} data-on={i === active ? "1" : undefined}>{x.title}</li>)}</ol>
-            {wide && <div className="x3-sc-visual" key={m.id}><Visual id={m.visual} on /></div>}
+            {wide && <div className="x3-sc-visual" key={m.id}><Visual id={m.visual} on m={metric} /></div>}
           </div>
         </div>
       </div>

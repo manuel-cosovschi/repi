@@ -2,13 +2,23 @@
 // Escenario fijo detrás de la página: la sala (SVG al instante; 3D cuando el equipo lo permite, cargado después del primer
 // pintado) y el director de tomas. Cada sección declara `data-shot` (toma de cámara) y opcionalmente `data-solid` (la tapa:
 // la sala deja de dibujarse). El scroll mezcla la toma anterior con la de la sección que entra: es reversible por diseño.
+// El 3D es decorativo: si su código no carga, si WebGL falla o si se pierde el contexto, queda el SVG y la página sigue igual.
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { SalaSvg } from "./SalaSvg";
 import { detectQuality, stage, type Quality } from "./store";
 import type { ShotId } from "./model";
 
-const SalaCanvas = dynamic(() => import("./SalaCanvas"), { ssr: false });
+const load3d = () => import("./SalaCanvas");
+const SalaCanvas = dynamic(load3d, { ssr: false });
+
+/** Si el 3D falla al cargar o al crear el contexto, no muestra nada (queda el SVG) en lugar de tirar abajo la página. */
+class Quiet extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { this.props.onError(); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 function useShotDirector() {
   useEffect(() => {
@@ -40,23 +50,31 @@ function useShotDirector() {
 
 export function Stage() {
   const [quality, setQuality] = useState<Quality | null>(null);
-  const [ready3d, setReady3d] = useState(false);
+  const [still, setStill] = useState(false);
+  /** mount: se monta el 3D (navegador libre). shown: el 3D ya dibujó su primer cuadro y reemplaza al SVG. */
+  const [mount3d, setMount3d] = useState(false);
+  const [shown3d, setShown3d] = useState(false);
   useShotDirector();
   useEffect(() => {
     const q = detectQuality();
     setQuality(q);
+    setStill(!!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
     document.documentElement.dataset.sala = q;
     if (q === "low") return;
-    // El 3D entra cuando el navegador está libre: el título (LCP) y los botones ya están pintados.
-    const go = () => setReady3d(true);
+    // El 3D entra cuando el navegador está libre: el título (LCP) y los botones ya están pintados. El SVG sigue visible hasta
+    // que el 3D dibuja su primer cuadro (sin hueco mientras baja el código).
+    const go = () => { void load3d().catch(() => {}); setMount3d(true); };
     const ric = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
     const id = ric ? ric(go, { timeout: 1800 }) : window.setTimeout(go, 900);
     return () => { if (!ric) clearTimeout(id); };
   }, []);
+  const ready = useCallback(() => setShown3d(true), []);
+  const fail = useCallback(() => { setShown3d(false); setMount3d(false); }, []);
+  const on3d = mount3d && quality !== null && quality !== "low";
   return (
-    <div className="sala" aria-hidden="true" data-3d={ready3d ? "1" : "0"}>
-      <SalaSvg animate={quality !== null && quality !== "low"} />
-      {ready3d && quality && quality !== "low" && <div className="sala-3d"><SalaCanvas quality={quality} /></div>}
+    <div className="sala" aria-hidden="true" data-3d={shown3d ? "1" : "0"}>
+      <SalaSvg animate={quality !== null && quality !== "low" && !shown3d} still={still} />
+      {on3d && <div className="sala-3d"><Quiet onError={fail}><SalaCanvas quality={quality} onReady={ready} onLost={fail} /></Quiet></div>}
       <div className="sala-vignette" />
     </div>
   );

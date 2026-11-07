@@ -1,7 +1,7 @@
 "use client";
-// Escena 01 · Apertura. El wordmark aparece, el punto cian de la «ı» se desprende, cae sobre la sala y la enciende (líneas,
-// zonas y personas). Después se revela el título por máscaras. El título y los botones están en el HTML desde el servidor
-// (LCP) y funcionan desde el primer instante; la animación sólo los acompaña. Movimiento reducido: estado final directo.
+// Escena 01 · Apertura. El punto cian de la «ı» se desprende del wordmark, cae sobre la sala y la enciende (líneas, zonas y
+// personas). El título y los botones están en el HTML desde el servidor (LCP), visibles y usables desde el primer instante:
+// la animación no los toca. Movimiento reducido: sala encendida directamente.
 import { useRef } from "react";
 import { ArrowDown, MapPin, Play } from "@phosphor-icons/react";
 import { HERO_VARIANTS, VIDEOS, type HeroVariant } from "@/content/conoce";
@@ -9,7 +9,6 @@ import { stage } from "../sala/store";
 import { DemoButton } from "../DemoButton";
 import { gsap, reduced, useGSAP } from "./gsap";
 import { useFilm } from "./FilmPlayer";
-import { track } from "@/lib/site-track";
 
 export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
   const root = useRef<HTMLElement>(null);
@@ -18,28 +17,25 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
   const brand = VIDEOS["film-marca"];
   useGSAP(() => {
     if (reduced()) { stage.set({ lit: 1 }); return; }
+    // Sólo se animan las piezas decorativas: el punto de la «ı» y la sala. El título, los textos y los botones llegan pintados
+    // desde el servidor (LCP) y nunca se vuelven a ocultar al hidratar. Cada visita empieza con la sala apagada (la tienda es
+    // compartida: si se vuelve a /conoce desde otra página, `lit` podría haber quedado en 1).
+    stage.set({ lit: 0 });
     const q = gsap.utils.selector(root);
     const lit = { v: 0 };
-    const tl = gsap.timeline({ defaults: { ease: "expo.out" } });
-    tl.from(q(".x3-hero-wm img"), { clipPath: "inset(0 100% 0 0)", duration: 1.1, ease: "power3.inOut" })
-      .from(q(".x3-hero-wm i"), { scale: 0, duration: 0.5, ease: "back.out(3)" }, "-=0.2")
-      // El punto cae: se separa del logo y baja hasta la sala.
-      .to(q(".x3-drop"), { opacity: 1, duration: 0.01 })
+    const tl = gsap.timeline({ defaults: { ease: "expo.out" }, delay: 0.4 });
+    tl.to(q(".x3-drop"), { opacity: 1, duration: 0.01 })
       .to(q(".x3-hero-wm i"), { opacity: 0, duration: 0.01 }, "<")
+      // El punto se separa del logo, cae sobre la sala y la enciende.
       .fromTo(q(".x3-drop"), { y: 0, scale: 1 }, { y: () => window.innerHeight * 0.46, scale: 0.55, duration: 0.85, ease: "power2.in" })
       .to(q(".x3-drop"), { scaleX: 2.6, scaleY: 0.2, opacity: 0, duration: 0.35, ease: "power2.out" })
       .to(lit, { v: 1, duration: 1.6, ease: "power2.out", onUpdate: () => stage.set({ lit: lit.v }) }, "<")
-      .to(q(".x3-hero-wm i"), { opacity: 1, duration: 0.4 }, "<0.4")
-      .from(q(".x3-hero-h1 .ln > span"), { yPercent: 105, duration: 1, stagger: 0.12 }, "<0.1")
-      .from(q(".x3-hero-sub, .x3-hero-lead"), { opacity: 0, y: 18, filter: "blur(6px)", duration: 0.9, stagger: 0.1 }, "-=0.6")
-      // fromTo con destino explícito: los botones tienen transición CSS de transform y un .from leería un valor intermedio.
-      .fromTo(q(".x3-hero-cta > .x3-btn, .x3-hero-cta .cn-demo-act > .x3-btn"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.08, clearProps: "transform,opacity" }, "-=0.6")
-      .from(q(".x3-hero-proof, .x3-scroll"), { opacity: 0, duration: 0.8 }, "-=0.4");
+      .to(q(".x3-hero-wm i"), { opacity: 1, duration: 0.4 }, "<0.4");
     return () => { tl.kill(); stage.set({ lit: 1 }); };
   }, { scope: root });
 
   const watch = () => {
-    if (brand?.src) { film(brand); track("film_open", { target: brand.id }); }
+    if (brand?.src) film(brand);
     else document.getElementById("en-accion")?.scrollIntoView({ behavior: reduced() ? "auto" : "smooth" });
   };
   return (

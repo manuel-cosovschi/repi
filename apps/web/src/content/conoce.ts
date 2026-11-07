@@ -2,6 +2,7 @@
 // mensajes de contacto. Regla: sólo capacidades presentes en el producto (docs/comercial/ESTADO_Y_LIMITES.md, FEATURE_FLAGS.md).
 // Nada de cifras, clientes, testimonios ni integraciones que no existan. Para sumar un video: completar `src` en VIDEOS.
 import type { Profile } from "@/lib/site-events";
+import FILM_DESCRIPTIONS from "./film-descriptions.json";
 
 export type DemoRole = "owner" | "floor" | "member" | "coach";
 
@@ -18,12 +19,17 @@ export type Video = {
   audio?: boolean;
   /** Título de la pista de Kevin MacLeod (CC BY 4.0): la atribución se muestra en el reproductor. */
   music?: string;
+  /** Descripción en texto, escena por escena (los films no tienen voz): el reproductor la ofrece y además carga la pista
+   *  WebVTT de descripciones. Generada desde los guiones con design/films/kit/tools/describe.py. */
+  description?: { at: string; text: string }[];
+  descriptionTrack?: string;
 };
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
 const film = (id: string, title: string, audience: string, duration: string, music: string, extra: Partial<Video> = {}): Video =>
-  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music, ...extra });
+  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music,
+    description: (FILM_DESCRIPTIONS as Record<string, { at: string; text: string }[]>)[id], descriptionTrack: `/conoce/videos/${id}.descripcion.vtt`, ...extra });
 export const VIDEOS: Record<string, Video> = {
   "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age"),
   "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies"),

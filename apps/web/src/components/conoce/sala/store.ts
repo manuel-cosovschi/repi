@@ -13,9 +13,11 @@ export type StageState = {
   request: number | null;
   /** La sala queda tapada por una sección sólida: se deja de dibujar. */
   hidden: boolean;
+  /** La persona pausó las animaciones (botón «Pausar animaciones»): nada se mueve solo; la cámara sigue al scroll. */
+  paused: boolean;
 };
 
-const state: StageState = { a: "dark", b: "hero", t: 0, lit: 0, focus: null, request: null, hidden: false };
+const state: StageState = { a: "dark", b: "hero", t: 0, lit: 0, focus: null, request: null, hidden: false, paused: false };
 const subs = new Set<() => void>();
 
 export const stage = {
@@ -42,6 +44,12 @@ export function detectQuality(): Quality {
     const c = document.createElement("canvas");
     const gl = c.getContext("webgl2", { failIfMajorPerformanceCaveat: true });
     if (!gl) return "low";
+    // WebGL por software (SwiftShader, llvmpipe: equipos sin GPU o con la GPU bloqueada, y los navegadores sin pantalla de
+    // Lighthouse/PageSpeed) pasa el filtro anterior, pero dibuja con la CPU: ahí va el SVG.
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    const renderer = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? "");
+    gl.getExtension("WEBGL_lose_context")?.loseContext(); // sólo era una prueba: no ocupar un contexto más
+    if (/swiftshader|llvmpipe|softpipe|software|basic render|mesa offscreen/i.test(renderer)) return "low";
   } catch { return "low"; }
   const cores = nav.hardwareConcurrency ?? 4, mem = nav.deviceMemory ?? 4;
   if (cores < 4 || mem < 3) return "low";

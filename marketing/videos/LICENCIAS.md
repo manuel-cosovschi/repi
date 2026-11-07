@@ -10,6 +10,10 @@ reproductor de `/conoce` debajo de cada film (`Video.music` en `apps/web/src/con
 
 Texto de atribución: «[Título]» Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License.
 
+Cada film usa un fragmento recortado, normalizado a −14 LUFS y sincronizado con la imagen: para CC BY 4.0 es material adaptado
+(§1(a)) y hay que indicar la modificación (§3(a)(1)(B)). El reproductor lo dice así: «Música: «[Título]», Kevin MacLeod
+(incompetech.com, con enlace), licencia CC BY 4.0 (con enlace). Fragmento editado y sincronizado con la imagen.»
+
 | Film (archivo web) | Pista | Tramo usado |
 | --- | --- | --- |
 | `film-marca` | Heroic Age | 30,0 → 78,0 s |

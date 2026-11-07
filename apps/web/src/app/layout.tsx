@@ -14,7 +14,8 @@ import { tokens } from "@repi/domain/tokens";
 // El logo sigue siendo el PNG aprobado: ninguna de estas familias lo reemplaza.
 const ui = Barlow({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-barlow", display: "swap" });
 const display = Barlow_Condensed({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-barlow-condensed", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains-mono", display: "swap" });
+// Mono sólo en códigos y etiquetas chicas: sin precarga (no compite con el título y los textos en la primera pintura).
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains-mono", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: "REPI",

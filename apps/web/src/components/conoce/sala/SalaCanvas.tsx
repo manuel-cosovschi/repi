@@ -18,6 +18,14 @@ function readPalette() {
 }
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
+/** Tiempo de la escena: avanza con cada cuadro salvo cuando la persona pausó las animaciones. Es propio (no el reloj de R3F,
+ *  que se reinicia al cambiar el modo de dibujo), así las personas siguen donde estaban al volver a mostrarse. */
+const sceneTime = { t: 0 };
+function Clock() {
+  useFrame((_, dt) => { if (!stage.get().paused) sceneTime.t += Math.min(dt, 0.1); });
+  return null;
+}
+
 function lineGeometry(points: number[]) {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
@@ -108,8 +116,8 @@ function People({ count }: { count: number }) {
   const staff = useRef<THREE.InstancedMesh>(null);
   const halos = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  useFrame(({ clock }) => {
-    const s = stage.get(), t = clock.getElapsedTime();
+  useFrame(() => {
+    const s = stage.get(), t = sceneTime.t;
     let mi = 0, si = 0;
     list.forEach((p, i) => {
       const [x, z] = along(p, t);
@@ -149,7 +157,7 @@ function Signals() {
   const mid = new THREE.Vector3((from.x + to.x) / 2, 3.2, (from.z + to.z) / 2);
   const curve = useMemo(() => new THREE.QuadraticBezierCurve3(from, mid, to), []); // eslint-disable-line react-hooks/exhaustive-deps
   const geo = useMemo(() => new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)), [curve]);
-  useFrame(({ clock }) => {
+  useFrame(() => {
     const s = stage.get();
     if (pulse.current && trail.current) {
       const on = s.request != null;
@@ -160,7 +168,7 @@ function Signals() {
         (pulse.current.material as THREE.MeshBasicMaterial).color.set(s.request! < 0.5 ? C.cyan : C.teal);
       }
     }
-    if (qr.current) (qr.current.material as THREE.MeshBasicMaterial).opacity = s.lit * (0.55 + 0.45 * Math.abs(Math.sin(clock.getElapsedTime() * 1.6)));
+    if (qr.current) (qr.current.material as THREE.MeshBasicMaterial).opacity = s.lit * (0.55 + 0.45 * Math.abs(Math.sin(sceneTime.t * 1.6)));
   });
   return (
     <group>
@@ -191,7 +199,7 @@ function Drop() {
 
 /** Cámara: mezcla entre las tomas a y b según t, con amortiguación (y un leve paralaje con el mouse en escritorio). */
 function Rig({ parallax }: { parallax: boolean }) {
-  const { camera } = useThree();
+  const camera = useThree((s) => s.camera);
   const look = useRef(new THREE.Vector3());
   const goalPos = useMemo(() => new THREE.Vector3(), []), goalLook = useMemo(() => new THREE.Vector3(), []);
   const mouse = useRef({ x: 0, y: 0 });
@@ -201,7 +209,7 @@ function Rig({ parallax }: { parallax: boolean }) {
     window.addEventListener("pointermove", on, { passive: true });
     return () => window.removeEventListener("pointermove", on);
   }, [parallax]);
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const s = stage.get(), A = SHOTS[s.a], B = SHOTS[s.b], k = ease(Math.min(1, Math.max(0, s.t)));
     goalPos.set(A.pos[0] + (B.pos[0] - A.pos[0]) * k + mouse.current.x * 1.2, A.pos[1] + (B.pos[1] - A.pos[1]) * k - mouse.current.y * 0.8, A.pos[2] + (B.pos[2] - A.pos[2]) * k);
     goalLook.set(A.look[0] + (B.look[0] - A.look[0]) * k, A.look[1] + (B.look[1] - A.look[1]) * k, A.look[2] + (B.look[2] - A.look[2]) * k);
@@ -209,29 +217,48 @@ function Rig({ parallax }: { parallax: boolean }) {
     camera.position.lerp(goalPos, damp);
     look.current.lerp(goalLook, damp);
     camera.lookAt(look.current);
+    // En modo «a pedido» (animaciones pausadas) sigue pidiendo cuadros hasta llegar a la toma.
+    if (camera.position.distanceToSquared(goalPos) > 1e-4 || look.current.distanceToSquared(goalLook) > 1e-4) state.invalidate();
   });
   return null;
 }
 
-/** Deja de dibujar cuando una sección sólida tapa la sala o la pestaña no se ve. */
+/** Modo de dibujo: nada si una sección sólida tapa la sala o la pestaña no se ve; «a pedido» (sólo la cámara, que sigue al
+ *  scroll) si la persona pausó las animaciones; continuo en el resto. Sólo se cambia cuando el modo cambia: en R3F,
+ *  setFrameloop reinicia el reloj y notifica a toda la escena. */
 function Pauser() {
-  const { setFrameloop } = useThree();
+  const setFrameloop = useThree((s) => s.setFrameloop);
+  const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
-    const upd = () => setFrameloop(stage.get().hidden || document.hidden ? "never" : "always");
+    let last: "never" | "demand" | "always" | null = null;
+    const upd = () => {
+      const s = stage.get();
+      const mode = s.hidden || document.hidden ? "never" : s.paused ? "demand" : "always";
+      if (mode !== last) { last = mode; setFrameloop(mode); }
+      if (mode === "demand") invalidate();
+    };
     const off = stage.subscribe(upd);
     document.addEventListener("visibilitychange", upd);
     upd();
     return () => { off(); document.removeEventListener("visibilitychange", upd); };
-  }, [setFrameloop]);
+  }, [setFrameloop, invalidate]);
   return null;
 }
 
-export default function SalaCanvas({ quality }: { quality: Quality }) {
+/** Avisa una sola vez, después del primer cuadro dibujado: recién ahí el 3D reemplaza al SVG. */
+function Ready({ onReady }: { onReady: () => void }) {
+  const done = useRef(false);
+  useFrame(() => { if (!done.current) { done.current = true; requestAnimationFrame(onReady); } });
+  return null;
+}
+
+export default function SalaCanvas({ quality, onReady, onLost }: { quality: Quality; onReady: () => void; onLost: () => void }) {
   if (!C.navy) readPalette(); // antes del primer render de la escena: los materiales se crean con la paleta ya leída
   const high = quality === "high";
   return (
     <Canvas className="sala-canvas" dpr={high ? [1, 2] : [1, 1.5]} shadows={high} gl={{ antialias: high, powerPreference: high ? "high-performance" : "low-power", alpha: false }}
-      camera={{ fov: 38, near: 0.1, far: 200, position: SHOTS.dark.pos }} aria-hidden="true">
+      camera={{ fov: 38, near: 0.1, far: 200, position: SHOTS.dark.pos }} aria-hidden="true"
+      onCreated={({ gl }) => gl.domElement.addEventListener("webglcontextlost", onLost, { once: true })}>
       <color attach="background" args={[C.navy]} />
       <fog attach="fog" args={[C.navy, 45, 130]} />
       <ambientLight intensity={0.55} />
@@ -242,8 +269,10 @@ export default function SalaCanvas({ quality }: { quality: Quality }) {
       <People count={high ? PEOPLE.length : 9} />
       <Signals />
       <Drop />
+      <Clock />
       <Rig parallax={high} />
       <Pauser />
+      <Ready onReady={onReady} />
     </Canvas>
   );
 }

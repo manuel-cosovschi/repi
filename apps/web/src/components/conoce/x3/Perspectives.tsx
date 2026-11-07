@@ -1,7 +1,9 @@
 "use client";
 // Escena 04 · Cuatro perspectivas. Elegir un perfil mueve la cámara de la sala a su zona (gimnasio: recepción y oficina;
 // entrenador: el box; deportista: el rack; aliados: la sala entera desde arriba, como sistema) y transforma el escenario:
-// problema, qué cambia, la interfaz real, su video y su acción. `/conoce/<perfil>` lo preselecciona. Mide profile_select.
+// problema, qué cambia, la interfaz real, su video y su acción. `/conoce/<perfil>` lo preselecciona; elegir otro deja la URL
+// en `/conoce/<perfil>` (compartible, con la misma búsqueda/UTM) y avisa al formulario («repi:interest») para que el pedido
+// llegue con el tipo y el interés correctos. Mide profile_select.
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Play } from "@phosphor-icons/react";
 import { PROFILE_CONTENT, VIDEOS, FEATURES } from "@/content/conoce";
@@ -23,6 +25,8 @@ const SHOT_IMG: Record<Profile, string[]> = {
   aliados: ["/conoce/shots/owner.webp", "/conoce/shots/member.webp"],
 };
 const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
+/** El formulario de contacto escucha este evento: tipo de organización, interés y (aliados) pedido de reunión. */
+const announceInterest = (p: Profile, meeting = false) => window.dispatchEvent(new CustomEvent("repi:interest", { detail: { profile: p, meeting } }));
 
 export function Perspectives({ initial }: { initial: Profile | null }) {
   const [p, setP] = useState<Profile>(initial ?? "gimnasios");
@@ -44,10 +48,12 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
     gsap.fromTo(q(".x3-pv-head > *"), { opacity: 0, y: 24, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.7, stagger: 0.06, ease: "expo.out" });
     gsap.fromTo(q(".x3-pv-shot"), { clipPath: "inset(0 0 100% 0 round 28px)" }, { clipPath: "inset(0 0 0% 0 round 28px)", duration: 0.9, stagger: 0.12, ease: "expo.inOut" });
     gsap.fromTo(q(".x3-pv-flow li"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.07, delay: 0.2, ease: "power3.out" });
-  }, { scope: root, dependencies: [p] });
+  }, { scope: root, dependencies: [p], revertOnUpdate: true });
   const choose = (x: Profile) => {
     if (x === p) return;
     setP(x);
+    announceInterest(x);
+    try { history.replaceState(history.state, "", `/conoce/${x}${location.search}`); } catch { /* sin historial: queda la URL actual */ }
     track("profile_select", { profile: x, target: "perspectivas" });
   };
   const onKey = (e: React.KeyboardEvent, i: number) => {
@@ -86,7 +92,7 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
             <div className="x3-pv-side">
               <ul className="x3-pv-feat">{features.map((f) => <li key={f.id}><b>{f.title}.</b> {f.value}</li>)}</ul>
               <div className="x3-pv-act">
-                {c.leadKind ? <a className="x3-btn pri" href="#contacto" onClick={() => track("contact_click", { profile: p, target: "perspectivas" })}>{c.cta} <ArrowRight size={18} weight="bold" aria-hidden="true" /></a>
+                {c.leadKind ? <a className="x3-btn pri" href="#contacto" onClick={() => { track("contact_click", { profile: p, target: "perspectivas" }); announceInterest(p, p === "aliados"); if (p === "aliados") track("meeting_request", { profile: p, target: "perspectivas" }); }}>{c.cta} <ArrowRight size={18} weight="bold" aria-hidden="true" /></a>
                   : <TrackLink event="whatsapp_click" profile={p} target="perspectivas" external className="x3-btn pri" href={wa(c.whatsapp)}>{c.cta}</TrackLink>}
                 <DemoButton role={c.demo} profile={p} label="Ver la demo" className="x3-btn ghost" target={`perfil-${p}`} />
                 {video?.src && <button type="button" className="x3-btn text" onClick={() => film(video, p)}><Play size={16} weight="fill" aria-hidden="true" />Ver el video{video.duration ? ` · ${video.duration}` : ""}</button>}

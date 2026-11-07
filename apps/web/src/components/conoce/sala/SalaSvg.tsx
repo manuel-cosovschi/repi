@@ -1,7 +1,8 @@
 "use client";
 // La sala en SVG: nivel «low» (sin WebGL, ahorro de datos, equipos modestos o movimiento reducido) y primer pintado mientras
 // carga el 3D. Mismo modelo y mismas tomas (`svg`: centro x, z y zoom) con transformaciones CSS. Con movimiento reducido las
-// personas quedan quietas y el cambio de toma es directo.
+// personas quedan quietas y el cambio de toma es un corte (nunca un zoom que acompaña al scroll). El bucle de las personas
+// se detiene cuando el 3D ya se ve, cuando una sección sólida tapa la sala o cuando la persona pausa las animaciones.
 import { useEffect, useRef } from "react";
 import { FLOOR, GEAR, PEOPLE, QR_SPOT, SHOTS, ZONES, along } from "./model";
 import { stage } from "./store";
@@ -10,7 +11,7 @@ const S = 20; // px por metro en el viewBox
 const W = FLOOR.w * S, D = FLOOR.d * S;
 const X = (x: number) => (x + FLOOR.w / 2) * S, Z = (z: number) => (z + FLOOR.d / 2) * S;
 
-export function SalaSvg({ animate }: { animate: boolean }) {
+export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }) {
   const view = useRef<SVGGElement>(null);
   const dots = useRef<(SVGCircleElement | null)[]>([]);
   const zones = useRef<(SVGRectElement | null)[]>([]);
@@ -19,24 +20,28 @@ export function SalaSvg({ animate }: { animate: boolean }) {
     let raf = 0;
     const apply = () => {
       const s = stage.get();
-      const A = SHOTS[s.a].svg, B = SHOTS[s.b].svg, k = Math.min(1, Math.max(0, s.t));
+      const A = SHOTS[s.a].svg, B = SHOTS[s.b].svg, t = Math.min(1, Math.max(0, s.t)), k = still ? (t < 0.5 ? 0 : 1) : t;
       const cx = A[0] + (B[0] - A[0]) * k, cz = A[1] + (B[1] - A[1]) * k, zoom = A[2] + (B[2] - A[2]) * k;
       if (view.current) view.current.style.transform = `translate(${W / 2}px, ${D / 2}px) scale(${zoom}) translate(${-X(cx)}px, ${-Z(cz)}px)`;
       if (root.current) root.current.style.opacity = String(0.25 + 0.75 * s.lit);
       ZONES.forEach((z, i) => { const r = zones.current[i]; if (r) r.dataset.on = s.focus === z.id ? "1" : "0"; });
     };
-    const tick = () => {
-      const t = performance.now() / 1000;
-      PEOPLE.forEach((p, i) => { const c = dots.current[i]; if (!c) return; const [x, z] = along(p, t); c.setAttribute("cx", String(X(x))); c.setAttribute("cy", String(Z(z))); });
-      apply();
+    // Tiempo propio que sólo avanza mientras se anima: al pausar o tapar la sala, las personas quedan donde estaban.
+    let clock = 0, last = 0;
+    const place = () => PEOPLE.forEach((p, i) => { const c = dots.current[i]; if (!c) return; const [x, z] = along(p, clock); c.setAttribute("cx", String(X(x))); c.setAttribute("cy", String(Z(z))); });
+    const running = () => { const s = stage.get(); return animate && !s.hidden && !s.paused && !document.hidden; };
+    const tick = (now: number) => {
+      if (!running()) { raf = 0; return; }
+      clock += Math.min(0.1, last ? (now - last) / 1000 : 0); last = now;
+      place();
       raf = requestAnimationFrame(tick);
     };
-    const off = stage.subscribe(apply);
-    apply();
-    if (animate) raf = requestAnimationFrame(tick);
-    else PEOPLE.forEach((p, i) => { const c = dots.current[i]; if (!c) return; const [x, z] = along(p, 0); c.setAttribute("cx", String(X(x))); c.setAttribute("cy", String(Z(z))); });
-    return () => { off(); cancelAnimationFrame(raf); };
-  }, [animate]);
+    const wake = () => { if (!raf && running()) { last = 0; raf = requestAnimationFrame(tick); } };
+    const off = stage.subscribe(() => { apply(); wake(); });
+    document.addEventListener("visibilitychange", wake);
+    apply(); place(); wake();
+    return () => { off(); document.removeEventListener("visibilitychange", wake); cancelAnimationFrame(raf); };
+  }, [animate, still]);
   return (
     <svg ref={root} className="sala-svg" viewBox={`0 0 ${W} ${D}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <g ref={view} className={animate ? "sala-view" : "sala-view still"}>
