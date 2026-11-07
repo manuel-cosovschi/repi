@@ -9,7 +9,13 @@ import * as THREE from "three";
 import { FLOOR, GEAR, HERO_RACK, PEOPLE, QR_SPOT, SHOTS, ZONES, along } from "./model";
 import { stage, type Quality } from "./store";
 
-const C = { navy: "#0B0F14", floor: "#0F1620", surface: "#1A2433", steel: "#2D3B4F", line: "#4A5D78", edge: "#5A6E8A", cyan: "#00D1FF", teal: "#5DE6D8", white: "#F8FAFC" };
+// Paleta: una sola fuente, los tokens --x-* de styles/conoce3.css. Se lee una vez al montar (three.js no entiende var()).
+const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white" } as const;
+const C = {} as Record<keyof typeof TOKENS, string>;
+function readPalette() {
+  const cs = getComputedStyle(document.querySelector(".x3") ?? document.documentElement);
+  for (const [k, v] of Object.entries(TOKENS)) C[k as keyof typeof TOKENS] = cs.getPropertyValue(v).trim() || "gray";
+}
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 function lineGeometry(points: number[]) {
@@ -87,7 +93,7 @@ function Gear() {
     <group>
       {items.map((it, i) => (
         <group key={i} position={[it.x, it.h / 2, it.z]}>
-          <mesh geometry={it.box} castShadow><meshStandardMaterial color="#1E2A3A" roughness={0.6} metalness={0.25} /></mesh>
+          <mesh geometry={it.box} castShadow><meshStandardMaterial color={C.gear} roughness={0.6} metalness={0.25} /></mesh>
           <lineSegments geometry={it.edges}><lineBasicMaterial ref={(m) => { mats.current[i] = m; }} color={C.steel} transparent opacity={0} /></lineSegments>
         </group>
       ))}
@@ -221,6 +227,7 @@ function Pauser() {
 }
 
 export default function SalaCanvas({ quality }: { quality: Quality }) {
+  if (!C.navy) readPalette(); // antes del primer render de la escena: los materiales se crean con la paleta ya leída
   const high = quality === "high";
   return (
     <Canvas className="sala-canvas" dpr={high ? [1, 2] : [1, 1.5]} shadows={high} gl={{ antialias: high, powerPreference: high ? "high-performance" : "low-power", alpha: false }}

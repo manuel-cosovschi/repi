@@ -4,6 +4,8 @@
 .x3 {
   --x-navy: #0B0F14; --x-surface: #1A2433; --x-steel: #2D3B4F; --x-cyan: #00D1FF; --x-teal: #5DE6D8; --x-white: #F8FAFC; --x-cream: #F4F1EA;
   --x-muted: #9AA8BA; --x-dim: #8291A6; --x-line: rgba(248, 250, 252, .12); --x-ink: #0B0F14; --x-ink-2: #3A4757;
+  /* Escenario 3D (SalaCanvas los lee al montarse: three.js no entiende variables CSS). */
+  --x-floor: #0F1620; --x-plan: #4A5D78; --x-edge: #5A6E8A; --x-gear: #1E2A3A;
   --x-ease: cubic-bezier(.16, 1, .3, 1); --x-gutter: clamp(16px, 4vw, 48px);
   background: var(--x-navy); color: var(--x-white); position: relative; isolation: isolate;
 }

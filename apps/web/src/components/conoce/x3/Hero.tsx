@@ -32,7 +32,8 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
       .to(q(".x3-hero-wm i"), { opacity: 1, duration: 0.4 }, "<0.4")
       .from(q(".x3-hero-h1 .ln > span"), { yPercent: 105, duration: 1, stagger: 0.12 }, "<0.1")
       .from(q(".x3-hero-sub, .x3-hero-lead"), { opacity: 0, y: 18, filter: "blur(6px)", duration: 0.9, stagger: 0.1 }, "-=0.6")
-      .from(q(".x3-hero-cta > *"), { opacity: 0, y: 14, duration: 0.7, stagger: 0.08 }, "-=0.6")
+      // fromTo con destino explícito: los botones tienen transición CSS de transform y un .from leería un valor intermedio.
+      .fromTo(q(".x3-hero-cta > .x3-btn, .x3-hero-cta .cn-demo-act > .x3-btn"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.08, clearProps: "transform,opacity" }, "-=0.6")
       .from(q(".x3-hero-proof, .x3-scroll"), { opacity: 0, duration: 0.8 }, "-=0.4");
     return () => { tl.kill(); stage.set({ lit: 1 }); };
   }, { scope: root });
