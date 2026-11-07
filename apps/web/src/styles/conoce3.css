@@ -355,6 +355,8 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-film-x { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--x-line); background: var(--x-surface); color: var(--x-white); display: grid; place-items: center; cursor: pointer; }
 .x3-film video { width: 100%; max-height: 80vh; border-radius: 18px; background: #000; }
 .x3-film small { color: var(--x-muted); }
+.x3-film-credit { font-size: 13px; }
+.x3-film-credit a { color: var(--x-white); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── Teléfono: barra inferior que no tapa contenido ─────────────────── */
 .x3 .cn-sticky { z-index: 18; }

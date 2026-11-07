@@ -12,23 +12,32 @@ export type Video = {
   id: string; title: string; audience: string; src: string | null; poster: string | null; captions: string | null;
   /** «0:45». Sólo si el archivo existe. */
   duration: string | null; vertical?: boolean;
-  /** Con locución. Sin esto, el video es sin audio (con subtítulos en pantalla). */
+  /** Versión 9:16 para teléfonos en vertical (el reproductor la elige al abrir). */
+  srcVertical?: string; posterVertical?: string;
+  /** Con música. Sin esto, el video es sin audio (con textos en pantalla). */
   audio?: boolean;
+  /** Título de la pista de Kevin MacLeod (CC BY 4.0): la atribución se muestra en el reproductor. */
+  music?: string;
 };
+// Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
+// licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
+// (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
+const film = (id: string, title: string, audience: string, duration: string, music: string, extra: Partial<Video> = {}): Video =>
+  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music, ...extra });
 export const VIDEOS: Record<string, Video> = {
-  // Experience 3.0: films nuevos (motion graphics y música, sin voz). Mientras no exista el archivo, `src` queda en null y la
-  // página no muestra reproductor (el botón del hero lleva a la demostración en la página).
-  "film-marca": { id: "film-marca", title: "REPI · Cada repetición cuenta", audience: "Todos", src: null, poster: null, captions: null, duration: null, audio: true },
-  // Grabaciones reales de la demo guiada (datos ficticios) con subtítulos en pantalla; sin audio. Ver VIDEOS_PENDIENTES.md.
-  "perfil-gimnasios": { id: "perfil-gimnasios", title: "REPI para gimnasios", audience: "Dueños y gerencia", src: "/conoce/videos/perfil-gimnasios.mp4", poster: "/conoce/videos/perfil-gimnasios.webp", captions: null, duration: "0:50", vertical: true },
-  "perfil-entrenadores": { id: "perfil-entrenadores", title: "REPI para entrenadores personales", audience: "Personal trainers", src: "/conoce/videos/perfil-entrenadores.mp4", poster: "/conoce/videos/perfil-entrenadores.webp", captions: null, duration: "0:34", vertical: true },
-  "perfil-deportistas": { id: "perfil-deportistas", title: "REPI para alumnos y deportistas", audience: "Quien entrena", src: "/conoce/videos/perfil-deportistas.mp4", poster: "/conoce/videos/perfil-deportistas.webp", captions: null, duration: "0:42", vertical: true },
-  // Con locución (ElevenLabs, voz «Eric», multilingüe) y subtítulos en pantalla; escenas de marca y grabaciones reales de la demo.
-  "perfil-aliados": { id: "perfil-aliados", title: "REPI, empresa de tecnología deportiva", audience: "Empresas, inversores y aliados", src: "/conoce/videos/perfil-aliados.mp4", poster: "/conoce/videos/perfil-aliados.webp", captions: null, duration: "0:59", vertical: true, audio: true },
-  "f-intelligence": { id: "f-intelligence", title: "Training Intelligence en una serie", audience: "Todos", src: "/conoce/videos/f-intelligence.mp4", poster: "/conoce/videos/f-intelligence.webp", captions: null, duration: "0:33", vertical: true },
+  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age"),
+  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies"),
+  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer"),
+  "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:40", "Volatile Reaction",
+    { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
+  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game"),
+  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:33", "Volatile Reaction"),
+  "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant"),
+  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:24", "Five Armies"),
+  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant"),
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
-export const VIDEO_ORDER = ["f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados"];
+export const VIDEO_ORDER = ["film-marca", "f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados", "f-progreso", "f-altas", "f-sala"];
 
 // ── Hero (Experience 3.0) ───────────────────────────────────────────────────
 // Variantes preparadas para probar titulares y propuesta en el futuro (`/conoce?v=b`), sin plataforma externa. «a» es la vigente.
@@ -70,7 +79,7 @@ export const FEATURES: Feature[] = [
     status: "available", demo: "member", shot: "/conoce/shots/training.webp", shotAlt: "Pantalla de entrenamiento en curso en REPI", profiles: ["deportistas", "gimnasios"] },
   { id: "progreso", title: "Progreso por ejercicio", value: "Fuerza, cargas, repeticiones, volumen y récords desde lo que registrás.",
     points: ["Gráficos por ejercicio y por período", "1RM estimado con la fórmula de Epley (estimación, no medición)", "Tu historial anterior a REPI también suma"],
-    status: "available", demo: "member", shot: "/conoce/shots/progress.webp", shotAlt: "Gráfico de evolución de un ejercicio en REPI", profiles: ["deportistas", "entrenadores"] },
+    status: "available", demo: "member", shot: "/conoce/shots/progress.webp", shotAlt: "Gráfico de evolución de un ejercicio en REPI", video: "f-progreso", profiles: ["deportistas", "entrenadores"] },
   { id: "cuerpo", title: "Mi cuerpo · Body Intelligence", value: "Peso, objetivo y fotos de progreso privadas, sólo para vos.",
     points: ["Peso corporal y objetivo con su gráfico", "Fotos privadas con comparador", "Calorías estimadas por entrenamiento, como rango"],
     status: "stage", note: "Para adultos. Medidas corporales y análisis más completos: en desarrollo. No es un diagnóstico.", demo: "member", shot: "/conoce/shots/body.webp", shotAlt: "Objetivo de peso con su avance en Mi cuerpo", profiles: ["deportistas"] },
@@ -88,10 +97,10 @@ export const FEATURES: Feature[] = [
     status: "available", demo: "coach", shot: "/conoce/shots/messages.webp", shotAlt: "Mensajes privados entre el coach y sus alumnos", profiles: ["entrenadores"] },
   { id: "sala", title: "Seguimiento de sala", value: "El socio pide ayuda desde su serie y el equipo responde.",
     points: ["Avisos en vivo y cola de asistencia", "Traspaso de turno con lo que se hizo y lo que falta", "Tiempos de respuesta y si le sirvió al socio"],
-    status: "per_gym", demo: "floor", shot: "/conoce/shots/floor.webp", shotAlt: "Turno del entrenador de sala en REPI", profiles: ["gimnasios"] },
+    status: "per_gym", demo: "floor", shot: "/conoce/shots/floor.webp", shotAlt: "Turno del entrenador de sala en REPI", video: "f-sala", profiles: ["gimnasios"] },
   { id: "altas", title: "Altas por QR y acceso", value: "Un QR por sede; el equipo confirma quién es socio.",
     points: ["La persona crea su cuenta y pide acceso", "Recepción, gerencia o sala aprueban", "Ingreso validado con un QR que se renueva cada 30 s (opcional)"],
-    status: "available", note: "El control de ingreso se activa por gimnasio. REPI no cobra la cuota del gimnasio.", demo: "owner", shot: "/conoce/shots/access.webp", shotAlt: "Solicitudes de acceso por QR en REPI", profiles: ["gimnasios"] },
+    status: "available", note: "El control de ingreso se activa por gimnasio. REPI no cobra la cuota del gimnasio.", demo: "owner", shot: "/conoce/shots/access.webp", shotAlt: "Solicitudes de acceso por QR en REPI", video: "f-altas", profiles: ["gimnasios"] },
   { id: "tablero", title: "Vista del dueño", value: "Tu gimnasio de un vistazo, por sede.",
     points: ["Socios activos, asistencia y alertas", "Equipo y servicio: tareas, tiempos y reseñas", "Permisos por rol: dueño, gerencia, recepción y entrenadores"],
     status: "available", demo: "owner", shot: "/conoce/shots/owner.webp", shotAlt: "Tablero ejecutivo del gimnasio en REPI", profiles: ["gimnasios", "aliados"] },

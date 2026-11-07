@@ -1,5 +1,7 @@
 # Video «REPI, empresa de tecnología deportiva» (aliados e inversores)
 
+> **Superado (D208).** Reemplazado por el film «REPI · Tecnología para el entrenamiento» de Experience 3.0, sin voz (`design/films/aliados/`, licencias en `marketing/videos/LICENCIAS.md`). Se conserva como antecedente; no regenerar con locución.
+
 Publicado en `/conoce` (perfil Aliados y «Mirá cómo funciona»): `apps/web/public/conoce/videos/perfil-aliados.mp4`, 0:59, 720×1280.
 
 - **Contenido:** escenas de marca (Barlow / Barlow Condensed, navy y cian) y grabaciones reales de la demo guiada (datos ficticios). Subtítulos en pantalla con el texto exacto de la locución.
