@@ -18,7 +18,7 @@ export function splitSay(text: string) {
   return { words, plain: text.replace(/\*/g, "") };
 }
 
-export function Say({ text, as: Tag = "h2", id, className, auto = true }: { text: string; as?: ElementType; id?: string; className?: string; auto?: boolean }) {
+export function Say({ text, as: Tag = "h2", id, className, auto = true, snap = false }: { text: string; as?: ElementType; id?: string; className?: string; auto?: boolean; snap?: boolean }) {
   const root = useRef<HTMLElement>(null);
   const { words, plain } = splitSay(text);
   useGSAP(() => {
@@ -26,7 +26,7 @@ export function Say({ text, as: Tag = "h2", id, className, auto = true }: { text
     const mm = gsap.matchMedia();
     mm.add(MOTION_MQ, () => {
       const tl = gsap.timeline({ defaults: { ease: "none" }, scrollTrigger: { trigger: root.current, start: "top 85%", end: "top 45%", scrub: 0.5 } });
-      sayIn(tl, root.current!, 0);
+      sayIn(tl, root.current!, 0, 1, snap);
     });
     return () => mm.revert();
   }, { scope: root, dependencies: [text] });
@@ -45,12 +45,14 @@ export function Say({ text, as: Tag = "h2", id, className, auto = true }: { text
   );
 }
 
-/** Entrada palabra por palabra (cada una sube en su máscara), la clave se enciende y su subrayado se dibuja. */
-export function sayIn(tl: gsap.core.Timeline, el: Element, at: number | string, span = 1) {
+/** Entrada palabra por palabra (cada una sube en su máscara), la clave se enciende y su subrayado se dibuja. Con `snap`, la
+ *  frase clave no sube: aparece entera de un cuadro al siguiente al 85 % de la entrada (y se va igual al subir). */
+export function sayIn(tl: gsap.core.Timeline, el: Element, at: number | string, span = 1, snap = false) {
   const q = gsap.utils.selector(el);
-  const ws = q(".x3-wi"), ks = q(".k .x3-wi"), us = q(".x3-u");
+  const ws = q(snap ? ".x3-w:not(.k) .x3-wi" : ".x3-wi"), ks = q(".k .x3-wi"), us = q(".x3-u");
   tl.fromTo(ws, { yPercent: 112 }, { yPercent: 0, duration: 0.55 * span, stagger: (0.35 * span) / Math.max(1, ws.length), ease: "power3.out" }, at);
-  if (ks.length) tl.fromTo(ks, { opacity: 0.42 }, { opacity: 1, duration: 0.25 * span, ease: "power1.in" }, `>-${0.15 * span}`);
+  if (snap && ks.length) { tl.set(ks, { yPercent: 112, opacity: 1 }, at).set(ks, { yPercent: 0 }, typeof at === "number" ? at + 0.85 * span : ">"); }
+  else if (ks.length) tl.fromTo(ks, { opacity: 0.42 }, { opacity: 1, duration: 0.25 * span, ease: "power1.in" }, `>-${0.15 * span}`);
   if (us.length) tl.fromTo(us, { scaleX: 0 }, { scaleX: 1, duration: 0.3 * span, stagger: 0.05 * span, ease: "power2.inOut" }, "<");
   return tl;
 }

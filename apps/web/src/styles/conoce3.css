@@ -440,26 +440,31 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 
 /* ── 06 · Demos ─────────────────────────────────────────────────────── */
 .x3-dm { padding: clamp(90px, 14vh, 160px) 0; }
-.x3-doors { display: flex; gap: 10px; height: 560px; }
-.x3-door { position: relative; flex: 1; min-width: 0; border-radius: 26px; background: var(--x-surface); border: 1px solid var(--x-steel); overflow: hidden; transition: flex .7s var(--x-ease), border-color .4s; }
-.x3-door[data-open] { flex: 3.4; border-color: var(--x-cyan); }
+.x3-doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; height: 620px; }
+/* Puertas de tamaño fijo (Motion 2): abrir una no empuja a las vecinas. El cuerpo se revela con un barrido y la captura sube. */
+.x3-door { position: relative; min-width: 0; border-radius: 26px; background: var(--x-surface); border: 1px solid var(--x-steel); overflow: hidden; transition: border-color .4s, transform .25s var(--x-ease); }
+.x3-door[data-open] { border-color: var(--x-white); }
 .x3-door-tab { position: absolute; inset: 0 auto auto 0; z-index: 2; width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px; border: 0; background: none; color: var(--x-white); text-align: left; cursor: pointer; }
 .x3-door-tab span { font: 700 clamp(1.3rem, 2vw, 1.7rem)/1 var(--font-display); text-transform: uppercase; max-width: 12ch; }
 .x3-door-tab small { color: var(--x-muted); font-size: 13px; }
-.x3-door-body { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); gap: 22px; padding: 100px 26px 26px; opacity: 0; visibility: hidden; transition: opacity .4s, visibility .4s; }
-.x3-door[data-open] .x3-door-body { opacity: 1; visibility: visible; transition-delay: .25s; }
-.x3-door-body img { width: 100%; height: auto; max-height: 420px; object-fit: cover; object-position: top; border-radius: 22px; border: 1px solid var(--x-steel); }
-.x3-door-body ul { list-style: none; margin: 10px 0 14px; padding: 0; display: grid; gap: 8px; }
-.x3-door-body li { display: flex; gap: 8px; color: var(--x-muted); line-height: 1.4; font-size: 15px; }
+.x3-door-body { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; padding: 112px 20px 20px; clip-path: inset(0 0 100% 0); visibility: hidden; transition: clip-path .55s var(--x-ease), visibility 0s linear .55s; }
+.x3-door[data-open] .x3-door-body { clip-path: inset(0 0 0 0); visibility: visible; transition: clip-path .55s var(--x-ease) .05s, visibility 0s; }
+.x3-door-body img { width: 100%; height: auto; max-height: 200px; object-fit: cover; object-position: top; border-radius: 18px; border: 1px solid var(--x-steel); translate: 0 12px; transition: translate .6s var(--x-ease) .1s; }
+.x3-door[data-open] .x3-door-body img { translate: 0 0; }
+.x3-door-body ul { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 7px; }
+.x3-door-body li { display: flex; gap: 8px; color: var(--x-muted); line-height: 1.35; font-size: 14px; }
 .x3-door-body li svg { flex: none; color: var(--x-teal); margin-top: 2px; }
 .x3-door-who { margin: 0; font-weight: 600; }
+.x3-door .x3-btn.pri { transition: transform .12s var(--x-ease), background-color .2s; }
+.x3-door .x3-btn.pri:active { transform: scale(.97); }
+@media (max-width: 1199px) and (min-width: 900px) { .x3-door-body ul li:nth-child(n+4) { display: none; } }
 @media (max-width: 899px) {
-  .x3-doors { flex-direction: column; height: auto; }
+  .x3-doors { display: flex; flex-direction: column; height: auto; }
   .x3-door { flex: none; }
   .x3-door-tab { position: relative; min-height: 88px; }
-  .x3-door-body { position: relative; inset: auto; display: none; grid-template-columns: 1fr; padding: 0 20px 22px; }
-  .x3-door[data-open] .x3-door-body { display: grid; }
-  .x3-door-body img { max-height: 260px; }
+  .x3-door-body { position: relative; inset: auto; display: none; padding: 0 20px 22px; clip-path: none; visibility: visible; }
+  .x3-door[data-open] .x3-door-body { display: flex; }
+  .x3-door-body img { max-height: 260px; translate: none; }
 }
 
 /* ── 07 · Caso real (momento calmo, claro) ──────────────────────────── */
@@ -471,12 +476,24 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-case img { display: block; width: min(240px, 62vw); height: auto; }
 .x3-case p { margin: 0; color: #C9D3DF; font-size: 15px; line-height: 1.55; max-width: 46ch; }
 .x3-proof-text p { margin: 0 0 14px; font-size: clamp(1.05rem, 1.6vw, 1.22rem); line-height: 1.6; max-width: 56ch; }
-.x3-steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--x-ink); }
+.x3-steps-wrap { position: relative; }
+/* La línea de los pasos se dibuja con el scroll (horizontal; vertical en el teléfono). */
+.x3-steps-line { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--x-ink); transform-origin: 0 50%; }
+.x3-steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
 .x3-steps li { counter-increment: s; position: relative; padding: 22px 18px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 1.45; color: var(--x-ink-2); }
-.x3-steps li::before { content: ""; position: absolute; top: -7px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--x-ink); }
+.x3-steps li::before { content: ""; position: absolute; top: -5px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--x-ink); }
 .x3-steps li:last-child::before { background: #0A9BC0; }
+.x3-steps li:last-child[data-lit]::before { animation: x3-beat .9s var(--x-ease) 1; }
+@keyframes x3-beat { 0% { transform: scale(1); } 35% { transform: scale(1.7); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: no-preference) { .x3-steps-line { transform: scaleX(0); } }
+/* Bordes curvos navy ↔ crema: fuera del flujo (no mueven nada). */
+.x3-curve { position: absolute; left: 0; width: 100%; height: clamp(26px, 4vw, 56px); fill: var(--x-cream); pointer-events: none; }
+.x3-curve.up { bottom: calc(100% - 1px); }
+.x3-curve.down { top: calc(100% - 1px); }
 .x3-steps b { color: var(--x-ink); font: 700 1.25rem var(--font-display); text-transform: uppercase; }
-@media (max-width: 899px) { .x3-proof-grid { grid-template-columns: 1fr; } .x3-steps { grid-template-columns: 1fr; border-top: 0; border-left: 2px solid var(--x-ink); } .x3-steps li { padding: 0 0 22px 22px; } .x3-steps li::before { top: 4px; left: -7px; } }
+@media (max-width: 899px) { .x3-proof-grid { grid-template-columns: 1fr; } .x3-steps { grid-template-columns: 1fr; } .x3-steps li { padding: 0 0 22px 22px; } .x3-steps li::before { top: 4px; left: -5px; }
+  .x3-steps-line { right: auto; bottom: 0; width: 2px; height: auto; transform-origin: 50% 0; } }
+@media (prefers-reduced-motion: no-preference) and (max-width: 899px) { .x3-steps-line { transform: scaleY(0); } }
 
 /* ── 08 · Cierre: «Vuelta al punto» (Motion 2 P4) ───────────────────── */
 .x3-fin { min-height: 100svh; text-align: center; }
