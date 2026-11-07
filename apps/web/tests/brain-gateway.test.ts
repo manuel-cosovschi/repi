@@ -6,7 +6,7 @@ import {
   BREAKER_FAILURES, callAi, clearAiCache, costMicros, matchesSchema, mergePolicy, modelFor, DEFAULT_POLICY, type CallAiParams,
 } from "@/server/brain/gateway";
 
-// D209 · gateway de IA del cerebro (contrato §5; casos 65–68 del máster). Nunca llama a OpenAI: fetch siempre es un doble.
+// D210 · gateway de IA del cerebro (contrato §5; casos 65–68 del máster). Nunca llama a OpenAI: fetch siempre es un doble.
 const SCHEMA = { type: "object", additionalProperties: false, required: ["reply"], properties: { reply: { type: "string", maxLength: 200 } } };
 const PROMPT = "PROMPT-PRIVADO-NO-LOGUEAR";
 const USAGE = { prompt_tokens: 1000, completion_tokens: 200, prompt_tokens_details: { cached_tokens: 400 } };

@@ -1,4 +1,4 @@
-// REPI Intelligence Core («brain», Adaptive Coaching 3.0, D209). Tipos compartidos por el dominio, el servidor y la interfaz.
+// REPI Intelligence Core («brain», Adaptive Coaching 3.0, D210). Tipos compartidos por el dominio, el servidor y la interfaz.
 // Contrato: docs/adaptive/ADAPTIVE_COACHING_3.md. Todo lo de este directorio es puro (sin DOM ni Node) y determinístico.
 
 /** De dónde sale un dato y cuánto vale. REPI distingue lo registrado de lo declarado, lo calculado y lo inferido. */

@@ -2,7 +2,7 @@
 // del gym, pedidos, solicitudes de acceso del coach, reseñas, mensajes, novedades y cobros del coach— sin copiar datos a
 // otra tabla. Cada ítem lleva un destino dentro de la app. «Leído» es una marca por persona (user_pref): lo anterior a la
 // última apertura del centro figura como leído; no cambia el estado de cada fuente (eso lo hace su propia pantalla).
-// No incluye datos de salud, check-ins ni molestias, y nada de esto se envía como push. D209: los avisos del Asistente REPI
+// No incluye datos de salud, check-ins ni molestias, y nada de esto se envía como push. D210: los avisos del Asistente REPI
 // (brain_intervention) son una fuente más, con su propio estado de lectura (pendiente → visto al abrir el centro).
 import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { REQUEST_KIND, toWhom, type RequestKind } from "@repi/domain";
@@ -27,7 +27,7 @@ export type NotifDest =
   | { tab: "gym"; gymTab: "news" | "ch" | "logros" }
   | { tab: "review"; invite: { id: string; trainer: string; kind: string; place: string } };
 // `origin: "repi"`: novedad del producto (D202), se distingue de los avisos del gimnasio y del coach.
-// `origin: "assistant"`: aviso del Asistente REPI (D209, coaching personal); `ref.interventionId` para aceptarlo o descartarlo.
+// `origin: "assistant"`: aviso del Asistente REPI (D210, coaching personal); `ref.interventionId` para aceptarlo o descartarlo.
 export type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean; origin?: "repi" | "assistant"; cta?: string | null; ref?: { interventionId: string } };
 /** Destino de cada tipo de aviso del Asistente REPI (lo demás va a Inicio, donde está la tarjeta). */
 const ASSISTANT_DEST: Record<string, NotifDest> = {
@@ -140,7 +140,7 @@ export async function myNotifications(userId: string, now = new Date()) {
 }
 
 /**
- * D209: abrir el centro cuenta como «visto» para los avisos pendientes del Asistente REPI: no se vuelven a empujar por push
+ * D210: abrir el centro cuenta como «visto» para los avisos pendientes del Asistente REPI: no se vuelven a empujar por push
  * (caso 51) y siguen en Inicio hasta que la persona los resuelva o venzan.
  */
 export async function markAssistantSeen(userId: string, now = new Date()) {

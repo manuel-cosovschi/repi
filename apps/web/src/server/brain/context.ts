@@ -1,4 +1,4 @@
-// Contexto del cerebro (D209, contrato §5 «context.ts»). Arma el BrainContext autorizado de UNA persona (el userId de la
+// Contexto del cerebro (D210, contrato §5 «context.ts»). Arma el BrainContext autorizado de UNA persona (el userId de la
 // sesión) con lo que ya existe en la base: perfil y edad, deseos, relación, programa vigente, sesión abierta, historial,
 // check-in, molestias y restricciones (salud: sólo para la propia persona; a la IA no va sin consentimiento), cuerpo (sólo
 // adultos y sólo números, nunca fotos), procedencia de rutinas importadas y memoria vigente.

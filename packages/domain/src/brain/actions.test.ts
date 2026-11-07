@@ -104,7 +104,7 @@ describe("actions · validación estricta (casos 11–14, 36, 39, 64, 69)", () =
   it("sesión corta: sólo pendientes sin registro, sin repetidos y dejando al menos uno (caso 14)", () => {
     expect(v("apply_short_session", { minutes: 20, skip: ["e3"] }).ok).toBe(true);
     expect(v("apply_short_session", { minutes: 20, skip: ["e1"] }).ok).toBe(false); // registrado: nunca se omite
-    // D209: con uno a medias (e1: pendiente y con series), se pueden omitir todos los que no empezaste.
+    // D210: con uno a medias (e1: pendiente y con series), se pueden omitir todos los que no empezaste.
     expect(v("apply_short_session", { minutes: 20, skip: ["e2", "e3"] }).ok).toBe(true);
     // Sin ninguno en curso, omitir todos los pendientes no deja nada.
     expect(v("apply_short_session", { minutes: 20, skip: ["e2", "e3"] }, { ...vctx, session: { pending: ["e2", "e3"], done: ["e0"] } }).ok).toBe(false);

@@ -8,7 +8,7 @@ import { listMemory } from "@/server/brain/memory";
 import { sessionReviewFor } from "@/server/brain/review";
 import { coachWorld, daysAgo, err, pastSession, startToday } from "./brain-chat.world";
 
-// D209 · C1 · Cierre de sesión con datos reales (review.sessionReviewFor → sessionReview del dominio): previstas contra hechas,
+// D210 · C1 · Cierre de sesión con datos reales (review.sessionReviewFor → sessionReview del dominio): previstas contra hechas,
 // comparación con la sesión comparable anterior, marcas contra la historia previa, omitidos, reemplazos, anuladas excluidas y
 // el resultado guardado en la memoria (casos 10, 11, 41).
 beforeEach(() => resetRateLimits());

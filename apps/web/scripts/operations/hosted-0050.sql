@@ -1,190 +1,474 @@
--- Aplicación de 0050 en producción (D209, Adaptive Coaching 3.0 · REPI Intelligence Core), en UNA transacción. Mismo efecto
--- que `scripts/migrate.ts`: las sentencias del archivo, RLS activado en las nueve tablas nuevas (D68) y el registro en
--- drizzle.__drizzle_migrations (sha256 del archivo y `when` del journal). Si algo ya existe, falla entero.
--- Mismo manejo de roles que hosted-0046.sql (repi_app como dueño; postgres sólo con SET dentro de la transacción).
--- PRERREQUISITOS: workflow «Respaldo» en verde y reciente (docs/RESPALDOS.md), 0049 aplicada (ya en producción) y aprobación
--- explícita del titular. ADITIVA: nueve tablas nuevas (brain_pref, brain_memory, brain_thread, brain_message,
--- brain_intervention, brain_action, ai_usage, ai_policy, ai_breaker), con cascada a user/organization y una FK con SET NULL a
--- program_version. No modifica ni borra filas ni columnas existentes (lo prueba verify-0050.sh). El código actual de
--- producción es compatible con 0050 aplicada (no lee ni escribe estas tablas): aplicar ANTES de integrar.
--- NO APLICADO. Ensayado en una base descartable con scripts/operations/verify-0050.sh.
--- Generado desde drizzle/0050_brain.sql (sha256 ca9d9c171b7a35f0c4a09afc214e13ae162785bc5d1b3208149abe03107f5e37).
+-- Aplicación de 0050 en producción (D209, REPI Sales Force & Commission OS), en UNA transacción. Mismo efecto que
+-- `scripts/migrate.ts`: las sentencias del archivo y el registro en drizzle.__drizzle_migrations (sha256 del archivo y
+-- `when` del journal). Mismo manejo de roles que hosted-0049.sql (repi_app dueño; postgres sólo con SET en la transacción).
+-- PRERREQUISITOS: workflow «Respaldo» en verde y reciente (docs/RESPALDOS.md), 0049 aplicada y aprobación del titular.
+-- ADITIVA: 19 tablas nuevas vacías, una columna nula en commercial_lead (referral_code) y un trigger que impide editar o
+-- borrar commission_entry. No modifica ni borra filas existentes. El código actual de producción es compatible con 0050
+-- aplicada (no lee ni escribe nada nuevo): aplicar ANTES de integrar. RLS: migrate.ts lo activa en tablas nuevas; acá
+-- se activa explícitamente al final para las 19 tablas.
+-- Generado desde drizzle/0050_sales_force.sql (sha256 2cd8fec43cd78fe0139a302e5709b86e11e00659ee14a6b56817064a98034fa6).
+-- Ensayado en una base descartable con scripts/operations/verify-0050.sh.
 begin;
 grant repi_app to postgres with inherit false, set true granted by postgres;
 set local role repi_app;
 set local lock_timeout = '5s';
-CREATE TABLE "ai_breaker" (
-	"task" text PRIMARY KEY NOT NULL,
-	"failures" integer DEFAULT 0 NOT NULL,
-	"opened_until" timestamp with time zone,
+CREATE TABLE "commission_entry" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"key" text NOT NULL,
+	"rep_id" text NOT NULL,
+	"deal_id" text,
+	"org_id" text,
+	"contract_id" text,
+	"plan_version_id" text,
+	"component_index" integer,
+	"component" text,
+	"source_type" text NOT NULL,
+	"source_id" text,
+	"reversal_of" text,
+	"base_minor" bigint,
+	"rate_bps" integer,
+	"amount_minor" bigint NOT NULL,
+	"currency" text NOT NULL,
+	"accrual_on" text NOT NULL,
+	"available_on" text NOT NULL,
+	"concept" text NOT NULL,
+	"reason" text,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "commission_entry_key_unique" UNIQUE("key"),
+	CONSTRAINT "commission_entry_reversal_of_unique" UNIQUE("reversal_of")
+);
+--> statement-breakpoint
+CREATE TABLE "commission_plan" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"status" text DEFAULT 'active' NOT NULL,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "commission_plan_version" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"plan_id" text NOT NULL,
+	"version" integer NOT NULL,
+	"rules" jsonb NOT NULL,
+	"effective_from" text NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"notes" text,
+	"created_by" text,
+	"approved_by" text,
+	"approved_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payout_batch" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"rep_id" text NOT NULL,
+	"currency" text NOT NULL,
+	"cutoff_on" text NOT NULL,
+	"frequency" text NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"total_minor" bigint NOT NULL,
+	"paid_minor" bigint DEFAULT 0 NOT NULL,
+	"idempotency_key" text NOT NULL,
+	"note" text,
+	"snapshot" jsonb,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"approved_by" text,
+	"approved_at" timestamp with time zone,
+	"cancelled_by" text,
+	"cancelled_at" timestamp with time zone,
+	"cancel_reason" text,
+	CONSTRAINT "payout_batch_idempotency_key_unique" UNIQUE("idempotency_key")
+);
+--> statement-breakpoint
+CREATE TABLE "payout_item" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"batch_id" text NOT NULL,
+	"entry_id" text NOT NULL,
+	"amount_minor" bigint NOT NULL,
+	CONSTRAINT "payout_item_entry_id_unique" UNIQUE("entry_id")
+);
+--> statement-breakpoint
+CREATE TABLE "payout_payment" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"batch_id" text NOT NULL,
+	"amount_minor" bigint NOT NULL,
+	"paid_on" text NOT NULL,
+	"method" text NOT NULL,
+	"reference" text NOT NULL,
+	"note" text,
+	"idempotency_key" text NOT NULL,
+	"status" text DEFAULT 'recorded' NOT NULL,
+	"void_reason" text,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"voided_by" text,
+	"voided_at" timestamp with time zone,
+	CONSTRAINT "payout_payment_idempotency_key_unique" UNIQUE("idempotency_key")
+);
+--> statement-breakpoint
+CREATE TABLE "sales_activity" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"prospect_id" text,
+	"opportunity_id" text,
+	"deal_id" text,
+	"rep_id" text,
+	"actor_user_id" text,
+	"actor_role" text NOT NULL,
+	"kind" text NOT NULL,
+	"summary" text NOT NULL,
+	"due_on" text,
+	"done_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_attribution" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"org_id" text NOT NULL,
+	"contract_id" text,
+	"origin_rep_id" text,
+	"opportunity_rep_id" text,
+	"closing_rep_id" text,
+	"assigned_rep_id" text,
+	"deal_id" text,
+	"source" text,
+	"effective_from" text NOT NULL,
+	"ended_at" timestamp with time zone,
+	"reason" text NOT NULL,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_deal" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"rep_id" text NOT NULL,
+	"idempotency_key" text NOT NULL,
+	"prospect_id" text,
+	"opportunity_id" text,
+	"kind" text DEFAULT 'new' NOT NULL,
+	"client_kind" text NOT NULL,
+	"org_id" text,
+	"business_name" text NOT NULL,
+	"legal_name" text,
+	"cuit" text,
+	"contact_name" text NOT NULL,
+	"contact_email" text,
+	"contact_phone" text,
+	"city" text,
+	"province" text,
+	"address" text,
+	"locations" jsonb,
+	"members" integer NOT NULL,
+	"unit_price_minor" bigint NOT NULL,
+	"currency" text NOT NULL,
+	"periodicity" text NOT NULL,
+	"contract_start" text NOT NULL,
+	"duration_months" integer,
+	"renewal_note" text,
+	"discount_bps" integer DEFAULT 0 NOT NULL,
+	"setup_fee_minor" bigint DEFAULT 0 NOT NULL,
+	"special_conditions" text,
+	"evidence" text NOT NULL,
+	"closed_on" text NOT NULL,
+	"notes" text,
+	"status" text DEFAULT 'declared' NOT NULL,
+	"review_note" text,
+	"reviewed_by" text,
+	"reviewed_at" timestamp with time zone,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"contract_id" text,
+	"plan_version_id" text,
+	"split" jsonb,
+	"previous_members" integer DEFAULT 0 NOT NULL,
+	"approved_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
-
-CREATE TABLE "ai_policy" (
-	"scope" text PRIMARY KEY NOT NULL,
-	"config" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+--> statement-breakpoint
+CREATE TABLE "sales_material" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"kind" text NOT NULL,
+	"title" text NOT NULL,
+	"description" text,
+	"url" text,
+	"body" text,
+	"version" integer DEFAULT 1 NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"valid_until" text,
+	"created_by" text,
 	"updated_by" text,
-	CONSTRAINT "ai_policy_scope_valid" CHECK ("ai_policy"."scope" = 'global' or "ai_policy"."scope" ~ '^(org|user):.+$')
+	"published_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
-
-CREATE TABLE "ai_usage" (
+--> statement-breakpoint
+CREATE TABLE "sales_notice" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"user_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"title" text NOT NULL,
+	"body" text NOT NULL,
+	"url" text,
+	"dedupe_key" text NOT NULL,
+	"read_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "sales_notice_dedupe_key_unique" UNIQUE("dedupe_key")
+);
+--> statement-breakpoint
+CREATE TABLE "sales_opportunity" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"prospect_id" text NOT NULL,
+	"rep_id" text,
+	"kind" text DEFAULT 'new' NOT NULL,
+	"stage" text DEFAULT 'new' NOT NULL,
+	"category" text,
+	"probability_pct" integer,
+	"est_members" integer,
+	"est_unit_price_minor" bigint,
+	"currency" text DEFAULT 'ARS' NOT NULL,
+	"next_contact_on" text,
+	"expected_close_on" text,
+	"lost_reason" text,
+	"notes" text,
+	"stage_changed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_prospect" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"owner_rep_id" text,
+	"origin_rep_id" text,
+	"kind" text DEFAULT 'gym' NOT NULL,
+	"name" text NOT NULL,
+	"legal_name" text,
+	"cuit" text,
+	"city" text,
+	"province" text,
+	"address" text,
+	"est_members" integer,
+	"locations" integer,
+	"website" text,
+	"instagram" text,
+	"phone" text,
+	"email" text,
+	"contact_name" text,
+	"contact_role" text,
+	"contact_channel" text,
+	"notes" text,
+	"source" text DEFAULT 'field' NOT NULL,
+	"captured_on" text NOT NULL,
+	"org_id" text,
+	"commercial_lead_id" text,
+	"duplicate_status" text DEFAULT 'none' NOT NULL,
+	"archived_at" timestamp with time zone,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_region" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"name" text NOT NULL,
+	"provinces" text,
+	"note" text,
+	"active" boolean DEFAULT true NOT NULL,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "sales_region_name_unique" UNIQUE("name")
+);
+--> statement-breakpoint
+CREATE TABLE "sales_rep" (
 	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
 	"user_id" text,
-	"org_id" text,
-	"task" text NOT NULL,
-	"model" text NOT NULL,
-	"input_tokens" integer DEFAULT 0 NOT NULL,
-	"cached_tokens" integer DEFAULT 0 NOT NULL,
-	"output_tokens" integer DEFAULT 0 NOT NULL,
-	"cost_micros" integer DEFAULT 0 NOT NULL,
-	"latency_ms" integer,
-	"outcome" text,
+	"code" text NOT NULL,
+	"name" text NOT NULL,
+	"email" text NOT NULL,
+	"phone" text,
+	"city" text,
+	"province" text,
+	"zone" text,
+	"region_id" text,
+	"status" text DEFAULT 'invited' NOT NULL,
+	"status_reason" text,
+	"manager_rep_id" text,
+	"engagement" text DEFAULT 'independent' NOT NULL,
+	"can_sell_coaches" boolean DEFAULT false NOT NULL,
+	"payout_frequency" text DEFAULT 'monthly' NOT NULL,
+	"payout_note" text,
+	"agreement_ref" text,
+	"joined_at" timestamp with time zone,
+	"profile_completed_at" timestamp with time zone,
+	"terminated_at" timestamp with time zone,
+	"created_by" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "ai_usage_outcome_valid" CHECK ("ai_usage"."outcome" is null or "ai_usage"."outcome" in ('ok', 'error', 'timeout', 'cancelled', 'refused', 'bad_output', 'budget', 'quota', 'breaker', 'concurrency', 'cache')),
-	CONSTRAINT "ai_usage_counts_valid" CHECK ("ai_usage"."input_tokens" >= 0 and "ai_usage"."cached_tokens" >= 0 and "ai_usage"."output_tokens" >= 0 and "ai_usage"."cost_micros" >= 0)
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "sales_rep_code_unique" UNIQUE("code")
 );
-
-CREATE TABLE "brain_action" (
+--> statement-breakpoint
+CREATE TABLE "sales_rep_invitation" (
 	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
-	"user_id" text NOT NULL,
-	"kind" text NOT NULL,
-	"idempotency_key" text NOT NULL,
-	"status" text DEFAULT 'proposed' NOT NULL,
-	"autonomy" integer NOT NULL,
-	"input" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"result" jsonb,
-	"error" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"executed_at" timestamp with time zone,
-	CONSTRAINT "brain_action_status_valid" CHECK ("brain_action"."status" in ('proposed', 'confirmed', 'executed', 'failed', 'blocked', 'cancelled')),
-	CONSTRAINT "brain_action_autonomy_valid" CHECK ("brain_action"."autonomy" in (0, 1, 2))
-);
-
-CREATE TABLE "brain_intervention" (
-	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
-	"user_id" text NOT NULL,
-	"kind" text NOT NULL,
-	"dedupe_key" text NOT NULL,
-	"priority" integer NOT NULL,
-	"channel" text NOT NULL,
+	"rep_id" text NOT NULL,
+	"email" text NOT NULL,
+	"token_hash" text NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
-	"reason" text,
-	"payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"evidence" jsonb,
-	"program_version_id" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"shown_at" timestamp with time zone,
-	"resolved_at" timestamp with time zone,
-	"expires_at" timestamp with time zone,
-	CONSTRAINT "brain_intervention_channel_valid" CHECK ("brain_intervention"."channel" in ('card', 'inline', 'push')),
-	CONSTRAINT "brain_intervention_status_valid" CHECK ("brain_intervention"."status" in ('pending', 'shown', 'accepted', 'dismissed', 'never', 'expired', 'cancelled', 'suppressed'))
-);
-
-CREATE TABLE "brain_memory" (
-	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
-	"user_id" text NOT NULL,
-	"kind" text NOT NULL,
-	"key" text NOT NULL,
-	"value" jsonb,
-	"text" text NOT NULL,
-	"source" text NOT NULL,
-	"ref" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"expires_at" timestamp with time zone,
+	"delivery" text DEFAULT 'pending' NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"invited_by" text,
+	"accepted_by" text,
+	"accepted_at" timestamp with time zone,
 	"revoked_at" timestamp with time zone,
-	CONSTRAINT "brain_memory_kind_valid" CHECK ("brain_memory"."kind" in ('preference', 'decision', 'outcome', 'temporal')),
-	CONSTRAINT "brain_memory_source_valid" CHECK ("brain_memory"."source" in ('user', 'system', 'coach'))
-);
-
-CREATE TABLE "brain_message" (
-	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
-	"thread_id" text NOT NULL,
-	"user_id" text NOT NULL,
-	"role" text NOT NULL,
-	"text" text NOT NULL,
-	"cards" jsonb,
-	"actions" jsonb,
-	"section" text,
-	"ref" jsonb,
-	"via" text,
-	"feedback" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "brain_message_role_valid" CHECK ("brain_message"."role" in ('user', 'repi')),
-	CONSTRAINT "brain_message_via_valid" CHECK ("brain_message"."via" is null or "brain_message"."via" in ('rules', 'ai', 'fallback', 'safety')),
-	CONSTRAINT "brain_message_feedback_valid" CHECK ("brain_message"."feedback" is null or "brain_message"."feedback" in (-1, 1))
+	CONSTRAINT "sales_rep_invitation_token_hash_unique" UNIQUE("token_hash")
 );
-
-CREATE TABLE "brain_pref" (
-	"user_id" text PRIMARY KEY NOT NULL,
-	"proactive" boolean DEFAULT true NOT NULL,
-	"push" boolean DEFAULT false NOT NULL,
-	"categories" jsonb DEFAULT '{"training":true,"progress":true,"performance":true,"motivation":false,"weekly":true}'::jsonb NOT NULL,
-	"quiet_start" text DEFAULT '22:00' NOT NULL,
-	"quiet_end" text DEFAULT '08:00' NOT NULL,
-	"max_per_day" integer DEFAULT 2 NOT NULL,
-	"autonomy" integer DEFAULT 1 NOT NULL,
-	"tone" text DEFAULT 'normal' NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "brain_pref_autonomy_valid" CHECK ("brain_pref"."autonomy" in (0, 1, 2)),
-	CONSTRAINT "brain_pref_tone_valid" CHECK ("brain_pref"."tone" in ('normal', 'breve')),
-	CONSTRAINT "brain_pref_max_per_day_range" CHECK ("brain_pref"."max_per_day" between 0 and 10),
-	CONSTRAINT "brain_pref_quiet_valid" CHECK ("brain_pref"."quiet_start" ~ '^([01]\d|2[0-3]):[0-5]\d$' and "brain_pref"."quiet_end" ~ '^([01]\d|2[0-3]):[0-5]\d$')
-);
-
-CREATE TABLE "brain_thread" (
+--> statement-breakpoint
+CREATE TABLE "sales_rep_plan" (
 	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
-	"user_id" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"closed_at" timestamp with time zone
+	"rep_id" text NOT NULL,
+	"plan_version_id" text NOT NULL,
+	"effective_from" text NOT NULL,
+	"reason" text NOT NULL,
+	"assigned_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
+--> statement-breakpoint
+CREATE TABLE "sales_request" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"kind" text NOT NULL,
+	"rep_id" text NOT NULL,
+	"prospect_id" text,
+	"org_id" text,
+	"payload" jsonb,
+	"message" text,
+	"status" text DEFAULT 'open' NOT NULL,
+	"resolution" text,
+	"resolved_by" text,
+	"resolved_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sales_target" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
+	"rep_id" text NOT NULL,
+	"month" text NOT NULL,
+	"metric" text NOT NULL,
+	"target" bigint NOT NULL,
+	"currency" text,
+	"created_by" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "commercial_lead" ADD COLUMN "referral_code" text;--> statement-breakpoint
+ALTER TABLE "commission_entry" ADD CONSTRAINT "commission_entry_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "commission_plan" ADD CONSTRAINT "commission_plan_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "commission_plan_version" ADD CONSTRAINT "commission_plan_version_plan_id_commission_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."commission_plan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "commission_plan_version" ADD CONSTRAINT "commission_plan_version_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "commission_plan_version" ADD CONSTRAINT "commission_plan_version_approved_by_user_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_batch" ADD CONSTRAINT "payout_batch_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_batch" ADD CONSTRAINT "payout_batch_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_batch" ADD CONSTRAINT "payout_batch_approved_by_user_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_batch" ADD CONSTRAINT "payout_batch_cancelled_by_user_id_fk" FOREIGN KEY ("cancelled_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_item" ADD CONSTRAINT "payout_item_batch_id_payout_batch_id_fk" FOREIGN KEY ("batch_id") REFERENCES "public"."payout_batch"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_item" ADD CONSTRAINT "payout_item_entry_id_commission_entry_id_fk" FOREIGN KEY ("entry_id") REFERENCES "public"."commission_entry"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_payment" ADD CONSTRAINT "payout_payment_batch_id_payout_batch_id_fk" FOREIGN KEY ("batch_id") REFERENCES "public"."payout_batch"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_payment" ADD CONSTRAINT "payout_payment_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_payment" ADD CONSTRAINT "payout_payment_voided_by_user_id_fk" FOREIGN KEY ("voided_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_activity" ADD CONSTRAINT "sales_activity_prospect_id_sales_prospect_id_fk" FOREIGN KEY ("prospect_id") REFERENCES "public"."sales_prospect"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_activity" ADD CONSTRAINT "sales_activity_opportunity_id_sales_opportunity_id_fk" FOREIGN KEY ("opportunity_id") REFERENCES "public"."sales_opportunity"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_activity" ADD CONSTRAINT "sales_activity_deal_id_sales_deal_id_fk" FOREIGN KEY ("deal_id") REFERENCES "public"."sales_deal"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_activity" ADD CONSTRAINT "sales_activity_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_activity" ADD CONSTRAINT "sales_activity_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_org_id_organization_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_origin_rep_id_sales_rep_id_fk" FOREIGN KEY ("origin_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_opportunity_rep_id_sales_rep_id_fk" FOREIGN KEY ("opportunity_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_closing_rep_id_sales_rep_id_fk" FOREIGN KEY ("closing_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_assigned_rep_id_sales_rep_id_fk" FOREIGN KEY ("assigned_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_deal_id_sales_deal_id_fk" FOREIGN KEY ("deal_id") REFERENCES "public"."sales_deal"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_attribution" ADD CONSTRAINT "sales_attribution_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_prospect_id_sales_prospect_id_fk" FOREIGN KEY ("prospect_id") REFERENCES "public"."sales_prospect"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_opportunity_id_sales_opportunity_id_fk" FOREIGN KEY ("opportunity_id") REFERENCES "public"."sales_opportunity"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_org_id_organization_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organization"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_reviewed_by_user_id_fk" FOREIGN KEY ("reviewed_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_contract_id_client_contract_id_fk" FOREIGN KEY ("contract_id") REFERENCES "public"."client_contract"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_deal" ADD CONSTRAINT "sales_deal_plan_version_id_commission_plan_version_id_fk" FOREIGN KEY ("plan_version_id") REFERENCES "public"."commission_plan_version"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_material" ADD CONSTRAINT "sales_material_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_material" ADD CONSTRAINT "sales_material_updated_by_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_notice" ADD CONSTRAINT "sales_notice_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_opportunity" ADD CONSTRAINT "sales_opportunity_prospect_id_sales_prospect_id_fk" FOREIGN KEY ("prospect_id") REFERENCES "public"."sales_prospect"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_opportunity" ADD CONSTRAINT "sales_opportunity_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_prospect" ADD CONSTRAINT "sales_prospect_owner_rep_id_sales_rep_id_fk" FOREIGN KEY ("owner_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_prospect" ADD CONSTRAINT "sales_prospect_origin_rep_id_sales_rep_id_fk" FOREIGN KEY ("origin_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_prospect" ADD CONSTRAINT "sales_prospect_org_id_organization_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organization"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_prospect" ADD CONSTRAINT "sales_prospect_commercial_lead_id_commercial_lead_id_fk" FOREIGN KEY ("commercial_lead_id") REFERENCES "public"."commercial_lead"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_prospect" ADD CONSTRAINT "sales_prospect_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_region" ADD CONSTRAINT "sales_region_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep" ADD CONSTRAINT "sales_rep_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep" ADD CONSTRAINT "sales_rep_region_id_sales_region_id_fk" FOREIGN KEY ("region_id") REFERENCES "public"."sales_region"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep" ADD CONSTRAINT "sales_rep_manager_rep_id_sales_rep_id_fk" FOREIGN KEY ("manager_rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep" ADD CONSTRAINT "sales_rep_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep_invitation" ADD CONSTRAINT "sales_rep_invitation_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep_invitation" ADD CONSTRAINT "sales_rep_invitation_invited_by_user_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep_invitation" ADD CONSTRAINT "sales_rep_invitation_accepted_by_user_id_fk" FOREIGN KEY ("accepted_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep_plan" ADD CONSTRAINT "sales_rep_plan_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep_plan" ADD CONSTRAINT "sales_rep_plan_plan_version_id_commission_plan_version_id_fk" FOREIGN KEY ("plan_version_id") REFERENCES "public"."commission_plan_version"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_rep_plan" ADD CONSTRAINT "sales_rep_plan_assigned_by_user_id_fk" FOREIGN KEY ("assigned_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_request" ADD CONSTRAINT "sales_request_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_request" ADD CONSTRAINT "sales_request_prospect_id_sales_prospect_id_fk" FOREIGN KEY ("prospect_id") REFERENCES "public"."sales_prospect"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_request" ADD CONSTRAINT "sales_request_org_id_organization_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organization"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_request" ADD CONSTRAINT "sales_request_resolved_by_user_id_fk" FOREIGN KEY ("resolved_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_target" ADD CONSTRAINT "sales_target_rep_id_sales_rep_id_fk" FOREIGN KEY ("rep_id") REFERENCES "public"."sales_rep"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales_target" ADD CONSTRAINT "sales_target_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "commission_entry_rep_idx" ON "commission_entry" USING btree ("rep_id","available_on");--> statement-breakpoint
+CREATE INDEX "commission_entry_deal_idx" ON "commission_entry" USING btree ("deal_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "commission_plan_version_uq" ON "commission_plan_version" USING btree ("plan_id","version");--> statement-breakpoint
+CREATE INDEX "payout_batch_rep_idx" ON "payout_batch" USING btree ("rep_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "payout_batch_open_uq" ON "payout_batch" USING btree ("rep_id","currency") WHERE "payout_batch"."status" in ('draft', 'approved');--> statement-breakpoint
+CREATE INDEX "payout_item_batch_idx" ON "payout_item" USING btree ("batch_id");--> statement-breakpoint
+CREATE INDEX "payout_payment_batch_idx" ON "payout_payment" USING btree ("batch_id");--> statement-breakpoint
+CREATE INDEX "sales_activity_prospect_idx" ON "sales_activity" USING btree ("prospect_id","created_at");--> statement-breakpoint
+CREATE INDEX "sales_activity_rep_due_idx" ON "sales_activity" USING btree ("rep_id","due_on");--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_attribution_current_uq" ON "sales_attribution" USING btree ("org_id") WHERE "sales_attribution"."ended_at" is null;--> statement-breakpoint
+CREATE INDEX "sales_attribution_assigned_idx" ON "sales_attribution" USING btree ("assigned_rep_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_deal_idem_uq" ON "sales_deal" USING btree ("rep_id","idempotency_key");--> statement-breakpoint
+CREATE INDEX "sales_deal_status_idx" ON "sales_deal" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "sales_deal_contract_idx" ON "sales_deal" USING btree ("contract_id");--> statement-breakpoint
+CREATE INDEX "sales_notice_user_idx" ON "sales_notice" USING btree ("user_id","created_at");--> statement-breakpoint
+CREATE INDEX "sales_opportunity_rep_idx" ON "sales_opportunity" USING btree ("rep_id","stage");--> statement-breakpoint
+CREATE INDEX "sales_opportunity_prospect_idx" ON "sales_opportunity" USING btree ("prospect_id");--> statement-breakpoint
+CREATE INDEX "sales_prospect_owner_idx" ON "sales_prospect" USING btree ("owner_rep_id");--> statement-breakpoint
+CREATE INDEX "sales_prospect_org_idx" ON "sales_prospect" USING btree ("org_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_rep_user_uq" ON "sales_rep" USING btree ("user_id") WHERE "sales_rep"."user_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_rep_email_uq" ON "sales_rep" USING btree ("email") WHERE "sales_rep"."status" <> 'terminated';--> statement-breakpoint
+CREATE INDEX "sales_rep_status_idx" ON "sales_rep" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "sales_rep_invitation_rep_idx" ON "sales_rep_invitation" USING btree ("rep_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_rep_invitation_pending_uq" ON "sales_rep_invitation" USING btree ("rep_id") WHERE "sales_rep_invitation"."status" = 'pending';--> statement-breakpoint
+CREATE INDEX "sales_rep_plan_rep_idx" ON "sales_rep_plan" USING btree ("rep_id","effective_from");--> statement-breakpoint
+CREATE INDEX "sales_request_status_idx" ON "sales_request" USING btree ("status");--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_request_freq_open_uq" ON "sales_request" USING btree ("rep_id") WHERE "sales_request"."kind" = 'payout_frequency' and "sales_request"."status" = 'open';--> statement-breakpoint
+CREATE UNIQUE INDEX "sales_target_uq" ON "sales_target" USING btree ("rep_id","month","metric");--> statement-breakpoint
+-- D209: el libro de comisiones no se edita ni se borra: un error se corrige con un asiento nuevo (ajuste o reversión).
+CREATE OR REPLACE FUNCTION "commission_entry_immutable"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'commission_entry es inmutable: registrá un ajuste en lugar de modificar o borrar (%).', TG_OP USING ERRCODE = 'P0001';
+END;
+$$;--> statement-breakpoint
+CREATE TRIGGER "commission_entry_no_update" BEFORE UPDATE OR DELETE ON "commission_entry" FOR EACH ROW EXECUTE FUNCTION "commission_entry_immutable"();
 
-ALTER TABLE "ai_policy" ADD CONSTRAINT "ai_policy_updated_by_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "ai_usage" ADD CONSTRAINT "ai_usage_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "ai_usage" ADD CONSTRAINT "ai_usage_org_id_organization_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_action" ADD CONSTRAINT "brain_action_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_intervention" ADD CONSTRAINT "brain_intervention_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_intervention" ADD CONSTRAINT "brain_intervention_program_version_id_program_version_id_fk" FOREIGN KEY ("program_version_id") REFERENCES "public"."program_version"("id") ON DELETE set null ON UPDATE no action;
-ALTER TABLE "brain_memory" ADD CONSTRAINT "brain_memory_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_message" ADD CONSTRAINT "brain_message_thread_id_brain_thread_id_fk" FOREIGN KEY ("thread_id") REFERENCES "public"."brain_thread"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_message" ADD CONSTRAINT "brain_message_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_pref" ADD CONSTRAINT "brain_pref_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-ALTER TABLE "brain_thread" ADD CONSTRAINT "brain_thread_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
-CREATE INDEX "ai_usage_created_idx" ON "ai_usage" USING btree ("created_at");
-CREATE INDEX "ai_usage_user_idx" ON "ai_usage" USING btree ("user_id","created_at");
-CREATE INDEX "ai_usage_org_idx" ON "ai_usage" USING btree ("org_id","created_at");
-CREATE UNIQUE INDEX "brain_action_idempotency_unique" ON "brain_action" USING btree ("user_id","idempotency_key");
-CREATE INDEX "brain_action_user_idx" ON "brain_action" USING btree ("user_id","created_at");
-CREATE UNIQUE INDEX "brain_intervention_dedupe_unique" ON "brain_intervention" USING btree ("user_id","dedupe_key");
-CREATE INDEX "brain_intervention_user_idx" ON "brain_intervention" USING btree ("user_id","created_at");
-CREATE INDEX "brain_intervention_status_idx" ON "brain_intervention" USING btree ("status","expires_at");
-CREATE INDEX "brain_memory_user_key_idx" ON "brain_memory" USING btree ("user_id","kind","key");
-CREATE INDEX "brain_memory_expires_idx" ON "brain_memory" USING btree ("expires_at");
-CREATE INDEX "brain_message_thread_idx" ON "brain_message" USING btree ("thread_id","created_at");
-CREATE INDEX "brain_message_user_idx" ON "brain_message" USING btree ("user_id","created_at");
-CREATE UNIQUE INDEX "brain_thread_one_open" ON "brain_thread" USING btree ("user_id") WHERE "brain_thread"."closed_at" is null;
-CREATE INDEX "brain_thread_user_idx" ON "brain_thread" USING btree ("user_id","created_at");
-alter table public."ai_breaker" enable row level security;
-alter table public."ai_policy" enable row level security;
-alter table public."ai_usage" enable row level security;
-alter table public."brain_action" enable row level security;
-alter table public."brain_intervention" enable row level security;
-alter table public."brain_memory" enable row level security;
-alter table public."brain_message" enable row level security;
-alter table public."brain_pref" enable row level security;
-alter table public."brain_thread" enable row level security;
-do $$ begin
-  if (select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('ai_breaker', 'ai_policy', 'ai_usage', 'brain_action', 'brain_intervention', 'brain_memory', 'brain_message', 'brain_pref', 'brain_thread')) <> 9 then raise exception '0050: faltan tablas'; end if;
-  if exists (select 1 from pg_class where relnamespace = 'public'::regnamespace and relname in ('ai_breaker', 'ai_policy', 'ai_usage', 'brain_action', 'brain_intervention', 'brain_memory', 'brain_message', 'brain_pref', 'brain_thread') and not relrowsecurity) then raise exception '0050: falta RLS'; end if;
-  if (select count(*) from pg_indexes where schemaname = 'public' and indexname in ('brain_intervention_dedupe_unique', 'brain_action_idempotency_unique', 'brain_thread_one_open')) <> 3 then raise exception '0050: faltan los índices únicos (dedupe, idempotencia, una conversación abierta)'; end if;
-  if (select count(*) from pg_constraint where contype = 'f' and confrelid = 'public."user"'::regclass and confdeltype = 'c'
-      and conrelid in (select oid from pg_class where relnamespace = 'public'::regnamespace and relname in ('ai_breaker', 'ai_policy', 'ai_usage', 'brain_action', 'brain_intervention', 'brain_memory', 'brain_message', 'brain_pref', 'brain_thread'))) <> 7 then raise exception '0050: faltan las cascadas a user'; end if;
-  if exists (select 1 from pg_constraint where contype = 'f' and confdeltype = 'a'
-      and conrelid in (select oid from pg_class where relnamespace = 'public'::regnamespace and relname in ('ai_breaker', 'ai_policy', 'ai_usage', 'brain_action', 'brain_intervention', 'brain_memory', 'brain_message', 'brain_pref', 'brain_thread'))) then raise exception '0050: una FK sin ON DELETE bloquearía el borrado de cuentas o la purga de demos'; end if;
-  if exists (select 1 from information_schema.role_table_grants where grantee in ('anon', 'authenticated', 'PUBLIC') and table_name in ('ai_breaker', 'ai_policy', 'ai_usage', 'brain_action', 'brain_intervention', 'brain_memory', 'brain_message', 'brain_pref', 'brain_thread')) then raise exception '0050: permisos públicos'; end if;
+do $$ declare t text; begin
+  foreach t in array array['sales_region','sales_rep','sales_rep_invitation','commission_plan','commission_plan_version','sales_rep_plan','sales_prospect','sales_opportunity','sales_deal','sales_activity','sales_attribution','sales_request','commission_entry','payout_batch','payout_item','payout_payment','sales_target','sales_material','sales_notice'] loop
+    if to_regclass('public.' || t) is null then raise exception '0050: falta la tabla %', t; end if;
+    execute format('alter table public.%I enable row level security', t);
+  end loop;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'commercial_lead' and column_name = 'referral_code') then raise exception '0050: falta commercial_lead.referral_code'; end if;
+  if not exists (select 1 from pg_trigger where tgname = 'commission_entry_no_update') then raise exception '0050: falta el trigger de inmutabilidad'; end if;
 end $$;
-insert into drizzle.__drizzle_migrations (hash, created_at) values ('ca9d9c171b7a35f0c4a09afc214e13ae162785bc5d1b3208149abe03107f5e37', 1794040189349);
+insert into drizzle.__drizzle_migrations (hash, created_at) values ('2cd8fec43cd78fe0139a302e5709b86e11e00659ee14a6b56817064a98034fa6', 1794055639372);
 reset role;
 revoke repi_app from postgres granted by postgres;
 commit;

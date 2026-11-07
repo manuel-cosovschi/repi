@@ -9,7 +9,7 @@ import { purgeBrainRetention } from "@/server/privacy/brain";
 export const dynamic = "force-dynamic";
 
 // Mismo trabajo que pnpm jobs:purge-media (D39): borra videos vencidos y huérfanos, subidas directas sin confirmar (D71), contadores de intentos viejos (D74) y eventos del sitio comercial de más de 400 días (D205). Una vez por día.
-// D209: además, la retención de REPI (mensajes 180 días, avisos 90, uso de IA 400, memoria vencida), aislada: si falla, lo
+// D210: además, la retención de REPI (mensajes 180 días, avisos 90, uso de IA 400, memoria vencida), aislada: si falla, lo
 // anterior ya corrió y la respuesta lo informa con 500 para que se vea.
 export async function GET(req: Request) {
   if (!cronAuthorized(req)) return new Response(null, { status: 404 });

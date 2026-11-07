@@ -8,7 +8,7 @@ import { applyLoad, canApplyLoad, fmtWeight, type ExerciseDetail } from "@repi/d
 export type TiDraft = {
   kind: "coach" | "gym"; relId: string; programId: string | null; proposalId: string;
   exerciseId: string; name: string; text: string; weightKg: number | null;
-  /** D209: «student» = pedido del alumno desde REPI (llega desde «Señales de REPI»); sin valor = Training Intelligence. */
+  /** D210: «student» = pedido del alumno desde REPI (llega desde «Señales de REPI»); sin valor = Training Intelligence. */
   source?: "ti" | "student";
 };
 const KEY = "repi:ti-draft";

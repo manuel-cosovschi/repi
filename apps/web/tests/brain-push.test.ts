@@ -1,4 +1,4 @@
-// D209 · Push y centro de notificaciones del Asistente REPI. Reglas al enviar (processOutbox), no sólo al encolar: horario de
+// D210 · Push y centro de notificaciones del Asistente REPI. Reglas al enviar (processOutbox), no sólo al encolar: horario de
 // silencio posterga (caso 47), lo ya visto no se empuja (caso 51), menores nunca (caso 59), categoría o push apagados no salen,
 // lo viejo no sale. Los demás tipos de push siguen igual. Opt-in del socio desde su dispositivo y fuente «Asistente REPI» en el
 // centro de notificaciones. Sin claves VAPID reales ni proveedores: nada sale de la máquina.

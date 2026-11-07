@@ -1,8 +1,8 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D209 en curso: **Adaptive Coaching 3.0 en construcción en `claude/adaptive-coaching-3`**, ver primera sección. Experience 3.0 (D208) está en la PR #64, CI verde, esperando la aprobación del titular; no integrar sin ella). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## Adaptive Coaching 3.0 (D209) — 07/11/2026 · EN CONSTRUCCIÓN
+## Adaptive Coaching 3.0 (D210) — 07/11/2026 · EN CONSTRUCCIÓN (renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
 - **Pedido:** máster del titular, guardado en `docs/adaptive/AC3_MASTER_PROMPT.md`.
   - Autoriza el bloque de punta a punta: migraciones aditivas, merge y deploy con respaldo y pruebas críticas en verde.
@@ -14,14 +14,76 @@ Actualizado: 07/11/2026 (hasta D209 en curso: **Adaptive Coaching 3.0 en constru
 - **Hecho:**
   - Núcleo de dominio `packages/domain/src/brain` (902 pruebas de dominio en verde).
   - Corrección de pirámides en Training Intelligence.
-  - Migración 0050 (`brain_*`, `ai_usage`, `ai_policy`, `ai_breaker`) con `hosted-0050.sql`, `verify-0050.sh` (ensayada en local) y reversión.
+  - Migración 0051 (`brain_*`, `ai_usage`, `ai_policy`, `ai_breaker`) con `hosted-0051.sql`, `verify-0051.sh` (ensayada en local) y reversión.
   - Gateway de IA con cuotas, presupuesto, breaker, concurrencia, caché y costo.
   - Privacidad: exportación, borrado, retención y purga de demos.
 - **En curso:**
   - Servidor (contexto, chat, acciones, revisión de sesión, proactividad, push, coach, admin).
-  - Después: interfaz, pruebas E2E, revisión, PR, Respaldo, `hosted-0050` en producción, merge, deploy y smoke con cuentas demo.
+  - Después: interfaz, pruebas E2E, revisión, PR, Respaldo, `hosted-0051` en producción, merge, deploy y smoke con cuentas demo.
 - **IA:** modelo `gpt-6-luna` (`OPENAI_MODEL_BRAIN`, el vigente más económico según la documentación oficial), con topes por defecto: 30 llamadas por persona por día, US$2 por día global, US$20 por mes por organización. Con 0, la IA del cerebro queda apagada y todo sigue por reglas.
 
+
+## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
+
+- **Pedido del titular** (captura de un pedido «Programa nuevo» en Smart Center): «que cuando te aparece una solicitud de un socio te permita desde ahí» crear el programa, sin ir hasta Socios.
+- **Hecho:**
+  - **Botón** (`components/gym/Connect.tsx`): en el detalle de un pedido `programa_nuevo` o `actualizar_programa`, quien tiene `program.edit` ve «Crear programa» (o «Editar programa») junto a «Abrir ficha del socio». En esos pedidos «Resolver» pasa a ser secundario.
+  - **Editor** (`MemberProgramModal` en `components/gym/Members.tsx`): abre el mismo editor de la ficha.
+  - **Servidor:** `memberDetail(…, { task })` y `?task=<id>` en `GET /api/gym/[orgId]/members/[id]` marcan esa solicitud para completarla al guardar, sólo si se cierra con el programa (`closesWithProgram`, la misma regla que valida `saveMemberProgram`).
+  - **Guía:** `GymGuide.tsx` lo explica.
+  - Sin migraciones ni permisos nuevos.
+- **Pruebas:**
+  - typecheck y 24 guards ✓;
+  - `gym.test` + `connect.test` 32/32, con un caso nuevo: preferencia de la solicitud, fallback y otro profesor;
+  - E2E `e2e/connect-program.spec.ts` 2/2 (teléfono y escritorio);
+  - CI ✓.
+- **Verificado en producción (`/api/version` = `6fa1a36c0572`)** con una demo de sala (organización `is_demo`, ficticia):
+  - T-1044 «Programa nuevo» muestra «Crear programa»;
+  - el editor marca T-1044 para completar;
+  - al guardar aparece «Programa guardado (revisión 1) y T-1044 completada»;
+  - la solicitud queda «Resuelta» y sin el botón;
+  - sin errores ni 5xx.
+- **Próxima acción:** ninguna. Si los profes lo piden, sumar el mismo atajo a «Revisión de técnica» u «Onboarding», que también se cierran con el programa.
+
+## Experience 3.0 (D208) — 07/11/2026 · PUBLICADO Y VERIFICADO (#64, 31a2e57)
+
+- **Pedido:** máster «REPI Experience 3.0»: reconstruir `/conoce` como experiencia interactiva premium y producir films sin voz (motion graphics + interfaz real + música instrumental con licencia). «No publicar en producción sin mi aprobación explícita»; revisión por grabaciones (sin preview de rama); «NO QUIERO LOCUCIONES DE ELEVENLABS».
+- **Rama y PR:** `claude/experience-3`, **PR #64**, integrada con squash el 07/11 con la aprobación explícita del titular («Publica todo lo que hiciste hasta ahora, la página, todas las correcciones, videos»). Sin migraciones ni cambios de base. Despliegue anterior para volver atrás: `dpl_Hv9pNbk4Qm61PJbUH7hjgDv95d2m` (08d4a50).
+- **Hecho:**
+  - **Página** (`components/conoce/ConoceHub.tsx`, `x3/*`, `sala/*`, `styles/conoce3.css`): escenario fijo «la sala en vivo» (R3F con tres niveles y SVG de respaldo, `?sala=high|medium|low`), ocho escenas con GSAP ScrollTrigger reversibles y con movimiento reducido. Se conservan rutas, UTM, `/qr`, leads a REPI Admin, WhatsApp, demos guiadas y eventos; nuevos sólo `scene_view` y `film_open`. Contenido en `content/conoce.ts`. Spec: `docs/comercial/EXPERIENCE_3.md`; producto: `PRODUCT.md`.
+  - **Films** (`design/films/`, generador `kit/build.py`, spec `SPEC.md`): marca, gimnasios, entrenadores, deportistas (+ 9:16), aliados, Training Intelligence, progreso, altas y sala. Música de Kevin MacLeod (CC BY 4.0, atribución en el reproductor) y efectos de Pixabay: `marketing/videos/LICENCIAS.md`. Versión web en `public/conoce/videos/`; masters fuera de Git y reproducibles con `kit/tools/render-all.sh`.
+  - **Reproductor:** diálogo modal, sonido sólo con un toque, versión 9:16 en teléfonos en vertical, atribución de la música.
+  - **Limpieza:** se quitaron `ProfileExplorer.tsx` y `Media.tsx` (hub anterior, sin uso). El video con locución de aliados queda superado.
+- **Revisión independiente (07/11):** 24 hallazgos confirmados y corregidos. Entre ellos:
+  - el pie tapado por el escenario;
+  - el formulario, que no seguía el perfil elegido;
+  - errores ilegibles;
+  - el reloj del 3D;
+  - el hero, que ocultaba el título;
+  - pausa de animaciones;
+  - descripción en texto de los films;
+  - aviso de modificación de CC BY.
+  Las escenas 02 y 03 pasaron a `position: sticky` (CLS de 1,5 a 0). El WebGL por software usa el SVG.
+- **Pruebas:**
+  - typecheck y guards ✓;
+  - dominio 491 y web 513;
+  - E2E `conoce` + `public` 56/56;
+  - axe 0 (20 combinaciones y reproductor);
+  - Impeccable 0;
+  - Lighthouse móvil: CLS 0, TBT 70–110 ms; A11y, BP y SEO 100; LCP 3,5–3,9 s simulado y 2,6 s con limitación real, sobre `next start` local sin CDN (la `/conoce` de producción da 3,0 y 2,4). **LCP de campo a confirmar después de publicar.**
+  - Films: 0 cuadros en blanco, de −13,9 a −14,7 LUFS, pico ≤ −2,2 dBTP.
+  - Detalle en la PR.
+- **Para regenerar films y descripciones:** `design/films/SPEC.md` § Producción (`render-all.sh`, `describe.py`). Masters en el scratchpad de la sesión (no persisten): se rehacen con los medios.
+- **Verificado en producción (07/11, `https://repiclub.com`, `/api/version` = `31a2e57c88e6`):** recorrido de sólo lectura en teléfono (Pixel 7) y escritorio (1440×900). Los eventos anónimos se interceptaron para no sumar visitas falsas a la medición.
+  - `/conoce` y los cuatro perfiles: 200, h1 «Cada repetición cuenta», nueve escenas con `data-shot`, sin scroll lateral, sin errores de consola ni 5xx.
+  - Botón «Pausar animaciones».
+  - Film de marca: 206 `video/mp4`, atribución de Kevin MacLeod y pista WebVTT de descripciones.
+  - Los diez `.mp4` responden (206).
+  - `/qr` → 307 a `/conoce?utm_source=qr…`; `/conoce/marcianos` → 404.
+  - CLS al recorrer la página: teléfono 0, escritorio 0,026.
+  - **El formulario no se envió en producción** para no crear un lead falso en REPI Admin; está cubierto por la E2E local.
+  - El navegador sin GPU del smoke usa el SVG, como corresponde con WebGL por software. El 3D en dispositivos reales queda por ver con Speed Insights.
+- **Próxima acción:** revisar en Speed Insights el LCP de campo de `/conoce` (objetivo ≤ 2,5 s) cuando junte visitas; si el 3D pesa en teléfonos de gama baja, bajar el nivel por defecto (D208).
 
 ## Smart Program Import 2.0 (D207) — 07/11/2026 · PUBLICADO Y VERIFICADO (#60, 3c2353c)
 
@@ -70,11 +132,49 @@ Actualizado: 07/11/2026 (hasta D209 en curso: **Adaptive Coaching 3.0 en constru
 - **Próximo bloque:** REPI — Adaptive Coaching 3.0. El punto de integración es `own_routine.origin` junto con las sesiones y la versión vigente (ver `docs/SMART_IMPORT_2.md`, «Preparación para Adaptive Coaching 3.0»).
 
 
+> **Rama `claude/tender-cerf-0cm7r9` (PR #63, borrador):** REPI Sales Force & Commission OS (D209, migración 0050 `sales_force`, sin aplicar) y dossier comercial para gimnasios. Rebasada sobre `main` 8cb0794 (D207/D208 y 0049 ya eran de Smart Import 2.0). Publicar requiere aprobación del titular: Respaldo → `hosted-0050.sql` → merge → smoke. Detalle en `docs/comercial/SALES_FORCE.md`.
 
 
 
 
 
+
+
+## REPI Commercial Sales Kit 2026 · dossier para gimnasios — 07/11/2026 · LISTO, SIN DISTRIBUIR
+
+- **Pedido:** master prompt del titular «REPI Commercial Sales Kit 2026»: dossier premium para dueños de gimnasios y resumen de una página.
+- **Dónde:** `marketing/dossier-gimnasios-2026/` (LEEME con instrucciones). PDF en `salida/`, vistas por página en `paginas/`, capturas reales de la demo en `capturas/`, fuente en `fuente/` (`generar.mjs`, `capturas.mjs`, `precios.json`), registro `FUNCIONALIDADES_VERIFICADAS.md`.
+- **Hecho:** dossier A4 de 11 páginas y resumen A4; HTML/CSS → PDF con Chromium; Barlow/Barlow Condensed incrustadas; gráficos SVG calculados desde `precios.json` (400 × $200 = $80.000; 500 × $170 = $85.000; +25 % socios, −15 % precio, +6,25 % mensualidad, $5.000; $60.000 → $60.170 = 0,28 %); QR decodificado a `repiclub.com/conoce/gimnasios?utm_source=dossier…`; enlaces a WhatsApp y email oficiales (`lib/contact.ts`, D109). Opción `--ref`/`--asesor` para versiones por vendedor.
+- **Revisión:** todas las páginas renderizadas e inspeccionadas; corregidos superposiciones y desbordes; afirmaciones contrastadas con el código (p. ej. la verificación en dos pasos es opcional, no obligatoria).
+- **No verificado:** `repiclub.com` no es accesible desde este contenedor; el destino del QR se verificó contra la ruta publicada (D205) y en la build local (200).
+- **Pendiente del titular:** aprobar el material antes de enviarlo; confirmar si los importes ilustrativos pueden circular así.
+
+## REPI Sales Force & Commission OS 1.0 (D209) — 07/11/2026 · EN REVISIÓN, SIN PUBLICAR
+
+- **Pedido:** master prompt del titular «REPI Sales Force & Commission OS 1.0»: vendedores en todo el país con panel propio, CRM, registro de ventas, comisiones y liquidaciones, todo administrado desde REPI Admin y sobre los clientes y contratos reales.
+- **Rama:** `claude/tender-cerf-0cm7r9`, rebasada sobre `main` `8cb0794`. Detalle completo en `docs/comercial/SALES_FORCE.md`; decisión D209 en `docs/DECISIONS.md`.
+- **Hecho (bloques 1 y 2 completos, bloque 3 parcial):**
+  - Dominio `packages/domain/src/sales.ts`: estados y capacidades del vendedor, pipeline con transiciones, duplicados, vista previa del cierre, planes (fijo, % primer cobro, % recurrente, por socio, híbrido, escalonado), motor idempotente `desiredEntries` + `diffLedger`, cortes por frecuencia.
+  - Servidor `apps/web/src/server/sales/*`, API `/api/ventas/*` y `/api/admin/sales/*`.
+  - Interfaz: `/ventas` (mobile-first, barra inferior), `/ventas/activar/[token]` (reutiliza `AccessFlow` y la guía PWA), `/ventas/liquidacion/[id]` (imprimible, «no es comprobante fiscal»), Admin › Ventas (panel, cierres, pipeline, comisiones, liquidaciones, solicitudes, material) y Admin › Vendedores (lista con filtros, paginación y acciones masivas; ficha completa).
+  - Objetivos, material de ventas versionado con vencimiento, avisos internos (vendedor y Admin) y enlace personal `/conoce?ref=V-XXXXXX` (origen del contacto, nunca venta atribuida).
+- **Tocado en código existente (sin cambiar comportamiento):**
+  - `commercial/services.ts`: `createClientTx`, `addTermTx`, `publishTermNotice`; sincroniza comisiones al habilitar o suspender; no borra clientes con venta aprobada o comisiones; `createLead` guarda `referralCode` sólo de vendedores activos.
+  - `commercial/payments.ts`: sincroniza comisiones al registrar o anular un pago.
+  - `access/services.ts` (espacio «REPI Ventas»), `api/access/sign-up` (flujo `seller`), `AccessFlow.tsx` (activación de vendedor), `AdminApp.tsx` (dos entradas y «Pasar a ventas» en Contactos), `admin/page.tsx` (parámetros de aviso), `ContactForm.tsx` (`?ref=`).
+- **Migración 0050 (aditiva, NO aplicada en producción):**
+  - 19 tablas nuevas, `commercial_lead.referral_code` y trigger de inmutabilidad de `commission_entry`.
+  - `apps/web/scripts/operations/hosted-0050.sql` y `scripts/rollback/0050_sales_force.down.sql`.
+  - Ensayo en base descartable local: huella igual a `migrate.ts`, RLS en las 19 tablas, dueño `repi_app`, reintento falla entero, reversión que se niega con datos, revertir y reaplicar.
+  - Orden: respaldo verde → `hosted-0050.sql` → merge → smoke con datos `*.invalid`.
+- **Pruebas:**
+  - Dominio `sales.test.ts` (17 ✓); dominio completo 464 ✓.
+  - Integración `tests/sales-force.test.ts` (13 ✓) sobre `repi_test` local: flujos A–J (alta e invitación, captación y duplicados, cierre con corrección y aprobación, aprobación concurrente única, habilitación, comisiones por cobros, reversión por anulación, inmutabilidad, liquidación idempotente con pago parcial y sin sobrepago, renegociación, desvinculación, aislamiento entre vendedores, reintentos, frecuencia, enlace personal, material).
+  - Suite web completa: 75 archivos, 513 ✓ (antes de los últimos ajustes de interfaz); typecheck ✓, guardas ✓ (24), build ✓.
+  - Navegador (build local + `repi_dev`, iPhone 13 y escritorio 1366): recorrido completo Admin ↔ vendedor sin errores de consola ni 5xx; accesos a Admin y a recursos ajenos 404 y auditados; sin scroll horizontal. El script quedó fuera del repo (usa `psql` sobre `repi_dev`).
+- **Corregido en el camino:** abrir un modal desde la URL (`?deal=`, `?rep=`, `?p=`, `?b=`) rompía el render del servidor (`Modal` usa `document`): ahora se abre tras montar.
+- **Decisiones pendientes del titular:** planes reales y moneda; regla de renegociación con otro vendedor (hoy el cobro va a la última venta aprobada vigente); visibilidad del responsable comercial sobre su equipo; evidencia como archivo y PDF del servidor; IA comercial (no implementada).
+- **Primera acción al retomar:** revisar el PR de esta rama; con aprobación del titular, respaldo → `hosted-0050.sql` → merge → smoke.
 
 ## Pedido de programa con preferencias (D206) — 07/11/2026 · PUBLICADO Y VERIFICADO (#58, 297a936)
 

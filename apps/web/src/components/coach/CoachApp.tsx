@@ -68,7 +68,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   }, [screen, sel, pid]);
 
-  // D209: abrir la ficha directo en una pestaña (p. ej. «Rendimiento» desde «Pendientes» con señales de REPI).
+  // D210: abrir la ficha directo en una pestaña (p. ej. «Rendimiento» desde «Pendientes» con señales de REPI).
   const [ctab, setCtab] = useState<string | null>(null);
   const go = (s: Screen, extra?: { sel?: string; pid?: string | null; tab?: string }) => {
     setScreen(s); setDrawer(false); setCtab(extra?.tab ?? null);

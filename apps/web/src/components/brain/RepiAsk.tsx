@@ -1,5 +1,5 @@
 "use client";
-// Asistente REPI (D209) · entrada contextual «Preguntale a REPI». Abre el panel con el contexto de la pantalla (sólo
+// Asistente REPI (D210) · entrada contextual «Preguntale a REPI». Abre el panel con el contexto de la pantalla (sólo
 // identificadores; el servidor los valida). Sin el módulo encendido no se muestra. Nunca empieza con el nombre de una pestaña
 // (la guía de la demo busca el primer botón que empieza con «Inicio», «Entrenar», «Progreso», «Mensajes» o «Gym»).
 import { ChatCircleDots } from "@phosphor-icons/react";

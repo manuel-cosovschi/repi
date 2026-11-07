@@ -243,7 +243,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     return () => window.removeEventListener("repi:floor-alert", on);
   }, [flash]);
 
-  // D209 · Asistente REPI. El panel de conversación vive arriba (MemberApp) y sobrevive al entrenamiento; desde acá se le ofrece
+  // D210 · Asistente REPI. El panel de conversación vive arriba (MemberApp) y sobrevive al entrenamiento; desde acá se le ofrece
   // adoptar un cambio que REPI hizo en el servidor (reemplazo u omisión sólo por hoy, ya confirmado) y abrir «Cambiar ejercicio».
   const brain = useBrain();
   const sRef = useRef(s);
@@ -552,7 +552,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const keep = () => { lastAct.current = Date.now(); setStill(null); };
   // D191: objetivo de la fila en curso (no con un reemplazo hecho en el teléfono: el objetivo era del ejercicio original).
   const curTarget = !ex.change && cur >= 0 ? ex.targets?.find((t) => t.setIndex === cur) ?? null : null;
-  // D209: briefing antes del ejercicio (sin series hechas todavía), con lo que ya está en el teléfono: anda sin conexión.
+  // D210: briefing antes del ejercicio (sin series hechas todavía), con lo que ya está en el teléfono: anda sin conexión.
   const brief = brain.enabled && !paused && !rows.some((r) => r?.done) ? workoutBrief(ex, brain.tone) : null;
   const askRepi = () => brain.open({ section: "workout", chips: WORKOUT_CHIPS, subject: sub ? sub.name : ex.name, offlinePending: sync.pending > 0,
     // Sólo identificadores que el servidor ya conoce (un entrenamiento empezado sin conexión todavía no está en la cuenta).
@@ -892,7 +892,7 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
             <span>Anterior: {kg(pr.previous.weightKg, unit)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {kgTo(pr.previous.e1rm, unit).toLocaleString("es-AR")} → {kgTo(pr.current.e1rm, unit).toLocaleString("es-AR")} {unit}</span></div>
         </div>
       )}
-      {/* D209: el cierre de REPI (previsto contra hecho, la anterior, marcas y la próxima), después de las marcas. */}
+      {/* D210: el cierre de REPI (previsto contra hecho, la anterior, marcas y la próxima), después de las marcas. */}
       <SessionReview sessionId={sum.id} local={sum.local} />
       {!sum.local && <SessionCalories sessionId={sum.id} refresh={sent === "server" ? 1 : 0} />}
       {/* D168: con lo que acaba de levantar, dónde entraría en desafíos y rankings del gym. */}

@@ -2,7 +2,7 @@
 import { api } from "./api";
 
 export type PushState = { supported: boolean; permission: NotificationPermission | "unsupported"; subscribed: boolean; configured: boolean; paused: boolean; devices: number;
-  /** D209: avisos del Asistente REPI. `eligible` = adulto confirmado (a un menor no se le ofrecen); `enabled` = activados. */
+  /** D210: avisos del Asistente REPI. `eligible` = adulto confirmado (a un menor no se le ofrecen); `enabled` = activados. */
   coaching?: { enabled: boolean; eligible: boolean } };
 type PushStatus = { configured: boolean; publicKey: string | null; devices: number; paused: boolean; coaching?: { enabled: boolean; eligible: boolean } };
 
@@ -27,7 +27,7 @@ export async function pushState(): Promise<PushState> {
 }
 
 /**
- * Registra este dispositivo. D209: con `coaching: true` (Perfil → Asistente REPI, socio adulto) el servidor además activa los
+ * Registra este dispositivo. D210: con `coaching: true` (Perfil → Asistente REPI, socio adulto) el servidor además activa los
  * avisos de REPI fuera de la app; un menor o una edad sin confirmar responde 403 y no se registra nada.
  */
 export async function enablePush(opts: { coaching?: boolean } = {}): Promise<{ ok: boolean; coaching?: boolean }> {

@@ -8,7 +8,7 @@ import { __test } from "@/server/brain/orchestrator";
 import type { ProposedAction } from "@/server/brain/actions";
 import { aiResponse, coachWorld, send, startToday, stubAi } from "./brain-chat.world";
 
-// D209 · C1 · El camino con IA del chat (gateway → modelo → validación del servidor). fetch es SIEMPRE un doble: ninguna prueba
+// D210 · C1 · El camino con IA del chat (gateway → modelo → validación del servidor). fetch es SIEMPRE un doble: ninguna prueba
 // llama a OpenAI. Casos 39, 64–67, 69 del máster.
 const QUESTION = "¿Conviene usar cinturón para entrenar?";
 const userText = (body: { messages: { role: string; content: unknown }[] }) => (body.messages[1].content as { type: string; text: string }[]).map((p) => p.text).join("\n");

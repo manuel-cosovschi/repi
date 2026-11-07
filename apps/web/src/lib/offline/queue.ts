@@ -159,7 +159,7 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
       // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
       const alert = data.alert as { notified: number } | null | undefined;
       if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
-      // D209: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono) entra en ESTA escritura, si el
+      // D210: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono) entra en ESTA escritura, si el
       // teléfono no tenía uno y sigue el descanso de esa serie (ver adoptServerIntel). Antes se avisaba a la pantalla antes de
       // escribir y esta copia, leída antes, lo borraba. La pantalla lo toma al refrescarse tras sincronizar; nunca demora la cola.
       const intel = data.intel as { event?: { code: string; text: string; restPlusSec: number | null } | null } | null | undefined;

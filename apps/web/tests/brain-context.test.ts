@@ -12,7 +12,7 @@ import { createMemory } from "@/server/brain/memory";
 import { brainHome } from "@/server/brain/home";
 import { coachWorld, daysAgo, err, pastSession, rawPerson, startToday } from "./brain-chat.world";
 
-// D209 · C1 · Contexto del cerebro (context.buildContext / loadContext) con datos reales: perfil y edad, deseos, relación,
+// D210 · C1 · Contexto del cerebro (context.buildContext / loadContext) con datos reales: perfil y edad, deseos, relación,
 // programa y día que toca, procedencia de rutinas importadas, sesión abierta, historial, check-in, molestias, cuerpo (sólo
 // adultos), memoria. La referencia de la pantalla se valida contra la base (casos 40, 53, 55, 59, 60, 63).
 beforeEach(() => resetRateLimits());

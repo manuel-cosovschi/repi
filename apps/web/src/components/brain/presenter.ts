@@ -1,4 +1,4 @@
-// Asistente REPI (D209) · presentador. Traduce lo que devuelve el servidor (mensajes, tarjetas, avisos, acciones) a modelos de
+// Asistente REPI (D210) · presentador. Traduce lo que devuelve el servidor (mensajes, tarjetas, avisos, acciones) a modelos de
 // vista neutros: texto ya localizado, procedencia («Dato registrado», «Calculado por REPI», «Sugerencia con IA», seguridad),
 // tarjetas y acciones con su vista previa. La interfaz de hoy lo dibuja con componentes; más adelante el mismo modelo puede
 // alimentar a un personaje animado o a una voz (`speak`, `mood`) sin tocar el núcleo ni el servidor. Puro: sin DOM ni red.

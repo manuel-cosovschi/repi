@@ -1,5 +1,5 @@
 "use client";
-// Asistente REPI (D209) · tarjeta de Inicio, después del «próximo entrenamiento». Una sola prioridad del día (la elige el motor
+// Asistente REPI (D210) · tarjeta de Inicio, después del «próximo entrenamiento». Una sola prioridad del día (la elige el motor
 // de relevancia en el servidor) con Ver por qué · Empezar · Hablar con REPI · Descartar · No mostrar algo parecido. Descartar y
 // «no mostrar algo parecido» quedan en el servidor (no en el teléfono). Sin aviso, una línea de «hoy» y la entrada al chat.
 import { useEffect, useRef, type ReactNode } from "react";

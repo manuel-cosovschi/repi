@@ -1,5 +1,5 @@
 "use client";
-// D209 · «Señales de REPI» para quien programa al alumno: el coach privado (ficha → Rendimiento) y el equipo de sala o
+// D210 · «Señales de REPI» para quien programa al alumno: el coach privado (ficha → Rendimiento) y el equipo de sala o
 // coordinación con permiso para su programa (ficha del socio en Gym). Es el análisis de REPI sobre lo registrado en ESA relación
 // (GET …/brain): dificultad creciente, rechazos, propuestas y pedidos pendientes. Nunca la conversación ni la memoria del alumno
 // con REPI, ni sus textos: sólo cantidades y evidencia. No calcula nada: muestra lo que devuelve el servidor.

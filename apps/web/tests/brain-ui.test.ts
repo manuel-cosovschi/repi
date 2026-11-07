@@ -1,4 +1,4 @@
-// D209 · Asistente REPI en la app del alumno: el presentador (procedencia, tarjetas, acciones con vista previa, tarjeta de
+// D210 · Asistente REPI en la app del alumno: el presentador (procedencia, tarjetas, acciones con vista previa, tarjeta de
 // Inicio, atajos por sección) y la línea de briefing del entrenamiento (sin conexión, con lo que ya está en el teléfono).
 // Puro: no toca la base ni la red.
 import { describe, expect, it } from "vitest";

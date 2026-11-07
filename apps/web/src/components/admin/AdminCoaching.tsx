@@ -1,5 +1,5 @@
 "use client";
-// REPI Admin › Coaching IA (D209, máster §24): cómo se comporta el asistente REPI y cuánto cuesta. Sólo agregados del servidor
+// REPI Admin › Coaching IA (D210, máster §24): cómo se comporta el asistente REPI y cuánto cuesta. Sólo agregados del servidor
 // (GET /api/admin/brain): ninguna persona, ningún texto de avisos, mensajes ni memoria. Cifras reales: si algo es 0, se dice
 // que no hubo; no hay gráficos inventados (tablas y barras simples con su número visible).
 // Límites de la IA del cerebro (PUT /api/admin/brain): global y por organización, con revisión y confirmación. Con 0, la IA

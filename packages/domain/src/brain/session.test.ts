@@ -305,7 +305,7 @@ describe("session · poco tiempo (caso 14)", () => {
     expect(shortenSession(plan, 3)).toMatchObject({ skip: [], fits: false, note: expect.stringMatching(/entre 5 y 180/) });
     expect(shortenSession(plan, 200).note).toMatch(/entre 5 y 180/);
   });
-  it("con uno a medias y muy poco tiempo, deja para otro día todos los que no empezaste (D209)", () => {
+  it("con uno a medias y muy poco tiempo, deja para otro día todos los que no empezaste (D210)", () => {
     const r = shortenSession(plan, 5);
     expect(r.keep.map((x) => x.id)).toEqual([EX.pb.id]);
     expect(r.skip.map((x) => x.id)).toEqual([EX.sq.id, EX.rm.id, EX.pi.id, EX.curl.id]);

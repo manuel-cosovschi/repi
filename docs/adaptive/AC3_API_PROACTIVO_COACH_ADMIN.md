@@ -1,4 +1,4 @@
-# REPI — Adaptive Coaching 3.0 · API del motor proactivo, push, entrenador y REPI Admin (D209, bloque C2)
+# REPI — Adaptive Coaching 3.0 · API del motor proactivo, push, entrenador y REPI Admin (D210, bloque C2)
 
 Contrato general: `ADAPTIVE_COACHING_3.md` (§5 servidor, §7 seguridad). Pruebas: `AC3_PRUEBAS.md` (casos 41–55, 59–63).
 Código: `apps/web/src/server/brain/{proactive,coach,admin}.ts`, `server/push/services.ts`, `server/notifications/feed.ts`.

@@ -49,7 +49,7 @@ export async function exportMyData(userId: string, now = new Date()) {
     bodyGoal: (await db.select({ targetKg: sql<number>`${bodyGoal.targetWeightG}::float / 1000`, targetOn: bodyGoal.targetOn, startSource: bodyGoal.startSource, startKg: sql<number | null>`${bodyGoal.startWeightG}::float / 1000`, startOn: bodyGoal.startOn, updatedAt: bodyGoal.updatedAt }).from(bodyGoal).where(eq(bodyGoal.userId, userId)))[0] ?? null,
     progressPhotos: await db.select({ id: progressPhoto.id, day: progressPhoto.takenOn, pose: progressPhoto.pose, width: progressPhoto.width, height: progressPhoto.height, createdAt: progressPhoto.createdAt }).from(progressPhoto).where(eq(progressPhoto.userId, userId)).orderBy(progressPhoto.takenOn),
     privacyRequests: await db.select({ kind: privacyRequest.kind, status: privacyRequest.status, createdAt: privacyRequest.createdAt, resolvedAt: privacyRequest.resolvedAt }).from(privacyRequest).where(eq(privacyRequest.userId, userId)),
-    // D209: REPI (asistente): preferencias, memoria, conversaciones, avisos, acciones y uso de IA (sin contenido).
+    // D210: REPI (asistente): preferencias, memoria, conversaciones, avisos, acciones y uso de IA (sin contenido).
     repi: await exportBrainData(userId),
   };
   await audit(db, { actorUserId: userId, action: "privacy.export", resourceType: "user", resourceId: userId });

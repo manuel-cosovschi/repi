@@ -1,4 +1,4 @@
-// Inicio con REPI (D209, contrato §6 «Inicio»; GET /api/me/brain). La tarjeta y los avisos los decide el motor proactivo
+// Inicio con REPI (D210, contrato §6 «Inicio»; GET /api/me/brain). La tarjeta y los avisos los decide el motor proactivo
 // (proactive.homeCandidates, que pasa todo por el motor de relevancia). Si ese motor falla, Inicio no se rompe: se devuelven
 // los avisos ya guardados. Aparte, una línea determinística de «hoy» (qué toca o qué queda de la sesión abierta), sin IA.
 import { answerToday } from "@repi/domain/brain";

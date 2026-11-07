@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { assertLocalTarget, expectAccessible, expectNoHorizontalOverflow, openDemo, watchErrors } from "./helpers";
 
-// D209 · Asistente REPI en la app del alumno (demo guiada: entorno ficticio propio, nunca datos reales). Sin OPENAI_API_KEY
+// D210 · Asistente REPI en la app del alumno (demo guiada: entorno ficticio propio, nunca datos reales). Sin OPENAI_API_KEY
 // todo responde por reglas: así corre en CI y en local sin gastar.
 test.beforeAll(({ baseURL }) => assertLocalTarget(baseURL));
 

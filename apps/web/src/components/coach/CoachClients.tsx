@@ -173,7 +173,7 @@ function PerfTab({ orgId, relId, programId, go }: { orgId: string; relId: string
   // D191: la propuesta se revisa en el constructor de siempre (programa del cliente), donde sólo cambia el borrador si se aplica.
   const review = (t: TiDraft) => { stashTiDraft(t); go("builder", { pid: t.programId }); };
   const decideUrl = (id: string) => `/api/coach/${orgId}/proposals/${id}`;
-  // D209: «Señales de REPI» arriba (análisis de lo registrado con vos; nunca su conversación ni su memoria) y, debajo, Training Intelligence.
+  // D210: «Señales de REPI» arriba (análisis de lo registrado con vos; nunca su conversación ni su memoria) y, debajo, Training Intelligence.
   const [tick, setTick] = useState(0);
   const intel = <>
     <RepiSignals kind="coach" relId={relId} programId={programId} load={`/api/coach/${orgId}/clients/${relId}/brain`} decideUrl={decideUrl} onReview={review} refresh={tick} />

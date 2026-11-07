@@ -15,7 +15,7 @@ import { sessionReviewFor } from "@/server/brain/review";
 import { getPrefs, updatePrefs } from "@/server/brain/prefs";
 import { coachWorld, err, rawPerson, send, startToday } from "./brain-chat.world";
 
-// D209 · C1 · Acciones de REPI: catálogo, validación con el contexto real, autonomía, idempotencia, auditoría y confirmación con
+// D210 · C1 · Acciones de REPI: catálogo, validación con el contexto real, autonomía, idempotencia, auditoría y confirmación con
 // el resultado del servidor. Sin IA (las reglas proponen; la persona confirma). Casos 14, 23, 36, 37, 56, 58, 69, 70.
 beforeEach(() => resetRateLimits());
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });

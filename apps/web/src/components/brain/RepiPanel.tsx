@@ -1,5 +1,5 @@
 "use client";
-// Asistente REPI (D209) · panel de conversación. No modal: no bloquea la pantalla de atrás, no atrapa el foco y se cierra
+// Asistente REPI (D210) · panel de conversación. No modal: no bloquea la pantalla de atrás, no atrapa el foco y se cierra
 // con Esc o «Cerrar»; al volver a abrirlo sigue la misma conversación. En el entrenamiento se ubica arriba y nunca tapa el
 // dock (registrar una serie sigue a un toque). En pantallas anchas va al costado de la columna. Cada respuesta dice de dónde
 // sale; las acciones se ven distintas de las respuestas y siempre muestran qué cambia antes de confirmar.

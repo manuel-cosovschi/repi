@@ -109,7 +109,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [gymTab, setGymTab] = useState<GymTab | undefined>(undefined);
   const [openCh, setOpenCh] = useState<string | null>(null); // D168: desafío a abrir desde una invitación
-  // D209: borrador que REPI dejó para Mensajes (nunca se envía solo: queda en el campo para revisarlo).
+  // D210: borrador que REPI dejó para Mensajes (nunca se envía solo: queda en el campo para revisarlo).
   const [msgDraft, setMsgDraft] = useState<{ text: string; to: Draft["to"]; n: number } | null>(null);
   const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then(setFeed).catch(() => {}), []);
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
@@ -312,7 +312,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     } catch { flash("Este navegador no permite guardar datos en el teléfono; no se puede entrenar sin conexión."); }
   };
 
-  // D209: a dónde lleva una acción de REPI ya confirmada por el servidor (abrir el entrenamiento, ver el historial).
+  // D210: a dónde lleva una acción de REPI ya confirmada por el servidor (abrir el entrenamiento, ver el historial).
   const brainNavigate = (n: Navigate) => {
     if (n.to === "workout") { if (openId) setWorkout(openId); else if (n.dayKey && t?.program?.days.some((d) => d.id === n.dayKey)) void start(n.dayKey); else go("train"); return; }
     if (n.to === "history") { go("prog"); setProgSeg("train"); }
@@ -326,7 +326,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   workoutRef.current = workout;
   coachFirstRef.current = coachFirst;
   const unit: WeightUnit = t?.weightUnit ?? "kg";
-  // D209: el proveedor de REPI envuelve las dos ramas (misma posición y tipo), así la conversación sigue con el entrenamiento abierto.
+  // D210: el proveedor de REPI envuelve las dos ramas (misma posición y tipo), así la conversación sigue con el entrenamiento abierto.
   const brainProps = { enabled: assistant, offline: !!offlineAt, activeKey: workout ? "workout" : tab, onNavigate: brainNavigate, onDraft: brainDraft };
   if (workout) return (
     <UnitContext.Provider value={unit}><BrainProvider {...brainProps}><div className="mb"><div className="mb-col">
@@ -493,7 +493,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
   onCardOpen: (c: InterventionView) => void;
 }) {
-  // D209: la tarjeta de REPI absorbe el aviso de programa actualizado (un solo aviso, resuelto en el servidor), pero sólo mientras
+  // D210: la tarjeta de REPI absorbe el aviso de programa actualizado (un solo aviso, resuelto en el servidor), pero sólo mientras
   // se ve (asistente encendido y con conexión) y con lo mismo que decía el aviso: versión, motivo y «Ver anterior» (revisión AC3
   // #27/#29: sin conexión no quedaba ninguno de los dos, y la versión anterior ya no se podía abrir desde ningún lado).
   const brain = useBrain();
@@ -563,7 +563,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
         </div>} />
       )}
-      {/* D209: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
+      {/* D210: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
       <RepiCard startName={next?.name ?? t.openSessionDay ?? null}
         onStart={(k) => onStart(k && t.program?.days.some((d) => d.id === k) ? k : next?.id ?? "")}
         onOpen={onCardOpen}
@@ -935,7 +935,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       </section>
       <MyCharges />
       <Wishes offline={offline} flash={flash} />
-      {/* D209: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
+      {/* D210: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
       <RepiPrefs offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
@@ -1125,7 +1125,7 @@ function ProgramNotice({ u, version, name, offline, flash }: { u: ProgramUpdate;
     </>
   );
 }
-/** D209: dentro de la tarjeta de REPI «Rutina actualizada», lo que decía el aviso: quién, versión, fecha, motivo y «Ver anterior». */
+/** D210: dentro de la tarjeta de REPI «Rutina actualizada», lo que decía el aviso: quién, versión, fecha, motivo y «Ver anterior». */
 function ProgramUpdateInfo({ u, version, name, offline, flash }: { u: ProgramUpdate; version: number; name: string; offline: boolean; flash: (m: string) => void }) {
   const pv = usePrevVersion(flash);
   const who = u.author?.split(" ")[0] ?? null;

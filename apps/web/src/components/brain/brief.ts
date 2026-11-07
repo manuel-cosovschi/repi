@@ -1,4 +1,4 @@
-// Asistente REPI (D209) · línea de briefing antes de un ejercicio, en el entrenamiento. Usa sólo lo que el teléfono ya tiene
+// Asistente REPI (D210) · línea de briefing antes de un ejercicio, en el entrenamiento. Usa sólo lo que el teléfono ya tiene
 // (objetivos de Training Intelligence por fila, la última vez, el plan del profe y la sugerencia del día): funciona SIN conexión
 // y no hace ningún pedido por ejercicio. El texto lo arma el dominio (`briefExercise`): la interfaz no calcula cargas.
 import { briefExercise } from "@repi/domain/brain/session";

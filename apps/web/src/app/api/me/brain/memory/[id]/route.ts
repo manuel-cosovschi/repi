@@ -1,4 +1,4 @@
-// Borrar un recuerdo propio (D209). Definitivo; deshace lo que había cambiado en las preferencias (tono, categoría apagada).
+// Borrar un recuerdo propio (D210). Definitivo; deshace lo que había cambiado en las preferencias (tono, categoría apagada).
 import { handle, sessionUserId } from "@/server/access/http";
 import { forgetMemory } from "@/server/brain/actions";
 

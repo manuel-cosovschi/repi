@@ -3,12 +3,12 @@
 // Nada de esto emite cobros reales: la vista previa y el cierre simulado no son facturas (D01–D05 siguen pendientes).
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
-  ACTIVATION_LABEL, TERMS_VERSION, activationStage, fmtMoney, isCurrency, isEmail, localDate, normalizeEmail, overAgreed, previewPeriod, requiresTwoFactor,
+  ACTIVATION_LABEL, TERMS_VERSION, isRepCode, activationStage, fmtMoney, isCurrency, isEmail, localDate, normalizeEmail, overAgreed, previewPeriod, requiresTwoFactor,
   type ContractStatus, type Currency, type Term,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { cleanTag } from "@/lib/site-events";
-import { AccessError, addDays, audit, newInviteCode, newToken, sha256 } from "../access/util";
+import { AccessError, addDays, audit, newInviteCode, newToken, sha256, type Tx } from "../access/util";
 import { MailError, deliverMail } from "../mailer";
 import { logError } from "../log";
 import { enabledAccesses } from "../join/services";
@@ -33,6 +33,8 @@ export type LeadInput = {
   kind: string; orgName?: string | null; contactName: string; email?: string | null; phone?: string | null; message?: string | null;
   /** D205: origen anónimo de la visita (Experience Hub). */
   source?: string | null; campaign?: string | null; interest?: string | null;
+  /** D209: código del vendedor del enlace personal (?ref=). Se guarda sólo si es de un vendedor activo. */
+  referralCode?: string | null;
 };
 const LEAD_SOURCES = new Set(["qr", "utm", "referral", "direct"]);
 const LEAD_INTERESTS = new Set(["gimnasios", "entrenadores", "deportistas", "aliados"]);
@@ -52,8 +54,16 @@ export async function createLead(p: LeadInput) {
   }
   await db.insert(commercialLead).values({ kind, orgName: (orgName || "—").slice(0, 120), contactName: p.contactName.trim().slice(0, 80),
     email: email ? normalizeEmail(email) : null, phone: phone.slice(0, 40) || null, message: p.message?.trim().slice(0, 600) || null,
-    source: p.source && LEAD_SOURCES.has(p.source) ? p.source : null, campaign: cleanTag(p.campaign), interest: p.interest && LEAD_INTERESTS.has(p.interest) ? p.interest : null });
+    source: p.source && LEAD_SOURCES.has(p.source) ? p.source : null, campaign: cleanTag(p.campaign), interest: p.interest && LEAD_INTERESTS.has(p.interest) ? p.interest : null,
+    referralCode: await activeReferral(p.referralCode) });
   return { ok: true };
+}
+
+async function activeReferral(code: string | null | undefined) {
+  const c = (code ?? "").trim().toUpperCase();
+  if (!isRepCode(c)) return null;
+  const [r] = await db.select({ code: schema.salesRep.code }).from(schema.salesRep).where(and(eq(schema.salesRep.code, c), eq(schema.salesRep.status, "active")));
+  return r?.code ?? null;
 }
 
 // ── Listado de clientes y regularización ────────────────────────────────────
@@ -120,12 +130,17 @@ export async function adminSummary(actorId: string, now = new Date()) {
   };
 }
 
-/** Alta comercial: crea la ficha y una organización SIN habilitar (no admite altas operativas) y el contrato en borrador. */
-export async function createClient(actorId: string, p: {
+export type ClientInput = {
   kind: "gym" | "coach"; orgName: string; legalName?: string | null; responsibleName: string; responsibleEmail: string; currency: string;
   scope?: "organization" | "locations"; scopeNote?: string | null; quantityDefinition?: string | null; locations?: string[];
-}) {
+};
+/** Alta comercial: crea la ficha y una organización SIN habilitar (no admite altas operativas) y el contrato en borrador. */
+export async function createClient(actorId: string, p: ClientInput) {
   await requireAdmin(actorId);
+  return db.transaction((tx) => createClientTx(tx, actorId, p));
+}
+/** Igual que createClient dentro de una transacción ajena (D209: aprobación de una venta). Quien llama valida Admin. */
+export async function createClientTx(tx: Tx, actorId: string, p: ClientInput, meta?: Record<string, unknown>) {
   // Obligatorios (D117): tipo, nombre visible, responsable, email y moneda. El resto se completa después.
   const missing = [
     !["gym", "coach"].includes(p.kind) && "tipo",
@@ -136,19 +151,17 @@ export async function createClient(actorId: string, p: {
   ].filter(Boolean);
   if (missing.length) throw new AccessError("invalid", `Falta completar: ${missing.join(", ")}.`);
   const scope = p.kind === "gym" ? p.scope ?? "organization" : "organization"; // un coach no tiene sedes
-  return db.transaction(async (tx) => {
-    const [org] = await tx.insert(organization).values({ kind: p.kind, name: p.orgName.trim().slice(0, 120), status: "active", commercialStatus: "pending", createdBy: actorId }).returning();
-    if (p.kind === "gym") {
-      const locs = (p.locations ?? []).map((l) => l.trim()).filter(Boolean).slice(0, 30);
-      for (const name of locs.length ? locs : ["Sede principal"]) await tx.insert(gymLocation).values({ orgId: org.id, name: name.slice(0, 80) });
-    }
-    const [c] = await tx.insert(clientContract).values({
-      orgId: org.id, kind: p.kind, legalName: p.legalName?.trim().slice(0, 160) || null, responsibleName: p.responsibleName.trim().slice(0, 80), responsibleEmail: normalizeEmail(p.responsibleEmail),
-      currency: p.currency as Currency, scope, scopeNote: scope === "locations" ? p.scopeNote?.trim() || null : null, quantityDefinition: p.quantityDefinition?.trim() || null, createdBy: actorId,
-    }).returning();
-    await audit(tx, { actorUserId: actorId, orgId: org.id, action: "commercial.client_created", resourceType: "client_contract", resourceId: c.id });
-    return { orgId: org.id, contractId: c.id };
-  });
+  const [org] = await tx.insert(organization).values({ kind: p.kind, name: p.orgName.trim().slice(0, 120), status: "active", commercialStatus: "pending", createdBy: actorId }).returning();
+  if (p.kind === "gym") {
+    const locs = (p.locations ?? []).map((l) => l.trim()).filter(Boolean).slice(0, 30);
+    for (const name of locs.length ? locs : ["Sede principal"]) await tx.insert(gymLocation).values({ orgId: org.id, name: name.slice(0, 80) });
+  }
+  const [c] = await tx.insert(clientContract).values({
+    orgId: org.id, kind: p.kind, legalName: p.legalName?.trim().slice(0, 160) || null, responsibleName: p.responsibleName.trim().slice(0, 80), responsibleEmail: normalizeEmail(p.responsibleEmail),
+    currency: p.currency as Currency, scope, scopeNote: scope === "locations" ? p.scopeNote?.trim() || null : null, quantityDefinition: p.quantityDefinition?.trim() || null, createdBy: actorId,
+  }).returning();
+  await audit(tx, { actorUserId: actorId, orgId: org.id, action: "commercial.client_created", resourceType: "client_contract", resourceId: c.id, ...(meta ? { meta } : {}) });
+  return { orgId: org.id, contractId: c.id };
 }
 
 /** Regularizar un cliente previo: crea el contrato en borrador sin inferir precios ni cobrar retroactivamente. */
@@ -260,6 +273,7 @@ export async function enableClient(actorId: string, contractId: string, p: { tri
   });
   // F-BL-05: la primera habilitación no es un cambio (el cliente recibe la bienvenida); rehabilitar o mover la prueba sí.
   const { before, after } = r;
+  await (await import("../sales/commissions")).syncContractSafe(contractId); // D209: comisiones que dependen de la habilitación
   const at = Date.now();
   if (before.status === "suspended") await publishNotice(after, { kind: "enabled", title: "Tu espacio volvió a estar habilitado", body: "REPI levantó la suspensión: ya podés volver a dar altas.", dedupeKey: `enabled:${at}`, createdBy: actorId });
   if (p.trialUntil && before.enabledAt && p.trialUntil !== before.trialUntil) {
@@ -368,6 +382,10 @@ export async function deleteClient(actorId: string, contractId: string, confirmN
     if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
     const [pay] = await tx.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
     if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
+    // D209: una venta aprobada o comisiones registradas son historial comercial: el cliente se suspende, no se borra.
+    const [deal] = await tx.select({ id: schema.salesDeal.id }).from(schema.salesDeal).where(and(eq(schema.salesDeal.contractId, c.id), eq(schema.salesDeal.status, "approved"))).limit(1);
+    const [entry] = await tx.select({ id: schema.commissionEntry.id }).from(schema.commissionEntry).where(eq(schema.commissionEntry.contractId, c.id)).limit(1);
+    if (deal || entry) throw new AccessError("invalid_state", "No se puede eliminar: tiene una venta aprobada o comisiones registradas. Suspendelo para frenar nuevas altas.", 409);
     await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.client_deleted", resourceType: "client_contract", resourceId: c.id, meta: { name: o.name, kind: o.kind, status: c.status } });
     await tx.delete(organization).where(eq(organization.id, c.orgId));
   });
@@ -382,6 +400,7 @@ export async function suspendClient(actorId: string, contractId: string, reason:
   await db.update(clientContract).set({ status: "suspended", updatedAt: new Date() }).where(eq(clientContract.id, c.id));
   await db.update(organization).set({ commercialStatus: "suspended" }).where(eq(organization.id, c.orgId));
   await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.suspended", resourceType: "client_contract", resourceId: c.id, meta: { reason: reason.trim().slice(0, 200) } });
+  await (await import("../sales/commissions")).syncContractSafe(c.id); // D209
   await publishNotice({ ...c, status: "suspended" }, { kind: "suspended", title: "Tu espacio está suspendido",
     body: `Motivo: ${reason.trim().slice(0, 200)}. Mientras dure no se pueden dar altas nuevas; quienes ya están siguen igual. Si creés que es un error, pedí la corrección.`, dedupeKey: `suspended:${Date.now()}`, createdBy: actorId });
   return { status: "suspended" };
@@ -391,30 +410,36 @@ const isDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:
 /** Cambio de condiciones y cierre toman el mismo lock de fila del contrato: el cierre ve el cambio completo o el cambio ve el cierre. */
 const lockContract = (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], id: string) => tx.select({ id: clientContract.id }).from(clientContract).where(eq(clientContract.id, id)).for("update");
 
+export type TermInput = { kind: "quantity" | "unit_price"; value: number; effectiveFrom: string; reason: string; evidence?: string | null };
 /** Nueva versión de cantidad acordada o precio por unidad. Nunca cambia snapshots ya cerrados. */
-export async function addTerm(actorId: string, contractId: string, p: { kind: "quantity" | "unit_price"; value: number; effectiveFrom: string; reason: string; evidence?: string | null }) {
+export async function addTerm(actorId: string, contractId: string, p: TermInput) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
+  const t = await db.transaction((tx) => addTermTx(tx, actorId, c, p));
+  await publishTermNotice(c, p, t, actorId);
+  return { version: t.t.version };
+}
+/** addTerm dentro de una transacción ajena (D209). Quien llama valida Admin y después publica el aviso con publishTermNotice. */
+export async function addTermTx(tx: Tx, actorId: string, c: typeof clientContract.$inferSelect, p: TermInput) {
   if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000) || p.value > 2_147_483_647) throw new AccessError("invalid", "Valor inválido.");
   if (!isDay(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
   if ((p.reason ?? "").trim().length < 3) throw new AccessError("invalid", "Escribí el motivo del cambio.");
-  const t = await db.transaction(async (tx) => {
-    await lockContract(tx, c.id);
-    const closed = await tx.select({ s: billingSnapshot.periodEnd }).from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id));
-    if (closed.some((s) => s.s >= p.effectiveFrom)) throw new AccessError("closed_period", "Esa fecha cae en un período ya cerrado: registrá un ajuste explícito en lugar de reescribirlo.", 409);
-    const [{ v }] = await tx.select({ v: sql<number>`coalesce(max(${contractTerm.version}), 0)::int` }).from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, p.kind)));
-    const [t] = await tx.insert(contractTerm).values({ contractId: c.id, kind: p.kind, version: v + 1, value: p.value, currency: p.kind === "unit_price" ? c.currency : null, effectiveFrom: p.effectiveFrom,
-      reason: p.reason.trim().slice(0, 300), evidence: p.evidence?.trim().slice(0, 300) || null, createdBy: actorId }).returning();
-    await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.term_added", resourceType: "contract_term", resourceId: t.id, meta: { kind: p.kind, version: t.version } });
-    const [prev] = await tx.select().from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, p.kind), eq(contractTerm.version, v))).limit(1);
-    return { t, prev };
-  });
-  // F-BL-05: el cliente ve qué cambió, desde cuándo, la versión anterior y el motivo.
+  await lockContract(tx, c.id);
+  const closed = await tx.select({ s: billingSnapshot.periodEnd }).from(billingSnapshot).where(eq(billingSnapshot.contractId, c.id));
+  if (closed.some((s) => s.s >= p.effectiveFrom)) throw new AccessError("closed_period", "Esa fecha cae en un período ya cerrado: registrá un ajuste explícito en lugar de reescribirlo.", 409);
+  const [{ v }] = await tx.select({ v: sql<number>`coalesce(max(${contractTerm.version}), 0)::int` }).from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, p.kind)));
+  const [t] = await tx.insert(contractTerm).values({ contractId: c.id, kind: p.kind, version: v + 1, value: p.value, currency: p.kind === "unit_price" ? c.currency : null, effectiveFrom: p.effectiveFrom,
+    reason: p.reason.trim().slice(0, 300), evidence: p.evidence?.trim().slice(0, 300) || null, createdBy: actorId }).returning();
+  await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.term_added", resourceType: "contract_term", resourceId: t.id, meta: { kind: p.kind, version: t.version } });
+  const [prev] = await tx.select().from(contractTerm).where(and(eq(contractTerm.contractId, c.id), eq(contractTerm.kind, p.kind), eq(contractTerm.version, v))).limit(1);
+  return { t, prev };
+}
+/** F-BL-05: el cliente ve qué cambió, desde cuándo, la versión anterior y el motivo. */
+export async function publishTermNotice(c: typeof clientContract.$inferSelect, p: TermInput, t: Awaited<ReturnType<typeof addTermTx>>, actorId: string) {
   const show = (x: { value: number; currency: string | null }) => (p.kind === "unit_price" ? fmtMoney(x.value, (x.currency ?? c.currency) as Currency) : `${x.value} ${unitWord(c.kind)}`);
   const what = p.kind === "quantity" ? `Cantidad acordada: ${show(t.t)}` : `Precio por ${unitWord(c.kind, false)}: ${show(t.t)}`;
   await publishNotice(c, { kind: "term", title: `${what} desde el ${dayTxt(p.effectiveFrom)}`, effectiveFrom: p.effectiveFrom, dedupeKey: `term:${t.t.id}`, createdBy: actorId,
     body: `Versión ${t.t.version}${t.prev ? ` (antes: ${show(t.prev)})` : ""}. Motivo: ${t.t.reason}.` });
-  return { version: t.t.version };
 }
 
 /** Criterio de conteo (qué socios/alumnos cuentan como vigentes): cambia con motivo y avisa al cliente. */

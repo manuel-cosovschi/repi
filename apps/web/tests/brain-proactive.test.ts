@@ -1,4 +1,4 @@
-// D209 · Motor proactivo de REPI de punta a punta (servidor + base de prueba): señales reales (sesiones, Training Intelligence,
+// D210 · Motor proactivo de REPI de punta a punta (servidor + base de prueba): señales reales (sesiones, Training Intelligence,
 // programa, check-in), candidatos del dominio, decide y brain_intervention. Casos del máster §25: 41–46, 48–50 y 54. Nada
 // llama a un modelo (sin OPENAI_API_KEY en las pruebas).
 import { randomUUID } from "node:crypto";

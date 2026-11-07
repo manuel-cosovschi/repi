@@ -12,7 +12,7 @@ import {
   transitionAction, upsertIntervention, type InterventionInput,
 } from "@/server/brain/store";
 
-// D209 · persistencia del cerebro: preferencias, memoria, conversación, avisos y acciones. Todo es de la persona: otra cuenta
+// D210 · persistencia del cerebro: preferencias, memoria, conversación, avisos y acciones. Todo es de la persona: otra cuenta
 // no lee ni modifica nada (casos 40, 62, 63) y los reintentos no duplican (casos 23 y 49).
 const person = async (birthDate: string | null = "1990-01-01") => {
   const id = randomUUID();

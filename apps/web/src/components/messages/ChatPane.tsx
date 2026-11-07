@@ -58,7 +58,7 @@ export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile 
 }
 
 export function Conversation({ id, title, extra, onChanged, dark, seed, onSeedUsed }: { id: string; title: string; extra?: React.ReactNode; onChanged?: () => void; dark?: boolean;
-  /** D209: borrador preparado con REPI. Sólo llena el campo (cada `n` nuevo); nunca envía: lo manda la persona. */
+  /** D210: borrador preparado con REPI. Sólo llena el campo (cada `n` nuevo); nunca envía: lo manda la persona. */
   seed?: { text: string; n: number } | null; onSeedUsed?: () => void }) {
   const [t, setT] = useState<Thread | null>(null);
   const [draft, setDraft] = useState("");

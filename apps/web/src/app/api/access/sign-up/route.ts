@@ -4,7 +4,7 @@ import * as svc from "@/server/access/services";
 
 const S = z.object({
   // Anexo 26/10: sin autoalta de coach/gym. "owner" = responsable invitado por Admin; "member" = socio que llega por QR.
-  flow: z.enum(["invite", "member", "owner"]),
+  flow: z.enum(["invite", "member", "owner", "seller"]), // D209: "seller" = vendedor invitado por Admin (sin DPA ni fecha de nacimiento)
   name: z.string().max(120), email: z.string().max(200), password: z.string().max(200),
   terms: z.boolean(), birth: z.string().max(10).optional(), code: z.string().max(20).optional(), proof: z.string().max(64).optional(),
 });
@@ -19,7 +19,7 @@ export const POST = handle(async (req) => {
   const staff = b.flow === "invite" && !!b.code && (await svc.lookupInvitation(b.code).then((i) => i.kind === "gym_staff", () => false));
   const r = await svc.signUpPerson({
     name: b.name, email: b.email, password: b.password, terms: b.terms,
-    birth: b.flow === "owner" || staff ? undefined : (b.birth ?? ""), organizationTerms: b.flow === "owner", sendOtp: !bound,
+    birth: b.flow === "owner" || b.flow === "seller" || staff ? undefined : (b.birth ?? ""), organizationTerms: b.flow === "owner", sendOtp: !bound,
   });
   // D130: enlace del correo de invitación abierto con su mismo email: cuenta verificada, se entra sin código (SEC-1: con la
   // prueba del correo, no con el código que también conoce quien invita).

@@ -62,10 +62,10 @@ export function keepLocalOnly(fresh: LocalSession, local: LocalSession | undefin
 }
 export const setKey = (peId: string, i: number) => `${peId}:${i}`;
 
-/** D209: mensaje por serie que calculó el servidor (las mismas reglas que el teléfono), tal como lo devuelve al registrar la serie. */
+/** D210: mensaje por serie que calculó el servidor (las mismas reglas que el teléfono), tal como lo devuelve al registrar la serie. */
 export type ServerSetIntel = { peId: string; idx: number; event: { code: string; text: string; restPlusSec: number | null } };
 /**
- * D209 (revisión AC3 #10/#23/#32): adopta el mensaje del servidor sobre una serie si el teléfono no tenía uno (p. ej. sin
+ * D210 (revisión AC3 #10/#23/#32): adopta el mensaje del servidor sobre una serie si el teléfono no tenía uno (p. ej. sin
  * objetivos porque el entrenamiento empezó sin conexión). Sólo durante el descanso que abrió ESA serie: un mensaje que llega
  * tarde (la cola se vació al reconectar) no aparece en el descanso de otro ejercicio. Nunca pisa el mensaje de las reglas
  * locales ni repite uno ya mostrado en el ejercicio. Devuelve la sesión con el mensaje, o `null` si no corresponde.

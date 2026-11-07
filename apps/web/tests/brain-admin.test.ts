@@ -1,4 +1,4 @@
-// D209 · REPI Admin «Coaching IA»: métricas agregadas del cerebro (sin ids de personas ni contenido) y límites de la IA
+// D210 · REPI Admin «Coaching IA»: métricas agregadas del cerebro (sin ids de personas ni contenido) y límites de la IA
 // (global y por organización) con validación estricta y auditoría. Sólo administradores de plataforma con 2FA.
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";

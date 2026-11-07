@@ -8,7 +8,7 @@ import { RepiAsk } from "@/components/brain/RepiAsk";
 type ThreadRow = { id: string; kind: "coach_client" | "gym_member"; title: string; subtitle: string; unread: number; last: { body: string; at: string; mine: boolean } | null };
 const ini = (n: string) => n.split(/[\s·]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-// D209: «Preparar consulta con REPI» deja un borrador en el campo de la conversación; nunca envía nada solo.
+// D210: «Preparar consulta con REPI» deja un borrador en el campo de la conversación; nunca envía nada solo.
 const prepare = { section: "messages" as const, send: "Preparar una consulta para mi entrenador", label: "Preparar consulta con REPI", className: "linkbtn rp-ask rp-ask-msgs" };
 
 export function MemberMessages({ offline, onSeen, draft, onDraftUsed }: { offline: boolean; onSeen: () => void; draft?: { text: string; to: "coach" | "gym" | null; n: number } | null; onDraftUsed?: () => void }) {

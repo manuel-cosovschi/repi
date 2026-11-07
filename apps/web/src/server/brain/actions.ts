@@ -1,4 +1,4 @@
-// Acciones de REPI (D209, contrato §5 «actions.ts»; máster §12). REPI sólo hace lo que está en el catálogo del dominio
+// Acciones de REPI (D210, contrato §5 «actions.ts»; máster §12). REPI sólo hace lo que está en el catálogo del dominio
 // (ACTIONS), con la entrada validada contra el contexto REAL de la persona (validateAction) y según su autonomía
 // (decideExecution). El protocolo de cada acción: intención → contexto → permisos → validación → seguridad → versión vigente
 // → confirmación → ejecución idempotente (brain_action + executeActionOnce) → auditoría → confirmación con el resultado real.

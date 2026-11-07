@@ -3,6 +3,7 @@ import { ConoceHub } from "@/components/conoce/ConoceHub";
 import { conoceMetadata, conoceViewport } from "./meta";
 import "@/styles/site.css";
 import "@/styles/conoce.css";
+import "@/styles/conoce3.css";
 
 export const viewport = conoceViewport;
 export const metadata = conoceMetadata({

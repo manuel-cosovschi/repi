@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 
-// D209 · migración 0050: tablas del cerebro, restricciones, RLS y cascadas (contrato §4).
+// D210 · migración 0051: tablas del cerebro, restricciones, RLS y cascadas (contrato §4).
 const BRAIN_TABLES = ["ai_breaker", "ai_policy", "ai_usage", "brain_action", "brain_intervention", "brain_memory", "brain_message", "brain_pref", "brain_thread"];
 const person = async () => {
   const id = randomUUID();
@@ -13,7 +13,7 @@ const person = async () => {
 /** Error de Postgres (drizzle lo envuelve en `cause`). */
 const pgErr = (p: PromiseLike<unknown>) => Promise.resolve(p).then(() => null, (e) => (e?.cause ?? e) as { code?: string; constraint_name?: string });
 
-describe("0050: tablas del cerebro", () => {
+describe("0051: tablas del cerebro", () => {
   it("existen las nueve tablas, con RLS activado y sin permisos públicos", async () => {
     const rows = await db.execute<{ relname: string; rls: boolean }>(sql`select relname, relrowsecurity as rls from pg_class
       where relnamespace = 'public'::regnamespace and relkind = 'r' and relname in (${sql.join(BRAIN_TABLES.map((t) => sql`${t}`), sql`, `)}) order by relname`);

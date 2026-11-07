@@ -48,7 +48,7 @@ const TABLE: [string, IntentName, Record<string, unknown>?][] = [
   // Entrenador
   ["preguntale a mi profe si puedo cambiar el ejercicio", "ask_coach", { request: "message" }], ["quiero hablar con mi profe", "ask_coach", { request: "message" }],
   ["preparame una consulta para mi entrenador", "ask_coach"], ["cambiá mi rutina", "ask_coach", { request: "program_change" }], ["subí todas las cargas", "ask_coach", { request: "program_change" }],
-  // D209 (UI): «subime» también es pedir un cambio de programa; el ejercicio nombrado queda en la consulta.
+  // D210 (UI): «subime» también es pedir un cambio de programa; el ejercicio nombrado queda en la consulta.
   ["subime las cargas", "ask_coach", { request: "program_change" }], ["subime las cargas del press banca", "ask_coach", { request: "program_change", exerciseId: EX.pb.id }],
   ["preguntale a mi profe si puedo cambiar el press banca", "ask_coach", { request: "message", exerciseId: EX.pb.id, exercise: EX.pb.name }],
   // Cuerpo, rutina importada, semana

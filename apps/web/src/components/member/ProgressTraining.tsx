@@ -176,7 +176,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         {ex ? (
           <>
             <div><b style={{ fontSize: 17 }}>{ex.exercise.name}</b><br /><small className="mb-muted">{ex.exercise.group} · desde {ex.totals.firstDay ? dayTxt(ex.totals.firstDay) : "—"}{ex.records ? ` · ${ex.records} ${ex.records === 1 ? "récord" : "récords"} en el período` : ""}</small></div>
-            {/* D209: «Preguntale a REPI» sobre el ejercicio del gráfico (el servidor valida que sea tuyo). */}
+            {/* D210: «Preguntale a REPI» sobre el ejercicio del gráfico (el servidor valida que sea tuyo). */}
             <RepiAsk section="progress" refs={{ exerciseId: ex.exercise.id }} subject={ex.exercise.name} label="Preguntale a REPI sobre este ejercicio"
               chips={[{ label: "¿Estoy progresando?", text: `¿Estoy progresando en ${ex.exercise.name}?` }, { label: "Mi última marca", text: `¿Qué marca hice la última vez en ${ex.exercise.name}?` }, { label: "¿Por qué me estanqué?", text: `¿Por qué estoy estancado en ${ex.exercise.name}?` }]} />
             {metrics.length > 1 && (

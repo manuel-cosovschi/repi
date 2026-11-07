@@ -1,4 +1,4 @@
-// Cerrar la conversación con REPI (D209). Idempotente; la próxima pregunta empieza una nueva.
+// Cerrar la conversación con REPI (D210). Idempotente; la próxima pregunta empieza una nueva.
 import { z } from "zod";
 import { body, handle, sessionUserId } from "@/server/access/http";
 import { closeThread } from "@/server/brain/conversation";

@@ -6,6 +6,7 @@ import { PROFILES, isProfile } from "@/lib/site-events";
 import { conoceMetadata, conoceViewport } from "../meta";
 import "@/styles/site.css";
 import "@/styles/conoce.css";
+import "@/styles/conoce3.css";
 
 type P = { params: Promise<{ perfil: string }> };
 export const dynamicParams = false;

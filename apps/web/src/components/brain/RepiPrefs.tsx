@@ -1,5 +1,5 @@
 "use client";
-// Asistente REPI (D209) · Perfil → «Asistente REPI». Avisos dentro de la app y por categoría, avisos en el teléfono (push,
+// Asistente REPI (D210) · Perfil → «Asistente REPI». Avisos dentro de la app y por categoría, avisos en el teléfono (push,
 // sólo adultos y con el permiso del navegador), horario de silencio, cuántos por día, autonomía y tono, y «Lo que REPI
 // recuerda» para ver y borrar. Cada cambio se guarda en el servidor y la pantalla muestra lo que el servidor devolvió.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

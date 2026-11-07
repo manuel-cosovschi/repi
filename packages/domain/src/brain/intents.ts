@@ -267,7 +267,7 @@ export function classify(text: string, ctx: IntentCtx = {}): Intent {
     case "short_time": { const m = minutesOf(text); slots.minutes = m.minutes; if (m.raw != null && m.minutes == null) slots.outOfRange = m.raw; break; }
     case "explain_method": slots.method = method; if (!method) conf = 0.4; break;
     case "set_preference": slots.key = pref?.key ?? null; slots.value = pref ? (typeof pref.value === "object" ? JSON.stringify(pref.value) : String(pref.value)) : null; slots.text = pref?.text ?? null; break;
-    // D209 (UI): «olvidate de lo del remo» → «remo» (sin «lo de»/«lo del», que no ayudan a encontrar el recuerdo).
+    // D210 (UI): «olvidate de lo del remo» → «remo» (sin «lo de»/«lo del», que no ayudan a encontrar el recuerdo).
     case "forget": { const m = /\b(?:olvidate|olvida|olvidar|borra|borrar|elimina|eliminar|saca|sacar)\s+(?:de\s+)?(?:que\s+)?(?:lo\s+del?\s+)?(.{3,80})$/.exec(t); slots.target = m ? m[1] : null; break; }
     case "busy_machine": slots.reason = /\bno (tengo|hay|tienen|encuentro)\b|\bfalta\b|\brot[oa]\b|\bfuera de servicio\b/.test(t) && !/\bocupad|\blibre\b|\bdisponible\b|\bcola\b|\bfila\b|\busando\b|\bganaron\b/.test(t) ? "no_equipment" : "busy"; break;
     case "change_exercise": slots.reason = /\bno me gusta|\bodio\b|\bno me copa/.test(t) ? "dislike" : /\bocupad/.test(t) ? "busy" : null; break;

@@ -249,6 +249,40 @@ export function groupLabels(exs: { detail?: ExerciseDetail | null }[]) {
   return exs.map((e) => { const g = e.detail?.group; if (!g) return null; const n = (count.get(g) ?? 0) + 1; count.set(g, n); return `${g}${n}`; });
 }
 
+// Combinar desde la fila del editor (pedido de un entrenador de sala, 07/11/2026): antes sólo se podía desde «Series y técnica»
+// → «Combinar con otros ejercicios», eligiendo la misma letra en cada ejercicio, y no lo encontraba nadie.
+type Groupable = { detail?: ExerciseDetail | null };
+const ungrouped = (d: ExerciseDetail): ExerciseDetail => ({ ...d, group: null, groupKind: null, rounds: null });
+/** Un grupo con un solo ejercicio no combina nada: se deshace. */
+function dropSingletons<T extends Groupable>(exs: T[]): T[] {
+  const n = new Map<string, number>();
+  for (const e of exs) if (e.detail?.group) n.set(e.detail.group, (n.get(e.detail.group) ?? 0) + 1);
+  return exs.map((e) => (e.detail?.group && n.get(e.detail.group) === 1 ? { ...e, detail: ungrouped(e.detail) } : e));
+}
+/** true si el ejercicio `i` ya está combinado con el siguiente (misma letra). */
+export const combinedWithNext = (exs: Groupable[], i: number) => !!exs[i]?.detail?.group && exs[i + 1]?.detail?.group === exs[i].detail!.group;
+/**
+ * Combina el ejercicio `i` con el siguiente. Si alguno de los dos ya está en un grupo, el otro se suma a ese grupo (misma letra,
+ * tipo y vueltas); si no, forman una superserie con la primera letra libre del día. Sin siguiente o sin letras libres, null.
+ * En un circuito con vueltas, quien llama iguala las series con `syncCircuit` (como al guardar «Series y técnica»).
+ */
+export function combineWithNext<T extends Groupable>(exs: T[], i: number): T[] | null {
+  const a = exs[i], b = exs[i + 1];
+  if (!a || !b) return null;
+  const base = a.detail?.group ? a.detail : b.detail?.group ? b.detail : null;
+  const letter = base?.group ?? GROUP_LETTERS.find((l) => !exs.some((e) => e.detail?.group === l)) ?? null;
+  if (!letter) return null;
+  const groupKind = base?.groupKind ?? "superset";
+  const rounds = groupKind === "circuit" ? base?.rounds ?? null : null;
+  const join = (e: T): T => ({ ...e, detail: { ...(e.detail ?? emptyDetail()), group: letter, groupKind, rounds } });
+  return dropSingletons(exs.map((e, k) => (k === i || k === i + 1 ? join(e) : e)));
+}
+/** Saca el ejercicio `i` de su grupo (si queda uno solo en el grupo, también se separa). */
+export function separateFromGroup<T extends Groupable>(exs: T[], i: number): T[] {
+  if (!exs[i]?.detail?.group) return exs;
+  return dropSingletons(exs.map((e, k) => (k === i ? { ...e, detail: ungrouped(e.detail!) } : e)));
+}
+
 /**
  * D137: siguiente ejercicio de la combinación (misma letra) al terminar la fila `setIdx` del ejercicio `idx`. D183: las
  * vueltas son series principales (con sus etapas): ver `comboStep`. Sin grupo, con un solo miembro o todo hecho, null.

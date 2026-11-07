@@ -1,4 +1,4 @@
-# REPI — Adaptive Coaching 3.0 · Personal Trainer Intelligence (D209)
+# REPI — Adaptive Coaching 3.0 · Personal Trainer Intelligence (D210)
 
 Fuente del pedido: `docs/adaptive/AC3_MASTER_PROMPT.md` (texto del titular, 07/11/2026). Auditoría del código en el que se
 apoya (mapas con archivo:línea): `docs/adaptive/ac3-auditoria/` (engines, workout, ai, data, notify, memberui, coachgym,
@@ -100,14 +100,14 @@ y sin diagnósticos.
 **Corrección en Training Intelligence (dentro del bloque, con prueba):** en pirámides, las filas principales con distintas
 repeticiones mezclaban la historia de la sesión (`intelligence.ts:237`). Ahora cada fila compara con su par.
 
-## 4. Datos — migración aditiva 0050
+## 4. Datos — migración aditiva 0051
 
 Todas las tablas son nuevas y tienen:
 - `ON DELETE CASCADE` a `user`, y a `organization` donde aplica;
 - RLS habilitado, igual que el resto;
 - ids de texto UUID y fechas `timestamptz`.
 
-No se toca ninguna tabla existente salvo con columnas nuevas con valor por defecto (ninguna en 0050).
+No se toca ninguna tabla existente salvo con columnas nuevas con valor por defecto (ninguna en 0051).
 
 | Tabla | Para qué | Claves |
 | --- | --- | --- |
@@ -122,9 +122,9 @@ No se toca ninguna tabla existente salvo con columnas nuevas con valor por defec
 | `ai_breaker` | circuit breaker por tarea | PK `task`. Columnas: `failures`, `opened_until`, `updated_at` |
 
 **Producción:**
-- Se aplica con `scripts/operations/hosted-0050.sql`, en una sola transacción, como `repi_app`, con RLS y su
+- Se aplica con `scripts/operations/hosted-0051.sql`, en una sola transacción, como `repi_app`, con RLS y su
   autoverificación.
-- Ensayo: `verify-0050.sh` sobre una copia descartable. Reversión: `scripts/rollback/0050_brain.down.sql`.
+- Ensayo: `verify-0051.sh` sobre una copia descartable. Reversión: `scripts/rollback/0051_brain.down.sql`.
 - Antes de aplicar: workflow «Respaldo» en verde.
 
 **Privacidad:**

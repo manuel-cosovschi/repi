@@ -55,3 +55,8 @@ design/motion/renders/
 
 # Resultados de E2E (Playwright)
 apps/web/e2e-results/
+
+# Herramientas locales: el lanzador de Impeccable baja y verifica su binario (engine-checksums.txt); no se versiona.
+.claude/skills/impeccable/scripts/bin/
+__pycache__/
+*.pyc

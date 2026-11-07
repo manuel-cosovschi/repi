@@ -1,4 +1,4 @@
-// D209 · Rutas nuevas del bloque C2 (señales del entrenador y de la sala, REPI Admin «Coaching IA», opt-in de push del socio):
+// D210 · Rutas nuevas del bloque C2 (señales del entrenador y de la sala, REPI Admin «Coaching IA», opt-in de push del socio):
 // sin sesión responden 401 sin llegar al servicio (lo mismo que verifica e2e/api-auth-sweep), con sesión pasan el id de la
 // sesión (nunca uno del cuerpo) y validan la entrada. Sin base de datos: los servicios están reemplazados por dobles.
 import { beforeEach, describe, expect, it, vi } from "vitest";

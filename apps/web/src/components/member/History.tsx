@@ -95,7 +95,7 @@ export function HistorySession({ id, flash, onClose, onChanged, offline, onRegis
             <div><strong>{d.metrics.reps}</strong><span>Repeticiones</span></div>
             <div><strong>{volumeIn(d.metrics.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>
           </div>
-          {/* D209: preguntar por esta sesión (se cierra la hoja para que el panel no quede debajo). */}
+          {/* D210: preguntar por esta sesión (se cierra la hoja para que el panel no quede debajo). */}
           {d.status === "completed" && !offline && <RepiAsk section="history" refs={{ sessionId: d.id }} subject={d.dayName} label="Preguntale a REPI por esta sesión" before={onClose}
             chips={[{ label: "¿Cómo me fue?", text: "¿Cómo me fue respecto de la anterior?" }, { label: "¿Qué hago la próxima?", text: "¿Qué hago la próxima?" }]} />}
           {d.status === "completed" && !offline && <SessionCalories sessionId={d.id} refresh={d.revision} onRegisterWeight={onRegisterWeight} />}

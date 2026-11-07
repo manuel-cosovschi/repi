@@ -1,4 +1,4 @@
-# REPI — Adaptive Coaching 3.0 · API del socio: conversación, acciones, contexto y cierre (D209, bloque C1)
+# REPI — Adaptive Coaching 3.0 · API del socio: conversación, acciones, contexto y cierre (D210, bloque C1)
 
 Contrato general: `ADAPTIVE_COACHING_3.md` (§5 servidor, §6 interfaz, §7 seguridad). Pruebas: `AC3_PRUEBAS.md` (casos 10–14,
 23, 25–31, 33, 36–41, 56, 58–60, 63–67, 69, 70). Código: `apps/web/src/server/brain/{context,orchestrator,actions,review,events,home}.ts`

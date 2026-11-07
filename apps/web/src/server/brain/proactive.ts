@@ -1,4 +1,4 @@
-// Motor proactivo de REPI (D209, contrato §5 «proactive.ts», máster §4 y §19). Junta señales baratas con los servicios que ya
+// Motor proactivo de REPI (D210, contrato §5 «proactive.ts», máster §4 y §19). Junta señales baratas con los servicios que ya
 // existen (sesiones, Training Intelligence, procedencia de Smart Import, check-in, programa vigente), arma los candidatos con
 // el dominio (buildCandidates), los pasa por el motor de relevancia (decide) y deja todo en brain_intervention: lo emitido
 // como pendiente y lo callado como «suppressed» con su motivo (métricas). Nada de esto llama a un modelo.

@@ -392,7 +392,7 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 .repinews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
 .repinews .card { padding: 16px 18px; }
 
-/* D209 · «Señales de REPI» (ficha del coach → Rendimiento y ficha del socio en Gym): análisis de REPI, distinto de los datos
+/* D210 · «Señales de REPI» (ficha del coach → Rendimiento y ficha del socio en Gym): análisis de REPI, distinto de los datos
    del alumno; cada señal dice de dónde sale. Sólo tokens --ui-*. */
 .rs-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 .rs-tag { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--ui-accent-tint); color: var(--ui-text); font: 600 11px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; }
@@ -425,7 +425,7 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 @media (pointer: coarse) { .rs .btn.sm, .ac .btn.sm { min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .rs-why summary::before, .rs-excluded summary::before { transition: none; } }
 
-/* D209 · REPI Admin › Coaching IA: agregados reales en tablas y barras simples; límites con revisión y confirmación. */
+/* D210 · REPI Admin › Coaching IA: agregados reales en tablas y barras simples; límites con revisión y confirmación. */
 .ac { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .ac h3, .ac-h3 { margin: 4px 0 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--ui-muted); }
 .ac-period { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--ui-muted); }

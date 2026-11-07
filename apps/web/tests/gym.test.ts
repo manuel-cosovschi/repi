@@ -215,6 +215,12 @@ describe("socio: pedido al equipo de sala (D41), programa institucional y relaci
     await db.update(schema.gymTask).set({ status: "in_progress", assigneeUserId: w.t1 }).where(eq(schema.gymTask.id, t2.id));
     expect((await gym.memberDetail(w.t1, w.org, w.vale.memberId)).programTaskId).toBe(t2.id);
     expect((await gym.memberDetail(w.t2, w.org, w.vale.memberId)).programTaskId).toBeNull();
+    // Abierta desde una solicitud de Sala: si esa solicitud se cierra con el programa, es la que se completa; si no, la de siempre.
+    const t3 = await gym.createMemberTask(w.vale.userId, { kind: "rutina", text: "Quiero cambiar el día de piernas" });
+    await db.update(schema.gymTask).set({ status: "in_progress", assigneeUserId: w.t1 }).where(eq(schema.gymTask.id, t3.id));
+    expect((await gym.memberDetail(w.t1, w.org, w.vale.memberId, new Date(), { task: t3.id })).programTaskId).toBe(t3.id);
+    expect((await gym.memberDetail(w.t1, w.org, w.vale.memberId, new Date(), { task: randomUUID() })).programTaskId).toBe(t2.id);
+    expect((await gym.memberDetail(w.t2, w.org, w.vale.memberId, new Date(), { task: t3.id })).programTaskId).toBeNull();
     const r3 = await gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC("Inicial v3"), reason: "Cambio pedido", completeTaskId: t2.id });
     expect(r3.completed?.ref).toMatch(/^T-\d+$/);
   });

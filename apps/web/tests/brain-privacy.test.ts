@@ -9,7 +9,7 @@ import { createMemory } from "@/server/brain/memory";
 import { appendMessage, closeThread } from "@/server/brain/conversation";
 import { proposeAction, upsertIntervention } from "@/server/brain/store";
 
-// D209 · privacidad del cerebro (contrato §4): exportación completa y sin datos ajenos, borrado en cascada y retención diaria.
+// D210 · privacidad del cerebro (contrato §4): exportación completa y sin datos ajenos, borrado en cascada y retención diaria.
 const DAY = 86_400_000;
 const person = async (name = "Persona Privacidad REPI") => {
   const id = randomUUID();

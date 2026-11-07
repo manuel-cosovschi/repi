@@ -21,12 +21,12 @@ function effortFor(model: string, e: "minimal" | "low" | "medium" = "minimal") {
 export type AiPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
   | { type: "file"; file: { filename: string; file_data: string } };
 
-/** Lo que se supo de un intento (D209, gateway del cerebro): modelo, estado HTTP y tokens. Nunca el contenido. */
+/** Lo que se supo de un intento (D210, gateway del cerebro): modelo, estado HTTP y tokens. Nunca el contenido. */
 export type AiCallInfo = { model: string; status: number | null; finishReason: string | null; usage: { input: number; cached: number; output: number } | null };
 
 /**
  * Pide un objeto JSON que cumpla `schema`. Lanza AccessError «ai_unavailable» si no hay clave o el servicio falla.
- * Opcionales (D209, para server/brain/gateway.ts; los llamadores actuales no cambian): `model` fuerza el modelo, `signal`
+ * Opcionales (D210, para server/brain/gateway.ts; los llamadores actuales no cambian): `model` fuerza el modelo, `signal`
  * cancela junto con el timeout y `onInfo` recibe el estado y los tokens de este intento (sin contenido).
  */
 export async function aiJson<T>(p: { name: string; system: string; parts: AiPart[]; schema: object; maxTokens?: number; effort?: "minimal" | "low" | "medium"; timeoutMs?: number; fast?: boolean; requireComplete?: boolean; model?: string; signal?: AbortSignal; onInfo?: (i: AiCallInfo) => void }): Promise<T> {

@@ -1,5 +1,5 @@
 "use client";
-// Asistente REPI (D209) · «¿Por qué te digo esto?». Hoja (la pidió la persona) con la evidencia que mandó el servidor: qué se
+// Asistente REPI (D210) · «¿Por qué te digo esto?». Hoja (la pidió la persona) con la evidencia que mandó el servidor: qué se
 // comparó, qué sesiones y qué se dejó afuera, y de dónde sale. Opinar queda registrado sólo después de que el servidor lo confirma.
 import { useState } from "react";
 import { api } from "@/lib/api";

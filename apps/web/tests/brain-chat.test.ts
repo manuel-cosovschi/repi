@@ -11,7 +11,7 @@ import { sessionReviewFor } from "@/server/brain/review";
 import type { ProposedAction } from "@/server/brain/actions";
 import { coachWorld, daysAgo, err, pastSession, rawPerson, send, startToday, stubAi } from "./brain-chat.world";
 
-// D209 · C1 · Conversación con REPI (orchestrator.handleMessage) contra la base de prueba, con servicios reales. Sin IA: estas
+// D210 · C1 · Conversación con REPI (orchestrator.handleMessage) contra la base de prueba, con servicios reales. Sin IA: estas
 // pruebas van por reglas (sin OPENAI_API_KEY); las que tocan el camino con IA están en brain-chat-ai.test.ts con un doble.
 beforeEach(() => resetRateLimits());
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });

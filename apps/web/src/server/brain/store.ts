@@ -1,4 +1,4 @@
-// Persistencia del cerebro (D209): avisos (brain_intervention), acciones (brain_action) y uso de IA (ai_usage).
+// Persistencia del cerebro (D210): avisos (brain_intervention), acciones (brain_action) y uso de IA (ai_usage).
 // Contrato: docs/adaptive/ADAPTIVE_COACHING_3.md §4–§5. Capa fina y tipada: cada función recibe el userId de la sesión y
 // filtra por él (un id ajeno responde 404, igual que uno inexistente). Las reglas (qué emitir, qué ejecutar) viven en el
 // dominio y en server/brain/{proactive,actions}.ts; acá sólo se garantiza idempotencia y transiciones atómicas.

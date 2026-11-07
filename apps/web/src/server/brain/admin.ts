@@ -1,4 +1,4 @@
-// REPI Admin · Coaching IA (D209, contrato §5 «admin.ts», máster §24). Métricas agregadas del cerebro y límites de la IA.
+// REPI Admin · Coaching IA (D210, contrato §5 «admin.ts», máster §24). Métricas agregadas del cerebro y límites de la IA.
 // Detrás de requireAdmin (rol de plataforma + 2FA). Todo es agregado: ningún id de persona, ningún texto de avisos, mensajes,
 // memoria ni prompts; sólo cantidades por tipo, estado, motivo, tarea y modelo. Las cifras salen de las tablas reales
 // (brain_intervention, brain_action, brain_message, ai_usage, ai_breaker, ai_policy, notification_outbox, audit_event): no hay

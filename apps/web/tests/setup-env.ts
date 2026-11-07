@@ -6,7 +6,7 @@ process.env.DATABASE_URL = assertTestDatabaseTarget(process.env.TEST_DATABASE_UR
 // Las pruebas nunca usan proveedores ni credenciales de correo reales heredados del shell.
 delete process.env.RESEND_API_KEY;
 process.env.MAIL_DRIVER = "dev";
-// D209 (auditoría AC3, tests.md): ninguna prueba gasta IA. Sin clave, aiJson y el gateway del cerebro no llaman a OpenAI; las
+// D210 (auditoría AC3, tests.md): ninguna prueba gasta IA. Sin clave, aiJson y el gateway del cerebro no llaman a OpenAI; las
 // pruebas que necesitan el camino con IA ponen una clave falsa y un doble de fetch.
 delete process.env.OPENAI_API_KEY;
 process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-00";

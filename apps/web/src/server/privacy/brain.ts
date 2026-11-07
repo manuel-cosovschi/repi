@@ -1,4 +1,4 @@
-// Privacidad de REPI Intelligence Core (D209, contrato §4 «Privacidad»): exportación de todo lo del cerebro de la persona y
+// Privacidad de REPI Intelligence Core (D210, contrato §4 «Privacidad»): exportación de todo lo del cerebro de la persona y
 // retención diaria. El borrado de la cuenta lo hace la cascada de las FK a `user` (y a `organization` en ai_usage); la purga
 // de demos también la aprovecha (server/sandbox/services.ts).
 import { and, asc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";

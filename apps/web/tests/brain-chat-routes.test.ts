@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// D209 · C1 · Rutas /api/me/brain/**: todas exigen sesión (como verifica la barrida api-auth-sweep), rechazan escrituras de otro
+// D210 · C1 · Rutas /api/me/brain/**: todas exigen sesión (como verifica la barrida api-auth-sweep), rechazan escrituras de otro
 // sitio y están conectadas a los servicios. La base es la real de prueba; sólo se reemplaza la lectura de la sesión.
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/server/auth", () => ({ auth: { api: { getSession: vi.fn() } } }));

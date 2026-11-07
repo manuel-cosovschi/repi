@@ -1,4 +1,4 @@
-// Señales de REPI para quien programa al alumno (D209, contrato §5 «coach.ts», máster §14–15). Entrenador privado: requireCoach
+// Señales de REPI para quien programa al alumno (D210, contrato §5 «coach.ts», máster §14–15). Entrenador privado: requireCoach
 // + requireClientOf (relación vigente con permiso de entrenamientos «training»). Equipo de sala: program.edit en la sede del
 // socio + consentimiento attendance_training (el mismo camino que la ficha de Training Intelligence del gimnasio). Dueño y
 // gerencia nunca: no programan, y administrar el gimnasio no da acceso a datos del alumno (caso 62).
@@ -45,7 +45,7 @@ export type CoachInsight = {
   refs?: { exerciseIds?: string[]; proposalIds?: string[]; items?: PendingItem[] };
 };
 /**
- * Una propuesta abierta, sin su texto (D209 · interfaz): ejercicio, tipo y origen. `source: "student"` = pedido del alumno desde
+ * Una propuesta abierta, sin su texto (D210 · interfaz): ejercicio, tipo y origen. `source: "student"` = pedido del alumno desde
  * REPI (propose_to_coach), que la ficha de Training Intelligence no lista; la interfaz lo lleva al editor de siempre y deja
  * decidir con las rutas existentes. Nunca la nota del alumno.
  */
@@ -209,7 +209,7 @@ export type PendingSignals = {
 };
 
 /**
- * Cantidades para «Pendientes» del panel del coach (D209 · interfaz): por alumno, propuestas abiertas y, de ellas, cuántas son
+ * Cantidades para «Pendientes» del panel del coach (D210 · interfaz): por alumno, propuestas abiertas y, de ellas, cuántas son
  * pedidos del alumno desde REPI (acción propose_to_coach ejecutada que apunta a esa propuesta). Mismo alcance que la ficha:
  * requireCoach y, por alumno, relación no terminada con el permiso «training» activo (sin permiso, no cuenta). Sólo números:
  * ningún texto de la propuesta ni del alumno. Es una lectura: no crea propuestas.

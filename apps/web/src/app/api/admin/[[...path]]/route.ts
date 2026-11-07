@@ -9,6 +9,7 @@ import * as bp from "@/server/commercial/payments";
 import * as an from "@/server/announcements/services";
 import * as se from "@/server/site/events";
 import * as ab from "@/server/brain/admin";
+import { salesGet, salesPost } from "@/server/sales/admin-routes";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -19,10 +20,11 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const [a, b, c] = (await params).path ?? [];
   const me = await sessionUserId();
   const u = new URL(req.url);
+  if (a === "sales") return salesGet(me, ((await params).path ?? []).slice(1), u.searchParams); // D209
   if (a === "summary") return cm.adminSummary(me);
   if (a === "announcements") return an.adminAnnouncements(me); // D202
   if (a === "site") return se.siteSummary(me, Number(u.searchParams.get("days")) || 30); // D205
-  if (a === "brain" && !b) return ab.brainMetrics(me, { days: Number(u.searchParams.get("days")) || 7 }); // D209: Coaching IA (agregados)
+  if (a === "brain" && !b) return ab.brainMetrics(me, { days: Number(u.searchParams.get("days")) || 7 }); // D210: Coaching IA (agregados)
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" || f === "ideas" ? f : "active"); }
@@ -38,6 +40,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   const [a, b, c] = (await params).path ?? [];
   const me = await sessionUserId();
   await limit(`admin:${me}`, 60);
+  if (a === "sales") return salesPost(me, ((await params).path ?? []).slice(1), req); // D209
   if (a === "clients" && !b) {
     return cm.createClient(me, await body(req, z.object({
       kind: z.enum(["gym", "coach"]), orgName: z.string().max(120), legalName: z.string().max(160).nullable().optional(), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3),
@@ -96,7 +99,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   throw NF();
 });
 
-// D209 · Coaching IA: límites de la IA del cerebro (global u organización). Validación estricta en el servicio.
+// D210 · Coaching IA: límites de la IA del cerebro (global u organización). Validación estricta en el servicio.
 export const PUT = handle<Ctx>(async (req, { params }) => {
   const [a, b] = (await params).path ?? [];
   const me = await sessionUserId();

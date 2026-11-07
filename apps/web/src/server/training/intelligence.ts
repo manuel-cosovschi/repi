@@ -214,7 +214,7 @@ export async function clientIntelligence(actorId: string, orgId: string, coachCl
 }
 
 /**
- * D209: pedidos del alumno al entrenador hechos desde REPI (propose_to_coach) en training_proposal. Comparten la tabla y el lugar
+ * D210: pedidos del alumno al entrenador hechos desde REPI (propose_to_coach) en training_proposal. Comparten la tabla y el lugar
  * «abierta por ejercicio y tipo» con Training Intelligence: TI no los toma como propios (ni para «ya decidida» ni para pisarlos).
  */
 export const STUDENT_REQUEST_VERSION = "brain-1";

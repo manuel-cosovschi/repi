@@ -1,4 +1,4 @@
-// D209 · Señales de REPI para quien programa al alumno. Entrenador privado (requireCoach + requireClientOf con permiso de
+// D210 · Señales de REPI para quien programa al alumno. Entrenador privado (requireCoach + requireClientOf con permiso de
 // entrenamientos) y equipo de sala (program.edit + sede + attendance_training). Sólo cantidades y tendencias de lo entrenado en
 // esa relación: nunca memoria, conversación, textos de avisos ni salud del alumno. Casos del máster §25: 52, 53, 55, 61 y 62.
 import { randomUUID } from "node:crypto";

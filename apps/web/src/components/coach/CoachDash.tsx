@@ -6,7 +6,7 @@ import { useLoad } from "@/components/gym/shared";
 import type { PendingSignals } from "@/server/brain/coach";
 import { featureOn } from "@/lib/features";
 
-/** D209: como mucho tres alumnos con propuestas de REPI por revisar; el resto se resume en una línea. */
+/** D210: como mucho tres alumnos con propuestas de REPI por revisar; el resto se resume en una línea. */
 const MAX_REPI_LINES = 3;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -15,7 +15,7 @@ const greet = () => { const h = Number(new Intl.DateTimeFormat("es-AR", { timeZo
 export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
   orgId: string; ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null; tab?: "rend" }) => void;
 }) {
-  // D209: propuestas abiertas y pedidos del alumno desde REPI (sólo cantidades). Si no carga, «Pendientes» sigue como siempre.
+  // D210: propuestas abiertas y pedidos del alumno desde REPI (sólo cantidades). Si no carga, «Pendientes» sigue como siempre.
   // Con el Asistente REPI apagado (flag `assistant`) no se pide ni se muestra nada.
   const repi = useLoad<PendingSignals>(featureOn("assistant") ? `/api/coach/${orgId}/brain` : null).data;
   const today = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long", day: "numeric", month: "long" }).format(new Date());

@@ -1,4 +1,4 @@
-// Eventos del cerebro (D209, contrato §2 capa 1 «server/brain/events.ts»). Sin tabla nueva: lo que REPI necesita recordar de
+// Eventos del cerebro (D210, contrato §2 capa 1 «server/brain/events.ts»). Sin tabla nueva: lo que REPI necesita recordar de
 // lo que pasó queda en brain_memory con procedencia `system` y vencimiento por tipo (decisión y resultado: 180 días; temporal:
 // fin del día). Los hechos (series, marcas, programa) nunca se copian acá: se leen de la base.
 //

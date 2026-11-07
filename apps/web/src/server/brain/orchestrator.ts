@@ -1,4 +1,4 @@
-// Orquestador de la conversación con REPI (D209, contrato §5 «orchestrator.ts»; máster §11). Un mensaje entra y sale una
+// Orquestador de la conversación con REPI (D210, contrato §5 «orchestrator.ts»; máster §11). Un mensaje entra y sale una
 // respuesta, en este orden:
 //   1. Contexto autorizado (la referencia de la pantalla se valida: un id ajeno es 404 y no se guarda nada).
 //   2. Persistencia del mensaje (idempotente por clientId: un reintento devuelve la misma respuesta sin repetir nada).

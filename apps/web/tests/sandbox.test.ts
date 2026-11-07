@@ -44,7 +44,7 @@ describe("demo guiada", () => {
     const [day] = await db.select({ id: schema.programDay.id }).from(schema.programDay).innerJoin(schema.programVersion, eq(schema.programVersion.id, schema.programDay.versionId))
       .innerJoin(schema.program, eq(schema.program.id, schema.programVersion.programId)).where(eq(schema.program.orgId, coachId)).limit(1);
     await db.insert(schema.programExercise).values({ dayId: day.id, position: 99, exerciseId: own.id, name: own.name, sets: 3, reps: "10", restSec: 90 });
-    // D209 (auditoría AC3, tests.md gap 9): lo de REPI de las personas de la demo también se borra (cascada + ai_policy).
+    // D210 (auditoría AC3, tests.md gap 9): lo de REPI de las personas de la demo también se borra (cascada + ai_policy).
     const vale = by("valentina.gomez");
     const [thread] = await db.insert(schema.brainThread).values({ userId: vale }).returning();
     await db.insert(schema.brainMessage).values({ threadId: thread.id, userId: vale, role: "user", text: "¿Qué toca hoy?" });

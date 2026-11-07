@@ -1,4 +1,4 @@
-// Dispositivos para push (anexo §7): registro sólo por acción explícita, pausa y baja por dispositivo. D209: el socio adulto
+// Dispositivos para push (anexo §7): registro sólo por acción explícita, pausa y baja por dispositivo. D210: el socio adulto
 // puede registrar su dispositivo con `coaching: true` para recibir avisos de REPI fuera de la app (activa brain_pref.push).
 import { z } from "zod";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";

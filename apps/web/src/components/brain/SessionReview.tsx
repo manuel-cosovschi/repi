@@ -1,5 +1,5 @@
 "use client";
-// Asistente REPI (D209) · cierre de la sesión en la pantalla «Entrenamiento completado», después de las marcas. Lo arma el
+// Asistente REPI (D210) · cierre de la sesión en la pantalla «Entrenamiento completado», después de las marcas. Lo arma el
 // servidor con datos reales (previsto contra hecho, la sesión comparable anterior, marcas, omitidos, adaptaciones y una
 // propuesta prudente para la próxima): acá sólo se muestra. Sin conexión, o si la sesión todavía no llegó, se dice que el
 // análisis sale al sincronizar; nunca bloquea salir ni la celebración.

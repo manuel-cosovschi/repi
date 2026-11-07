@@ -1,4 +1,4 @@
-// Gateway de IA del cerebro (D209, contrato §5). Envuelve aiJson (server/ai/openai.ts) sin cambiar su contrato y agrega, en
+// Gateway de IA del cerebro (D210, contrato §5). Envuelve aiJson (server/ai/openai.ts) sin cambiar su contrato y agrega, en
 // orden: política (ai_policy global → org → usuario), caché, cuota diaria por usuario, presupuesto en micro-dólares (global
 // diario y org mensual), circuit breaker por tarea, concurrencia (1 por usuario y un máximo global), timeout + cancelación con
 // AbortSignal + un solo reintento en 429/5xx, y el registro en ai_usage (tokens y costo, NUNCA contenido).
@@ -81,7 +81,7 @@ const policyOn = (p: AiPolicy, orgId: string | null) =>
 export const PRICES: Record<string, { input: number; cached: number; output: number } | null> = {
   "gpt-6-luna": { input: 0.10, cached: 0.01, output: 0.50 },
   "gpt-5.6-terra": { input: 2, cached: 0.2, output: 12 },
-  // TODO(D209): gpt-4.1-mini (lo usan hoy las otras funciones de IA) no figura en modelos-openai.md; no inventamos su precio.
+  // TODO(D210): gpt-4.1-mini (lo usan hoy las otras funciones de IA) no figura en modelos-openai.md; no inventamos su precio.
   "gpt-4.1-mini": null,
 };
 export function costMicros(model: string, u: { input: number; cached: number; output: number }) {

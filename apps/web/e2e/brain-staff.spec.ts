@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 import postgres from "postgres";
 import { assertLocalTarget, expectNoHorizontalOverflow, openDemo, watchErrors } from "./helpers";
 
-// D209 · Adaptive Coaching 3.0 del lado de quien programa, en el navegador real contra la build local y `repi_dev`, siempre
+// D210 · Adaptive Coaching 3.0 del lado de quien programa, en el navegador real contra la build local y `repi_dev`, siempre
 // dentro de la demo (organizaciones is_demo, se borran a las 6 h).
 //   · Coach: «Pendientes» del panel → ficha en Rendimiento → «Señales de REPI» (análisis de REPI, nunca la conversación ni la
 //     memoria del alumno) → un pedido del alumno se revisa en el editor de siempre y se decide con confirmación.

@@ -1,4 +1,4 @@
-// Conversación con REPI (D209, contrato §5): una conversación abierta por persona, mensajes con procedencia (`via`) y
+// Conversación con REPI (D210, contrato §5): una conversación abierta por persona, mensajes con procedencia (`via`) y
 // opinión. Es privada: sólo la lee su dueño (userId de la sesión); ni el entrenador ni la gerencia ni REPI Admin. Retención:
 // 180 días (purga diaria). Al modelo se le manda un resumen y los últimos turnos (lastTurns), no todo el historial.
 import { and, desc, eq, isNull, sql } from "drizzle-orm";

@@ -30,7 +30,7 @@ export function pushHostAllowed(endpoint: string) {
 export const pushPublicKey = () => process.env.VAPID_PUBLIC_KEY ?? null;
 
 /**
- * Registra este dispositivo (cualquier persona con sesión: staff y socios). D209: con `coaching: true` el socio además activa
+ * Registra este dispositivo (cualquier persona con sesión: staff y socios). D210: con `coaching: true` el socio además activa
  * las notificaciones de REPI fuera de la app (brain_pref.push) en el mismo paso; sólo adultos confirmados (menor o edad
  * desconocida: 403 y no se registra nada). Sin `coaching` el comportamiento es el de siempre.
  */
@@ -58,7 +58,7 @@ export async function pushStatus(userId: string) {
   const subs = await db.select({ id: pushSubscription.id, lastOkAt: pushSubscription.lastOkAt, ua: pushSubscription.userAgent }).from(pushSubscription)
     .where(and(eq(pushSubscription.userId, userId), isNull(pushSubscription.revokedAt)));
   const [p] = await db.select().from(notifyPref).where(eq(notifyPref.userId, userId));
-  // D209: estado del push de REPI (sólo de la propia persona): activado en sus preferencias y si su edad lo permite.
+  // D210: estado del push de REPI (sólo de la propia persona): activado en sus preferencias y si su edad lo permite.
   const [prefs, age] = await Promise.all([getPrefs(userId), bodyEligibility(userId).catch(() => "unknown" as const)]);
   return { configured: configured(), publicKey: pushPublicKey(), devices: subs.length, paused: p?.paused ?? false, coaching: { enabled: prefs.push && age === "adult", eligible: age === "adult" } };
 }
@@ -78,7 +78,7 @@ function runAfterResponse(job: () => Promise<unknown>) {
   try { after(() => job().catch(() => {})); } catch { void job().catch(() => {}); }
 }
 
-// ── Push de REPI (D209) ─────────────────────────────────────────────────────
+// ── Push de REPI (D210) ─────────────────────────────────────────────────────
 type OutboxRow = typeof notificationOutbox.$inferSelect;
 /** Clave de un aviso de REPI en la cola: brain:<categoría>:<id del aviso>:<persona> (la arma proactive.ts). */
 const BRAIN_KEY = /^brain:([a-z_]+):([0-9a-f-]{36}):/;
@@ -137,7 +137,7 @@ export async function processOutbox(limit = 50, now = new Date()) {
   const gates = await brainGates(due, now);
   let sent = 0, postponed = 0;
   for (const n of due) {
-    // D209: avisos de REPI. Postergar no reclama la fila ni gasta un intento; descartar es definitivo (la tarjeta sigue en la app).
+    // D210: avisos de REPI. Postergar no reclama la fila ni gasta un intento; descartar es definitivo (la tarjeta sigue en la app).
     const g = gates.get(n.id);
     if (g && "postponeTo" in g) {
       const r = await db.update(notificationOutbox).set({ nextAttemptAt: g.postponeTo })

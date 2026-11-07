@@ -1,4 +1,4 @@
-// D209 · Interfaz del coach: «Pendientes» del panel (coachPendingSignals) y el detalle sin texto de las propuestas abiertas en
+// D210 · Interfaz del coach: «Pendientes» del panel (coachPendingSignals) y el detalle sin texto de las propuestas abiertas en
 // «Señales de REPI» (refs.items). Mismo alcance que la ficha: requireCoach y, por alumno, relación no terminada con el permiso
 // «training» activo. Sólo números y metadatos (ejercicio, tipo, origen): nunca la nota del alumno ni su memoria.
 import { randomUUID } from "node:crypto";

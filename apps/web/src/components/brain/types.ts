@@ -1,4 +1,4 @@
-// Asistente REPI (Adaptive Coaching 3.0, D209) · tipos del lado del navegador. Espejo de lo que devuelven las rutas
+// Asistente REPI (Adaptive Coaching 3.0, D210) · tipos del lado del navegador. Espejo de lo que devuelven las rutas
 // /api/me/brain/** (contrato: docs/adaptive/AC3_API_SOCIO.md y AC3_API_PROACTIVO_COACH_ADMIN.md). La interfaz no calcula nada
 // de esto: lo muestra. Los tipos del núcleo se importan del dominio (sólo tipos, no lógica de servidor).
 import type { ActionKind, BrainPrefs, CardAction, Evidence, InterventionCategory, MemoryKind, ReplyCard, Section } from "@repi/domain/brain/types";

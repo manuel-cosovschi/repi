@@ -1,4 +1,4 @@
-// Cierre de una sesión con REPI (D209, contrato §6 «Cierre»; máster §7). Alimenta `sessionReview` del dominio con datos reales:
+// Cierre de una sesión con REPI (D210, contrato §6 «Cierre»; máster §7). Alimenta `sessionReview` del dominio con datos reales:
 // lo previsto contra lo hecho, la sesión comparable anterior de cada ejercicio (antes de esta), las marcas contra toda la
 // historia válida previa (detectMarks), lo omitido, los reemplazos y la propuesta prudente de Training Intelligence para la
 // próxima. Sólo la persona dueña de la sesión la ve (un id ajeno responde 404, igual que uno inexistente).

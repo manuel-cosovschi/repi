@@ -1,4 +1,4 @@
-// Preferencias de asistencia de REPI (D209, Perfil → Asistente REPI). Sin fila = DEFAULT_PREFS del dominio. Sólo la propia
+// Preferencias de asistencia de REPI (D210, Perfil → Asistente REPI). Sin fila = DEFAULT_PREFS del dominio. Sólo la propia
 // persona las lee y cambia (userId de la sesión). Push requiere opt-in y ser adulto (contrato §7: menores sin push de coaching).
 import { eq } from "drizzle-orm";
 import { z } from "zod";

@@ -27,7 +27,7 @@ export function IntelSection({ load, decideUrl, relId, kind, who = "con vos", on
   load: string; decideUrl: (proposalId: string) => string; relId: string; kind: TiDraft["kind"]; who?: string;
   /** Abre el editor de programas de siempre con la propuesta a la vista (no la aplica). */
   onReview?: (d: TiDraft) => void;
-  /** D209: cada carga puede abrir o cerrar propuestas; «Señales de REPI» se actualiza para contar lo mismo. */
+  /** D210: cada carga puede abrir o cerrar propuestas; «Señales de REPI» se actualiza para contar lo mismo. */
   onLoaded?: () => void;
 }) {
   const d = useLoad<View>(load);

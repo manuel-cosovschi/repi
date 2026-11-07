@@ -1,4 +1,4 @@
-// Memoria de REPI (D209, contrato §3 «memory.ts» y §5). Guarda preferencias declaradas, decisiones, resultados y contexto
+// Memoria de REPI (D210, contrato §3 «memory.ts» y §5). Guarda preferencias declaradas, decisiones, resultados y contexto
 // temporal, con procedencia, vencimiento por tipo, corrección y borrado. Los hechos (marcas, programa, sesiones) NO se
 // guardan: se leen de la base. Todo filtra por el userId de la sesión: un id ajeno responde 404, igual que uno inexistente.
 // La política (normalización, lista negra de inferencias) es del dominio; acá se acota el formato y se evita duplicar.

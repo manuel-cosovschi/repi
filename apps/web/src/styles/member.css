@@ -1010,7 +1010,7 @@
 .notif-cta { font-size: 12.5px; color: var(--ui-link); font-weight: 600; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .pc-dot { transition: none; } }
 
-/* ── D209 · Asistente REPI (Adaptive Coaching 3.0): una familia (.rp-*), sólo tokens --ui-* en Claro, Oscuro y Automático ── */
+/* ── D210 · Asistente REPI (Adaptive Coaching 3.0): una familia (.rp-*), sólo tokens --ui-* en Claro, Oscuro y Automático ── */
 .rp-badge { display: inline-grid; place-items: center; height: 22px; padding: 0 8px; border-radius: 7px; background: var(--ui-text); color: var(--ui-page); font: 700 12px/1 var(--font-display); letter-spacing: .06em; flex: none; }
 /* Procedencia: siempre visible junto a lo que dice REPI. */
 .rp-origin { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 11px; font: 600 11.5px/1.2 var(--font-ui); background: var(--ui-chip-info-bg); color: var(--ui-chip-info-ink); white-space: nowrap; }

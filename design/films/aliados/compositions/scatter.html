@@ -1,0 +1,109 @@
+<template>
+<style>
+@font-face { font-family: "Barlow"; font-weight: 400; src: url("assets/fonts/barlow-400.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; src: url("assets/fonts/barlow-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("assets/fonts/barlowcondensed-700.woff2") format("woff2"); }
+
+#root { position: absolute; inset: 0; overflow: hidden; background: #0F1620; color: #F8FAFC; font-family: "Barlow", sans-serif; }
+.h { font: 700 116px/0.9 "Barlow Condensed"; text-transform: uppercase; letter-spacing: -0.02em; margin: 0; }
+.h .w { display: inline-block; }
+.h .m { color: #9AA8BA; }
+.h .a { color: #00D1FF; }
+.s { font: 600 44px/1.2 "Barlow"; color: #9AA8BA; margin: 0; }
+.s b { color: #F8FAFC; font-weight: 600; }
+.floor { position: absolute; inset: 0; }.frag { position: absolute; padding: 22px 26px; border-radius: 18px; background: #1A2433; border: 2px solid #2D3B4F; font: 600 34px/1.25 "Barlow"; color: #F8FAFC; box-shadow: 0 30px 60px -20px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 6px; }
+.frag small { font: 600 28px "Barlow"; color: #9AA8BA; }
+.frag.paper { background: #F4F1EA; color: #0B0F14; border-color: #DCD5C6; font-style: italic; }
+.frag.paper small { color: #6B6152; font-style: normal; }
+.frag.chat { border-radius: 22px 22px 22px 6px; background: #1F2D3F; }
+.frag.alert small { color: #FFB4A8; }#scatter-dot { position: absolute; left: 938.0px; top: 518.0px; width: 44px; height: 44px; border-radius: 50%; background: #00D1FF; }
+#scatter-lines { position: absolute; inset: 0; }
+#scatter-floor { transform-origin: 50% 50%; }
+.scatter-pk { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #00D1FF; opacity: 0; }
+#scatter-lines line { stroke: #00D1FF; stroke-width: 3; stroke-linecap: round; }
+.scatter-tt { position: absolute; left: 0; right: 0; top: 610.0px; text-align: center; }
+#scatter-shade { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 45% at 50% 62%, rgba(11,15,20,.85), rgba(11,15,20,0) 70%); }</style>
+<div id="root" data-composition-id="scatter" data-width="1920" data-height="1080">
+<svg id="scatter-floor" class="floor" viewBox="0 0 1920 1080" width="1920" height="1080"><rect x="0" y="0" width="1920" height="1080" fill="#0F1620"/><g stroke="#1F2B3B" stroke-width="1.5"><line class="scatter-gl" x1="80.0" y1="-32.0" x2="80.0" y2="1112.0"/><line class="scatter-gl" x1="168.0" y1="-32.0" x2="168.0" y2="1112.0"/><line class="scatter-gl" x1="256.0" y1="-32.0" x2="256.0" y2="1112.0"/><line class="scatter-gl" x1="344.0" y1="-32.0" x2="344.0" y2="1112.0"/><line class="scatter-gl" x1="432.0" y1="-32.0" x2="432.0" y2="1112.0"/><line class="scatter-gl" x1="520.0" y1="-32.0" x2="520.0" y2="1112.0"/><line class="scatter-gl" x1="608.0" y1="-32.0" x2="608.0" y2="1112.0"/><line class="scatter-gl" x1="696.0" y1="-32.0" x2="696.0" y2="1112.0"/><line class="scatter-gl" x1="784.0" y1="-32.0" x2="784.0" y2="1112.0"/><line class="scatter-gl" x1="872.0" y1="-32.0" x2="872.0" y2="1112.0"/><line class="scatter-gl" x1="960.0" y1="-32.0" x2="960.0" y2="1112.0"/><line class="scatter-gl" x1="1048.0" y1="-32.0" x2="1048.0" y2="1112.0"/><line class="scatter-gl" x1="1136.0" y1="-32.0" x2="1136.0" y2="1112.0"/><line class="scatter-gl" x1="1224.0" y1="-32.0" x2="1224.0" y2="1112.0"/><line class="scatter-gl" x1="1312.0" y1="-32.0" x2="1312.0" y2="1112.0"/><line class="scatter-gl" x1="1400.0" y1="-32.0" x2="1400.0" y2="1112.0"/><line class="scatter-gl" x1="1488.0" y1="-32.0" x2="1488.0" y2="1112.0"/><line class="scatter-gl" x1="1576.0" y1="-32.0" x2="1576.0" y2="1112.0"/><line class="scatter-gl" x1="1664.0" y1="-32.0" x2="1664.0" y2="1112.0"/><line class="scatter-gl" x1="1752.0" y1="-32.0" x2="1752.0" y2="1112.0"/><line class="scatter-gl" x1="1840.0" y1="-32.0" x2="1840.0" y2="1112.0"/><line class="scatter-gl" x1="80.0" y1="12.0" x2="1840.0" y2="12.0"/><line class="scatter-gl" x1="80.0" y1="100.0" x2="1840.0" y2="100.0"/><line class="scatter-gl" x1="80.0" y1="188.0" x2="1840.0" y2="188.0"/><line class="scatter-gl" x1="80.0" y1="276.0" x2="1840.0" y2="276.0"/><line class="scatter-gl" x1="80.0" y1="364.0" x2="1840.0" y2="364.0"/><line class="scatter-gl" x1="80.0" y1="452.0" x2="1840.0" y2="452.0"/><line class="scatter-gl" x1="80.0" y1="540.0" x2="1840.0" y2="540.0"/><line class="scatter-gl" x1="80.0" y1="628.0" x2="1840.0" y2="628.0"/><line class="scatter-gl" x1="80.0" y1="716.0" x2="1840.0" y2="716.0"/><line class="scatter-gl" x1="80.0" y1="804.0" x2="1840.0" y2="804.0"/><line class="scatter-gl" x1="80.0" y1="892.0" x2="1840.0" y2="892.0"/><line class="scatter-gl" x1="80.0" y1="980.0" x2="1840.0" y2="980.0"/><line class="scatter-gl" x1="80.0" y1="1068.0" x2="1840.0" y2="1068.0"/></g><g fill="#1A2433" fill-opacity="0.55" stroke="#4A5D78" stroke-width="2"><rect class="scatter-zn" data-z="recepcion" x="146.0" y="782.0" width="352" height="264" rx="10"/><rect class="scatter-zn" data-z="racks" x="608.0" y="232.0" width="528" height="396" rx="10"/><rect class="scatter-zn" data-z="maquinas" x="1180.0" y="144.0" width="572" height="484" rx="10"/><rect class="scatter-zn" data-z="box" x="146.0" y="122.0" width="352" height="352" rx="10"/><rect class="scatter-zn" data-z="oficina" x="1400.0" y="782.0" width="352" height="264" rx="10"/><rect class="scatter-zn" data-z="cardio" x="652.0" y="804.0" width="616" height="220" rx="10"/></g><g fill="#1E2A3A" stroke="#5A6E8A" stroke-width="1.5"><rect class="scatter-gr" x="647.6" y="289.2" width="96.80000000000001" height="61.599999999999994" rx="5"/><rect class="scatter-gr" x="823.6" y="289.2" width="96.80000000000001" height="61.599999999999994" rx="5"/><rect class="scatter-gr" x="999.6" y="289.2" width="96.80000000000001" height="61.599999999999994" rx="5"/><rect class="scatter-gr" x="647.6" y="509.2" width="96.80000000000001" height="61.599999999999994" rx="5"/><rect class="scatter-gr" x="823.6" y="509.2" width="96.80000000000001" height="61.599999999999994" rx="5"/><rect class="scatter-gr" x="999.6" y="509.2" width="96.80000000000001" height="61.599999999999994" rx="5"/><rect class="scatter-gr" x="1215.2" y="196.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1391.2" y="196.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1567.2" y="196.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1215.2" y="372.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1391.2" y="372.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1567.2" y="372.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1215.2" y="548.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="1391.2" y="548.8" width="105.6" height="70.4" rx="5"/><rect class="scatter-gr" x="713.6" y="861.2" width="52.8" height="105.6" rx="5"/><rect class="scatter-gr" x="823.6" y="861.2" width="52.8" height="105.6" rx="5"/><rect class="scatter-gr" x="933.6" y="861.2" width="52.8" height="105.6" rx="5"/><rect class="scatter-gr" x="1043.6" y="861.2" width="52.8" height="105.6" rx="5"/><rect class="scatter-gr" x="1153.6" y="861.2" width="52.8" height="105.6" rx="5"/><rect class="scatter-gr" x="223.0" y="936.0" width="198.0" height="44" rx="5"/><rect class="scatter-gr" x="256.0" y="271.6" width="132" height="52.8" rx="5"/><rect class="scatter-gr" x="1505.6" y="883.2" width="140.8" height="61.599999999999994" rx="5"/></g></svg>
+<div id="scatter-shade"></div>
+<svg id="scatter-lines" viewBox="0 0 1920 1080" width="1920" height="1080"><line id="scatter-l0" x1="330" y1="175" x2="960.0" y2="540.0" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><line id="scatter-l1" x1="1530" y1="205" x2="960.0" y2="540.0" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><line id="scatter-l2" x1="1500" y1="875" x2="960.0" y2="540.0" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><line id="scatter-l3" x1="400" y1="885" x2="960.0" y2="540.0" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><line id="scatter-l4" x1="960" y1="145" x2="960.0" y2="540.0" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>
+<div id="scatter-f0" class="frag paper clip" data-start="0" data-duration="12.0" style="left:130px;top:90px;rotate:-5deg"><small>Recepción</small>Alta: Camila R.<br>Rutina: ¿?<br><s>Pagó ¿?</s></div><div id="scatter-f1" class="frag chat clip" data-start="0" data-duration="12.0" style="left:1330px;top:120px;rotate:3deg"><small>Grupo socios · 07:10</small>¿Quién me arma la rutina?</div><div id="scatter-f2" class="frag  clip" data-start="0" data-duration="12.0" style="left:1300px;top:790px;rotate:-2deg"><small>planilla_altas.xlsx</small>Sin actualizar</div><div id="scatter-f3" class="frag alert clip" data-start="0" data-duration="12.0" style="left:200px;top:800px;rotate:4deg"><small>Pedido de ayuda</small>Nadie lo vio</div><div id="scatter-f4" class="frag  clip" data-start="0" data-duration="12.0" style="left:760px;top:60px;rotate:-3deg"><small>Seguimiento de sala</small>— sin datos —</div>
+<div id="scatter-k00" class="scatter-pk" style="left:330px;top:175px"></div><div id="scatter-k01" class="scatter-pk" style="left:1530px;top:205px"></div><div id="scatter-k02" class="scatter-pk" style="left:1500px;top:875px"></div><div id="scatter-k03" class="scatter-pk" style="left:400px;top:885px"></div><div id="scatter-k04" class="scatter-pk" style="left:960px;top:145px"></div><div id="scatter-k10" class="scatter-pk" style="left:330px;top:175px"></div><div id="scatter-k11" class="scatter-pk" style="left:1530px;top:205px"></div><div id="scatter-k12" class="scatter-pk" style="left:1500px;top:875px"></div><div id="scatter-k13" class="scatter-pk" style="left:400px;top:885px"></div><div id="scatter-k14" class="scatter-pk" style="left:960px;top:145px"></div><div id="scatter-k20" class="scatter-pk" style="left:330px;top:175px"></div><div id="scatter-k21" class="scatter-pk" style="left:1530px;top:205px"></div><div id="scatter-k22" class="scatter-pk" style="left:1500px;top:875px"></div><div id="scatter-k23" class="scatter-pk" style="left:400px;top:885px"></div><div id="scatter-k24" class="scatter-pk" style="left:960px;top:145px"></div>
+<div id="scatter-dot" class="clip" data-start="0" data-duration="12.0"></div>
+<h2 id="scatter-t1" class="h scatter-tt clip" data-start="0" data-duration="7.2"><span class="w">La</span> <span class="w">sala,</span> <span class="w m">sin</span> <span class="w m">datos.</span></h2>
+<h2 id="scatter-t2" class="h scatter-tt clip" data-start="6.8" data-duration="5.2"><span class="w">REPI</span> <span class="w">la</span> <span class="w a">conecta.</span></h2>
+</div>
+<script>
+const tl = gsap.timeline({ paused: true });
+tl.fromTo("#scatter-floor", { scale: 1 }, { scale: 1.06, duration: 12.0, ease: "none" }, 0);
+tl.to("#scatter-f0", { y: -14, duration: 0.16, ease: "power2.out" }, 5.00);
+tl.to("#scatter-f0", { y: 0, duration: 0.4, ease: "back.out(2.4)" }, 5.16);
+tl.to("#scatter-f1", { y: -14, duration: 0.16, ease: "power2.out" }, 5.68);
+tl.to("#scatter-f1", { y: 0, duration: 0.4, ease: "back.out(2.4)" }, 5.84);
+tl.to("#scatter-f2", { y: -14, duration: 0.16, ease: "power2.out" }, 6.36);
+tl.to("#scatter-f2", { y: 0, duration: 0.4, ease: "back.out(2.4)" }, 6.52);
+tl.to("#scatter-f3", { y: -14, duration: 0.16, ease: "power2.out" }, 7.04);
+tl.to("#scatter-f3", { y: 0, duration: 0.4, ease: "back.out(2.4)" }, 7.20);
+tl.to("#scatter-f4", { y: -14, duration: 0.16, ease: "power2.out" }, 7.72);
+tl.to("#scatter-f4", { y: 0, duration: 0.4, ease: "back.out(2.4)" }, 7.88);
+tl.fromTo("#scatter-k00", { x: 0, y: 0, opacity: 0 }, { x: 630.0, y: 365.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 7.70);
+tl.set("#scatter-k00", { opacity: 0 }, 8.40);
+tl.fromTo("#scatter-k01", { x: 0, y: 0, opacity: 0 }, { x: -570.0, y: 335.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 7.75);
+tl.set("#scatter-k01", { opacity: 0 }, 8.45);
+tl.fromTo("#scatter-k02", { x: 0, y: 0, opacity: 0 }, { x: -540.0, y: -335.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 7.80);
+tl.set("#scatter-k02", { opacity: 0 }, 8.50);
+tl.fromTo("#scatter-k03", { x: 0, y: 0, opacity: 0 }, { x: 560.0, y: -345.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 7.85);
+tl.set("#scatter-k03", { opacity: 0 }, 8.55);
+tl.fromTo("#scatter-k04", { x: 0, y: 0, opacity: 0 }, { x: 0.0, y: 395.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 7.90);
+tl.set("#scatter-k04", { opacity: 0 }, 8.60);
+tl.to("#scatter-dot", { scale: 1.35, duration: 0.12, ease: "power2.out" }, 8.42);
+tl.to("#scatter-dot", { scale: 1, duration: 0.35, ease: "back.out(1.6)" }, 8.54);
+tl.fromTo("#scatter-k10", { x: 0, y: 0, opacity: 0 }, { x: 630.0, y: 365.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 8.80);
+tl.set("#scatter-k10", { opacity: 0 }, 9.50);
+tl.fromTo("#scatter-k11", { x: 0, y: 0, opacity: 0 }, { x: -570.0, y: 335.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 8.85);
+tl.set("#scatter-k11", { opacity: 0 }, 9.55);
+tl.fromTo("#scatter-k12", { x: 0, y: 0, opacity: 0 }, { x: -540.0, y: -335.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 8.90);
+tl.set("#scatter-k12", { opacity: 0 }, 9.60);
+tl.fromTo("#scatter-k13", { x: 0, y: 0, opacity: 0 }, { x: 560.0, y: -345.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 8.95);
+tl.set("#scatter-k13", { opacity: 0 }, 9.65);
+tl.fromTo("#scatter-k14", { x: 0, y: 0, opacity: 0 }, { x: 0.0, y: 395.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 9.00);
+tl.set("#scatter-k14", { opacity: 0 }, 9.70);
+tl.to("#scatter-dot", { scale: 1.35, duration: 0.12, ease: "power2.out" }, 9.52);
+tl.to("#scatter-dot", { scale: 1, duration: 0.35, ease: "back.out(1.6)" }, 9.64);
+tl.fromTo("#scatter-k20", { x: 0, y: 0, opacity: 0 }, { x: 630.0, y: 365.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 9.90);
+tl.set("#scatter-k20", { opacity: 0 }, 10.60);
+tl.fromTo("#scatter-k21", { x: 0, y: 0, opacity: 0 }, { x: -570.0, y: 335.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 9.95);
+tl.set("#scatter-k21", { opacity: 0 }, 10.65);
+tl.fromTo("#scatter-k22", { x: 0, y: 0, opacity: 0 }, { x: -540.0, y: -335.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 10.00);
+tl.set("#scatter-k22", { opacity: 0 }, 10.70);
+tl.fromTo("#scatter-k23", { x: 0, y: 0, opacity: 0 }, { x: 560.0, y: -345.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 10.05);
+tl.set("#scatter-k23", { opacity: 0 }, 10.75);
+tl.fromTo("#scatter-k24", { x: 0, y: 0, opacity: 0 }, { x: 0.0, y: 395.0, opacity: 1, duration: 0.7, ease: "power2.in" }, 10.10);
+tl.set("#scatter-k24", { opacity: 0 }, 10.80);
+tl.to("#scatter-dot", { scale: 1.35, duration: 0.12, ease: "power2.out" }, 10.62);
+tl.to("#scatter-dot", { scale: 1, duration: 0.35, ease: "back.out(1.6)" }, 10.74);
+tl.fromTo("#scatter-f0", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.30);
+tl.to("#scatter-l0", { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 6.95);
+tl.fromTo("#scatter-f1", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 1.35);
+tl.to("#scatter-l1", { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 7.07);
+tl.fromTo("#scatter-f2", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 2.40);
+tl.to("#scatter-l2", { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 7.19);
+tl.fromTo("#scatter-f3", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 3.45);
+tl.to("#scatter-l3", { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 7.31);
+tl.fromTo("#scatter-f4", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 4.50);
+tl.to("#scatter-l4", { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 7.43);
+tl.fromTo("#scatter-t1 .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.07 }, 0.6);
+tl.to("#scatter-t1 .w", { opacity: 0, filter: "blur(8px)", duration: 0.18, stagger: 0.03 }, 6.6);
+tl.fromTo("#scatter-t2 .w", { color: "#9AA8BA" }, { color: "#F8FAFC", duration: 0.1, stagger: 0.09 }, 6.8999999999999995);
+tl.fromTo("#scatter-t2", { opacity: 0 }, { opacity: 1, duration: 0.12 }, 6.85);
+tl.to("#scatter-f0", { x: 630.0, y: 365.0, scale: 0.1, opacity: 0, rotate: 0, duration: 0.45, ease: "power3.in" }, 10.50);
+tl.to("#scatter-f1", { x: -570.0, y: 335.0, scale: 0.1, opacity: 0, rotate: 0, duration: 0.45, ease: "power3.in" }, 10.56);
+tl.to("#scatter-f2", { x: -540.0, y: -335.0, scale: 0.1, opacity: 0, rotate: 0, duration: 0.45, ease: "power3.in" }, 10.62);
+tl.to("#scatter-f3", { x: 560.0, y: -345.0, scale: 0.1, opacity: 0, rotate: 0, duration: 0.45, ease: "power3.in" }, 10.68);
+tl.to("#scatter-f4", { x: 0.0, y: 395.0, scale: 0.1, opacity: 0, rotate: 0, duration: 0.45, ease: "power3.in" }, 10.74);
+tl.to("#scatter-lines", { opacity: 0, duration: 0.3 }, 10.5);
+tl.to("#scatter-t2", { opacity: 0, filter: "blur(8px)", duration: 0.2 }, 10.7);
+tl.to("#scatter-dot", { scale: 70, duration: 0.75, ease: "power3.in" }, 11.2);
+window.__timelines["scatter"] = tl;
+</script>
+</template>
