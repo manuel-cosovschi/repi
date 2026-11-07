@@ -232,6 +232,36 @@ test.describe("alumno", () => {
   });
 });
 
+test.describe("entre documentos", () => {
+  // S9: /app → /app/informe con View Transitions entre documentos (Chrome). Con movimiento reducido no hay transición.
+  for (const reduce of [false, true]) {
+    test(`Informe mensual: ${reduce ? "sin transición con movimiento reducido" : "fundido entre documentos en ≤ 250 ms"}`, async ({ page }, info) => {
+      test.skip(info.project.name !== "mobile" || BASELINE, "una vez, en Chrome");
+      if (reduce) await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.addInitScript(() => {
+        type VT = { ready: Promise<void>; finished: Promise<void> } | null;
+        addEventListener("pagereveal", (e) => {
+          const vt = (e as Event & { viewTransition?: VT }).viewTransition ?? null;
+          const w = window as unknown as { __vt: { has: boolean; t0: number; ready?: number; ms?: number; total?: number } };
+          w.__vt = { has: !!vt, t0: performance.now() };
+          // ready: empiezan las animaciones (tras pintar el documento nuevo); finished: terminan.
+          vt?.ready.then(() => { w.__vt.ready = performance.now(); }).catch(() => {});
+          vt?.finished.then(() => { const t = performance.now(); w.__vt.ms = Math.round(t - (w.__vt.ready ?? w.__vt.t0)); w.__vt.total = Math.round(t - w.__vt.t0); }).catch(() => {});
+        });
+      });
+      await memberReady(page);
+      await tabBtn(page, "Progreso").click();
+      await page.getByRole("link", { name: "Informe mensual" }).click();
+      await page.waitForURL(/\/app\/informe/);
+      await page.waitForFunction(() => (window as unknown as { __vt?: { has: boolean; ms?: number } }).__vt && (!(window as unknown as { __vt: { has: boolean } }).__vt.has || (window as unknown as { __vt: { ms?: number } }).__vt.ms != null), null, { timeout: 5000 });
+      const vt = await page.evaluate(() => (window as unknown as { __vt: { has: boolean; ms?: number } }).__vt);
+      await report(info, reduce ? "vt-reducido" : "vt", vt);
+      if (reduce) expect(vt.has).toBe(false);
+      else { expect(vt.has).toBe(true); expect(vt.ms ?? 9999, "animación (ready → finished)").toBeLessThanOrEqual(250); }
+    });
+  }
+});
+
 test.describe("staff", () => {
   test("escritorio Gym: el lateral queda fijo, el h1 recibe el foco y cada pantalla recupera su scroll", async ({ page }, info) => {
     test.setTimeout(90_000);
