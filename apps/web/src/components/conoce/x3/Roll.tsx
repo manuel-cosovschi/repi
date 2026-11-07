@@ -14,15 +14,17 @@ export function Roll({ value, className }: { value: string; className?: string }
     if (t.current) clearTimeout(t.current);
     t.current = window.setTimeout(() => setPrev(null), 460);
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
-  const len = Math.max(shown.length, prev?.length ?? 0);
-  const a = shown.padStart(len, " "), b = (prev ?? shown).padStart(len, " ");
+  // Sin relleno: las cifras quedan alineadas a la izquierda y no se corren cuando termina el cambio (CLS 0).
+  const a = shown, b = prev ?? shown;
   return (
     <span className={`x3-roll${className ? ` ${className}` : ""}`}>
       <span className="x3-sr">{shown}</span>
       <span aria-hidden="true" className="x3-roll-digits">
         {Array.from(a).map((ch, i) => (
-          <span key={i} className="x3-roll-d" data-change={prev != null && b[i] !== ch ? "1" : undefined}>
-            {prev != null && b[i] !== ch && <span className="x3-roll-old">{b[i] === " " ? " " : b[i]}</span>}
+          // Clave por valor: cada cambio crea cifras nuevas en vez de correr las que ya estaban (un ancho distinto no cuenta
+          // como desplazamiento del diseño, CLS 0).
+          <span key={`${shown}:${i}`} className="x3-roll-d" data-change={prev != null && b[i] !== ch ? "1" : undefined}>
+            {prev != null && b[i] !== ch && b[i] != null && <span className="x3-roll-old">{b[i]}</span>}
             <span className="x3-roll-new">{ch === " " ? " " : ch}</span>
           </span>
         ))}

@@ -172,10 +172,10 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 @media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
   .x3-prob { height: 300svh; }
   .x3-prob-pin { position: sticky; top: 0; }
-  .x3-train-track { height: 440svh; }
+  .x3-train-track { height: 380svh; }
   .x3-train-pin { position: sticky; top: 0; }
 }
-@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-prob { height: 260svh; } }
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-prob { height: 260svh; } .x3-train-track { height: 340svh; } }
 .x3-prob-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .x3-prob-lines path { fill: none; stroke-linecap: round; }
 .x3-prob-lines .tr { stroke: var(--x-cyan); stroke-width: 1.5; stroke-opacity: .24; opacity: 0; }
@@ -259,44 +259,64 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-prob-roles li { opacity: 0; }
 }
 
-/* ── 03 · El entrenamiento cobra vida ───────────────────────────────── */
-.x3-train-pin { min-height: 100svh; display: flex; align-items: center; padding: 80px 0; }
-.x3-train-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
-.x3-train-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-width: 520px; }
-.x3-train-steps li { display: flex; flex-direction: column; gap: 4px; padding: 14px 0 14px 18px; border-left: 2px solid var(--x-steel); color: var(--x-dim); transition: color .4s, border-color .4s; }
-.x3-train-steps li b { font: 600 clamp(1.05rem, 1.7vw, 1.25rem) var(--font-ui); }
-.x3-train-steps li span { font-size: 15px; line-height: 1.5; max-height: 0; overflow: hidden; opacity: 0; transition: max-height .5s var(--x-ease), opacity .4s; }
-.x3-train-steps li span i { font-style: normal; color: var(--x-white); }
-.x3-train-steps li[data-on="done"] { color: var(--x-muted); border-color: var(--x-teal); }
-.x3-train-steps li[data-on="1"] { color: var(--x-white); border-color: var(--x-cyan); }
-.x3-train-steps li[data-on="1"] span { max-height: 160px; opacity: 1; color: var(--x-muted); }
+/* ── 03 · «La serie, en grande y con datos reales» (Motion 2 P3) ─────── */
+.x3-train { padding-top: clamp(80px, 12vh, 140px); }
+.x3-train > .x3-wrap > .x3-h2 { margin-bottom: 0; }
+.x3-train-pin { min-height: 100svh; display: flex; align-items: center; padding: 72px 0 32px; }
+.x3-train-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
+/* El subtítulo: etiqueta, valor enorme del motor y una línea que explica. Alturas reservadas: cambiar de paso no mueve nada. */
+.x3-train-k { margin: 0; font: 600 clamp(1.05rem, 1.8vw, 1.5rem)/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--x-muted); white-space: nowrap; }
+.x3-train-v { margin: 10px 0 0; font: 700 clamp(3rem, 6.6vw, 6.4rem)/.9 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-white); white-space: nowrap; min-height: .9em; }
+.x3-train-v[data-tone="rec"] { color: var(--x-cyan); }
+.x3-train-v[data-tone="next"] { color: var(--x-teal); }
+.x3-train-d { margin: 18px 0 0; max-width: 46ch; min-height: 4.65em; font-size: clamp(1rem, 1.4vw, 1.12rem); line-height: 1.55; color: var(--x-muted); animation: x3-type .9s steps(28, end) both; }
+@keyframes x3-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.x3-train-marks { list-style: none; margin: 22px 0 0; padding: 0; display: flex; gap: 6px; }
+.x3-train-marks li { width: 28px; height: 3px; border-radius: 2px; background: var(--x-steel); transition: background-color .3s; }
+.x3-train-marks li[data-on="done"] { background: var(--x-teal); }
+.x3-train-marks li[data-on="1"] { background: var(--x-white); }
+/* El teléfono: interfaz real compuesta (recortes de la captura sin números + TargetCard de la app con el motor). */
 .x3-phone-stage { perspective: 1400px; display: flex; justify-content: center; }
-.x3-phone { position: relative; margin: 0; width: min(320px, 72vw); transform-style: preserve-3d; will-change: transform; }
-.x3-phone-screen { border-radius: 40px; padding: 10px; background: #05080C; border: 1px solid var(--x-steel); box-shadow: 0 50px 90px -40px rgba(0, 0, 0, .9), 0 0 0 6px #10161F; overflow: hidden; }
-.x3-phone-screen img { display: block; width: 100%; height: auto; border-radius: 30px; }
-.x3-set { position: absolute; left: -12%; right: -12%; bottom: 12%; transform: translateZ(60px); padding: 14px 16px; border-radius: 18px; background: rgba(11, 15, 20, .94); border: 1px solid var(--x-steel); box-shadow: 0 24px 50px -20px rgba(0, 0, 0, .9); display: flex; flex-direction: column; gap: 10px; }
-.x3-set-ex { font-size: 13px; color: var(--x-muted); }
-.x3-set-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.x3-set-cols > span { display: flex; flex-direction: column; gap: 4px; opacity: .8; transition: opacity .4s; }
-.x3-set-cols > span[data-on] { opacity: 1; }
-.x3-set-cols small { font-size: 12px; color: var(--x-muted); letter-spacing: .02em; }
-.x3-set-cols .x3-roll { font: 700 clamp(1rem, 1.8vw, 1.3rem) var(--font-display); }
-.x3-set-cols .rec[data-on] .x3-roll { color: var(--x-cyan); }
-.x3-set-next { font-size: 13px; color: var(--x-muted); padding-top: 8px; border-top: 1px solid var(--x-line); opacity: .8; transition: opacity .4s; }
-.x3-set-next[data-on] { opacity: 1; color: var(--x-muted); }
-.x3-set-next[data-on] .x3-roll { color: var(--x-teal); font-weight: 700; }
+.x3-phone { position: relative; margin: 0; width: min(380px, 30vw); transform-style: preserve-3d; will-change: transform; }
+.x3-phone-float { animation: x3-float 5s ease-in-out infinite alternate; transform-origin: 50% 60%; }
+@keyframes x3-float { from { translate: 0 -6px; } to { translate: 0 6px; } }
+.x3-phone-screen { --ui-surface: #FFFFFF; --ui-text: #0E1726; --ui-text-2: #334155; --ui-muted: #5A6372; --ui-link: #006F8E; --ui-accent-tint: rgba(0, 137, 176, .10); --ui-accent-line: rgba(0, 137, 176, .40); --ui-warning-text: #8A5300;
+  display: flex; flex-direction: column; gap: 10px; padding: 22px 14px 16px; border-radius: 34px 34px 22px 22px; background: #F4F1EA; border: 1px solid var(--x-steel); outline: 6px solid #10161F; color: var(--ui-text); font-family: var(--font-ui); overflow: clip; }
+.x3-crop { display: block; background-image: url(/conoce/shots/training.webp); background-repeat: no-repeat; }
+.x3-phone-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; background: var(--ui-surface); overflow: clip; }
+.x3-phone-sets { display: flex; gap: 16px; transition: transform .55s var(--x-ease); }
+.x3-phone-sets[data-next] { transform: translateX(calc(-100% - 16px)); }
+.x3-phone-set { flex: 0 0 100%; display: flex; flex-direction: column; gap: 6px; }
+.x3-phone-lbl { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ui-muted); }
+/* Reglas de la tarjeta real (member.css) copiadas sólo para este teléfono: no se importa toda la hoja de la app. */
+.x3-phone-screen .ti-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--ui-accent-tint); border: 1px solid var(--ui-accent-line); }
+.x3-phone-screen .ti-cols { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 8px; align-items: start; }
+.x3-phone-screen .ti-cols > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; transition: opacity .35s; }
+.x3-phone-screen .ti-cols small { font-size: 10px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--ui-muted); }
+.x3-phone-screen .ti-cols b { font-size: 13px; line-height: 1.25; color: var(--ui-text); overflow-wrap: anywhere; }
+.x3-phone-screen .ti-cols .ti-main small { color: var(--ui-link); }
+.x3-phone-screen .ti-cols .ti-main b { font-size: 15px; }
+.x3-phone-screen .ti-cols .ti-rir { text-transform: none; letter-spacing: 0; color: var(--ui-text-2); font-weight: 500; }
+.x3-phone-screen .ti-quality { display: none; } /* recorte: la nota de discos no entra en esta pantalla */
+.x3-phone-screen .ti-why, .x3-phone-screen .ti-review { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ui-text-2); transition: opacity .35s; }
+/* La tarjeta enciende la columna del paso actual (Anterior → REPI → Real); las demás quedan atenuadas. */
+.x3-phone-screen[data-step="0"] .ti-cols > div, .x3-phone-screen[data-step="0"] .ti-why { opacity: .3; }
+.x3-phone-screen[data-step="1"] .ti-cols > div:not(:first-child), .x3-phone-screen[data-step="1"] .ti-why { opacity: .3; }
+.x3-phone-screen[data-step="2"] .ti-cols > div:not(.ti-main) { opacity: .3; }
+.x3-phone-screen[data-step="3"] .ti-cols > div:not(:last-child), .x3-phone-screen[data-step="3"] .ti-why { opacity: .3; }
+.x3-train-table { display: none; }
 .x3-train-try { padding: 40px 0 clamp(80px, 12vh, 140px); }
 .x3-train-try h3 { margin: 0 0 18px; font: 700 clamp(1.5rem, 3vw, 2.2rem)/1 var(--font-display); text-transform: uppercase; }
 .x3 .cn-sim { background: var(--x-surface); border: 1px solid var(--x-steel); border-radius: 22px; }
 .x3 .cn-sim-table { border: 0; border-radius: 0; border-top: 1px solid var(--x-line); } /* sin tarjeta dentro de tarjeta */
+/* Teléfono angosto: todo entra en una pantalla; el teléfono en la parte de arriba (44svh) y el subtítulo abajo. */
 @media (max-width: 899px) {
-  .x3-train-grid { grid-template-columns: 1fr; }
-  .x3-phone-stage { order: -1; }
-  .x3-phone { width: min(230px, 56vw); }
-  .x3-set { left: -26%; right: -26%; bottom: 6%; }
-  .x3-train-pin { padding: 70px 0 40px; align-items: flex-start; }
-  /* Sólo se ve el paso activo, pero los demás siguen disponibles para lectores de pantalla. */
-  .x3-train-steps li:not([data-on="1"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .x3-train-pin { padding: 78px 0 16px; align-items: stretch; }
+  .x3-train-grid { grid-template-columns: 1fr; grid-template-rows: 44svh auto; gap: 14px; align-content: space-between; height: calc(100svh - 94px); }
+  .x3-phone-stage { order: -1; align-items: flex-start; overflow: visible; }
+  .x3-phone { width: min(300px, 74vw, 46svh); }
+  .x3-train-v { font-size: clamp(2.6rem, 13vw, 8.5rem); }
+  .x3-train-d { min-height: 6.2em; font-size: 15px; }
 }
 
 /* ── Roll v2: cada dígito rueda en su máscara (sólo translateY y opacidad) ── */
@@ -498,8 +518,18 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-prob-scr:not(.push) { display: block; overflow: hidden; aspect-ratio: 390 / 460; border-radius: 22px; }
   .x3-prob-roles { display: grid; height: auto; }
   .x3-prob-roles li { position: static; }
-  .x3-train-steps li span { max-height: none; opacity: 1; }
-  .x3-train-steps li:not([data-on="1"]) { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; display: flex; }
+  /* 03: tabla quieta con los valores y la pantalla compuesta en su estado final; sin el subtítulo que cambia. */
+  .x3-train-say { display: none; }
+  .x3-train-grid { grid-template-columns: 1fr; grid-template-rows: none; height: auto; }
+  .x3-train-pin { min-height: 0; padding: 40px 0 0; }
+  .x3-phone-float { animation: none; }
+  .x3-train-table { display: block; padding-top: 32px; }
+  .x3-train-table dl { margin: 0 0 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 28px; }
+  .x3-train-table dt { font: 600 1rem var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--x-muted); }
+  .x3-train-table dd { margin: 4px 0 0; font: 700 clamp(2rem, 6vw, 3.4rem)/1 var(--font-display); text-transform: uppercase; }
+  .x3-train-table .rec dd { color: var(--x-cyan); }
+  .x3-train-table .next dd { color: var(--x-teal); }
+  .x3-train-table p { margin: 0 0 10px; max-width: 70ch; color: var(--x-muted); line-height: 1.55; }
 }
 @media (prefers-reduced-motion: reduce) and (max-width: 759px), (max-height: 559px) and (max-width: 759px) {
   .x3-prob-screens { --pw: 28vw; --col: 28vw; }
