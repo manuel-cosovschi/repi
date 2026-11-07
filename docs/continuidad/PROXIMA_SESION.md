@@ -2,6 +2,38 @@
 
 Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 07/11/2026 · LISTO EN RAMA, SIN PUBLICAR
+
+- **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
+  y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
+- **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (sin push). Plan, decisiones y evidencia:
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10 tiene la tabla de commits y la verificación).
+- **Hecho (un commit por paso, P0–P7 + verificación):**
+  - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
+    ≤ 2,4 y foco en blanco, director sin lecturas por cuadro, `Say`, `curves.ts`, `Roll` v2, sin desenfoques animados.
+  - P1 (02): los pedazos mandan trazos curvos al punto de la «ı», el punto se los traga, crece y el logo real se abre desde él;
+    corte de sala fría a viva y las tres pantallas reales (sala, socio, dueño).
+  - P2 (hero): el punto cae en arco sobre el rack de Valentina sin cruzar el texto y la luz se expande desde ahí; el 3D entra
+    después, en la misma cenital del SVG.
+  - P3 (03): la serie como subtítulo enorme con el motor real; teléfono con `TargetCard` real (ningún «53»); repeticiones 1→6.
+  - P4 (cierre): toda la sala vuelve al punto y el punto se acomoda en la «ı».
+  - P5–P7: módulos como tomas y «Que venga alguien → Voy» con el scroll; perspectivas al llegar y sin remontar; «PROBALO.»,
+    puertas sin reflujo, bordes curvos y pasos que se dibujan.
+- **Archivos:** `apps/web/src/components/conoce/sala/{store,model,Stage,SalaSvg,SalaCanvas}.ts(x)`,
+  `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap}.ts(x)`,
+  `apps/web/src/components/conoce/ConoceHub.tsx`, `apps/web/src/styles/conoce3.css`, `apps/web/e2e/conoce.spec.ts`.
+  `TargetCard.tsx` no se tocó (sólo se reutiliza).
+- **Pruebas:** typecheck ✓; e2e `conoce` + `public` 64/64 contra `next start` local; axe 0 (32 pasadas); Impeccable 0;
+  Lighthouse móvil mediana 86, TBT 117 ms, CLS 0; CLS de recorrido 0,0005 / 0; pausa sin cambios de píxeles; SwiftShader en
+  SVG. Vitest no se corrió en apps/web (base de pruebas compartida). Sin migraciones, sin dependencias nuevas.
+- **Decisiones:** 3 series en el ejemplo (con 4 el motor no sube la carga sobre un historial de 3); el subtítulo de 03 usa
+  `targetLine` de la tarjeta; los puntos de «escribiendo» pasaron a texto (Impeccable); la prueba e2e de la cabecera acepta el
+  `aria-label` del logo (fallaba igual antes de esta pasada).
+- **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
+  socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
+- **Próxima acción:** que el titular revise `/conoce` (en especial la «ı» vacía durante el scrub del cierre, riesgo 4 del
+  plan); después, PR desde `claude/conoce-ajustes`, respaldo según `docs/RESPALDOS.md` si correspondiera (no hay migraciones),
+  publicar y medir el LCP de campo.
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 

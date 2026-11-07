@@ -573,3 +573,55 @@ Además:
 El mínimo que se puede publicar es **P0–P4 + P8**: responde a los dos comentarios del titular y suma las tres firmas.
 
 P5–P7 entran en la misma pasada si el presupuesto medido después de P4 lo permite.
+
+## 10. Estado al cerrar la pasada (07/11/2026)
+
+Rama `claude/conoce-ajustes` (worktree `/home/user/repi-cx`), sin publicar ni empujar. Un commit por paso:
+
+| Paso | Commit | Qué quedó |
+|---|---|---|
+| Plan | `351bde2` | Este documento. |
+| P0 | `5fd8cb6` | Tienda (`tone`, `cold`, `gather`, `origin`, `walk`, `preview`, `reveal`, `dotOut`, `gl`) y `stage.project`; personajes; tomas `plan`/`rack`/`box`/`pedido`/`cardio`/`open`; zoom del SVG ≤ 2,4 y personas de tamaño constante; lente por toma; foco en blanco; velo frío; anillo de Valentina; director que sólo lee `scrollY`; `Say`, `curves.ts`, `Roll` v2; ningún `filter: blur` animado. |
+| P1 | `c21ebde` | 02 «El caos se ordena en REPI». |
+| P2 | `9adcd34` | 01 «El punto cae y se vuelve persona». |
+| P3 | `7c77b26` | 03 «La serie, en grande y con datos reales». |
+| P4 | `5505483` | 08 «Vuelta al punto». |
+| Verificación | `6f49bf4` | Contraste (axe), escrituras de la sala sólo si cambian, refresh por fuentes sólo si terminan después de `load`, prueba e2e de la cabecera. |
+| P5 | `ea38ccf` | 05 «El pedido cruza la sala» y módulos como tomas. |
+| P6 | `0f7bc37` | 04 cuatro perspectivas. |
+| P7 | `2260414` | 06–07 Probalo, puertas sin reflujo, bordes curvos y pasos que se dibujan. |
+| Rendimiento | `108fa82` | Mediciones y disparadores de 02, 08 y `Say`, y la primera lectura del director, en un momento libre (TBT). |
+| Cierre | `575b2c1` | Orden apilado de 02 e Impeccable 0. |
+
+**Decisiones tomadas durante la pasada (con evidencia):**
+
+- **3 series, no 4.** Un script `tsx` suelto (no vitest) comprobó el motor: con `sets: 4` y el historial de tres series de
+  60 kg × 10, `recommendExercise` ya no sube la carga (da «60 kg × 10»). Se mantienen 3 series y el recorte de la captura deja
+  afuera la línea «4 series». Con 3: 62,5 kg × 8–10 y, después de 62,5 × 6 «difícil», la serie 2 queda en 62,5 kg × 8.
+- **El subtítulo de 03 usa `targetLine`**, la misma función del `TargetCard` de la app: el motor dice «62,5 kg × 8–10» para
+  la serie 2, pero la tarjeta muestra «62,5 kg × 8» (objetivo puntual). Pantalla y subtítulo dicen siempre lo mismo.
+- **El punto de la «ı» es el `<i>` real** del Wordmark en 02 y en 08: crece o viaja él mismo, sin entrega entre dos puntos.
+- **El 3D entra después del encendido del hero** (no compite con la caída) y arranca en la cenital `plan`, igual al SVG.
+- **Los puntos de «escribiendo» se reemplazaron** por el texto «Escribiendo otra consulta…»: Impeccable marca un punto que
+  late sin un dato vivo detrás (`pulsing-dot`).
+- **Sofía vuelve sola** a su recorrido (1,4 s) al seguir bajando después del módulo de gestión; con la pausa, al instante.
+- **La prueba e2e de la cabecera** leía sólo el texto visible y fallaba con el logo (una imagen con `aria-label`), con el
+  mismo marcado que antes de esta pasada. Ahora acepta el nombre accesible.
+
+**Verificación** (build de producción local, `next start` en 3103; evidencia en el scratchpad, carpeta `m2/`):
+
+| Medida | Resultado |
+|---|---|
+| Lighthouse móvil (5 corridas con carga baja de la máquina) | Rendimiento 85, 85, 86, 87, 87 (mediana 86); TBT 127, 130, 117, 53, 73 ms (mediana 117); LCP 3,9 s (el párrafo del hero, igual que antes); accesibilidad, buenas prácticas y SEO 100; CLS 0. Con otros agentes corriendo vitest en la misma máquina las cifras caen (TBT hasta 435 ms): se repitió con la carga baja. |
+| CLS al recorrer toda la página | Escritorio 0,0005 (antes 0,036); teléfono 0. Puertas y pestañas con el puntero: 0. |
+| axe (WCAG 2.2 AA) | 0 en 32 pasadas: `/conoce` y los 4 perfiles, teléfono y escritorio, con y sin movimiento (con movimiento, en varios puntos de 02, 03 y 08) y con el reproductor abierto. |
+| Impeccable | 0 hallazgos en escritorio (1280 × 800) y teléfono (390 × 844), `/conoce` y `/conoce/aliados`. |
+| E2E | `e2e/conoce.spec.ts` + `e2e/public.spec.ts`: 64/64. Vitest no se corrió en apps/web. |
+| Fluidez phone-low (rAF, sin grabar) | 02: 60 fps; 03: 59,9; 08: 60,1 (bajando y subiendo). Recorrido completo grabado: teléfono 59,3 fps, escritorio 45,8 (antes 40,3, con la grabación encendida). |
+| Sondas | Hero: el punto no cruza ningún texto en ningún cuadro, cae sobre Valentina (936, 493 en escritorio; 146, 228 en teléfono) y CLS 0. 03: repeticiones 1→6 bajando y 6→1 subiendo; ningún «53»; valor de 51 px; borde inferior a 122 px o más. |
+| Pausa | Con «Pausar animaciones» guardado y el scroll quieto 5 s, ningún píxel cambia en ninguna escena (teléfono y escritorio con 3D). |
+| Movimiento reducido | Todas las escenas en su estado final (capturas `m2/still/`). |
+| SwiftShader | Sin `?sala`, el Chromium sin GPU queda en `data-sala="low"` (SVG). |
+
+**Pendiente o fuera de esta pasada:** lo de §8. La «ı» vacía durante el scrub del cierre (riesgo 4) queda para que el
+titular la vea en la revisión. El LCP de campo se mide después de publicar.
