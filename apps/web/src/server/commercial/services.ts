@@ -7,6 +7,7 @@ import {
   type ContractStatus, type Currency, type Term,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import { cleanTag } from "@/lib/site-events";
 import { AccessError, addDays, audit, newInviteCode, newToken, sha256 } from "../access/util";
 import { MailError, deliverMail } from "../mailer";
 import { logError } from "../log";
@@ -28,12 +29,30 @@ export async function requireAdmin(actorId: string) {
 }
 
 // ── Contacto comercial público (reemplaza la autoalta) ──────────────────────
-export async function createLead(p: { kind: string; orgName: string; contactName: string; email: string; phone?: string | null; message?: string | null }) {
-  if (!["gym", "coach"].includes(p.kind) || (p.orgName ?? "").trim().length < 2 || (p.contactName ?? "").trim().length < 2 || !isEmail(p.email)) {
+export type LeadInput = {
+  kind: string; orgName?: string | null; contactName: string; email?: string | null; phone?: string | null; message?: string | null;
+  /** D205: origen anónimo de la visita (Experience Hub). */
+  source?: string | null; campaign?: string | null; interest?: string | null;
+};
+const LEAD_SOURCES = new Set(["qr", "utm", "referral", "direct"]);
+const LEAD_INTERESTS = new Set(["gimnasios", "entrenadores", "deportistas", "aliados"]);
+
+/**
+ * Contacto comercial público. Gimnasio y coach piden nombre comercial; un aliado (D205) puede no tener empresa. Hace falta un
+ * email válido o un teléfono/WhatsApp con al menos 8 dígitos. No crea cuentas, espacios ni cobros.
+ */
+export async function createLead(p: LeadInput) {
+  const kind = ["gym", "coach", "partner"].includes(p.kind) ? (p.kind as "gym" | "coach" | "partner") : null;
+  const orgName = (p.orgName ?? "").trim();
+  const email = (p.email ?? "").trim();
+  const phone = (p.phone ?? "").trim();
+  const phoneOk = phone.replace(/\D/g, "").length >= 8;
+  if (!kind || (kind !== "partner" && orgName.length < 2) || (p.contactName ?? "").trim().length < 2 || (email ? !isEmail(email) : !phoneOk)) {
     throw new AccessError("invalid", "Completá tus datos para que te contactemos.");
   }
-  await db.insert(commercialLead).values({ kind: p.kind as "gym" | "coach", orgName: p.orgName.trim().slice(0, 120), contactName: p.contactName.trim().slice(0, 80),
-    email: normalizeEmail(p.email), phone: p.phone?.trim().slice(0, 40) || null, message: p.message?.trim().slice(0, 600) || null });
+  await db.insert(commercialLead).values({ kind, orgName: (orgName || "—").slice(0, 120), contactName: p.contactName.trim().slice(0, 80),
+    email: email ? normalizeEmail(email) : null, phone: phone.slice(0, 40) || null, message: p.message?.trim().slice(0, 600) || null,
+    source: p.source && LEAD_SOURCES.has(p.source) ? p.source : null, campaign: cleanTag(p.campaign), interest: p.interest && LEAD_INTERESTS.has(p.interest) ? p.interest : null });
   return { ok: true };
 }
 

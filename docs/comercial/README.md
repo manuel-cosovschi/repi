@@ -10,6 +10,7 @@ Preparada el 27/10/2026 a partir del código y de las decisiones D57–D86. Es u
 | Propuesta a un cliente | [Propuesta comercial editable](PROPUESTA_COMERCIAL.md) | Completar alcance, cantidad acordada y precio negociado. |
 | Dudas frecuentes | [FAQ comercial](FAQ.md) | Respuestas consistentes, sin prometer funciones futuras. |
 | Antes de comprometer una fecha | [Estado y límites](ESTADO_Y_LIMITES.md) | Separar código existente, prueba operativa y ampliaciones. |
+| QR de la remera y enlace para compartir | [Experience Hub: /conoce y /qr](EXPERIENCE_HUB.md) | Presentación pública con perfiles, demos y contacto; cómo cambiar el QR y leer la medición. Videos a producir: [VIDEOS_PENDIENTES.md](VIDEOS_PENDIENTES.md). |
 | Después del acuerdo | [Guías de uso y operación](../guias/README.md) | Dar de alta al cliente, formar al equipo y acompañar el primer uso. |
 
 ## Presentación en 30 segundos

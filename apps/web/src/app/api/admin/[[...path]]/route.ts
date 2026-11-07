@@ -7,6 +7,7 @@ import * as pv from "@/server/privacy/services";
 import * as sp from "@/server/support/services";
 import * as bp from "@/server/commercial/payments";
 import * as an from "@/server/announcements/services";
+import * as se from "@/server/site/events";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -19,6 +20,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const u = new URL(req.url);
   if (a === "summary") return cm.adminSummary(me);
   if (a === "announcements") return an.adminAnnouncements(me); // D202
+  if (a === "site") return se.siteSummary(me, Number(u.searchParams.get("days")) || 30); // D205
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" || f === "ideas" ? f : "active"); }

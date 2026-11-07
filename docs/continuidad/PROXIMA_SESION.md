@@ -1,11 +1,47 @@
 # REPI — Retomar acá
 
-Actualizado: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 07/11/2026 (hasta D205; **Experience Hub /conoce y /qr en PR, sin publicar**, ver primera sección). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
 
 
+
+## REPI Experience Hub (/conoce y /qr, D205) — 07/11/2026 · EN PR, SIN PUBLICAR
+
+- **Pedido:** master prompt «REPI Experience Hub»: landing comercial con QR permanente para la remera de los ATICMA Awards 2026. **No publicar sin aprobación del titular.**
+- **Rama:** `feat/experience-hub`, desde `main` `163eb72`.
+- **Qué hay** (detalle en `docs/comercial/EXPERIENCE_HUB.md`):
+  - `/conoce` estática y `/conoce/{gimnasios,entrenadores,deportistas,aliados}`.
+  - Selector de perfil, simulador con el motor real de Training Intelligence, 4 demos reales (`POST /api/demo`) y 12 funciones con capturas reales de la demo.
+  - Caso Smart Center (sin cifras), pasos, preguntas frecuentes y formulario.
+  - `/qr` y `/qr/<campaña>`: 307 sin caché a una lista cerrada de destinos.
+  - `robots.txt` y `sitemap.xml`, imagen OG, enlace «Conocé REPI» en el pie del sitio.
+  - REPI Admin › «Sitio y QR».
+- **Archivos nuevos:**
+  - Contenido y librerías: `src/content/conoce.ts`, `src/lib/{qr,site-events,site-track}.ts`.
+  - Servidor y rutas: `src/server/site/{events,qr}.ts`, `src/app/conoce/**`, `src/app/qr/**`, `src/app/api/site/event/route.ts`, `src/app/{robots,sitemap}.ts`.
+  - Interfaz: `src/components/conoce/*`, `src/components/admin/AdminSite.tsx`, `src/styles/conoce.css`, `public/conoce/{shots/*.webp,og.png}`.
+- **Archivos tocados:** `db/schema.ts`, `server/commercial/services.ts` (`createLead`: partner, email o WhatsApp, origen), `api/access/lead` (antispam), `api/admin` (site), `api/cron/purge-media` (purga de eventos), `api/demo` (20 por hora por IP), `AdminApp.tsx` y `PublicSite.tsx` (enlace).
+- **Migración 0047 (aditiva, NO aplicada en producción):**
+  - `site_event` y `commercial_lead.{source,campaign,interest}`; el email deja de ser NOT NULL.
+  - `scripts/operations/hosted-0047.sql`, rollback `scripts/rollback/0047_experience_hub.down.sql`.
+  - Ensayo `verify-0047.sh` ✓: huella idéntica, RLS, sin permisos públicos, reintento que falla entero, reversión que se niega con contactos sólo de WhatsApp, revertir y reaplicar.
+  - Orden: respaldo verde → `hosted-0047.sql` → merge → smoke.
+- **Pruebas:**
+  - `tests/experience-hub.test.ts` (10 ✓). Cubre QR sin redirección abierta, límite de escaneos, eventos con vocabulario cerrado y purga a 400 días, leads con WhatsApp y aliados, antispam y compatibilidad del formulario anterior, y Admin sólo con 2FA y separación QR/otros.
+  - typecheck ✓, guards ✓, build ✓.
+  - Navegador (build local + `repi_dev`, iPhone 13 y escritorio):
+    - QR → `/conoce` con UTM; perfil y URL; WhatsApp precompletado; simulador; formulario con validación y confirmación; demo de alumno abierta; teclado; OG y canónica.
+    - axe 0 serias o críticas; sin scroll horizontal; 0 errores de consola.
+    - LCP 1,5 s en 4G lento.
+- **Pendiente:**
+  - Aprobación del titular y publicación.
+  - Videos reales (guiones en `docs/comercial/VIDEOS_PENDIENTES.md`).
+  - Autorización para el logo de Smart Center.
+  - QR impreso definitivo de `repiclub.com/qr`.
+- **Capturas:** regenerar con build local + `next start` (repi_dev) y el script de Playwright del bloque (viewport 390×844 a 2×, tema claro, píldora de la demo oculta). Convertir a WebP de 600 px.
+- **Pedido aparte del titular (sin detalle todavía):** captura del panel «Sala» de Smart Center Gym (pedidos T-1009/T-1010 «Programa nuevo», aviso «Tomaste T-1008»). Pedí qué cambiar; no se tocó nada de eso.
 
 ## Historial de varios años completo y reanudable — 06/11/2026
 
