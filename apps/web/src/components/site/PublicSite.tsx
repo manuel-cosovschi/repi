@@ -173,6 +173,7 @@ export function SiteFooter() {
         </div>
         <nav aria-label="Enlaces del sitio">
           <Link href="/acceso">Ingresar</Link>
+          <Link href="/conoce">Conocé REPI</Link>
           <Link href="/demo">Demo</Link>
           <Link href="/instalar">Instalar la app</Link>
           <Link href="/ayuda">Ayuda</Link>

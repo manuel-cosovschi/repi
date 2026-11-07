@@ -1391,15 +1391,41 @@ export const clubBlock = pgTable("club_block", {
 // ── Anexo 26/10: alta comercial y condiciones por cliente ───────────────────
 export const commercialLead = pgTable("commercial_lead", {
   id: id(),
-  kind: text("kind", { enum: ["gym", "coach"] }).notNull(),
+  // D205: «partner» = empresa, inversor o posible aliado (Experience Hub). Texto libre en la base: sin CHECK que migrar.
+  kind: text("kind", { enum: ["gym", "coach", "partner"] }).notNull(),
   orgName: text("org_name").notNull(),
   contactName: text("contact_name").notNull(),
-  email: text("email").notNull(),
+  email: text("email"), // D205: email o WhatsApp; el servicio exige al menos uno
   phone: text("phone"),
   message: text("message"),
   status: text("status", { enum: ["new", "contacted", "converted", "discarded"] }).notNull().default("new"),
+  // D205: de dónde vino (sin datos personales): «qr», «utm», «referral» o «direct», la campaña y el perfil elegido.
+  source: text("source"),
+  campaign: text("campaign"),
+  interest: text("interest"),
   createdAt: now("created_at"),
 });
+
+/**
+ * D205 · Experience Hub: eventos anónimos del sitio comercial (/conoce y /qr). Sin cookies, IP, user agent ni cuenta: un
+ * identificador aleatorio por visita que vive en la pestaña (sessionStorage) y se pierde al cerrarla. Sólo nombres de
+ * evento, perfil y destino de una lista cerrada; campañas y UTM recortadas. Se borran a los 400 días (job diario).
+ */
+export const siteEvent = pgTable("site_event", {
+  id: id(),
+  at: now("at"),
+  name: text("name").notNull(),
+  visit: text("visit"),
+  profile: text("profile"),
+  target: text("target"),
+  source: text("source"),
+  campaign: text("campaign"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  path: text("path"),
+  device: text("device"),
+}, (t) => [index("site_event_at_idx").on(t.at), index("site_event_name_at_idx").on(t.name, t.at)]);
 
 export const clientContract = pgTable("client_contract", {
   id: id(),
