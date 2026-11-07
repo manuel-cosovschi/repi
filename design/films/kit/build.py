@@ -37,7 +37,14 @@ BASE_CSS = FONTS + f"""
 ZONES = [("recepcion", -14.5, 8.5, 8, 6), ("racks", -2, -2.5, 12, 9), ("maquinas", 11.5, -3.5, 13, 11), ("box", -14.5, -5.5, 8, 8), ("oficina", 14, 8.5, 8, 6), ("cardio", 0, 8.5, 14, 5)]
 GEAR = [(-6, -5, 2.2, 1.4), (-2, -5, 2.2, 1.4), (2, -5, 2.2, 1.4), (-6, 0, 2.2, 1.4), (-2, 0, 2.2, 1.4), (2, 0, 2.2, 1.4), (7, -7, 2.4, 1.6), (11, -7, 2.4, 1.6), (15, -7, 2.4, 1.6), (7, -3, 2.4, 1.6), (11, -3, 2.4, 1.6), (15, -3, 2.4, 1.6), (7, 1, 2.4, 1.6), (11, 1, 2.4, 1.6),
         (-5, 8.5, 1.2, 2.4), (-2.5, 8.5, 1.2, 2.4), (0, 8.5, 1.2, 2.4), (2.5, 8.5, 1.2, 2.4), (5, 8.5, 1.2, 2.4), (-14.5, 9.5, 4.5, 1), (-14.5, -5.5, 3, 1.2), (14, 8.5, 3.2, 1.4)]
-M = 44  # px por metro
+M = 44  # px por metro (en vertical, la sala llena el alto: más cerca)
+KIND, HINTS = {}, []  # tipo de cada escena y momentos con «pop» (para el sonido automático)
+
+def canvas(w, h):
+    global W, H, M
+    W, H = w, h
+    M = 44 if w >= h else h / 26
+
 PX = lambda x: W / 2 + x * M
 PZ = lambda z: H / 2 + z * M
 
@@ -57,8 +64,9 @@ def floor_svg(pid, draw=True):
 
 FLOOR_CSS = f".floor {{ position: absolute; inset: 0; }}"
 
-def scene(sid, dur, css, body, js, w=W, h=H):
+def scene(sid, dur, css, body, js, w=None, h=None):
     """Sub-composición: plantilla con #root, timeline pausada registrada con la id de la escena."""
+    w, h = w or W, h or H
     return f"""<template>
 <style>{BASE_CSS}{FLOOR_CSS}{css}</style>
 <div id="root" data-composition-id="{sid}" data-width="{w}" data-height="{h}">
@@ -74,17 +82,19 @@ window.__timelines["{sid}"] = tl;
 
 def words(text, cls="w"):
     """«Cada *dato* en otro lado» → spans por palabra; *x* resalta en cian, _x_ en gris."""
+    import re
     out = []
     for t in text.split(" "):
         k = cls
-        if t.startswith("*") and t.endswith("*"): t, k = t[1:-1], cls + " a"
-        elif t.startswith("_") and t.endswith("_"): t, k = t[1:-1], cls + " m"
+        m = re.fullmatch(r"([*_])(.+)\1([.,;:!?]*)", t)  # «*propone*,» → resaltado con la coma
+        if m: t, k = m.group(2) + m.group(3), cls + (" a" if m.group(1) == "*" else " m")
         out.append(f'<span class="{k}">{html.escape(t)}</span>')
     return " ".join(out)
 
 # ── Escenas ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 def s_dot(sid, dur, line):
-    """Plano oscuro: el punto cian cae al centro y la sala se dibuja desde él. Una línea tranquila."""
+    """Plano oscuro: el punto cian late en el centro y la sala se dibuja desde él. Una línea tranquila."""
+    KIND[sid] = "dot"
     css = f"""#{sid}-dot {{ position: absolute; left: {W/2-22}px; top: {H/2-22}px; width: 44px; height: 44px; border-radius: 50%; background: {C['cyan']}; }}
 #{sid}-ring {{ position: absolute; left: {W/2-60}px; top: {H/2-60}px; width: 120px; height: 120px; border-radius: 50%; border: 3px solid {C['cyan']}; }}
 #{sid}-t {{ position: absolute; left: 0; right: 0; top: {H/2+110}px; text-align: center; }}
@@ -109,15 +119,17 @@ FRAG_CSS = f""".frag {{ position: absolute; padding: 22px 26px; border-radius: 1
 .frag.paper small {{ color: #6B6152; font-style: normal; }}
 .frag.chat {{ border-radius: 22px 22px 22px 6px; background: #1F2D3F; }}
 .frag.alert small {{ color: #FFB4A8; }}"""
-FRAGS = [("paper", 130, 90, -5, "<small>Rutina</small>Sentadilla 4×8<br>Prensa 3×12<br><s>Remo ¿?</s>"),
+FRAGS_SALA = [("paper", 130, 90, -5, "<small>Rutina</small>Sentadilla 4×8<br>Prensa 3×12<br><s>Remo ¿?</s>"),
          ("chat", 1330, 120, 3, "<small>Socio · 19:42</small>Profe, ¿qué me toca hoy?"),
          ("", 1300, 790, -2, "<small>planilla_socios_v3.xlsx</small>412 filas · sin actualizar"),
          ("alert", 200, 800, 4, "<small>Pedido de ayuda</small>Nadie lo vio"),
          ("", 760, 60, -3, "<small>Progreso</small>— sin datos —")]
 FRAG_C = (200, 85)  # centro aproximado de cada tarjeta, para los trazos
 
-def s_scatter(sid, dur, t1, t2, connect_at):
+def s_scatter(sid, dur, t1, t2, connect_at, frags_def=None):
     """Fragmentos sueltos sobre la sala; después, trazos que los conectan con el punto cian."""
+    FRAGS = frags_def or FRAGS_SALA
+    KIND[sid] = ("scatter", dur - 1.5)
     css = FRAG_CSS + f"""#{sid}-dot {{ position: absolute; left: {W/2-22}px; top: {H/2-22}px; width: 44px; height: 44px; border-radius: 50%; background: {C['cyan']}; }}
 #{sid}-lines {{ position: absolute; inset: 0; }}
 #{sid}-floor {{ transform-origin: 50% 50%; }}
@@ -180,9 +192,10 @@ WM_CSS = f""".wm {{ position: absolute; display: block; }}
 
 def s_logo(sid, dur, claim):
     """En el golpe: el cian del punto se retira como un iris y aparece el wordmark grande con la frase."""
+    KIND[sid] = "logo"
     css = WM_CSS + f"""#{sid}-flood {{ position: absolute; inset: 0; background: {C['cyan']}; }}
-#{sid}-wm {{ left: {W/2-330}px; top: 250px; }}
-#{sid}-t {{ position: absolute; left: 0; right: 0; top: 620px; text-align: center; }}"""
+#{sid}-wm {{ left: {W/2-330}px; top: {H/2-290}px; }}
+#{sid}-t {{ position: absolute; left: 40px; right: 40px; top: {H/2+80}px; text-align: center; }}"""
     body = f"""<div id="{sid}-bg" style="position:absolute;inset:0;background:{C['navy']}"></div>
 {wordmark(sid, 660)}
 <h2 id="{sid}-t" class="h clip" data-start="0" data-duration="{dur}">{words(claim)}</h2>
@@ -207,19 +220,30 @@ PHONE_CSS = f""".phone {{ position: absolute; width: 470px; height: 1017px; bord
 def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=None):
     """La app real: grabación (o captura) en el teléfono, con título al costado y paneles con los valores reales
     de la acción a tamaño grande. `clips`: [(archivo, media_start, inicio, duración)] cortados dentro del teléfono."""
-    px = 1260 if side == "left" else 190
-    tx = 150 if side == "left" else 760
-    css = PHONE_CSS + f"""#{sid}-ph {{ left: {px}px; top: 32px; }}
+    KIND[sid] = "device"
+    vertical = H > W
+    if vertical:  # título arriba, panel en el medio, teléfono abajo
+        css = PHONE_CSS + f"""#{sid}-ph {{ left: {(W-470)/2}px; top: {H-1017-90}px; }}
+#{sid}-t {{ position: absolute; left: 70px; top: 170px; width: {W-140}px; }}
+#{sid}-sub {{ position: absolute; left: 70px; top: 430px; width: {W-140}px; }}"""
+        panels = [dict(p, x=70, y=440) for p in panels]
+    else:
+        px = 1260 if side == "left" else 190
+        tx = 150 if side == "left" else 760
+        css = PHONE_CSS + f"""#{sid}-ph {{ left: {px}px; top: 32px; }}
 #{sid}-t {{ position: absolute; left: {tx}px; top: 300px; width: 980px; }}
 #{sid}-sub {{ position: absolute; left: {tx}px; top: 560px; width: 900px; }}"""
-    vids = []
-    for i, (f, ms, st, du) in enumerate(clips):
-        vids.append(f'<video id="{sid}-v{i}" class="clip" src="assets/media/{f}" muted playsinline data-start="{st}" data-duration="{du}" data-media-start="{ms}" data-track-index="{2 + i}"></video>')
-    if still: vids.append(f'<img src="assets/media/{still}" alt="">')
+    for p in panels: HINTS.append((sid, p["at"]))
+    # Un único video por escena, precortado con ffmpeg (build → precut): con varios <video> o clips que arrancan a mitad
+    # de escena, el render deja el teléfono en blanco unos cuadros. El póster (primer cuadro) queda debajo.
+    PRECUTS.append((sid, clips, dur))
+    vids = [f'<img src="assets/media/cut-{sid}.jpg" alt="">',
+            f'<video id="{sid}-v" class="clip" src="assets/media/cut-{sid}.mp4" muted playsinline data-start="0" data-duration="{dur}" data-track-index="2"></video>']
+    if still: vids = [f'<img src="assets/media/{still}" alt="">']
     pnl = []
     for j, p in enumerate(panels):
         cls = p.get("cls", "")
-        pnl.append(f'<div id="{sid}-p{j}" class="panel clip" data-start="{p["at"]}" data-duration="{p.get("dur", dur - p["at"])}" style="left:{p["x"]}px;top:{p["y"]}px"><small>{p["k"]}</small><b class="{cls}">{p["v"]}</b>{f"<p>{p["why"]}</p>" if p.get("why") else ""}</div>')
+        pnl.append(f'<div id="{sid}-p{j}" class="panel" style="left:{p["x"]}px;top:{p["y"]}px"><small>{p["k"]}</small><b class="{cls}">{p["v"]}</b>{f"<p>{p["why"]}</p>" if p.get("why") else ""}</div>')
     body = f"""{floor_svg(sid, draw=False)}
 <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,15,20,.92) 0%, rgba(11,15,20,.6) 55%, rgba(11,15,20,.35) 100%)"></div>
 <div id="{sid}-ph" class="phone"><div class="scr">{"".join(vids)}</div></div>
@@ -230,13 +254,14 @@ def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=Non
           f'tl.fromTo("#{sid}-t .w", {{ opacity: 0, filter: "blur(6px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.08 }}, 0.25);']
     if sub: js.append(f'tl.fromTo("#{sid}-sub", {{ opacity: 0, filter: "blur(8px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.2 }}, 0.9);')
     for j, p in enumerate(panels):
-        js.append(f'tl.fromTo("#{sid}-p{j}", {{ opacity: 0, x: {"-80" if side == "left" else "80"}, scale: 0.9 }}, {{ opacity: 1, x: 0, scale: 1, duration: 0.55, ease: "expo.out" }}, {p["at"]});')
+        js.append(f'tl.fromTo("#{sid}-p{j}", {{ opacity: 0, x: {"-80" if side == "left" or vertical else "80"}, scale: 0.9 }}, {{ opacity: 1, x: 0, scale: 1, duration: 0.55, ease: "expo.out" }}, {p["at"]});')
         if p.get("out"): js.append(f'tl.to("#{sid}-p{j}", {{ opacity: 0, filter: "blur(8px)", duration: 0.2 }}, {p["out"]});')
-    js.append(f'tl.to("#{sid}-ph, #{sid}-t, #{sid}-sub", {{ x: {-W if side == "left" else W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
+    js.append(f'tl.to("#{sid}-ph, #{sid}-t, #{sid}-sub", {{ x: {-W if side == "left" or vertical else W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
     return scene(sid, dur, css, body, "\n".join(js))
 
 def s_network(sid, dur, title):
     """La sala entera: socios y equipo moviéndose, un pedido que viaja del socio al entrenador y vuelve «Voy»."""
+    KIND[sid] = "network"; HINTS.append((sid, 1.0)); HINTS.append((sid, 2.45))
     import random
     rnd = random.Random(7)
     dots = []
@@ -277,15 +302,18 @@ def s_network(sid, dur, title):
 
 def s_end(sid, dur, claim, url):
     """Los puntos de la sala convergen en uno, que sube a su lugar sobre la «ı» del wordmark. Frase y dirección."""
+    KIND[sid] = "end"
+    wt = H / 2 - 290
+    ut = H / 2 + (280 if W > H else 360)
     css = WM_CSS + f""".cd {{ position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: {C['cyan']}; }}
-#{sid}-wm {{ left: {W/2-280}px; top: 250px; }}
-#{sid}-t {{ position: absolute; left: 0; right: 0; top: 590px; text-align: center; }}
-#{sid}-u {{ position: absolute; left: 0; right: 0; top: 820px; text-align: center; font: 600 46px "Barlow"; color: {C['white']}; }}
+#{sid}-wm {{ left: {W/2-280}px; top: {wt}px; }}
+#{sid}-t {{ position: absolute; left: 40px; right: 40px; top: {H/2+50}px; text-align: center; }}
+#{sid}-u {{ position: absolute; left: 0; right: 0; top: {ut}px; text-align: center; font: 600 46px "Barlow"; color: {C['white']}; }}
 #{sid}-u span {{ border-bottom: 3px solid {C['cyan']}; padding-bottom: 6px; }}"""
     import random
     rnd = random.Random(3)
     dots, js = [], []
-    dot_x, dot_y = W / 2 - 280 + 560 * 0.8892 + 560 * 0.1012 / 2, 250 + (560 * 154 / 315) * 0.0158 + 560 * 0.1012 / 2
+    dot_x, dot_y = W / 2 - 280 + 560 * 0.8892 + 560 * 0.1012 / 2, wt + (560 * 154 / 315) * 0.0158 + 560 * 0.1012 / 2
     for i in range(14):
         x, y = rnd.uniform(160, W - 160), rnd.uniform(120, H - 120)
         dots.append(f'<div id="{sid}-c{i}" class="cd" style="left:{x:.0f}px;top:{y:.0f}px"></div>')
@@ -309,11 +337,34 @@ def s_end(sid, dur, claim, url):
            f'tl.fromTo("#{sid}-u", {{ opacity: 0, filter: "blur(8px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.25 }}, 1.85);']
     return scene(sid, dur, css, body, "\n".join(js))
 
+def s_statement(sid, dur, title, sub=None, img=None):
+    """Un enunciado grande sobre la sala (oscurecida), con frase y, opcionalmente, una placa clara con un logo real."""
+    KIND[sid] = "statement"
+    if img: HINTS.append((sid, 0.6))
+    css = f"""#{sid}-floor {{ transform-origin: 50% 50%; }}
+#{sid}-c {{ position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 40px; padding: 0 {120 if W > H else 70}px; text-align: center; }}
+#{sid}-shade {{ position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(11,15,20,.9), rgba(11,15,20,.45) 80%); }}
+#{sid}-img {{ padding: 30px 50px; border-radius: 26px; background: {C['navy']}; border: 2px solid {C['steel']}; box-shadow: 0 30px 60px -20px rgba(0,0,0,.55); }}
+#{sid}-img img {{ display: block; width: 420px; }}"""
+    body = f"""{floor_svg(sid, draw=False)}
+<div id="{sid}-shade"></div>
+<div id="{sid}-c">
+{f'<div id="{sid}-img"><img src="assets/brand/{img}" alt=""></div>' if img else ""}
+<h2 id="{sid}-t" class="h">{words(title)}</h2>
+{f'<p id="{sid}-sub" class="s">{sub}</p>' if sub else ""}
+</div>"""
+    js = [f'tl.fromTo("#{sid}-floor", {{ scale: 1.08 }}, {{ scale: 1.0, duration: {dur}, ease: "none" }}, 0);',
+          f'tl.fromTo("#{sid}-t .w", {{ opacity: 0, y: 30, filter: "blur(6px)" }}, {{ opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.08 }}, 0.15);']
+    if img: js.append(f'tl.fromTo("#{sid}-img", {{ opacity: 0, scale: 0.85 }}, {{ opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.6)" }}, 0.6);')
+    if sub: js.append(f'tl.fromTo("#{sid}-sub", {{ opacity: 0, filter: "blur(8px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.25 }}, 1.0);')
+    js.append(f'tl.to("#{sid}-c", {{ x: {-W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
+    return scene(sid, dur, css, body, "\n".join(js))
+
 # ── Guiones ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 FILMS = {
     "brand": dict(
         title="REPI · Cada repetición cuenta", dur=48.0,
-        music=("heroic-age.mp3", 30.0), sfx=[("whoosh-cinematic", 13.9), ("impact-bass-1", 18.0), ("pop", 19.3), ("whoosh", 21.9), ("pop", 23.4), ("pop", 25.6), ("whoosh-short", 27.9), ("whoosh", 33.4), ("whoosh-short", 38.4), ("riser", 41.0), ("impact-bass-2", 44.8)],
+        music=("heroic-age.mp3", 30.0), sfx=[("whoosh-cinematic", 13.6, 3.2), ("impact-bass-1", 18.0), ("pop", 19.3), ("whoosh", 21.9), ("pop", 23.4), ("pop", 25.6), ("whoosh-short", 27.9), ("whoosh", 33.4), ("whoosh-short", 38.4), ("riser", 41.6, 3.4), ("impact-bass-2", 44.8)], poster=46.5,
         media=["f-intelligence.mp4", "perfil-entrenadores.mp4", "gym-floor.mp4", "gym-owner.mp4"],
         scenes=[
             ("dot", 3.6, lambda s, d: s_dot(s, d, "En la sala de un gimnasio, todos los días.")),
@@ -330,8 +381,144 @@ FILMS = {
         ]),
 }
 
+# Fragmentos de la sala para cada público (texto ilustrativo de cómo se trabaja hoy; ninguna cifra).
+FRAGS_GYM = [("paper", 130, 90, -5, "<small>Recepción</small>Alta: Camila R.<br>Rutina: ¿?<br><s>Pagó ¿?</s>"),
+             ("chat", 1330, 120, 3, "<small>Grupo socios · 07:10</small>¿Quién me arma la rutina?"),
+             ("", 1300, 790, -2, "<small>planilla_altas.xlsx</small>Sin actualizar"),
+             ("alert", 200, 800, 4, "<small>Pedido de ayuda</small>Nadie lo vio"),
+             ("", 760, 60, -3, "<small>Seguimiento de sala</small>— sin datos —")]
+FRAGS_COACH = [("paper", 130, 90, -5, "<small>Rutina_Julian_v4.pdf</small>Sentadilla 4×8<br>Press 3×10<br><s>Remo ¿?</s>"),
+               ("chat", 1330, 120, 3, "<small>Alumno · 21:15</small>Profe, ¿qué peso pongo?"),
+               ("", 1300, 790, -2, "<small>cargas_alumnos.xlsx</small>Semana sin completar"),
+               ("alert", 200, 800, 4, "<small>Alumna nueva</small>Sin programa"),
+               ("", 760, 60, -3, "<small>Progreso</small>— sin datos —")]
+
+# Paneles reutilizados: los valores son los que muestra la grabación de la demo (datos ficticios).
+P_REC = dict(at=0.9, x=150, y=620, k="REPI recomienda", v="53 kg × 8", cls="a", out=3.4)
+P_ADJ = dict(at=3.7, x=150, y=620, k="Serie difícil: 5 de 8. La próxima", v="50 kg × 8–10", cls="t", why="Baja un poco la carga y prioriza completar el rango.")
+SERIE = [("f-intelligence.mp4", 5.8, 0, 3.5), ("f-intelligence.mp4", 16.2, 3.5, 3.5)]
+END = lambda claim, url: (lambda s, d: s_end(s, d, claim, url))
+LOGO = lambda s, d: s_logo(s, d, "_Cada_ _repetición_ cuenta.")
+
+def deportistas(size):
+    return dict(
+        title="REPI para deportistas", dur=40.0, size=size, music=("volatile-reaction.mp3", 24.0), sfx="auto", poster=36.5,
+        scenes=[
+            ("dot", 3.0, lambda s, d: s_dot(s, d, "Llegás al gimnasio.")),
+            ("home", 4.5, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 0.0, 0, 4.5)], "Tu rutina, *lista.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Próximo entrenamiento", v="Torso A", cls="a")])),
+            ("checkin", 4.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 4.2, 0, 2.0)], "¿Cómo *llegás* hoy?", side="right", panels=[
+                dict(at=0.9, x=760, y=620, k="Antes de empezar", v="Energía, sueño y ánimo", cls="t")])),
+            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Un objetivo para *cada* serie.", panels=[P_REC, P_ADJ])),
+            ("rest", 4.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 11.0, 0, 4.0)], "El descanso, *a* *tiempo.*", side="right", panels=[
+                dict(at=0.9, x=760, y=620, k="Descanso indicado", v="2:00", cls="t")])),
+            ("progress", 5.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 19.0, 0, 5.0)], "Tu progreso, *a* *la* *vista.*", sub="Fuerza, cargas, repeticiones, volumen y récords.")),
+            ("body", 4.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 24.0, 0, 3.1)], "Tu cuerpo, *con* *tus* *datos.*", side="right", sub="Peso y objetivo, privados.")),
+            ("logo", 4.0, LOGO),
+            ("end", 4.5, END("Probá *la* *demo.*", "repiclub.com/conoce/deportistas")),
+        ])
+
+FILMS.update({
+    "gimnasios": dict(
+        title="REPI para gimnasios", dur=61.6, music=("five-armies.mp3", 68.0), sfx="auto", poster=58.5,
+        scenes=[
+            ("dot", 3.6, lambda s, d: s_dot(s, d, "En cada gimnasio, todos los días.")),
+            ("scatter", 13.0, lambda s, d: s_scatter(s, d, "Cada sala, _a_ _ciegas._", "Hasta que *todo* se conecta.", 7.4, FRAGS_GYM)),
+            ("logo", 4.0, LOGO),
+            ("altas", 9.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 6.0, 0, 3.0), ("gym-owner.mp4", 10.0, 3.0, 3.0), ("gym-owner.mp4", 13.0, 6.0, 3.0)], "Altas por QR, *con* *aprobación.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Pedido de acceso · Palermo", v="Camila Ruiz", cls="a", out=5.8),
+                dict(at=6.2, x=150, y=620, k="El equipo confirmó", v="Acceso aprobado", cls="t")])),
+            ("sala", 8.0, lambda s, d: s_device(s, d, [("gym-floor.mp4", 1.0, 0, 4.0), ("gym-floor.mp4", 5.0, 4.0, 4.0)], "El equipo sabe *a* *quién* atender.", side="right", panels=[
+                dict(at=0.9, x=760, y=620, k="Julián · Sentadilla", v="Que venga alguien", cls="a", out=3.8),
+                dict(at=4.2, x=760, y=620, k="Sofía · equipo de sala", v="Voy", cls="t")])),
+            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Cada socio entrena *con* *objetivo.*", panels=[P_REC, P_ADJ])),
+            ("owner", 7.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 0.0, 0, 4.6), ("gym-owner.mp4", 17.9, 4.6, 0.9)], "Tu gimnasio, *de* *un* *vistazo.*", side="right", sub="Por sede: equipo, altas, sala y comunidad.")),
+            ("network", 5.5, lambda s, d: s_network(s, d, "Socios, equipo y gerencia. *Conectados.*")),
+            ("end", 4.5, END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
+        ]),
+    "entrenadores": dict(
+        title="REPI para entrenadores", dur=49.1, music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=46.0,
+        scenes=[
+            ("dot", 3.6, lambda s, d: s_dot(s, d, "Un entrenador, muchos alumnos.")),
+            ("scatter", 12.0, lambda s, d: s_scatter(s, d, "Cada alumno, _en_ _otro_ _chat._", "Hasta que *tu* *método* se ordena.", 6.8, FRAGS_COACH)),
+            ("logo", 4.0, LOGO),
+            ("clients", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 3.0, 0, 3.0), ("perfil-entrenadores.mp4", 9.0, 3.0, 3.5)], "Todos tus alumnos, *de* *un* *vistazo.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Julián Ortiz", v="Sin programa", cls="a", out=3.0),
+                dict(at=3.3, x=150, y=620, k="Training Intelligence · Valentina", v="Sin tendencia aún", cls="t", why="Con pocas sesiones comparables, REPI lo dice en lugar de inventar.")])),
+            ("programs", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 14.0, 0, 4.0), ("perfil-entrenadores.mp4", 18.0, 4.0, 1.3)], "Tu programa, *a* *tu* *manera.*", side="right", panels=[
+                dict(at=1.0, x=760, y=620, k="Programa · versión 1", v="Fuerza base · 2 días", cls="a")])),
+            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Y cada alumno, *serie* *por* *serie.*", panels=[P_REC, P_ADJ])),
+            ("rule", 5.0, lambda s, d: s_statement(s, d, "REPI propone. *Vos* *decidís.*", sub="Nada se asigna solo.")),
+            ("end", 4.5, END("Soy *entrenador.*", "repiclub.com/conoce/entrenadores")),
+        ]),
+    "deportistas": deportistas((1920, 1080)),
+    "deportistas-vertical": deportistas((1080, 1920)),
+    "aliados": dict(
+        title="REPI · Tecnología para el entrenamiento", dur=66.5, music=("rising-game.mp3", 25.0), sfx="auto", poster=63.0,
+        scenes=[
+            ("dot", 4.0, lambda s, d: s_dot(s, d, "Gimnasios y entrenadores, con papel, planillas y mensajes.")),
+            ("scatter", 12.0, lambda s, d: s_scatter(s, d, "La sala, _sin_ _datos._", "REPI la *conecta.*", 6.8, FRAGS_GYM)),
+            ("logo", 4.0, LOGO),
+            ("model", 6.0, lambda s, d: s_statement(s, d, "Gimnasios y entrenadores *la* *contratan.*", sub="Sus socios y alumnos la usan cada vez que entrenan.")),
+            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Recomendaciones *que* *se* *explican.*", panels=[P_REC, P_ADJ])),
+            ("coach", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 3.0, 0, 3.0), ("perfil-entrenadores.mp4", 14.0, 3.0, 3.5)], "Para entrenadores *independientes.*", side="right")),
+            ("owner", 6.5, lambda s, d: s_device(s, d, [("gym-owner.mp4", 0.0, 0, 3.0), ("gym-owner.mp4", 6.0, 3.0, 3.5)], "Y para gimnasios, *por* *sede.*")),
+            ("tech", 5.0, lambda s, d: s_statement(s, d, "Funciona *sin* *señal.* Se instala *sin* *tiendas.*")),
+            ("proof", 6.0, lambda s, d: s_statement(s, d, "En operación en *Smart* *Center* *Gym.*", sub="Mar del Plata.", img="smart-center-gym.webp")),
+            ("network", 5.0, lambda s, d: s_network(s, d, "Gimnasios, entrenadores y alumnos. *Conectados.*")),
+            ("end", 4.5, END("Proponé *una* *alianza.*", "repiclub.com/conoce/aliados")),
+        ]),
+    "intelligence": dict(
+        title="Training Intelligence", dur=33.0, music=("volatile-reaction.mp3", 120.0), sfx="auto", poster=21.5,
+        scenes=[
+            ("dot", 3.0, lambda s, d: s_dot(s, d, "Cada serie deja un dato.")),
+            ("prev", 5.0, lambda s, d: s_device(s, d, [("f-intelligence.mp4", 5.0, 0, 5.0)], "Lo que hiciste *la* *última* *vez.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Anterior", v="53 kg × 8")])),
+            ("rec", 5.5, lambda s, d: s_device(s, d, [("f-intelligence.mp4", 9.0, 0, 5.5)], "Lo que REPI *propone*, con la razón.", side="right", panels=[
+                dict(at=0.9, x=760, y=620, k="REPI recomienda", v="53 kg × 8", cls="a", why="Repetí la carga y buscá llegar a 8 en todas.")])),
+            ("real", 5.0, lambda s, d: s_device(s, d, [("f-intelligence.mp4", 12.0, 0, 4.2)], "Lo que *pasó.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Real · serie difícil", v="53 kg × 5")])),
+            ("next", 6.0, lambda s, d: s_device(s, d, [("f-intelligence.mp4", 16.2, 0, 4.7)], "Y la próxima *se* *ajusta.*", side="right", panels=[
+                dict(at=0.9, x=760, y=620, k="Serie difícil: 5 de 8. La próxima", v="50 kg × 8–10", cls="t", why="Baja un poco la carga y prioriza completar el rango.")])),
+            ("rule", 4.0, lambda s, d: s_statement(s, d, "*Nunca* sube a mitad de la sesión.")),
+            ("end", 4.5, END("Probalo *con* *el* *motor* *real.*", "repiclub.com/conoce")),
+        ]),
+    "progreso": dict(
+        title="Progreso por ejercicio", dur=22.5, music=("clash-defiant.mp3", 150.0), sfx="auto", poster=4.5,
+        scenes=[
+            ("dot", 3.0, lambda s, d: s_dot(s, d, "Cada serie que registrás, suma.")),
+            ("prog", 6.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 19.0, 0, 5.0)], "Tu progreso, *por* *ejercicio.*", sub="Fuerza, cargas, repeticiones, volumen y récords.")),
+            ("calc", 3.5, lambda s, d: s_statement(s, d, "Calculado desde *lo* *que* *registrás.*")),
+            ("body", 5.5, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 24.0, 0, 3.1)], "Tu cuerpo, *con* *tus* *datos.*", side="right", sub="Peso, objetivo y fotos privadas, sólo para vos.")),
+            ("end", 4.5, END("Mirá *tu* *progreso.*", "repiclub.com/conoce/deportistas")),
+        ]),
+    "altas": dict(
+        title="Altas por QR", dur=23.5, music=("five-armies.mp3", 120.0), sfx="auto", poster=6.0,
+        scenes=[
+            ("dot", 3.0, lambda s, d: s_dot(s, d, "Un QR por sede.")),
+            ("req", 7.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 6.0, 0, 3.5), ("gym-owner.mp4", 10.0, 3.5, 3.5)], "Cada socio *pide* *acceso.*", panels=[
+                dict(at=1.0, x=150, y=620, k="Pedido de acceso", v="Camila Ruiz", cls="a", out=3.4),
+                dict(at=3.8, x=150, y=620, k="Confirmación del equipo", v="Lo conozco", cls="t")])),
+            ("ok", 5.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 13.0, 0, 3.8)], "El equipo *confirma* quién es socio.", side="right", panels=[
+                dict(at=1.0, x=760, y=620, k="Resueltas · 7 días", v="Acceso aprobado", cls="t")])),
+            ("rule", 4.0, lambda s, d: s_statement(s, d, "Identidad *no* *es* pertenencia.", sub="El acceso siempre lo aprueba una persona.")),
+            ("end", 4.5, END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
+        ]),
+    "sala": dict(
+        title="Seguimiento de sala", dur=23.5, music=("clash-defiant.mp3", 0.0), sfx="auto", poster=13.0,
+        scenes=[
+            ("dot", 3.0, lambda s, d: s_dot(s, d, "En plena serie.")),
+            ("net", 5.0, lambda s, d: s_network(s, d, "El socio *pide* *ayuda* desde su serie.")),
+            ("floor", 7.0, lambda s, d: s_device(s, d, [("gym-floor.mp4", 1.0, 0, 4.0), ("gym-floor.mp4", 5.0, 4.0, 3.0)], "El equipo *responde.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Julián · Sentadilla", v="Que venga alguien", cls="a", out=3.8),
+                dict(at=4.2, x=150, y=620, k="Sofía · equipo de sala", v="Voy", cls="t")])),
+            ("rule", 4.0, lambda s, d: s_statement(s, d, "Una señal para acercarse, *no* *un* *diagnóstico.*")),
+            ("end", 4.5, END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
+        ]),
+})
+
 INDEX = """<!doctype html>
-<html lang="es" data-resolution="landscape">
+<html lang="es" data-resolution="{res}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width={w}, height={h}" />
@@ -359,8 +546,45 @@ def sfx_len(path):
     except (ValueError, OSError):
         return "2.5"
 
+PRECUTS = []  # (escena, cortes, duración) que s_device pide precortar
+
+def precut(d, sid, clips, dur):
+    """Corta y concatena los tramos de la grabación en un solo MP4 CFR 30 fps (GOP corto) y extrae el póster."""
+    import subprocess
+    srcs = [os.path.join(MEDIA_SRC, "footage", f) for f, *_ in clips]
+    if not all(os.path.exists(x) for x in srcs): return
+    args, parts = [], []
+    for i, ((f, ms, st, du), src) in enumerate(zip(clips, srcs)):
+        args += ["-ss", f"{ms}", "-t", f"{du}", "-i", src]
+        parts.append(f"[{i}:v]fps=30,scale=780:1688,setsar=1,setpts=PTS-STARTPTS[v{i}]")
+    cover = sum(c[3] for c in clips)
+    graph = ";".join(parts) + ";" + "".join(f"[v{i}]" for i in range(len(clips))) + f"concat=n={len(clips)}:v=1:a=0[c];[c]tpad=stop_mode=clone:stop_duration={max(0, dur - cover) + 0.5:.2f}[out]"
+    out = os.path.join(d, "assets", "media", f"cut-{sid}.mp4")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", graph, "-map", "[out]", "-t", f"{dur}", "-r", "30", "-c:v", "libx264", "-crf", "16", "-g", "15", "-pix_fmt", "yuv420p", "-an", out], check=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", out, "-frames:v", "1", "-q:v", "3", out[:-4] + ".jpg"], check=True)
+
+def auto_sfx(scenes):
+    """Sonido por evento visible: whoosh en cada corte (dos tomas alternadas), impacto en la marca, pop en cada panel o
+    respuesta que aterriza, whoosh cinemático antes de que los fragmentos vuelen, riser que llega al golpe final."""
+    out, t, starts = [], 0.0, {}
+    for i, (sid, dur, _) in enumerate(scenes):
+        starts[sid] = t
+        k = KIND.get(sid)
+        if k == "logo": out.append(("impact-bass-1", round(t, 2)))
+        elif k == "end":
+            out.append(("riser", round(max(0, t + 1.4 - 3.2), 2), 3.4))
+            out.append(("impact-bass-2", round(t + 1.4, 2)))
+        elif i > 0: out.append(("whoosh" if i % 2 else "whoosh-short", round(max(0, t - 0.12), 2)))
+        if isinstance(k, tuple) and k[0] == "scatter": out.append(("whoosh-cinematic", round(t + k[1] - 2.3, 2), 3.2))
+        t += dur
+    for sid, at in HINTS:
+        if sid in starts: out.append(("pop", round(starts[sid] + at, 2)))
+    return sorted(out, key=lambda x: x[1])
+
 def build(name):
     f = FILMS[name]
+    canvas(*f.get("size", (1920, 1080)))
+    KIND.clear(); HINTS.clear()
     d = os.path.join(ROOT, name)
     os.makedirs(os.path.join(d, "compositions"), exist_ok=True)
     for sub in ("fonts", "brand", "media", "sfx"): os.makedirs(os.path.join(d, "assets", sub), exist_ok=True)
@@ -368,21 +592,27 @@ def build(name):
     for fn in ("barlow-400.woff2", "barlow-600.woff2", "barlowcondensed-700.woff2", "barlow-OFL.txt", "barlowcondensed-OFL.txt"):
         shutil.copy(os.path.join(mot, "fonts", fn), os.path.join(d, "assets", "fonts", fn))
     shutil.copy(os.path.join(mot, "brand", "wm_full.png"), os.path.join(d, "assets", "brand", "wm_full.png"))
+    shutil.copy(os.path.join(REPO, "apps", "web", "public", "conoce", "smart-center-gym.webp"), os.path.join(d, "assets", "brand", "smart-center-gym.webp"))
     if MEDIA_SRC:
-        for fn in f["media"] + [f["music"][0]]:
+        for fn in [f["music"][0]]:
             src = next((os.path.join(MEDIA_SRC, sub, fn) for sub in ("footage", "audio") if os.path.exists(os.path.join(MEDIA_SRC, sub, fn))), None)
             if src: shutil.copy(src, os.path.join(d, "assets", "media", fn))
-        sfx_dir = os.path.expanduser("~/.agents/skills/media-use/audio/assets/sfx")
-        for n, _ in f["sfx"]:
-            if os.path.exists(os.path.join(sfx_dir, n + ".mp3")): shutil.copy(os.path.join(sfx_dir, n + ".mp3"), os.path.join(d, "assets", "sfx", n + ".mp3"))
     t, hosts = 0.0, []
+    PRECUTS.clear()
     for sid, dur, fn in f["scenes"]:
         open(os.path.join(d, "compositions", f"{sid}.html"), "w").write(fn(sid, dur))
+    sfx_list = auto_sfx(f["scenes"]) if f["sfx"] == "auto" else f["sfx"]
+    if MEDIA_SRC:
+        for pc in PRECUTS: precut(d, *pc)
+        sfx_dir = os.path.expanduser("~/.agents/skills/media-use/audio/assets/sfx")
+        for n in {x[0] for x in sfx_list}:
+            if os.path.exists(os.path.join(sfx_dir, n + ".mp3")): shutil.copy(os.path.join(sfx_dir, n + ".mp3"), os.path.join(d, "assets", "sfx", n + ".mp3"))
+    for sid, dur, fn in f["scenes"]:
         hosts.append(f'<div id="{sid}" data-composition-id="{sid}" data-composition-src="compositions/{sid}.html" data-start="{t:.2f}" data-duration="{dur}" data-track-index="1" data-track-kind="graphics" data-width="{W}" data-height="{H}"></div>')
         t += dur
     assert abs(t - f["dur"]) < 0.01, f"{name}: escenas suman {t}, film {f['dur']}"
-    sfx = "\n".join(f'<audio id="sfx{i}" src="assets/sfx/{n}.mp3" data-start="{at}" data-duration="{sfx_len(os.path.join(d, "assets", "sfx", n + ".mp3"))}" data-volume="0.55"></audio>' for i, (n, at) in enumerate(f["sfx"]))
-    open(os.path.join(d, "index.html"), "w").write(INDEX.format(w=W, h=H, dur=f["dur"], title=f["title"], hosts="\n".join(hosts), music=f["music"][0], mstart=f["music"][1], sfx=sfx))
+    sfx = "\n".join(f'<audio id="sfx{i}" src="assets/sfx/{x[0]}.mp3" data-start="{x[1]}" data-duration="{x[2] if len(x) > 2 else sfx_len(os.path.join(d, "assets", "sfx", x[0] + ".mp3"))}" data-volume="0.55"></audio>' for i, x in enumerate(sfx_list))
+    open(os.path.join(d, "index.html"), "w").write(INDEX.format(res="landscape" if W > H else "portrait", w=W, h=H, dur=f["dur"], title=f["title"], hosts="\n".join(hosts), music=f["music"][0], mstart=f["music"][1], sfx=sfx))
     open(os.path.join(d, ".gitignore"), "w").write("assets/media/\nassets/sfx/\nrenders/\nsnapshots/\n.hyperframes/\n")
     print("ok", name, f"{t:.1f}s", len(f["scenes"]), "escenas")
 
