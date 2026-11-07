@@ -29,8 +29,12 @@ export function watchLayout() {
     lastH = h; clearTimeout(timer); timer = window.setTimeout(() => ScrollTrigger.refresh(), 150);
   });
   ro.observe(document.body);
+  // ScrollTrigger ya se recalcula con el evento load; si las fuentes terminan después, una vez más (en un momento libre).
   const idle = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 200));
-  void document.fonts?.ready.then(() => idle(() => { if (alive) ScrollTrigger.refresh(); }, { timeout: 1500 }));
-  return () => { alive = false; ro.disconnect(); clearTimeout(timer); };
+  let loaded = document.readyState === "complete";
+  const onLoad = () => { loaded = true; };
+  window.addEventListener("load", onLoad, { once: true });
+  void document.fonts?.ready.then(() => { if (alive && loaded) idle(() => { if (alive) ScrollTrigger.refresh(); }, { timeout: 1500 }); });
+  return () => { alive = false; ro.disconnect(); clearTimeout(timer); window.removeEventListener("load", onLoad); };
 }
 export { gsap, ScrollTrigger, useGSAP };

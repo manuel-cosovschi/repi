@@ -40,6 +40,9 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     let reqTo: [number, number] | null = null;
     const last$ = { view: "", lens: "", op: "", plan: "", cold: "" };
     /** Coloca las personas (recorridos + pedido + vuelta al punto) y su tamaño constante en pantalla. */
+    // Cada atributo se escribe sólo si cambió (el encendido del hero y el scroll llaman seguido; casi nada cambia).
+    const memo = new Map<Element, Record<string, string>>();
+    const put = (el: Element, k: string, v: string) => { let m = memo.get(el); if (!m) memo.set(el, (m = {})); if (m[k] !== v) { m[k] = v; el.setAttribute(k, v); } };
     const place = () => {
       const s = stage.get();
       const base = 1 / (zoomNow * fit.s0);
@@ -49,7 +52,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
         const c = dots.current[i]; if (!c) return;
         const [x, z] = placePerson(i, clock, s);
         const ux = X(x), uz = Z(z);
-        c.setAttribute("cx", ux.toFixed(1)); c.setAttribute("cy", uz.toFixed(1));
+        put(c, "cx", ux.toFixed(1)); put(c, "cy", uz.toFixed(1));
         let k = 1;
         if (rv) {
           // Encendido del hero: cada persona aparece cuando la luz que se expande desde el impacto la alcanza.
@@ -58,11 +61,10 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
         }
         // Al final de la vuelta al punto todas están en el mismo lugar: queda un solo punto, el de Valentina (cian).
         const hide = (allIn && i > 0) || (s.dotOut && i === 0);
-        c.setAttribute("r", hide || k <= 0.01 ? "0" : ((p.kind === "member" ? R_MEMBER : R_STAFF) * base * k).toFixed(2));
+        put(c, "r", hide || k <= 0.01 ? "0" : ((p.kind === "member" ? R_MEMBER : R_STAFF) * base * k).toFixed(2));
         if (i === 0 && ring.current) {
-          ring.current.setAttribute("cx", ux.toFixed(1)); ring.current.setAttribute("cy", uz.toFixed(1));
-          ring.current.setAttribute("r", (15 * base).toFixed(2));
-          ring.current.style.opacity = hide || s.gather > 0.3 || s.cold ? "0" : String(k);
+          put(ring.current, "cx", ux.toFixed(1)); put(ring.current, "cy", uz.toFixed(1)); put(ring.current, "r", (15 * base).toFixed(2));
+          put(ring.current, "opacity", hide || s.gather > 0.3 || s.cold ? "0" : k.toFixed(2));
         }
       });
     };
@@ -88,7 +90,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
         if (!pl) { plan.current.style.transform = ""; plan.current.style.opacity = ""; }
         else { const ox = X(s.origin[0]), oz = Z(s.origin[1]); plan.current.style.transform = `translate(${ox}px, ${oz}px) scale(${Math.max(0.02, 1 - 0.95 * g).toFixed(4)}) translate(${-ox}px, ${-oz}px)`; plan.current.style.opacity = String(+(1 - g).toFixed(3)); }
       }
-      ZONES.forEach((z, i) => { const r = zones.current[i]; if (r) r.dataset.on = s.focus === z.id ? "1" : s.preview === z.id ? "pre" : "0"; });
+      ZONES.forEach((z, i) => { const r = zones.current[i]; if (r) put(r, "data-on", s.focus === z.id ? "1" : s.preview === z.id ? "pre" : "0"); });
       // Pedido «Que venga alguien»: un cometa cian sobre el piso, de Julián a Sofía (y de vuelta, en turquesa, el «Voy»).
       if (req.current) {
         if (s.request == null) { req.current.style.opacity = "0"; reqTo = null; }

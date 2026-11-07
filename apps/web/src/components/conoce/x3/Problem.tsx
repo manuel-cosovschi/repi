@@ -46,7 +46,8 @@ function placeNear(ax: number, ay: number, w: number, h: number, blocks: R[], bo
   const free = (r: R) => !blocks.some((b) => hit(r, b));
   const cands: R[] = [fit(ax - w / 2, ay - h / 2)];
   for (const b of blocks) cands.push(fit(b.x - w - 10, ay - h / 2), fit(b.x + b.w + 10, ay - h / 2), fit(ax - w / 2, b.y - h - 10), fit(ax - w / 2, b.y + b.h + 10));
-  for (let y = bounds.y; y <= bounds.y + bounds.h - h; y += 22) for (let x = bounds.x; x <= bounds.x + bounds.w - w; x += 22) cands.push({ x, y, w, h });
+  // Si ningún costado de los bloques sirve, se recorre la pantalla en una grilla.
+  if (!cands.some(free)) for (let y = bounds.y; y <= bounds.y + bounds.h - h; y += 24) for (let x = bounds.x; x <= bounds.x + bounds.w - w; x += 24) cands.push({ x, y, w, h });
   let best: R | null = null, bd = Infinity;
   for (const c of cands) { if (!free(c)) continue; const d = Math.hypot(c.x + w / 2 - ax, c.y + h / 2 - ay); if (d < bd) { bd = d; best = c; } }
   return best ?? fit(ax - w / 2, ay - h / 2);

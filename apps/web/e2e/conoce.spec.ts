@@ -189,7 +189,8 @@ test("Smart Center aparece una sola vez, como caso de éxito, y no al entrar", a
 test("arriba no hay íconos sin nombre y abajo no queda una barra fija tapando la página", async ({ page }) => {
   await page.goto("/conoce?sala=low");
   const head = page.locator("header.x3-head");
-  for (const b of await head.locator("a, button").all()) expect((await b.innerText()).trim().length, await b.evaluate((e) => e.outerHTML.slice(0, 80))).toBeGreaterThan(0);
+  // El nombre que se lee: el texto visible o, en el logo (una imagen), su aria-label. Un ícono suelto no tiene ninguno de los dos.
+  for (const b of await head.locator("a, button").all()) expect(((await b.innerText()).trim() || (await b.getAttribute("aria-label")) || "").length, await b.evaluate((e) => e.outerHTML.slice(0, 80))).toBeGreaterThan(0);
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight / 2));
   await page.waitForTimeout(300);
   expect(await page.locator(".cn-sticky").count()).toBe(0);
