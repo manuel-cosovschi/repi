@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { purgeSandboxes, sealDemo, startDemo, demoRoleOf, sandboxDomain } from "@/server/sandbox/services";
 import * as gym from "@/server/gym/services";
@@ -30,6 +30,14 @@ describe("demo guiada", () => {
     const t = await myTraining(by("valentina.gomez"));
     expect(t.state).toBe("ready");
     expect(t.stats.doneDates.length + 0).toBeGreaterThanOrEqual(0);
+    // Ejercicios por tiempo: la cinta configurada como la pidió el titular (10 min · 5 km/h · inclinación 3) y series con lo que hizo.
+    const cinta = t.state === "ready" ? t.program.days.flatMap((x) => x.exercises).find((e) => e.name === "Cinta (caminata)") : null;
+    expect(cinta).toMatchObject({ sets: 1, reps: "10 min", rir: null, profile: "treadmill", activity: { profile: "treadmill", speedKmh: 5, incline: 3 } });
+    const cardio = await db.select({ reps: schema.setLog.reps, metrics: schema.setLog.metrics, w: schema.setLog.weightKg }).from(schema.setLog)
+      .innerJoin(schema.workoutSession, eq(schema.workoutSession.id, schema.setLog.sessionId))
+      .where(and(eq(schema.workoutSession.userId, by("valentina.gomez")), isNotNull(schema.setLog.metrics)));
+    expect(cardio.length).toBeGreaterThan(0);
+    expect(cardio.every((x) => x.w == null && (x.reps ?? 0) >= 600 && x.metrics?.speedKmh != null && x.metrics?.incline != null)).toBe(true);
     // SEC-3 (QA 29/10): desde una demo no sale ningún correo real, aunque se invite a una dirección real.
     const real = `real.${Date.now()}@example.com`;
     const inv = await inviteCoachClient(by("agustin.perez"), coachId, { email: real });

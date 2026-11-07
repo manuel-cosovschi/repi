@@ -25,6 +25,7 @@ import { audit, type Tx } from "../access/util";
 import { enqueue } from "../push/services";
 import { myActive, timedPeIds } from "../training/services";
 import { historyRows, outlookFor } from "../training/intelligence";
+import { exerciseProfiles, rowProfile } from "../training/library";
 import { assistantOn, getPrefs } from "./prefs";
 import { activeInterventions, arDayStart, cancelObsoleteInterventions, upsertIntervention, type InterventionView } from "./store";
 
@@ -122,13 +123,14 @@ async function sessionTrends(userId: string, s: SessionRow, now: Date) {
   const peById = new Map(peRows.map((p) => [p.id, p]));
   const names = new Map((await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(inArray(exercise.id, exIds))).map((e) => [e.id, e.name]));
   const hist = await historyRows(userId, exIds, { now });
+  const profiles = await exerciseProfiles([...exIds, ...peRows.map((p) => p.exerciseId)]); // ejercicios por tiempo
   const coachOwned = !!(s.coachClientId || s.gymMemberId);
   const out: { input: Parameters<typeof trendCandidate>[0]; sessionId: string }[] = [];
   for (const ex of exIds) {
     const pe = peById.get(byEx.get(ex)!);
     const rows = hist.get(ex) ?? [];
     if (!pe || !rows.length) continue;
-    const ctx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null };
+    const ctx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null, profile: rowProfile(pe, ex, profiles) };
     const fatigue = rows.slice(0, 12).filter((r) => r.feel === "limite" || r.rir === 0).length >= 4;
     const o = outlookFor(ctx, rows, now, coachOwned, fatigue);
     if (!o) continue;

@@ -57,7 +57,7 @@ export async function listAlerts(actorId: string, orgId: string, locationId: str
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "floor.work");
   if (!inScope(ctx, locationId)) throw NOT_FOUND();
-  const rows = await db.select({ a: floorAlert, name: user.name, w: setLog.weightKg, reps: setLog.reps, setIndex: setLog.setIndex }).from(floorAlert)
+  const rows = await db.select({ a: floorAlert, name: user.name, w: setLog.weightKg, reps: setLog.reps, setIndex: setLog.setIndex, metrics: setLog.metrics }).from(floorAlert)
     .innerJoin(gymMember, eq(gymMember.id, floorAlert.gymMemberId)).innerJoin(user, eq(user.id, gymMember.userId))
     .leftJoin(setLog, eq(setLog.id, floorAlert.setLogId))
     .where(and(eq(floorAlert.orgId, orgId), eq(floorAlert.locationId, locationId), gte(floorAlert.createdAt, new Date(now.getTime() - 60 * 60_000))))
@@ -66,7 +66,8 @@ export async function listAlerts(actorId: string, orgId: string, locationId: str
   const ackNames = new Map((ackIds.length ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ackIds)) : []).map((u) => [u.id, u.name]));
   return rows.map((r) => ({
     id: r.a.id, member: r.name, exercise: r.a.exerciseName, feel: r.a.feel, feelLabel: SET_FEEL[r.a.feel as SetFeel] ?? r.a.feel,
-    set: r.setIndex == null ? null : { n: r.setIndex + 1, weightKg: r.w == null ? null : Number(r.w), reps: r.reps },
+    // Ejercicios por tiempo: en una actividad (cinta, bici…) `reps` son segundos y `metrics`, lo que hizo (velocidad, nivel…).
+    set: r.setIndex == null ? null : { n: r.setIndex + 1, weightKg: r.w == null ? null : Number(r.w), reps: r.reps, ...(r.metrics ? { metrics: r.metrics } : {}) },
     createdAt: r.a.createdAt, ackBy: r.a.ackBy ? ackNames.get(r.a.ackBy) ?? "Alguien del equipo" : null, ackAt: r.a.ackAt,
   }));
 }

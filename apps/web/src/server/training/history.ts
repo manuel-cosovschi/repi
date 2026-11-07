@@ -12,19 +12,21 @@
 // - Sólo la persona dueña corrige su historial. Coach y sala ven los resultados válidos y la marca «corregida»; no editan.
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import {
-  cleanReason, correctionWarnings, diffValues, historyActions, rowFlags, rowRef, sessionMetrics, setTarget, validateCorrection, volumeKg, cleanSetNote,
-  type CorrectableValues, type ExerciseDetail,
+  activityOf, cleanReason, cleanSetMetrics, correctionWarnings, diffValues, historyActions, rowFlags, rowRef, sessionMetrics, setTarget, validateCorrection, volumeKg, cleanSetNote,
+  type CorrectableValues, type ExerciseDetail, type MetricsProfile,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 import { sessionSummary, timedPeIds, toLogged } from "./services";
+import { exerciseProfiles, metricsProfileOf, rowProfile } from "./library";
 
 const { workoutSession, setLog, setSkip, trainingCorrection, programExercise, exercise, sessionExerciseChange } = schema;
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos ese entrenamiento.", 404);
 const REQ_RE = /^[0-9a-f-]{8,64}$/i;
 
 type SetRow = typeof setLog.$inferSelect;
-const valuesOf = (r: SetRow): CorrectableValues => ({ weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, note: r.note });
+// Ejercicios por tiempo: `metrics` (velocidad, inclinación, nivel…) se corrige como cualquier otro valor de la serie.
+const valuesOf = (r: SetRow): CorrectableValues => ({ weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, note: r.note, metrics: r.metrics ?? null });
 const setView = (r: SetRow) => ({ id: r.id, setIndex: r.setIndex, ...valuesOf(r), completedAt: r.completedAt, revision: r.revision, voidedAt: r.voidedAt, voidReason: r.voidReason });
 
 async function ownSession(tx: Tx | typeof db, userId: string, sessionId: string, lock = false) {
@@ -42,6 +44,21 @@ async function priorCorrection(tx: Tx, userId: string, requestId: string) {
   const [c] = await tx.select().from(trainingCorrection).where(and(eq(trainingCorrection.userId, userId), eq(trainingCorrection.requestId, requestId)));
   return c ?? null;
 }
+/**
+ * Ejercicios por tiempo: perfil de métricas de una fila del historial (el del ejercicio que se hizo; sin reemplazo, la actividad
+ * del profe). null si no es una actividad: no guarda métricas y el tope de segundos sigue en 1 hora.
+ */
+async function rowMetricsProfile(tx: Tx, pe: { exerciseId: string; detail: unknown }, doing: string): Promise<MetricsProfile | null> {
+  return metricsProfileOf(rowProfile(pe, doing, await exerciseProfiles([doing, pe.exerciseId], tx)));
+}
+/** Métricas validadas y redondeadas al paso de su campo (lo que se guarda); sin el campo, no se tocan. */
+function cleanMetricsIn(values: Partial<CorrectableValues>, profile: MetricsProfile | null): Partial<CorrectableValues> {
+  if (!("metrics" in values) || values.metrics == null) return values;
+  const m = cleanSetMetrics(profile, values.metrics);
+  if (!m.ok) throw new AccessError("invalid", m.error, 400, { errors: [{ field: "metrics", message: m.error }] });
+  return { ...values, metrics: m.metrics };
+}
+
 const editable = (s: typeof workoutSession.$inferSelect) => {
   if (s.status === "voided") throw new AccessError("voided", "Este entrenamiento está anulado. Restauralo para corregirlo.", 409);
   if (s.status !== "completed") throw new AccessError("open", "Este entrenamiento sigue abierto: corregilo desde la pantalla de entrenamiento.", 409);
@@ -89,6 +106,7 @@ export async function historySession(userId: string, sessionId: string) {
   const extra = peIds.filter((id) => !dayExs.some((e) => e.id === id));
   const exs = [...dayExs, ...(extra.length ? await db.select().from(programExercise).where(inArray(programExercise.id, extra)) : [])];
   const names = new Map((all.length ? await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(inArray(exercise.id, [...new Set(all.map((l) => l.exerciseId))])) : []).map((r) => [r.id, r.name]));
+  const profiles = await exerciseProfiles([...exs.map((e) => e.exerciseId), ...all.map((l) => l.exerciseId)]);
   const changes = await db.select({ c: sessionExerciseChange, sub: exercise.name }).from(sessionExerciseChange).leftJoin(exercise, eq(exercise.id, sessionExerciseChange.substituteExerciseId))
     .where(eq(sessionExerciseChange.sessionId, s.id));
   const skips = await db.select().from(setSkip).where(and(eq(setSkip.sessionId, s.id), eq(setSkip.skipped, true)));
@@ -125,6 +143,8 @@ export async function historySession(userId: string, sessionId: string) {
     });
     return {
       id: e.id, exerciseId: e.exerciseId, name: e.name, doneName: names.get(doneEx) ?? e.name, sets: e.sets, reps: e.reps, detail,
+      // Ejercicios por tiempo: perfil con que se corrige (cinta: velocidad e inclinación…) y la actividad indicada.
+      profile: rowProfile(e, doneEx, profiles), activity: activityOf(detail),
       change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.sub } : null,
       rows, compare: prevBest && curBest ? {
         previous: { weightKg: prevBest.weightKg == null ? null : Number(prevBest.weightKg), reps: prevBest.reps },
@@ -164,18 +184,19 @@ export async function correctSet(userId: string, sessionId: string, setLogId: st
     }
     const [pe] = await tx.select().from(programExercise).where(eq(programExercise.id, row.programExerciseId));
     const f = pe ? rowFlags({ sets: pe.sets, reps: pe.reps, detail: pe.detail as ExerciseDetail | null }, row.setIndex) : null;
-    const values = { ...p.values, ...("note" in p.values ? { note: cleanSetNote(p.values.note) } : {}) };
+    const profile = pe ? await rowMetricsProfile(tx, pe, row.exerciseId) : null;
+    const values = cleanMetricsIn({ ...p.values, ...("note" in p.values ? { note: cleanSetNote(p.values.note) } : {}) }, profile);
     const before = valuesOf(row);
     const next = { ...before, ...values };
     const reason = cleanReason(p.reason);
-    const errors = validateCorrection(next, { timed: !!f && (f.timed || !!f.durationSec), reason });
+    const errors = validateCorrection(next, { timed: !!f && (f.timed || !!f.durationSec), reason, profile });
     if (errors.length) throw new AccessError("invalid", errors[0].message, 400, { errors });
     const diff = diffValues(before, values);
     if (!diff) return { status: "ok" as const, set: setView(row), repeated: false, unchanged: true };
     const warnings = correctionWarnings(before, values);
     if (warnings.length && !p.confirm) throw new AccessError("confirm_required", "Es un cambio grande respecto de lo registrado. Confirmalo para guardarlo.", 409, { warnings });
     const [u] = await tx.update(setLog).set({
-      weightKg: next.weightKg == null ? null : String(next.weightKg), reps: next.reps, rir: next.rir, feel: next.feel, note: next.note, revision: row.revision + 1, updatedAt: now,
+      weightKg: next.weightKg == null ? null : String(next.weightKg), reps: next.reps, rir: next.rir, feel: next.feel, note: next.note, metrics: next.metrics ?? null, revision: row.revision + 1, updatedAt: now,
     }).where(eq(setLog.id, row.id)).returning();
     await tx.insert(trainingCorrection).values({ userId, sessionId: s.id, setLogId: row.id, actorUserId: userId, action: "set_edit", before: diff.before, after: diff.after, reason, requestId: p.requestId, baseRevision: row.revision, createdAt: now });
     await tx.update(workoutSession).set({ updatedAt: now }).where(eq(workoutSession.id, s.id));
@@ -228,19 +249,22 @@ export async function addMissingSet(userId: string, sessionId: string, p: { requ
     if (exists) throw new AccessError("exists", "Esa serie ya está registrada: corregila en lugar de agregarla.", 409);
     const detail = pe.detail as ExerciseDetail | null;
     const f = rowFlags({ sets: pe.sets, reps: pe.reps, detail }, p.setIndex);
-    const v: CorrectableValues = { weightKg: p.values.weightKg ?? null, reps: p.values.reps ?? null, rir: p.values.rir ?? null, feel: p.values.feel ?? null, note: cleanSetNote(p.values.note) };
-    const reason = cleanReason(p.reason);
-    if (v.reps == null) throw new AccessError("invalid", f.timed ? "Indicá los segundos que hiciste." : "Indicá las repeticiones que hiciste.");
-    const errors = validateCorrection(v, { timed: f.timed || !!f.durationSec, reason });
-    if (errors.length) throw new AccessError("invalid", errors[0].message, 400, { errors });
     const [chg] = await tx.select({ sub: sessionExerciseChange.substituteExerciseId, kind: sessionExerciseChange.kind }).from(sessionExerciseChange)
       .where(and(eq(sessionExerciseChange.sessionId, s.id), eq(sessionExerciseChange.programExerciseId, pe.id)));
+    const doing = chg?.kind === "substitute" && chg.sub ? chg.sub : pe.exerciseId;
+    const profile = await rowMetricsProfile(tx, pe, doing);
+    const metrics = cleanMetricsIn({ metrics: p.values.metrics ?? null }, profile).metrics ?? null;
+    const v: CorrectableValues = { weightKg: p.values.weightKg ?? null, reps: p.values.reps ?? null, rir: p.values.rir ?? null, feel: p.values.feel ?? null, note: cleanSetNote(p.values.note), metrics };
+    const reason = cleanReason(p.reason);
+    if (v.reps == null) throw new AccessError("invalid", f.timed || profile ? "Indicá los segundos que hiciste." : "Indicá las repeticiones que hiciste.");
+    const errors = validateCorrection(v, { timed: f.timed || !!f.durationSec, reason, profile });
+    if (errors.length) throw new AccessError("invalid", errors[0].message, 400, { errors });
     const { randomUUID } = await import("node:crypto");
     const t = setTarget({ sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail }, p.setIndex);
     const ref = rowRef(detail, pe.sets, p.setIndex);
     const [row] = await tx.insert(setLog).values({
-      id: randomUUID(), sessionId: s.id, programExerciseId: pe.id, exerciseId: chg?.kind === "substitute" && chg.sub ? chg.sub : pe.exerciseId, setIndex: p.setIndex,
-      weightKg: v.weightKg == null ? null : String(v.weightKg), reps: v.reps, rir: v.rir, feel: v.feel, note: v.note, completedAt: s.endedAt ?? now,
+      id: randomUUID(), sessionId: s.id, programExerciseId: pe.id, exerciseId: doing, setIndex: p.setIndex,
+      weightKg: v.weightKg == null ? null : String(v.weightKg), reps: v.reps, rir: v.rir, feel: v.feel, note: v.note, metrics: v.metrics ?? null, completedAt: s.endedAt ?? now,
       specId: ref?.id ?? null, setKind: ref?.kind ?? t.kind, blockIndex: ref?.block ?? f.block, stageIndex: ref?.stage ?? f.stage,
     }).returning();
     // Si esa etapa figuraba omitida, el registro manda (D184): la omisión queda deshecha.

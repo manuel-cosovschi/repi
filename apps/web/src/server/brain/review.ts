@@ -13,6 +13,7 @@ import { logError } from "../log";
 import { AccessError } from "../access/util";
 import { timedPeIds } from "../training/services";
 import { historyRows, outlookFor } from "../training/intelligence";
+import { exerciseProfiles, rowProfile } from "../training/library";
 import { getPrefs, requireAssistant } from "./prefs";
 import { recordOutcome } from "./events";
 
@@ -68,6 +69,8 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
   };
   const exIds = [...new Set([...all.map(doing), ...logs.map((l) => l.exerciseId)])];
   const start = s.startedAt.toISOString();
+  // Ejercicios por tiempo: perfil de cada fila (una cinta indicada «10-12» sigue siendo cardio: sin tendencia de kilos).
+  const profiles = await exerciseProfiles([...exIds, ...all.map((p) => p.exerciseId)]);
 
   const [prevRows, priorRows, hist] = exIds.length ? await Promise.all([
     // Sesión comparable anterior de cada ejercicio: la última terminada que empezó antes que esta.
@@ -99,7 +102,7 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
     const mine = logs.filter((l) => l.programExerciseId === pe.id);
     const isExtra = extra.includes(pe);
     if (isExtra && !mine.length) continue;
-    const ex: ExCtx & { detail: ExerciseDetail | null } = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null };
+    const ex: ExCtx & { detail: ExerciseDetail | null } = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null, profile: rowProfile(pe, doing(pe), profiles) };
     const plannedMain = isExtra ? 0 : exerciseRows(ex).filter((r) => r.stage === 0 && MAIN.includes(r.kind)).length;
     const isTimed = timed.has(pe.id);
     const sets: ReviewSet[] = mine.map((l) => {

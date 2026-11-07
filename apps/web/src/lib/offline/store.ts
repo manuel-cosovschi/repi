@@ -1,18 +1,26 @@
 "use client";
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
-import { applySessionAction, carriesLoad, defaultRepsFor, kindAt, labelAt, startWeight, type ExerciseChangeReason, type ExerciseDetail, type Proposal, type RowTarget, type SessionStatus, type SetKind, type Suggestion, type Trend, type LoadLadder } from "@repi/domain";
+import {
+  ACTIVITY_FIELDS, activityOf, applySessionAction, carriesLoad, defaultRepsFor, kindAt, labelAt, parseReps, startWeight,
+  type ActivityDetail, type ExerciseChangeReason, type ExerciseDetail, type MetricsProfile, type Proposal, type RowTarget, type SessionStatus, type SetKind, type SetMetrics, type Suggestion, type Trend, type LoadLadder,
+} from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
 // `skip` (D183): etapa conectada (drop, mini serie) que la persona decidió no hacer: queda resuelta y no es un resultado.
 // D184: se sincroniza (`skipAt`, hora del cambio en este teléfono): la ven los otros dispositivos y se puede deshacer.
-export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; done: boolean; revision: number; at: string | null; pend?: boolean; skip?: boolean; skipAt?: string | null;
+// `m` (ejercicios por tiempo): valores reales de una actividad (velocidad, inclinación, nivel…); en una actividad `r` son los
+// segundos. Sin `m` (sesiones guardadas por una versión anterior de la app) se lee como «sin métricas» y no se envía el campo:
+// el servidor conserva lo que tenga. `null` = sin métricas (se envía y las borra).
+export type LocalSet = { id: string; w: number; r: number; rir: number | null; feel?: string | null; note?: string | null; m?: SetMetrics | null; done: boolean; revision: number; at: string | null; pend?: boolean; skip?: boolean; skipAt?: string | null;
   // `other`: la versión que NO es la que se ve en pantalla. `appliedIsMine`: si la versión aplicada en el servidor es la de este dispositivo.
-  conflict?: { id: string; other: { weightKg: number | null; reps: number | null; rir: number | null }; appliedIsMine: boolean } };
+  conflict?: { id: string; other: { weightKg: number | null; reps: number | null; rir: number | null; metrics?: SetMetrics | null }; appliedIsMine: boolean } };
 // F-HX-21 (D106): saltar o reemplazar el ejercicio sólo en esta sesión. `origPrev`: el «anterior» del original, para volver.
-export type ExChange = { kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: { exerciseId: string; name: string } | null };
-export type LocalEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note: string | null; prev: { weightKg: number | null; reps: number | null } | null;
+// `substitute.profile` (ejercicios por tiempo): qué se registra con el reemplazo (otra máquina de cardio, fuerza…). Lo trae el
+// servidor y la lista de alternativas; sin él (versión anterior), el reemplazo se registra como siempre (sin métricas).
+export type ExChange = { kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: { exerciseId: string; name: string; profile?: MetricsProfile | null } | null };
+export type LocalEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; note: string | null; prev: { weightKg: number | null; reps: number | null; metrics?: SetMetrics | null } | null;
   detail?: ExerciseDetail | null; // D134: plan serie por serie, técnica, combinación
   change?: ExChange | null; origPrev?: LocalEx["prev"];
   suggest?: Suggestion | null; // D154: carga y reps sugeridas por REPI para hoy (sin carga indicada por el profe)
@@ -23,6 +31,10 @@ export type LocalEx = { id: string; exerciseId: string; name: string; sets: numb
   outlook?: { trend: Trend; proposal: Proposal | null } | null;
   // D195: saltos y cargas disponibles con que se calcularon los objetivos (plan del ejercicio, equipo de la sede o desconocido).
   ladder?: LoadLadder | null;
+  // Ejercicios por tiempo: perfil con que se registra (cinta, bici, remo… o fuerza) y la actividad indicada por el profe. Sin
+  // `profile` (sesión guardada por una versión anterior), se deduce de la actividad del detalle (`localProfile`).
+  profile?: MetricsProfile | null;
+  activity?: ActivityDetail | null;
 };
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
@@ -61,6 +73,21 @@ export function keepLocalOnly(fresh: LocalSession, local: LocalSession | undefin
   return { session: { ...fresh, sets }, upload };
 }
 export const setKey = (peId: string, i: number) => `${peId}:${i}`;
+
+/**
+ * Ejercicios por tiempo: perfil con que se registra un ejercicio de la sesión local. Con reemplazo, el del ejercicio que se hace
+ * (`change.substitute.profile`; sin él, null: como siempre). Sin reemplazo, el de la fila que mandó el servidor; en una sesión
+ * guardada antes de esta versión, el de la actividad del detalle (si la hay); si no, null (se registra como siempre).
+ */
+export const localProfile = (e: Pick<LocalEx, "profile" | "detail" | "change">): MetricsProfile | null =>
+  e.change?.kind === "substitute" ? e.change.substitute?.profile ?? null : e.profile ?? activityOf(e.detail)?.profile ?? null;
+/** Valores de partida de una actividad: los que indicó el profe (velocidad, inclinación, nivel…), sin el perfil. null si no hay. */
+export function activityDraft(a: ActivityDetail | null | undefined): SetMetrics | null {
+  if (!a) return null;
+  const m: SetMetrics = {};
+  for (const f of ACTIVITY_FIELDS) if (a[f] != null) m[f] = a[f];
+  return Object.keys(m).length ? m : null;
+}
 
 /** D210: mensaje por serie que calculó el servidor (las mismas reglas que el teléfono), tal como lo devuelve al registrar la serie. */
 export type ServerSetIntel = { peId: string; idx: number; event: { code: string; text: string; restPlusSec: number | null } };
@@ -122,7 +149,7 @@ export function localAction(s: LocalSession, action: "pause" | "resume" | "finis
 export function fromServer(x: {
   id: string; dayName: string; status: SessionStatus; note: string; rpe: number | null; sessionNote: string | null; startedAt: string; endedAt: string | null;
   activeMs: number; lastResumedAt: string | null; revision: number; dayId?: string;
-  exercises: (LocalEx & { defaultWeight: number | null; defaultReps: number | null; logs: { id: string; setIndex: number; exerciseId?: string; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; revision: number; completedAt: string }[] })[];
+  exercises: (LocalEx & { defaultWeight: number | null; defaultReps: number | null; logs: { id: string; setIndex: number; exerciseId?: string; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; metrics?: SetMetrics | null; revision: number; completedAt: string }[] })[];
   conflicts?: { id: string; targetKey: string; server: unknown; client: unknown }[];
   interval?: { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null; serverNow?: string;
 }, keepRest?: LocalSession["rest"]): LocalSession {
@@ -134,13 +161,18 @@ export function fromServer(x: {
     const sg = e.change ? null : e.suggest ?? null;
     const doing = e.change?.kind === "substitute" ? e.change.substitute?.exerciseId : e.exerciseId;
     const skips = (e as { skips?: { setIndex: number; skipped: boolean; changedAt: string }[] }).skips ?? [];
+    // Ejercicios por tiempo: una actividad indicada arranca con su duración (segundos) y sus valores (velocidad, inclinación…).
+    const act = e.change ? null : e.activity ?? activityOf(e.detail);
+    const draftM = activityDraft(act);
+    const dur = act ? parseReps(e.reps) : null;
+    const draftSec = dur?.kind === "time" ? dur.seconds : null;
     for (let i = 0; i < e.sets; i++) {
       const l = e.logs.find((y) => y.setIndex === i);
       const sk = skips.find((y) => y.setIndex === i);
       const c = x.conflicts?.find((k) => k.targetKey === setKey(e.id, i));
       const kind = kindAt(e.detail, i);
       // Sólo una serie del mismo ejercicio sugiere el peso de las siguientes (un reemplazo no hereda la carga del original).
-      if (l) { logged = true; if (!l.exerciseId || l.exerciseId === doing) { carry = l.weightKg ?? carry; carryKind = kind; carryLabel = labelAt(e.detail, i); } sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, note: l.note ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
+      if (l) { logged = true; if (!l.exerciseId || l.exerciseId === doing) { carry = l.weightKg ?? carry; carryKind = kind; carryLabel = labelAt(e.detail, i); } sets[setKey(e.id, i)] = { id: l.id, w: l.weightKg ?? 0, r: l.reps ?? 0, rir: l.rir, feel: l.feel ?? null, note: l.note ?? null, m: l.metrics ?? null, done: true, revision: l.revision, at: l.completedAt, ...(c ? { conflict: { id: c.id, other: c.client as never, appliedIsMine: true } } : {}) }; }
       else {
         // D134: si el plan fija el peso o las repeticiones de esta serie, se precargan esas (drop, top set, back-off).
         // D182: una serie reducida sin peso en el plan no hereda la carga de otra serie ni la sugerencia: queda por elegir.
@@ -153,7 +185,9 @@ export function fromServer(x: {
         const lb = labelAt(e.detail, i);
         const st = startWeight({ kind, label: lb, planKg: plan?.weightKg, suggestKg: !logged ? t?.weightKg ?? (lb ? null : sg?.weightKg) : null, carriedKg: carriesLoad(carryKind, kind, carryLabel, lb) ? carry : null });
         sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}),
-          r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && t ? t.repsTarget ?? t.repsMin : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? 0, rir: null, done: false, revision: 0, at: null,
+          r: (plan ? defaultRepsFor(plan.reps) : null) ?? (!logged && t ? t.repsTarget ?? t.repsMin : null) ?? (!logged && sg ? sg.reps : null) ?? e.defaultReps ?? draftSec ?? 0, rir: null, done: false, revision: 0, at: null,
+          // Ejercicios por tiempo: la actividad arranca con los valores que indicó el profe (sin reemplazo); la persona los ajusta.
+          ...(draftM ? { m: draftM } : {}),
           ...(sk ? { skip: sk.skipped, skipAt: sk.changedAt } : {}) }; // D184: omitida (o deshecha) en cualquier dispositivo
       }
     }
@@ -163,7 +197,8 @@ export function fromServer(x: {
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
     skew, ivAt: x.interval?.at ? new Date(Date.parse(x.interval.at) - skew).toISOString() : null,
     iv: x.interval ? { peId: x.interval.peId, block: x.interval.block, start: Date.parse(x.interval.startedAt) - skew, emomSec: x.interval.emomSec, status: x.interval.status } : null,
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null, ladder: (e as { ladder?: LoadLadder | null }).ladder ?? null })),
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null, ladder: (e as { ladder?: LoadLadder | null }).ladder ?? null,
+      profile: e.profile ?? null, activity: e.activity ?? activityOf(e.detail) })),
     sets,
   };
 }

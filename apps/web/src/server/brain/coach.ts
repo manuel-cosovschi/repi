@@ -20,6 +20,7 @@ import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
 import { requireClientOf, requireCoach, readVersion } from "../training/services";
 import { historyRows } from "../training/intelligence";
+import { exerciseProfiles, rowProfile } from "../training/library";
 import { gymContext, inScope, need } from "../gym/services";
 import { requireAssistant } from "./prefs";
 
@@ -104,10 +105,11 @@ async function exerciseSignals(rel: InsightRel, now: Date): Promise<ExerciseSign
   if (!exs.length) return [];
   const hist = await historyRows(rel.userId, exs.map((e) => e.exerciseId), { ...(rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id }), now, imports: false });
   const out: ExerciseSignal[] = [];
+  const profiles = await exerciseProfiles(exs.map((e) => e.exerciseId)); // ejercicios por tiempo: una actividad no tiene tendencia de kilos
   for (const e of exs) {
     const rows = hist.get(e.exerciseId) ?? [];
     if (!rows.length) continue;
-    const ctx: ExCtx = { sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null };
+    const ctx: ExCtx = { sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null, profile: rowProfile(e, e.exerciseId, profiles) };
     const plan = Array.from({ length: ctx.sets }, (_, i) => rowContext(ctx, i));
     const main = plan.find((c) => c.cls === "main" || c.cls === "top");
     if (!main) continue;

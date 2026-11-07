@@ -19,6 +19,9 @@ const Shape = z.object({
   unilateral: z.boolean().optional(), progression: z.string().max(160).nullable().optional(), emomSec: n,
   // D191: equipo y menor salto de carga (validado y normalizado por `validateDetail`).
   load: z.object({ equipment: z.string().max(20), incrementKg: z.number().nullable(), perSide: z.boolean().optional() }).nullable().optional(),
+  // Ejercicios por tiempo (07/11/2026): actividad (cinta, bici, remo…) con sus valores; la duración sigue en `reps`. Sin esto zod
+  // la descartaría en silencio y la cinta se guardaría como «1 × 10 min» sin velocidad ni inclinación. Rangos: `validateDetail`.
+  activity: z.object({ profile: z.string().max(20), speedKmh: n, incline: n, level: n, distanceM: n, pace500Sec: n, cadenceRpm: n }).nullable().optional(),
 }).nullable().optional();
 /** Tipado como el detalle del dominio: `validateDetail` normaliza técnica, tipos de serie y rangos antes de guardar. */
 export const DetailZ = Shape as unknown as z.ZodType<Partial<ExerciseDetail> | null | undefined> as z.ZodType<ExerciseDetail | null | undefined>;

@@ -2,8 +2,9 @@
 // Cola de sincronización en IndexedDB (reemplaza la de localStorage de la Etapa 2).
 // Cada ítem guarda sólo QUÉ sincronizar; el cuerpo se arma al enviar con el estado local vigente, así una edición
 // hecha mientras otra viajaba no se pierde ni genera un conflicto falso. Reintentos idempotentes (IDs estables).
+import { sameMetrics, type SetMetrics } from "@repi/domain";
 import { idbAll, idbDel, idbPut } from "./idb";
-import { adoptServerIntel, getLocal, putLocal, setKey, type LocalSession } from "./store";
+import { adoptServerIntel, getLocal, putLocal, setKey, type LocalSession, type LocalSet } from "./store";
 
 export type Item =
   | { seq?: number; key: string; kind: "start"; sid: string }
@@ -43,14 +44,28 @@ export async function dropSession(sid: string) {
 }
 
 type Built = { url: string; body: unknown; sent?: unknown } | null;
+/** Valores de una serie tal como se enviaron (para saber si cambió mientras viajaba el pedido). */
+export type SentSet = { w: number; r: number; rir: number | null; feel: string | null; note: string | null; m?: SetMetrics | null };
+/**
+ * Cuerpo del registro de una serie y los valores enviados. Ejercicios por tiempo: `metrics` sólo si la serie las tiene definidas
+ * (también `null`, que las borra). Una serie guardada por una versión anterior (sin `m`) no manda el campo: el servidor conserva lo
+ * que tenga (JSON omite `undefined`).
+ */
+export function setRequest(peId: string, idx: number, x: LocalSet): { body: Record<string, unknown>; sent: SentSet } {
+  const body = { id: x.id, programExerciseId: peId, setIndex: idx, weightKg: x.w, reps: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, metrics: x.m, baseRevision: x.revision, at: x.at ?? undefined };
+  return { body, sent: { w: x.w, r: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, m: x.m } };
+}
+/** La serie cambió desde que se envió. Cambiar sólo la velocidad o la inclinación de una actividad también cuenta (se reenvía). */
+export const setChangedSince = (x: LocalSet | undefined, sent: SentSet) => !!x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel
+  || (x.note ?? null) !== sent.note || (x.m !== sent.m && !sameMetrics(x.m, sent.m)));
+
 async function build(it: Item, s: LocalSession): Promise<Built> {
   const base = `/api/me/sessions`;
   if (it.kind === "start") return { url: base, body: { id: s.id, dayId: s.dayId, startedAt: s.startedAt, closeOther: s.closeOther || undefined } };
   if (it.kind === "set") {
     const x = s.sets[setKey(it.peId, it.idx)];
     if (!x?.done) return null;
-    const body = { id: x.id, programExerciseId: it.peId, setIndex: it.idx, weightKg: x.w, reps: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, baseRevision: x.revision, at: x.at ?? undefined };
-    return { url: `${base}/${s.id}/sets`, body, sent: { w: x.w, r: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null } };
+    return { url: `${base}/${s.id}/sets`, ...setRequest(it.peId, it.idx, x) };
   }
   if (it.kind === "exchange") {
     const e = s.exercises.find((y) => y.id === it.peId);
@@ -149,10 +164,9 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
   if (it.kind === "set") {
     const k = setKey(it.peId, it.idx);
     const x = s.sets[k];
-    const sent = b.sent as { w: number; r: number; rir: number | null; feel: string | null; note: string | null };
-    const changedMeanwhile = x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel || (x.note ?? null) !== sent.note);
+    const changedMeanwhile = setChangedSince(x, b.sent as SentSet);
     if (data.status === "conflict") {
-      s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null }, appliedIsMine: false } };
+      s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null, metrics: (data.metrics as SetMetrics | null | undefined) ?? null }, appliedIsMine: false } };
     } else {
       // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras.
       s.sets[k] = { ...x, id: (data.id as string) ?? x.id, revision: data.revision as number, conflict: undefined };

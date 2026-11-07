@@ -10,7 +10,7 @@ import {
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
 import { addIso, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
-import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
+import { createOwnExercise, ensureExerciseCatalog, libraryCols, visibleIn, withProfile } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 import { recordDecision, relationIntelligence, type ProposalDecision } from "../training/intelligence";
 import { afterBriefSaved, parseBrief } from "../training/program-request";
@@ -746,12 +746,13 @@ export async function gymLibrary(actorId: string, orgId: string) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
   await ensureExerciseCatalog();
-  return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup, kind: schema.exercise.kind, own: sql<boolean>`${schema.exercise.orgId} is not null` }).from(schema.exercise)
+  const rows = await db.select({ ...libraryCols, own: sql<boolean>`${schema.exercise.orgId} is not null` }).from(schema.exercise)
     .where(visibleIn(orgId)).orderBy(asc(schema.exercise.name));
+  return rows.map(withProfile); // ejercicios por tiempo: con el perfil resuelto (cinta, bici, remo…)
 }
 
-/** Ejercicio propio del gimnasio (D129): entrenadores de sala y gestión con permiso de armar programas. */
-export async function gymCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind: string }) {
+/** Ejercicio propio del gimnasio (D129): entrenadores de sala y gestión con permiso de armar programas. Con `profile`, qué se configura. */
+export async function gymCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind?: string | null; profile?: string | null }) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
   return createOwnExercise(actorId, orgId, p);

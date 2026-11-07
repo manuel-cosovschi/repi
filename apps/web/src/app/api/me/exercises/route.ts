@@ -6,7 +6,8 @@ import { createMyExercise, myExerciseLibrary } from "@/server/training/own-routi
 
 export const GET = handle(async () => myExerciseLibrary(await sessionUserId()));
 
-const B = z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20) });
+// Ejercicios por tiempo: `profile` (cinta, bici, remo…) define qué se configura; sin él, el tipo de registro como siempre.
+const B = z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20).optional(), profile: z.string().max(20).nullable().optional() });
 export const POST = handle(async (req) => {
   const me = await sessionUserId();
   await limit(`member-exercise:${me}`, 40, 3_600_000);

@@ -8,7 +8,7 @@ import {
   CONNECT_ACTIVE, CONNECT_AVAILABILITY, CONNECT_COMMENT_MAX, CONNECT_DUE_SOON_HOURS, CONNECT_FOLLOWUP_DEFAULT_DAYS, CONNECT_NOTE_MAX, CONNECT_REASONS,
   CONNECT_STATE_LABEL, CONNECT_WAIT_ALERT_MIN, TASK_CATEGORY, connectMetrics, connectNext, connectPriority, connectSort, connectState, gymCan, isConnectReason,
   localDate, type ConnectAction, type ConnectAvailability, type ConnectReason, type ConnectStatus, type TaskPriority,
-  briefSummary, briefView,
+  briefSummary, briefView, type SetMetrics,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { afterBriefSaved, parseBrief } from "../training/program-request";
@@ -314,17 +314,18 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   const [card] = await decorateCards([t], now);
   const ev = await eventsOf([t.id]);
   const c = t.context;
-  let sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null }[] = [];
-  let recent: { at: Date; weightKg: string | null; reps: number | null }[] = [];
+  // Ejercicios por tiempo: con las métricas de una actividad (velocidad, inclinación, nivel…); en una actividad `reps` son segundos.
+  let sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null; metrics: SetMetrics | null }[] = [];
+  let recent: { at: Date; weightKg: string | null; reps: number | null; metrics: SetMetrics | null }[] = [];
   let privateSession = false;
   if (c?.sessionId && c.programExerciseId) {
-    sets = await db.select({ setIndex: setLog.setIndex, weightKg: setLog.weightKg, reps: setLog.reps, rir: setLog.rir, feel: setLog.feel }).from(setLog)
+    sets = await db.select({ setIndex: setLog.setIndex, weightKg: setLog.weightKg, reps: setLog.reps, rir: setLog.rir, feel: setLog.feel, metrics: setLog.metrics }).from(setLog)
       .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
       .where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, c.programExerciseId), eq(workoutSession.gymMemberId, t.gymMemberId ?? "-"), isNull(setLog.voidedAt))).orderBy(asc(setLog.setIndex));
   } else if (c?.exerciseId) privateSession = true;
   if (c?.exerciseId && t.gymMemberId) {
     // Últimas series de ese ejercicio en sesiones del programa del gym (nunca las del coach privado).
-    recent = await db.select({ at: setLog.completedAt, weightKg: setLog.weightKg, reps: setLog.reps }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+    recent = await db.select({ at: setLog.completedAt, weightKg: setLog.weightKg, reps: setLog.reps, metrics: setLog.metrics }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
       .where(and(eq(workoutSession.gymMemberId, t.gymMemberId), eq(setLog.exerciseId, c.exerciseId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt))).orderBy(desc(setLog.completedAt)).limit(6);
   }
   const prog = t.gymMemberId ? await db.select({ name: programVersion.name, n: programVersion.number }).from(programAssignment)
