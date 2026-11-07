@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { ProgramRequestBrief } from "@repi/domain";
+import type { ImportOrigin, ProgramRequestBrief } from "@repi/domain";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const now = (name: string) => ts(name).notNull().defaultNow();
@@ -382,7 +382,12 @@ export const ownRoutine = pgTable("own_routine", {
   createdAt: now("created_at"),
   updatedAt: now("updated_at"),
   lastUsedAt: ts("last_used_at"),
-}, (t) => [index("own_routine_user_idx").on(t.userId)]);
+  // SI2: si vino de una importación, lo que decía el documento (inmutable) y la operación que la guardó (idempotencia).
+  origin: jsonb("origin").$type<ImportOrigin>(),
+}, (t) => [
+  index("own_routine_user_idx").on(t.userId),
+  uniqueIndex("own_routine_import_op_unique").on(t.userId, sql`(${t.origin}->>'opId')`, sql`(${t.origin}->>'day')`).where(sql`${t.origin} ? 'opId'`),
+]);
 
 export const programDay = pgTable("program_day", {
   id: id(),

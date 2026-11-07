@@ -123,15 +123,28 @@ export async function newVersion(tx: Tx, programId: string, number: number, doc:
 
 const BLANK: ProgramDoc = { name: "Programa sin nombre", weeks: 4, note: "", days: [{ name: "Día 1", exercises: [] }] };
 
-export async function createTemplate(actorId: string, orgId: string, doc: ProgramDoc = BLANK) {
+/**
+ * Programa nuevo (en blanco o con un documento). SI2: con `imported`, viene de una importación revisada; queda como borrador sin
+ * asignar y es idempotente por `opId` (un reintento o un doble toque devuelve el mismo programa).
+ */
+export async function createTemplate(actorId: string, orgId: string, doc: ProgramDoc = BLANK, imported?: { opId: string; source: string; file: string } | null) {
   await requireCoach(actorId, orgId);
   const v = validateProgramDoc(doc);
   if (!v.ok) throw new AccessError("invalid", v.error);
   await assertLibrary(orgId, v.doc);
+  if (imported && !/^[A-Za-z0-9_-]{8,64}$/.test(imported.opId)) throw new AccessError("invalid", "Falta el identificador de la importación.");
   return db.transaction(async (tx) => {
+    if (imported) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`program-import:${orgId}:${imported.opId}`}))`);
+      const [prior] = await tx.select({ id: schema.auditEvent.resourceId }).from(schema.auditEvent)
+        .where(and(eq(schema.auditEvent.orgId, orgId), eq(schema.auditEvent.action, "program.imported"), sql`${schema.auditEvent.meta}->>'opId' = ${imported.opId}`)).limit(1);
+      if (prior?.id) return prior.id;
+    }
     const [p] = await tx.insert(program).values({ orgId, kind: "template", createdBy: actorId }).returning();
     await newVersion(tx, p.id, 1, v.doc, actorId);
     await audit(tx, { actorUserId: actorId, orgId, action: "program.created", resourceType: "program", resourceId: p.id });
+    if (imported) await audit(tx, { actorUserId: actorId, orgId, action: "program.imported", resourceType: "program", resourceId: p.id,
+      meta: { opId: imported.opId, source: String(imported.source).slice(0, 10), file: String(imported.file).slice(0, 10), days: v.doc.days.length, exercises: v.doc.days.reduce((n, d) => n + d.exercises.length, 0) } });
     return p.id;
   });
 }

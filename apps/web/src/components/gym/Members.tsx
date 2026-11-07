@@ -19,6 +19,7 @@ import { Ic } from "@/components/ui/Ic";
 import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
 import { IntInput } from "@/components/ui/IntInput";
 import { ProgramAssistant, type BriefPrefill } from "@/components/coach/ProgramAssistant";
+import { ProgramImportModal } from "@/components/coach/ProgramImportModal";
 import { SessionLog, type LoggedSession } from "@/components/coach/SessionLog";
 import { IntelSection } from "@/components/coach/CoachIntelligence";
 import { ProposalBanner, clearTiDraft, readTiDraft, stashTiDraft, type TiDraft } from "@/components/coach/ProposalDraft";
@@ -193,6 +194,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   // D154: lo que el socio hizo la última vez con el gym en cada ejercicio, para la carga sugerida.
   const lastTimes = useLastTimes(`/api/gym/${shell.orgId}/members/${member.id}/last`, doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)));
   const [reason, setReason] = useState("");
+  const [importing, setImporting] = useState(false); // SI2
   const [libQ, setLibQ] = useState("");
   // La tarea que se cierra al guardar la elige el servidor (libre o tomada por quien guarda): la misma regla que valida.
   const related = member.tasks.find((t) => t.id === member.programTaskId);
@@ -239,6 +241,17 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
       <div className="mhead"><h2>{member.program ? "Editar" : "Crear"} programa · {member.name}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
       <ProgramAssistant url={`/api/gym/${shell.orgId}/members/${member.id}/program-draft`} wishes={member.wishes} brief={member.programBrief} hasContent={doc.days.some((d) => d.exercises.length > 0)} library={lib.data ?? []}
         onUse={(d) => { setDoc(d); setDay(0); if (reason.trim().length < 3) setReason("Programa armado con la propuesta de REPI"); }} />
+      {/* SI2: un programa que ya existe (foto, PDF, planilla o texto) entra a este borrador; se guarda con «Guardar revisión». */}
+      <button type="button" className="btn" style={{ alignSelf: "flex-start" }} onClick={() => setImporting(true)}>Importar programa</button>
+      {importing && <ProgramImportModal title={`Importar programa · ${member.name}`} scope={`gym:${shell.orgId}:${member.id}`} previewUrl={`/api/gym/${shell.orgId}/programs/import`}
+        createUrl={`/api/gym/${shell.orgId}/library`} library={lib.data ?? []} flash={shell.flash} useLabel="Usar en el borrador" defaultName={doc.name} onClose={() => setImporting(false)}
+        onUse={(u) => {
+          if (doc.days.some((d) => d.exercises.length > 0) && !window.confirm("¿Reemplazar lo que hay en el editor por el programa importado? No se guarda hasta que toques «Guardar revisión», y las versiones anteriores quedan en el historial.")) return false;
+          setDoc({ ...u.doc, weeks: doc.weeks, note: doc.note }); setDay(0);
+          if (reason.trim().length < 3) setReason("Programa importado de un archivo");
+          setImporting(false);
+          shell.flash("Programa importado al borrador. Revisalo y tocá «Guardar revisión» para guardarlo.");
+        }} />}
       {tiDraft && <ProposalBanner draft={tiDraft} days={doc.days} onDismiss={() => { clearTiDraft(); setTiDraft(null); }}
         onApply={(ps) => {
           setDoc((d) => ({ ...d, days: d.days.map((x, di) => ({ ...x, exercises: x.exercises.map((e, i) => { const p = ps.find((q) => q.day === di && q.index === i); return p ? { ...e, detail: p.detail } : e; }) })) }));

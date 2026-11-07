@@ -103,15 +103,16 @@ describe("D184 · 2. rutina importada con método avanzado", () => {
     const w = await student();
     const csv = "Día,Ejercicio,Series,Reps,Peso,Técnica\nHombros,A1. Elevación rutina,3,12,8,drop set en la última\nHombros,A2. Curl rutina,3,10,,\nHombros,Remo rutina,3,10,40,pirámide";
     const p = await own.previewRoutineImport(w.userId, { fileName: "rutina.csv", kind: "text", text: csv });
-    const [el, curl, remo] = p.days[0].exercises;
-    expect(el).toMatchObject({ written: "Elevación rutina", exerciseId: EX["Elevación rutina"], groupLabel: { letter: "A", order: 1 }, method: { technique: "drop_set", confident: true, selection: "last" } });
-    expect(curl).toMatchObject({ written: "Curl rutina", groupLabel: { letter: "A", order: 2 }, method: null });
+    const day = p.variants[0].days[0];
+    const [el, curl, remo] = day.exercises;
+    expect(el).toMatchObject({ written: "Elevación rutina", exerciseId: EX["Elevación rutina"], group: "A1", method: { technique: "drop_set", confident: true, selection: "last" } });
+    expect(curl).toMatchObject({ written: "Curl rutina", group: "A2", method: null });
     expect(remo.method).toMatchObject({ technique: "pyramid", confident: false }); // se pregunta: no se transforma solo
     expect(remo.note).toContain("pirámide"); // el texto original no se pierde
     // Lo que hace el teléfono al revisar: aplica lo claro con el mismo applyMethod y la persona puede editarlo antes de guardar.
-    const dd = { ...methodDetail(el.method!, { sets: el.sets, reps: el.reps, weightKg: null }).detail, group: "A", groupKind: "superset" as const };
-    const { id } = await own.saveOwnRoutine(w.userId, { name: p.days[0].name, exercises: [
-      { exerciseId: el.exerciseId!, sets: dd.setPlan!.length, reps: el.reps, weightKg: el.weightKg, restSec: null, note: el.note, detail: dd },
+    const dd = { ...methodDetail(el.method!, { sets: el.sets!, reps: el.reps!, weightKg: null }).detail, group: "A", groupKind: "superset" as const };
+    const { id } = await own.saveOwnRoutine(w.userId, { name: day.name, exercises: [
+      { exerciseId: el.exerciseId!, sets: dd.setPlan!.length, reps: el.reps!, weightKg: el.weightKg, restSec: null, note: el.note, detail: dd },
       { exerciseId: curl.exerciseId!, sets: 3, reps: "10", weightKg: null, restSec: null, note: null, detail: { ...emptyDetail(), group: "A", groupKind: "superset" } },
       { exerciseId: remo.exerciseId!, sets: 3, reps: "10", weightKg: 40, restSec: null, note: remo.note, detail: null },
     ] });
