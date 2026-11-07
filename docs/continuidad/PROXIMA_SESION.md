@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D206; **pedido de programa con preferencias en PR**, Experience Hub publicado; ver primeras secciones). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 07/11/2026 (hasta D206; **pedido de programa con preferencias PUBLICADO**, Experience Hub publicado; ver primeras secciones). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
 
 
 
@@ -8,8 +8,21 @@ Actualizado: 07/11/2026 (hasta D206; **pedido de programa con preferencias en PR
 
 
 
-## Pedido de programa con preferencias (D206) — 07/11/2026 · EN PR
+## Pedido de programa con preferencias (D206) — 07/11/2026 · PUBLICADO Y VERIFICADO (#58, 297a936)
 
+- **Publicado:**
+  - Respaldo `backup-20261107-010430-42321785844` (#57) y 0048 aplicada (49 migraciones; huellas de pedidos y tareas idénticas; `postgres` sin SET).
+  - Merge #58 → `297a936` en producción.
+- **Smoke de producción (sólo demos) ✓:**
+  - Sin preferencias: 400 `brief_required`.
+  - Pedido viejo simulado en el gym ficticio: aviso en la campanita; `/app?completar=programa` abre el formulario; completar → sin pendientes y aviso de Inicio fuera.
+  - Sala muestra la tarjeta con preferencias; video de aliados y logo en `/conoce`; 0 errores.
+- **Real:**
+  - 8 socios con «Programa nuevo» abierto sin datos ya ven el aviso en Inicio y en la campanita.
+  - El push sale una vez por pedido desde las 10 (Buenos Aires).
+- **Video de aliados:**
+  - Con locución de ElevenLabs (voz predeterminada «Eric»: el plan gratuito no permite voces argentinas por API) y fuente en `marketing/videos/aliados/`.
+  - La clave está sólo en `~/.repi-secrets/elevenlabs.key` del contenedor. El titular la pegó en el chat: rotarla.
 - **Pedido del titular:**
   - A los profes de Smart Center les llegaba «Quiero que me armen un programa.» sin nada.
   - Pidió preferencias obligatorias al pedir rutina y avisar a quienes ya pidieron sin completarlas, a nivel sistema.
