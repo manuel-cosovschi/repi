@@ -616,7 +616,8 @@ export async function decideMemberProposal(actorId: string, orgId: string, propo
   return recordDecision(actorId, orgId, pr, p);
 }
 
-export async function memberDetail(actorId: string, orgId: string, gymMemberId: string, now = new Date()) {
+/** `opts.task`: la solicitud desde la que se abrió la ficha (Sala). Si se cierra con el programa, es la que se completa al guardar. */
+export async function memberDetail(actorId: string, orgId: string, gymMemberId: string, now = new Date(), opts: { task?: string | null } = {}) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "member.read");
   const [m] = await db.select({ m: gymMember, name: user.name }).from(gymMember).innerJoin(user, eq(user.id, gymMember.userId))
@@ -650,7 +651,7 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
     log: recent.map((x) => ({ id: x.id, dayName: x.dayName, status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, rpe: x.rpe, note: x.note, exercises: logs.get(x.id) ?? [] })),
     program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
-    programTaskId: tasks.find((t) => closesWithProgram(t, actorId))?.id ?? null,
+    programTaskId: (opts.task ? tasks.find((t) => t.id === opts.task && closesWithProgram(t, actorId)) : undefined)?.id ?? tasks.find((t) => closesWithProgram(t, actorId))?.id ?? null,
     notes: notes.map((x) => ({ id: x.n.id, kind: x.n.kind, text: x.n.text, author: x.author, mine: x.n.authorUserId === actorId, at: x.n.createdAt })),
     canEdit: gymCan(rolesAt(ctx, m.m.locationId), "program.edit"), canWriteNotes: gymCan(rolesAt(ctx, m.m.locationId), "floor.work"), restricted: GYM_NEVER_SEES,
   };
