@@ -1,14 +1,28 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D209; **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## Adaptive Coaching 3.0 (D210) — 07/11/2026 · LISTO PARA PUBLICAR (renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
+## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
 - **Pedido:** máster del titular, guardado en `docs/adaptive/AC3_MASTER_PROMPT.md`.
   - Autoriza el bloque de punta a punta: migraciones aditivas, merge y deploy con respaldo y pruebas críticas en verde.
   - Prohíbe gastos nuevos sin aprobación, borrar o modificar datos reales, migraciones destructivas y notificaciones masivas sin consentimiento.
 - **Gasto de IA:** aprobado por el titular el 07/11 con los topes previstos: 30 mensajes por persona por día, US$2 por día en total y US$20 por mes por organización. Se cambia en Admin → Coaching IA. Sin IA o al tope, responde por reglas.
-- **Rama:** `claude/adaptive-coaching-3`, con main integrado (incluye #63 ventas y #68–#73).
+- **Publicación** (en este orden):
+  1. CI en verde sobre `f76a19c`. Antes falló una vez `brain-push`, una prueba intermitente: con más de 1000 avisos pendientes de otras pruebas, la fila quedaba fuera de la tanda. Se corrigió aislando la cola en la prueba, sin tocar código de la aplicación.
+  2. Respaldo `backup-20261107-165801-42393734774` en verde (issue #76).
+  3. `hosted-0051.sql` aplicado en producción y verificado: 52 migraciones, nueve tablas con dueño `repi_app`, RLS activo y ningún permiso público.
+  4. Squash merge `ef22c73`; producción en `ef22c73adb15` desde las 17:26 UTC.
+- **Verificación en producción** (demos ficticias):
+  - **Alumno, en teléfono:**
+    - la tarjeta de Inicio funciona;
+    - «¿Qué me toca hoy?» responde con el día y el atajo;
+    - «me duele mucho el pecho» da la respuesta fija con 107/911;
+    - «me duele la rodilla» propone registrar la molestia, con confirmación.
+  - **Coach:** «Señales de REPI» se ve en Rendimiento.
+  - **Errores:** ninguno, ni 5xx ni errores de ejecución.
+  - **Base:** 0 llamadas de IA. El único hilo es el de la cuenta demo.
+  - El detalle está en §10 del contrato.
 - **Contrato:** `docs/adaptive/ADAPTIVE_COACHING_3.md`.
 - **Matriz de pruebas:** `docs/adaptive/AC3_PRUEBAS.md`.
 - **Decisión:** D210 en `docs/DECISIONS.md`.
@@ -29,7 +43,23 @@ Actualizado: 07/11/2026 (hasta D209; **Sala: combinar ejercicios (#68), guía de
 - **Pruebas (local):**
   - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
   - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
-- **Próximo:** PR → CI → «Respaldo» → `hosted-0051.sql` en producción → merge → deploy → verificación con cuentas demo → §10 del contrato y esta sección.
+- **Queda por ver en producción:**
+  - **Primera franja proactiva**, hoy a las 18 h de Argentina. Fuera de franja, el paso responde `brain: null`.
+  - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
+  - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
+- **Próximo:** ejercicios por tiempo (cinta: duración, velocidad e inclinación), en `claude/ejercicios-por-tiempo`. Lleva la migración 0052 aditiva, que requiere respaldo antes de aplicarse.
+
+## Sala · Mensajes: «Nuevo mensaje» para elegir un socio y escribirle — 07/11/2026 · PUBLICADO Y VERIFICADO (#74, `38e500c`)
+
+- **Pedido del titular:** «vos deberías poder seleccionar un socio y mandarle mensaje. No le deja al entrenador».
+- **Problema:** «Mensajes» de sala listaba sólo las conversaciones que ya tenían mensajes, y no había forma de empezar una.
+- **Cambio:**
+  - **Botón:** «Nuevo mensaje» (`components/gym/NewMessage.tsx`). Abre un buscador de socios de la sede y abre o crea la conversación (`POST /members/{id}/conversation`).
+  - **Permiso:** el botón sólo aparece con `floor.work`.
+  - **Lista:** `floorThreads(..., withId)` incluye la conversación elegida aunque todavía no tenga mensajes (`ChatPane` con `includeSelected`).
+- **E2E:** `gym-new-message.spec.ts`.
+- **Producción (demo de sala):** se elige un socio, la conversación aparece seleccionada con su caja de texto y no hay errores.
+- **Sin migraciones.**
 
 
 ## Sala: combinar, guía de demo, ficha del socio y editor a la par del coach — 07/11/2026 · PUBLICADO Y VERIFICADO (#68–#71)
