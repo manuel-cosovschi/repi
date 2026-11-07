@@ -42,3 +42,4 @@ export * from "./corrections";
 export * from "./equipment";
 export * from "./progress";
 export * from "./image";
+export * from "./sales";

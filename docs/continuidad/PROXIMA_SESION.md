@@ -112,11 +112,49 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
 - **Próximo bloque:** REPI — Adaptive Coaching 3.0. El punto de integración es `own_routine.origin` junto con las sesiones y la versión vigente (ver `docs/SMART_IMPORT_2.md`, «Preparación para Adaptive Coaching 3.0»).
 
 
+> **Rama `claude/tender-cerf-0cm7r9` (PR #63, borrador):** REPI Sales Force & Commission OS (D209, migración 0050 `sales_force`, sin aplicar) y dossier comercial para gimnasios. Rebasada sobre `main` 8cb0794 (D207/D208 y 0049 ya eran de Smart Import 2.0). Publicar requiere aprobación del titular: Respaldo → `hosted-0050.sql` → merge → smoke. Detalle en `docs/comercial/SALES_FORCE.md`.
 
 
 
 
 
+
+
+## REPI Commercial Sales Kit 2026 · dossier para gimnasios — 07/11/2026 · LISTO, SIN DISTRIBUIR
+
+- **Pedido:** master prompt del titular «REPI Commercial Sales Kit 2026»: dossier premium para dueños de gimnasios y resumen de una página.
+- **Dónde:** `marketing/dossier-gimnasios-2026/` (LEEME con instrucciones). PDF en `salida/`, vistas por página en `paginas/`, capturas reales de la demo en `capturas/`, fuente en `fuente/` (`generar.mjs`, `capturas.mjs`, `precios.json`), registro `FUNCIONALIDADES_VERIFICADAS.md`.
+- **Hecho:** dossier A4 de 11 páginas y resumen A4; HTML/CSS → PDF con Chromium; Barlow/Barlow Condensed incrustadas; gráficos SVG calculados desde `precios.json` (400 × $200 = $80.000; 500 × $170 = $85.000; +25 % socios, −15 % precio, +6,25 % mensualidad, $5.000; $60.000 → $60.170 = 0,28 %); QR decodificado a `repiclub.com/conoce/gimnasios?utm_source=dossier…`; enlaces a WhatsApp y email oficiales (`lib/contact.ts`, D109). Opción `--ref`/`--asesor` para versiones por vendedor.
+- **Revisión:** todas las páginas renderizadas e inspeccionadas; corregidos superposiciones y desbordes; afirmaciones contrastadas con el código (p. ej. la verificación en dos pasos es opcional, no obligatoria).
+- **No verificado:** `repiclub.com` no es accesible desde este contenedor; el destino del QR se verificó contra la ruta publicada (D205) y en la build local (200).
+- **Pendiente del titular:** aprobar el material antes de enviarlo; confirmar si los importes ilustrativos pueden circular así.
+
+## REPI Sales Force & Commission OS 1.0 (D209) — 07/11/2026 · EN REVISIÓN, SIN PUBLICAR
+
+- **Pedido:** master prompt del titular «REPI Sales Force & Commission OS 1.0»: vendedores en todo el país con panel propio, CRM, registro de ventas, comisiones y liquidaciones, todo administrado desde REPI Admin y sobre los clientes y contratos reales.
+- **Rama:** `claude/tender-cerf-0cm7r9`, rebasada sobre `main` `8cb0794`. Detalle completo en `docs/comercial/SALES_FORCE.md`; decisión D209 en `docs/DECISIONS.md`.
+- **Hecho (bloques 1 y 2 completos, bloque 3 parcial):**
+  - Dominio `packages/domain/src/sales.ts`: estados y capacidades del vendedor, pipeline con transiciones, duplicados, vista previa del cierre, planes (fijo, % primer cobro, % recurrente, por socio, híbrido, escalonado), motor idempotente `desiredEntries` + `diffLedger`, cortes por frecuencia.
+  - Servidor `apps/web/src/server/sales/*`, API `/api/ventas/*` y `/api/admin/sales/*`.
+  - Interfaz: `/ventas` (mobile-first, barra inferior), `/ventas/activar/[token]` (reutiliza `AccessFlow` y la guía PWA), `/ventas/liquidacion/[id]` (imprimible, «no es comprobante fiscal»), Admin › Ventas (panel, cierres, pipeline, comisiones, liquidaciones, solicitudes, material) y Admin › Vendedores (lista con filtros, paginación y acciones masivas; ficha completa).
+  - Objetivos, material de ventas versionado con vencimiento, avisos internos (vendedor y Admin) y enlace personal `/conoce?ref=V-XXXXXX` (origen del contacto, nunca venta atribuida).
+- **Tocado en código existente (sin cambiar comportamiento):**
+  - `commercial/services.ts`: `createClientTx`, `addTermTx`, `publishTermNotice`; sincroniza comisiones al habilitar o suspender; no borra clientes con venta aprobada o comisiones; `createLead` guarda `referralCode` sólo de vendedores activos.
+  - `commercial/payments.ts`: sincroniza comisiones al registrar o anular un pago.
+  - `access/services.ts` (espacio «REPI Ventas»), `api/access/sign-up` (flujo `seller`), `AccessFlow.tsx` (activación de vendedor), `AdminApp.tsx` (dos entradas y «Pasar a ventas» en Contactos), `admin/page.tsx` (parámetros de aviso), `ContactForm.tsx` (`?ref=`).
+- **Migración 0050 (aditiva, NO aplicada en producción):**
+  - 19 tablas nuevas, `commercial_lead.referral_code` y trigger de inmutabilidad de `commission_entry`.
+  - `apps/web/scripts/operations/hosted-0050.sql` y `scripts/rollback/0050_sales_force.down.sql`.
+  - Ensayo en base descartable local: huella igual a `migrate.ts`, RLS en las 19 tablas, dueño `repi_app`, reintento falla entero, reversión que se niega con datos, revertir y reaplicar.
+  - Orden: respaldo verde → `hosted-0050.sql` → merge → smoke con datos `*.invalid`.
+- **Pruebas:**
+  - Dominio `sales.test.ts` (17 ✓); dominio completo 464 ✓.
+  - Integración `tests/sales-force.test.ts` (13 ✓) sobre `repi_test` local: flujos A–J (alta e invitación, captación y duplicados, cierre con corrección y aprobación, aprobación concurrente única, habilitación, comisiones por cobros, reversión por anulación, inmutabilidad, liquidación idempotente con pago parcial y sin sobrepago, renegociación, desvinculación, aislamiento entre vendedores, reintentos, frecuencia, enlace personal, material).
+  - Suite web completa: 75 archivos, 513 ✓ (antes de los últimos ajustes de interfaz); typecheck ✓, guardas ✓ (24), build ✓.
+  - Navegador (build local + `repi_dev`, iPhone 13 y escritorio 1366): recorrido completo Admin ↔ vendedor sin errores de consola ni 5xx; accesos a Admin y a recursos ajenos 404 y auditados; sin scroll horizontal. El script quedó fuera del repo (usa `psql` sobre `repi_dev`).
+- **Corregido en el camino:** abrir un modal desde la URL (`?deal=`, `?rep=`, `?p=`, `?b=`) rompía el render del servidor (`Modal` usa `document`): ahora se abre tras montar.
+- **Decisiones pendientes del titular:** planes reales y moneda; regla de renegociación con otro vendedor (hoy el cobro va a la última venta aprobada vigente); visibilidad del responsable comercial sobre su equipo; evidencia como archivo y PDF del servidor; IA comercial (no implementada).
+- **Primera acción al retomar:** revisar el PR de esta rama; con aprobación del titular, respaldo → `hosted-0050.sql` → merge → smoke.
 
 ## Pedido de programa con preferencias (D206) — 07/11/2026 · PUBLICADO Y VERIFICADO (#58, 297a936)
 

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
+  type AnyPgColumn, bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { ImportOrigin, ProgramRequestBrief } from "@repi/domain";
 
@@ -1411,6 +1411,8 @@ export const commercialLead = pgTable("commercial_lead", {
   source: text("source"),
   campaign: text("campaign"),
   interest: text("interest"),
+  // D209: código del vendedor si llegó por su enlace personal (/conoce?ref=V-XXXXXX). Indica origen, no atribuye una venta.
+  referralCode: text("referral_code"),
   createdAt: now("created_at"),
 });
 
@@ -1752,3 +1754,357 @@ export const announcementRead = pgTable("announcement_read", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   readAt: now("read_at"),
 }, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index("announcement_read_user_idx").on(t.userId)]);
+
+// ── REPI Sales Force & Commission OS (D209) ─────────────────────────────────
+// Un vendedor es una relación de la misma identidad con REPI: no toca platformRole ni hereda permisos de Admin.
+// Dinero en unidades menores enteras (bigint en modo número: hasta 2^53). Fechas de negocio AAAA-MM-DD (hora argentina).
+const money = (name: string) => bigint(name, { mode: "number" });
+
+export const salesRegion = pgTable("sales_region", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  provinces: text("provinces"),
+  note: text("note"),
+  active: boolean("active").notNull().default(true),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+});
+
+export const salesRep = pgTable("sales_rep", {
+  id: id(),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  city: text("city"),
+  province: text("province"),
+  zone: text("zone"),
+  regionId: text("region_id").references(() => salesRegion.id, { onDelete: "set null" }),
+  status: text("status", { enum: ["invited", "pending_acceptance", "active", "paused", "suspended", "terminated"] }).notNull().default("invited"),
+  statusReason: text("status_reason"),
+  managerRepId: text("manager_rep_id").references((): AnyPgColumn => salesRep.id, { onDelete: "set null" }),
+  engagement: text("engagement", { enum: ["independent", "agency", "employee", "other"] }).notNull().default("independent"),
+  canSellCoaches: boolean("can_sell_coaches").notNull().default(false),
+  payoutFrequency: text("payout_frequency", { enum: ["per_sale", "weekly", "biweekly", "monthly", "custom"] }).notNull().default("monthly"),
+  payoutNote: text("payout_note"),
+  agreementRef: text("agreement_ref"), // referencia al acuerdo comercial firmado por fuera (no el documento)
+  joinedAt: ts("joined_at"),
+  profileCompletedAt: ts("profile_completed_at"),
+  terminatedAt: ts("terminated_at"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  uniqueIndex("sales_rep_user_uq").on(t.userId).where(sql`${t.userId} is not null`),
+  uniqueIndex("sales_rep_email_uq").on(t.email).where(sql`${t.status} <> 'terminated'`),
+  index("sales_rep_status_idx").on(t.status),
+]);
+
+export const salesRepInvitation = pgTable("sales_rep_invitation", {
+  id: id(),
+  repId: text("rep_id").notNull().references(() => salesRep.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  status: text("status", { enum: ["pending", "accepted", "revoked", "expired"] }).notNull().default("pending"),
+  delivery: text("delivery", { enum: ["pending", "submitted", "local_only", "failed"] }).notNull().default("pending"),
+  expiresAt: ts("expires_at").notNull(),
+  invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+  acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
+  acceptedAt: ts("accepted_at"),
+  revokedAt: ts("revoked_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("sales_rep_invitation_rep_idx").on(t.repId), uniqueIndex("sales_rep_invitation_pending_uq").on(t.repId).where(sql`${t.status} = 'pending'`)]);
+
+export const commissionPlan = pgTable("commission_plan", {
+  id: id(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+});
+
+// Versiones inmutables una vez aprobadas: un cambio es una versión nueva con su vigencia.
+export const commissionPlanVersion = pgTable("commission_plan_version", {
+  id: id(),
+  planId: text("plan_id").notNull().references(() => commissionPlan.id),
+  version: integer("version").notNull(),
+  rules: jsonb("rules").notNull(),
+  effectiveFrom: text("effective_from").notNull(),
+  status: text("status", { enum: ["draft", "approved"] }).notNull().default("draft"),
+  notes: text("notes"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  approvedBy: text("approved_by").references(() => user.id, { onDelete: "set null" }),
+  approvedAt: ts("approved_at"),
+  createdAt: now("created_at"),
+}, (t) => [uniqueIndex("commission_plan_version_uq").on(t.planId, t.version)]);
+
+export const salesRepPlan = pgTable("sales_rep_plan", {
+  id: id(),
+  repId: text("rep_id").notNull().references(() => salesRep.id),
+  planVersionId: text("plan_version_id").notNull().references(() => commissionPlanVersion.id),
+  effectiveFrom: text("effective_from").notNull(),
+  reason: text("reason").notNull(),
+  assignedBy: text("assigned_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+}, (t) => [index("sales_rep_plan_rep_idx").on(t.repId, t.effectiveFrom)]);
+
+export const salesProspect = pgTable("sales_prospect", {
+  id: id(),
+  ownerRepId: text("owner_rep_id").references(() => salesRep.id),
+  originRepId: text("origin_rep_id").references(() => salesRep.id),
+  kind: text("kind", { enum: ["gym", "coach"] }).notNull().default("gym"),
+  name: text("name").notNull(),
+  legalName: text("legal_name"),
+  cuit: text("cuit"),
+  city: text("city"),
+  province: text("province"),
+  address: text("address"),
+  estMembers: integer("est_members"),
+  locations: integer("locations"),
+  website: text("website"),
+  instagram: text("instagram"),
+  phone: text("phone"),
+  email: text("email"),
+  contactName: text("contact_name"),
+  contactRole: text("contact_role"),
+  contactChannel: text("contact_channel", { enum: ["whatsapp", "phone", "email", "in_person"] }),
+  notes: text("notes"),
+  source: text("source").notNull().default("field"),
+  capturedOn: text("captured_on").notNull(),
+  orgId: text("org_id").references(() => organization.id, { onDelete: "set null" }),
+  commercialLeadId: text("commercial_lead_id").references(() => commercialLead.id, { onDelete: "set null" }),
+  duplicateStatus: text("duplicate_status", { enum: ["none", "review", "cleared", "associated"] }).notNull().default("none"),
+  archivedAt: ts("archived_at"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [index("sales_prospect_owner_idx").on(t.ownerRepId), index("sales_prospect_org_idx").on(t.orgId)]);
+
+export const salesOpportunity = pgTable("sales_opportunity", {
+  id: id(),
+  prospectId: text("prospect_id").notNull().references(() => salesProspect.id, { onDelete: "cascade" }),
+  repId: text("rep_id").references(() => salesRep.id),
+  kind: text("kind", { enum: ["new", "renewal", "modification"] }).notNull().default("new"),
+  stage: text("stage", { enum: ["new", "contacted", "interested", "meeting", "demo", "proposal", "negotiation", "declared", "pending_validation", "won", "lost"] }).notNull().default("new"),
+  category: text("category", { enum: ["hot", "warm", "cold"] }),
+  probabilityPct: integer("probability_pct"),
+  estMembers: integer("est_members"),
+  estUnitPriceMinor: money("est_unit_price_minor"),
+  currency: text("currency", { enum: ["ARS", "USD"] }).notNull().default("ARS"),
+  nextContactOn: text("next_contact_on"),
+  expectedCloseOn: text("expected_close_on"),
+  lostReason: text("lost_reason"),
+  notes: text("notes"),
+  stageChangedAt: now("stage_changed_at"),
+  revision: integer("revision").notNull().default(1),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [index("sales_opportunity_rep_idx").on(t.repId, t.stage), index("sales_opportunity_prospect_idx").on(t.prospectId)]);
+
+export const salesDeal = pgTable("sales_deal", {
+  id: id(),
+  repId: text("rep_id").notNull().references(() => salesRep.id),
+  idempotencyKey: text("idempotency_key").notNull(),
+  prospectId: text("prospect_id").references(() => salesProspect.id, { onDelete: "set null" }),
+  opportunityId: text("opportunity_id").references(() => salesOpportunity.id, { onDelete: "set null" }),
+  kind: text("kind", { enum: ["new", "renewal", "modification"] }).notNull().default("new"),
+  clientKind: text("client_kind", { enum: ["gym", "coach"] }).notNull(),
+  orgId: text("org_id").references(() => organization.id, { onDelete: "set null" }),
+  businessName: text("business_name").notNull(),
+  legalName: text("legal_name"),
+  cuit: text("cuit"),
+  contactName: text("contact_name").notNull(),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  city: text("city"),
+  province: text("province"),
+  address: text("address"),
+  locations: jsonb("locations").$type<string[]>(),
+  members: integer("members").notNull(),
+  unitPriceMinor: money("unit_price_minor").notNull(),
+  currency: text("currency", { enum: ["ARS", "USD"] }).notNull(),
+  periodicity: text("periodicity", { enum: ["monthly", "quarterly", "semiannual", "annual"] }).notNull(),
+  contractStart: text("contract_start").notNull(),
+  durationMonths: integer("duration_months"),
+  renewalNote: text("renewal_note"),
+  discountBps: integer("discount_bps").notNull().default(0),
+  setupFeeMinor: money("setup_fee_minor").notNull().default(0),
+  specialConditions: text("special_conditions"),
+  evidence: text("evidence").notNull(),
+  closedOn: text("closed_on").notNull(),
+  notes: text("notes"),
+  status: text("status", { enum: ["declared", "needs_correction", "approved", "rejected", "withdrawn"] }).notNull().default("declared"),
+  reviewNote: text("review_note"),
+  reviewedBy: text("reviewed_by").references(() => user.id, { onDelete: "set null" }),
+  reviewedAt: ts("reviewed_at"),
+  revision: integer("revision").notNull().default(1),
+  contractId: text("contract_id").references(() => clientContract.id, { onDelete: "set null" }),
+  planVersionId: text("plan_version_id").references(() => commissionPlanVersion.id),
+  split: jsonb("split").$type<{ repId: string; shareBps: number }[]>(),
+  previousMembers: integer("previous_members").notNull().default(0),
+  approvedAt: ts("approved_at"),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [uniqueIndex("sales_deal_idem_uq").on(t.repId, t.idempotencyKey), index("sales_deal_status_idx").on(t.status), index("sales_deal_contract_idx").on(t.contractId)]);
+
+export const salesActivity = pgTable("sales_activity", {
+  id: id(),
+  prospectId: text("prospect_id").references(() => salesProspect.id, { onDelete: "cascade" }),
+  opportunityId: text("opportunity_id").references(() => salesOpportunity.id, { onDelete: "set null" }),
+  dealId: text("deal_id").references(() => salesDeal.id, { onDelete: "set null" }),
+  repId: text("rep_id").references(() => salesRep.id),
+  actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+  actorRole: text("actor_role", { enum: ["rep", "admin", "system"] }).notNull(),
+  kind: text("kind").notNull(), // ACTIVITY_KINDS o eventos del sistema (stage, assign, deal, duplicate)
+  summary: text("summary").notNull(),
+  dueOn: text("due_on"),
+  doneAt: ts("done_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("sales_activity_prospect_idx").on(t.prospectId, t.createdAt), index("sales_activity_rep_due_idx").on(t.repId, t.dueOn)]);
+
+// Atribución comercial: una fila vigente por organización (endedAt null); los cambios cierran la anterior.
+export const salesAttribution = pgTable("sales_attribution", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  contractId: text("contract_id"),
+  originRepId: text("origin_rep_id").references(() => salesRep.id),
+  opportunityRepId: text("opportunity_rep_id").references(() => salesRep.id),
+  closingRepId: text("closing_rep_id").references(() => salesRep.id),
+  assignedRepId: text("assigned_rep_id").references(() => salesRep.id),
+  dealId: text("deal_id").references(() => salesDeal.id, { onDelete: "set null" }),
+  source: text("source"),
+  effectiveFrom: text("effective_from").notNull(),
+  endedAt: ts("ended_at"),
+  reason: text("reason").notNull(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+}, (t) => [uniqueIndex("sales_attribution_current_uq").on(t.orgId).where(sql`${t.endedAt} is null`), index("sales_attribution_assigned_idx").on(t.assignedRepId)]);
+
+export const salesRequest = pgTable("sales_request", {
+  id: id(),
+  kind: text("kind", { enum: ["duplicate_review", "attribution_claim", "payout_frequency"] }).notNull(),
+  repId: text("rep_id").notNull().references(() => salesRep.id),
+  prospectId: text("prospect_id").references(() => salesProspect.id, { onDelete: "set null" }),
+  orgId: text("org_id").references(() => organization.id, { onDelete: "set null" }),
+  payload: jsonb("payload"),
+  message: text("message"),
+  status: text("status", { enum: ["open", "approved", "rejected"] }).notNull().default("open"),
+  resolution: text("resolution"),
+  resolvedBy: text("resolved_by").references(() => user.id, { onDelete: "set null" }),
+  resolvedAt: ts("resolved_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("sales_request_status_idx").on(t.status), uniqueIndex("sales_request_freq_open_uq").on(t.repId).where(sql`${t.kind} = 'payout_frequency' and ${t.status} = 'open'`)]);
+
+// Libro de comisiones. Inmutable (trigger en la migración 0050): se corrige con asientos nuevos, nunca editando.
+export const commissionEntry = pgTable("commission_entry", {
+  id: id(),
+  key: text("key").notNull().unique(),
+  repId: text("rep_id").notNull().references(() => salesRep.id),
+  dealId: text("deal_id"),
+  orgId: text("org_id"),
+  contractId: text("contract_id"),
+  planVersionId: text("plan_version_id"),
+  componentIndex: integer("component_index"),
+  component: text("component"),
+  sourceType: text("source_type", { enum: ["deal", "payment", "tier", "adjustment", "reversal"] }).notNull(),
+  sourceId: text("source_id"),
+  reversalOf: text("reversal_of").unique(),
+  baseMinor: money("base_minor"),
+  rateBps: integer("rate_bps"),
+  amountMinor: money("amount_minor").notNull(),
+  currency: text("currency").notNull(),
+  accrualOn: text("accrual_on").notNull(),
+  availableOn: text("available_on").notNull(),
+  concept: text("concept").notNull(),
+  reason: text("reason"),
+  createdBy: text("created_by"),
+  createdAt: now("created_at"),
+}, (t) => [index("commission_entry_rep_idx").on(t.repId, t.availableOn), index("commission_entry_deal_idx").on(t.dealId)]);
+
+export const payoutBatch = pgTable("payout_batch", {
+  id: id(),
+  repId: text("rep_id").notNull().references(() => salesRep.id),
+  currency: text("currency").notNull(),
+  cutoffOn: text("cutoff_on").notNull(),
+  frequency: text("frequency").notNull(),
+  status: text("status", { enum: ["draft", "approved", "partially_paid", "paid", "cancelled"] }).notNull().default("draft"),
+  totalMinor: money("total_minor").notNull(),
+  paidMinor: money("paid_minor").notNull().default(0),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  note: text("note"),
+  snapshot: jsonb("snapshot"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  approvedBy: text("approved_by").references(() => user.id, { onDelete: "set null" }),
+  approvedAt: ts("approved_at"),
+  cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
+  cancelledAt: ts("cancelled_at"),
+  cancelReason: text("cancel_reason"),
+}, (t) => [index("payout_batch_rep_idx").on(t.repId, t.createdAt), uniqueIndex("payout_batch_open_uq").on(t.repId, t.currency).where(sql`${t.status} in ('draft', 'approved')`)]);
+
+export const payoutItem = pgTable("payout_item", {
+  id: id(),
+  batchId: text("batch_id").notNull().references(() => payoutBatch.id, { onDelete: "cascade" }),
+  entryId: text("entry_id").notNull().references(() => commissionEntry.id).unique(),
+  amountMinor: money("amount_minor").notNull(),
+}, (t) => [index("payout_item_batch_idx").on(t.batchId)]);
+
+export const payoutPayment = pgTable("payout_payment", {
+  id: id(),
+  batchId: text("batch_id").notNull().references(() => payoutBatch.id),
+  amountMinor: money("amount_minor").notNull(),
+  paidOn: text("paid_on").notNull(),
+  method: text("method", { enum: ["transferencia", "deposito", "efectivo", "otro"] }).notNull(),
+  reference: text("reference").notNull(),
+  note: text("note"),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  status: text("status", { enum: ["recorded", "voided"] }).notNull().default("recorded"),
+  voidReason: text("void_reason"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
+  voidedAt: ts("voided_at"),
+}, (t) => [index("payout_payment_batch_idx").on(t.batchId)]);
+
+export const salesTarget = pgTable("sales_target", {
+  id: id(),
+  repId: text("rep_id").notNull().references(() => salesRep.id),
+  month: text("month").notNull(), // AAAA-MM
+  metric: text("metric").notNull(),
+  target: money("target").notNull(),
+  currency: text("currency"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [uniqueIndex("sales_target_uq").on(t.repId, t.month, t.metric)]);
+
+export const salesMaterial = pgTable("sales_material", {
+  id: id(),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  url: text("url"),
+  body: text("body"),
+  version: integer("version").notNull().default(1),
+  status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
+  validUntil: text("valid_until"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  publishedAt: ts("published_at"),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+});
+
+export const salesNotice = pgTable("sales_notice", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  url: text("url"),
+  dedupeKey: text("dedupe_key").notNull().unique(),
+  readAt: ts("read_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("sales_notice_user_idx").on(t.userId, t.createdAt)]);

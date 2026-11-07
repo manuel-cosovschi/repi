@@ -1,0 +1,15 @@
+{
+  "_nota": "Ejemplos comerciales ILUSTRATIVOS provistos por el titular para el dossier (07/11/2026). No son una tarifa oficial ni una lista de precios. Para cambiar valores, editar acá y volver a generar: todos los textos y gráficos se recalculan.",
+  "moneda": "ARS",
+  "escenarioA": { "socios": 400, "precioPorSocio": 200 },
+  "escenarioB": { "socios": 500, "precioPorSocio": 170 },
+  "cuotaEjemplo": 60000,
+  "contacto": {
+    "_fuente": "apps/web/src/lib/contact.ts (confirmado por el titular, D109)",
+    "email": "sovare.studio@gmail.com",
+    "whatsappLabel": "223 538-3082",
+    "whatsappUrl": "https://wa.me/5492235383082",
+    "web": "repiclub.com",
+    "qrUrl": "https://repiclub.com/conoce/gimnasios?utm_source=dossier&utm_medium=pdf&utm_campaign=dossier-gimnasios-2026"
+  }
+}
