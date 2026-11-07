@@ -16,6 +16,9 @@ export type Video = {
   audio?: boolean;
 };
 export const VIDEOS: Record<string, Video> = {
+  // Experience 3.0: films nuevos (motion graphics y música, sin voz). Mientras no exista el archivo, `src` queda en null y la
+  // página no muestra reproductor (el botón del hero lleva a la demostración en la página).
+  "film-marca": { id: "film-marca", title: "REPI · Cada repetición cuenta", audience: "Todos", src: null, poster: null, captions: null, duration: null, audio: true },
   // Grabaciones reales de la demo guiada (datos ficticios) con subtítulos en pantalla; sin audio. Ver VIDEOS_PENDIENTES.md.
   "perfil-gimnasios": { id: "perfil-gimnasios", title: "REPI para gimnasios", audience: "Dueños y gerencia", src: "/conoce/videos/perfil-gimnasios.mp4", poster: "/conoce/videos/perfil-gimnasios.webp", captions: null, duration: "0:50", vertical: true },
   "perfil-entrenadores": { id: "perfil-entrenadores", title: "REPI para entrenadores personales", audience: "Personal trainers", src: "/conoce/videos/perfil-entrenadores.mp4", poster: "/conoce/videos/perfil-entrenadores.webp", captions: null, duration: "0:34", vertical: true },
@@ -26,6 +29,16 @@ export const VIDEOS: Record<string, Video> = {
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
 export const VIDEO_ORDER = ["f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados"];
+
+// ── Hero (Experience 3.0) ───────────────────────────────────────────────────
+// Variantes preparadas para probar titulares y propuesta en el futuro (`/conoce?v=b`), sin plataforma externa. «a» es la vigente.
+export type HeroVariant = "a" | "b";
+export const HERO_VARIANTS: Record<HeroVariant, { title: string[]; sub: string; lead: string }> = {
+  a: { title: ["Cada repetición", "cuenta."], sub: "El entrenamiento, los entrenadores y tu gimnasio. Todo conectado.",
+    lead: "Cada socio con su programa en el teléfono y un objetivo para cada serie. Cada entrenador sabe a quién atender. El dueño ve su sala." },
+  b: { title: ["Tu sala,", "conectada."], sub: "Socios, entrenadores y gimnasio alrededor de cada serie.",
+    lead: "Programas en el teléfono, registro de cada serie, Training Intelligence con explicación y seguimiento real del equipo." },
+};
 
 // ── Demos reales (POST /api/demo) ───────────────────────────────────────────
 // Los pasos salen del recorrido guiado real (components/demo/DemoTour.tsx). Entorno ficticio propio por visita, se borra a las 6 h.

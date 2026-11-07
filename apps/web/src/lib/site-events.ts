@@ -3,6 +3,8 @@
 
 export const SITE_EVENTS = [
   "landing_view", // se abrió /conoce (o un perfil)
+  "scene_view", // Experience 3.0: llegó a una escena (target = escena), una vez por visita
+  "film_open", // abrió un film en la sala de proyección (target = id del video)
   "qr_scan", // pasó por /qr (lo registra el servidor al redirigir)
   "profile_select", // eligió un perfil en el selector
   "video_play", "video_progress", "video_complete", // centro audiovisual (target = id del video; progress con 25/50/75)
