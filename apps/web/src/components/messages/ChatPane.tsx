@@ -23,20 +23,26 @@ export function usePoll(fn: () => void, ms = 10_000) {
   }, [ms]);
 }
 
-export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile }: {
+/**
+ * `includeSelected`: la lista pide también la conversación elegida aunque no tenga mensajes (`with=`), para escribir el primero.
+ * `action`: botón del encabezado (p. ej. «Nuevo mensaje»); recibe `open(id)` para mostrar la conversación que abrió.
+ */
+export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile, includeSelected, action }: {
   listUrl: string; kicker: string; emptyText: string; initial?: string | null; onSeen?: () => void; profile?: (t: ThreadRow) => React.ReactNode;
+  includeSelected?: boolean; action?: (open: (id: string) => void) => React.ReactNode;
 }) {
   const [threads, setThreads] = useState<ThreadRow[] | null>(null);
   const [sel, setSel] = useState<string | null>(initial ?? null);
   const [err, setErr] = useState<string | null>(null);
-  const loadList = useCallback(() => api<ThreadRow[]>(listUrl).then((t) => { setThreads(t); setErr(null); }).catch((e) => setErr(e.message)), [listUrl]);
+  const url = includeSelected && sel ? `${listUrl}${listUrl.includes("?") ? "&" : "?"}with=${encodeURIComponent(sel)}` : listUrl;
+  const loadList = useCallback(() => api<ThreadRow[]>(url).then((t) => { setThreads(t); setErr(null); }).catch((e) => setErr(e.message)), [url]);
   useEffect(() => { void loadList(); }, [loadList]);
   usePoll(loadList);
   const current = sel ?? threads?.find((t) => t.last)?.id ?? threads?.[0]?.id ?? null;
   const row = threads?.find((t) => t.id === current);
   return (
     <>
-      <div className="co-head"><div><span className="co-kicker">{kicker}</span><h1 tabIndex={-1}>Mensajes</h1></div></div>
+      <div className="co-head"><div><span className="co-kicker">{kicker}</span><h1 tabIndex={-1}>Mensajes</h1></div>{action && <div className="co-actions">{action(setSel)}</div>}</div>
       {err && <p role="alert" className="err-box">{err}</p>}
       {threads && !threads.length ? <div className="empty">{emptyText}</div> : (
         <div className="split" style={{ alignItems: "stretch" }}>
