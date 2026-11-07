@@ -4,10 +4,16 @@
 import webpush from "web-push";
 import { after } from "next/server";
 import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { ageEligibility, localDate } from "@repi/domain";
+import { CATEGORY_PREF } from "@repi/domain/brain/relevance";
+import { inQuiet, nextAllowed } from "@repi/domain/brain/quiet";
+import { DEFAULT_PREFS, type BrainPrefs, type InterventionCategory } from "@repi/domain/brain/types";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
+import { assistantOn, getPrefs, updatePrefs } from "../brain/prefs";
+import { bodyEligibility } from "../progress/body";
 
-const { pushSubscription, notificationOutbox, notifyPref } = schema;
+const { pushSubscription, notificationOutbox, notifyPref, brainPref, brainIntervention, user } = schema;
 const MAX_ATTEMPTS = 5;
 
 function configured() {
@@ -23,10 +29,21 @@ export function pushHostAllowed(endpoint: string) {
 }
 export const pushPublicKey = () => process.env.VAPID_PUBLIC_KEY ?? null;
 
-export async function subscribe(userId: string, p: { endpoint: string; keys: { p256dh: string; auth: string } }, userAgent: string | null) {
+/**
+ * Registra este dispositivo (cualquier persona con sesión: staff y socios). D210: con `coaching: true` el socio además activa
+ * las notificaciones de REPI fuera de la app (brain_pref.push) en el mismo paso; sólo adultos confirmados (menor o edad
+ * desconocida: 403 y no se registra nada). Sin `coaching` el comportamiento es el de siempre.
+ */
+export async function subscribe(userId: string, p: { endpoint: string; keys: { p256dh: string; auth: string } }, userAgent: string | null, o: { coaching?: boolean } = {}) {
   if (!pushHostAllowed(p.endpoint) || p.endpoint.length > 1000 || !p.keys?.p256dh || !p.keys?.auth) throw new AccessError("invalid", "Suscripción inválida.");
+  if (o.coaching) {
+    const age = await bodyEligibility(userId);
+    if (age === "minor") throw new AccessError("minor_restricted", "Las notificaciones de REPI fuera de la app son sólo para mayores de 18 años.", 403);
+    if (age !== "adult") throw new AccessError("age_required", "Para recibir notificaciones de REPI fuera de la app confirmá tu fecha de nacimiento.", 403);
+  }
   await db.insert(pushSubscription).values({ userId, endpoint: p.endpoint, p256dh: p.keys.p256dh, auth: p.keys.auth, userAgent: userAgent?.slice(0, 200) ?? null })
     .onConflictDoUpdate({ target: pushSubscription.endpoint, set: { userId, p256dh: p.keys.p256dh, auth: p.keys.auth, revokedAt: null, failCount: 0 } });
+  if (o.coaching) return { ok: true, coaching: (await updatePrefs(userId, { push: true })).push };
   return { ok: true };
 }
 export async function unsubscribe(userId: string, endpoint: string) {
@@ -41,7 +58,9 @@ export async function pushStatus(userId: string) {
   const subs = await db.select({ id: pushSubscription.id, lastOkAt: pushSubscription.lastOkAt, ua: pushSubscription.userAgent }).from(pushSubscription)
     .where(and(eq(pushSubscription.userId, userId), isNull(pushSubscription.revokedAt)));
   const [p] = await db.select().from(notifyPref).where(eq(notifyPref.userId, userId));
-  return { configured: configured(), publicKey: pushPublicKey(), devices: subs.length, paused: p?.paused ?? false };
+  // D210: estado del push de REPI (sólo de la propia persona): activado en sus preferencias y si su edad lo permite.
+  const [prefs, age] = await Promise.all([getPrefs(userId), bodyEligibility(userId).catch(() => "unknown" as const)]);
+  return { configured: configured(), publicKey: pushPublicKey(), devices: subs.length, paused: p?.paused ?? false, coaching: { enabled: prefs.push && age === "adult", eligible: age === "adult" } };
 }
 
 /** Encola avisos (idempotente por dedupeKey) y dispara el envío sin esperar: la acción del usuario nunca depende del push. */
@@ -59,6 +78,53 @@ function runAfterResponse(job: () => Promise<unknown>) {
   try { after(() => job().catch(() => {})); } catch { void job().catch(() => {}); }
 }
 
+// ── Push de REPI (D210) ─────────────────────────────────────────────────────
+type OutboxRow = typeof notificationOutbox.$inferSelect;
+/** Clave de un aviso de REPI en la cola: brain:<categoría>:<id del aviso>:<persona> (la arma proactive.ts). */
+const BRAIN_KEY = /^brain:([a-z_]+):([0-9a-f-]{36}):/;
+/** Un aviso de REPI que no se pudo mandar en el día ya no se manda (sigue como tarjeta en la app). */
+export const BRAIN_PUSH_MAX_AGE_MS = 24 * 3_600_000;
+type Gate = { skip: string } | { postponeTo: Date };
+
+/**
+ * Reglas al enviar (no sólo al encolar): las preferencias o la edad pudieron cambiar mientras el aviso esperaba. Menor o edad
+ * sin confirmar → nunca (caso 59). Push de REPI o asistencia apagados, categoría apagada → no. Ya visto, resuelto o vencido en la
+ * app → no (caso 51). Horario de silencio → se posterga hasta que termine, sin gastar intentos (caso 47).
+ */
+async function brainGates(rows: OutboxRow[], now: Date): Promise<Map<string, Gate>> {
+  const out = new Map<string, Gate>();
+  const brain = rows.filter((r) => r.kind === "brain_coaching");
+  if (!brain.length) return out;
+  const users = [...new Set(brain.map((r) => r.userId))];
+  const ids = [...new Set(brain.map((r) => BRAIN_KEY.exec(r.dedupeKey)?.[2]).filter((x): x is string => !!x))];
+  const [prefRows, people, ivs] = await Promise.all([
+    db.select().from(brainPref).where(inArray(brainPref.userId, users)),
+    db.select({ id: user.id, birth: user.birthDate }).from(user).where(inArray(user.id, users)),
+    ids.length ? db.select({ id: brainIntervention.id, userId: brainIntervention.userId, status: brainIntervention.status, expiresAt: brainIntervention.expiresAt })
+      .from(brainIntervention).where(inArray(brainIntervention.id, ids)) : Promise.resolve([]),
+  ]);
+  const prefsOf = new Map(prefRows.map((r) => [r.userId, { ...r, categories: { ...DEFAULT_PREFS.categories, ...(r.categories ?? {}) } }]));
+  const birth = new Map(people.map((u) => [u.id, u.birth]));
+  const iv = new Map(ivs.map((i) => [i.id, i]));
+  const today = localDate(now);
+  const moduleOn = assistantOn();
+  for (const r of brain) {
+    const m = BRAIN_KEY.exec(r.dedupeKey);
+    const p: Pick<BrainPrefs, "push" | "proactive" | "categories" | "quietStart" | "quietEnd"> = prefsOf.get(r.userId) ?? DEFAULT_PREFS;
+    const pref = m ? CATEGORY_PREF[m[1] as InterventionCategory] : undefined;
+    const i = m ? iv.get(m[2]) : undefined;
+    if (!moduleOn) out.set(r.id, { skip: "asistente apagado" }); // interruptor del módulo: lo encolado tampoco sale
+    else if (!m || !i || i.userId !== r.userId) out.set(r.id, { skip: "aviso de REPI inexistente" });
+    else if (ageEligibility(birth.get(r.userId), today) !== "adult") out.set(r.id, { skip: "menor o edad sin confirmar" });
+    else if (!p.push || !p.proactive) out.set(r.id, { skip: "push de REPI apagado" });
+    else if (pref && p.categories[pref] === false) out.set(r.id, { skip: "categoría apagada" });
+    else if (i.status !== "pending") out.set(r.id, { skip: "ya visto en la app" });
+    else if ((i.expiresAt && i.expiresAt.getTime() <= now.getTime()) || now.getTime() - r.createdAt.getTime() > BRAIN_PUSH_MAX_AGE_MS) out.set(r.id, { skip: "aviso vencido" });
+    else if (inQuiet(now, p.quietStart, p.quietEnd)) out.set(r.id, { postponeTo: nextAllowed(now, p.quietStart, p.quietEnd) });
+  }
+  return out;
+}
+
 /** Procesa la cola: envía a cada dispositivo vigente; 404/410 revoca la suscripción; otros errores reintentan con espera creciente. */
 export async function processOutbox(limit = 50, now = new Date()) {
   const due = await db.select().from(notificationOutbox).where(and(eq(notificationOutbox.status, "pending"), lte(notificationOutbox.nextAttemptAt, now)))
@@ -68,8 +134,21 @@ export async function processOutbox(limit = 50, now = new Date()) {
   const users = [...new Set(due.map((d) => d.userId))];
   const subs = await db.select().from(pushSubscription).where(and(inArray(pushSubscription.userId, users), isNull(pushSubscription.revokedAt)));
   const paused = new Set((await db.select().from(notifyPref).where(and(inArray(notifyPref.userId, users), eq(notifyPref.paused, true)))).map((p) => p.userId));
-  let sent = 0;
+  const gates = await brainGates(due, now);
+  let sent = 0, postponed = 0;
   for (const n of due) {
+    // D210: avisos de REPI. Postergar no reclama la fila ni gasta un intento; descartar es definitivo (la tarjeta sigue en la app).
+    const g = gates.get(n.id);
+    if (g && "postponeTo" in g) {
+      const r = await db.update(notificationOutbox).set({ nextAttemptAt: g.postponeTo })
+        .where(and(eq(notificationOutbox.id, n.id), eq(notificationOutbox.status, "pending"), eq(notificationOutbox.attempts, n.attempts))).returning({ id: notificationOutbox.id });
+      postponed += r.length;
+      continue;
+    }
+    if (g) {
+      await db.update(notificationOutbox).set({ status: "skipped", lastError: g.skip }).where(and(eq(notificationOutbox.id, n.id), eq(notificationOutbox.status, "pending")));
+      continue;
+    }
     // Reclamar la fila (evita doble envío si dos procesos corren a la vez).
     const claim = await db.update(notificationOutbox).set({ attempts: sql`${notificationOutbox.attempts} + 1` })
       .where(and(eq(notificationOutbox.id, n.id), eq(notificationOutbox.status, "pending"), eq(notificationOutbox.attempts, n.attempts))).returning();
@@ -99,5 +178,5 @@ export async function processOutbox(limit = 50, now = new Date()) {
         .where(eq(notificationOutbox.id, n.id));
     }
   }
-  return { processed: due.length, sent };
+  return { processed: due.length, sent, postponed };
 }

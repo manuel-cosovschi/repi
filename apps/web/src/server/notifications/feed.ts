@@ -2,8 +2,9 @@
 // del gym, pedidos, solicitudes de acceso del coach, reseñas, mensajes, novedades y cobros del coach— sin copiar datos a
 // otra tabla. Cada ítem lleva un destino dentro de la app. «Leído» es una marca por persona (user_pref): lo anterior a la
 // última apertura del centro figura como leído; no cambia el estado de cada fuente (eso lo hace su propia pantalla).
-// No incluye datos de salud, check-ins ni molestias, y nada de esto se envía como push.
-import { and, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
+// No incluye datos de salud, check-ins ni molestias, y nada de esto se envía como push. D210: los avisos del Asistente REPI
+// (brain_intervention) son una fuente más, con su propio estado de lectura (pendiente → visto al abrir el centro).
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { REQUEST_KIND, toWhom, type RequestKind } from "@repi/domain";
 import { db, schema } from "@/db";
 import { addDays } from "../access/util";
@@ -15,8 +16,10 @@ import { myCharges } from "../coachpay/services";
 import { myAppointments } from "../training/agenda";
 import { markAnnouncementsRead, myAnnouncements } from "../announcements/services";
 import { pendingBriefs } from "../training/program-request";
+import { activeInterventions } from "../brain/store";
+import { assistantOn, getPrefs } from "../brain/prefs";
 
-const { memberNotice, communityPost, userPref } = schema;
+const { memberNotice, communityPost, userPref, brainIntervention } = schema;
 
 export type NotifDest =
   | { tab: "home" | "msgs" | "perfil" | "train" }
@@ -24,7 +27,24 @@ export type NotifDest =
   | { tab: "gym"; gymTab: "news" | "ch" | "logros" }
   | { tab: "review"; invite: { id: string; trainer: string; kind: string; place: string } };
 // `origin: "repi"`: novedad del producto (D202), se distingue de los avisos del gimnasio y del coach.
-export type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean; origin?: "repi"; cta?: string | null };
+// `origin: "assistant"`: aviso del Asistente REPI (D210, coaching personal); `ref.interventionId` para aceptarlo o descartarlo.
+export type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean; origin?: "repi" | "assistant"; cta?: string | null; ref?: { interventionId: string } };
+/** Destino de cada tipo de aviso del Asistente REPI (lo demás va a Inicio, donde está la tarjeta). */
+const ASSISTANT_DEST: Record<string, NotifDest> = {
+  pr: { tab: "prog", seg: "train" }, progressing: { tab: "prog", seg: "train" }, plateau: { tab: "prog", seg: "train" }, declining: { tab: "prog", seg: "train" },
+  weekly_target_met: { tab: "prog", seg: "train" }, weekly_summary: { tab: "prog", seg: "train" },
+  program_updated: { tab: "train" }, import_unknowns: { tab: "train" }, inactivity: { tab: "train" },
+};
+/** Avisos vigentes del Asistente REPI (sólo los de la persona; sin evaluar nada: eso lo hacen Inicio y el cron). */
+async function assistantItems(userId: string, now: Date): Promise<Notif[]> {
+  if (!assistantOn()) return []; // módulo apagado: la campanita no lista avisos del Asistente (como las novedades con su interruptor)
+  const [prefs, items] = await Promise.all([getPrefs(userId), activeInterventions(userId, now, 10)]);
+  return items.filter((i) => i.channel !== "inline" && (prefs.proactive || i.category === "safety")).map((i) => ({
+    id: `assistant:${i.id}`, title: i.title, body: clip(i.body, 160), at: i.createdAt, tone: i.category === "safety" ? "bad" : "cyan", origin: "assistant",
+    dest: ASSISTANT_DEST[i.kind] ?? { tab: "home" }, unread: i.status === "pending", cta: i.actions.find((a) => a.id === "open" || a.id === "start" || a.id === "why")?.label ?? null,
+    ref: { interventionId: i.id },
+  }));
+}
 /** Destino de una novedad de REPI dentro de la app del alumno (lista cerrada). */
 const ANN_DEST: Record<string, NotifDest> = {
   "member.progress": { tab: "prog", seg: "train" }, "member.progress.body": { tab: "prog", seg: "body" }, "member.progress.photos": { tab: "prog", seg: "photos" },
@@ -47,6 +67,7 @@ export async function myNotifications(userId: string, now = new Date()) {
     myAnnouncements(userId, "member", { now }),
     pendingBriefs(userId).catch(() => []),
   ]);
+  const assistant = await assistantItems(userId, now).catch(() => [] as Notif[]); // una falla del Asistente no rompe el centro
   const posts = gymRels.length ? await db.select({ p: communityPost }).from(communityPost).where(and(
     inArray(communityPost.orgId, gymRels.map((r) => r.org.id)), isNull(communityPost.deletedAt), gte(communityPost.createdAt, since),
     or(isNull(communityPost.locationId), inArray(communityPost.locationId, gymRels.map((r) => r.loc.id))),
@@ -114,13 +135,25 @@ export async function myNotifications(userId: string, now = new Date()) {
   // D206: pedido de programa sin preferencias. Es algo para hacer: queda sin leer hasta que se completa.
   const briefItems: Notif[] = briefs.map((x) => ({ id: `brief:${x.id}`, title: "Completá tu pedido de programa", body: `Contale ${toWhom(x.to)} tu objetivo, cuántos días podés entrenar y si tenés alguna lesión. Sin eso no puede armarlo.`,
     at: x.createdAt, tone: "cyan", dest: { tab: "home" }, unread: true, cta: "Completar" }));
-  const list = [...briefItems, ...[...items.map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen })), ...annItems].sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX - briefItems.length)];
+  const list = [...briefItems, ...[...items.map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen })), ...annItems, ...assistant].sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX - briefItems.length)];
   return { items: list, unread: list.filter((x) => x.unread).length, seenAt: seen ? seen.toISOString() : null };
+}
+
+/**
+ * D210: abrir el centro cuenta como «visto» para los avisos pendientes del Asistente REPI: no se vuelven a empujar por push
+ * (caso 51) y siguen en Inicio hasta que la persona los resuelva o venzan.
+ */
+export async function markAssistantSeen(userId: string, now = new Date()) {
+  const rows = await db.update(brainIntervention).set({ status: "shown", shownAt: now })
+    .where(and(eq(brainIntervention.userId, userId), eq(brainIntervention.status, "pending"), sql`${brainIntervention.channel} <> 'inline'`, lte(brainIntervention.createdAt, now)))
+    .returning({ id: brainIntervention.id });
+  return rows.length;
 }
 
 /** Abrir el centro marca todo como leído hasta ahora. No resuelve pedidos ni marca mensajes. */
 export async function markNotificationsSeen(userId: string, now = new Date()) {
   await markAnnouncementsRead(userId, "member", { now }); // sólo las ya publicadas y visibles para esta persona
+  await markAssistantSeen(userId, now);
   await db.insert(userPref).values({ userId, notificationsSeenAt: now }).onConflictDoUpdate({ target: userPref.userId, set: { notificationsSeenAt: now, updatedAt: now } });
   return { seenAt: now.toISOString() };
 }

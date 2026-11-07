@@ -11,7 +11,7 @@ Prioridad = valor comercial y retención primero, después costo, riesgo y depen
 | 3 | Biblioteca y medios | Videos licenciados, CRUD propio con atributos; enciende `exercise_video` | Biblioteca base sin videos | Licencia de medios |
 | 4 | Repi Proactivo | Recordatorios, resúmenes, horarios del coach, alertas por eventos | Avisos push y centro de avisos existen | Preferencias por canal (F-NT-02) |
 | 5 | Comercial avanzado | Cobros automáticos con proveedor, comprobantes, mora; promociones, cupones, referidos, CRM, reservas | Cobros manuales y condiciones versionadas | Proveedor de pago y fiscal (D04–D05) |
-| 6 | Adaptive Coach 2–6 | Propuestas validadas, rutinas abreviadas, adaptación por equipamiento, IA contextual | Núcleo y validador listos (D108) | Decisión de gasto en IA |
+| 6 | Adaptive Coach 2–6 → **Adaptive Coaching 3.0 (D210)** | Asistente del socio (Inicio, entrenamiento, cierre, chat, preferencias), proactividad con límites, acciones seguras con confirmación, rutinas abreviadas, reemplazos, señales para el entrenador, IA contextual con topes | **Hecho (D210)**: ver `docs/adaptive/ADAPTIVE_COACHING_3.md` §10 | Gasto en IA aprobado (07/11/2026) |
 | 7 | Body Intelligence BI-1 | Medidas y fotos con consentimiento, historial, visor genérico rotulado; enciende `body` | Sin implementar | Privacidad y almacenamiento |
 | 8 | Nutrición | Registro del alumno visible al coach con permiso; enciende `nutrition` | Sólo permisos | Alcance definido |
 | 9 | Gym avanzado | Clases grupales, turnos complejos, multi-sede ampliado | Performance Center, reseñas y multi-sede básicos hechos | Demanda de gimnasios |

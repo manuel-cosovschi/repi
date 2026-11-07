@@ -1134,8 +1134,10 @@ export async function dayAlternatives(userId: string, dayId: string, perExercise
   for (const l of lists) out.set(l.peId, l.list.map((x) => ({ exerciseId: x.id, name: x.name, approved: x.approved, note: x.approvedNote, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })));
   return out;
 }
-async function sessionOrg(versionId: string) {
-  const [r] = await db.select({ org: program.orgId }).from(programVersion).innerJoin(program, eq(program.id, programVersion.programId)).where(eq(programVersion.id, versionId));
+/** Organización del programa de la sesión. Dentro de una transacción, con su `tx`: otra conexión del pool mientras la transacción
+ * retiene la suya puede quedar esperando para siempre si el pool se agota (hallazgo 15 de la revisión AC3). */
+async function sessionOrg(versionId: string, q: Tx | typeof db = db) {
+  const [r] = await q.select({ org: program.orgId }).from(programVersion).innerJoin(program, eq(program.id, programVersion.programId)).where(eq(programVersion.id, versionId));
   return r.org;
 }
 
@@ -1163,7 +1165,7 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     if (!isChangeReason(p.change.reason)) throw new AccessError("invalid", "Elegí el motivo.");
     let sub: { id: string; name: string } | null = null;
     if (p.change.kind === "substitute") {
-      const orgId = await sessionOrg(s.versionId);
+      const orgId = await sessionOrg(s.versionId, tx);
       const [x] = await tx.select({ id: exercise.id, name: exercise.name, kind: exercise.kind }).from(exercise)
         .where(and(eq(exercise.id, p.change.exerciseId ?? ""), visibleIn(orgId, userId)));
       if (!x) throw new AccessError("invalid", "Ese ejercicio no está en la biblioteca.");

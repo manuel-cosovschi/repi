@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { HISTORY_STATUS_LABEL, SET_FEEL, correctionSummary, formatClock, kgTo, parseWeightIn, volumeIn, type SetFeel, type WeightUnit } from "@repi/domain";
 import { api, ApiError } from "@/lib/api";
+import { RepiAsk } from "@/components/brain/RepiAsk";
 import { delLocal, getLocal } from "@/lib/offline/store";
 import { pendingFor } from "@/lib/offline/queue";
 import { Sheet } from "./Sheet";
@@ -94,6 +95,9 @@ export function HistorySession({ id, flash, onClose, onChanged, offline, onRegis
             <div><strong>{d.metrics.reps}</strong><span>Repeticiones</span></div>
             <div><strong>{volumeIn(d.metrics.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>
           </div>
+          {/* D210: preguntar por esta sesión (se cierra la hoja para que el panel no quede debajo). */}
+          {d.status === "completed" && !offline && <RepiAsk section="history" refs={{ sessionId: d.id }} subject={d.dayName} label="Preguntale a REPI por esta sesión" before={onClose}
+            chips={[{ label: "¿Cómo me fue?", text: "¿Cómo me fue respecto de la anterior?" }, { label: "¿Qué hago la próxima?", text: "¿Qué hago la próxima?" }]} />}
           {d.status === "completed" && !offline && <SessionCalories sessionId={d.id} refresh={d.revision} onRegisterWeight={onRegisterWeight} />}
           {d.prs.length > 0 && <p className="hx-pr" role="note">Récord: {d.prs.map((p) => `${p.exercise} ${kg(p.current.weightKg, unit)} × ${p.current.reps}`).join(" · ")}</p>}
           {d.actions.edit && <Hint id="history_edit" text="Tocá una serie para corregir peso, repeticiones o RIR, o anularla si la marcaste por error. Tus récords y recomendaciones se recalculan con lo corregido." />}

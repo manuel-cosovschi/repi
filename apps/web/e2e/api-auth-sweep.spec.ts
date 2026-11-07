@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 // Públicas a propósito: búsqueda de sedes con alta pública (sin demos, D197) y estado de la demo propia (null sin demo).
-const PUBLIC = new Set(["GET /api/access/locations", "GET /api/demo/me"]);
+// Públicas a propósito: la medición anónima de /conoce (D205) responde 204 sin sesión y no devuelve datos.
+const PUBLIC = new Set(["GET /api/access/locations", "GET /api/demo/me", "POST /api/site/event"]);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "app", "api");
 const ID = "00000000-0000-4000-8000-000000000000";
 

@@ -33,7 +33,8 @@ export type LocalSession = {
   // El servidor rechazó la sesión porque el acceso (coach o gym) dejó de estar vigente: los datos quedan en el teléfono,
   // la cola no se borra y se vuelve a intentar sólo ante un evento (volver a la app, reconectar, «Reintentar»).
   rejected?: { message: string; at: string; code?: string };
-  rest?: { end: number | null; total: number; left: number; paused: boolean } | null;
+  // `of`: la serie que abrió este descanso (el mensaje del servidor sobre esa serie es el único que puede aparecer en él).
+  rest?: { end: number | null; total: number; left: number; paused: boolean; of?: { peId: string; idx: number } | null } | null;
   // D183 + D184: EMOM. Intervalo en curso (`start` en el reloj de este teléfono), qué serie es y si se interrumpió. Se
   // sincroniza: `ivAt` es cuándo cambió acá; `skew` = hora del servidor − hora del teléfono (la última que se observó).
   iv?: LocalInterval | null; ivAt?: string | null; skew?: number;
@@ -60,6 +61,24 @@ export function keepLocalOnly(fresh: LocalSession, local: LocalSession | undefin
   return { session: { ...fresh, sets }, upload };
 }
 export const setKey = (peId: string, i: number) => `${peId}:${i}`;
+
+/** D210: mensaje por serie que calculó el servidor (las mismas reglas que el teléfono), tal como lo devuelve al registrar la serie. */
+export type ServerSetIntel = { peId: string; idx: number; event: { code: string; text: string; restPlusSec: number | null } };
+/**
+ * D210 (revisión AC3 #10/#23/#32): adopta el mensaje del servidor sobre una serie si el teléfono no tenía uno (p. ej. sin
+ * objetivos porque el entrenamiento empezó sin conexión). Sólo durante el descanso que abrió ESA serie: un mensaje que llega
+ * tarde (la cola se vació al reconectar) no aparece en el descanso de otro ejercicio. Nunca pisa el mensaje de las reglas
+ * locales ni repite uno ya mostrado en el ejercicio. Devuelve la sesión con el mensaje, o `null` si no corresponde.
+ * La cola lo aplica sobre la copia que escribe (una sola escritura): así la sincronización no lo borra.
+ */
+export function adoptServerIntel(s: LocalSession, d: ServerSetIntel, now = Date.now()): LocalSession | null {
+  const r = s.rest;
+  if (!d.event?.text || s.intel || !r || r.paused || (r.end != null && r.end <= now)) return null;
+  if (!r.of || r.of.peId !== d.peId || r.of.idx !== d.idx) return null;
+  const key = `${d.peId}:${d.event.code}`;
+  if ((s.intelSeen ?? []).includes(key)) return null;
+  return { ...s, intel: { key, text: d.event.text, restPlusSec: d.event.restPlusSec ?? null, at: new Date(now).toISOString() }, intelSeen: [...(s.intelSeen ?? []), key] };
+}
 
 /**
  * D191/D195 (regresión del hotfix #26): al traer los objetivos de REPI para una sesión recién iniciada se completan sólo

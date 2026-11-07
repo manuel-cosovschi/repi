@@ -63,9 +63,12 @@ export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile,
   );
 }
 
-export function Conversation({ id, title, extra, onChanged, dark }: { id: string; title: string; extra?: React.ReactNode; onChanged?: () => void; dark?: boolean }) {
+export function Conversation({ id, title, extra, onChanged, dark, seed, onSeedUsed }: { id: string; title: string; extra?: React.ReactNode; onChanged?: () => void; dark?: boolean;
+  /** D210: borrador preparado con REPI. Sólo llena el campo (cada `n` nuevo); nunca envía: lo manda la persona. */
+  seed?: { text: string; n: number } | null; onSeedUsed?: () => void }) {
   const [t, setT] = useState<Thread | null>(null);
   const [draft, setDraft] = useState("");
+  useEffect(() => { if (seed?.text) { setDraft(seed.text); onSeedUsed?.(); } }, [seed?.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const [err, setErr] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const box = useRef<HTMLDivElement>(null);

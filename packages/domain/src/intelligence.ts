@@ -204,9 +204,46 @@ function lastOf(c: RowCtx, p: RecommendInput) {
   return { h, s, own, prev, refs };
 }
 
+/** Clave del rango prescripto («8-10», «8–10» y «8 - 10» son el mismo; null si no se conoce). */
+const repsKey = (reps: string | null | undefined) => {
+  if (reps == null) return null;
+  const t = parseReps(reps);
+  return t.kind === "reps" ? `r${t.min}-${t.max}` : t.kind === "time" ? `t${t.seconds}` : `f${t.text.toLowerCase()}`;
+};
+
+/**
+ * AC3 (defecto #1 de la auditoría): filas de la última sesión que son la referencia de una serie principal o top set. Con
+ * series iguales hoy y la vez pasada, todas (la doble progresión mira el conjunto, como siempre). En pirámides o planes con
+ * rangos distintos por fila (hoy o la vez pasada), cada fila compara con su par: la misma fila del plan con el mismo rango;
+ * si no, las filas con el mismo rango prescripto; si no, la misma fila aunque haya cambiado el rango; si no, la de
+ * repeticiones hechas más cercanas al objetivo. Con otro rango, `suggestNext` estima con prudencia (nunca por encima).
+ */
+function pairRows(c: RowCtx, all: RowCtx[], s: HistSession): { rows: HistSession["rows"]; sets: number; own: HistSession["rows"][number] | null; mixed: boolean } {
+  const group = all.filter((x) => x.cls === c.cls && x.stage === 0 && x.label === c.label);
+  const k = repsKey(c.reps);
+  const mixed = new Set(group.map((x) => repsKey(x.reps))).size > 1 || new Set(s.rows.map((r) => repsKey(r.reps)).filter((x) => x != null)).size > 1;
+  if (!mixed) return { rows: s.rows, sets: group.length, own: null, mixed };
+  const exact = s.rows.filter((r) => r.level === "exact");
+  const exactSame = exact.filter((r) => repsKey(r.reps) === k);
+  if (exactSame.length) return { rows: exactSame, sets: 1, own: exactSame[0], mixed };
+  const same = s.rows.filter((r) => r.reps != null && repsKey(r.reps) === k);
+  if (same.length) {
+    const peers = group.filter((x) => repsKey(x.reps) === k);
+    const nth = Math.max(0, peers.findIndex((x) => x.index === c.index));
+    return { rows: same, sets: peers.length, own: same[Math.min(nth, same.length - 1)], mixed };
+  }
+  if (exact.length) return { rows: exact.slice(0, 1), sets: 1, own: exact[0], mixed };
+  const t = parseReps(c.reps);
+  if (t.kind !== "reps") return { rows: s.rows, sets: group.length, own: null, mixed };
+  const goal = (t.min + t.max) / 2;
+  const near = s.rows.reduce((a, b) => (Math.abs((b.r ?? 0) - goal) < Math.abs((a.r ?? 0) - goal) ? b : a));
+  return { rows: [near], sets: 1, own: near, mixed };
+}
+
 function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarget[]): RowTarget {
   if (c.cls === "warmup") return base(c, { status: "not_applicable", why: "Aproximación: elegí la carga según cómo te sientas; no se usa para progresar." });
   const { h, s, own, prev, refs } = lastOf(c, p);
+  const prev0 = prev, refs0 = refs;
   const days = s ? Math.floor((p.now.getTime() - Date.parse(s.at)) / 86_400_000) : null;
   const signals: SafetySignals = { ...(p.signals ?? {}), daysSinceLast: days };
   const coach = c.planKg != null;
@@ -232,10 +269,14 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
 
   // Series principales y top sets: doble progresión de D182 con las filas comparables de la última vez.
   if (c.cls === "main" || c.cls === "top") {
-    const sameCls = all.filter((x) => x.cls === c.cls && x.stage === 0 && x.label === c.label).length;
     if (!s) return withCoach(base(c, { why: NO_REF, reasons: ["no_history"] }));
-    const last: LastSet[] = s.rows.map((r) => ({ weightKg: r.w, reps: r.r, rir: r.rir, feel: r.feel, kind: c.cls === "top" ? "top" : "work" }));
-    const sg = suggestNext({ reps: c.reps, sets: sameCls, last, lastReps: s.rows[0]?.reps ?? null, signals });
+    const pair = pairRows(c, all, s);
+    const ref = pair.rows;
+    // En una pirámide, la procedencia y «la vez pasada» son las de la fila par (no las de toda la sesión).
+    const prev = pair.own ? { w: pair.own.w, r: pair.own.r, rir: pair.own.rir, at: s.at, level: pair.own.level, source: s.source } : prev0;
+    const refs = pair.mixed ? ref.map((r) => ({ sessionId: s.sessionId, setLogId: r.setLogId ?? null, at: r.at, w: r.w, r: r.r, rir: r.rir })) : refs0;
+    const last: LastSet[] = ref.map((r) => ({ weightKg: r.w, reps: r.r, rir: r.rir, feel: r.feel, kind: c.cls === "top" ? "top" : "work" }));
+    const sg = suggestNext({ reps: c.reps, sets: pair.sets, last, lastReps: ref[0]?.reps ?? null, signals });
     if (!sg) {
       // «Al fallo» o rango libre: referencia de la última vez, sin progresión automática.
       return withCoach(base(c, { status: "ready", action: "reference", quality: h.quality, prev, refs, weightKg: prev?.w ?? null, repsTarget: prev?.r ?? null,
@@ -244,7 +285,7 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
     let w = sg.weightKg;
     const action = ACTION_OF[sg.action] ?? "hold";
     if (w != null && p.increment) {
-      const top = Math.max(0, ...s.rows.map((r) => r.w ?? 0));
+      const top = Math.max(0, ...ref.map((r) => r.w ?? 0));
       w = action === "increase_load" ? nextLoad(top, p.increment) : fitIncrement(w, p.increment);
     }
     // Una carga nueva (subir, bajar o estimar) sin el salto del equipo es una referencia: puede no existir tal cual.
