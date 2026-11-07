@@ -2,8 +2,11 @@
 // Recorrido guiado de la demo (D85): aparece sólo en sesiones de demo y va paso a paso sobre la app real, resaltando dónde
 // tocar y por qué le sirve a cada perfil. Navega solo entre pantallas tocando el menú real. Se puede salir y volver a
 // abrir con «Guía». Teclado: flechas para avanzar o volver, Escape para cerrar. Movimiento reducido: sin transiciones.
+// Sólo se muestra dentro de las apps de la demo (/app, /coach, /gym): la sesión de demo dura 6 h y el visitante vuelve a
+// /conoce, /demo o al inicio. Ahí la guía no va (pedido del titular, 07/11: «queda flotando por más que haya salido»).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import type { DemoRole } from "@/server/sandbox/services";
 
 type Step = { t: string; d: string; target?: string; go?: boolean };
@@ -56,9 +59,12 @@ function findTarget(label: string): HTMLElement | null {
   if (byAttr) return byAttr;
   return [...document.querySelectorAll<HTMLElement>("nav button, button")].find((b) => b.textContent?.trim().startsWith(label)) ?? null;
 }
+const APP_PATHS = ["/app", "/coach", "/gym"];
+const tourShowsOn = (path: string | null) => !!path && APP_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 const visible = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; };
 
 export function DemoTour() {
+  const inApp = tourShowsOn(usePathname());
   const [role, setRole] = useState<DemoRole | null>(null);
   const [i, setI] = useState(0);
   const [open, setOpen] = useState(true);
@@ -67,19 +73,19 @@ export function DemoTour() {
   const key = role ? `repi:tour:${role}` : "";
 
   useEffect(() => {
-    if (!document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
+    if (!inApp || role || !document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
     fetch("/api/demo/me", { credentials: "same-origin" }).then((r) => r.json()).then((d: { role: DemoRole } | null) => {
       if (!d) return;
       setRole(d.role);
       try { const saved = JSON.parse(sessionStorage.getItem(`repi:tour:${d.role}`) ?? "null"); if (saved) { setI(saved.i ?? 0); setOpen(saved.open ?? true); } } catch { /* */ }
     }).catch(() => {});
-  }, []);
+  }, [inApp, role]);
   useEffect(() => { if (key) try { sessionStorage.setItem(key, JSON.stringify({ i, open })); } catch { /* */ } }, [key, i, open]);
 
   const step = role ? TOURS[role].steps[i] : null;
   // Al entrar a un paso con destino: toca el menú real (navega) y resalta el elemento.
   useEffect(() => {
-    if (!open || !step?.target) { setRect(null); return; }
+    if (!inApp || !open || !step?.target) { setRect(null); return; }
     let tries = 0, done = false;
     const t = setInterval(() => {
       const el = findTarget(step.target!);
@@ -90,19 +96,19 @@ export function DemoTour() {
       if (++tries > 20) clearInterval(t);
     }, 150);
     return () => clearInterval(t);
-  }, [open, step]);
-  useLayoutEffect(() => { if (open) card.current?.focus(); }, [open, i]);
+  }, [inApp, open, step]);
+  useLayoutEffect(() => { if (inApp && open) card.current?.focus(); }, [inApp, open, i]);
   const total = role ? TOURS[role].steps.length : 0;
   const next = useCallback(() => setI((x) => Math.min(total - 1, x + 1)), [total]);
   const prev = useCallback(() => setI((x) => Math.max(0, x - 1)), []);
   useEffect(() => {
-    if (!open) return;
+    if (!inApp || !open) return;
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") prev(); };
     addEventListener("keydown", k);
     return () => removeEventListener("keydown", k);
-  }, [open, next, prev]);
+  }, [inApp, open, next, prev]);
 
-  if (!role || !step) return null;
+  if (!inApp || !role || !step) return null;
   const last = i === total - 1;
   return createPortal(
     <>
