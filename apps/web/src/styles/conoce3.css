@@ -365,7 +365,14 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 }
 
 /* ── 05 · Producto ──────────────────────────────────────────────────── */
-.x3-sc { padding: clamp(80px, 12vh, 140px) 0; background: linear-gradient(180deg, transparent, rgba(11, 15, 20, .86) 12%, rgba(11, 15, 20, .86) 88%, transparent); }
+.x3-sc { position: relative; padding: clamp(80px, 12vh, 140px) 0; background: linear-gradient(180deg, transparent, rgba(11, 15, 20, .86) 12%, rgba(11, 15, 20, .86) 88%, transparent); }
+/* Escritorio (Motion 2): el velo queda sólo detrás de la columna de texto; a la derecha la sala vuelve a verse. */
+@media (min-width: 960px) {
+  .x3-sc { background: none; }
+  .x3-sc::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 58%; pointer-events: none;
+    background: linear-gradient(90deg, rgba(11, 15, 20, .94) 0%, rgba(11, 15, 20, .9) 62%, rgba(11, 15, 20, 0) 100%); }
+  .x3-sc > .x3-wrap { position: relative; }
+}
 .x3-sc-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 80px); }
 .x3-sc-mod { min-height: 74vh; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 20px 0; opacity: .76; transition: opacity .5s var(--x-ease); }
 .x3-sc-mod[data-on] { opacity: 1; }
@@ -377,11 +384,14 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-sc-status { margin: 4px 0 0; font-size: 13px; color: var(--x-teal); }
 .x3-sc-status[data-s="stage"] { color: #FFD48A; }
 .x3-sc-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-.x3-sc-stage { position: sticky; top: 64px; height: calc(100svh - 64px); display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.x3-sc-stage { position: sticky; top: 64px; height: calc(100svh - 64px); display: flex; flex-direction: column; justify-content: flex-start; padding-top: clamp(24px, 7vh, 72px); gap: 22px; }
 .x3-sc-index { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--x-dim); }
 .x3-sc-index li[data-on] { color: var(--x-white); }
-.x3-sc-visual { animation: x3-swap .6s var(--x-ease) both; }
-@keyframes x3-swap { from { opacity: 0; transform: translateY(16px); } }
+.x3-sc-visual { animation: x3-wipe .45s var(--x-ease) both; }
+/* Corte de montaje entre módulos: un barrido (sin fundido ni desenfoque). */
+@keyframes x3-wipe { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+.x3-chart-now { margin: 10px 0 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.x3-chart-now b { font: 700 clamp(1.6rem, 2.6vw, 2.2rem) var(--font-display); color: var(--x-cyan); font-variant-numeric: tabular-nums; }
 .x3-layers { position: relative; height: min(64vh, 560px); }
 .x3-layers img { position: absolute; height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); box-shadow: 0 40px 70px -35px rgba(0, 0, 0, .9); }
 .x3-layers img:first-child { left: 0; top: 0; }
@@ -396,7 +406,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-chart-line { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .x3-chart-dot { fill: var(--x-steel); }
 .x3-chart-last { fill: var(--x-cyan); }
-.x3-chart small { color: var(--x-dim); font-size: 12px; }
+.x3-chart small { color: var(--x-muted); font-size: 12px; }
 .x3-rest { position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
 .x3-rest img { height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); }
 .x3-rest-ring { --p: 1; position: absolute; right: 8%; bottom: 10%; width: 132px; height: 132px; border-radius: 50%; display: grid; place-content: center; text-align: center;
@@ -406,15 +416,17 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-rest-ring > * { position: relative; }
 .x3-rest-ring b { font: 700 30px var(--font-display); }
 .x3-rest-ring small { font-size: 11px; color: var(--x-muted); }
-.x3-req { position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
+.x3-req { --rq: 1; position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
+@media (prefers-reduced-motion: no-preference) { .x3-sc { --rq: 0; } .x3-req { --rq: inherit; } }
 .x3-req img { height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); opacity: .8; }
-.x3-req-a, .x3-req-b { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 16px; background: var(--x-surface); border: 1px solid var(--x-cyan); box-shadow: 0 20px 40px -18px rgba(0, 0, 0, .9); }
-.x3-req-a { left: 0; top: 14%; }
-.x3-req-b { right: 0; bottom: 22%; border-color: var(--x-teal); }
+.x3-req-a, .x3-req-b { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 16px; background: var(--x-surface); border: 1px solid var(--x-cyan); }
+/* Lo mueve el scroll del módulo (--rq de 0 a 1): el pedido, el trazo y la respuesta, en ese orden. */
+.x3-req-a { left: 0; top: 14%; opacity: clamp(0, calc((var(--rq) - .04) * 8), 1); translate: 0 calc(clamp(0, calc(1 - (var(--rq) - .04) * 8), 1) * 12px); }
+.x3-req-b { right: 0; bottom: 22%; border-color: var(--x-teal); opacity: clamp(0, calc((var(--rq) - .58) * 8), 1); translate: 0 calc(clamp(0, calc(1 - (var(--rq) - .58) * 8), 1) * 12px); }
 .x3-req-a small, .x3-req-b small { font-size: 12px; color: var(--x-muted); }
 .x3-req-a b, .x3-req-b b { font: 700 22px var(--font-display); text-transform: uppercase; }
 .x3-req svg { position: absolute; z-index: 1; left: 12%; right: 12%; top: 30%; width: 76%; }
-.x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 2.5; stroke-dasharray: 300; stroke-dashoffset: 300; stroke-linecap: round; }
+.x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 2.5; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - clamp(0, calc((var(--rq) - .18) / .4), 1)); stroke-linecap: round; }
 @media (min-width: 960px) { .x3-sc-inline { display: none; } }
 @media (max-width: 959px) {
   .x3-sc-grid { grid-template-columns: 1fr; }

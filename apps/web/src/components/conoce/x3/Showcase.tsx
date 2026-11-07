@@ -1,12 +1,17 @@
 "use client";
 // Escena 05 · Producto. Siete módulos sin grilla de tarjetas: el texto de cada uno pasa con el scroll y un escenario fijo al
-// costado se transforma con su demostración (la gráfica de progreso se construye; el pedido «Que venga alguien» viaja del
-// socio al entrenador y vuelve «Voy», también en la sala; el descanso corre). Todo lo que se muestra existe en la app; los
-// números de la gráfica son de un ejemplo ficticio y lo dice.
+// costado se transforma con su demostración (la gráfica de progreso se construye; el descanso corre). Todo lo que se muestra
+// existe en la app; los números de la gráfica son de un ejemplo ficticio y lo dice.
+// Motion 2 (P5): cada módulo es una toma de la sala (`data-shot`), el velo queda sólo detrás del texto, el cambio de módulo es
+// un barrido (sin desenfoque) y la firma del módulo de gestión es «Que venga alguien → Voy» con el scroll: Julián pide ayuda
+// desde su serie, un cometa cruza el piso hasta Sofía, ella responde «Voy» y camina hasta él (los nombres de la demo real).
 import { useEffect, useRef, useState } from "react";
+import { Say } from "./Say";
+import { ScrollTrigger, useGSAP } from "./gsap";
 import { FEATURES, STATUS_LABEL, VIDEOS, type DemoRole, type FeatureStatus } from "@/content/conoce";
 import { track } from "@/lib/site-track";
 import { stage } from "../sala/store";
+import type { ShotId } from "../sala/model";
 import { DemoButton } from "../DemoButton";
 import { useFilm } from "./FilmPlayer";
 import { gsap, reduced } from "./gsap";
@@ -14,6 +19,8 @@ import { usePaused } from "./motion";
 import { Play } from "@phosphor-icons/react";
 
 type Mod = { id: string; title: string; value: string; points: string[]; status: FeatureStatus; demo: DemoRole; note?: string; video?: string; visual: string };
+/** Toma de la sala para cada módulo (en orden): el rack, el rack, el plano de progreso, el box, el pedido, la sala abierta y cardio. */
+const SHOT_OF: Record<string, ShotId> = { intelligence: "rack", registro: "rack", progreso: "showcase", coach: "box", gym: "pedido", comunidad: "open", cuerpo: "cardio" };
 const f = (id: string) => FEATURES.find((x) => x.id === id)!;
 const MODS: Mod[] = [
   { ...pick("intelligence"), title: "Training Intelligence", visual: "ti" },
@@ -43,14 +50,21 @@ function MetricSwitch({ m, setM }: { m: MetricId; setM: (k: MetricId) => void })
 
 function Chart({ on, m }: { on: boolean; m: MetricId }) {
   const path = useRef<SVGPathElement>(null);
+  const count = useRef<HTMLElement>(null);
   const v = METRICS[m].v, max = Math.max(...v), min = Math.min(...v);
   const pts = v.map((y, i) => [20 + i * (360 / (v.length - 1)), 190 - ((y - min) / (max - min || 1)) * 150] as const);
   const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   useEffect(() => {
     const p = path.current; if (!p || !on) return;
     const len = p.getTotalLength();
-    if (reduced()) { p.style.strokeDasharray = "none"; return; }
-    gsap.fromTo(p, { strokeDasharray: len, strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.4, ease: "power2.out" });
+    const vals = METRICS[m].v, fmt = (n: number) => `${String(Math.round(n * 2) / 2).replace(".", ",")} ${METRICS[m].unit}`;
+    if (reduced()) { p.style.strokeDasharray = "none"; if (count.current) count.current.textContent = fmt(vals[vals.length - 1]); return; }
+    // La línea se dibuja y el número cuenta del primero al último valor del ejemplo, al mismo ritmo.
+    const o = { v: vals[0] };
+    const tl = gsap.timeline()
+      .fromTo(p, { strokeDasharray: len, strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.4, ease: "power2.out" }, 0)
+      .fromTo(o, { v: vals[0] }, { v: vals[vals.length - 1], duration: 1.4, ease: "power2.out", onUpdate: () => { if (count.current) count.current.textContent = fmt(o.v); } }, 0);
+    return () => { tl.kill(); };
   }, [on, m]);
   return (
     <div className="x3-chart">
@@ -59,7 +73,7 @@ function Chart({ on, m }: { on: boolean; m: MetricId }) {
         <path ref={path} d={d} className="x3-chart-line" />
         {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === pts.length - 1 ? 6 : 3.5} className={i === pts.length - 1 ? "x3-chart-last" : "x3-chart-dot"} />)}
       </svg>
-      <small>Press de banca · 8 sesiones · ejemplo ficticio</small>
+      <p className="x3-chart-now" aria-hidden="true"><b ref={count}>{`${String(v[v.length - 1]).replace(".", ",")} ${METRICS[m].unit}`}</b><small>Press de banca · 8 sesiones · ejemplo ficticio</small></p>
     </div>
   );
 }
@@ -82,29 +96,13 @@ function Rest({ on }: { on: boolean }) {
   );
 }
 
-function Request({ on }: { on: boolean }) {
-  const root = useRef<HTMLDivElement>(null);
-  const paused = usePaused();
-  useEffect(() => {
-    if (!on) { stage.set({ request: null }); return; }
-    const q = gsap.utils.selector(root);
-    // Movimiento reducido o animaciones pausadas: el pedido y la respuesta quedan a la vista, quietos.
-    if (reduced() || paused) { gsap.set(q(".x3-req-a, .x3-req-b"), { opacity: 1, y: 0 }); gsap.set(q(".x3-req-path"), { strokeDashoffset: 0 }); stage.set({ request: null }); return; }
-    const o = { v: 0 };
-    const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2 });
-    tl.set(q(".x3-req-a, .x3-req-b"), { opacity: 0, y: 10 })
-      .to(q(".x3-req-a"), { opacity: 1, y: 0, duration: 0.4 })
-      .to(o, { v: 0.5, duration: 1.4, ease: "power1.inOut", onUpdate: () => stage.set({ request: o.v }) }, "<")
-      .to(q(".x3-req-path"), { strokeDashoffset: 0, duration: 1.4, ease: "power1.inOut" }, "<")
-      .to(q(".x3-req-b"), { opacity: 1, y: 0, duration: 0.4 })
-      .to(o, { v: 1, duration: 1.2, ease: "power1.inOut", onUpdate: () => stage.set({ request: o.v }) }, "<")
-      .set(q(".x3-req-path"), { strokeDashoffset: 300 }, "+=1");
-    return () => { tl.kill(); stage.set({ request: null }); };
-  }, [on, paused]);
+/** «Que venga alguien → Voy». Lo mueve el scroll del módulo de gestión (Showcase escribe --rq en `.x3-req`): primero el pedido
+ *  de Julián, después el trazo y el «Voy» de Sofía. Movimiento reducido o pausa: todo a la vista, quieto (el CSS por defecto). */
+function Request() {
   return (
-    <div ref={root} className="x3-req">
-      <div className="x3-req-a"><small>Valentina · Press de banca</small><b>Que venga alguien</b></div>
-      <svg viewBox="0 0 300 80" aria-hidden="true"><path className="x3-req-path" d="M20,10 C120,10 180,70 280,70" /></svg>
+    <div className="x3-req">
+      <div className="x3-req-a"><small>Julián · Sentadilla</small><b>Que venga alguien</b></div>
+      <svg viewBox="0 0 300 80" aria-hidden="true"><path className="x3-req-path" pathLength={1} d="M20,10 C120,10 180,70 280,70" /></svg>
       <div className="x3-req-b"><small>Sofía · Sala</small><b>Voy</b></div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/conoce/shots/floor.webp" alt="Turno del entrenador de sala en REPI con los pedidos de los socios" width={390} height={844} loading="lazy" decoding="async" />
@@ -117,7 +115,7 @@ function Visual({ id, on, m }: { id: string; on: boolean; m: MetricId }) {
   switch (id) {
     case "chart": return <Chart on={on} m={m} />;
     case "rest": return <Rest on={on} />;
-    case "request": return <Request on={on} />;
+    case "request": return <Request />;
     case "coach": return <div className="x3-layers">{img("/conoce/shots/clients.webp", "Clientes del personal trainer en REPI")}{img("/conoce/shots/programs.webp", "Editor de programas en REPI")}</div>;
     case "ti": return <div className="x3-layers one">{img("/conoce/shots/intelligence.webp", "Serie con Anterior, REPI recomienda y Real")}</div>;
     case "community": return <div className="x3-layers one">{img("/conoce/shots/community.webp", "Comunidad del gimnasio en REPI")}</div>;
@@ -150,16 +148,44 @@ export function Showcase() {
     blocks.current.forEach((b) => b && io.observe(b));
     return () => io.disconnect();
   }, []);
+  // «Que venga alguien → Voy» con el scroll del módulo de gestión: el pedido y la respuesta en pantalla (--rq), el cometa que
+  // cruza el piso (request) y Sofía que camina hasta Julián (walk). Al salir del módulo hacia abajo, Sofía vuelve a su recorrido.
+  const root = useRef<HTMLElement>(null);
+  useGSAP(() => {
+    const gym = blocks.current[MODS.findIndex((x) => x.visual === "request")];
+    if (!gym || reduced()) return;
+    let back: gsap.core.Tween | null = null;
+    const write = (u: number) => {
+      // En la sección (se hereda): el visual del pedido puede montarse en cualquier momento y ya llega en su punto.
+      root.current?.style.setProperty("--rq", u.toFixed(3));
+      const r = Math.min(1, Math.max(0, (u - 0.18) / 0.4)), w = Math.min(1, Math.max(0, (u - 0.6) / 0.32));
+      stage.set({ request: u <= 0.18 ? null : +r.toFixed(3), walk: +w.toFixed(3) });
+    };
+    const st = ScrollTrigger.create({
+      trigger: gym, start: "top 75%", end: "bottom 45%", scrub: 0.5,
+      onUpdate: (self) => { back?.kill(); back = null; write(self.progress); },
+      onEnter: () => { back?.kill(); back = null; },
+      onLeave: () => {
+        // Sigue el scroll hacia abajo: el trazo se apaga y Sofía vuelve sola (o al instante, si la animación está pausada).
+        stage.set({ request: null });
+        const o = { w: stage.get().walk };
+        if (stage.get().paused) { stage.set({ walk: 0 }); return; }
+        back = gsap.to(o, { w: 0, duration: 1.4, ease: "power2.inOut", onUpdate: () => stage.set({ walk: +o.w.toFixed(3) }) });
+      },
+      onLeaveBack: () => { write(0); },
+    });
+    return () => { st.kill(); back?.kill(); root.current?.style.removeProperty("--rq"); stage.set({ request: null, walk: 0 }); };
+  }, { scope: root, dependencies: [wide] });
   const m = MODS[active];
   return (
-    <section id="funciones" className="x3-sc" data-shot="showcase" aria-labelledby="cn-sc">
+    <section ref={root} id="funciones" className="x3-sc" data-shot="showcase" aria-labelledby="cn-sc">
       <div className="x3-wrap">
-        <h2 id="cn-sc" className="x3-h2">Lo que REPI <em>ya hace.</em></h2>
+        <Say id="cn-sc" className="x3-h2" text="Lo que REPI *ya hace.*" />
         <div className="x3-sc-grid">
           <div className="x3-sc-text">
             {MODS.map((x, i) => (
-              <article key={x.id} ref={(b) => { blocks.current[i] = b; }} data-i={i} data-on={i === active ? "1" : undefined} className="x3-sc-mod" aria-labelledby={`sc-${x.id}`}>
-                <h3 id={`sc-${x.id}`}>{x.title}</h3>
+              <article key={x.id} ref={(b) => { blocks.current[i] = b; }} data-i={i} data-on={i === active ? "1" : undefined} data-shot={SHOT_OF[x.id] ?? "showcase"} className="x3-sc-mod" aria-labelledby={`sc-${x.id}`}>
+                <Say as="h3" id={`sc-${x.id}`} text={x.title} />
                 <p className="x3-sc-value">{x.value}</p>
                 <ul>{x.points.map((pt) => <li key={pt}>{pt}</li>)}</ul>
                 {x.visual === "chart" && <MetricSwitch m={metric} setM={setMetric} />}
