@@ -1,14 +1,22 @@
 "use client";
-// Escena 01 · Apertura. El punto cian de la «ı» se desprende del wordmark, cae sobre la sala y la enciende (líneas, zonas y
-// personas). El título y los botones están en el HTML desde el servidor (LCP), visibles y usables desde el primer instante:
-// la animación no los toca. Movimiento reducido: sala encendida directamente.
+// Escena 01 · Apertura: «El punto cae y se vuelve persona» (Motion 2 P2). La sala llega apagada desde el servidor (sin el ciclo
+// brillante → oscuro → brillante). A los 0,4 s el punto cian de la «ı» se desprende, sube un poco y cae en arco sobre el rack
+// de Valentina (la proyección real de ese punto de la sala, a un costado del texto: nunca lo cruza). Al tocar el piso se aplasta,
+// salen dos anillos y la luz se expande desde ahí: la sala se enciende por radio y cada persona aparece cuando la luz la
+// alcanza. El punto queda como Valentina, con su anillo que respira, y el logo recupera su punto. El título, los textos y los
+// botones llegan pintados desde el servidor (LCP) y nunca se ocultan al hidratar; al bajar se corren como un telón (scrub).
+// Movimiento reducido, pausa guardada o llegada con scroll: el estado final, sin caída.
 import { useRef } from "react";
 import { ArrowDown, MapPin, Play } from "@phosphor-icons/react";
 import { HERO_VARIANTS, VIDEOS, type HeroVariant } from "@/content/conoce";
 import { stage } from "../sala/store";
+import { VALENTINA } from "../sala/model";
 import { DemoButton } from "../DemoButton";
-import { gsap, reduced, useGSAP } from "./gsap";
+import { gsap, MOTION_MQ, reduced, useGSAP } from "./gsap";
 import { useFilm } from "./FilmPlayer";
+
+type Box = { left: number; top: number; right: number; bottom: number };
+const savedPause = () => { try { return localStorage.getItem("repi:conoce:motion") === "paused"; } catch { return false; } };
 
 export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
   const root = useRef<HTMLElement>(null);
@@ -16,22 +24,74 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
   const copy = HERO_VARIANTS[variant] ?? HERO_VARIANTS.a;
   const brand = VIDEOS["film-marca"];
   useGSAP(() => {
-    if (reduced()) { stage.set({ lit: 1 }); return; }
-    // Sólo se animan las piezas decorativas: el punto de la «ı» y la sala. El título, los textos y los botones llegan pintados
-    // desde el servidor (LCP) y nunca se vuelven a ocultar al hidratar. Cada visita empieza con la sala apagada (la tienda es
-    // compartida: si se vuelve a /conoce desde otra página, `lit` podría haber quedado en 1).
-    stage.set({ lit: 0 });
+    if (reduced()) { stage.set({ lit: 1, reveal: null }); return; }
     const q = gsap.utils.selector(root);
-    const lit = { v: 0 };
-    const tl = gsap.timeline({ defaults: { ease: "expo.out" }, delay: 0.4 });
-    tl.to(q(".x3-drop"), { opacity: 1, duration: 0.01 })
-      .to(q(".x3-hero-wm i"), { opacity: 0, duration: 0.01 }, "<")
-      // El punto se separa del logo, cae sobre la sala y la enciende.
-      .fromTo(q(".x3-drop"), { y: 0, scale: 1 }, { y: () => window.innerHeight * 0.46, scale: 0.55, duration: 0.85, ease: "power2.in" })
-      .to(q(".x3-drop"), { scaleX: 2.6, scaleY: 0.2, opacity: 0, duration: 0.35, ease: "power2.out" })
-      .to(lit, { v: 1, duration: 1.6, ease: "power2.out", onUpdate: () => stage.set({ lit: lit.v }) }, "<")
-      .to(q(".x3-hero-wm i"), { opacity: 1, duration: 0.4 }, "<0.4");
-    return () => { tl.kill(); stage.set({ lit: 1 }); };
+    const drop = q(".x3-drop")[0] as HTMLElement, mark = q(".x3-hero-wm i")[0] as HTMLElement, rings = q(".x3-hero-ring") as HTMLElement[];
+    // Cada visita empieza con la sala apagada (la tienda es compartida: al volver a /conoce, `lit` podía haber quedado en 1).
+    stage.set({ lit: 0, reveal: null });
+    let tl: gsap.core.Timeline | null = null;
+    const finish = () => {
+      tl?.progress(1); tl?.kill(); tl = null;
+      stage.set({ lit: 1, reveal: null });
+      gsap.set(drop, { clearProps: "all" }); gsap.set(rings, { clearProps: "all" }); gsap.set(mark, { opacity: 1 });
+    };
+    const go = () => {
+      // Pausa guardada, o la persona ya bajó: sin caída.
+      if (savedPause() || stage.get().paused || window.scrollY > 12) { finish(); return; }
+      // Medición (una vez): el punto de la «ı», el impacto (Valentina en la toma cenital, igual al SVG y al 3D que entra) y las
+      // cajas del texto que la caída no puede cruzar.
+      const dr = drop.getBoundingClientRect();
+      const s0 = { x: dr.left + dr.width / 2, y: dr.top + dr.height / 2 };
+      const hit = stage.project(VALENTINA[0], VALENTINA[1], "plan");
+      const texts: Box[] = q(".x3-hero-h1 .ln > span, .x3-hero-sub, .x3-hero-lead, .x3-hero-cta, .x3-hero-proof").map((e) => (e as HTMLElement).getBoundingClientRect());
+      const size = dr.width, LAND = 14 / size;
+      // Arco: x lineal e y acelerada (power2.in); si así rozara el texto, la curva se mantiene alta más tiempo (power3/4/6).
+      const crosses = (k: number) => {
+        for (let i = 1; i < 40; i++) {
+          const u = i / 40, x = s0.x + (hit.x - s0.x) * u, y = s0.y - 12 + (hit.y - s0.y + 12) * Math.pow(u, k), r = size / 2 + 6;
+          if (texts.some((b) => x + r > b.left && x - r < b.right && y + r > b.top && y - r < b.bottom)) return true;
+        }
+        return false;
+      };
+      const k = [2, 3, 4, 6].find((v) => !crosses(v)) ?? 6;
+      const dx = hit.x - s0.x, dy = hit.y - s0.y;
+      // El punto viaja fijo a la pantalla (si la persona hace scroll durante la caída, igual llega a la sala).
+      gsap.set(drop, { position: "fixed", left: dr.left, top: dr.top, width: dr.width, height: dr.height, opacity: 1, x: 0, y: 0 });
+      gsap.set(mark, { opacity: 0 });
+      gsap.set(rings, { position: "fixed", left: hit.x, top: hit.y, xPercent: -50, yPercent: -50, scale: 0.2, opacity: 0 });
+      const light = { r: 0 };
+      const maxR = Math.hypot(Math.max(hit.x, window.innerWidth - hit.x), Math.max(hit.y, window.innerHeight - hit.y)) + 160;
+      tl = gsap.timeline({ onComplete: () => { tl = null; } })
+        .to(drop, { y: -12, duration: 0.2, ease: "power2.out" })
+        .to(drop, { x: dx, duration: 0.9, ease: "none" }, ">")
+        .to(drop, { y: dy, duration: 0.9, ease: `power${Math.min(4, k)}.in` }, "<")
+        .to(drop, { scale: 0.6, duration: 0.9, ease: "power1.in" }, "<")
+        .addLabel("impact")
+        // Impacto: se aplasta y vuelve a ser un punto del tamaño de una persona de la sala.
+        .to(drop, { scaleX: 2.2 * LAND, scaleY: 0.3 * LAND, duration: 0.1, ease: "power2.out" }, "impact")
+        .to(drop, { scaleX: LAND, scaleY: LAND, duration: 0.35, ease: "back.out(2.4)" }, ">")
+        .to(rings[0], { scale: 4.5, opacity: 0, duration: 0.9, ease: "power2.out", startAt: { opacity: 0.9, scale: 0.2 } }, "impact")
+        .to(rings[1], { scale: 7, opacity: 0, duration: 1.1, ease: "power2.out", startAt: { opacity: 0.6, scale: 0.2 } }, "impact+=0.12")
+        // La luz se expande desde el impacto: la sala se enciende por radio y cada persona aparece cuando la luz la alcanza.
+        .add(() => { stage.set({ lit: 1, reveal: { x: hit.x, y: hit.y, r: 0 } }); }, "impact")
+        .to(light, { r: maxR, duration: 1.4, ease: "power2.out", onUpdate: () => stage.set({ reveal: { x: hit.x, y: hit.y, r: light.r } }), onComplete: () => stage.set({ reveal: null }) }, "impact")
+        // El logo recupera su punto y el punto de la caída queda como Valentina (la sala ya la dibuja ahí).
+        .to(mark, { opacity: 1, duration: 0.3 }, "impact+=0.3")
+        .to(drop, { opacity: 0, duration: 0.5 }, "impact+=0.6");
+    };
+    const start = gsap.delayedCall(0.4, go);
+    // «Pausar animaciones» durante la apertura: salta a su estado final.
+    const off = stage.subscribe(() => { if (stage.get().paused && (tl || start.isActive())) { start.kill(); finish(); } });
+    // Telón al bajar: las dos líneas del título se separan y los textos suben y se apagan (scrub, reversible).
+    const mm = gsap.matchMedia();
+    mm.add(MOTION_MQ, () => {
+      gsap.timeline({ defaults: { ease: "none" }, scrollTrigger: { trigger: root.current, start: "top top", end: "bottom 15%", scrub: 0.5 } })
+        .to(q(".x3-hero-sub, .x3-hero-lead, .x3-hero-cta, .x3-hero-proof"), { y: -40, opacity: 0, duration: 0.5, stagger: 0.04 }, 0)
+        .to(q(".x3-hero-h1 .ln:first-child > span"), { xPercent: -12, opacity: 0, duration: 0.7 }, 0.2)
+        .to(q(".x3-hero-h1 .ln:last-child > span"), { xPercent: 12, opacity: 0, duration: 0.7 }, 0.2)
+        .to(q(".x3-hero-wm img, .x3-hero-wm > i"), { opacity: 0, duration: 0.5 }, 0.3);
+    });
+    return () => { start.kill(); off(); tl?.kill(); mm.revert(); stage.set({ lit: 1, reveal: null }); };
   }, { scope: root });
 
   const watch = () => {
@@ -58,6 +118,7 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
         </div>
         <p className="x3-hero-proof"><MapPin size={16} weight="bold" aria-hidden="true" /><span>Ya funciona en gimnasios de Mar del Plata.</span></p>
       </div>
+      <span className="x3-hero-ring" aria-hidden="true" /><span className="x3-hero-ring" aria-hidden="true" />
       <a className="x3-scroll" href="#problema" aria-label="Seguir: el problema que resuelve REPI"><ArrowDown size={18} weight="bold" aria-hidden="true" /></a>
     </section>
   );

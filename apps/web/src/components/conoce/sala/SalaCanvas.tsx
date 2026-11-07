@@ -53,13 +53,14 @@ function Floor() {
   }, []);
   useFrame(() => {
     const s = stage.get();
-    if (gridMat.current) gridMat.current.opacity = 0.55 * s.lit;
+    const lv = 0.25 + 0.75 * s.lit; // como el SVG: apagada se ve a .25
+    if (gridMat.current) gridMat.current.opacity = 0.55 * lv;
     zones.forEach((z, i) => {
       const m = zoneMats.current[i];
       if (!m) return;
       const on = s.focus === z.id, pre = !on && s.preview === z.id;
       m.color.set(on ? C.white : pre ? C.muted : C.line);
-      m.opacity = s.lit;
+      m.opacity = lv;
     });
   });
   return (
@@ -95,7 +96,7 @@ function Gear() {
       if (!m) return;
       const on = s.focus != null && it.zone === s.focus;
       m.color.set(on ? C.white : C.edge);
-      m.opacity = s.lit;
+      m.opacity = 0.25 + 0.75 * s.lit;
     });
   });
   return (
@@ -122,6 +123,7 @@ function People({ count }: { count: number }) {
   const ring = useRef<THREE.Mesh>(null);
   const mats = useRef<{ m: THREE.MeshStandardMaterial | null; s: THREE.MeshStandardMaterial | null }>({ m: null, s: null });
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const proj = useMemo(() => new THREE.Vector3(), []);
   const camera = useThree((st) => st.camera) as THREE.PerspectiveCamera;
   const size = useThree((st) => st.size);
   const cold = useRef<boolean | null>(null);
@@ -132,14 +134,16 @@ function People({ count }: { count: number }) {
       for (const [m, c] of [[mats.current.m, C.cyan], [mats.current.s, C.teal]] as const) { m.color.set(s.cold ? C.line : c); m.emissive.set(s.cold ? C.steel : c); m.emissiveIntensity = s.cold ? 0.2 : 0.85; }
     }
     const pxPerM = size.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-    const allIn = s.gather >= 0.985;
+    const allIn = s.gather >= 0.985, rv = s.reveal;
     let mi = 0, si = 0;
     list.forEach((p, i) => {
       const [x, z] = placePerson(i, t, s);
       const d = camera.position.distanceTo(dummy.position.set(x, 0.42, z));
       const fit = Math.min(1, 56 / (1.0 * pxPerM / Math.max(0.1, d)));
       const hide = (allIn && i > 0) || (s.dotOut && i === 0);
-      const sc = hide ? 0.0001 : Math.max(0.001, s.lit) * fit;
+      let pop = 1;
+      if (rv) { proj.copy(dummy.position).project(camera); const sx = ((proj.x + 1) / 2) * size.width, sy = ((1 - proj.y) / 2) * size.height; const v = Math.min(1, Math.max(0, (rv.r - Math.hypot(sx - rv.x, sy - rv.y)) / 70 + 1)); pop = v * v * (3 - 2 * v); }
+      const sc = hide ? 0.0001 : Math.max(0.001, s.lit * pop) * fit;
       dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(sc); dummy.updateMatrix();
       if (p.kind === "member") members.current?.setMatrixAt(mi, dummy.matrix); else staff.current?.setMatrixAt(si, dummy.matrix);
       dummy.position.set(x, 0.03, z); dummy.rotation.set(-Math.PI / 2, 0, 0);
@@ -255,6 +259,7 @@ function Rig({ parallax }: { parallax: boolean }) {
   const mouse = useRef({ x: 0, y: 0 });
   /** hold: quieta en `plan` mientras aparece; intro: baja a la toma; live: sigue al scroll. */
   const phase = useRef<{ mode: "init" | "hold" | "intro" | "live"; at: number }>({ mode: "init", at: 0 });
+  const lit = useRef(0);
   useEffect(() => {
     if (!parallax) return;
     const on = (e: PointerEvent) => { mouse.current.x = e.clientX / window.innerWidth - 0.5; mouse.current.y = e.clientY / window.innerHeight - 0.5; };
@@ -277,8 +282,10 @@ function Rig({ parallax }: { parallax: boolean }) {
         phase.current = { mode: "hold", at: now };
       } else { camera.position.copy(goalPos); look.current.copy(goalLook); lens.current = goalLens; phase.current = { mode: "live", at: now }; }
     } else if (ph.mode === "hold") {
+      // Espera el fundido (1,5 s) y que termine el encendido del hero (la luz que se expande desde el punto).
+      if (s.lit < 1 || s.reveal) lit.current = now;
       if (!atTop || s.paused) phase.current = { mode: "live", at: now };
-      else if (now - ph.at > 1.5) { fromPos.copy(camera.position); fromLook.copy(look.current); phase.current = { mode: "intro", at: now }; }
+      else if (now - ph.at > 1.5 && now - lit.current > 0.5) { fromPos.copy(camera.position); fromLook.copy(look.current); phase.current = { mode: "intro", at: now }; }
     } else if (ph.mode === "intro") {
       const u = Math.min(1, (now - ph.at) / 2.4);
       if (!atTop || s.paused || u >= 1) phase.current = { mode: "live", at: now };

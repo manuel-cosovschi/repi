@@ -148,10 +148,12 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-hero { min-height: calc(100svh - 64px); display: flex; align-items: flex-end; padding: clamp(32px, 8vh, 96px) 0 clamp(40px, 9vh, 110px); position: relative; }
 .x3-hero-in { display: flex; flex-direction: column; align-items: flex-start; }
 .x3-hero-wm { width: clamp(118px, 16vw, 200px); margin-bottom: clamp(22px, 4vh, 40px); }
-.x3-drop { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--x-cyan); opacity: 0; pointer-events: none; }
+.x3-drop { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--x-cyan); opacity: 0; pointer-events: none; z-index: 2; will-change: transform; }
+/* Los dos anillos del impacto del punto sobre la sala (fijos a la pantalla, como la sala). */
+.x3-hero-ring { position: fixed; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: 0; pointer-events: none; z-index: 2; }
 .x3-hero-h1 { margin: 0; font: 700 clamp(3.1rem, 10vw, 6rem)/.86 var(--font-display); text-transform: uppercase; letter-spacing: -.025em; }
-.x3-hero-h1 .ln { display: block; overflow: hidden; padding-bottom: .06em; }
-.x3-hero-h1 .ln > span { display: block; }
+.x3-hero-h1 .ln { display: block; padding-bottom: .06em; }
+.x3-hero-h1 .ln > span { display: inline-block; }
 .x3-hero-h1 .ln:last-child { color: var(--x-white); }
 .x3-hero-h1 .ln:first-child { color: var(--x-muted); }
 .x3-hero-sub { margin: 22px 0 0; font: 600 clamp(1.15rem, 2.2vw, 1.55rem)/1.25 var(--font-ui); max-width: 30ch; }

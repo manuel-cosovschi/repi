@@ -102,12 +102,18 @@ export function Stage() {
     setStill(!!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
     document.documentElement.dataset.sala = q;
     if (q === "low") return;
-    // El 3D entra cuando el navegador está libre: el título (LCP) y los botones ya están pintados. El SVG sigue visible hasta
-    // que el 3D dibuja su primer cuadro (sin hueco mientras baja el código).
+    // El 3D entra cuando el navegador está libre y terminó el encendido del hero (la caída del punto no compite con la carga
+    // del código ni con la compilación de la escena): el título (LCP) y los botones ya están pintados. El SVG sigue visible
+    // hasta que el 3D dibuja su primer cuadro (sin hueco mientras baja el código).
     const go = () => { void load3d().catch(() => {}); setMount3d(true); };
     const ric = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    const id = ric ? ric(go, { timeout: 1800 }) : window.setTimeout(go, 900);
-    return () => { if (!ric) clearTimeout(id); };
+    let id = 0, done = false;
+    const schedule = () => { if (done) return; done = true; off(); clearTimeout(cap); id = ric ? ric(go, { timeout: 1200 }) : window.setTimeout(go, 300); };
+    const settled = () => { const s = stage.get(); return s.lit >= 1 && !s.reveal; };
+    const off = stage.subscribe(() => { if (settled()) schedule(); });
+    const cap = window.setTimeout(schedule, 4000); // si el encendido no llega (pestaña oculta, error), igual entra
+    if (settled()) schedule();
+    return () => { off(); clearTimeout(cap); if (!ric) clearTimeout(id); };
   }, []);
   // Al cambiar de nivel cambia la proyección a pantalla: las escenas que ubican cosas sobre la sala se vuelven a medir.
   useEffect(() => {
