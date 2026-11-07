@@ -1,6 +1,22 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D207; **Smart Program Import 2.0 PUBLICADO Y VERIFICADO**, ver primera sección; próximo bloque: REPI — Adaptive Coaching 3.0). Antes: 07/11/2026 (hasta D206; pedido de programa con preferencias publicado, Experience Hub publicado).
+Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 en rama, sin publicar: espera la aprobación del titular**, ver primera sección; después: REPI — Adaptive Coaching 3.0, máster ya recibido). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+
+## Experience 3.0 (D208) — 07/11/2026 · EN RAMA, SIN PUBLICAR (espera aprobación explícita del titular)
+
+- **Pedido:** máster «REPI Experience 3.0»: reconstruir `/conoce` como experiencia interactiva premium y producir films sin voz (motion graphics + interfaz real + música instrumental con licencia). «No publicar en producción sin mi aprobación explícita»; revisión por grabaciones (sin preview de rama); «NO QUIERO LOCUCIONES DE ELEVENLABS».
+- **Rama:** `claude/experience-3` (con `main` 08d4a50 integrado). Sin migraciones ni cambios de base.
+- **Hecho:**
+  - **Página** (`components/conoce/ConoceHub.tsx`, `x3/*`, `sala/*`, `styles/conoce3.css`): escenario fijo «la sala en vivo» (R3F con tres niveles y SVG de respaldo, `?sala=high|medium|low`), ocho escenas con GSAP ScrollTrigger reversibles y con movimiento reducido. Se conservan rutas, UTM, `/qr`, leads a REPI Admin, WhatsApp, demos guiadas y eventos; nuevos sólo `scene_view` y `film_open`. Contenido en `content/conoce.ts`. Spec: `docs/comercial/EXPERIENCE_3.md`; producto: `PRODUCT.md`.
+  - **Films** (`design/films/`, generador `kit/build.py`, spec `SPEC.md`): marca, gimnasios, entrenadores, deportistas (+ 9:16), aliados, Training Intelligence, progreso, altas y sala. Música de Kevin MacLeod (CC BY 4.0, atribución en el reproductor) y efectos de Pixabay: `marketing/videos/LICENCIAS.md`. Versión web en `public/conoce/videos/`; masters fuera de Git y reproducibles con `kit/tools/render-all.sh`.
+  - **Reproductor:** diálogo modal, sonido sólo con un toque, versión 9:16 en teléfonos en vertical, atribución de la música.
+  - **Limpieza:** se quitaron `ProfileExplorer.tsx` y `Media.tsx` (hub anterior, sin uso). El video con locución de aliados queda superado.
+- **Pruebas y QA:** ver la lista de verificación de la PR (axe, detector de Impeccable, E2E `e2e/conoce.spec.ts`, Lighthouse, control de cuadros en blanco y audio medido por film, typecheck, guards y suite completa).
+- **Próxima acción:**
+  1. El titular revisa grabaciones y capturas de la PR y aprueba (o pide cambios).
+  2. Con la aprobación: CI verde → merge → deploy (no hay migraciones). Smoke en producción: `/conoce`, perfiles, `/qr`, un film y el formulario con datos de prueba.
+  3. Después: Adaptive Coaching 3.0 (máster recibido el 07/11; empezar por la auditoría del código actual).
 
 ## Smart Program Import 2.0 (D207) — 07/11/2026 · PUBLICADO Y VERIFICADO (#60, 3c2353c)
 
