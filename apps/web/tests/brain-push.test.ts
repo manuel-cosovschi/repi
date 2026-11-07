@@ -32,9 +32,8 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   resetRateLimits(); resetProactiveThrottle();
-  // Cola aislada: processOutbox toma los 1000 pendientes más viejos y en la suite completa quedan pendientes de otras pruebas
-  // (de otros archivos, que corren uno por vez). Sin esto, la fila de la prueba podía quedar fuera de la tanda según el orden
-  // de los archivos (falló así en CI). Base descartable repi_test.
+  // Cola aislada: processOutbox toma los 1000 pendientes más viejos y en la suite completa pueden quedar pendientes de otras
+  // pruebas (de otros archivos, que corren uno por vez); así la tanda de cada caso es sólo la suya. Base descartable repi_test.
   await db.update(schema.notificationOutbox).set({ status: "skipped", lastError: "prueba: cola aislada" }).where(eq(schema.notificationOutbox.status, "pending"));
 });
 afterEach(() => { vi.unstubAllEnvs(); });
@@ -130,7 +129,9 @@ describe("reglas al enviar el push de REPI", () => {
       expect(await brainPushes(u)).toEqual([]);
       // Y si una fila llegara a la cola, el envío la descarta.
       const iv = r.emitted.find((i) => i.kind === "inactivity")!;
-      await db.insert(notificationOutbox).values({ userId: u, kind: "brain_coaching", title: "x", body: "x", url: "/app", dedupeKey: `brain:reminder:${iv.id}:${u}` });
+      // nextAttemptAt explícito: el valor por defecto es la hora de la base (microsegundos) y `new Date()` trunca a milisegundos;
+      // dentro del mismo milisegundo la fila todavía no «vence» y processOutbox no la toma (falló así en CI).
+      await db.insert(notificationOutbox).values({ userId: u, kind: "brain_coaching", title: "x", body: "x", url: "/app", dedupeKey: `brain:reminder:${iv.id}:${u}`, nextAttemptAt: new Date(Date.now() - 60_000) });
       await processOutbox(1000, new Date());
       expect((await brainPushes(u))[0]).toMatchObject({ status: "skipped", lastError: "menor o edad sin confirmar" });
     }
