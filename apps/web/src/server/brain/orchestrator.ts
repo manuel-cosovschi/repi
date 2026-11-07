@@ -11,7 +11,8 @@
 //
 // La IA nunca ejecuta nada: propone, como mucho, abrir el entrenamiento, ver un historial o un borrador de consulta (lo
 // operativo sale sólo de las reglas). Recibe el contexto mínimo (contextForAi) y los últimos turnos leídos de la base, todo
-// como dato delimitado; el texto de la persona también va delimitado. Un número de kilos que no está en los datos → fallback.
+// como dato delimitado; el texto de la persona también va delimitado. Una carga, repeticiones o series que no salen de los datos
+// (lo que dijo la persona o REPI antes) → fallback.
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { bodyGoalProgress, epley1rm, exerciseRows, sessionPoints, exerciseTrend, nextProposal, setTarget, type ExerciseDetail, type HistRow, type ImportOrigin } from "@repi/domain";
 import {
@@ -27,14 +28,18 @@ import { lastTimeByExercise } from "../training/services";
 import { historyRows } from "../training/intelligence";
 import { exMeta, isSection, loadContext, sessionEx, timedReps, type ExMeta, type ServerContext } from "./context";
 import { appendMessage, listMessages, MESSAGE_MAX, type MessageView } from "./conversation";
-import { callAi, type AiFailReason } from "./gateway";
-import { alternativesFor, altReason, cancelAction, confirmAction, registerProposals, type AltCache, type ProposedAction } from "./actions";
+import { callAi, INFLIGHT_TTL_MS, type AiFailReason } from "./gateway";
+import { alternativesFor, altReason, cancelAction, confirmAction, isFoodTalk, registerProposals, type AltCache, type ProposedAction } from "./actions";
 
-const { brainMessage, workoutSession, setLog, trainingTarget, historyEntry, ownRoutine } = schema;
+const { brainMessage, workoutSession, setLog, trainingTarget, historyEntry, ownRoutine, aiUsage } = schema;
 const DAY = 86_400_000;
 const CLIENT_ID_RE = /^[\w-]{8,64}$/;
 /** Lo que quedó pendiente en la respuesta anterior (una pregunta o acciones) vale este tiempo; después, «sí» no ejecuta nada viejo. */
 export const PENDING_TTL_MS = 60 * 60_000;
+/** Cuánto espera un reintento a que el pedido original (todavía en curso, p. ej. esperando a la IA) guarde su respuesta. */
+export const REPLY_WAIT_MS = 15_000;
+/** Un mensaje guardado hace menos que esto y sin respuesta todavía se está procesando (aunque no haya llegado a la IA). */
+const FRESH_MESSAGE_MS = 3_000;
 /** Lo único que puede proponer la IA (bajo riesgo: navegar o un borrador que la persona revisa). Lo operativo sale de las reglas. */
 export const AI_ACTIONS = ["open_workout", "show_history", "draft_coach_message"] as const satisfies readonly ActionKind[];
 type AiActionKind = (typeof AI_ACTIONS)[number];
@@ -66,11 +71,14 @@ export async function handleMessage(userId: string, input: MessageInput, now = n
   const clientId = input.clientId == null || input.clientId === "" ? undefined : input.clientId;
   if (clientId !== undefined && (typeof clientId !== "string" || !CLIENT_ID_RE.test(clientId))) throw new AccessError("invalid", "Identificador de mensaje inválido.");
 
-  // Reintento del mismo mensaje con respuesta ya guardada: se devuelve tal cual (no se vuelve a ejecutar nada).
+  // Reintento del mismo mensaje: con respuesta ya guardada se devuelve tal cual (no se vuelve a ejecutar nada). Si el pedido
+  // original sigue en curso (p. ej. esperando a la IA), se espera su respuesta: repetir todo pagaría otra llamada y la respuesta
+  // rápida del reintento ganaría a la buena. Si el original murió sin responder, se procesa de nuevo.
   if (clientId) {
     const [prev] = await db.select().from(brainMessage).where(and(eq(brainMessage.id, clientId), eq(brainMessage.userId, userId)));
     if (prev) {
-      const [rep] = await db.select().from(brainMessage).where(and(eq(brainMessage.id, replyIdFor(userId, prev.id)), eq(brainMessage.userId, userId)));
+      const rep = await awaitReply(userId, prev.id);
+      if (rep === "busy") throw new AccessError("in_progress", "Todavía estoy respondiendo ese mensaje. Probá de nuevo en unos segundos.", 409);
       if (rep) return { message: toView(prev), reply: toView(rep), suggestions: [], replayed: true };
     }
   }
@@ -81,9 +89,8 @@ export async function handleMessage(userId: string, input: MessageInput, now = n
   // Sin `now`: la hora la pone la base (microsegundos), así el mensaje y su respuesta nunca empatan en el orden del hilo.
   const { message } = await appendMessage(userId, { id: clientId, role: "user", text, section, ref: Object.keys(userRef).length ? userRef : null });
 
-  const history = await listMessages(userId, { threadId: message.threadId, limit: 14 });
-  const idx = history.findIndex((m) => m.id === message.id);
-  const prior = idx >= 0 ? history.slice(0, idx) : history.filter((m) => m.id !== message.id);
+  // Lo anterior a ESTE mensaje (un reintento de un mensaje viejo no se ata a una propuesta posterior).
+  const prior = (await listMessages(userId, { threadId: message.threadId, limit: 14, upTo: message.id })).filter((m) => m.id !== message.id);
   const lastRepi = [...prior].reverse().find((m) => m.role === "repi") ?? null;
   const pending = lastRepi && now.getTime() - Date.parse(lastRepi.createdAt) <= PENDING_TTL_MS ? lastRepi : null;
 
@@ -96,12 +103,31 @@ export async function handleMessage(userId: string, input: MessageInput, now = n
     logError("brain.orchestrator", e);
     built = { reply: reply("Ahora no pude revisar tus datos. Probá de nuevo en un rato.", { via: "fallback" }), ref: { intent: "error" } };
   }
-  const { actions } = await registerProposals(sc, built.reply.actions, cache);
+  const { actions } = await registerProposals(sc, built.reply.actions, cache, { offer: message.id });
   const { message: rep } = await appendMessage(userId, {
     id: replyIdFor(userId, message.id), threadId: message.threadId, role: "repi", text: clip(built.reply.text, MESSAGE_MAX.repi) || "…",
     cards: built.reply.cards, actions, section, ref: compact({ replyTo: message.id, ...built.ref }), via: built.reply.via,
   });
   return { message, reply: rep, suggestions: built.reply.suggestions ?? [], replayed: false };
+}
+
+/**
+ * La respuesta ya guardada a un mensaje; si todavía no está y el pedido original sigue en curso (mensaje recién guardado o una
+ * llamada a la IA de la persona sin terminar), la espera hasta REPLY_WAIT_MS. «busy»: sigue en curso; null: nadie la está armando.
+ */
+async function awaitReply(userId: string, messageId: string): Promise<typeof brainMessage.$inferSelect | "busy" | null> {
+  const until = Date.now() + REPLY_WAIT_MS;
+  for (;;) {
+    const [rep] = await db.select().from(brainMessage).where(and(eq(brainMessage.id, replyIdFor(userId, messageId)), eq(brainMessage.userId, userId)));
+    if (rep) return rep;
+    const [s] = await db.execute<{ fresh: boolean; ai: boolean }>(sql`select
+      exists (select 1 from ${brainMessage} where ${brainMessage.id} = ${messageId} and ${brainMessage.createdAt} > now() - ${`${FRESH_MESSAGE_MS} milliseconds`}::interval) as fresh,
+      exists (select 1 from ${aiUsage} where ${aiUsage.userId} = ${userId} and ${aiUsage.outcome} is null and ${aiUsage.createdAt} > now() - ${`${INFLIGHT_TTL_MS} milliseconds`}::interval) as ai`);
+    const st = s as unknown as { fresh: boolean; ai: boolean } | undefined;
+    if (!st?.fresh && !st?.ai) return null;
+    if (Date.now() >= until) return "busy";
+    await new Promise((r) => setTimeout(r, 250));
+  }
 }
 
 // ── Decisión ────────────────────────────────────────────────────────────────
@@ -151,9 +177,14 @@ async function decide(sc: ServerContext, text: string, t: Turn): Promise<Built> 
     }
   }
 
-  // 3. Edad: cuerpo, peso y alimentación sólo con adultos (también antes de la IA).
-  if (!canTalkBody(ctx.person.age.value) && (intent.name === "body_goal" || (intent.name === "unknown" && BODY_DIET.test(norm(text))))) {
+  // 3. Edad: cuerpo, peso y alimentación sólo con adultos (también antes de la IA). Comida y dieta, con cualquier intención
+  // (p. ej. «me gusta saltear comidas» como preferencia); las palabras de carga («peso», «kilos»), sólo fuera de las de ejercicio.
+  if (!canTalkBody(ctx.person.age.value) && (intent.name === "body_goal" || isFoodTalk(text) || (intent.name === "unknown" && BODY_DIET.test(norm(text))))) {
     return { reply: reply(AGE_REPLY[ctx.person.age.value === "minor" ? "minor" : "unknown"]), ref: { intent: "age_policy" } };
+  }
+  // Con adultos tampoco se guarda la alimentación como preferencia de entrenamiento (ni se refuerza una conducta alimentaria).
+  if (intent.name === "set_preference" && isFoodTalk(text)) {
+    return { reply: reply("De alimentación no guardo preferencias: lo que recuerdo es sobre tu entrenamiento y cómo querés que te hable. Para ordenar tus comidas, lo mejor es un profesional de la nutrición."), ref: { intent: "set_preference", flag: "food" } };
   }
 
   if (intent.name === "unknown") {
@@ -408,18 +439,35 @@ const AI_LABEL: Record<AiActionKind, [string, string]> = {
   draft_coach_message: ["Preparar consulta", "Deja un borrador en Mensajes. No se envía solo."],
 };
 const REMEMBER_KEY = /^(tone|prefers_time|confirm_before_change|avoid_exercise:[a-z0-9_]{2,40}|likes_exercise:[a-z0-9_]{2,40})$/;
-const NUM = /\d+(?:[.,]\d+)?/g;
-const LOAD = /(\d+(?:[.,]\d+)?)\s*(?:kg|kgs|kilo|kilos|kilogramos?|lb|lbs|libras?)\b/gi;
-const nums = (s: string) => (s.match(NUM) ?? []).map((x) => Number(x.replace(",", ".")));
+const LOAD = /(\d+(?:[.,]\d+)?)\s*(kg|kgs|kilo|kilos|kilogramos?|lb|lbs|libras?)\b/gi;
+const REPS = /(\d+)\s*(?:repetici[oó]n(?:es)?|repes?|reps?)\b/gi;
+const SETS = /(\d+)\s*(?:series?|sets?)\b/gi;
+const SETS_X_REPS = /\b(\d+)\s*[x×]\s*(\d+)\b/gi;
+type Tagged = { load: Set<string>; reps: Set<number>; sets: Set<number> };
+/** Números con su unidad (carga, repeticiones, series) que aparecen en un texto. Un número suelto no cuenta. */
+function tagged(text: string): Tagged {
+  const t: Tagged = { load: new Set(), reps: new Set(), sets: new Set() };
+  const n = (x: string) => Number(x.replace(",", "."));
+  for (const m of text.matchAll(LOAD)) t.load.add(`${n(m[1])} ${/^l/i.test(m[2]) ? "lb" : "kg"}`);
+  for (const m of text.matchAll(REPS)) t.reps.add(n(m[1]));
+  for (const m of text.matchAll(SETS)) t.sets.add(n(m[1]));
+  for (const m of text.matchAll(SETS_X_REPS)) { t.sets.add(n(m[1])); t.reps.add(n(m[2])); }
+  return t;
+}
 
 /**
- * Chequeo liviano de «no inventar números»: cada carga (kg/lb) que menciona la respuesta tiene que estar en los datos que se le
- * dieron (contexto, mensaje o turnos previos). Si no, la respuesta no se usa.
+ * Chequeo de «no inventar números»: cada carga (kg/lb), cantidad de repeticiones o de series que menciona la respuesta tiene que
+ * estar, con su unidad, en lo que dijo la persona o en los turnos previos (las respuestas de REPI salen de sus datos). El contexto
+ * que recibe el modelo no trae cargas ni repeticiones: un número suelto de ahí (la fecha, un conteo, el código de un ejercicio) no
+ * habilita nada. `sets`: las series de la sesión abierta que sí están en el contexto (previstas, hechas, restantes). Devuelve lo
+ * inventado («12 kg», «10 repeticiones», «4 series»); con algo inventado la respuesta no se usa.
  */
-export function inventedLoads(replyText: string, sources: string[]): number[] {
-  const allowed = new Set(sources.flatMap(nums));
-  const out: number[] = [];
-  for (const m of replyText.matchAll(LOAD)) { const n = Number(m[1].replace(",", ".")); if (!allowed.has(n)) out.push(n); }
+export function inventedNumbers(replyText: string, sources: string[], known: { sets?: number[] } = {}): string[] {
+  const got = tagged(replyText), ok = sources.map(tagged);
+  const out: string[] = [];
+  for (const x of got.load) if (!ok.some((t) => t.load.has(x))) out.push(x);
+  for (const x of got.reps) if (!ok.some((t) => t.reps.has(x))) out.push(`${x} repeticiones`);
+  for (const x of got.sets) if (!ok.some((t) => t.sets.has(x)) && !(known.sets ?? []).includes(x)) out.push(`${x} series`);
   return out;
 }
 
@@ -446,9 +494,10 @@ async function aiReply(sc: ServerContext, text: string, t: Turn): Promise<Built>
   });
   if (!r.ok) return { reply: fallbackReply(sc, r.reason), ref: { intent: "unknown", ai: r.reason } };
   const replyText = clip(r.data.reply.replace(/[\u0000-\u001f\u007f]/g, " "), 600);
-  const invented = inventedLoads(replyText, [ctxJson, text, ...t.prior.map((m) => m.text)]);
+  const cur = sc.ctx.session.current;
+  const invented = inventedNumbers(replyText, [text, ...t.prior.map((m) => m.text)], { sets: cur ? [cur.setsDone, cur.setsPlanned, cur.setsPlanned - cur.setsDone] : [] });
   if (invented.length) return { reply: fallbackReply(sc, "invented_number"), ref: { intent: "unknown", ai: "invented_number" } };
-  if (!adult && BODY_DIET.test(norm(replyText))) return { reply: reply(AGE_REPLY[sc.ctx.person.age.value === "minor" ? "minor" : "unknown"]), ref: { intent: "age_policy", ai: "filtered" } };
+  if (!adult && (BODY_DIET.test(norm(replyText)) || isFoodTalk(replyText))) return { reply: reply(AGE_REPLY[sc.ctx.person.age.value === "minor" ? "minor" : "unknown"]), ref: { intent: "age_policy", ai: "filtered" } };
 
   const actions: ActionProposal[] = [];
   for (const a of r.data.actions ?? []) {
@@ -467,4 +516,4 @@ async function aiReply(sc: ServerContext, text: string, t: Turn): Promise<Built>
 }
 
 // Sólo para pruebas: utilidades puras expuestas.
-export const __test = { replyIdFor, inventedLoads, BODY_DIET };
+export const __test = { replyIdFor, inventedNumbers, BODY_DIET };

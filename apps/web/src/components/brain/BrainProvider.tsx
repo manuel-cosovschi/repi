@@ -6,7 +6,7 @@
 // entrenamiento nunca espera a REPI.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/api";
-import { chipsFor, cleanRef, type Chip, type EvidenceVM } from "./presenter";
+import { chipsFor, cleanRef, panelSurvives, type Chip, type EvidenceVM } from "./presenter";
 import type { BrainHome, BrainRef, ConfirmResponse, Draft, MessageResponse, MessageView, Navigate, ProposedAction, Section, ThreadResponse } from "./types";
 import { RepiPanel } from "./RepiPanel";
 import { RepiWhy } from "./RepiWhy";
@@ -51,6 +51,8 @@ type PublicCtx = {
 };
 export type PanelCtx = PublicCtx & {
   panel: Panel;
+  /** Pantalla visible (`activeKey`): el panel vuelve a medir dónde ubicarse cuando cambia. */
+  screen: string;
   items: Item[];
   threadState: "idle" | "loading" | "ready" | "error";
   loadThread: () => void;
@@ -110,12 +112,8 @@ export function BrainProvider({ children, enabled, offline: appOffline, activeKe
     // Una falla de REPI nunca rompe Inicio: queda lo que había (o nada) sin mensaje de error.
     api<BrainHome>("/api/me/brain").then(setHome).catch(() => {});
   }, [enabled, offline]);
-  const prevKey = useRef(activeKey);
-  useEffect(() => {
-    const from = prevKey.current;
-    prevKey.current = activeKey;
-    if (activeKey === "home") reloadHome(from === "workout");
-  }, [activeKey, reloadHome]);
+  // Primera carga y cada vez que cambia la disponibilidad (módulo, conexión): forzada. Volver a Inicio: con el límite de
+  // HOME_EVERY_MS (forzada al volver del entrenamiento). Un solo pedido por vez (revisión AC3 #28: al abrir en Inicio salían dos).
   useEffect(() => { reloadHome(true); }, [reloadHome]);
   const resolve = useCallback(async (id: string, op: "shown" | "accepted" | "dismissed" | "never") => {
     if (offline) return false;
@@ -145,6 +143,16 @@ export function BrainProvider({ children, enabled, offline: appOffline, activeKe
   navTo.current = { onNavigate, onDraft };
   const panelRef = useRef(panel);
   panelRef.current = panel;
+  // Cambio de pantalla. Volver a Inicio refresca la tarjeta (ver arriba). Entrar o salir del entrenamiento cierra el panel:
+  // abierto en Progreso quedaba abajo tapando el dock (revisión AC3 #24). La conversación queda.
+  const prevKey = useRef(activeKey);
+  useEffect(() => {
+    const from = prevKey.current;
+    if (from === activeKey) return; // montaje o sólo cambió reloadHome: ya lo cubre la carga forzada
+    prevKey.current = activeKey;
+    if (!panelSurvives(from, activeKey)) setPanel((x) => (x.open ? { ...x, open: false } : x));
+    if (activeKey === "home") reloadHome(from === "workout");
+  }, [activeKey, reloadHome]);
 
   const loadThread = useCallback(() => {
     if (offline) return;
@@ -277,8 +285,8 @@ export function BrainProvider({ children, enabled, offline: appOffline, activeKe
 
   const value = useMemo<PanelCtx>(() => ({
     enabled, offline, home, tone, reloadHome, resolve, open, close, panelOpen: panel.open, showWhy, registerWorkout,
-    panel, items, threadState, loadThread, busy, chips, draft, setDraft, send, retry, act, actions, feedback, newThread, announce,
-  }), [enabled, offline, home, tone, reloadHome, resolve, open, close, panel, showWhy, registerWorkout, items, threadState, loadThread, busy, chips, draft, send, retry, act, actions, feedback, newThread, announce]);
+    panel, screen: activeKey, items, threadState, loadThread, busy, chips, draft, setDraft, send, retry, act, actions, feedback, newThread, announce,
+  }), [enabled, offline, home, tone, reloadHome, resolve, open, close, panel, activeKey, showWhy, registerWorkout, items, threadState, loadThread, busy, chips, draft, send, retry, act, actions, feedback, newThread, announce]);
 
   return (
     <Ctx.Provider value={value}>

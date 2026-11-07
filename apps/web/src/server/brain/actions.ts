@@ -15,20 +15,21 @@ import { randomUUID } from "node:crypto";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { PAIN_ZONES } from "@repi/domain";
 import {
-  ACTIONS, KEY_RE, decideExecution, isActionKind, listEs, makeKey, rankAlternatives, validateAction,
+  ACTIONS, KEY_RE, arDay, decideExecution, isActionKind, listEs, makeKey, norm, rankAlternatives, validateAction,
   type ActionKind, type ActionProposal, type AltContext, type Alternative, type ExecContext, type ValidationCtx,
 } from "@repi/domain/brain";
 import { db, schema } from "@/db";
 import { logError } from "../log";
 import { AccessError, audit } from "../access/util";
 import { sessionAlternatives, setExerciseChange } from "../training/services";
+import { STUDENT_REQUEST_VERSION } from "../training/intelligence";
 import { reportPain } from "../followup/services";
 import { memberCreate } from "../gym/connect";
 import { exMeta, loadContext, sessionEx, type ServerContext } from "./context";
 import { createMemory, deleteMemory } from "./memory";
 import { getPrefs, updatePrefs } from "./prefs";
 import { setFeedback } from "./conversation";
-import { actionByKey, executeActionOnce, proposeAction, transitionAction, type ActionView } from "./store";
+import { ActionStop, actionByKey, executeActionOnce, proposeAction, transitionAction, type ActionView } from "./store";
 import { recordDecision, recordTemporal } from "./events";
 
 const { brainMemory, trainingProposal, consentGrant } = schema;
@@ -39,7 +40,43 @@ const { brainMemory, trainingProposal, consentGrant } = schema;
  */
 export const AUTO_ALLOWED: readonly ActionKind[] = [];
 /** Versión del «algoritmo» con que REPI deja propuestas al entrenador (distingue de Training Intelligence en training_proposal). */
-export const BRAIN_PROPOSAL_VERSION = "brain-1";
+export const BRAIN_PROPOSAL_VERSION = STUDENT_REQUEST_VERSION;
+
+/**
+ * Alimentación, comidas y forma del cuerpo (texto ya normalizado con `norm`). Nunca se guarda como preferencia de entrenamiento
+ * (para nadie: «me gusta saltear comidas» no es un ejercicio que le gusta) y con menores o edad desconocida no se conversa por
+ * acá (contrato: no reforzar conductas alimentarias extremas). Sin palabras de carga («peso», «kilos»), que son de los ejercicios.
+ */
+export const FOOD_TALK = /\b(comer|comiendo|comida\w*|comid[ao]s?|ayun\w*|cena\w*|almuerz\w*|almorz\w*|desayun\w*|merienda\w*|picote\w*|dieta\w*|calori\w*|aliment\w*|nutri\w*|adelgaz\w*|engord\w*|bajar de peso|subir de peso|perder peso|ganar peso|peso corporal|grasa corporal|proteina\w*|suplement\w*|balanza|kilos de mas|flac[oa]s?|gord[oa]s?|panza|vomit\w*|purg\w*|atracon\w*|laxante\w*)\b/;
+export const isFoodTalk = (text: string) => FOOD_TALK.test(norm(text.replace(/[_:]/g, " ")));
+
+/**
+ * Acciones atadas al momento en que se propusieron: la sesión abierta (o, sin sesión, el día). Una tarjeta de otro entrenamiento
+ * no se ejecuta en el de hoy aunque los ejercicios del programa tengan los mismos ids (una propuesta que ya no corresponde se bloquea).
+ */
+const SESSION_BOUND: ReadonlySet<ActionKind> = new Set<ActionKind>(["propose_substitution", "propose_short_session", "apply_substitution", "apply_short_session", "floor_help", "report_discomfort"]);
+/**
+ * Lo que el servidor guarda junto a la entrada de la acción (brain_action.input._bind; nunca va al dominio ni a la tarjeta):
+ * `offer`, la respuesta que la ofreció (las alternativas de una misma oferta son UN rechazo para el entrenador), y para las
+ * acciones atadas al momento, la sesión y el día.
+ */
+type Bind = { offer?: string; sessionId?: string | null; day?: string };
+const bindOf = (sc: ServerContext, kind: ActionKind, offer: string): Bind =>
+  ({ offer, ...(SESSION_BOUND.has(kind) ? { sessionId: sc.session?.id ?? null, day: arDay(sc.now) } : {}) });
+/** Separa la entrada que valida el dominio de lo que guardó el servidor. */
+const splitInput = (input: Record<string, unknown>) => {
+  const { _bind, ...rest } = input;
+  return { input: rest, bind: (_bind && typeof _bind === "object" ? _bind : null) as Bind | null };
+};
+/** ¿La propuesta es de otro momento? Devuelve el motivo (para «Eso ya no se puede hacer: …») o null si sigue valiendo. */
+function staleBinding(kind: ActionKind, bind: Bind | null, sc: ServerContext): string | null {
+  if (!SESSION_BOUND.has(kind)) return null;
+  const again = "Pedímelo de nuevo si todavía lo necesitás.";
+  if (!bind || !("sessionId" in bind)) return `es de antes. ${again}`;
+  if ((bind.sessionId ?? null) !== (sc.session?.id ?? null)) return `era para otro entrenamiento. ${again}`;
+  if (!bind.sessionId && bind.day !== arDay(sc.now)) return `era de otro día. ${again}`;
+  return null;
+}
 
 /** Una propuesta ya validada y registrada, con cómo se ejecutaría (para el botón y la confirmación). */
 export type ProposedAction = ActionProposal & {
@@ -117,6 +154,9 @@ export async function alternativesFor(sc: ServerContext, exerciseRef: string, re
 
 /** Valida (con las alternativas que hagan falta) una propuesta. Devuelve la entrada normalizada o los errores. */
 async function validate(sc: ServerContext, p: Pick<ActionProposal, "kind" | "input" | "key">, cache?: AltCache) {
+  if (p.kind === "save_preference" && isFoodTalk([p.input?.key, p.input?.text, p.input?.value].filter((x) => typeof x === "string").join(" "))) {
+    return { ok: false as const, errors: ["De alimentación no guardo preferencias."] };
+  }
   const alts: Record<string, string[]> = {};
   if (p.kind === "apply_substitution" && typeof p.input?.exerciseId === "string") {
     alts[p.input.exerciseId] = (await alternativesFor(sc, p.input.exerciseId, altReason(p.input.reason), cache)).map((a) => a.exerciseId);
@@ -127,8 +167,9 @@ async function validate(sc: ServerContext, p: Pick<ActionProposal, "kind" | "inp
 /**
  * Registra las propuestas de una respuesta (reglas o IA): valida cada una, decide cómo se ejecutaría y la guarda en brain_action
  * con su clave (las bloqueadas también, con el motivo: sirven para métricas y para explicar). Lo inválido no se muestra.
+ * `offer`: la respuesta que las ofrece (sin ella, cada propuesta es su propia oferta).
  */
-export async function registerProposals(sc: ServerContext, proposals: ActionProposal[], cache?: AltCache): Promise<{ actions: ProposedAction[]; rejected: { kind: string; errors: string[] }[] }> {
+export async function registerProposals(sc: ServerContext, proposals: ActionProposal[], cache?: AltCache, o: { offer?: string } = {}): Promise<{ actions: ProposedAction[]; rejected: { kind: string; errors: string[] }[] }> {
   const actions: ProposedAction[] = [], rejected: { kind: string; errors: string[] }[] = [];
   const seen = new Set<string>();
   for (const p of proposals) {
@@ -138,7 +179,7 @@ export async function registerProposals(sc: ServerContext, proposals: ActionProp
     if (!v.ok) { rejected.push({ kind: p.kind, errors: v.errors }); continue; }
     const d = decideExecution(ACTIONS[p.kind], sc.prefs.autonomy, execCtx(sc));
     const { action } = await proposeAction(sc.userId, {
-      kind: p.kind, idempotencyKey: p.key, autonomy: sc.prefs.autonomy, input: v.input,
+      kind: p.kind, idempotencyKey: p.key, autonomy: sc.prefs.autonomy, input: { ...v.input, _bind: bindOf(sc, p.kind, o.offer ?? p.key) },
       status: d.mode === "blocked" ? "blocked" : "proposed", error: d.mode === "blocked" ? d.code : null,
     });
     actions.push({ kind: p.kind, label: p.label, preview: p.preview, input: v.input, key: p.key, mode: d.mode, reason: d.reason, code: d.code, actionId: action.id });
@@ -302,17 +343,22 @@ const RUN: Record<ActionKind, Run> = {
     const relVals = rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id };
     const [row] = await db.insert(trainingProposal).values({ ...relVals, exerciseId: m.exerciseId, kind: input.kind as "load", payload, algoVersion: BRAIN_PROPOSAL_VERSION })
       .onConflictDoNothing().returning({ id: trainingProposal.id });
-    let id = row?.id ?? null;
+    let id = row?.id ?? null, ti = false;
     if (!row) {
       const relCol = rel.kind === "coach" ? trainingProposal.coachClientId : trainingProposal.gymMemberId;
-      const [cur] = await db.select({ id: trainingProposal.id }).from(trainingProposal)
+      const [cur] = await db.select({ id: trainingProposal.id, algoVersion: trainingProposal.algoVersion }).from(trainingProposal)
         .where(and(eq(relCol, rel.id), eq(trainingProposal.exerciseId, m.exerciseId), eq(trainingProposal.kind, input.kind as "load"), eq(trainingProposal.status, "open")));
-      id = cur?.id ?? null;
+      // Si el lugar lo ocupa una propuesta de Training Intelligence, no se la toma como pedido del alumno: ni se pisa ni se cuenta
+      // como suya (el entrenador la ve igual, como propuesta de Training Intelligence).
+      ti = !!cur && cur.algoVersion !== BRAIN_PROPOSAL_VERSION;
+      id = ti ? null : cur?.id ?? null;
     } else {
       await audit(db, { actorUserId: sc.userId, orgId: rel.orgId, action: "brain.proposal_created", resourceType: "training_proposal", resourceId: row.id, meta: { kind: input.kind } });
     }
     return {
-      text: row ? "Listo: le dejé la propuesta a tu entrenador. Él decide si la incorpora; tu rutina no cambia." : "Ya hay una propuesta abierta para ese ejercicio: tu entrenador la va a ver.",
+      text: row ? "Listo: le dejé la propuesta a tu entrenador. Él decide si la incorpora; tu rutina no cambia."
+        : ti ? "Tu entrenador ya tiene para revisar una propuesta sobre ese ejercicio. Si querés sumarle lo tuyo, mandale un mensaje: tu rutina no cambia."
+          : "Ya hay una propuesta abierta para ese ejercicio: tu entrenador la va a ver.",
       proposalId: id, duplicate: !row, scope: "draft",
     };
   },
@@ -337,29 +383,40 @@ const failText = (kind: ActionKind, e: unknown) => {
 };
 const resultText = (a: ActionView) => (typeof a.result?.text === "string" ? (a.result.text as string) : "");
 
-async function runAction(sc: ServerContext, a: ActionView, input: Record<string, unknown>, details: ActionDetails, now: Date): Promise<ExecOutcome> {
+/**
+ * Ejecuta una acción una sola vez (executeActionOnce: la reclama, corre `run` sin transacciones abiertas y la cierra) y arma lo
+ * que se le dice a la persona con el resultado real o con la falla. `orgId` se lee al final (el contexto puede armarse en `run`).
+ */
+async function runAction(userId: string, a: ActionView, run: (cur: ActionView) => Promise<Record<string, unknown>>, now: Date, orgId: () => string | null): Promise<ExecOutcome> {
   const kind = a.kind as ActionKind;
-  const r = await executeActionOnce(sc.userId, a.id, (cur) => RUN[kind](sc, input, cur, details, now), now);
+  const r = await executeActionOnce(userId, a.id, run, now);
+  if (r.stopped) {
+    // Faltan datos (details_required): la acción vuelve a quedar propuesta y se piden; el llamador muestra el pedido.
+    if (r.stopped.to === "proposed" && r.stopped.reason instanceof Error) throw r.stopped.reason;
+    return { ok: false, executed: false, action: r.action, result: null, text: r.stopped.text, code: r.stopped.code ?? "blocked" };
+  }
   if (r.error !== undefined) {
     const code = r.error instanceof AccessError ? r.error.code : "error";
     if (!(r.error instanceof AccessError) || r.error.status >= 500) logError("brain.actions.run", r.error);
-    await audit(db, { actorUserId: sc.userId, action: "brain.action_failed", resourceType: "brain_action", resourceId: a.id, result: "error", meta: { kind, code } }).catch((e) => logError("brain.actions.audit", e));
+    await audit(db, { actorUserId: userId, action: "brain.action_failed", resourceType: "brain_action", resourceId: a.id, result: "error", meta: { kind, code } }).catch((e) => logError("brain.actions.audit", e));
     return { ok: false, executed: false, action: r.action, result: null, text: failText(kind, r.error), code };
   }
+  if (!r.executed && r.action.status === "blocked") return { ok: false, executed: false, action: r.action, result: null, text: "Esa acción no está disponible.", code: r.action.error ?? "blocked" };
   if (r.executed) {
-    await audit(db, { actorUserId: sc.userId, orgId: sc.relation?.orgId ?? null, action: "brain.action_executed", resourceType: "brain_action", resourceId: a.id, meta: { kind } })
+    await audit(db, { actorUserId: userId, orgId: orgId(), action: "brain.action_executed", resourceType: "brain_action", resourceId: a.id, meta: { kind } })
       .catch((e) => logError("brain.actions.audit", e));
     if (kind !== "record_feedback" && kind !== "open_workout" && kind !== "show_history") {
-      await recordDecision(sc.userId, { decision: "accepted", what: kind, label: ACTION_TEXT[kind], ref: { actionId: a.id } }, now);
+      await recordDecision(userId, { decision: "accepted", what: kind, label: ACTION_TEXT[kind], ref: { actionId: a.id } }, now);
     }
   }
   return { ok: true, executed: r.executed, action: r.action, result: r.action.result, text: resultText(r.action) };
 }
 
 /**
- * Confirma y ejecuta una acción propuesta por el servidor (por su clave). Idempotente: un reintento o un doble toque devuelven
- * el resultado ya guardado sin volver a ejecutar (caso 23). Vuelve a validar con el contexto actual; si ya no corresponde, la
- * bloquea y lo dice. `sc` permite reutilizar un contexto recién armado (el orquestador lo tiene).
+ * Confirma y ejecuta una acción propuesta por el servidor (por su clave). Idempotente: un reintento, un doble toque u otra
+ * pestaña devuelven el resultado ya guardado sin volver a ejecutar (caso 23). Se revisa con la acción YA reclamada (nadie más
+ * puede correrla mientras tanto) y con el contexto de ese momento: si es de otra sesión u otro día, o ya no valida, se bloquea y
+ * lo dice. `sc` permite reutilizar un contexto recién armado (el orquestador lo tiene).
  */
 export async function confirmAction(userId: string, key: string, o: { details?: ActionDetails; now?: Date; sc?: ServerContext } = {}): Promise<ExecOutcome> {
   const now = o.now ?? new Date();
@@ -370,19 +427,19 @@ export async function confirmAction(userId: string, key: string, o: { details?: 
   if (a.status === "blocked") return { ok: false, executed: false, action: a, result: null, text: "Esa acción no está disponible.", code: a.error ?? "blocked" };
   if (a.status !== "proposed" && a.status !== "confirmed") throw new AccessError("invalid_state", "Esa acción ya se resolvió.", 409);
   const kind = a.kind;
-  const sc = o.sc ?? await loadContext(userId, { section: "workout" }, now);
-  const v = await validate(sc, { kind, input: a.input, key: a.idempotencyKey });
-  if (!v.ok) {
-    const { action } = await transitionAction(userId, a.id, "blocked", { error: "stale" }, now);
-    return { ok: false, executed: false, action, result: null, text: `Eso ya no se puede hacer: ${v.errors[0]}`, code: "stale" };
-  }
-  const d = decideExecution(ACTIONS[kind], sc.prefs.autonomy, execCtx(sc));
-  if (d.mode === "blocked") {
-    const { action } = await transitionAction(userId, a.id, "blocked", { error: d.code }, now);
-    return { ok: false, executed: false, action, result: null, text: d.reason ?? "Esa acción no está disponible.", code: d.code };
-  }
-  preflight(kind, v.input, o.details ?? {});
-  return runAction(sc, a, v.input, o.details ?? {}, now);
+  let used: ServerContext | null = null;
+  return runAction(userId, a, async (cur) => {
+    const sc = used = o.sc ?? await loadContext(userId, { section: "workout" }, now);
+    const { input, bind } = splitInput(cur.input);
+    const stale = staleBinding(kind, bind, sc);
+    if (stale) throw new ActionStop("blocked", "stale", `Eso ya no se puede hacer: ${stale}`);
+    const v = await validate(sc, { kind, input, key: cur.idempotencyKey });
+    if (!v.ok) throw new ActionStop("blocked", "stale", `Eso ya no se puede hacer: ${v.errors[0]}`);
+    const d = decideExecution(ACTIONS[kind], sc.prefs.autonomy, execCtx(sc));
+    if (d.mode === "blocked") throw new ActionStop("blocked", d.code, d.reason ?? "Esa acción no está disponible.");
+    try { preflight(kind, v.input, o.details ?? {}); } catch (e) { throw new ActionStop("proposed", null, e instanceof Error ? e.message : "", e); }
+    return RUN[kind](sc, v.input, cur, o.details ?? {}, now);
+  }, now, () => used?.relation?.orgId ?? null);
 }
 
 /** Cancela una propuesta («no», «dejalo»): queda como decisión rechazada para no insistir con lo mismo (caso 29). */
@@ -418,7 +475,7 @@ export async function proposeFromClient(userId: string, p: { kind: unknown; inpu
   const pa = actions[0];
   const action = await actionByKey(userId, key);
   if (pa.mode !== "auto" || !action) return { action: action!, mode: pa.mode, reason: pa.reason, outcome: null };
-  return { action, mode: pa.mode, reason: pa.reason, outcome: await runAction(sc, action, pa.input, {}, now) };
+  return { action, mode: pa.mode, reason: pa.reason, outcome: await runAction(userId, action, (cur) => RUN[kind](sc, pa.input, cur, {}, now), now, () => sc.relation?.orgId ?? null) };
 }
 
 /**

@@ -120,4 +120,23 @@ describe("briefing del entrenamiento (sin conexión, con lo que tiene el teléfo
     const b = workoutBrief(ex({ targets: [T(0, { kind: "warmup", prev: { w: 20, r: 15, rir: null, at: "2026-11-02T15:00:00.000Z", level: "exact", source: "repi" } as RowTarget["prev"] }), T(1), T(2, { stage: 1 })] }));
     expect(b?.text).toMatch(/^La última vez hiciste 1 × 10 con 60 kg\./);
   });
+  // Revisión AC3 (#4): la carga del profe era la de la primera fila del plan con peso, aunque fuera una aproximación o un back-off.
+  const plan = (rows: [string, string, number | null][]) => ({ technique: "custom", setPlan: rows.map(([kind, reps, weightKg], i) => ({ id: `r${i}x0000000`, kind, reps, weightKg, block: i, stage: 0 })) }) as unknown as BriefEx["detail"];
+  it("la carga del profe es la de la serie de trabajo, nunca la de una aproximación (con y sin objetivos)", () => {
+    const detail = plan([["warmup", "10", 40], ["work", "8", 80], ["work", "8", 80], ["work", "8", 80]]);
+    const coach = (i: number) => T(i, { status: "coach", action: "follow_coach", source: "coach", weightKg: 80, repsMin: 8, repsMax: 8, repsTarget: null, coach: { weightKg: 80, reps: "8" }, prev: { w: 80, r: 8, rir: 2, at: "2026-11-02T15:00:00.000Z", level: "exact", source: "repi" } as RowTarget["prev"] });
+    const withT = workoutBrief(ex({ sets: 4, reps: "8", detail, targets: [T(0, { kind: "warmup", status: "not_applicable", weightKg: null, prev: null }), coach(1), coach(2), coach(3)] }));
+    expect(withT?.text).toBe("La última vez hiciste 3 × 8 con 80 kg. Hoy tenés indicadas 3 series de 8. Vamos con la carga que indicó tu profe: 80 kg.");
+    expect(workoutBrief(ex({ sets: 4, reps: "8", detail, targets: null }))?.text).toBe("Vamos con la carga que indicó tu profe: 80 kg.");
+  });
+  it("un back-off con carga no tapa la recomendación del top set; con molestia, la carga del profe dice «hoy no fuerces»", () => {
+    const detail = plan([["top", "5", null], ["backoff", "8", 70], ["backoff", "8", 70]]);
+    const top = T(0, { kind: "top", action: "increase_load", weightKg: 105, repsMin: 5, repsMax: 5, repsTarget: 5, prev: { w: 100, r: 5, rir: 2, at: "2026-11-02T15:00:00.000Z", level: "exact", source: "repi" } as RowTarget["prev"] });
+    const back = (i: number) => T(i, { kind: "backoff", status: "coach", action: "follow_coach", weightKg: 70, coach: { weightKg: 70, reps: "8" } });
+    const b = workoutBrief(ex({ sets: 3, reps: "5", detail, targets: [top, back(1), back(2)] }), "breve");
+    expect(b?.text).toBe("Completaste el rango: hoy probamos 105 kg y volvemos a 5.");
+    expect(workoutBrief(ex({ sets: 3, reps: "5", detail, targets: null }))).toBeNull();
+    const pain = workoutBrief(ex({ targets: [T(0, { status: "coach", action: "reduce_effort", weightKg: 80, coach: { weightKg: 80, reps: "10-12" } })] }), "breve");
+    expect(pain?.text).toBe("Tu profe indicó 80 kg. Hoy no fuerces: si molesta, pará y avisale.");
+  });
 });

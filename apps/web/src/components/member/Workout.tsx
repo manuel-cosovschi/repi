@@ -278,20 +278,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     });
     return () => registerWorkout(null);
   }, [registerWorkout, flash]);
-  // El mensaje por serie que calculó el servidor (mismas reglas): si el teléfono no tenía uno (p. ej. sin objetivos porque el
-  // entrenamiento empezó sin conexión), se muestra en el descanso. El de las reglas locales sigue siendo el que vale sin conexión.
-  useEffect(() => {
-    const on = (e: Event) => {
-      const d = (e as CustomEvent<{ sid: string; peId: string; event: { code: string; text: string; restPlusSec: number | null } }>).detail;
-      const cur = sRef.current;
-      if (!d?.event?.text || !cur || d.sid !== cur.id) return;
-      const key = `${d.peId}:${d.event.code}`;
-      if (cur.intel || (cur.intelSeen ?? []).includes(key) || !cur.rest || cur.rest.paused) return;
-      void commit({ ...cur, intel: { key, text: d.event.text, restPlusSec: d.event.restPlusSec ?? null, at: new Date().toISOString() }, intelSeen: [...(cur.intelSeen ?? []), key] });
-    };
-    window.addEventListener("repi:set-intel", on);
-    return () => window.removeEventListener("repi:set-intel", on);
-  }, [commit]);
+  // El mensaje por serie que calculó el servidor (mismas reglas), si el teléfono no tenía uno (p. ej. sin objetivos porque el
+  // entrenamiento empezó sin conexión): lo guarda la cola en la copia local (adoptServerIntel, sólo en el descanso de esa serie)
+  // y llega acá con el refresco de siempre tras sincronizar. El de las reglas locales sigue siendo el que vale sin conexión.
 
   const editCur = (p: Partial<{ w: number; r: number; rir: number | null; feel: string | null }>) => {
     if (!s || !ex || cur < 0) return;
@@ -324,7 +313,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const ivChange = !!emom && !wasDone && !!blocks[bi]?.rows.every((k) => rowResolved(sets[setKey(ex.id, k)]));
     const iv: LocalInterval | null = ivChange ? (bi + 1 < blocks.length ? { peId: ex.id, block: bi + 1, start: Date.now() + restS * 1000, emomSec: emom!, status: "running" } : null) : s.iv ?? null;
     // Editar una serie ya hecha no toca el descanso; si no, un descanso viejo no queda tapando una etapa sin pausa (un drop).
-    const next = { ...s, ...extra, sets, iv, ivAt: ivChange ? new Date().toISOString() : s.ivAt ?? null, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false } : null };
+    // El descanso recuerda qué serie lo abrió: el mensaje del servidor sobre otra serie no aparece en él.
+    const next = { ...s, ...extra, sets, iv, ivAt: ivChange ? new Date().toISOString() : s.ivAt ?? null, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false, of: { peId: ex.id, idx: i } } : null };
     setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
     if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); else if (flow.rounds > 1) flash(`Vuelta ${flow.round + 1} de ${flow.rounds}.`); }
     await commit(next);

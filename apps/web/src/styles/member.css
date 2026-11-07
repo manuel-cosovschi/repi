@@ -1171,6 +1171,12 @@
 .rp-panel[data-place="top"] .rp-new { display: none; }
 .rp-panel[data-place="top"] .rp-head { padding-top: 6px; padding-bottom: 6px; }
 .rp-panel[data-place="top"] .rp-log { padding-top: 10px; padding-bottom: 10px; gap: 10px; }
+/* El alto máximo (medido) nunca pasa el espacio libre sobre el dock: lo que no entra se recorta adentro, no encima del dock. */
+.rp-panel[data-place="top"] { overflow: hidden; }
+/* Compacto (pantallas bajas o dock alto): encabezado, conversación y campo; sin presentación ni línea de contexto. */
+.rp-panel[data-compact] .rp-intro, .rp-panel[data-compact] .rp-head small { display: none; }
+.rp-panel[data-compact] .rp-log { padding-top: 6px; padding-bottom: 6px; }
+.rp-panel[data-compact] .rp-foot { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
 /* La píldora de la demo (z 91) no tapa el campo del panel: se oculta mientras el panel está abierto abajo o al costado, como con una hoja. */
 body:has(.rp-panel:not([data-place="top"])) .dt-pill { display: none; }
 .rp-card > .ghost.sm { align-self: flex-start; }

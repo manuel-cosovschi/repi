@@ -2,6 +2,7 @@
 // Contrato: docs/adaptive/ADAPTIVE_COACHING_3.md §4–§5. Capa fina y tipada: cada función recibe el userId de la sesión y
 // filtra por él (un id ajeno responde 404, igual que uno inexistente). Las reglas (qué emitir, qué ejecutar) viven en el
 // dominio y en server/brain/{proactive,actions}.ts; acá sólo se garantiza idempotencia y transiciones atómicas.
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import { localDate } from "@repi/domain";
 import {
@@ -175,12 +176,23 @@ export type ActionView = {
   result: Record<string, unknown> | null; error: string | null; createdAt: string; executedAt: string | null;
 };
 type ActionRow = typeof brainAction.$inferSelect;
+// «confirmed» es el estado de una acción reclamada para ejecutarse (executeActionOnce): `result` guarda sólo la marca del
+// reclamo ({ claim: { token, at } }), que no se muestra.
 const actionView = (r: ActionRow): ActionView => ({
   id: r.id, kind: r.kind, idempotencyKey: r.idempotencyKey, status: r.status, autonomy: r.autonomy as Autonomy, input: r.input ?? {},
-  result: r.result ?? null, error: r.error, createdAt: r.createdAt.toISOString(), executedAt: iso(r.executedAt),
+  result: r.status === "confirmed" ? null : r.result ?? null, error: r.error, createdAt: r.createdAt.toISOString(), executedAt: iso(r.executedAt),
 });
 const NOT_FOUND_ACTION = () => new AccessError("not_found", "No encontramos esa acción.", 404);
-/** Desde qué estados se llega a cada uno. `executed` conviene hacerlo con executeActionOnce (bloquea la fila). */
+/**
+ * Cuánto dura el reclamo de una ejecución en curso. Pasado este plazo (el proceso se cayó a mitad de camino) otro pedido puede
+ * retomarla. Holgado contra la duración máxima de una función: nunca corren dos ejecuciones vivas de la misma acción.
+ */
+export const ACTION_LEASE_MS = 120_000;
+/** Cuánto espera un pedido que encontró la acción ejecutándose en otro (doble toque, dos pestañas, reintento) antes de responder 409. */
+export const ACTION_WAIT_MS = 8_000;
+/** Reclamo vigente: estado «confirmed» con marca de hace menos de ACTION_LEASE_MS (hora real de la base, no la `now` de pruebas). */
+const claimFresh = () => sql`(${brainAction.status} = 'confirmed' and coalesce((${brainAction.result}->'claim'->>'at')::timestamptz, '-infinity'::timestamptz) > now() - ${`${ACTION_LEASE_MS} milliseconds`}::interval)`;
+/** Desde qué estados se llega a cada uno. `executed` se hace con executeActionOnce (reclama la acción antes de correr). */
 export const ACTION_FROM: Record<Exclude<ActionStatus, "proposed">, ActionStatus[]> = {
   confirmed: ["proposed"],
   executed: ["proposed", "confirmed"],
@@ -223,7 +235,8 @@ export async function listActions(userId: string, limit = 50): Promise<ActionVie
 
 /**
  * Cambia el estado de una acción propia de forma atómica (UPDATE … WHERE status IN (…)): dos confirmaciones simultáneas
- * cambian una sola vez. Repetir el mismo cambio devuelve la acción sin error (changed: false); un salto inválido, 409.
+ * cambian una sola vez. Repetir el mismo cambio devuelve la acción sin error (changed: false); un salto inválido, 409. Una
+ * acción que se está ejecutando (reclamo vigente) no se cancela ni se bloquea por acá: la cierra quien la reclamó.
  */
 export async function transitionAction(userId: string, id: string, to: Exclude<ActionStatus, "proposed">, patch: { result?: Record<string, unknown> | null; error?: string | null } = {}, now = new Date()): Promise<{ action: ActionView; changed: boolean }> {
   const from = ACTION_FROM[to];
@@ -233,7 +246,7 @@ export async function transitionAction(userId: string, id: string, to: Exclude<A
     ...(patch.result !== undefined ? { result: patch.result == null ? null : boundedJson(patch.result, 8_000, "Resultado") } : {}),
     ...(patch.error !== undefined ? { error: patch.error?.slice(0, 120) ?? null } : {}),
     ...(to === "executed" ? { executedAt: now } : {}),
-  }).where(and(eq(brainAction.id, id), eq(brainAction.userId, userId), inArray(brainAction.status, from))).returning();
+  }).where(and(eq(brainAction.id, id), eq(brainAction.userId, userId), inArray(brainAction.status, from), sql`not ${claimFresh()}`)).returning();
   if (row) return { action: actionView(row), changed: true };
   const cur = await getAction(userId, id);
   if (cur.status === to) return { action: cur, changed: false };
@@ -241,31 +254,74 @@ export async function transitionAction(userId: string, id: string, to: Exclude<A
 }
 
 /**
- * Ejecuta una acción propuesta o confirmada UNA sola vez: bloquea la fila (FOR UPDATE) mientras corre `run`, así un
- * reintento o un doble toque espera y encuentra la acción ya ejecutada (executed: false, sin volver a correr). Si `run`
- * falla, la acción queda «failed» con el código del error (nunca contenido) y se devuelve el error para el llamador
- * (caso 70: la confirmación muestra el resultado real del servidor). `run` usa sus propios servicios (no esta transacción).
+ * Lo que `run` lanza para cerrar la acción sin ejecutarla: «blocked» (al revisarla ya no corresponde: queda bloqueada con el
+ * código) o «proposed» (vuelve a quedar propuesta, p. ej. porque faltan datos para confirmarla). `text`: qué decirle a la persona.
  */
-export async function executeActionOnce(userId: string, id: string, run: (a: ActionView) => Promise<Record<string, unknown> | null | void>, now = new Date()): Promise<{ action: ActionView; executed: boolean; error?: unknown }> {
-  let error: unknown;
-  const out = await db.transaction(async (tx) => {
-    const [a] = await tx.select().from(brainAction).where(and(eq(brainAction.id, id), eq(brainAction.userId, userId))).for("update");
-    if (!a) throw NOT_FOUND_ACTION();
-    if (a.status === "executed") return { action: actionView(a), executed: false };
-    if (!ACTION_FROM.executed.includes(a.status)) throw new AccessError("invalid_state", "Esa acción ya se resolvió.", 409);
-    try {
-      const result = (await run(actionView(a))) ?? null;
-      const [u] = await tx.update(brainAction).set({ status: "executed", result: result ? boundedJson(result, 8_000, "Resultado") : null, error: null, executedAt: now })
-        .where(eq(brainAction.id, a.id)).returning();
-      return { action: actionView(u), executed: true };
-    } catch (e) {
-      error = e;
-      const code = e instanceof AccessError ? e.code : "error";
-      const [u] = await tx.update(brainAction).set({ status: "failed", error: code.slice(0, 120) }).where(eq(brainAction.id, a.id)).returning();
-      return { action: actionView(u), executed: false };
+export class ActionStop extends Error {
+  constructor(readonly to: "blocked" | "proposed", readonly code: string | null, readonly text: string, readonly reason?: unknown) {
+    super(text);
+  }
+}
+/** Falla pasajera (no un rechazo del servidor): la acción vuelve a quedar propuesta para reintentarla (no se consume). */
+const transient = (e: unknown) => !(e instanceof AccessError) || e.status >= 500;
+
+/** Reclama una acción propia para ejecutarla: una sola sentencia atómica (propuesta → confirmada, o un reclamo vencido). */
+async function claimAction(userId: string, id: string): Promise<{ row: ActionRow; token: string } | null> {
+  const token = randomUUID();
+  const [row] = await db.update(brainAction).set({ status: "confirmed", error: null, executedAt: null, result: sql`jsonb_build_object('claim', jsonb_build_object('token', ${token}::text, 'at', now()))` })
+    .where(and(eq(brainAction.id, id), eq(brainAction.userId, userId), or(eq(brainAction.status, "proposed"), and(eq(brainAction.status, "confirmed"), sql`not ${claimFresh()}`))))
+    .returning();
+  return row ? { row, token } : null;
+}
+
+/** Cierra un reclamo propio (si otro pedido lo retomó por vencido, no se pisa: se devuelve lo vigente). */
+async function finishClaim(userId: string, id: string, token: string, to: "executed" | "failed" | "blocked" | "proposed", p: { result?: Record<string, unknown> | null; error?: string | null }, now: Date): Promise<ActionView> {
+  const [row] = await db.update(brainAction).set({
+    status: to, result: p.result ? boundedJson(p.result, 8_000, "Resultado") : null, error: p.error?.slice(0, 120) ?? null, executedAt: to === "executed" ? now : null,
+  }).where(and(eq(brainAction.id, id), eq(brainAction.userId, userId), eq(brainAction.status, "confirmed"), sql`${brainAction.result}->'claim'->>'token' = ${token}`)).returning();
+  return row ? actionView(row) : getAction(userId, id);
+}
+
+/** Espera (poco) a que otro pedido termine de ejecutar la acción. Devuelve el estado al que llegó, o «confirmed» si sigue en curso. */
+async function awaitSettled(userId: string, id: string, waitMs: number): Promise<ActionView> {
+  const until = Date.now() + waitMs;
+  for (;;) {
+    const [r] = await db.select({ row: brainAction, fresh: sql<boolean>`${claimFresh()}` }).from(brainAction).where(and(eq(brainAction.id, id), eq(brainAction.userId, userId)));
+    if (!r) throw NOT_FOUND_ACTION();
+    if (!r.fresh || Date.now() >= until) return actionView(r.row);
+    await new Promise((res) => setTimeout(res, 150));
+  }
+}
+
+/**
+ * Ejecuta una acción propuesta UNA sola vez, sin dejar una transacción abierta mientras corre `run` (los servicios que llama
+ * abren sus propias conexiones y transacciones; con un pool chico, una transacción retenida las dejaría esperando para siempre):
+ * 1. la reclama con una sola sentencia atómica (proposed → confirmed con una marca);
+ * 2. corre `run` (que puede revisar la acción contra el contexto de ese momento y cortar con ActionStop);
+ * 3. la cierra: «executed» con el resultado; «failed» con el código si el servidor la rechazó (nunca contenido; caso 70); de
+ *    vuelta a «proposed» si fue una falla pasajera (se puede reintentar: no se consume).
+ * Un doble toque, otra pestaña o un reintento que llega mientras corre espera el resultado y lo devuelve sin volver a correr
+ * (executed: false); si tarda demasiado, 409 «en curso». Un reclamo abandonado (proceso caído) vence a los ACTION_LEASE_MS.
+ */
+export async function executeActionOnce(userId: string, id: string, run: (a: ActionView) => Promise<Record<string, unknown> | null | void>, now = new Date(), o: { waitMs?: number } = {}): Promise<{ action: ActionView; executed: boolean; error?: unknown; stopped?: ActionStop }> {
+  for (let attempt = 0; ; attempt++) {
+    const c = await claimAction(userId, id);
+    if (!c) {
+      const cur = await awaitSettled(userId, id, o.waitMs ?? ACTION_WAIT_MS);
+      if (cur.status === "executed" || cur.status === "blocked") return { action: cur, executed: false };
+      if (cur.status === "confirmed") throw new AccessError("in_progress", "Esa acción se está aplicando. Probá de nuevo en unos segundos.", 409);
+      if (cur.status === "proposed" && attempt < 2) continue; // el otro pedido la devolvió (falla pasajera o faltaban datos): se reintenta acá
+      throw new AccessError("invalid_state", "Esa acción ya se resolvió.", 409);
     }
-  });
-  return error === undefined ? out : { ...out, error };
+    try {
+      const result = (await run(actionView(c.row))) ?? null;
+      return { action: await finishClaim(userId, id, c.token, "executed", { result }, now), executed: true };
+    } catch (e) {
+      if (e instanceof ActionStop) return { action: await finishClaim(userId, id, c.token, e.to, { error: e.code }, now), executed: false, stopped: e };
+      const code = e instanceof AccessError ? e.code : "error";
+      return { action: await finishClaim(userId, id, c.token, transient(e) ? "proposed" : "failed", { error: code }, now), executed: false, error: e };
+    }
+  }
 }
 
 // ── Uso de IA (ai_usage) ────────────────────────────────────────────────────

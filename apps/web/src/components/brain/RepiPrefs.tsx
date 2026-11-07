@@ -2,10 +2,11 @@
 // Asistente REPI (D209) · Perfil → «Asistente REPI». Avisos dentro de la app y por categoría, avisos en el teléfono (push,
 // sólo adultos y con el permiso del navegador), horario de silencio, cuántos por día, autonomía y tono, y «Lo que REPI
 // recuerda» para ver y borrar. Cada cambio se guarda en el servidor y la pantalla muestra lo que el servidor devolvió.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { enablePush, pushState } from "@/lib/push";
 import { useBrain } from "./BrainProvider";
+import { mergePrefs } from "./presenter";
 import type { BrainPrefs, MemoryItem } from "./types";
 
 type Cat = keyof BrainPrefs["categories"];
@@ -33,6 +34,8 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
   const [busy, setBusy] = useState<string | null>(null);
   const [push, setPush] = useState<{ eligible: boolean; supported: boolean; configured: boolean } | null>(null);
   const [mem, setMem] = useState<MemoryItem[] | null>(null);
+  const chain = useRef<Promise<unknown>>(Promise.resolve()); // pedidos de preferencias, de a uno y en orden
+  const seq = useRef(0); // el último pedido: sólo su respuesta se muestra
   const load = useCallback(() => {
     setErr(false);
     api<{ prefs: BrainPrefs }>("/api/me/brain/prefs").then((r) => setP(r.prefs)).catch(() => setErr(true));
@@ -43,14 +46,23 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
   useEffect(() => { if (brain.enabled && !offline) load(); }, [brain.enabled, offline, load]);
   if (!brain.enabled) return null;
 
+  // Revisión AC3 #26: cada cambio manda sólo lo que cambió y se ve enseguida; los pedidos salen de a uno y en orden (dos toques
+  // rápidos no se pisan en el servidor) y sólo la respuesta del último manda en la pantalla. Si uno falla, se relee lo vigente.
+  const put = (patch: Partial<BrainPrefs>) => {
+    const mine = ++seq.current;
+    const run = chain.current.catch(() => {}).then(() => api<{ prefs: BrainPrefs }>("/api/me/brain/prefs", { method: "PUT", body: patch }));
+    chain.current = run;
+    return run.then((r) => { if (mine === seq.current) setP(r.prefs); return r; });
+  };
+  const resync = () => { void api<{ prefs: BrainPrefs }>("/api/me/brain/prefs").then((r) => setP(r.prefs)).catch(() => {}); };
   const save = async (patch: Partial<BrainPrefs>, what: string) => {
     if (offline) { flash("Necesitás conexión para cambiar el asistente."); return; }
     setBusy(what);
+    setP((x) => (x ? mergePrefs(x, patch) : x));
     try {
-      const r = await api<{ prefs: BrainPrefs }>("/api/me/brain/prefs", { method: "PUT", body: patch });
-      setP(r.prefs);
+      await put(patch);
       brain.reloadHome(true);
-    } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+    } catch (e) { flash((e as Error).message); resync(); } finally { setBusy((b) => (b === what ? null : b)); }
   };
   const togglePush = async (on: boolean) => {
     if (offline) { flash("Necesitás conexión para cambiar los avisos."); return; }
@@ -61,8 +73,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
         if (r?.coaching) setP((x) => (x ? { ...x, push: true } : x));
         flash("Avisos de REPI activados en este teléfono.");
       } else {
-        const r = await api<{ prefs: BrainPrefs }>("/api/me/brain/prefs", { method: "PUT", body: { push: false } });
-        setP(r.prefs);
+        await put({ push: false });
         flash("Avisos de REPI en el teléfono apagados.");
       }
     } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
@@ -96,7 +107,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
             </button>
             {CATS.map(([k, l, d]) => (
               <button key={k} type="button" className="prow-dark" role="switch" aria-checked={p.categories[k]} aria-disabled={!p.proactive || undefined} disabled={off}
-                onClick={() => (p.proactive ? void save({ categories: { ...p.categories, [k]: !p.categories[k] } }, `cat:${k}`) : flash("Primero activá los avisos de REPI en la app."))}>
+                onClick={() => (p.proactive ? void save({ categories: { [k]: !p.categories[k] } as BrainPrefs["categories"] }, `cat:${k}`) : flash("Primero activá los avisos de REPI en la app."))}>
                 <span><span style={{ fontSize: 15, fontWeight: 500 }}>{l}</span><small>{d}</small></span>
                 <span className="track" aria-hidden="true" />
               </button>
