@@ -57,7 +57,7 @@ python3 design/films/kit/build.py [film ...]                  # proyectos HyperF
 REPI_MEDIA_SRC=<medios> OUT=<masters> design/films/kit/tools/render-all.sh [film ...]
 # → <masters>/<film>-master.mp4 (CRF 16), -norm.mp4 (audio −14 LUFS / −1 dBTP) y web/<archivo>.mp4 + .webp
 # 3. Copiar web/*.mp4 y *.webp a apps/web/public/conoce/videos/ y regenerar las descripciones en texto:
-python3 design/films/kit/tools/describe.py   # <id>.descripcion.vtt + apps/web/src/content/film-descriptions.json
+python3 design/films/kit/tools/describe.py   # <id>.descripcion.vtt (pista para lectores de pantalla)
 ```
 
 - **Póster:** el segundo `poster` de cada film en `FILMS` es una escena representativa con el título y el panel a la vista (no el
