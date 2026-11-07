@@ -1,7 +1,34 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D209; **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D209; **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
+
+
+## Sala: combinar, guía de demo, ficha del socio y editor a la par del coach — 07/11/2026 · PUBLICADO Y VERIFICADO (#68–#71)
+
+- **#68 · Combinar ejercicios** (pedido urgente de un entrenador de sala, «hacelo ya… y lanzalo»):
+  - «Combinar con el siguiente» y «Separar» en la fila de cada ejercicio, en el editor de sala y en el constructor del coach. Antes la opción estaba escondida dentro de «Series y técnica».
+  - La lógica está en el dominio (`combineWithNext`, `separateFromGroup`, `combinedWithNext` en `packages/domain/src/prescription.ts`).
+  - «Editar programa» espera la versión nueva después de guardar.
+  - Producción: demo de sala, A1/A2 guardado y reabierto, sin errores.
+- **#69 · Guía de demo:** `DemoTour` (layout raíz) se muestra sólo en `/app`, `/coach` y `/gym`. Antes la píldora «Demo · Guía · Otro perfil» quedaba flotando en /conoce y /demo durante las 6 h de la sesión de demo.
+  - Producción: antes 1 píldora en cada página; después 0.
+  - E2E: `demo-tour-scope.spec.ts`.
+- **#70 · Ficha del socio como página:** pantalla nueva `member` (`?s=member&sel=…`, `MemberPage` en `components/gym/Members.tsx`).
+  - Sala, Mi turno y Tus pendientes abren sólo la ficha, con el nombre como título, «Volver a Sala» y «Todos los socios».
+  - En «Socios», por debajo de 836 px se ve la lista o la ficha, una por vez (container query sobre `.gy-members`).
+  - Producción: escritorio y teléfono, sin lista y con el programa a la vista, sin errores.
+  - E2E: `gym-member-page.spec.ts`.
+- **#71 · Editor de sala a la par del coach** (pedido: «tiene que aparecer ahí también… revisá todo»). La revisión función por función mostró que ya estaban las piezas de Urko: series y técnica, reemplazos, notas, carga sugerida, copiar/pegar días, asistente, importar y TI. Faltaba:
+  - borrador local por socio y revisión: cerrar con ×, Escape o tocando afuera ya no pierde lo armado; «Descartar cambios»; «Cancelar» pregunta antes;
+  - subir ejercicio ↑ y quitar día;
+  - «Indicación para el socio»;
+  - aviso de circuito con «Igualar a N vueltas»;
+  - filas numeradas 01, 02…
+  - E2E: `gym-editor-parity.spec.ts`.
+- **Pruebas locales del conjunto** (servidor de producción local, demos ficticias): 21 E2E en verde y 1 omitida (sólo corre en teléfono). Archivos: gym-editor-parity, gym-member-page, demo-tour-scope, combine-exercises, connect-program y coach-workflow.
+- **Pendiente conocido, no relacionado:** `e2e/mobile-layout.spec.ts` «alumno: importa una rutina con métodos escritos» falla en local (no encuentra «Método: … Drop set» en «Revisá tu rutina»). La E2E no corre en CI; revisar contra SI2.
+- **Sin migraciones.**
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 
