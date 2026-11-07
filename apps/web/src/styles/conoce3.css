@@ -461,17 +461,32 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-steps b { color: var(--x-ink); font: 700 1.25rem var(--font-display); text-transform: uppercase; }
 @media (max-width: 899px) { .x3-proof-grid { grid-template-columns: 1fr; } .x3-steps { grid-template-columns: 1fr; border-top: 0; border-left: 2px solid var(--x-ink); } .x3-steps li { padding: 0 0 22px 22px; } .x3-steps li::before { top: 4px; left: -7px; } }
 
-/* ── 08 · Cierre ────────────────────────────────────────────────────── */
-.x3-fin { min-height: 100svh; display: flex; align-items: center; padding: 100px 0; text-align: center; }
+/* ── 08 · Cierre: «Vuelta al punto» (Motion 2 P4) ───────────────────── */
+.x3-fin { min-height: 100svh; text-align: center; }
+.x3-fin-pin { min-height: 100svh; display: flex; align-items: center; padding: 100px 0; }
 .x3-fin-in { display: flex; flex-direction: column; align-items: center; }
 .x3-fin-wm { width: clamp(140px, 20vw, 240px); margin-bottom: 34px; }
+.x3-fin-wm > i { will-change: transform; }
+.x3-fin-ring { position: absolute; left: 93.98%; top: 11.93%; width: 170%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: 0; pointer-events: none; }
 .x3-fin-h { margin: 0; font: 700 clamp(3.2rem, 11vw, 6rem)/.86 var(--font-display); text-transform: uppercase; letter-spacing: -.025em; }
-.x3-fin-h .ln { display: block; overflow: hidden; padding-bottom: .06em; }
+.x3-fin-h .ln { display: block; overflow: clip; padding: .1em 0 .06em; margin-top: -.1em; }
 .x3-fin-h .ln > span { display: block; }
 .x3-fin-h .ln:first-child { color: var(--x-muted); }
 .x3-fin-act { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-top: 40px; }
-.x3-fin-act .x3-btn.pri { flex-basis: 100%; max-width: 420px; }
+.x3-fin-act .x3-btn.pri { flex-basis: 100%; max-width: 420px; position: relative; }
+/* El trazo que subraya la acción principal (la acción es de las pocas cosas en cian). */
+.x3-fin-under { position: absolute; left: 0; right: 0; bottom: -7px; height: 2px; border-radius: 2px; background: var(--x-cyan); transform-origin: 0 50%; }
 @media (min-width: 760px) { .x3-fin-act .x3-btn.pri { flex-basis: auto; } }
+/* Fijada con movimiento: la sala vuelve al punto mientras el escenario queda quieto. Estado inicial = primer cuadro del scrub. */
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x3-fin { height: 180svh; }
+  .x3-fin-pin { position: sticky; top: 0; height: 100svh; min-height: 0; padding: 64px 0 0; }
+  .x3-fin-wm img { opacity: .35; }
+  .x3-fin-wm > i { opacity: 0; }
+  .x3-fin-h .ln > span { transform: translateY(135%); }
+  .x3-fin-act > :not(.cn-demo-act), .x3-fin-act > .cn-demo-act > * { opacity: 0; }
+  .x3-fin-under { transform: scaleX(0); }
+}
 
 /* ── Contacto y preguntas ───────────────────────────────────────────── */
 .x3-contact { background: var(--x-navy); padding: clamp(90px, 13vh, 140px) 0 80px; border-top: 1px solid var(--x-line); }
