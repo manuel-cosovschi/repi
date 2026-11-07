@@ -1,5 +1,5 @@
 "use client";
-// REPI Ventas (D207): panel privado del vendedor. Mobile-first (barra inferior en el teléfono, lateral en escritorio).
+// REPI Ventas (D209): panel privado del vendedor. Mobile-first (barra inferior en el teléfono, lateral en escritorio).
 // Todo dato viene de /api/ventas, que valida en el servidor que cada registro sea del vendedor. Sin métricas inventadas:
 // contratado, cobrado y comisiones se muestran separados y con su definición.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

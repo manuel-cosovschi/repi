@@ -1,4 +1,4 @@
-// REPI Sales Force & Commission OS (D207). Reglas puras: estados del vendedor, pipeline, duplicados, vista previa de un
+// REPI Sales Force & Commission OS (D209). Reglas puras: estados del vendedor, pipeline, duplicados, vista previa de un
 // cierre y motor de comisiones. Nada de esto inventa precios, porcentajes ni reglas fiscales: los planes los define Admin.
 // Dinero siempre en unidades menores enteras (centavos). Fechas AAAA-MM-DD en hora argentina.
 

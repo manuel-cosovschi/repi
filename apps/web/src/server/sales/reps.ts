@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · vendedores: alta, invitación, estados, perfil, plan asignado y frecuencia de liquidación.
+// REPI Sales Force (D209) · vendedores: alta, invitación, estados, perfil, plan asignado y frecuencia de liquidación.
 // Sólo REPI Admin (con 2FA) crea vendedores o cambia permisos y condiciones. Nadie se otorga el rol por una API: la
 // relación se vincula a una cuenta sólo cuando esa cuenta, con el email verificado, acepta una invitación vigente.
 import { randomBytes } from "node:crypto";

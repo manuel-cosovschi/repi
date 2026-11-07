@@ -1,4 +1,4 @@
-// REPI Sales Dashboard (D207). Toda autorización vive en los servicios: cada operación resuelve el vendedor desde la sesión
+// REPI Sales Dashboard (D209). Toda autorización vive en los servicios: cada operación resuelve el vendedor desde la sesión
 // (nunca desde parámetros) y filtra por sus propios registros. Un recurso ajeno responde 404 y queda en la auditoría.
 import { z } from "zod";
 import { body, handle, limit, sessionUserId } from "@/server/access/http";

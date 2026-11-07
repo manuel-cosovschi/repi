@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn, bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { ProgramRequestBrief } from "@repi/domain";
+import type { ImportOrigin, ProgramRequestBrief } from "@repi/domain";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const now = (name: string) => ts(name).notNull().defaultNow();
@@ -382,7 +382,12 @@ export const ownRoutine = pgTable("own_routine", {
   createdAt: now("created_at"),
   updatedAt: now("updated_at"),
   lastUsedAt: ts("last_used_at"),
-}, (t) => [index("own_routine_user_idx").on(t.userId)]);
+  // SI2: si vino de una importación, lo que decía el documento (inmutable) y la operación que la guardó (idempotencia).
+  origin: jsonb("origin").$type<ImportOrigin>(),
+}, (t) => [
+  index("own_routine_user_idx").on(t.userId),
+  uniqueIndex("own_routine_import_op_unique").on(t.userId, sql`(${t.origin}->>'opId')`, sql`(${t.origin}->>'day')`).where(sql`${t.origin} ? 'opId'`),
+]);
 
 export const programDay = pgTable("program_day", {
   id: id(),
@@ -1406,7 +1411,7 @@ export const commercialLead = pgTable("commercial_lead", {
   source: text("source"),
   campaign: text("campaign"),
   interest: text("interest"),
-  // D207: código del vendedor si llegó por su enlace personal (/conoce?ref=V-XXXXXX). Indica origen, no atribuye una venta.
+  // D209: código del vendedor si llegó por su enlace personal (/conoce?ref=V-XXXXXX). Indica origen, no atribuye una venta.
   referralCode: text("referral_code"),
   createdAt: now("created_at"),
 });
@@ -1750,7 +1755,7 @@ export const announcementRead = pgTable("announcement_read", {
   readAt: now("read_at"),
 }, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index("announcement_read_user_idx").on(t.userId)]);
 
-// ── REPI Sales Force & Commission OS (D207) ─────────────────────────────────
+// ── REPI Sales Force & Commission OS (D209) ─────────────────────────────────
 // Un vendedor es una relación de la misma identidad con REPI: no toca platformRole ni hereda permisos de Admin.
 // Dinero en unidades menores enteras (bigint en modo número: hasta 2^53). Fechas de negocio AAAA-MM-DD (hora argentina).
 const money = (name: string) => bigint(name, { mode: "number" });
@@ -1992,7 +1997,7 @@ export const salesRequest = pgTable("sales_request", {
   createdAt: now("created_at"),
 }, (t) => [index("sales_request_status_idx").on(t.status), uniqueIndex("sales_request_freq_open_uq").on(t.repId).where(sql`${t.kind} = 'payout_frequency' and ${t.status} = 'open'`)]);
 
-// Libro de comisiones. Inmutable (trigger en la migración 0049): se corrige con asientos nuevos, nunca editando.
+// Libro de comisiones. Inmutable (trigger en la migración 0050): se corrige con asientos nuevos, nunca editando.
 export const commissionEntry = pgTable("commission_entry", {
   id: id(),
   key: text("key").notNull().unique(),

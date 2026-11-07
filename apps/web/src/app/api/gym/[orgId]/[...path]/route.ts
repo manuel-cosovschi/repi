@@ -68,7 +68,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       if (c === "last") return gym.memberLastTimes(me, orgId, b, (u.searchParams.get("ids") ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x))); // D154
       if (c === "intelligence") return gym.memberIntelligence(me, orgId, b); // D191: sala/coordinación con consentimiento
       if (c === "program-days") return dc.memberProgramDays(me, orgId, b); // D192: días para copiar a otro socio
-      const d = await gym.memberDetail(me, orgId, b);
+      const d = await gym.memberDetail(me, orgId, b, new Date(), { task: u.searchParams.get("task") }); // abierta desde una solicitud de Sala
       return { ...d, community: await cm.memberCommunitySummary(orgId, b) }; // intentos y logros en la ficha (F-HX-15)
     }
     case "library": return gym.gymLibrary(me, orgId);

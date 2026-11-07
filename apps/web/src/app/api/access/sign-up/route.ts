@@ -4,7 +4,7 @@ import * as svc from "@/server/access/services";
 
 const S = z.object({
   // Anexo 26/10: sin autoalta de coach/gym. "owner" = responsable invitado por Admin; "member" = socio que llega por QR.
-  flow: z.enum(["invite", "member", "owner", "seller"]), // D207: "seller" = vendedor invitado por Admin (sin DPA ni fecha de nacimiento)
+  flow: z.enum(["invite", "member", "owner", "seller"]), // D209: "seller" = vendedor invitado por Admin (sin DPA ni fecha de nacimiento)
   name: z.string().max(120), email: z.string().max(200), password: z.string().max(200),
   terms: z.boolean(), birth: z.string().max(10).optional(), code: z.string().max(20).optional(), proof: z.string().max(64).optional(),
 });

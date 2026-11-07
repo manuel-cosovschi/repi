@@ -19,6 +19,7 @@ import { ProgramAssistant } from "./ProgramAssistant";
 import { ProposalBanner, clearTiDraft, readTiDraft, type TiDraft } from "./ProposalDraft";
 import { CoachDayCopy, DayMenu, readClip, writeClip, type DayClip } from "./DayCopy";
 import { TemplateRollout } from "./TemplateRollout";
+import { ProgramImportModal } from "./ProgramImportModal";
 import { copyDayContent } from "@repi/domain";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
@@ -38,6 +39,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const subsPanel = useSubsPanel(`${orgId}|${prog?.id ?? ""}|${day}`);
   const [lib, setLib] = useState<LibEx[]>([]);
   const [libQ, setLibQ] = useState("");
+  const [importing, setImporting] = useState(false);
   const [save, setSave] = useState<Save>({ s: "idle" });
   const [assign, setAssign] = useState(false);
   const [del, setDel] = useState(false);
@@ -232,6 +234,13 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
         </p>
       )}
       {save.s === "error" && <p role="alert" className="err-box">No se guardó: {save.m}</p>}
+      {importing && <ProgramImportModal title="Importar programa" scope={`coach:${orgId}`} previewUrl={`/api/coach/${orgId}/programs/import`} createUrl={`/api/coach/${orgId}/library`}
+        library={lib} flash={flash} useLabel="Crear programa sin asignar" defaultName="" onClose={() => setImporting(false)}
+        onUse={async (u) => {
+          const r = await api<{ id: string }>(`/api/coach/${orgId}/programs`, { body: { doc: u.doc, imported: { opId: u.opId, source: u.source, file: u.file } } });
+          setImporting(false); await loadList(); setPid(r.id);
+          flash("Programa importado como borrador, sin asignar. Revisalo y asignalo cuando quieras.");
+        }} />}
       <div className="split">
         <div className="side-pane">
           <span className="lbl-up" style={{ padding: "6px 8px" }}>Mis programas</span>
@@ -242,6 +251,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
           ))}
           {list && !list.length && <span className="muted" style={{ padding: 8 }}>Todavía no creaste programas.</span>}
           <button type="button" className="dashed" onClick={onNewProgram}>+ Programa en blanco</button>
+          {/* SI2: un programa que ya existe (foto, PDF, planilla o texto) entra como programa nuevo, sin asignar. */}
+          <button type="button" className="dashed" onClick={() => setImporting(true)}>Importar programa</button>
         </div>
         {doc && cur ? (
           <section className="card" style={{ flex: "3 1 480px", minWidth: 0, gap: 14 }}>

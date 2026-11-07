@@ -1,5 +1,5 @@
 "use client";
-// REPI Admin › Ventas y Vendedores (D207). Toda acción llama a /api/admin/sales, que exige Admin con 2FA y audita.
+// REPI Admin › Ventas y Vendedores (D209). Toda acción llama a /api/admin/sales, que exige Admin con 2FA y audita.
 // Contratado, cobrado y comisiones van separados y con su definición. Nada de esto emite cobros ni transferencias.
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {

@@ -34,6 +34,7 @@ export * from "./execution";
 export * from "./method-detect";
 export * from "./exercise-guess";
 export * from "./exercise-match";
+export * from "./program-import";
 export * from "./intelligence";
 export * from "./coach-workflow";
 export * from "./template-rollout";

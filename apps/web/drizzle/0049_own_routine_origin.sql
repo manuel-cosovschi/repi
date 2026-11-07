@@ -1,0 +1,2 @@
+ALTER TABLE "own_routine" ADD COLUMN "origin" jsonb;--> statement-breakpoint
+CREATE UNIQUE INDEX "own_routine_import_op_unique" ON "own_routine" USING btree ("user_id",("origin"->>'opId'),("origin"->>'day')) WHERE "own_routine"."origin" ? 'opId';

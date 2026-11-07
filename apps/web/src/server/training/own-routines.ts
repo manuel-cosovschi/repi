@@ -3,12 +3,11 @@
 // como la de D153: registra pesos, repeticiones, RIR, sensación y notas por serie, y el esfuerzo y la nota de la sesión.
 // Las rutinas son sólo del alumno; lo que entrena queda en su historial como cualquier sesión.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { circuitIssues, detectGroupLabel, detectGroupWord, detectMethod, detectedLabel, mainSets, parseRoutineCsv, parseRoutineNotes, validateDetail, type DetectedMethod, type ExerciseDetail, type ImportedRoutineDay } from "@repi/domain";
+import { circuitIssues, mainSets, validateDetail, IMPORT_FILES, IMPORT_SOURCES, type ExerciseDetail, type ImportField, type ImportOrigin, type ImportOriginExercise } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
-import { aiJson, aiOn, type AiPart } from "../ai/openai";
 import { createMemberExercise, ensureExerciseCatalog, visibleIn } from "./library";
-import { matchExercises, type ImportFile } from "./history-import";
+import { buildPreview, readImport, splitLongDays, type ImportInput } from "./program-import";
 import { lastSetByExercise, myActive, startSoloRoutine } from "./services";
 
 const { ownRoutine, exercise } = schema;
@@ -91,7 +90,7 @@ export async function listOwnRoutines(userId: string) {
   ]);
   const byId = new Map(lib.map((e) => [e.id, e]));
   return rows.map((r, i) => ({
-    id: r.id, name: r.name, updatedAt: r.updatedAt, lastUsedAt: r.lastUsedAt, next: i === nextIdx,
+    id: r.id, name: r.name, updatedAt: r.updatedAt, lastUsedAt: r.lastUsedAt, next: i === nextIdx, imported: r.origin?.kind === "import",
     exercises: (r.exercises as OwnRoutineEx[]).map((e) => {
       const x = byId.get(e.exerciseId);
       const pv = prev.get(e.exerciseId);
@@ -146,98 +145,76 @@ export async function startOwnRoutine(userId: string, routineId: string, session
   return s;
 }
 
-// ── D162: cargar la rutina que ya tiene desde una foto, una captura, un PDF, una planilla o texto ─────────────────────────
-const AI_SCHEMA = {
-  type: "object", additionalProperties: false, required: ["days", "notes"],
-  properties: {
-    days: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "exercises"], properties: {
-      name: { type: "string" },
-      exercises: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "sets", "reps", "weight_kg", "rest_sec", "note", "technique", "group"], properties: {
-        name: { type: "string" }, sets: { type: "integer" }, reps: { type: "string" }, weight_kg: { type: ["number", "null"] }, rest_sec: { type: ["integer", "null"] }, note: { type: "string" },
-        technique: { type: "string" }, group: { type: "string" },
-      } } },
-    } } },
-    notes: { type: "array", items: { type: "string" } },
-  },
-};
-type AiOut = { days: { name: string; exercises: { name: string; sets: number; reps: string; weight_kg: number | null; rest_sec: number | null; note: string; technique?: string; group?: string }[] }[]; notes: string[] };
-const SYSTEM = `Transcribís a datos la rutina de gimnasio que ya tiene una persona (foto, captura, PDF o texto). NO la diseñes, no la mejores ni agregues nada: copiá lo que está escrito.
-- Un elemento de days por cada día o sesión de la rutina, en el orden en que aparecen, con su nombre tal como está («Día 1», «Lunes», «Pecho y tríceps»). Si no hay días, uno solo llamado «Mi rutina».
-- Por ejercicio: nombre en español como está escrito (corregí sólo errores evidentes de tipeo), series (entero; si no figura, 3), repeticiones como texto («10», «8-12», «al fallo», «30 s»), peso en kg si figura (libras × 0,4536; si no, null), descanso en segundos si figura (si no, null) y una nota corta si hay una indicación (si no, vacío).
-- «3x10» son 3 series de 10. Una pirámide «12-10-8» va en reps tal cual.
-- Una lista de repeticiones por serie («12;10;9», «12/10/9», «12 10 9») son tantas series como números (acá 3) y las reps van como «12-10-9».
-- Un peso entre paréntesis que no está en kg («7 ladrillos», «placa 5») va en la nota y weight_kg null.
-- Si títulos, fechas o líneas en blanco separan grupos de ejercicios, cada grupo es un día.
-- Si la rutina cambia semana a semana, transcribí la semana que la persona marque como actual o, si no, la primera, y avisalo en notes.
-- technique: si junto al ejercicio figura un método o técnica («drop set», «rest-pause», «myo reps», «cluster», «AMRAP 10 min», «EMOM», «top set + back-off», «pirámide», «superserie con…»), copiá ese texto tal cual, con a qué series se refiere si lo dice («drop set en la última»). Si no figura, vacío. No lo apliques ni cambies series o repeticiones por eso.
-- group: si los ejercicios están marcados como combinados («A1», «A2», «B1»…), la marca tal cual («A1»). Si no, vacío. Sacá esa marca del nombre del ejercicio.
-- Si algo no se lee o es ambiguo, omitilo y explicalo en notes (en español, breve). Nunca digas «IA».`;
-
-/** Vista previa: días y ejercicios leídos, emparejados con la biblioteca. No guarda nada: la persona revisa y guarda. */
-export async function previewRoutineImport(userId: string, f: ImportFile) {
-  if (!["text", "image", "pdf"].includes(f.kind)) throw new AccessError("invalid", "Formato no admitido.");
-  if (f.kind === "text" && !(f.text ?? "").trim()) throw new AccessError("invalid", "El archivo está vacío.");
-  if (f.kind !== "text" && !/^data:(image\/(jpeg|png|webp|gif)|application\/pdf);base64,/.test(f.dataUrl ?? "")) throw new AccessError("invalid", "Subí una foto o captura (JPG o PNG), un PDF o una planilla.");
+// ── D162 → SI2: cargar la rutina que ya tiene desde una foto, una captura, un PDF, una planilla o texto ────────────────
+/**
+ * Vista previa: días y ejercicios leídos, emparejados con la biblioteca de la persona. No guarda nada: la persona revisa y
+ * guarda todo junto con `saveImportedRoutines`. `beforeAi` aplica los topes de uso sólo si hace falta la IA.
+ */
+export async function previewRoutineImport(userId: string, f: ImportInput, beforeAi: () => Promise<void> = async () => {}) {
   const lib = await myExerciseLibrary(userId);
-  let days: ImportedRoutineDay[] | null = f.kind === "text" ? parseRoutineCsv(f.text!) : null;
-  let notes: string[] = [];
-  let source: "csv" | "notes" | "ai" = days ? "csv" : "ai";
-  if (!days && f.kind === "text") {
-    const direct = parseRoutineNotes(f.text!);
-    if (direct) { days = direct.days; notes = direct.notes; source = "notes"; }
-  }
-  if (!days) {
-    if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora sólo podemos leer planillas con columnas Día, Ejercicio, Series, Reps y Peso. Cargala a mano con «Nueva».", 503);
-    const parts: AiPart[] = [{ type: "text", text: `Archivo: ${f.fileName.slice(0, 120)}. Transcribí la rutina.` }];
-    if (f.kind === "text") parts.push({ type: "text", text: (f.text ?? "").slice(0, 60_000) });
-    else if (f.kind === "image") parts.push({ type: "image_url", image_url: { url: f.dataUrl!, detail: "high" } });
-    else parts.push({ type: "file", file: { filename: f.fileName.slice(0, 120) || "rutina.pdf", file_data: f.dataUrl! } });
-    const out = await aiJson<AiOut>({ name: "rutina_propia", system: SYSTEM, parts, schema: AI_SCHEMA, maxTokens: 8000 });
-    days = (out.days ?? []).map((d) => ({ name: d.name, exercises: (d.exercises ?? []).map((e) => ({
-      name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weight_kg, restSec: e.rest_sec, note: e.note || null, technique: e.technique || null, group: e.group || null })) }));
-    notes = (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 8);
-  }
-  const read = days.map((d, i) => ({
-    name: d.name.replace(/\s+/g, " ").trim().slice(0, 60) || `Día ${i + 1}`,
-    exercises: d.exercises.filter((e) => e.name?.trim()).map((e) => {
-      const sets = Math.round(Number(e.sets));
-      const w = e.weightKg == null ? null : Number(e.weightKg);
-      const rest = e.restSec == null ? null : Math.round(Number(e.restSec));
-      // D184: «A1. Press banca» → combinado A, orden 1, y el nombre sin la marca para buscarlo en la biblioteca.
-      const nameRaw = e.name.replace(/\s+/g, " ").trim();
-      const label = detectGroupLabel(e.group, nameRaw);
-      const written = (label && !e.group ? nameRaw.slice(label.matched.length) : nameRaw).trim().slice(0, 80) || nameRaw.slice(0, 80);
-      const technique = e.technique?.trim().slice(0, 80) || null;
-      const note = e.note?.trim().slice(0, 120) || null;
-      const method = detectMethod(technique, note);
-      return { written, sets: sets >= 1 && sets <= 10 ? sets : 3, reps: String(e.reps ?? "").trim().slice(0, 20) || "10",
-        weightKg: w != null && w > 0 && w <= 500 ? Math.round(w * 100) / 100 : null, restSec: rest != null && rest >= 0 && rest <= 600 ? rest : null,
-        // El texto del método nunca se pierde: si no está en la nota, se suma a la nota (la persona decide si se aplica).
-        note: technique && !(note ?? "").toLowerCase().includes(technique.toLowerCase()) ? [note, technique].filter(Boolean).join(" · ").slice(0, 120) : note,
-        method: method ? { ...method, label: detectedLabel(method) } : null as (DetectedMethod & { label: string }) | null,
-        groupLabel: label ? { letter: label.letter, order: label.order } : null,
-        groupWord: label ? null : detectGroupWord(technique, note, e.group) };
-    }),
-  })).filter((d) => d.exercises.length);
-  // D180: un día con más ejercicios que el tope de una sesión no pierde los que sobran: se parte en «Nombre 1», «Nombre 2»…
-  // (suele pasar cuando las notas no separan los días). La persona revisa, renombra o quita antes de guardar.
-  const clean: typeof read = [];
-  for (const d of read) {
-    const parts = Math.ceil(d.exercises.length / OWN_ROUTINE_EXERCISES_MAX);
-    if (parts === 1) { clean.push(d); continue; }
-    for (let k = 0; k < parts; k++) clean.push({ name: `${d.name.slice(0, 56)} ${k + 1}`, exercises: d.exercises.slice(k * OWN_ROUTINE_EXERCISES_MAX, (k + 1) * OWN_ROUTINE_EXERCISES_MAX) });
-    notes.push(`${d.name} tenía ${d.exercises.length} ejercicios y una rutina lleva hasta ${OWN_ROUTINE_EXERCISES_MAX}: quedó en ${parts} partes. Si eran días distintos, renombralos.`);
-  }
-  if (!clean.length) throw new AccessError("empty", "No encontramos ejercicios en ese archivo. Probá con otra foto o cargala a mano.", 422);
-  if (clean.length > OWN_ROUTINES_MAX) { clean.length = OWN_ROUTINES_MAX; notes.push(`Se cargan los primeros ${OWN_ROUTINES_MAX} días.`); }
-  const matches = await matchExercises([...new Set(clean.flatMap((d) => d.exercises.map((e) => e.written)))], lib);
-  const byId = new Map(lib.map((e) => [e.id, e]));
-  await audit(db, { actorUserId: userId, action: "own_routine.import_previewed", resourceType: "own_routine", meta: { source, days: clean.length } });
+  const read = await readImport(f, beforeAi);
+  const p = splitLongDays(await buildPreview(read, lib), OWN_ROUTINE_EXERCISES_MAX);
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(ownRoutine).where(eq(ownRoutine.userId, userId));
+  await audit(db, { actorUserId: userId, action: "own_routine.import_previewed", resourceType: "own_routine", meta: { source: p.source, file: p.file, days: p.variants[0]?.days.length ?? 0, variants: p.variants.length } });
+  return { ...p, limits: { exercisesPerDay: OWN_ROUTINE_EXERCISES_MAX, free: Math.max(0, OWN_ROUTINES_MAX - n), max: OWN_ROUTINES_MAX } };
+}
+
+type ImportSave = { opId: string; source: ImportOrigin["source"]; file: ImportOrigin["file"]; routines: { name: string; exercises: OwnRoutineEx[]; origin: ImportOriginExercise[] }[] };
+const clipTxt = (s: unknown, n: number) => (typeof s === "string" ? s.slice(0, n) : null);
+const numOr = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : null);
+const FIELDS = new Set(["name", "sets", "reps", "weight", "rest", "method", "line"]);
+const fields = (xs: unknown) => (Array.isArray(xs) ? xs.filter((x): x is ImportField => FIELDS.has(x as string)).slice(0, 8) : []);
+/** Lo que decía el documento, acotado (lo manda el teléfono: son datos de la propia persona sobre su rutina). */
+function cleanOrigin(o: ImportOriginExercise, exerciseId: string): ImportOriginExercise {
   return {
-    source, notes,
-    days: clean.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => {
-      const m = matches[e.written] ? byId.get(matches[e.written]!.id) : undefined;
-      return { ...e, exerciseId: m?.id ?? null, name: m?.name ?? null, group: m?.group ?? null, kind: m?.kind ?? null };
-    }) })),
+    written: clipTxt(o.written, 80) ?? "", exerciseId, sets: numOr(o.sets), reps: clipTxt(o.reps, 20), weightKg: numOr(o.weightKg),
+    perSet: Array.isArray(o.perSet) ? o.perSet.slice(0, 20).map((x) => ({ reps: clipTxt(x?.reps, 20), weightKg: numOr(x?.weightKg) })) : null,
+    restSec: numOr(o.restSec), rir: numOr(o.rir), rpe: numOr(o.rpe), tempo: clipTxt(o.tempo, 16), technique: clipTxt(o.technique, 80),
+    unknown: fields(o.unknown), completed: fields(o.completed), suggested: fields(o.suggested),
   };
+}
+
+/**
+ * SI2: guarda todos los días de una importación juntos (una transacción): o quedan todos, o ninguno. Idempotente por `opId`:
+ * un reintento después de un corte de red o un doble toque devuelve las mismas rutinas sin duplicarlas. Si no entran en «Mis
+ * rutinas», no guarda nada y dice cuántas entran. Nunca reemplaza rutinas existentes.
+ */
+export async function saveImportedRoutines(userId: string, p: ImportSave) {
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(p.opId)) throw new AccessError("invalid", "Falta el identificador de la importación. Volvé a abrir la revisión.");
+  if (!p.routines.length) throw new AccessError("invalid", "No hay días para guardar.");
+  const orgId = await relationOrg(userId);
+  const cleaned = p.routines.map((r, i) => {
+    try { return clean({ name: r.name, exercises: r.exercises }); }
+    catch (e) { if (e instanceof AccessError) throw new AccessError(e.code, `${r.name?.trim() || `Día ${i + 1}`}: ${e.message}`, e.status); throw e; }
+  });
+  await ensureExerciseCatalog();
+  const ids = [...new Set(cleaned.flatMap((c) => c.exercises.map((e) => e.exerciseId)))];
+  const lib = await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId, userId)));
+  if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
+  cleaned.forEach((c) => assertCircuits(c.exercises.map((e) => ({ ...e, name: lib.find((x) => x.id === e.exerciseId)!.name }))));
+  const source = (IMPORT_SOURCES as readonly string[]).includes(p.source) ? p.source : "text";
+  const file = (IMPORT_FILES as readonly string[]).includes(p.file) ? p.file : "text";
+  return db.transaction(async (tx) => {
+    // Un guardado de importación por persona a la vez: el reintento espera al primero y lo encuentra.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`own-routine-import:${userId}`}))`);
+    const prior = await tx.select({ id: ownRoutine.id }).from(ownRoutine)
+      .where(and(eq(ownRoutine.userId, userId), sql`${ownRoutine.origin}->>'opId' = ${p.opId}`)).orderBy(sql`(${ownRoutine.origin}->>'day')::int`);
+    if (prior.length) return { ids: prior.map((r) => r.id), replay: true };
+    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(ownRoutine).where(eq(ownRoutine.userId, userId));
+    if (n + cleaned.length > OWN_ROUTINES_MAX) {
+      const free = Math.max(0, OWN_ROUTINES_MAX - n);
+      throw new AccessError("capacity", `Entran ${free} ${free === 1 ? "rutina" : "rutinas"} más en «Mis rutinas» (hasta ${OWN_ROUTINES_MAX}) y la importación trae ${cleaned.length}. Quitá días o borrá rutinas que ya no uses. No se guardó nada.`, 409);
+    }
+    const at = Date.now();
+    const rows = await tx.insert(ownRoutine).values(cleaned.map((c, i) => {
+      const origin: ImportOrigin = { kind: "import", opId: p.opId, day: i, at: new Date(at).toISOString(), source, file, dayName: c.name,
+        exercises: c.exercises.map((e, j) => cleanOrigin(p.routines[i].origin?.[j] ?? ({} as ImportOriginExercise), e.exerciseId)) };
+      // El orden de carga es el orden de los días (Día A, Día B…) y define cuál toca después: un milisegundo entre cada uno.
+      return { userId, name: c.name, exercises: c.exercises, origin, createdAt: new Date(at + i), updatedAt: new Date(at + i) };
+    })).returning({ id: ownRoutine.id });
+    await audit(tx, { actorUserId: userId, action: "own_routine.imported", resourceType: "own_routine", resourceId: rows[0]?.id ?? null,
+      meta: { opId: p.opId, routines: rows.length, exercises: cleaned.reduce((k, c) => k + c.exercises.length, 0), source, file,
+        unknown: p.routines.reduce((k, r) => k + (r.origin ?? []).reduce((m, o) => m + fields(o?.unknown).length, 0), 0) } });
+    return { ids: rows.map((r) => r.id), replay: false };
+  });
 }

@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · liquidaciones de comisiones y registro de pagos a vendedores.
+// REPI Sales Force (D209) · liquidaciones de comisiones y registro de pagos a vendedores.
 // REPI no transfiere dinero: Admin registra el pago hecho por fuera con su evidencia. Cada asiento entra en una sola
 // liquidación (índice único), una liquidación abierta por vendedor y moneda, pagos con clave idempotente y bloqueo de fila.
 // El resumen es una liquidación interna: no es factura ni comprobante fiscal.

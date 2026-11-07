@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · indicadores del vendedor, centro de control comercial de Admin, objetivos y material.
+// REPI Sales Force (D209) · indicadores del vendedor, centro de control comercial de Admin, objetivos y material.
 // Fórmulas explícitas (SALES_DEFINITIONS). Nunca se mezcla lo contratado (cantidad × precio vigentes) con lo cobrado
 // (pagos registrados por Admin) ni con las comisiones. Monedas distintas nunca se suman.
 import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";

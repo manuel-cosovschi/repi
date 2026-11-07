@@ -35,7 +35,7 @@ El script avisa si algún contenido no entra en su página y deja las vistas en 
 node marketing/dossier-gimnasios-2026/fuente/generar.mjs --ref V-AB12CD --asesor "Nombre Apellido"
 ```
 
-`--ref` agrega el código comercial del vendedor al QR y al enlace (`?ref=`), para que el contacto quede registrado con su origen (REPI Sales Force, D207). `--asesor` muestra el nombre en el cierre. No se agregan teléfonos ni emails personales: el contacto sigue siendo el oficial. Guardar la copia generada con otro nombre antes de volver a generar la general.
+`--ref` agrega el código comercial del vendedor al QR y al enlace (`?ref=`), para que el contacto quede registrado con su origen (REPI Sales Force, D209). `--asesor` muestra el nombre en el cierre. No se agregan teléfonos ni emails personales: el contacto sigue siendo el oficial. Guardar la copia generada con otro nombre antes de volver a generar la general.
 
 ## Cómo renovar las capturas
 

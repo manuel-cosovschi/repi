@@ -1,4 +1,4 @@
-// D207: resumen imprimible de una liquidación de comisiones (Admin o el vendedor dueño). Es una liquidación interna de
+// D209: resumen imprimible de una liquidación de comisiones (Admin o el vendedor dueño). Es una liquidación interna de
 // REPI: no es factura ni comprobante fiscal. Se imprime o guarda como PDF desde el navegador.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";

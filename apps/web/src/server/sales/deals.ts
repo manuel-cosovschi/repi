@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · ventas declaradas, revisión de Admin, vínculo con clientes y contratos reales y atribución.
+// REPI Sales Force (D209) · ventas declaradas, revisión de Admin, vínculo con clientes y contratos reales y atribución.
 // El vendedor carga y propone; nunca habilita un cliente ni cambia un contrato. La aprobación comercial, la aceptación del
 // contrato, la habilitación y el pago son eventos distintos: aprobar crea (o vincula) el cliente en BORRADOR y sigue el
 // circuito existente de Clientes (aceptación registrada → habilitación → bienvenida).

@@ -1,4 +1,4 @@
-/* REPI Ventas (D207): extensión del escritorio .co con tokens existentes (G · Atlética, Barlow). Mobile-first: en el teléfono
+/* REPI Ventas (D209): extensión del escritorio .co con tokens existentes (G · Atlética, Barlow). Mobile-first: en el teléfono
    la navegación principal es una barra inferior y el resto vive en el menú. Sin bibliotecas de componentes nuevas. */
 .sv-bottom { display: none; }
 @media (max-width: 767px) {

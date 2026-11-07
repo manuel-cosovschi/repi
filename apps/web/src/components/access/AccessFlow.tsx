@@ -76,7 +76,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
   const [resume, setResume] = useState<Entry | null>(null);
   const entry = initial.join ? { k: "join" as const, v: initial.join } : initial.code ? { k: "code" as const, v: normalizeCode(initial.code) }
     : initial.activate ? { k: "activate" as const, v: initial.activate } : null;
-  // D207: la invitación de vendedor usa el mismo recorrido que la bienvenida del responsable, con su propia API.
+  // D209: la invitación de vendedor usa el mismo recorrido que la bienvenida del responsable, con su propia API.
   const actApi = initial.activateKind === "seller" ? `/api/ventas/activar/${initial.activate}` : `/api/activate/${initial.activate}`;
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const headRef = useRef<HTMLHeadingElement>(null);

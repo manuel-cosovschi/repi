@@ -49,7 +49,7 @@ const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local",
 type Screen = "summary" | "clients" | "leads" | "sales" | "reps" | "site" | "support" | "ideas" | "privacy" | "announcements" | "guide";
 
 export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?: string; tab?: string; deal?: string; rep?: string } }) {
-  // D207: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
+  // D209: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
   const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : "summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);

@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · núcleo compartido: guardas del vendedor, avisos y bitácora comercial.
+// REPI Sales Force (D209) · núcleo compartido: guardas del vendedor, avisos y bitácora comercial.
 // Toda autorización se valida acá, en el servidor. Un vendedor nunca es Admin ni ve datos privados de socios.
 import { and, eq, isNull } from "drizzle-orm";
 import { localDate, repCapabilities, type RepStatus } from "@repi/domain";

@@ -1,4 +1,4 @@
-// REPI Ventas (D207): panel privado del vendedor. Sin relación de vendedor → 404 (no revela que el área existe).
+// REPI Ventas (D209): panel privado del vendedor. Sin relación de vendedor → 404 (no revela que el área existe).
 import type { Metadata } from "next";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";

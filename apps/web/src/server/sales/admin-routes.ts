@@ -1,4 +1,4 @@
-// REPI Admin › Ventas (D207). Despacho de /api/admin/sales/*. Cada servicio exige Admin con 2FA (salesAdmin).
+// REPI Admin › Ventas (D209). Despacho de /api/admin/sales/*. Cada servicio exige Admin con 2FA (salesAdmin).
 import { z } from "zod";
 import { body } from "../access/http";
 import { AccessError } from "../access/util";

@@ -9,7 +9,7 @@ import type { Profile } from "@/lib/site-events";
 import { track, visitContext } from "@/lib/site-track";
 
 type Kind = "gym" | "coach" | "partner";
-// D207: enlace personal de un vendedor (/conoce?ref=V-XXXXXX). Se recuerda en la pestaña; el servidor sólo lo acepta si es de
+// D209: enlace personal de un vendedor (/conoce?ref=V-XXXXXX). Se recuerda en la pestaña; el servidor sólo lo acepta si es de
 // un vendedor activo y lo guarda como origen del contacto, nunca como una venta atribuida.
 const REF_KEY = "repi:ref:v1";
 function referral(): string | null {

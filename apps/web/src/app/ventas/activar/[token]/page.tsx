@@ -1,4 +1,4 @@
-// D207: invitación de vendedor. Mismo recorrido que la bienvenida del responsable: ligada al email, vence y es de un solo uso.
+// D209: invitación de vendedor. Mismo recorrido que la bienvenida del responsable: ligada al email, vence y es de un solo uso.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AccessFlow } from "@/components/access/AccessFlow";

@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · CRM: prospectos, oportunidades, pipeline, actividades y prevención de duplicados.
+// REPI Sales Force (D209) · CRM: prospectos, oportunidades, pipeline, actividades y prevención de duplicados.
 // Cada vendedor ve sólo lo que tiene asignado; Admin ve y reasigna todo. Nada se fusiona automáticamente.
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {

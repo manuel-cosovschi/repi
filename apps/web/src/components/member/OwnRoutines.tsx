@@ -22,7 +22,7 @@ import { useUnit } from "./units";
 export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time"; mine?: boolean };
 const KIND_LABEL: [Lib["kind"], string][] = [["load_reps", "Con peso"], ["bodyweight", "Peso corporal"], ["time", "Por tiempo"]];
 type Ex = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null; detail?: ExerciseDetail | null };
-type Saved = { id: string; name: string; lastUsedAt: string | null; next?: boolean; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
+type Saved = { id: string; name: string; lastUsedAt: string | null; next?: boolean; imported?: boolean; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
 type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w: string };
 
 const MAX_EX = 12;
@@ -72,7 +72,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
       )}
       {list?.map((r) => (
         <div key={r.id} className="or-card">
-          <div className="or-title">{r.next && list.length > 1 && <span className="or-next">Te toca hoy</span>}<b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
+          <div className="or-title">{r.next && list.length > 1 && <span className="or-next">Te toca hoy</span>}<b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.imported ? " · importada" : ""}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
           <ul>{r.exercises.map((e, i) => (
             <li key={i}><span>{e.name}{e.detail && <small className="mb-muted or-method">{detailSummary({ ...e, rir: null, restSec: e.restSec ?? 90 }, groupLabels(r.exercises)[i])}</small>}</span>
               <span>{isCardio(e) && mainSets(e.detail, e.sets) === 1 ? repsText(e.reps) : `${mainSets(e.detail, e.sets)}×${repsText(e.reps)}`}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
@@ -296,7 +296,7 @@ export function NextOwnRoutine({ offline, busyOpen, onStart, fallback }: { offli
   return (
     <div className="or-card or-today">
       <div className="or-title"><span className="or-next">{list.length > 1 ? "Te toca hoy" : "Tu rutina"}</span><b>{r.name}</b>
-        <small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
+        <small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.imported ? " · importada" : ""}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
       <div className="or-actions">
         <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
           <Ic i={Play} size={16} weight="fill" color="var(--ui-on-primary)" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}

@@ -1,10 +1,10 @@
-# REPI Sales Force & Commission OS (D207)
+# REPI Sales Force & Commission OS (D209)
 
 Módulo comercial nativo dentro de REPI: vendedores, CRM, cierres declarados, atribución, comisiones y liquidaciones. Comparte clientes, contratos, condiciones versionadas, pagos registrados, invitaciones y correo con el Admin existente. No es un CRM separado, no mueve dinero y no emite comprobantes fiscales.
 
 ## Estado
 
-- **Técnico:** integrado y verificado localmente (dominio, integración sobre `repi_test`, build y recorrido en navegador sobre `repi_dev`). **No publicado.** Migración 0049 **no aplicada** en producción.
+- **Técnico:** integrado y verificado localmente (dominio, integración sobre `repi_test`, build y recorrido en navegador sobre `repi_dev`). **No publicado.** Migración 0050 **no aplicada** en producción.
 - **Producto:** pedido del titular (master prompt 07/11/2026). Las reglas económicas reales (planes, porcentajes, mínimos) **no están cargadas**: las define Admin.
 
 ## Arquitectura
@@ -18,7 +18,7 @@ Módulo comercial nativo dentro de REPI: vendedores, CRM, cierres declarados, at
 | Interfaz | `/ventas` (`components/sales/SalesApp.tsx`), `/ventas/activar/[token]` (reutiliza `AccessFlow`), `/ventas/liquidacion/[id]` (resumen imprimible), Admin › Ventas y Vendedores (`components/admin/AdminSales.tsx`), `styles/sales.css` |
 | Ganchos en código existente | `commercial/services.ts` (`createClientTx`, `addTermTx`, `publishTermNotice`; sincroniza comisiones al habilitar o suspender; no borra clientes con venta aprobada o comisiones), `commercial/payments.ts` (sincroniza al registrar o anular un pago), `access/services.ts` (espacio «REPI Ventas»), `sign-up` (flujo `seller`), `createLead` y `/conoce` (`?ref=`) |
 
-## Tablas (migración 0049, aditiva)
+## Tablas (migración 0050, aditiva)
 
 `sales_region`, `sales_rep`, `sales_rep_invitation`, `commission_plan`, `commission_plan_version`, `sales_rep_plan`, `sales_prospect`, `sales_opportunity`, `sales_activity`, `sales_deal`, `sales_attribution`, `sales_request`, `commission_entry`, `payout_batch`, `payout_item`, `payout_payment`, `sales_target`, `sales_material`, `sales_notice` y `commercial_lead.referral_code`.
 
@@ -54,8 +54,8 @@ Invariantes en la base: un vendedor por cuenta y un email activo por vendedor; u
 ## Habilitación segura en producción
 
 1. Workflow «Respaldo» en verde (`docs/RESPALDOS.md`).
-2. Aplicar `apps/web/scripts/operations/hosted-0049.sql` (una transacción, como `repi_app`; ensayado: huella igual a `migrate.ts`, RLS en las 19 tablas, reintento falla entero, reversión que se niega con datos, revertir y reaplicar). Reversión: `scripts/rollback/0049_sales_force.down.sql`.
-3. Integrar el PR. El código anterior es compatible con 0049 aplicada.
+2. Aplicar `apps/web/scripts/operations/hosted-0050.sql` (una transacción, como `repi_app`; ensayado con `scripts/operations/verify-0050.sh`: huella igual a `migrate.ts`, RLS en las 19 tablas, reintento falla entero, reversión que se niega con datos, revertir y reaplicar). Reversión: `scripts/rollback/0050_sales_force.down.sql`.
+3. Integrar el PR. El código anterior es compatible con 0050 aplicada.
 4. Smoke con datos ficticios (`*.invalid`): crear vendedor, invitar, aceptar, prospecto, venta, aprobar, plan, habilitar, pago de prueba, liquidar; después anular y limpiar.
 5. Interruptor: `REPI_SALES=off` oculta el módulo (rutas 404) sin borrar datos.
 

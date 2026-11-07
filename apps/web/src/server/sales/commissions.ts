@@ -1,4 +1,4 @@
-// REPI Sales Force (D207) · planes de comisión versionados y motor de devengamiento.
+// REPI Sales Force (D209) · planes de comisión versionados y motor de devengamiento.
 // Un plan aprobado es inmutable; un cambio es una versión nueva con vigencia. La venta aprobada congela su versión.
 // Los asientos se calculan desde eventos verificados (aprobación, habilitación, cobros registrados por Admin), con clave
 // idempotente única y un trigger que impide editarlos o borrarlos. Un cierre o una simulación nunca son un cobro.

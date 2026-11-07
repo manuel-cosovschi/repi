@@ -236,34 +236,33 @@ describe("entrenamientos olvidados (D160)", () => {
   });
 });
 
-describe("subir la rutina propia (D162)", () => {
-  it("notas claras se estructuran sin IA y se revisan antes de guardar como rutinas", async () => {
+describe("subir la rutina propia (D162 → SI2)", () => {
+  it("notas claras se estructuran sin IA (también el descanso suelto) y se revisan antes de guardar", async () => {
     const user = await member(false);
-    const text = "Día A\nSentadilla 4x8 60kg\nPress plano (105kg)\n5;5;5;4\nDía B\nRemo con barra 3x12 40kg";
+    const text = "Día A\nSentadilla 4x8 60kg\nDescanso 90 s\nPress plano (105kg)\n5;5;5;4\nDía B\nRemo con barra 3x12 40kg";
     const p = await withoutAi(() => own.previewRoutineImport(user, { fileName: "Notas", kind: "text", text }));
-    expect(p.source).toBe("notes");
-    expect(p.days.map((day) => day.name)).toEqual(["Día A", "Día B"]);
-    expect(p.days[0].exercises[0]).toMatchObject({ written: "Sentadilla", exerciseId: SQ, sets: 4, reps: "8", weightKg: 60 });
-    expect(p.days[0].exercises[1]).toMatchObject({ written: "Press plano", name: "Press de banca", sets: 4, reps: "5-5-5-4", weightKg: 105 });
+    const days = p.variants[0].days;
+    expect(p.source).toBe("text");
+    expect(days.map((day) => day.name)).toEqual(["Día A", "Día B"]);
+    expect(days[0].exercises[0]).toMatchObject({ written: "Sentadilla", exerciseId: SQ, sets: 4, reps: "8", weightKg: 60, restSec: 90 });
+    expect(days[0].exercises[1]).toMatchObject({ written: "Press plano", name: "Press de banca", sets: 4, reps: "5-5-5-4", weightKg: 105 });
     expect((await own.listOwnRoutines(user))).toHaveLength(0);
-    await expect(withoutAi(() => own.previewRoutineImport(user, {
-      fileName: "Métodos", kind: "text", text: "Día A\nSentadilla 3x10 60kg\nDescanso 90 s",
-    }))).rejects.toMatchObject({ code: "ai_unavailable" });
   });
 
   it("una planilla se lee sin IA, se empareja con la biblioteca y «Te toca hoy» sigue el orden de los días", async () => {
     const user = await member(false);
     const csv = "Día,Ejercicio,Series,Reps,Peso\nDía A,Sentadilla,4,8-10,60\nDía A,Ejercicio inventado xyz,3,12,\nDía B,Press de banca,3,10,40\n";
     const p = await withoutAi(() => own.previewRoutineImport(user, { fileName: "rutina.csv", kind: "text", text: csv }));
-    expect(p.source).toBe("csv");
-    expect(p.days.map((d) => d.name)).toEqual(["Día A", "Día B"]);
-    expect(p.days[0].exercises[0]).toMatchObject({ written: "Sentadilla", exerciseId: SQ, sets: 4, reps: "8-10", weightKg: 60 });
-    expect(p.days[0].exercises[1]).toMatchObject({ written: "Ejercicio inventado xyz", exerciseId: null }); // se elige a mano o se quita
-    expect(p.days[1].exercises[0].exerciseId).toBeTruthy();
-    // Una foto sin REPI disponible no se puede leer (la planilla sí).
-    await expect(withoutAi(() => own.previewRoutineImport(user, { fileName: "foto.jpg", kind: "image", dataUrl: "data:image/jpeg;base64,AAAA" }))).rejects.toMatchObject({ code: "ai_unavailable" });
+    const days = p.variants[0].days;
+    expect(p.source).toBe("sheet");
+    expect(days.map((d) => d.name)).toEqual(["Día A", "Día B"]);
+    expect(days[0].exercises[0]).toMatchObject({ written: "Sentadilla", exerciseId: SQ, sets: 4, reps: "8-10", weightKg: 60 });
+    expect(days[0].exercises[1]).toMatchObject({ written: "Ejercicio inventado xyz", exerciseId: null }); // se elige a mano o se quita
+    expect(days[1].exercises[0].exerciseId).toBeTruthy();
+    // Una foto sin la lectura automática disponible no se puede leer (la planilla sí).
+    await expect(withoutAi(() => own.previewRoutineImport(user, { fileName: "foto.jpg", kind: "image", dataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ" }))).rejects.toMatchObject({ code: "ai_unavailable" });
     // Guardadas en orden, como días de un programa: toca la A; después de entrenarla, la B; después, otra vez la A.
-    for (const d of p.days) await own.saveOwnRoutine(user, { name: d.name, exercises: d.exercises.filter((e) => e.exerciseId).map((e) => ({ exerciseId: e.exerciseId!, sets: e.sets, reps: e.reps, weightKg: e.weightKg, restSec: e.restSec, note: e.note })) });
+    for (const d of days) await own.saveOwnRoutine(user, { name: d.name, exercises: d.exercises.filter((e) => e.exerciseId).map((e) => ({ exerciseId: e.exerciseId!, sets: e.sets!, reps: e.reps!, weightKg: e.weightKg, restSec: e.restSec, note: e.note })) });
     const next = async () => (await own.listOwnRoutines(user)).find((r) => r.next)?.name;
     expect(await next()).toBe("Día A");
     const [a, b] = await own.listOwnRoutines(user);

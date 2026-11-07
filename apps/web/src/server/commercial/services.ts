@@ -33,7 +33,7 @@ export type LeadInput = {
   kind: string; orgName?: string | null; contactName: string; email?: string | null; phone?: string | null; message?: string | null;
   /** D205: origen anónimo de la visita (Experience Hub). */
   source?: string | null; campaign?: string | null; interest?: string | null;
-  /** D207: código del vendedor del enlace personal (?ref=). Se guarda sólo si es de un vendedor activo. */
+  /** D209: código del vendedor del enlace personal (?ref=). Se guarda sólo si es de un vendedor activo. */
   referralCode?: string | null;
 };
 const LEAD_SOURCES = new Set(["qr", "utm", "referral", "direct"]);
@@ -139,7 +139,7 @@ export async function createClient(actorId: string, p: ClientInput) {
   await requireAdmin(actorId);
   return db.transaction((tx) => createClientTx(tx, actorId, p));
 }
-/** Igual que createClient dentro de una transacción ajena (D207: aprobación de una venta). Quien llama valida Admin. */
+/** Igual que createClient dentro de una transacción ajena (D209: aprobación de una venta). Quien llama valida Admin. */
 export async function createClientTx(tx: Tx, actorId: string, p: ClientInput, meta?: Record<string, unknown>) {
   // Obligatorios (D117): tipo, nombre visible, responsable, email y moneda. El resto se completa después.
   const missing = [
@@ -273,7 +273,7 @@ export async function enableClient(actorId: string, contractId: string, p: { tri
   });
   // F-BL-05: la primera habilitación no es un cambio (el cliente recibe la bienvenida); rehabilitar o mover la prueba sí.
   const { before, after } = r;
-  await (await import("../sales/commissions")).syncContractSafe(contractId); // D207: comisiones que dependen de la habilitación
+  await (await import("../sales/commissions")).syncContractSafe(contractId); // D209: comisiones que dependen de la habilitación
   const at = Date.now();
   if (before.status === "suspended") await publishNotice(after, { kind: "enabled", title: "Tu espacio volvió a estar habilitado", body: "REPI levantó la suspensión: ya podés volver a dar altas.", dedupeKey: `enabled:${at}`, createdBy: actorId });
   if (p.trialUntil && before.enabledAt && p.trialUntil !== before.trialUntil) {
@@ -382,7 +382,7 @@ export async function deleteClient(actorId: string, contractId: string, confirmN
     if (people) throw new AccessError("invalid_state", "No se puede eliminar: ya hay personas con cuenta en este espacio. Suspendelo para frenar nuevas altas.", 409);
     const [pay] = await tx.select({ id: billingPayment.id }).from(billingPayment).where(and(eq(billingPayment.contractId, c.id), eq(billingPayment.status, "recorded"))).limit(1);
     if (pay) throw new AccessError("invalid_state", "No se puede eliminar: tiene pagos registrados. Anulalos primero si fueron un error.", 409);
-    // D207: una venta aprobada o comisiones registradas son historial comercial: el cliente se suspende, no se borra.
+    // D209: una venta aprobada o comisiones registradas son historial comercial: el cliente se suspende, no se borra.
     const [deal] = await tx.select({ id: schema.salesDeal.id }).from(schema.salesDeal).where(and(eq(schema.salesDeal.contractId, c.id), eq(schema.salesDeal.status, "approved"))).limit(1);
     const [entry] = await tx.select({ id: schema.commissionEntry.id }).from(schema.commissionEntry).where(eq(schema.commissionEntry.contractId, c.id)).limit(1);
     if (deal || entry) throw new AccessError("invalid_state", "No se puede eliminar: tiene una venta aprobada o comisiones registradas. Suspendelo para frenar nuevas altas.", 409);
@@ -400,7 +400,7 @@ export async function suspendClient(actorId: string, contractId: string, reason:
   await db.update(clientContract).set({ status: "suspended", updatedAt: new Date() }).where(eq(clientContract.id, c.id));
   await db.update(organization).set({ commercialStatus: "suspended" }).where(eq(organization.id, c.orgId));
   await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.suspended", resourceType: "client_contract", resourceId: c.id, meta: { reason: reason.trim().slice(0, 200) } });
-  await (await import("../sales/commissions")).syncContractSafe(c.id); // D207
+  await (await import("../sales/commissions")).syncContractSafe(c.id); // D209
   await publishNotice({ ...c, status: "suspended" }, { kind: "suspended", title: "Tu espacio está suspendido",
     body: `Motivo: ${reason.trim().slice(0, 200)}. Mientras dure no se pueden dar altas nuevas; quienes ya están siguen igual. Si creés que es un error, pedí la corrección.`, dedupeKey: `suspended:${Date.now()}`, createdBy: actorId });
   return { status: "suspended" };
@@ -419,7 +419,7 @@ export async function addTerm(actorId: string, contractId: string, p: TermInput)
   await publishTermNotice(c, p, t, actorId);
   return { version: t.t.version };
 }
-/** addTerm dentro de una transacción ajena (D207). Quien llama valida Admin y después publica el aviso con publishTermNotice. */
+/** addTerm dentro de una transacción ajena (D209). Quien llama valida Admin y después publica el aviso con publishTermNotice. */
 export async function addTermTx(tx: Tx, actorId: string, c: typeof clientContract.$inferSelect, p: TermInput) {
   if (!["quantity", "unit_price"].includes(p.kind) || !Number.isSafeInteger(p.value) || p.value < 0 || (p.kind === "quantity" && p.value > 10_000_000) || p.value > 2_147_483_647) throw new AccessError("invalid", "Valor inválido.");
   if (!isDay(p.effectiveFrom)) throw new AccessError("invalid", "Fecha de efecto inválida.");
