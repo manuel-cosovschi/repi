@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
@@ -8,7 +10,7 @@ import { getPrefs, updatePrefs } from "@/server/brain/prefs";
 import { createMemory, correctMemory, defaultExpiry, deleteMemory, listMemory, purgeExpiredMemory, revokeMemory, revokeMemoryByRef } from "@/server/brain/memory";
 import { appendMessage, closeThread, currentThread, lastTurns, listMessages, setFeedback, threadWithMessages } from "@/server/brain/conversation";
 import {
-  activeInterventions, arDayStart, cancelObsoleteInterventions, executeActionOnce, getAction, markIntervention, proposeAction, recentInterventions,
+  ACTION_LEASE_MS, BRAIN_ROUTE_MAX_S, activeInterventions, arDayStart, cancelObsoleteInterventions, executeActionOnce, getAction, markIntervention, proposeAction, recentInterventions,
   transitionAction, upsertIntervention, type InterventionInput,
 } from "@/server/brain/store";
 
@@ -299,5 +301,32 @@ describe("ejecución de acciones sin transacción abierta (revisión AC3: hallaz
     release();
     expect(await first).toMatchObject({ executed: true, action: { status: "executed", result: { done: 1 } } });
     expect(await waiting).toMatchObject({ executed: false, action: { status: "executed", result: { done: 1 } } });
+  });
+});
+
+describe("revisión AC3 (verificación): una falla después del efecto no se reintenta; rutas más cortas que el reclamo", () => {
+  it("si el efecto ya quedó escrito (commit) y falla un paso posterior, la acción queda ejecutada (partial) y no se vuelve a correr", async () => {
+    const u = await person();
+    const { action } = await proposeAction(u, { kind: "report_discomfort", idempotencyKey: `c:${randomUUID()}`, autonomy: 1 });
+    const writes = vi.fn();
+    const r = await executeActionOnce(u, action.id, async (_a, commit) => { writes(); commit(); throw new Error("falló la lectura posterior"); });
+    expect(r).toMatchObject({ executed: true, partial: true, action: { status: "executed", result: { partial: true } } });
+    const again = await executeActionOnce(u, action.id, async () => { writes(); return {}; });
+    expect(again.executed).toBe(false);
+    expect(writes).toHaveBeenCalledTimes(1);
+  });
+  it("sin commit, una falla pasajera sigue devolviéndola a «proposed» (se puede reintentar)", async () => {
+    const u = await person();
+    const { action } = await proposeAction(u, { kind: "report_discomfort", idempotencyKey: `t:${randomUUID()}`, autonomy: 1 });
+    const r = await executeActionOnce(u, action.id, async () => { throw new Error("base caída"); });
+    expect(r).toMatchObject({ executed: false, action: { status: "proposed" } });
+  });
+  it("las rutas que ejecutan acciones duran menos que el reclamo", () => {
+    for (const f of ["src/app/api/me/brain/action/route.ts", "src/app/api/me/brain/message/route.ts"]) {
+      const m = /export const maxDuration = (\d+);/.exec(readFileSync(join(process.cwd(), f), "utf8"));
+      expect(m, f).not.toBeNull();
+      expect(Number(m![1])).toBe(BRAIN_ROUTE_MAX_S);
+      expect(Number(m![1]) * 1000).toBeLessThan(ACTION_LEASE_MS);
+    }
   });
 });

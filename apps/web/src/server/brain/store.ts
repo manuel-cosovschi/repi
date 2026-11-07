@@ -185,8 +185,10 @@ const actionView = (r: ActionRow): ActionView => ({
 const NOT_FOUND_ACTION = () => new AccessError("not_found", "No encontramos esa acción.", 404);
 /**
  * Cuánto dura el reclamo de una ejecución en curso. Pasado este plazo (el proceso se cayó a mitad de camino) otro pedido puede
- * retomarla. Holgado contra la duración máxima de una función: nunca corren dos ejecuciones vivas de la misma acción.
+ * retomarla. Tiene que superar la duración máxima de las rutas que ejecutan acciones (BRAIN_ROUTE_MAX_S, exportada como
+ * `maxDuration` en /api/me/brain/action y /message): así nunca corren dos ejecuciones vivas de la misma acción.
  */
+export const BRAIN_ROUTE_MAX_S = 60;
 export const ACTION_LEASE_MS = 120_000;
 /** Cuánto espera un pedido que encontró la acción ejecutándose en otro (doble toque, dos pestañas, reintento) antes de responder 409. */
 export const ACTION_WAIT_MS = 8_000;
@@ -300,11 +302,13 @@ async function awaitSettled(userId: string, id: string, waitMs: number): Promise
  * 1. la reclama con una sola sentencia atómica (proposed → confirmed con una marca);
  * 2. corre `run` (que puede revisar la acción contra el contexto de ese momento y cortar con ActionStop);
  * 3. la cierra: «executed» con el resultado; «failed» con el código si el servidor la rechazó (nunca contenido; caso 70); de
- *    vuelta a «proposed» si fue una falla pasajera (se puede reintentar: no se consume).
+ *    vuelta a «proposed» si fue una falla pasajera ANTES de escribir nada (se puede reintentar: no se consume). `run` llama a
+ *    `commit()` apenas su efecto principal quedó escrito: una falla posterior (un paso secundario) cierra la acción como
+ *    ejecutada con `partial`, porque reintentarla duplicaría el efecto (otra molestia, otro reemplazo).
  * Un doble toque, otra pestaña o un reintento que llega mientras corre espera el resultado y lo devuelve sin volver a correr
  * (executed: false); si tarda demasiado, 409 «en curso». Un reclamo abandonado (proceso caído) vence a los ACTION_LEASE_MS.
  */
-export async function executeActionOnce(userId: string, id: string, run: (a: ActionView) => Promise<Record<string, unknown> | null | void>, now = new Date(), o: { waitMs?: number } = {}): Promise<{ action: ActionView; executed: boolean; error?: unknown; stopped?: ActionStop }> {
+export async function executeActionOnce(userId: string, id: string, run: (a: ActionView, commit: () => void) => Promise<Record<string, unknown> | null | void>, now = new Date(), o: { waitMs?: number } = {}): Promise<{ action: ActionView; executed: boolean; error?: unknown; stopped?: ActionStop; partial?: boolean }> {
   for (let attempt = 0; ; attempt++) {
     const c = await claimAction(userId, id);
     if (!c) {
@@ -314,14 +318,14 @@ export async function executeActionOnce(userId: string, id: string, run: (a: Act
       if (cur.status === "proposed" && attempt < 2) continue; // el otro pedido la devolvió (falla pasajera o faltaban datos): se reintenta acá
       throw new AccessError("invalid_state", "Esa acción ya se resolvió.", 409);
     }
-    try {
-      const result = (await run(actionView(c.row))) ?? null;
-      return { action: await finishClaim(userId, id, c.token, "executed", { result }, now), executed: true };
-    } catch (e) {
-      if (e instanceof ActionStop) return { action: await finishClaim(userId, id, c.token, e.to, { error: e.code }, now), executed: false, stopped: e };
-      const code = e instanceof AccessError ? e.code : "error";
-      return { action: await finishClaim(userId, id, c.token, transient(e) ? "proposed" : "failed", { error: code }, now), executed: false, error: e };
-    }
+    let committed = false, result: Record<string, unknown> | null = null, failure: unknown = undefined, failed = false;
+    try { result = (await run(actionView(c.row), () => { committed = true; })) ?? null; } catch (e) { failure = e; failed = true; }
+    // El cierre va fuera del try: si cerrar «executed» falla, no se convierte en «proposed» (eso permitiría correrla de nuevo).
+    if (!failed) return { action: await finishClaim(userId, id, c.token, "executed", { result }, now), executed: true };
+    if (failure instanceof ActionStop) return { action: await finishClaim(userId, id, c.token, failure.to, { error: failure.code }, now), executed: false, stopped: failure };
+    const code = failure instanceof AccessError ? failure.code : "error";
+    if (committed) return { action: await finishClaim(userId, id, c.token, "executed", { result: { partial: true }, error: code }, now), executed: true, error: failure, partial: true };
+    return { action: await finishClaim(userId, id, c.token, transient(failure) ? "proposed" : "failed", { error: code }, now), executed: false, error: failure };
   }
 }
 

@@ -54,7 +54,8 @@ export async function todayCheckin(userId: string, now = new Date()) {
   return row ?? null;
 }
 
-export async function reportPain(userId: string, p: { zone: string; level: number; context: "now" | "after" | "out"; exerciseName?: string | null; sessionId?: string | null; note?: string | null; shareThis?: boolean }) {
+/** `o.onSaved`: se llama apenas la molestia quedó guardada (el asistente no reintenta si después falla una lectura). */
+export async function reportPain(userId: string, p: { zone: string; level: number; context: "now" | "after" | "out"; exerciseName?: string | null; sessionId?: string | null; note?: string | null; shareThis?: boolean }, o: { onSaved?: () => void } = {}) {
   if (!(PAIN_ZONES as readonly string[]).includes(p.zone) || !scale10(p.level) || !["now", "after", "out"].includes(p.context)) throw new AccessError("invalid", "Completá los datos marcados.");
   const rel = await myRelation(userId);
   if (p.shareThis && !rel) throw new AccessError("invalid", "No tenés coach con quien compartirla.");
@@ -63,6 +64,7 @@ export async function reportPain(userId: string, p: { zone: string; level: numbe
     userId, zone: p.zone, level: p.level, context: p.context, exerciseName: p.exerciseName?.slice(0, 120) || null, sessionId: p.sessionId ?? null,
     note: p.note?.trim().slice(0, 500) || null, sharedWithRelationId: p.shareThis && rel ? rel.rel.id : null,
   }).returning();
+  o.onSaved?.();
   const healthShared = rel ? (await activeItems(rel.rel.id)).includes("health") : false;
   return { id: row.id, visibleToCoach: !!rel && coachSeesPain(row, rel.rel.id, healthShared), coachName: rel?.coachName ?? null };
 }

@@ -20,6 +20,7 @@ vi.mock("@/server/support/services", () => ({}));
 vi.mock("@/server/commercial/payments", () => ({}));
 vi.mock("@/server/announcements/services", () => ({}));
 vi.mock("@/server/site/events", () => ({}));
+vi.mock("@/server/sales/admin-routes", () => ({ salesGet: vi.fn(), salesPost: vi.fn() })); // D209 (fuerza de ventas): la ruta de Admin la importa
 
 import { auth } from "@/server/auth";
 import { coachInsights, coachPendingSignals, memberInsights } from "@/server/brain/coach";

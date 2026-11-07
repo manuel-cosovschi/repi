@@ -5,6 +5,10 @@ import { body, handle, sessionUserId } from "@/server/access/http";
 import { rateLimit } from "@/server/access/util";
 import { cancelAction, confirmAction, proposeFromClient } from "@/server/brain/actions";
 
+// Menor que el plazo del reclamo de una acción (ACTION_LEASE_MS, 120 s; BRAIN_ROUTE_MAX_S en server/brain/store.ts): una
+// ejecución nunca sigue viva cuando otro pedido puede retomarla. Literal: Next lee la configuración de la ruta sin ejecutarla.
+export const maxDuration = 60;
+
 const Key = z.string().max(120);
 const B = z.discriminatedUnion("op", [
   z.object({ op: z.literal("propose"), kind: z.string().max(40), input: z.record(z.string(), z.unknown()).optional(), key: Key.optional(), section: z.string().max(20).optional() }).strict(),

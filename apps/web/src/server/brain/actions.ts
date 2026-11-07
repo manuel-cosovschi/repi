@@ -47,8 +47,31 @@ export const BRAIN_PROPOSAL_VERSION = STUDENT_REQUEST_VERSION;
  * (para nadie: «me gusta saltear comidas» no es un ejercicio que le gusta) y con menores o edad desconocida no se conversa por
  * acá (contrato: no reforzar conductas alimentarias extremas). Sin palabras de carga («peso», «kilos»), que son de los ejercicios.
  */
-export const FOOD_TALK = /\b(comer|comiendo|comida\w*|comid[ao]s?|ayun\w*|cena\w*|almuerz\w*|almorz\w*|desayun\w*|merienda\w*|picote\w*|dieta\w*|calori\w*|aliment\w*|nutri\w*|adelgaz\w*|engord\w*|bajar de peso|subir de peso|perder peso|ganar peso|peso corporal|grasa corporal|proteina\w*|suplement\w*|balanza|kilos de mas|flac[oa]s?|gord[oa]s?|panza|vomit\w*|purg\w*|atracon\w*|laxante\w*)\b/;
-export const isFoodTalk = (text: string) => FOOD_TALK.test(norm(text.replace(/[_:]/g, " ")));
+const FOOD_CORE = "comer|comiendo|comida\\w*|comid[ao]s?|ayun\\w*|picote\\w*|dieta\\w*|calori\\w*|aliment\\w*|nutri\\w*|adelgaz\\w*|engord\\w*|bajar de peso|subir de peso|perder peso|ganar peso|peso corporal|grasa corporal|proteina\\w*|suplement\\w*|balanza|kilos de mas|vomit\\w*|purg\\w*|atracon\\w*|laxante\\w*";
+/** Horarios de comida: hablan de comida en una preferencia, no en «voy a almorzar y vuelvo» o «antes del desayuno». */
+const MEALS = "cena\\w*|almuerz\\w*|almorz\\w*|desayun\\w*|merienda\\w*";
+/** Forma del cuerpo; «gorda» no cuenta en «barra gorda», «agarre grueso» y parecidos (equipamiento). */
+const SHAPE = "flac[oa]s?|(?<!(?:barra|agarre|empunadura|manija|mancuerna|soga|cuerda) )gord[oa]s?|panza";
+export const FOOD_TALK = new RegExp(`\\b(${FOOD_CORE}|${MEALS}|${SHAPE})\\b`);
+const FOOD_ANY_INTENT = new RegExp(`\\b(${FOOD_CORE}|${SHAPE})\\b`);
+const prepFood = (text: string) => norm(text.replace(/[_:]/g, " "));
+export const isFoodTalk = (text: string) => FOOD_TALK.test(prepFood(text));
+/**
+ * Con menores o edad desconocida, cualquier mensaje: comida, dieta y forma del cuerpo, sin los horarios de comida (revisión
+ * AC3: «la máquina está ocupada, voy a almorzar y vuelvo» no es hablar de alimentación).
+ */
+export const isFoodTalkAnyIntent = (text: string) => FOOD_ANY_INTENT.test(prepFood(text));
+/**
+ * ¿Una preferencia es de alimentación? Se mira lo que se va a guardar (clave, valor y texto armado), no la frase entera: «prefiero
+ * entrenar a la mañana antes del desayuno» guarda un horario. Un ejercicio que gusta o no gusta se mira por su nombre, sin la
+ * forma del cuerpo («press con barra gorda» es un ejercicio; «comer» no).
+ */
+export function isFoodPreference(p: { key?: unknown; value?: unknown; text?: unknown }): boolean {
+  const key = typeof p.key === "string" ? p.key : "";
+  const value = typeof p.value === "string" ? p.value : p.value != null ? JSON.stringify(p.value) : "";
+  if (/^(avoid|likes)_exercise:/.test(key)) return isFoodTalkAnyIntent(`${key.split(":").slice(1).join(" ")} ${value}`) || new RegExp(`\\b(${MEALS})\\b`).test(prepFood(key));
+  return isFoodTalk([key, value, typeof p.text === "string" ? p.text : ""].join(" "));
+}
 
 /**
  * Acciones atadas al momento en que se propusieron: la sesión abierta (o, sin sesión, el día). Una tarjeta de otro entrenamiento
@@ -69,12 +92,18 @@ const splitInput = (input: Record<string, unknown>) => {
   return { input: rest, bind: (_bind && typeof _bind === "object" ? _bind : null) as Bind | null };
 };
 /** ¿La propuesta es de otro momento? Devuelve el motivo (para «Eso ya no se puede hacer: …») o null si sigue valiendo. */
+/** Registrar una molestia vale todo el día, con o sin entrenamiento abierto (propuesta en Inicio y confirmada ya entrenando, o al revés). */
+const DAY_ONLY: ReadonlySet<ActionKind> = new Set<ActionKind>(["report_discomfort"]);
+/** «Sólo por hoy»: también vence al cambiar el día aunque la sesión siga abierta pasada la medianoche. */
+const DAY_TOO: ReadonlySet<ActionKind> = new Set<ActionKind>(["propose_short_session", "apply_short_session"]);
 function staleBinding(kind: ActionKind, bind: Bind | null, sc: ServerContext): string | null {
   if (!SESSION_BOUND.has(kind)) return null;
   const again = "Pedímelo de nuevo si todavía lo necesitás.";
   if (!bind || !("sessionId" in bind)) return `es de antes. ${again}`;
+  const otherDay = bind.day !== arDay(sc.now);
+  if (DAY_ONLY.has(kind)) return otherDay ? `era de otro día. ${again}` : null;
   if ((bind.sessionId ?? null) !== (sc.session?.id ?? null)) return `era para otro entrenamiento. ${again}`;
-  if (!bind.sessionId && bind.day !== arDay(sc.now)) return `era de otro día. ${again}`;
+  if ((!bind.sessionId || DAY_TOO.has(kind)) && otherDay) return `era de otro día. ${again}`;
   return null;
 }
 
@@ -154,7 +183,7 @@ export async function alternativesFor(sc: ServerContext, exerciseRef: string, re
 
 /** Valida (con las alternativas que hagan falta) una propuesta. Devuelve la entrada normalizada o los errores. */
 async function validate(sc: ServerContext, p: Pick<ActionProposal, "kind" | "input" | "key">, cache?: AltCache) {
-  if (p.kind === "save_preference" && isFoodTalk([p.input?.key, p.input?.text, p.input?.value].filter((x) => typeof x === "string").join(" "))) {
+  if (p.kind === "save_preference" && isFoodPreference({ key: p.input?.key, value: p.input?.value, text: p.input?.text })) {
     return { ok: false as const, errors: ["De alimentación no guardo preferencias."] };
   }
   const alts: Record<string, string[]> = {};
@@ -188,7 +217,8 @@ export async function registerProposals(sc: ServerContext, proposals: ActionProp
 }
 
 // ── Ejecutores ──────────────────────────────────────────────────────────────
-type Run = (sc: ServerContext, input: Record<string, unknown>, a: ActionView, details: ActionDetails, now: Date) => Promise<Record<string, unknown>>;
+/** `commit`: avisar apenas el efecto principal quedó escrito (después, una falla no hace reintentar: duplicaría el efecto). */
+type Run = (sc: ServerContext, input: Record<string, unknown>, a: ActionView, details: ActionDetails, now: Date, commit: () => void) => Promise<Record<string, unknown>>;
 const str = (x: unknown) => (typeof x === "string" ? x : null);
 const CLOSED = () => new AccessError("closed", "No hay un entrenamiento abierto.", 409);
 
@@ -223,12 +253,13 @@ const RUN: Record<ActionKind, Run> = {
   propose_substitution: async (sc, input) => ({ text: "", navigate: { to: "change_exercise", programExerciseId: sessionEx(sc, str(input.exerciseId))?.peId ?? null } }),
   propose_short_session: async (_sc, input) => ({ text: "", navigate: { to: "short_session", minutes: input.minutes } }),
 
-  apply_substitution: async (sc, input, _a, _d, now) => {
+  apply_substitution: async (sc, input, _a, _d, now, commit) => {
     const se = sessionEx(sc, str(input.exerciseId));
     if (!se || !sc.session) throw CLOSED();
     const r = await setExerciseChange(sc.userId, sc.session.id, { programExerciseId: se.peId, change: { kind: "substitute", reason: input.reason as "busy", exerciseId: str(input.substituteId) } }, now);
     const sub = r.change?.substitute;
     if (!sub) throw new AccessError("error", "No se aplicó el reemplazo.", 500);
+    commit();
     if (input.reason === "busy" || input.reason === "no_equipment") {
       await recordTemporal(sc.userId, { key: "busy_equipment", value: { exerciseId: se.originalId }, text: `Hoy ${se.originalName} no estaba disponible.`, ref: { sessionId: sc.session.id, exerciseId: se.originalId } }, now);
     }
@@ -238,7 +269,7 @@ const RUN: Record<ActionKind, Run> = {
     };
   },
 
-  apply_short_session: async (sc, input, _a, _d, now) => {
+  apply_short_session: async (sc, input, _a, _d, now, commit) => {
     if (!sc.session) throw CLOSED();
     const sid = sc.session.id;
     const skip = (input.skip as string[]).map((id) => sessionEx(sc, id)).filter((x): x is NonNullable<typeof x> => !!x);
@@ -256,6 +287,7 @@ const RUN: Record<ActionKind, Run> = {
       }
       throw e;
     }
+    commit();
     await recordTemporal(sc.userId, { key: "minutes_today", value: input.minutes, text: `Hoy tenías ${input.minutes} minutos.`, ref: { sessionId: sid } }, now);
     const names = skip.map((x) => x.name);
     return {
@@ -264,9 +296,10 @@ const RUN: Record<ActionKind, Run> = {
     };
   },
 
-  save_preference: async (sc, input, _a, _d, now) => {
+  save_preference: async (sc, input, _a, _d, now, commit) => {
     const key = input.key as string;
     const { item, created } = await createMemory(sc.userId, { kind: "preference", key, value: input.value, text: input.text as string, source: "user" }, now);
+    commit();
     // Modificar una preferencia (caso 30): la nueva reemplaza a la anterior de la misma clave.
     await db.update(brainMemory).set({ revokedAt: now })
       .where(and(eq(brainMemory.userId, sc.userId), eq(brainMemory.kind, "preference"), eq(brainMemory.key, key), isNull(brainMemory.revokedAt), ne(brainMemory.id, item.id)));
@@ -312,14 +345,14 @@ const RUN: Record<ActionKind, Run> = {
     };
   },
 
-  report_discomfort: async (sc, input, _a, details) => {
+  report_discomfort: async (sc, input, _a, details, _now, commit) => {
     const se = sessionEx(sc, str(input.exerciseId));
     const m = exMeta(sc, str(input.exerciseId));
     const zone = painZone(str(input.area), details.zone)!;
     const r = await reportPain(sc.userId, {
       zone, level: details.level as number, context: se && sc.session ? "now" : "out", exerciseName: m?.name ?? null,
       sessionId: se && sc.session ? sc.session.id : null, note: str(input.note),
-    });
+    }, { onSaved: commit });
     return {
       text: `Listo: registré la molestia (${zone}). ${r.visibleToCoach ? `La ve ${r.coachName ?? "tu entrenador"}.` : "Queda en tu perfil."} Si sigue, consultalo con tu entrenador o con un profesional de la salud.`,
       painId: r.id, visibleToCoach: r.visibleToCoach,
@@ -381,19 +414,33 @@ const failText = (kind: ActionKind, e: unknown) => {
   };
   return `No pude ${what[kind] ?? "hacerlo"}: no se cambió nada.${msg}`;
 };
+/** Qué decir cuando el efecto quedó hecho pero falló un paso posterior (registrar el contexto, leer quién la ve). */
+const PARTIAL_TEXT: Partial<Record<ActionKind, string>> = {
+  report_discomfort: "Listo: registré la molestia. No pude confirmar quién la ve: revisalo en tu perfil. Si sigue, consultalo con tu entrenador o con un profesional de la salud.",
+  apply_substitution: "Listo: el reemplazo de hoy quedó aplicado. Tu rutina original queda igual.",
+  apply_short_session: "Listo: por hoy dejamos esos ejercicios para otro día. Lo registrado no cambia y tu rutina tampoco.",
+  save_preference: "Listo: lo recuerdo. Lo podés ver o borrar en Perfil → Asistente REPI.",
+};
 const resultText = (a: ActionView) => (typeof a.result?.text === "string" ? (a.result.text as string) : "");
 
 /**
  * Ejecuta una acción una sola vez (executeActionOnce: la reclama, corre `run` sin transacciones abiertas y la cierra) y arma lo
  * que se le dice a la persona con el resultado real o con la falla. `orgId` se lee al final (el contexto puede armarse en `run`).
  */
-async function runAction(userId: string, a: ActionView, run: (cur: ActionView) => Promise<Record<string, unknown>>, now: Date, orgId: () => string | null): Promise<ExecOutcome> {
+async function runAction(userId: string, a: ActionView, run: (cur: ActionView, commit: () => void) => Promise<Record<string, unknown>>, now: Date, orgId: () => string | null): Promise<ExecOutcome> {
   const kind = a.kind as ActionKind;
   const r = await executeActionOnce(userId, a.id, run, now);
   if (r.stopped) {
     // Faltan datos (details_required): la acción vuelve a quedar propuesta y se piden; el llamador muestra el pedido.
     if (r.stopped.to === "proposed" && r.stopped.reason instanceof Error) throw r.stopped.reason;
     return { ok: false, executed: false, action: r.action, result: null, text: r.stopped.text, code: r.stopped.code ?? "blocked" };
+  }
+  if (r.partial) {
+    // El efecto principal quedó escrito y falló un paso posterior: no se reintenta (duplicaría) y no se dice «no se cambió nada».
+    logError("brain.actions.partial", r.error);
+    await audit(db, { actorUserId: userId, orgId: orgId(), action: "brain.action_executed", resourceType: "brain_action", resourceId: a.id, meta: { kind, partial: true } })
+      .catch((e) => logError("brain.actions.audit", e));
+    return { ok: true, executed: true, action: r.action, result: r.action.result, text: PARTIAL_TEXT[kind] ?? "Listo: quedó hecho, aunque no pude confirmar todos los detalles." };
   }
   if (r.error !== undefined) {
     const code = r.error instanceof AccessError ? r.error.code : "error";
@@ -429,7 +476,7 @@ export async function confirmAction(userId: string, key: string, o: { details?: 
   if (a.status !== "proposed" && a.status !== "confirmed") throw new AccessError("invalid_state", "Esa acción ya se resolvió.", 409);
   const kind = a.kind;
   let used: ServerContext | null = null;
-  return runAction(userId, a, async (cur) => {
+  return runAction(userId, a, async (cur, commit) => {
     const sc = used = o.sc ?? await loadContext(userId, { section: "workout" }, now);
     const { input, bind } = splitInput(cur.input);
     const stale = staleBinding(kind, bind, sc);
@@ -439,7 +486,7 @@ export async function confirmAction(userId: string, key: string, o: { details?: 
     const d = decideExecution(ACTIONS[kind], sc.prefs.autonomy, execCtx(sc));
     if (d.mode === "blocked") throw new ActionStop("blocked", d.code, d.reason ?? "Esa acción no está disponible.");
     try { preflight(kind, v.input, o.details ?? {}); } catch (e) { throw new ActionStop("proposed", null, e instanceof Error ? e.message : "", e); }
-    return RUN[kind](sc, v.input, cur, o.details ?? {}, now);
+    return RUN[kind](sc, v.input, cur, o.details ?? {}, now, commit);
   }, now, () => used?.relation?.orgId ?? null);
 }
 
@@ -477,7 +524,7 @@ export async function proposeFromClient(userId: string, p: { kind: unknown; inpu
   const pa = actions[0];
   const action = await actionByKey(userId, key);
   if (pa.mode !== "auto" || !action) return { action: action!, mode: pa.mode, reason: pa.reason, outcome: null };
-  return { action, mode: pa.mode, reason: pa.reason, outcome: await runAction(userId, action, (cur) => RUN[kind](sc, pa.input, cur, {}, now), now, () => sc.relation?.orgId ?? null) };
+  return { action, mode: pa.mode, reason: pa.reason, outcome: await runAction(userId, action, (cur, commit) => RUN[kind](sc, pa.input, cur, {}, now, commit), now, () => sc.relation?.orgId ?? null) };
 }
 
 /**

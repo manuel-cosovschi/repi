@@ -155,7 +155,10 @@ describe("revisión AC3 · cierre, panel y preferencias", () => {
     const roomy = panelPlace({ dockH: 300, vh: 844, layoutH: 844, wide: false });
     expect(roomy.max).toBe(524);
     expect(roomy.compact).toBe(false);
-    expect(panelPlace({ dockH: 600, vh: 568, layoutH: 568, wide: false }).max).toBe(0);
+    // Revisión AC3 (verificación, problema 5): sin lugar para usarlo arriba (dock altísimo, teléfono apaisado), hoja de abajo compacta.
+    expect(panelPlace({ dockH: 600, vh: 568, layoutH: 568, wide: false })).toEqual({ top: false, max: null, compact: true, wide: false });
+    expect(panelPlace({ dockH: 320, vh: 390, layoutH: 390, wide: false })).toMatchObject({ top: false, compact: true });
+    expect(panelPlace({ dockH: 450, vh: 568, layoutH: 568, wide: false })).toMatchObject({ top: false, compact: true });
     // Con el teclado abierto (se escribe en el panel; el dock queda debajo del teclado) usa lo visible.
     expect(panelPlace({ dockH: 378, vh: 308, layoutH: 568, wide: false })).toMatchObject({ top: true, max: 288, compact: PANEL_FULL_MIN > 288 });
   });

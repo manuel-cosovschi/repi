@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { db, schema } from "@/db";
 import { resetRateLimits } from "@/server/access/util";
 import * as tr from "@/server/training/services";
-import { cancelAction, confirmAction, proposeFromClient, type ProposedAction } from "@/server/brain/actions";
+import { cancelAction, confirmAction, isFoodPreference, isFoodTalkAnyIntent, proposeFromClient, type ProposedAction } from "@/server/brain/actions";
 import { AGE_REPLY } from "@repi/domain/brain";
 import { listMemory } from "@/server/brain/memory";
 import { appendMessage } from "@/server/brain/conversation";
@@ -313,5 +313,33 @@ describe("revisión AC3 (hallazgos 9, 16, 18, 19, 21, 30 y 31)", () => {
     expect(await err(brainHome(w.user))).toMatchObject({ code: "module_off", status: 404 });
     expect(await err(sessionReviewFor(w.user, s.sid))).toMatchObject({ code: "module_off", status: 404 });
     expect(await changesOf(s.sid)).toHaveLength(0);
+  });
+});
+
+describe("revisión AC3 (verificación): molestia atada al día y alimentación sin falsos positivos", () => {
+  it("una molestia propuesta en Inicio se puede registrar después de empezar el entrenamiento (vale todo el día)", async () => {
+    const w = await coachWorld();
+    const r = await handleMessage(w.user, { text: "Me duele la rodilla", section: "home" });
+    const a = acts(r.reply).find((x) => x.kind === "report_discomfort")!;
+    expect(a).toBeTruthy();
+    await startToday(w.user);
+    const out = await confirmAction(w.user, a.key, { details: { level: 3, zone: "Rodilla der." } });
+    expect(out).toMatchObject({ ok: true, executed: true });
+    expect(await db.select().from(schema.painReport).where(eq(schema.painReport.userId, w.user))).toHaveLength(1);
+  });
+  it("lo que se guardaría decide si una preferencia es de alimentación; horarios de comida y «barra gorda» no son hablar de comida", () => {
+    expect(isFoodPreference({ key: "prefers_time", value: "morning", text: "Preferís entrenar a la mañana." })).toBe(false);
+    expect(isFoodPreference({ key: "avoid_exercise:press con barra gorda", value: { name: "press con barra gorda" }, text: "No te gusta el press con barra gorda." })).toBe(false);
+    expect(isFoodPreference({ key: "avoid_exercise:comer", value: { name: "comer" }, text: "No te gusta comer." })).toBe(true);
+    expect(isFoodPreference({ key: "likes_exercise:saltear comidas", value: { name: "saltear comidas" }, text: "Preferís saltear comidas." })).toBe(true);
+    expect(isFoodTalkAnyIntent("La máquina está ocupada, voy a almorzar y vuelvo")).toBe(false);
+    expect(isFoodTalkAnyIntent("Prefiero entrenar a la mañana antes del desayuno")).toBe(false);
+    expect(isFoodTalkAnyIntent("me siento gorda")).toBe(true);
+    expect(isFoodTalkAnyIntent("quiero hacer dieta")).toBe(true);
+  });
+  it("adultos: «prefiero entrenar a la mañana antes del desayuno» se guarda como horario, no se rechaza como alimentación", async () => {
+    const w = await coachWorld();
+    const r = await send(w.user, "Prefiero entrenar a la mañana antes del desayuno");
+    expect(r.reply.text).not.toMatch(/De alimentación no guardo preferencias/);
   });
 });

@@ -187,6 +187,11 @@ export function reviewNextLine(v: { text: string; next: { text: string } | null 
 export const PANEL_GAP = 20;
 /** Por debajo de este alto libre el panel de arriba queda compacto: sin presentación y con atajos sólo antes de la charla. */
 export const PANEL_FULL_MIN = 300;
+/**
+ * Por debajo de este alto libre el panel arriba no se puede usar (encabezado + conversación mínima + campo ≈ 120–160 px): pasa a
+ * hoja de abajo, compacta, encima del dock mientras está abierta (revisión AC3: teléfono apaisado, o 320×568 con un dock alto).
+ */
+export const PANEL_USABLE_MIN = 150;
 export type PanelPlace = { top: boolean; max: number | null; compact: boolean; wide: boolean };
 /**
  * Dónde va el panel (revisión AC3 #24/#25). Con un dock a la vista (registrar la serie) y pantalla angosta: arriba, con un alto
@@ -199,6 +204,7 @@ export function panelPlace(p: { dockH: number | null; vh: number; layoutH: numbe
   if (!top) return { top: false, max: null, compact: false, wide: p.wide };
   const keyboard = p.layoutH - p.vh > 120;
   const free = Math.max(0, Math.floor(p.vh - (keyboard ? 0 : p.dockH!) - PANEL_GAP));
+  if (free < PANEL_USABLE_MIN) return { top: false, max: null, compact: true, wide: false };
   return { top: true, max: free, compact: free < PANEL_FULL_MIN, wide: false };
 }
 /**

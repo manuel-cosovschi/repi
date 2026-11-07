@@ -5,6 +5,10 @@ import { body, handle, sessionUserId } from "@/server/access/http";
 import { rateLimit } from "@/server/access/util";
 import { handleMessage } from "@/server/brain/orchestrator";
 
+// Menor que el plazo del reclamo de una acción (ACTION_LEASE_MS, 120 s; BRAIN_ROUTE_MAX_S en server/brain/store.ts): una
+// ejecución nunca sigue viva cuando otro pedido puede retomarla. Literal: Next lee la configuración de la ruta sin ejecutarla.
+export const maxDuration = 60;
+
 const Id = z.string().max(64).nullable().optional();
 const B = z.object({
   text: z.string().max(1000),

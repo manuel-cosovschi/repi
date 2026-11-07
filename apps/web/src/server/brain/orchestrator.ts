@@ -30,7 +30,7 @@ import { exMeta, isSection, loadContext, sessionEx, timedReps, type ExMeta, type
 import { appendMessage, listMessages, MESSAGE_MAX, type MessageView } from "./conversation";
 import { callAi, INFLIGHT_TTL_MS, type AiFailReason } from "./gateway";
 import { requireAssistant } from "./prefs";
-import { alternativesFor, altReason, cancelAction, confirmAction, isFoodTalk, registerProposals, type AltCache, type ProposedAction } from "./actions";
+import { alternativesFor, altReason, cancelAction, confirmAction, isFoodPreference, isFoodTalk, isFoodTalkAnyIntent, registerProposals, type AltCache, type ProposedAction } from "./actions";
 
 const { brainMessage, workoutSession, setLog, trainingTarget, historyEntry, ownRoutine, aiUsage } = schema;
 const DAY = 86_400_000;
@@ -181,11 +181,13 @@ async function decide(sc: ServerContext, text: string, t: Turn): Promise<Built> 
 
   // 3. Edad: cuerpo, peso y alimentación sólo con adultos (también antes de la IA). Comida y dieta, con cualquier intención
   // (p. ej. «me gusta saltear comidas» como preferencia); las palabras de carga («peso», «kilos»), sólo fuera de las de ejercicio.
-  if (!canTalkBody(ctx.person.age.value) && (intent.name === "body_goal" || isFoodTalk(text) || (intent.name === "unknown" && BODY_DIET.test(norm(text))))) {
+  // Revisión AC3: una preferencia se mira por lo que se guardaría; el resto, sin horarios de comida ni «barra gorda».
+  const foodish = intent.name === "set_preference" ? isFoodPreference(intent.slots) : isFoodTalkAnyIntent(text);
+  if (!canTalkBody(ctx.person.age.value) && (intent.name === "body_goal" || foodish || (intent.name === "unknown" && BODY_DIET.test(norm(text))))) {
     return { reply: reply(AGE_REPLY[ctx.person.age.value === "minor" ? "minor" : "unknown"]), ref: { intent: "age_policy" } };
   }
   // Con adultos tampoco se guarda la alimentación como preferencia de entrenamiento (ni se refuerza una conducta alimentaria).
-  if (intent.name === "set_preference" && isFoodTalk(text)) {
+  if (intent.name === "set_preference" && foodish) {
     return { reply: reply("De alimentación no guardo preferencias: lo que recuerdo es sobre tu entrenamiento y cómo querés que te hable. Para ordenar tus comidas, lo mejor es un profesional de la nutrición."), ref: { intent: "set_preference", flag: "food" } };
   }
 
