@@ -56,7 +56,7 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
           <button type="button" className="x3-btn pri" onClick={watch}><Play size={18} weight="fill" aria-hidden="true" />Mirá REPI en acción</button>
           <DemoButton role="member" label="Probá la demo" className="x3-btn ghost" target="hero" />
         </div>
-        <p className="x3-hero-proof"><MapPin size={16} weight="bold" aria-hidden="true" /><span>En funcionamiento en <b>Smart Center Gym</b>, Mar del Plata.</span></p>
+        <p className="x3-hero-proof"><MapPin size={16} weight="bold" aria-hidden="true" /><span>Ya funciona en gimnasios de Mar del Plata.</span></p>
       </div>
       <a className="x3-scroll" href="#problema" aria-label="Seguir: el problema que resuelve REPI"><ArrowDown size={18} weight="bold" aria-hidden="true" /></a>
     </section>

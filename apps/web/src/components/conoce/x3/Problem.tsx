@@ -4,6 +4,7 @@
 // solo lugar; el texto pasa de «Antes» a «Ahora». Fijada y con scrub: es reversible. Movimiento reducido o pantalla baja
 // (menos de 560 px de alto, p. ej. con zoom): los dos estados se muestran uno debajo del otro, sin animación ni recorte.
 import { useRef } from "react";
+import { Wordmark } from "@/components/access/Wordmark";
 import { gsap, PIN_MQ, ScrollTrigger, useGSAP } from "./gsap";
 
 const FRAGS = [
@@ -82,7 +83,8 @@ export function Problem() {
           <h2 id="cn-prob">Antes, cada dato <em>en otro lado.</em></h2>
           <p>La rutina en papel, el progreso en una planilla, las consultas en el chat y el dueño sin ver qué pasa en su sala.</p>
         </div>
-        <div className="x3-prob-core" aria-hidden="true"><span className="x3-prob-dot" /><span>repi</span></div>
+        {/* Los fragmentos convergen en el logo real (nunca el nombre escrito con otra tipografía). */}
+        <div className="x3-prob-core" aria-hidden="true"><Wordmark width={132} /></div>
         <div className="x3-prob-copy x3-prob-after">
           <p className="x3-prob-big">Ahora, cada persona con el contexto que necesita.</p>
           <ul className="x3-prob-roles">

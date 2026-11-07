@@ -56,20 +56,23 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-fine.center { text-align: center; margin: 28px auto 0; max-width: 56ch; }
 
 /* ── Botones ────────────────────────────────────────────────────────── */
-.x3-btn { --b: var(--x-white); display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 999px;
-  font: 600 16px var(--font-ui); letter-spacing: .005em; text-decoration: none; cursor: pointer; border: 1px solid transparent; color: var(--b); background: transparent;
-  transition: transform .25s var(--x-ease), background-color .25s, border-color .25s, color .25s, box-shadow .25s; -webkit-tap-highlight-color: transparent; }
-.x3-btn svg { transition: transform .3s var(--x-ease); }
-.x3-btn:active { transform: scale(.97); }
-.x3-btn.pri { background: var(--x-cyan); color: var(--x-navy); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6); }
-.x3-btn.pri:hover { background: #33DBFF; }
-.x3-btn.pri:hover svg { transform: translateX(3px); }
-.x3-btn.ghost { border-color: rgba(248, 250, 252, .32); }
-.x3-btn.ghost:hover { border-color: var(--x-white); background: rgba(248, 250, 252, .06); }
+/* Pedido del titular (07/11): nada de píldoras cian enormes con sombra. Botones rectos y precisos (G · Atlética): esquina de
+   8 px, alto justo, el principal en blanco sobre navy y el cian reservado para lo vivo (la ley de la sala). La flecha marca el
+   paso siguiente y se adelanta al pasar el puntero. */
+.x3-btn { --b: var(--x-white); display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 20px; border-radius: 8px;
+  font: 600 15px var(--font-ui); letter-spacing: .01em; text-decoration: none; cursor: pointer; border: 1px solid transparent; color: var(--b); background: transparent;
+  transition: transform .2s var(--x-ease), background-color .2s, border-color .2s, color .2s; -webkit-tap-highlight-color: transparent; }
+.x3-btn svg { transition: transform .3s var(--x-ease); flex: none; }
+.x3-btn:active { transform: scale(.98); }
+.x3-btn.pri { background: var(--x-white); color: var(--x-navy); }
+.x3-btn.pri:hover { background: #fff; }
+.x3-btn:hover svg:last-child:not(:first-child) { transform: translateX(3px); }
+.x3-btn.ghost { border-color: rgba(248, 250, 252, .24); }
+.x3-btn.ghost:hover { border-color: rgba(248, 250, 252, .7); }
 .x3-btn.text { padding: 0 6px; min-height: 44px; color: var(--x-muted); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(154, 168, 186, .5); }
 .x3-btn.text:hover { color: var(--x-white); }
-.x3-btn.sm { min-height: 42px; padding: 0 16px; font-size: 14px; }
-.x3-btn.lg { min-height: 58px; padding: 0 30px; font-size: 18px; }
+.x3-btn.sm { min-height: 38px; padding: 0 14px; font-size: 14px; }
+.x3-btn.lg { min-height: 54px; padding: 0 26px; font-size: 17px; }
 .x3-btn[disabled], .x3-btn[aria-busy="true"] { opacity: .6; cursor: progress; }
 .x3 .cn-demo-act { display: contents; }
 /* Errores sobre fondo oscuro (botones de demo). Los del formulario, que es una tarjeta clara, conservan su color de error. */
@@ -85,9 +88,12 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-head-cta { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 /* «Saltar al contenido» por encima del encabezado fijo cuando recibe el foco. */
 .x3 .st-skip { z-index: 30; }
-.x3-motion { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--x-line); background: none; color: var(--x-muted); display: grid; place-items: center; cursor: pointer; transition: color .3s, border-color .3s; }
-.x3-motion:hover { color: var(--x-white); border-color: var(--x-edge); }
-.x3-motion[aria-pressed="true"] { color: var(--x-cyan); border-color: var(--x-cyan); }
+.x3-head-link { color: var(--x-muted); text-decoration: none; font-size: 14px; font-weight: 600; min-height: 38px; padding: 0 10px; display: inline-flex; align-items: center; transition: color .2s; }
+.x3-head-link:hover { color: var(--x-white); }
+/* «Pausar animaciones» en el pie, como un enlace más (con su nombre escrito). */
+.x3-motion { min-height: 32px; padding: 0; border: 0; background: none; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.x3-motion:hover { color: var(--x-white); }
+.x3-motion[aria-pressed="true"] { color: var(--x-cyan); }
 /* Animaciones pausadas por la persona: las CSS en bucle se detienen. */
 html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html[data-motion="paused"] .x3 *::after { animation-play-state: paused !important; }
 @media (max-width: 899px) { .x3-nav { display: none; } }
@@ -159,8 +165,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-prob-before h2 em { font-style: normal; color: var(--x-white); }
 .x3-prob-before p { margin: 18px auto 0; max-width: 46ch; color: var(--x-muted); font-size: clamp(1rem, 1.6vw, 1.15rem); line-height: 1.55; }
 .x3-prob-before { background: radial-gradient(closest-side, rgba(11, 15, 20, .82), transparent); padding: 40px 10px; }
-.x3-prob-core { position: absolute; left: 50%; top: 14%; translate: -50% 0; display: flex; align-items: center; gap: 10px; font: 700 28px var(--font-ui); opacity: 0; }
-.x3-prob-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--x-cyan); }
+.x3-prob-core { position: absolute; left: 50%; top: 14%; translate: -50% 0; display: flex; opacity: 0; }
 .x3-prob-after { opacity: 0; }
 .x3-prob-big { margin: 0 auto; color: var(--x-white); font: 700 clamp(2.2rem, 5.6vw, 4.6rem)/.94 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; max-width: 16ch; text-wrap: balance; }
 .x3-prob-roles { list-style: none; margin: 26px auto 0; padding: 0; display: grid; gap: 10px; max-width: 520px; text-align: left; }
@@ -341,10 +346,12 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 /* ── 07 · Caso real (momento calmo, claro) ──────────────────────────── */
 .x3-proof { background: var(--x-cream); color: var(--x-ink); padding: clamp(90px, 14vh, 150px) 0 clamp(70px, 10vh, 110px); position: relative; }
 .x3-proof-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 80px); align-items: end; margin-bottom: clamp(60px, 9vh, 100px); }
-.x3-proof-logo img { display: block; width: min(300px, 70vw); height: auto; }
-.x3-proof-place { margin: 12px 0 0; color: var(--x-ink-2); font-weight: 600; }
+/* Caso de éxito: panel navy para que el logo de Smart Center (blanco y verde) se vea sobre el crema. */
+.x3-case { margin: 0; background: var(--x-navy); color: var(--x-white); border-radius: 12px; padding: clamp(22px, 3vw, 32px); display: flex; flex-direction: column; gap: 16px; }
+.x3-case-k { font: 600 12px var(--font-ui); text-transform: uppercase; letter-spacing: .14em; color: var(--x-muted); }
+.x3-case img { display: block; width: min(240px, 62vw); height: auto; }
+.x3-case p { margin: 0; color: #C9D3DF; font-size: 15px; line-height: 1.55; max-width: 46ch; }
 .x3-proof-text p { margin: 0 0 14px; font-size: clamp(1.05rem, 1.6vw, 1.22rem); line-height: 1.6; max-width: 56ch; }
-.x3-proof .x3-fine { color: #5B6675; }
 .x3-steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--x-ink); }
 .x3-steps li { counter-increment: s; position: relative; padding: 22px 18px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 1.45; color: var(--x-ink-2); }
 .x3-steps li::before { content: ""; position: absolute; top: -7px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--x-ink); }
@@ -387,16 +394,9 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-film-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .x3-film-x { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--x-line); background: var(--x-surface); color: var(--x-white); display: grid; place-items: center; cursor: pointer; }
 .x3-film video { width: 100%; max-height: 80vh; border-radius: 18px; background: #000; }
-.x3-film small { color: var(--x-muted); }
-.x3-film-credit { font-size: 13px; }
-.x3-film-credit a { color: var(--x-white); text-decoration: underline; text-underline-offset: 3px; }
-.x3-film-desc { font-size: 14px; color: var(--x-muted); }
-.x3-film-desc summary { min-height: 32px; display: inline-flex; align-items: center; color: var(--x-white); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.x3-film-desc ol { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 8px; line-height: 1.45; max-width: 75ch; }
-.x3-film-desc li span { font-variant-numeric: tabular-nums; color: var(--x-dim); margin-right: 6px; }
+.x3-film-sum { margin: 2px 0 0; max-width: 70ch; font-size: 15px; line-height: 1.5; color: var(--x-muted); }
 
 /* ── Teléfono: barra inferior que no tapa contenido ─────────────────── */
-.x3 .cn-sticky { z-index: 18; }
 
 /* ── Movimiento reducido: estados finales, sin cámara ni scrub ─────── */
 @media (prefers-reduced-motion: reduce) {
@@ -416,4 +416,4 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3 .cn-sim { --ui-surface: #1A2433; --ui-surface-2: #223047; --ui-text: #F8FAFC; --ui-text-2: #B4C0CF; --ui-muted: #9AA8BA; --ui-border: #2D3B4F; --ui-border-strong: #3D4E66;
   --ui-divider: #2D3B4F; --ui-link: #00D1FF; --ui-warning-tint: rgba(255, 196, 92, .12); --ui-warning-text: #FFD48A; --ui-selection-bg: rgba(0, 209, 255, .16); --ui-accent: #00D1FF;
   --ui-accent-tint: rgba(93, 230, 216, .12); --ui-error-tint: rgba(255, 120, 100, .14); box-shadow: none; }
-.x3 .cn-sim .cn-btn.pri { background: var(--x-cyan); color: var(--x-navy); border-radius: 999px; min-height: 48px; border: 0; font: 600 16px var(--font-ui); }
+.x3 .cn-sim .cn-btn.pri { background: var(--x-white); color: var(--x-navy); border-radius: 8px; min-height: 46px; border: 0; font: 600 15px var(--font-ui); }

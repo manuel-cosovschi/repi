@@ -28,9 +28,9 @@ export function MotionToggle() {
     try { if (next) localStorage.setItem(KEY, "paused"); else localStorage.removeItem(KEY); } catch { /* */ }
   };
   return (
-    <button type="button" className="x3-motion" aria-pressed={paused} onClick={toggle} title={paused ? "Reanudar animaciones" : "Pausar animaciones"}>
-      {paused ? <Play size={16} weight="fill" aria-hidden="true" /> : <Pause size={16} weight="fill" aria-hidden="true" />}
-      <span className="x3-sr">Pausar animaciones</span>
+    <button type="button" className="x3-motion" aria-pressed={paused} onClick={toggle}>
+      {paused ? <Play size={14} weight="fill" aria-hidden="true" /> : <Pause size={14} weight="fill" aria-hidden="true" />}
+      Pausar animaciones
     </button>
   );
 }
