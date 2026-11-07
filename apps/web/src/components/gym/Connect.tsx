@@ -7,9 +7,10 @@ import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Bars, Head, HBar, LocSelect, PRI_CHIP, Seg, SOURCE, can, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
 import { BriefBlock, type BriefViewData } from "@/components/shared/BriefBlock";
+import { MemberProgramModal } from "./Members";
 
 type Card = {
-  id: string; ref: string; member: string | null; gymMemberId: string | null; label: string; reason: string | null; priority: keyof typeof TASK_PRIORITY; source: string;
+  id: string; ref: string; member: string | null; gymMemberId: string | null; label: string; reason: string | null; category: string; priority: keyof typeof TASK_PRIORITY; source: string;
   summary: string; exercise: string | null; brief?: BriefViewData; fromSession: boolean; state: string; stateLabel: string; status: string;
   assignee: { id: string; name: string } | null; completedBy: string | null; createdAt: string; takenAt: string | null; completedAt: string | null; dueAt: string | null;
   ageMin: number; overdue: boolean; lastNote: { kind: string; text: string | null; by: string | null; at: string } | null;
@@ -38,6 +39,8 @@ const EV: Record<string, string> = {
   accepted: "Aceptó el traspaso", declined: "Rechazó el traspaso", reassigned: "Reasignó", resolved: "Resolvió", cancelled: "Canceló", member_comment: "Comentario del socio", feedback: "Opinión del socio",
 };
 const mateTxt = (m: Mate) => (m.onShift ? `En turno · ${AVAIL[m.availability ?? "available"]} (declarado)` : "Fuera de turno");
+/** Pedidos que se atienden armando el programa: se crea o edita desde la misma solicitud y, al guardarlo, queda completada. */
+const PROGRAM_REQUESTS = ["programa_nuevo", "actualizar_programa"];
 
 function ConnectCard({ c, onOpen, onTake, busy }: { c: Card; onOpen: () => void; onTake?: () => void; busy?: boolean }) {
   return (
@@ -134,6 +137,7 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
   const [form, setForm] = useState<Form>(null);
   const [f, setF] = useState({ note: "", memberNote: "", done: "", pending: "", next: "", dueAt: "", toUserId: "", forShift: false });
   const [changed, setChanged] = useState(false);
+  const [editing, setEditing] = useState(false);
   const { busy, run } = useAct(shell.flash);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
   const act = async (action: string, ok: string, body: object = {}) => {
@@ -143,6 +147,7 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
   const t = d.data;
   const health = mentionsHealth([f.note, f.done, f.pending, f.next].join(" "));
   const a = t?.actions;
+  const programs = !!t?.gymMemberId && PROGRAM_REQUESTS.includes(t.category) && can(shell.ctx, "program.edit") && !["resuelta", "cancelada"].includes(t.state);
   return (
     <Modal label={t ? `${t.ref} · ${t.label}` : "Solicitud"} onClose={() => onClose(changed)} wide>
       <div className="mhead"><h2>{t ? `${t.ref} · ${t.label}` : "Cargando…"}</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(changed)}>×</button></div>
@@ -158,7 +163,10 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
           <section className="cx-box">
             <b>{t.member ?? "Sin socio"}</b>{t.program && <small className="muted">Programa del gym: {t.program}</small>}
             {t.brief ? <BriefBlock brief={t.brief} /> : t.summary !== `${t.label}${t.exercise ? ` · ${t.exercise}` : ""}` && <p style={{ margin: 0 }}>«{t.summary}»</p>}
-            {t.gymMemberId && <button type="button" className="btn sm" style={{ alignSelf: "flex-start" }} onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir ficha del socio</button>}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {programs && <button type="button" className="btn sm pri" onClick={() => setEditing(true)}>{t.program ? "Editar programa" : "Crear programa"}</button>}
+              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir ficha del socio</button>}
+            </div>
           </section>
           {t.context && (
             <section className="cx-box">
@@ -228,12 +236,14 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
               {a?.note && <button type="button" className="btn" onClick={() => setForm("note")}>Registrar</button>}
               {a?.followUp && <button type="button" className="btn" onClick={() => setForm("follow")}>Dejar seguimiento</button>}
               {a?.transfer && <button type="button" className="btn" onClick={() => setForm("transfer")}>Transferir</button>}
-              {a?.resolve && <button type="button" className="btn pri" onClick={() => setForm("resolve")}>Resolver</button>}
+              {a?.resolve && <button type="button" className={programs ? "btn" : "btn pri"} onClick={() => setForm("resolve")}>Resolver</button>}
               {a?.cancel && <button type="button" className="btn" onClick={() => setForm("cancel")}>Cancelar</button>}
             </>}
           </div>
         </div>
       )}
+      {editing && t?.gymMemberId && <MemberProgramModal shell={shell} memberId={t.gymMemberId} taskId={t.id}
+        onClose={(ok) => { setEditing(false); if (ok) { setChanged(true); d.reload(); shell.refreshBadges(); } }} />}
     </Modal>
   );
 }

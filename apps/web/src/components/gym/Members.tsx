@@ -177,6 +177,21 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   );
 }
 
+/**
+ * El mismo editor del programa, abierto desde una solicitud de Sala (Connect) sin pasar por Socios.
+ * Con `taskId`, la ficha marca esa solicitud para completarla al guardar si se cierra con el programa (el servidor lo vuelve a validar).
+ */
+export function MemberProgramModal({ shell, memberId, taskId, onClose }: { shell: Shell; memberId: string; taskId?: string | null; onClose: (ok: boolean) => void }) {
+  const d = useLoad<Detail>(`/api/gym/${shell.orgId}/members/${memberId}${taskId ? `?task=${encodeURIComponent(taskId)}` : ""}`);
+  if (d.data?.canEdit) return <EditProgramModal shell={shell} member={d.data} onClose={onClose} />;
+  return (
+    <Modal label="Programa del socio" onClose={() => onClose(false)}>
+      <div className="mhead"><h2>Programa del socio</h2><button type="button" className="x" aria-label="Cerrar" onClick={() => onClose(false)}>×</button></div>
+      {d.err ? <p role="alert" className="err-box">{d.err}</p> : d.data ? <p className="muted">No tenés permiso para armar programas en esta sede.</p> : <p className="muted">Cargando ficha…</p>}
+    </Modal>
+  );
+}
+
 type Lib = { id: string; name: string; group: string; kind: string; own?: boolean }[];
 type Ex = ProgramDoc["days"][number]["exercises"][number];
 
