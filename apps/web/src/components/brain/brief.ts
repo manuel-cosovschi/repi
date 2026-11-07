@@ -3,7 +3,7 @@
 // y no hace ningún pedido por ejercicio. El texto lo arma el dominio (`briefExercise`): la interfaz no calcula cargas.
 import { briefExercise } from "@repi/domain/brain/session";
 import type { ExerciseBriefInput } from "@repi/domain/brain/types";
-import type { ExerciseDetail, ProgressionAction, RowTarget } from "@repi/domain";
+import { exerciseRows, type ExerciseDetail, type ProgressionAction, type RowTarget } from "@repi/domain";
 
 /** Lo mínimo del ejercicio local (LocalEx) que hace falta; así se puede probar sin IndexedDB. */
 export type BriefEx = {
@@ -22,8 +22,16 @@ const SUGGEST_ACTION: Record<ProgressionAction, string> = { up: "increase_load",
 export function workoutBrief(ex: BriefEx, tone: "normal" | "breve" = "normal"): { text: string } | null {
   if (ex.change) return null;
   const main = (ex.targets ?? []).filter((t) => t.stage === 0 && t.kind !== "warmup").sort((a, b) => a.setIndex - b.setIndex);
-  const first = main[0] ?? null;
-  const planKg = ex.detail?.setPlan?.find((p) => p?.weightKg != null)?.weightKg ?? null;
+  // La serie que se va a trabajar primero: la principal o el top set (un back-off sólo si no hay otra).
+  const first = main.find((t) => t.kind !== "backoff") ?? main[0] ?? null;
+  // Carga del profe de ESA serie, nunca la primera fila del plan que tenga peso (una aproximación o un back-off no son la carga
+  // de trabajo). Con objetivos, la trae el objetivo (estado «coach», con su «hoy no fuerces» si hay molestia); sin objetivos
+  // (empezó sin conexión), la primera serie de trabajo del plan.
+  const rows = exerciseRows(ex);
+  const row = first ? null : rows.find((r) => r.stage === 0 && r.cls !== "warmup" && r.cls !== "backoff") ?? null;
+  // «Hoy tenés indicadas N series»: las de trabajo (sin aproximaciones ni etapas de un drop o rest-pause).
+  const workSets = rows.filter((r) => r.stage === 0 && r.cls !== "warmup").length || ex.sets;
+  const planKg = first ? (first.status === "coach" ? first.weightKg : null) : row?.planKg ?? null;
   // La última sesión comparable sale de los objetivos (cada fila guarda su par anterior, con fecha). Sin objetivos (p. ej. el
   // entrenamiento empezó sin conexión) no se arma «la última vez» con una sola serie: se diría algo que no pasó.
   const prevRows = main.filter((t) => t.prev && t.prev.r != null);
@@ -39,7 +47,8 @@ export function workoutBrief(ex: BriefEx, tone: "normal" | "breve" = "normal"): 
   const tech = ex.detail?.technique && ex.detail.technique !== "straight" ? ex.detail.technique : null;
   const b = briefExercise({
     exercise: { id: ex.exerciseId, name: ex.name, short: "" },
-    prescribed: { sets: ex.sets, reps: ex.reps, rir: ex.rir, restSec: ex.restSec, loadKg: planKg, coachLoad: planKg != null, method: tech },
+    // Con objetivo, la carga del profe va en la recomendación (así el dominio dice «hoy no fuerces» ante una molestia).
+    prescribed: { sets: workSets, reps: ex.reps, rir: ex.rir, restSec: ex.restSec, loadKg: planKg, coachLoad: planKg != null && !first, method: tech },
     last, recommendation, restrictions: [], missing: [],
     // Sin «la última vez» ni objetivos (sólo la sugerencia del día), una línea: lo que se recomienda.
   }, last ? tone : "breve");

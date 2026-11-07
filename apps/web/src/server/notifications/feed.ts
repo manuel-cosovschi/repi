@@ -17,7 +17,7 @@ import { myAppointments } from "../training/agenda";
 import { markAnnouncementsRead, myAnnouncements } from "../announcements/services";
 import { pendingBriefs } from "../training/program-request";
 import { activeInterventions } from "../brain/store";
-import { getPrefs } from "../brain/prefs";
+import { assistantOn, getPrefs } from "../brain/prefs";
 
 const { memberNotice, communityPost, userPref, brainIntervention } = schema;
 
@@ -37,6 +37,7 @@ const ASSISTANT_DEST: Record<string, NotifDest> = {
 };
 /** Avisos vigentes del Asistente REPI (sólo los de la persona; sin evaluar nada: eso lo hacen Inicio y el cron). */
 async function assistantItems(userId: string, now: Date): Promise<Notif[]> {
+  if (!assistantOn()) return []; // módulo apagado: la campanita no lista avisos del Asistente (como las novedades con su interruptor)
   const [prefs, items] = await Promise.all([getPrefs(userId), activeInterventions(userId, now, 10)]);
   return items.filter((i) => i.channel !== "inline" && (prefs.proactive || i.category === "safety")).map((i) => ({
     id: `assistant:${i.id}`, title: i.title, body: clip(i.body, 160), at: i.createdAt, tone: i.category === "safety" ? "bad" : "cyan", origin: "assistant",

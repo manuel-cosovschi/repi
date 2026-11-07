@@ -124,3 +124,17 @@ describe("Inicio (GET /api/me/brain)", () => {
     expect(h2.today.text).toMatch(/^Estás entrenando Espalda y pecho\. Ahora toca Jalón al pecho\./);
   });
 });
+
+describe("versión del contexto (revisión AC3: hallazgo 22)", () => {
+  it("con check-in hoy, la versión no cambia con la hora del pedido: sólo con los datos o el día", async () => {
+    const w = await coachWorld();
+    await fu.saveCheckin(w.user, { energy: 3, sleep: 4, mood: 3 });
+    const t0 = new Date();
+    const a = await loadContext(w.user, { section: "home" }, t0);
+    const b = await loadContext(w.user, { section: "home" }, new Date(t0.getTime() + 1_000));
+    expect(a.ctx.readiness.energy.value).toBe(3);
+    expect(b.ctx.version).toBe(a.ctx.version);
+    await fu.saveCheckin(w.user, { energy: 5, sleep: 4, mood: 3 });
+    expect((await loadContext(w.user, { section: "home" }, t0)).ctx.version).not.toBe(a.ctx.version);
+  });
+});

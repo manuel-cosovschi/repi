@@ -9,7 +9,7 @@ import { useUnit } from "@/components/member/units";
 import { localizeWeights } from "@repi/domain";
 import { useBrain } from "./BrainProvider";
 import { OriginTag } from "./parts";
-import { ORIGIN_LABEL, presentEvidence } from "./presenter";
+import { ORIGIN_LABEL, presentEvidence, reviewNextLine } from "./presenter";
 import type { ReviewExercise, ReviewView } from "./types";
 
 const CMP: Record<ReviewExercise["comparison"], string> = { more: "Mejor que la anterior", same: "Igual que la anterior", fewer: "Por debajo de la anterior", first: "Primera vez", not_comparable: "Sin comparación" };
@@ -41,6 +41,7 @@ export function SessionReview({ sessionId, local }: { sessionId: string; local: 
 
   const v = r.review;
   const loc = (t: string) => localizeWeights(t, unit);
+  const next = reviewNextLine(v);
   return (
     <section className="rp-card rp-review" aria-labelledby="rp-rev-h">
       <div className="rp-card-top"><span className="rp-badge">REPI</span><OriginTag o={presentEvidence(v.evidence, unit).origin} /></div>
@@ -58,8 +59,8 @@ export function SessionReview({ sessionId, local }: { sessionId: string; local: 
       )}
       {v.marks.length > 0 && <ul className="rp-marks" aria-label="Marcas de hoy">{v.marks.map((m, i) => <li key={i}>{loc(m.text)}</li>)}</ul>}
       {v.adaptations.length > 0 && <p className="rp-small"><small>Adaptaciones</small>{v.adaptations.join(" · ")}</p>}
-      {/* El texto del cierre ya puede incluir la propuesta y la pregunta: no se repiten. */}
-      {v.next && v.next.text && (!v.text.includes(v.next.text) || v.next.requiresCoach) && <p className="rp-next"><small>Para la próxima</small>{loc(v.next.text)}{v.next.requiresCoach ? " Lo decide tu profe." : ""}</p>}
+      {/* El texto del cierre ya puede incluir la propuesta y la pregunta: no se repiten («Lo decide tu profe» ya viene del dominio). */}
+      {next && <p className="rp-next"><small>Para la próxima</small>{loc(next)}</p>}
       {v.ask && !v.text.includes(v.ask) && <p className="rp-card-body">{loc(v.ask)}</p>}
       <div className="rp-card-acts">
         <button type="button" className="ghost sm" onClick={() => brain.showWhy({ claim: "Cómo armé tu cierre", evidence: presentEvidence(v.evidence, unit), chat: { section: "review", ref: { sessionId } } })}>Ver por qué</button>

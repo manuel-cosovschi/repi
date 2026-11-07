@@ -3,7 +3,7 @@
 // esa relación: nunca memoria, conversación, textos de avisos ni salud del alumno. Casos del máster §25: 52, 53, 55, 61 y 62.
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
 import * as acc from "@/server/access/services";
@@ -13,7 +13,8 @@ import { createMemory } from "@/server/brain/memory";
 import { appendMessage } from "@/server/brain/conversation";
 import { upsertIntervention } from "@/server/brain/store";
 import { homeCandidates, proactiveFor, resetProactiveThrottle } from "@/server/brain/proactive";
-import { coachInsights, memberInsights } from "@/server/brain/coach";
+import { coachInsights, coachPendingSignals, memberInsights } from "@/server/brain/coach";
+import { relationIntelligence } from "@/server/training/intelligence";
 import { brainMetrics } from "@/server/brain/admin";
 
 const { programAssignment, brainAction, brainIntervention, trainingProposal, consentGrant, staffMembership, gymMember, gymLocation } = schema;
@@ -32,6 +33,7 @@ beforeAll(async () => {
     ?? (await db.select().from(schema.exercise).where(eq(schema.exercise.name, EX_NAME)))[0].id;
 });
 beforeEach(() => { resetRateLimits(); resetProactiveThrottle(); });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 async function coachOrg() {
   const c = await person();
@@ -188,5 +190,64 @@ describe("equipo de sala y gerencia (caso 62)", () => {
     expect(await err(memberInsights(floorB.id, org.id, m.id))).toMatchObject({ status: 404 });
     await db.update(consentGrant).set({ status: "revoked" }).where(eq(consentGrant.relationId, m.id));
     expect(await err(memberInsights(floor.id, org.id, m.id))).toMatchObject({ code: "consent_required", status: 403 });
+  });
+});
+
+describe("revisión AC3 (hallazgos 18, 30, 31 y K2)", () => {
+  /** Cuatro sesiones comparables en baja sostenida: Training Intelligence propone «review» (revisar con el entrenador). */
+  async function declining() {
+    const c = await coachOrg(), s = await person();
+    const rel = await relate(c, s);
+    const now = new Date();
+    const ses = [];
+    for (const [d, w] of [[10, 70], [7, 67.5], [4, 65], [1, 62.5]] as const) ses.push(await train(s.id, rel, new Date(now.getTime() - d * D), w));
+    return { ...c, s, rel, ses, now };
+  }
+  const studentRequest = (rel: string, status: "open" | "rejected" = "open") => db.insert(trainingProposal).values({ coachClientId: rel, exerciseId: EX, kind: "review",
+    payload: { text: `Tu alumno pidió revisar ${EX_NAME}.`, weightKg: null, reps: null, basis: "Pedido del alumno desde REPI.", trend: "student_request", sessions: 0 }, algoVersion: "brain-1",
+    status, ...(status === "rejected" ? { decidedAt: new Date() } : {}) }).returning().then((r) => r[0]);
+
+  it("hallazgo 18 · las alternativas de una misma oferta rechazadas con un «no» son UN rechazo; otra oferta, otro", async () => {
+    const x = await declining();
+    const offer = randomUUID();
+    for (const k of [0, 1]) await db.insert(brainAction).values({ userId: x.s.id, kind: "apply_substitution", idempotencyKey: `apply_substitution:${randomUUID().slice(0, 16)}`,
+      status: "cancelled", autonomy: 1, input: { exerciseId: EX, substituteId: `alt-${k}`, reason: "busy", _bind: { offer } }, createdAt: x.ses[1].during });
+    let v = await coachInsights(x.coach, x.org, x.rel, x.now);
+    expect(v.counts.rejectedSubstitutions).toBe(1);
+    expect(v.insights.some((i) => i.kind === "rejected_substitutions")).toBe(false);
+    await db.insert(brainAction).values({ userId: x.s.id, kind: "apply_substitution", idempotencyKey: `apply_substitution:${randomUUID().slice(0, 16)}`,
+      status: "cancelled", autonomy: 1, input: { exerciseId: EX, _bind: { offer: randomUUID() } }, createdAt: x.ses[2].during });
+    v = await coachInsights(x.coach, x.org, x.rel, x.now);
+    expect(v.counts.rejectedSubstitutions).toBe(2);
+  });
+
+  it("hallazgo 30/K2 · Training Intelligence no pisa un pedido abierto del alumno ni lo toma como su propia propuesta", async () => {
+    const x = await declining();
+    const req = await studentRequest(x.rel);
+    const ti = await relationIntelligence({ kind: "coach", id: x.rel, userId: x.s.id }, x.now);
+    expect(ti.exercises.find((e) => e.exerciseId === EX)?.proposal).toBeNull();
+    const [row] = await db.select().from(trainingProposal).where(eq(trainingProposal.id, req.id));
+    expect(row).toMatchObject({ algoVersion: "brain-1", status: "open", payload: { trend: "student_request", text: `Tu alumno pidió revisar ${EX_NAME}.` } });
+    expect((await db.select().from(trainingProposal).where(eq(trainingProposal.coachClientId, x.rel)))).toHaveLength(1);
+  });
+
+  it("hallazgo 30/K2 · un pedido del alumno rechazado no cuenta como decisión sobre la propuesta de Training Intelligence", async () => {
+    const x = await declining();
+    await studentRequest(x.rel, "rejected");
+    const ti = await relationIntelligence({ kind: "coach", id: x.rel, userId: x.s.id }, x.now);
+    const p = ti.exercises.find((e) => e.exerciseId === EX)?.proposal;
+    expect(p).toMatchObject({ kind: "review", status: "open" });
+    const [row] = await db.select().from(trainingProposal).where(eq(trainingProposal.id, p!.id));
+    expect(row.algoVersion).not.toBe("brain-1");
+  });
+
+  it("hallazgo 31 · con el módulo «assistant» apagado, las señales de REPI para entrenador y sala no se exponen (404)", async () => {
+    const x = await declining();
+    vi.stubEnv("NEXT_PUBLIC_REPI_FEATURES", "-assistant");
+    expect(await err(coachInsights(x.coach, x.org, x.rel))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await err(coachPendingSignals(x.coach, x.org))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await err(memberInsights(x.coach, x.org, randomUUID()))).toMatchObject({ code: "module_off", status: 404 });
+    vi.unstubAllEnvs();
+    expect((await coachInsights(x.coach, x.org, x.rel)).relation).toEqual({ kind: "coach", id: x.rel });
   });
 });

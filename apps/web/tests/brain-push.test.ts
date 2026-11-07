@@ -4,7 +4,7 @@
 // centro de notificaciones. Sin claves VAPID reales ni proveedores: nada sale de la máquina.
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { localDate } from "@repi/domain";
 import { arParts, nextAllowed } from "@repi/domain/brain/quiet";
 import { db, schema } from "@/db";
@@ -31,6 +31,7 @@ beforeAll(async () => {
     ?? (await db.select().from(schema.exercise).where(eq(schema.exercise.name, EX_NAME)))[0].id;
 });
 beforeEach(() => { resetRateLimits(); resetProactiveThrottle(); });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 /** Alumno de un coach con una sesión de hace 8 días (aviso «¿Retomamos?», que puede salir por push). */
 async function inactive(birth: string | null = "1990-01-01") {
@@ -182,5 +183,17 @@ describe("opt-in del socio y centro de notificaciones", () => {
     // Otra persona no ve nada de esto.
     const other = await person();
     expect((await myNotifications(other.id)).items.some((x) => x.origin === "assistant")).toBe(false);
+  });
+});
+
+describe("módulo «assistant» apagado (revisión AC3: hallazgo 31)", () => {
+  it("lo encolado no sale y la campanita no lista avisos del Asistente; los datos quedan", async () => {
+    const a = await postponed();
+    expect((await myNotifications(a.u)).items.some((x) => x.origin === "assistant")).toBe(true);
+    vi.stubEnv("NEXT_PUBLIC_REPI_FEATURES", "-assistant");
+    await processOutbox(1000, new Date(a.q.end.getTime() + 60_000));
+    expect((await brainPushes(a.u))[0]).toMatchObject({ status: "skipped", lastError: "asistente apagado" });
+    expect((await myNotifications(a.u)).items.some((x) => x.origin === "assistant")).toBe(false);
+    expect((await db.select().from(brainIntervention).where(eq(brainIntervention.id, a.card.id)))[0].status).toBe("pending");
   });
 });

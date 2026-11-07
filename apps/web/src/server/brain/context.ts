@@ -278,10 +278,11 @@ export async function loadContext(userId: string, opts: { section?: Section; ref
       offlinePending: false,
     },
     history: { sessions30d: h?.s30 ?? 0, sessions7d: h?.s7 ?? 0, lastSessionAt: lastAt, daysSinceLast: lastAt ? arDaysBetween(lastAt, now) : null, voided30d: h?.v30 ?? 0 },
+    // La hora del check-in (no la del pedido): la versión del contexto cambia con los datos o el día, no con cada consulta.
     readiness: {
-      energy: ci ? fact<number | null>(ci.energy, "check_in", now.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
-      sleep: ci ? fact<number | null>(ci.sleep, "check_in", now.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
-      mood: ci ? fact<number | null>(ci.mood, "check_in", now.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
+      energy: ci ? fact<number | null>(ci.energy, "check_in", ci.createdAt.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
+      sleep: ci ? fact<number | null>(ci.sleep, "check_in", ci.createdAt.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
+      mood: ci ? fact<number | null>(ci.mood, "check_in", ci.createdAt.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
       lastRpe: h?.last_rpe != null ? fact<number | null>(h.last_rpe, "session", h.last_rpe_at ? new Date(h.last_rpe_at).toISOString() : null, "declared") : noFact<number | null>(null, "session"),
     },
     restrictions: fact(restrictions, "pain_report", restrictions[0]?.since ?? null, "recorded", restrictions.length ? "high" : "none", { consent: "health" }),

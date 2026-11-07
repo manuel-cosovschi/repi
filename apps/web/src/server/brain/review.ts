@@ -13,7 +13,7 @@ import { logError } from "../log";
 import { AccessError } from "../access/util";
 import { timedPeIds } from "../training/services";
 import { historyRows, outlookFor } from "../training/intelligence";
-import { getPrefs } from "./prefs";
+import { getPrefs, requireAssistant } from "./prefs";
 import { recordOutcome } from "./events";
 
 const { workoutSession, setLog, programExercise, sessionExerciseChange, exercise, programVersion, program } = schema;
@@ -32,13 +32,15 @@ export type ReviewView = {
 };
 
 type PrevRow = { exercise_id: string; at: Date | string; weight_kg: string | null; reps: number | null; rir: number | null; feel: string | null; set_kind: string | null; stage_index: number | null };
-type PriorRow = { exercise_id: string; weight_kg: string | null; reps: number };
+/** Por ejercicio y carga: las repeticiones máximas y, aparte, las máximas dentro de 1–12 (las únicas que sirven para el 1RM estimado). */
+type PriorRow = { exercise_id: string; weight_kg: string | null; reps: number; reps_e1rm: number | null };
 
 /**
  * El cierre de una sesión propia. Abierta: parcial (lo hecho hasta ahora), sin guardar nada. Terminada: completo y deja el
  * resultado en la memoria. Anulada: no se analiza (409).
  */
 export async function sessionReviewFor(userId: string, sessionId: string, now = new Date()): Promise<ReviewView> {
+  requireAssistant();
   if (typeof sessionId !== "string" || !ID_RE.test(sessionId)) throw NOT_FOUND();
   const [s] = await db.select().from(workoutSession).where(and(eq(workoutSession.id, sessionId), eq(workoutSession.userId, userId)));
   if (!s) throw NOT_FOUND();
@@ -79,9 +81,10 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
       select p.exercise_id, p.ended_at as at, sl.weight_kg, sl.reps, sl.rir, sl.feel, sl.set_kind, sl.stage_index
       from prev p join set_log sl on sl.session_id = p.session_id and sl.exercise_id = p.exercise_id and sl.voided_at is null
       order by sl.set_index`).then((r) => r as unknown as PrevRow[]),
-    // Mejores registros previos (toda la historia válida antes de esta sesión), por ejercicio y carga.
+    // Mejores registros previos (toda la historia válida antes de esta sesión), por ejercicio y carga. El 1RM estimado sale de cada
+    // serie válida de 1 a 12 repeticiones: una AMRAP de 14 a esa carga no tapa la serie de 10 (con más de 12, Epley no estima).
     db.execute<PriorRow>(sql`
-      select sl.exercise_id, sl.weight_kg, max(sl.reps)::int as reps
+      select sl.exercise_id, sl.weight_kg, max(sl.reps)::int as reps, (max(sl.reps) filter (where sl.reps between 1 and 12))::int as reps_e1rm
       from set_log sl join workout_session ws on ws.id = sl.session_id
       where ws.user_id = ${userId} and ws.status = 'completed' and ws.id <> ${s.id} and ws.started_at < ${start}::timestamptz
         and sl.voided_at is null and sl.reps > 0 and sl.exercise_id in (${ids(exIds)})
@@ -110,10 +113,10 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
     const prior = priorRows.filter((r) => r.exercise_id === did);
     let before: PriorMarks | null = null;
     if (prior.length) {
-      const pts = prior.map((p) => ({ w: p.weight_kg == null ? 0 : Number(p.weight_kg), r: p.reps }));
+      const pts = prior.map((p) => ({ w: p.weight_kg == null ? 0 : Number(p.weight_kg), r: p.reps, r12: p.reps_e1rm }));
       const loaded = pts.filter((p) => p.w > 0);
       before = {
-        e1rm: Math.max(0, ...loaded.map((p) => epley1rm(p.w, p.r) ?? 0)) || null,
+        e1rm: Math.max(0, ...loaded.map((p) => (p.r12 == null ? 0 : epley1rm(p.w, p.r12) ?? 0))) || null,
         maxLoadKg: loaded.length ? Math.max(...loaded.map((p) => p.w)) : null,
         repsAtLoad: loaded.map((p) => ({ w: p.w, r: p.r })),
         bestReps: Math.max(...pts.map((p) => p.r)),

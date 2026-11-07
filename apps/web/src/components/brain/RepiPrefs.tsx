@@ -2,10 +2,11 @@
 // Asistente REPI (D209) · Perfil → «Asistente REPI». Avisos dentro de la app y por categoría, avisos en el teléfono (push,
 // sólo adultos y con el permiso del navegador), horario de silencio, cuántos por día, autonomía y tono, y «Lo que REPI
 // recuerda» para ver y borrar. Cada cambio se guarda en el servidor y la pantalla muestra lo que el servidor devolvió.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { enablePush, pushState } from "@/lib/push";
 import { useBrain } from "./BrainProvider";
+import { serialLatest } from "./presenter";
 import type { BrainPrefs, MemoryItem } from "./types";
 
 type Cat = keyof BrainPrefs["categories"];
@@ -30,9 +31,13 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
   const brain = useBrain();
   const [p, setP] = useState<BrainPrefs | null>(null);
   const [err, setErr] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set()); // lo que se está guardando (puede ser más de una cosa)
+  const inflight = useRef(new Map<string, number>()); // lo mismo, al instante (un doble toque llega antes del nuevo render)
   const [push, setPush] = useState<{ eligible: boolean; supported: boolean; configured: boolean } | null>(null);
   const [mem, setMem] = useState<MemoryItem[] | null>(null);
+  // Revisión AC3 #26: los pedidos de preferencias salen de a uno y en orden (dos toques rápidos no se pisan en el servidor) y
+  // sólo la respuesta del último se muestra (una respuesta vieja que llega tarde no deshace lo nuevo).
+  const send = useMemo(() => serialLatest<{ prefs: BrainPrefs }>((r) => setP(r.prefs)), []);
   const load = useCallback(() => {
     setErr(false);
     api<{ prefs: BrainPrefs }>("/api/me/brain/prefs").then((r) => setP(r.prefs)).catch(() => setErr(true));
@@ -43,40 +48,52 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
   useEffect(() => { if (brain.enabled && !offline) load(); }, [brain.enabled, offline, load]);
   if (!brain.enabled) return null;
 
-  const save = async (patch: Partial<BrainPrefs>, what: string) => {
+  // La pantalla sigue mostrando lo que devolvió el servidor. Cada cambio manda sólo lo que cambió (una categoría, no todas:
+  // antes se mandaban las cinco con los valores de la pantalla y un segundo toque rápido deshacía el primero). Un interruptor
+  // no se vuelve a tocar mientras se guarda (su valor nuevo depende de la respuesta); horario, cantidad, autonomía y tono mandan
+  // un valor fijo y se pueden cambiar seguido. Si algo falla, se relee lo vigente.
+  const put = (patch: Partial<BrainPrefs>) => send(() => api<{ prefs: BrainPrefs }>("/api/me/brain/prefs", { method: "PUT", body: patch }));
+  const resync = () => { send(() => api<{ prefs: BrainPrefs }>("/api/me/brain/prefs")).catch(() => {}); };
+  const mark = (what: string, d: 1 | -1) => {
+    const n = (inflight.current.get(what) ?? 0) + d;
+    if (n > 0) inflight.current.set(what, n); else inflight.current.delete(what);
+    setBusy(new Set(inflight.current.keys()));
+  };
+  const save = async (patch: Partial<BrainPrefs>, what: string, toggle = false) => {
     if (offline) { flash("Necesitás conexión para cambiar el asistente."); return; }
-    setBusy(what);
+    if (toggle && inflight.current.has(what)) return;
+    mark(what, 1);
     try {
-      const r = await api<{ prefs: BrainPrefs }>("/api/me/brain/prefs", { method: "PUT", body: patch });
-      setP(r.prefs);
+      await put(patch);
       brain.reloadHome(true);
-    } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+    } catch (e) { flash((e as Error).message); resync(); } finally { mark(what, -1); }
   };
   const togglePush = async (on: boolean) => {
     if (offline) { flash("Necesitás conexión para cambiar los avisos."); return; }
-    setBusy("push");
+    if (inflight.current.has("push")) return;
+    mark("push", 1);
     try {
       if (on) {
         const r = await enablePush({ coaching: true });
         if (r?.coaching) setP((x) => (x ? { ...x, push: true } : x));
         flash("Avisos de REPI activados en este teléfono.");
       } else {
-        const r = await api<{ prefs: BrainPrefs }>("/api/me/brain/prefs", { method: "PUT", body: { push: false } });
-        setP(r.prefs);
+        await put({ push: false });
         flash("Avisos de REPI en el teléfono apagados.");
       }
-    } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+    } catch (e) { flash((e as Error).message); } finally { mark("push", -1); }
   };
   const forget = async (m: MemoryItem) => {
     if (offline) { flash("Necesitás conexión para borrar un recuerdo."); return; }
+    if (inflight.current.has(`mem:${m.id}`)) return;
     if (!window.confirm(`¿Borrar «${m.text}» de lo que REPI recuerda? No se puede deshacer.`)) return;
-    setBusy(`mem:${m.id}`);
+    mark(`mem:${m.id}`, 1);
     try {
       await api(`/api/me/brain/memory/${m.id}`, { method: "DELETE" });
       setMem((xs) => (xs ? xs.filter((x) => x.id !== m.id) : xs));
       flash("Recuerdo borrado.");
-      void api<{ prefs: BrainPrefs }>("/api/me/brain/prefs").then((r) => setP(r.prefs)).catch(() => {});
-    } catch (e) { flash((e as Error).message); } finally { setBusy(null); }
+      resync();
+    } catch (e) { flash((e as Error).message); } finally { mark(`mem:${m.id}`, -1); }
   };
 
   const off = offline || !p;
@@ -89,20 +106,20 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
       {p && (
         <>
           <div className="panel">
-            <button type="button" className="prow-dark" role="switch" aria-checked={p.proactive} aria-busy={busy === "proactive" || undefined} disabled={off}
-              onClick={() => void save({ proactive: !p.proactive }, "proactive")}>
+            <button type="button" className="prow-dark" role="switch" aria-checked={p.proactive} aria-busy={busy.has("proactive") || undefined} disabled={off}
+              onClick={() => void save({ proactive: !p.proactive }, "proactive", true)}>
               <span><span style={{ fontSize: 15, fontWeight: 500 }}>Avisos de REPI en la app</span><small>{p.proactive ? "REPI puede tomar la iniciativa en Inicio." : "Apagados: sólo avisos de seguridad. Podés hablarle cuando quieras."}</small></span>
               <span className="track" aria-hidden="true" />
             </button>
             {CATS.map(([k, l, d]) => (
-              <button key={k} type="button" className="prow-dark" role="switch" aria-checked={p.categories[k]} aria-disabled={!p.proactive || undefined} disabled={off}
-                onClick={() => (p.proactive ? void save({ categories: { ...p.categories, [k]: !p.categories[k] } }, `cat:${k}`) : flash("Primero activá los avisos de REPI en la app."))}>
+              <button key={k} type="button" className="prow-dark" role="switch" aria-checked={p.categories[k]} aria-busy={busy.has(`cat:${k}`) || undefined} aria-disabled={!p.proactive || undefined} disabled={off}
+                onClick={() => (p.proactive ? void save({ categories: { [k]: !p.categories[k] } as BrainPrefs["categories"] }, `cat:${k}`, true) : flash("Primero activá los avisos de REPI en la app."))}>
                 <span><span style={{ fontSize: 15, fontWeight: 500 }}>{l}</span><small>{d}</small></span>
                 <span className="track" aria-hidden="true" />
               </button>
             ))}
             {push?.eligible && (
-              <button type="button" className="prow-dark" role="switch" aria-checked={p.push} aria-busy={busy === "push" || undefined} disabled={off || (!p.push && (!push.supported || !push.configured))}
+              <button type="button" className="prow-dark" role="switch" aria-checked={p.push} aria-busy={busy.has("push") || undefined} disabled={off || (!p.push && (!push.supported || !push.configured))}
                 onClick={() => void togglePush(!p.push)}>
                 <span><span style={{ fontSize: 15, fontWeight: 500 }}>Avisos de REPI en el teléfono</span>
                   <small>{!push.supported && !p.push ? "Este navegador no admite avisos. En iPhone, agregá REPI a la pantalla de inicio." : !push.configured && !p.push ? "No disponibles en este entorno." : "Como mucho uno por día, fuera del horario de silencio. Te pide permiso el navegador."}</small></span>
@@ -122,7 +139,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
 
           <fieldset className="rp-fs" disabled={off}>
             <legend>Avisos por día, como máximo</legend>
-            <div className="unitseg" role="radiogroup" aria-label="Avisos por día, como máximo" aria-busy={busy === "max" || undefined}>
+            <div className="unitseg" role="radiogroup" aria-label="Avisos por día, como máximo" aria-busy={busy.has("max") || undefined}>
               {[...new Set([...PER_DAY, p.maxPerDay])].sort((a, b) => a - b).map((n) => (
                 <button key={n} type="button" role="radio" aria-checked={p.maxPerDay === n} onClick={() => p.maxPerDay !== n && void save({ maxPerDay: n }, "max")}>{n}</button>
               ))}
@@ -131,7 +148,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
 
           <fieldset className="rp-fs" disabled={off}>
             <legend>Qué puede hacer REPI</legend>
-            <div className="rp-radios" role="radiogroup" aria-label="Qué puede hacer REPI" aria-busy={busy === "autonomy" || undefined}>
+            <div className="rp-radios" role="radiogroup" aria-label="Qué puede hacer REPI" aria-busy={busy.has("autonomy") || undefined}>
               {AUTONOMY.map(([v, l, d]) => (
                 <button key={v} type="button" role="radio" aria-checked={p.autonomy === v} className="rp-radio" onClick={() => p.autonomy !== v && void save({ autonomy: v }, "autonomy")}>
                   <b>{l}</b><small>{d}</small>
@@ -143,7 +160,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
 
           <fieldset className="rp-fs" disabled={off}>
             <legend>Cómo te habla</legend>
-            <div className="unitseg" role="radiogroup" aria-label="Cómo te habla REPI" aria-busy={busy === "tone" || undefined}>
+            <div className="unitseg" role="radiogroup" aria-label="Cómo te habla REPI" aria-busy={busy.has("tone") || undefined}>
               {([["normal", "Normal"], ["breve", "Breve"]] as const).map(([v, l]) => (
                 <button key={v} type="button" role="radio" aria-checked={p.tone === v} onClick={() => p.tone !== v && void save({ tone: v }, "tone")}>{l}</button>
               ))}
@@ -161,7 +178,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
             {mem.map((m) => (
               <li key={m.id}>
                 <span><b>{m.text}</b><small>{KIND[m.kind]} · {SOURCE[m.source]} · {day(m.createdAt)}{m.expiresAt ? ` · hasta el ${day(m.expiresAt)}` : ""}</small></span>
-                <button type="button" className="ghost sm" aria-label={`Borrar «${m.text}»`} aria-busy={busy === `mem:${m.id}` || undefined} disabled={offline} onClick={() => void forget(m)}>Borrar</button>
+                <button type="button" className="ghost sm" aria-label={`Borrar «${m.text}»`} aria-busy={busy.has(`mem:${m.id}`) || undefined} disabled={offline} onClick={() => void forget(m)}>Borrar</button>
               </li>
             ))}
           </ul>

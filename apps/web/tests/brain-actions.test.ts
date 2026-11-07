@@ -5,9 +5,15 @@ import { db, schema } from "@/db";
 import { resetRateLimits } from "@/server/access/util";
 import * as tr from "@/server/training/services";
 import { cancelAction, confirmAction, proposeFromClient, type ProposedAction } from "@/server/brain/actions";
+import { AGE_REPLY } from "@repi/domain/brain";
 import { listMemory } from "@/server/brain/memory";
+import { appendMessage } from "@/server/brain/conversation";
+import { coachInsights, coachPendingSignals } from "@/server/brain/coach";
+import { brainHome } from "@/server/brain/home";
+import { handleMessage } from "@/server/brain/orchestrator";
+import { sessionReviewFor } from "@/server/brain/review";
 import { getPrefs, updatePrefs } from "@/server/brain/prefs";
-import { coachWorld, err, send, startToday } from "./brain-chat.world";
+import { coachWorld, err, rawPerson, send, startToday } from "./brain-chat.world";
 
 // D209 · C1 · Acciones de REPI: catálogo, validación con el contexto real, autonomía, idempotencia, auditoría y confirmación con
 // el resultado del servidor. Sin IA (las reglas proponen; la persona confirma). Casos 14, 23, 36, 37, 56, 58, 69, 70.
@@ -193,5 +199,119 @@ describe("protocolo: revalidación, autonomía, fallas y cancelación (casos 23,
     const out = await confirmAction(w.user, p.action.idempotencyKey);
     expect(out).toMatchObject({ ok: false, code: "no_gym" });
     expect(out.text).toMatch(/^No pude avisar a la sala: no se cambió nada\./);
+  });
+});
+
+describe("revisión AC3 (hallazgos 9, 16, 18, 19, 21, 30 y 31)", () => {
+  const short = async (w: Awaited<ReturnType<typeof coachWorld>>) => {
+    const s = await startToday(w.user);
+    await tr.logSet(w.user, s.sid, { id: randomUUID(), programExerciseId: s.pe["Jalón al pecho"], setIndex: 0, weightKg: 50, reps: 10, rir: 2 });
+    const r = await send(w.user, "Me quedan 20 minutos");
+    return { ...s, a: acts(r.reply).find((x) => x.kind === "apply_short_session")! };
+  };
+
+  it("hallazgo 16 · la tarjeta de otro entrenamiento no se ejecuta en el de hoy aunque los ejercicios tengan los mismos ids", async () => {
+    const w = await coachWorld();
+    const s1 = await short(w);
+    expect(s1.a).toBeTruthy();
+    await tr.sessionAction(w.user, s1.sid, "finish");
+    const s2 = await startToday(w.user);
+    expect(s2.pe).toEqual(s1.pe);
+    const out = await confirmAction(w.user, s1.a.key);
+    expect(out).toMatchObject({ ok: false, executed: false, code: "stale" });
+    expect(out.text).toBe("Eso ya no se puede hacer: era para otro entrenamiento. Pedímelo de nuevo si todavía lo necesitás.");
+    expect(await changesOf(s2.sid)).toHaveLength(0);
+    expect((await listMemory(w.user)).some((m) => m.key === "minutes_today")).toBe(false);
+  });
+
+  it("hallazgo 19 · dos confirmaciones a la vez de la misma propuesta: se aplica una vez y las dos responden el resultado real", async () => {
+    const w = await coachWorld({ approved: true });
+    const { sid } = await startToday(w.user);
+    await send(w.user, "La máquina está ocupada");
+    const a = acts((await send(w.user, "Sí")).reply).find((x) => x.kind === "apply_substitution")!;
+    const [x, y] = await Promise.all([confirmAction(w.user, a.key), confirmAction(w.user, a.key)]);
+    expect([x.ok, y.ok]).toEqual([true, true]);
+    expect([x.executed, y.executed].sort()).toEqual([false, true]);
+    expect(x.text).toMatch(/^Listo: hoy hacés /);
+    expect(y.text).toBe(x.text);
+    expect(await changesOf(sid)).toHaveLength(1);
+  });
+
+  it("hallazgo 18 · un «no» a la oferta de alternativas queda como una sola oferta rechazada para el entrenador", async () => {
+    const w = await coachWorld({ approved: true });
+    await startToday(w.user);
+    await send(w.user, "La máquina está ocupada");
+    const offered = acts((await send(w.user, "Sí")).reply).filter((x) => x.kind === "apply_substitution");
+    expect(offered.length).toBeGreaterThan(0);
+    await send(w.user, "No");
+    const rows = await db.select().from(schema.brainAction).where(and(eq(schema.brainAction.userId, w.user), eq(schema.brainAction.kind, "apply_substitution")));
+    expect(rows.map((r) => r.status)).toEqual(offered.map(() => "cancelled"));
+    expect(new Set(rows.map((r) => (r.input as { _bind?: { offer?: string } })._bind?.offer)).size).toBe(1);
+    expect((await coachInsights(w.coach.id, w.org.id, w.relId)).counts.rejectedSubstitutions).toBe(1);
+  });
+
+  it("hallazgo 21 · reintentar un «sí» viejo que quedó sin respuesta no confirma una propuesta posterior", async () => {
+    const w = await coachWorld();
+    const old = randomUUID();
+    await appendMessage(w.user, { id: old, role: "user", text: "Sí", section: "workout" }, new Date(Date.now() - 10 * 60_000));
+    for (let i = 0; i < 6; i++) await send(w.user, "¿Qué es un drop set?");
+    const { sid, a } = await short(w); // la respuesta más nueva propone acortar la sesión
+    expect(a).toBeTruthy();
+    const retry = await send(w.user, "Sí", { clientId: old });
+    expect(retry.replayed).toBe(false);
+    expect(retry.reply.text).not.toMatch(/^Listo/);
+    expect(await changesOf(sid)).toHaveLength(0);
+    const [row] = await db.select().from(schema.brainAction).where(and(eq(schema.brainAction.userId, w.user), eq(schema.brainAction.idempotencyKey, a.key)));
+    expect(row.status).toBe("proposed");
+  });
+
+  it("hallazgo 30 · si Training Intelligence ya ocupa el lugar, el pedido del alumno no se adueña de esa propuesta ni la pisa", async () => {
+    const w = await coachWorld();
+    const [ti] = await db.insert(schema.trainingProposal).values({ coachClientId: w.relId, exerciseId: w.EX["Press banca"], kind: "load",
+      payload: { text: "Subir 2,5 kg", weightKg: 62.5, reps: null, basis: "prueba", trend: "progressing", sessions: 4 }, algoVersion: "ti2.1" }).returning();
+    const r = await send(w.user, "Subí las cargas del press banca", { section: "home" });
+    const out = await confirmAction(w.user, acts(r.reply).find((x) => x.kind === "propose_to_coach")!.key);
+    expect(out).toMatchObject({ ok: true, result: { proposalId: null, duplicate: true } });
+    expect(out.text).toContain("ya tiene para revisar una propuesta");
+    const [row] = await db.select().from(schema.trainingProposal).where(eq(schema.trainingProposal.id, ti.id));
+    expect(row).toMatchObject({ algoVersion: "ti2.1", status: "open", payload: { trend: "progressing" } });
+    expect((await coachPendingSignals(w.coach.id, w.org.id)).clients.find((c) => c.relId === w.relId)).toMatchObject({ pendingProposals: 1, studentRequests: 0 });
+  });
+
+  it("hallazgo 9 · comida y dieta nunca se guardan como preferencia; con menores o edad desconocida, ni se conversa", async () => {
+    for (const birth of ["2012-05-01", null]) {
+      const u = await rawPerson(birth);
+      for (const t of ["Me gusta saltear comidas", "Prefiero comer menos", "Odio comer", "Prefiero hacer ayuno"]) {
+        const r = await handleMessage(u, { text: t, section: "home" });
+        expect(r.reply.text).toBe(AGE_REPLY[birth ? "minor" : "unknown"]);
+        expect(r.reply.actions).toHaveLength(0);
+      }
+      expect(await db.select().from(schema.brainAction).where(eq(schema.brainAction.userId, u))).toHaveLength(0);
+    }
+    const adult = await rawPerson("1990-01-01");
+    for (const t of ["Me gusta saltear comidas", "Prefiero hacer ayuno"]) {
+      const r = await handleMessage(adult, { text: t, section: "home" });
+      expect(r.reply.text).toMatch(/^De alimentación no guardo preferencias/);
+      expect(r.reply.actions).toHaveLength(0);
+    }
+    // Tampoco por un atajo de la interfaz o una propuesta de la IA: se valida en el servidor.
+    expect(await err(proposeFromClient(adult, { kind: "save_preference", input: { key: "likes_exercise:saltear_comidas", value: "saltear comidas", text: "Preferís saltear comidas." } })))
+      .toMatchObject({ code: "invalid", message: "De alimentación no guardo preferencias." });
+    // Una preferencia de entrenamiento sigue funcionando.
+    const ok = await handleMessage(adult, { text: "Me gustan las sentadillas", section: "home" });
+    expect((ok.reply.actions as ProposedAction[]).map((a) => a.kind)).toEqual(["save_preference"]);
+    expect((await listMemory(adult)).filter((m) => m.kind === "preference")).toEqual([]);
+  });
+
+  it("hallazgo 31 · con el módulo «assistant» apagado el servidor no responde, no ejecuta ni arma Inicio ni cierre (404)", async () => {
+    const w = await coachWorld();
+    const s = await short(w);
+    vi.stubEnv("NEXT_PUBLIC_REPI_FEATURES", "-assistant");
+    expect(await err(send(w.user, "¿Qué toca hoy?"))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await err(confirmAction(w.user, s.a.key))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await err(proposeFromClient(w.user, { kind: "open_workout", input: {} }))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await err(brainHome(w.user))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await err(sessionReviewFor(w.user, s.sid))).toMatchObject({ code: "module_off", status: 404 });
+    expect(await changesOf(s.sid)).toHaveLength(0);
   });
 });

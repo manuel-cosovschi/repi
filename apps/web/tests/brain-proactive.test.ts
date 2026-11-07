@@ -3,7 +3,7 @@
 // llama a un modelo (sin OPENAI_API_KEY en las pruebas).
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { localDate } from "@repi/domain";
 import { addArDays, arInstant, arParts, arWeekStart } from "@repi/domain/brain/quiet";
 import { db, schema } from "@/db";
@@ -29,6 +29,7 @@ beforeAll(async () => {
     ?? (await db.select().from(schema.exercise).where(eq(schema.exercise.name, EX_NAME)))[0].id;
 });
 beforeEach(() => { resetRateLimits(); resetProactiveThrottle(); });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 /** Coach + alumno con un programa de un ejercicio (1 × 8–10). La asignación se adelanta para poder registrar sesiones pasadas. */
 async function world(o: { birth?: string | null; reps?: string } = {}) {
@@ -272,5 +273,30 @@ describe("programa del entrenador (casos 50 y 54)", () => {
     const v3 = r2.emitted.find((i) => i.kind === "program_updated")!;
     expect(v3.programVersionId).not.toBe(v2.programVersionId);
     expect((await homeCandidates(w.user, now)).card?.id).toBe(v3.id); // la instrucción del entrenador va primero
+  });
+});
+
+describe("revisión AC3 (hallazgos 7 y 31)", () => {
+  it("hallazgo 7 · el 1RM estimado previo sale de cada serie de 1 a 12: una AMRAP de 14 no tapa la serie de 10 a esa carga", async () => {
+    const w = await world();
+    const now = new Date();
+    await train(w.user, new Date(now.getTime() - 8 * D), [{ w: 60, r: 14, rir: 0 }]);
+    await train(w.user, new Date(now.getTime() - 6 * D), [{ w: 60, r: 10 }]);
+    await train(w.user, new Date(now.getTime() - 4 * D), [{ w: 50, r: 10 }]);
+    await train(w.user, new Date(now.getTime() - 20 * H), [{ w: 55, r: 12 }]); // 77 estimado, por debajo de 60 × 10 (80)
+    await proactiveFor(w.user, now);
+    expect(await byKind(w.user, "pr")).toEqual([]); // ni emitida ni callada: no hay marca
+  });
+
+  it("hallazgo 31 · con el módulo «assistant» apagado ni Inicio ni el cron generan avisos", async () => {
+    const w = await world();
+    await train(w.user, new Date(Date.now() - 8 * D), [{ w: 60, r: 8 }]);
+    vi.stubEnv("NEXT_PUBLIC_REPI_FEATURES", "-assistant");
+    expect(await proactiveFor(w.user)).toMatchObject({ emitted: [], pushed: 0 });
+    expect((await homeCandidates(w.user)).card).toBeNull();
+    expect(await runProactive(new Date(), { force: true, users: [w.user] })).toMatchObject({ ran: false, reason: "módulo apagado" });
+    expect(await rows(w.user)).toEqual([]);
+    vi.unstubAllEnvs();
+    expect((await proactiveFor(w.user)).emitted.some((i) => i.kind === "inactivity")).toBe(true);
   });
 });

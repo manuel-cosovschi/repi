@@ -3,7 +3,7 @@
 // Puro: no toca la base ni la red.
 import { describe, expect, it } from "vitest";
 import type { RowTarget } from "@repi/domain";
-import { ORIGIN_LABEL, WORKOUT_CHIPS, chipsFor, cleanRef, contextLine, originOfVia, presentAction, presentIntervention, presentMessage } from "@/components/brain/presenter";
+import { ORIGIN_LABEL, PANEL_FULL_MIN, WORKOUT_CHIPS, chipsFor, cleanRef, contextLine, originOfVia, panelPlace, panelSurvives, presentAction, presentIntervention, presentMessage, reviewNextLine, serialLatest } from "@/components/brain/presenter";
 import { workoutBrief, type BriefEx } from "@/components/brain/brief";
 import type { InterventionView, MessageView, ProposedAction } from "@/components/brain/types";
 
@@ -119,5 +119,67 @@ describe("briefing del entrenamiento (sin conexión, con lo que tiene el teléfo
   it("aproximaciones y etapas no cuentan como «la última vez»", () => {
     const b = workoutBrief(ex({ targets: [T(0, { kind: "warmup", prev: { w: 20, r: 15, rir: null, at: "2026-11-02T15:00:00.000Z", level: "exact", source: "repi" } as RowTarget["prev"] }), T(1), T(2, { stage: 1 })] }));
     expect(b?.text).toMatch(/^La última vez hiciste 1 × 10 con 60 kg\./);
+  });
+  // Revisión AC3 (#4): la carga del profe era la de la primera fila del plan con peso, aunque fuera una aproximación o un back-off.
+  const plan = (rows: [string, string, number | null][]) => ({ technique: "custom", setPlan: rows.map(([kind, reps, weightKg], i) => ({ id: `r${i}x0000000`, kind, reps, weightKg, block: i, stage: 0 })) }) as unknown as BriefEx["detail"];
+  it("la carga del profe es la de la serie de trabajo, nunca la de una aproximación (con y sin objetivos)", () => {
+    const detail = plan([["warmup", "10", 40], ["work", "8", 80], ["work", "8", 80], ["work", "8", 80]]);
+    const coach = (i: number) => T(i, { status: "coach", action: "follow_coach", source: "coach", weightKg: 80, repsMin: 8, repsMax: 8, repsTarget: null, coach: { weightKg: 80, reps: "8" }, prev: { w: 80, r: 8, rir: 2, at: "2026-11-02T15:00:00.000Z", level: "exact", source: "repi" } as RowTarget["prev"] });
+    const withT = workoutBrief(ex({ sets: 4, reps: "8", detail, targets: [T(0, { kind: "warmup", status: "not_applicable", weightKg: null, prev: null }), coach(1), coach(2), coach(3)] }));
+    expect(withT?.text).toBe("La última vez hiciste 3 × 8 con 80 kg. Hoy tenés indicadas 3 series de 8. Vamos con la carga que indicó tu profe: 80 kg.");
+    expect(workoutBrief(ex({ sets: 4, reps: "8", detail, targets: null }))?.text).toBe("Vamos con la carga que indicó tu profe: 80 kg.");
+  });
+  it("un back-off con carga no tapa la recomendación del top set; con molestia, la carga del profe dice «hoy no fuerces»", () => {
+    const detail = plan([["top", "5", null], ["backoff", "8", 70], ["backoff", "8", 70]]);
+    const top = T(0, { kind: "top", action: "increase_load", weightKg: 105, repsMin: 5, repsMax: 5, repsTarget: 5, prev: { w: 100, r: 5, rir: 2, at: "2026-11-02T15:00:00.000Z", level: "exact", source: "repi" } as RowTarget["prev"] });
+    const back = (i: number) => T(i, { kind: "backoff", status: "coach", action: "follow_coach", weightKg: 70, coach: { weightKg: 70, reps: "8" } });
+    const b = workoutBrief(ex({ sets: 3, reps: "5", detail, targets: [top, back(1), back(2)] }), "breve");
+    expect(b?.text).toBe("Completaste el rango: hoy probamos 105 kg y volvemos a 5.");
+    expect(workoutBrief(ex({ sets: 3, reps: "5", detail, targets: null }))).toBeNull();
+    const pain = workoutBrief(ex({ targets: [T(0, { status: "coach", action: "reduce_effort", weightKg: 80, coach: { weightKg: 80, reps: "10-12" } })] }), "breve");
+    expect(pain?.text).toBe("Tu profe indicó 80 kg. Hoy no fuerces: si molesta, pará y avisale.");
+  });
+});
+
+describe("revisión AC3 · cierre, panel y preferencias", () => {
+  it("#14 «Para la próxima» no repite «Lo decide tu profe» ni lo que el cierre ya dice", () => {
+    const next = { text: "El rendimiento bajó. Lo decide tu profe.", requiresCoach: true };
+    expect(reviewNextLine({ text: "Hoy completaste 9 de las 12 series previstas. El rendimiento bajó. Lo decide tu profe.", next })).toBeNull();
+    expect(reviewNextLine({ text: "Hoy completaste 9 de las 12 series previstas.", next })).toBe("El rendimiento bajó. Lo decide tu profe.");
+    expect(reviewNextLine({ text: "Hoy completaste todo.", next: null })).toBeNull();
+  });
+  it("#25 arriba del dock el alto nunca pasa el espacio libre (320×568 con dock alto: compacto, sin tapar los controles)", () => {
+    const small = panelPlace({ dockH: 378, vh: 568, layoutH: 568, wide: false });
+    expect(small).toEqual({ top: true, max: 170, compact: true, wide: false });
+    expect(small.max! + 378).toBeLessThanOrEqual(568);
+    const roomy = panelPlace({ dockH: 300, vh: 844, layoutH: 844, wide: false });
+    expect(roomy.max).toBe(524);
+    expect(roomy.compact).toBe(false);
+    expect(panelPlace({ dockH: 600, vh: 568, layoutH: 568, wide: false }).max).toBe(0);
+    // Con el teclado abierto (se escribe en el panel; el dock queda debajo del teclado) usa lo visible.
+    expect(panelPlace({ dockH: 378, vh: 308, layoutH: 568, wide: false })).toMatchObject({ top: true, max: 288, compact: PANEL_FULL_MIN > 288 });
+  });
+  it("#24 sin dock va abajo; en pantallas anchas, al costado; entrar o salir del entrenamiento cierra el panel", () => {
+    expect(panelPlace({ dockH: null, vh: 667, layoutH: 667, wide: false })).toEqual({ top: false, max: null, compact: false, wide: false });
+    expect(panelPlace({ dockH: 378, vh: 900, layoutH: 900, wide: true })).toEqual({ top: false, max: null, compact: false, wide: true });
+    expect(panelSurvives("prog", "workout")).toBe(false);
+    expect(panelSurvives("workout", "home")).toBe(false);
+    expect(panelSurvives("home", "prog")).toBe(true);
+    expect(panelSurvives("workout", "workout")).toBe(true);
+  });
+  it("#26 los cambios de preferencias salen de a uno y en orden; sólo la respuesta del último se muestra", async () => {
+    const shown: string[] = [], started: string[] = [];
+    const send = serialLatest<string>((r) => shown.push(r));
+    const later = (v: string, ms: number) => () => { started.push(v); return new Promise<string>((ok) => setTimeout(() => ok(v), ms)); };
+    const fail = () => { started.push("falla"); return Promise.reject(new Error("400")); };
+    const a = send(later("progreso apagado", 20));
+    const b = send(fail);
+    const c = send(later("motivación encendida", 0));
+    await expect(b).rejects.toThrow("400");
+    await Promise.all([a, c]);
+    // El segundo y el tercero no salen hasta que vuelve el anterior (aunque el primero tarde y uno falle).
+    expect(started).toEqual(["progreso apagado", "falla", "motivación encendida"]);
+    // La respuesta vieja no se muestra encima de la nueva.
+    expect(shown).toEqual(["motivación encendida"]);
   });
 });

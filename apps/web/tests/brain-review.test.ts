@@ -82,3 +82,17 @@ describe("cierre de la sesión", () => {
     expect(await err(sessionReviewFor(w.user, sid))).toMatchObject({ code: "voided", status: 409 });
   });
 });
+
+describe("marcas contra la historia previa (revisión AC3: hallazgo 7)", () => {
+  it("el 1RM estimado previo sale de cada serie de 1 a 12: una AMRAP de 14 a la misma carga no tapa la serie de 10", async () => {
+    const w = await coachWorld();
+    await pastSession(w.user, daysAgo(14), { "Press banca": [[60, 14, 0]] });
+    await pastSession(w.user, daysAgo(7), { "Press banca": [[60, 10, 2], [50, 10, 2]] });
+    const { sid, pe } = await startToday(w.user);
+    await log(w.user, sid, pe["Press banca"], 0, 55, 12); // 1RM estimado 77: por debajo de 60 × 10 (80)
+    await tr.sessionAction(w.user, sid, "finish");
+    const { review: rv } = await sessionReviewFor(w.user, sid);
+    expect(rv.marks.filter((m) => m.type === "e1rm")).toEqual([]);
+    expect(rv.text).not.toContain("superaste tu mejor marca estimada");
+  });
+});

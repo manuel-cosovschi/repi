@@ -4,10 +4,21 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { DEFAULT_PREFS, type Autonomy, type BrainPrefs } from "@repi/domain/brain/types";
 import { db, schema } from "@/db";
+import { featureOn } from "@/lib/features";
 import { AccessError, audit } from "../access/util";
 import { bodyEligibility } from "../progress/body";
 
 const { brainPref } = schema;
+
+/**
+ * Interruptor del módulo «assistant» (docs/FEATURE_FLAGS.md), también en el servidor: apagado, no se generan ni se exponen avisos,
+ * respuestas, acciones, push ni señales para el entrenador. Los datos no se borran y la persona sigue pudiendo ver y borrar lo que
+ * REPI recuerda y sus preferencias (privacidad).
+ */
+export const assistantOn = () => featureOn("assistant");
+export function requireAssistant() {
+  if (!assistantOn()) throw new AccessError("module_off", "El Asistente REPI no está disponible.", 404);
+}
 const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const PrefsPatch = z.object({
   proactive: z.boolean(),

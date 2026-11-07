@@ -10,7 +10,7 @@ import { ArrowsInSimple, ArrowsOutSimple, PaperPlaneRight, ThumbsDown, ThumbsUp,
 import { Ic } from "@/components/ui/Ic";
 import { useUnit } from "@/components/member/units";
 import { usePanel, type ActionState, type Item } from "./BrainProvider";
-import { OFFLINE_NOTE, contextLine, presentMessage, type ActionVM, type CardVM, type ReplyVM } from "./presenter";
+import { OFFLINE_NOTE, contextLine, panelPlace, presentMessage, type ActionVM, type CardVM, type PanelPlace, type ReplyVM } from "./presenter";
 import type { ProposedAction } from "./types";
 import { EvidenceInline, OriginTag } from "./parts";
 
@@ -23,7 +23,7 @@ export function RepiPanel() {
   const title = useRef<HTMLHeadingElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const [place, setPlace] = useState<{ top: boolean; max: number | null; wide: boolean }>({ top: false, max: null, wide: false });
+  const [place, setPlace] = useState<PanelPlace>({ top: false, max: null, compact: false, wide: false });
 
   // Foco: al abrir, al título (no al campo: en el teléfono abriría el teclado encima de la rutina). Al cerrar, vuelve a quien lo abrió.
   useEffect(() => {
@@ -39,24 +39,25 @@ export function RepiPanel() {
     return () => document.removeEventListener("keydown", onKey);
   }, [close]);
 
-  // En el entrenamiento: arriba, con el alto que deja libre el dock (se mide; cambia con el descanso o el teclado).
+  // Con el dock del entrenamiento a la vista: arriba, con el alto que deja libre el dock, sin pasarlo nunca (se mide; cambia con
+  // el descanso o el teclado). Se decide por el dock que hay en pantalla, no por la sección con que se abrió, y se vuelve a medir
+  // al cambiar de pantalla (BrainProvider además lo cierra al entrar o salir del entrenamiento).
   useLayoutEffect(() => {
-    const workout = p.panel.section === "workout";
     const mq = window.matchMedia(WIDE);
     const measure = () => {
-      const dock = workout ? document.querySelector<HTMLElement>(".dock") : null;
-      const vh = window.visualViewport?.height ?? window.innerHeight;
-      const free = dock ? Math.floor(vh - dock.getBoundingClientRect().height - 20) : null;
-      setPlace({ top: !!dock && !mq.matches, max: free != null ? Math.max(240, free) : null, wide: mq.matches });
+      const dock = document.querySelector<HTMLElement>(".dock");
+      const vv = window.visualViewport;
+      setPlace(panelPlace({ dockH: dock ? dock.getBoundingClientRect().height : null, vh: vv?.height ?? window.innerHeight, layoutH: window.innerHeight, wide: mq.matches }));
     };
     measure();
-    const dock = workout ? document.querySelector<HTMLElement>(".dock") : null;
+    const dock = document.querySelector<HTMLElement>(".dock");
+    // Si el dock se va (fin del entrenamiento), el observador avisa con tamaño cero y el panel vuelve abajo.
     const ro = dock && typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     if (dock) ro?.observe(dock);
     mq.addEventListener?.("change", measure);
     window.visualViewport?.addEventListener("resize", measure);
     return () => { ro?.disconnect(); mq.removeEventListener?.("change", measure); window.visualViewport?.removeEventListener("resize", measure); };
-  }, [p.panel.section]);
+  }, [p.panel.section, p.screen]);
 
   const vms = p.items.map((it) => ({ it, vm: presentMessage(it, unit) }));
   // Una respuesta nueva se lee desde su comienzo (si es larga, el final queda a un deslizamiento); lo demás, al final.
@@ -73,8 +74,8 @@ export function RepiPanel() {
   const ctx = contextLine(p.panel.section, p.panel.subject);
   return createPortal(
     <div ref={root} className="rp-panel" role="dialog" aria-modal="false" aria-labelledby="rp-title" aria-describedby="rp-ctx"
-      data-place={place.top ? "top" : undefined} data-expanded={expanded && !place.top && !place.wide ? "1" : undefined}
-      style={place.top && place.max ? { maxHeight: place.max } : undefined}>
+      data-place={place.top ? "top" : undefined} data-compact={place.compact ? "1" : undefined} data-expanded={expanded && !place.top && !place.wide ? "1" : undefined}
+      style={place.top && place.max != null ? { maxHeight: place.max } : undefined}>
       <div className="rp-head">
         <span className="rp-badge" aria-hidden="true">REPI</span>
         <div className="rp-head-txt"><h2 id="rp-title" ref={title} tabIndex={-1}>Asistente REPI</h2><small id="rp-ctx">{ctx}</small></div>
@@ -101,11 +102,14 @@ export function RepiPanel() {
       <div className="sr-only" aria-live="polite">{p.announce}</div>
       <div className="rp-foot">
         {p.offline && <p className="rp-offline" role="status">{OFFLINE_NOTE} Tu entrenamiento sigue igual.</p>}
-        <div className="rp-chips" role="group" aria-label="Sugerencias">
-          {p.chips.map((c) => (
-            <button key={c.text} type="button" className="ai-chip rp-chip" disabled={p.offline || p.busy} onClick={() => p.send(c.text)}>{c.label}</button>
-          ))}
-        </div>
+        {/* Compacto (poco alto libre sobre el dock): los atajos sólo antes de empezar; después, el lugar es para la conversación. */}
+        {(!place.compact || !p.items.length) && (
+          <div className="rp-chips" role="group" aria-label="Sugerencias">
+            {p.chips.map((c) => (
+              <button key={c.text} type="button" className="ai-chip rp-chip" disabled={p.offline || p.busy} onClick={() => p.send(c.text)}>{c.label}</button>
+            ))}
+          </div>
+        )}
         <form className="rp-compose" onSubmit={(e) => { e.preventDefault(); p.send(p.draft); }}>
           <textarea rows={1} value={p.draft} maxLength={1000} onChange={(e) => p.setDraft(e.target.value)} aria-label="Mensaje para REPI"
             placeholder={p.offline ? "Sin conexión" : "Escribile a REPI…"}

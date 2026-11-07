@@ -84,11 +84,15 @@ export async function appendMessage(userId: string, m: {
   return { message: messageView(row), created: true };
 }
 
-/** Últimos `limit` mensajes en orden cronológico, de una conversación propia o de la abierta (sin crearla). */
-export async function listMessages(userId: string, opts: { threadId?: string; limit?: number } = {}): Promise<MessageView[]> {
+/**
+ * Últimos `limit` mensajes en orden cronológico, de una conversación propia o de la abierta (sin crearla). `upTo`: sólo hasta ese
+ * mensaje inclusive (mismo orden que la lista: hora de la base y, si empatan, id), para releer lo que había antes de un reintento.
+ */
+export async function listMessages(userId: string, opts: { threadId?: string; limit?: number; upTo?: string } = {}): Promise<MessageView[]> {
   const thread = opts.threadId ? await ownThread(userId, opts.threadId) : await openThread(userId);
   if (!thread) return [];
-  const rows = await db.select().from(brainMessage).where(and(eq(brainMessage.threadId, thread.id), eq(brainMessage.userId, userId)))
+  const upTo = opts.upTo ? sql`(${brainMessage.createdAt}, ${brainMessage.id}) <= (select m.created_at, m.id from brain_message m where m.id = ${opts.upTo} and m.user_id = ${userId})` : undefined;
+  const rows = await db.select().from(brainMessage).where(and(eq(brainMessage.threadId, thread.id), eq(brainMessage.userId, userId), upTo))
     .orderBy(desc(brainMessage.createdAt), desc(brainMessage.id)).limit(Math.min(Math.max(opts.limit ?? 50, 1), 200));
   return rows.reverse().map(messageView);
 }

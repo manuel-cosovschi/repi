@@ -2,20 +2,25 @@
 // Asistente REPI (D209) · tarjeta de Inicio, después del «próximo entrenamiento». Una sola prioridad del día (la elige el motor
 // de relevancia en el servidor) con Ver por qué · Empezar · Hablar con REPI · Descartar · No mostrar algo parecido. Descartar y
 // «no mostrar algo parecido» quedan en el servidor (no en el teléfono). Sin aviso, una línea de «hoy» y la entrada al chat.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useUnit } from "@/components/member/units";
 import { useBrain } from "./BrainProvider";
 import { OriginTag } from "./parts";
 import { presentIntervention, ORIGIN_LABEL, type HomeCardVM } from "./presenter";
 import type { CardAction, InterventionView } from "./types";
 
-export function RepiCard({ onStart, onOpen, onResolved, startName }: {
+/** ¿Se ve la tarjeta? (asistente encendido y con conexión). Quien la reemplaza por otro aviso usa la misma condición. */
+export const repiCardVisible = (b: { enabled: boolean; offline: boolean }) => b.enabled && !b.offline;
+
+export function RepiCard({ onStart, onOpen, onResolved, startName, extra }: {
   /** El inicio de siempre (con su check-in y validación de ingreso): nunca un segundo camino para empezar. */
   onStart: (dayKey: string | null) => void;
   /** «Ver cambios», «Revisar», «Ver cierre»…: a qué pantalla lleva cada aviso. */
   onOpen: (card: InterventionView) => void;
   onResolved?: (card: InterventionView) => void;
   startName?: string | null;
+  /** Lo que la pantalla agrega al aviso que reemplaza (p. ej. versión, motivo y «Ver anterior» del programa actualizado). */
+  extra?: ReactNode;
 }) {
   const brain = useBrain();
   const unit = useUnit();
@@ -27,7 +32,7 @@ export function RepiCard({ onStart, onOpen, onResolved, startName }: {
     shown.current = card.id;
     void brain.resolve(card.id, "shown");
   }, [card, brain]);
-  if (!brain.enabled || brain.offline) return null;
+  if (!repiCardVisible(brain)) return null;
 
   if (!card) return (
     <section className="rp-card is-quiet" aria-label="Asistente REPI">
@@ -61,6 +66,7 @@ export function RepiCard({ onStart, onOpen, onResolved, startName }: {
       <div className="rp-card-top"><span className="rp-badge">REPI</span><OriginTag o={vm.origin} /></div>
       <h2 id="rp-card-h" className="rp-card-title">{vm.title}</h2>
       {vm.body && <p className="rp-card-body">{vm.body}</p>}
+      {extra}
       <div className="rp-card-acts">
         {vm.primary.map((a, i) => (
           <button key={a.id} type="button" className={i === 0 && (a.id === "start" || a.id === "open" || a.id === "accept" || a.id === "modify") ? "cta sm" : "ghost sm"} onClick={() => void run(a)}>{label(a)}</button>

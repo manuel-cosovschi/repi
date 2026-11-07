@@ -6,6 +6,7 @@ import { logError } from "../log";
 import { loadContext } from "./context";
 import { activeInterventions, type InterventionView } from "./store";
 import { homeCandidates } from "./proactive";
+import { requireAssistant } from "./prefs";
 
 export type BrainHome = {
   card: InterventionView | null;
@@ -17,6 +18,7 @@ export type BrainHome = {
 };
 
 export async function brainHome(userId: string, now = new Date()): Promise<BrainHome> {
+  requireAssistant();
   const [home, sc] = await Promise.all([
     homeCandidates(userId, now).then((h) => ({ ...h, source: "proactive" as const })).catch(async (e) => {
       logError("brain.home", e);

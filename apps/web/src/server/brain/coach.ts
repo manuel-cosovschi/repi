@@ -21,6 +21,7 @@ import { AccessError } from "../access/util";
 import { requireClientOf, requireCoach, readVersion } from "../training/services";
 import { historyRows } from "../training/intelligence";
 import { gymContext, inScope, need } from "../gym/services";
+import { requireAssistant } from "./prefs";
 
 const { programAssignment, program, trainingProposal, gymMember, consentGrant, exercise } = schema;
 const DAY = 86_400_000;
@@ -63,6 +64,7 @@ export type InsightsView = {
 
 /** Entrenador privado: relación propia, vigente y con permiso de entrenamientos (si no, 404 o 403 no_grant). */
 export async function coachInsights(actorId: string, orgId: string, relId: string, now = new Date()): Promise<InsightsView> {
+  requireAssistant();
   await requireCoach(actorId, orgId);
   const rel = await requireClientOf(orgId, relId);
   return relationInsights({ kind: "coach", id: relId, userId: rel.userId }, now);
@@ -73,6 +75,7 @@ export async function coachInsights(actorId: string, orgId: string, relId: strin
  * gerencia: 403 (no programan). Otra sede u otra organización: 404.
  */
 export async function memberInsights(actorId: string, orgId: string, gymMemberId: string, now = new Date()): Promise<InsightsView> {
+  requireAssistant();
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId)));
@@ -125,9 +128,10 @@ export async function relationInsights(rel: InsightRel, now = new Date()): Promi
   const [exercises, [subs], [recs], open, requests] = await Promise.all([
     exerciseSignals(rel, now),
     // Sustituciones de REPI rechazadas durante sesiones de ESTA relación (la acción no guarda la relación: se acota por la ventana
-    // de la sesión abierta, que es donde se proponen).
+    // de la sesión abierta, que es donde se proponen). Se cuentan ofertas, no filas: las alternativas de una misma respuesta
+    // (input._bind.offer) rechazadas con un «no» son UN rechazo.
     db.execute<{ n: number }>(sql`
-      select count(*)::int as n from brain_action a
+      select count(distinct coalesce(a.input->'_bind'->>'offer', a.id))::int as n from brain_action a
       where a.user_id = ${rel.userId} and a.kind in (${sql.join(SUBSTITUTION_KINDS.map((k) => sql`${k}`), sql`, `)}) and a.status = 'cancelled'
         and a.created_at >= ${since}::timestamptz and a.created_at <= ${until}::timestamptz
         and exists (select 1 from workout_session ws where ${relSessionsSql(rel)}
@@ -211,6 +215,7 @@ export type PendingSignals = {
  * ningún texto de la propuesta ni del alumno. Es una lectura: no crea propuestas.
  */
 export async function coachPendingSignals(actorId: string, orgId: string, now = new Date()): Promise<PendingSignals> {
+  requireAssistant();
   await requireCoach(actorId, orgId);
   const rows = await (db.execute<{ rel_id: string; proposals: number; requests: number }>(sql`
     select cc.id as rel_id, count(tp.id)::int as proposals,

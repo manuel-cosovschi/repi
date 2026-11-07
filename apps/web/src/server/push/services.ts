@@ -10,7 +10,7 @@ import { inQuiet, nextAllowed } from "@repi/domain/brain/quiet";
 import { DEFAULT_PREFS, type BrainPrefs, type InterventionCategory } from "@repi/domain/brain/types";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
-import { getPrefs, updatePrefs } from "../brain/prefs";
+import { assistantOn, getPrefs, updatePrefs } from "../brain/prefs";
 import { bodyEligibility } from "../progress/body";
 
 const { pushSubscription, notificationOutbox, notifyPref, brainPref, brainIntervention, user } = schema;
@@ -107,12 +107,14 @@ async function brainGates(rows: OutboxRow[], now: Date): Promise<Map<string, Gat
   const birth = new Map(people.map((u) => [u.id, u.birth]));
   const iv = new Map(ivs.map((i) => [i.id, i]));
   const today = localDate(now);
+  const moduleOn = assistantOn();
   for (const r of brain) {
     const m = BRAIN_KEY.exec(r.dedupeKey);
     const p: Pick<BrainPrefs, "push" | "proactive" | "categories" | "quietStart" | "quietEnd"> = prefsOf.get(r.userId) ?? DEFAULT_PREFS;
     const pref = m ? CATEGORY_PREF[m[1] as InterventionCategory] : undefined;
     const i = m ? iv.get(m[2]) : undefined;
-    if (!m || !i || i.userId !== r.userId) out.set(r.id, { skip: "aviso de REPI inexistente" });
+    if (!moduleOn) out.set(r.id, { skip: "asistente apagado" }); // interruptor del módulo: lo encolado tampoco sale
+    else if (!m || !i || i.userId !== r.userId) out.set(r.id, { skip: "aviso de REPI inexistente" });
     else if (ageEligibility(birth.get(r.userId), today) !== "adult") out.set(r.id, { skip: "menor o edad sin confirmar" });
     else if (!p.push || !p.proactive) out.set(r.id, { skip: "push de REPI apagado" });
     else if (pref && p.categories[pref] === false) out.set(r.id, { skip: "categoría apagada" });

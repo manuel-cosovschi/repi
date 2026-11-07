@@ -7,6 +7,7 @@
 // se revisan en el editor de siempre (ProposalDraft) y se deciden con las mismas rutas. Decidir nunca cambia el programa.
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import { featureOn } from "@/lib/features";
 import type { CoachInsight, InsightsView, PendingItem } from "@/server/brain/coach";
 import { PROPOSAL_KIND } from "./CoachIntelligence";
 import type { TiDraft } from "./ProposalDraft";
@@ -35,7 +36,7 @@ function useSignals(url: string) {
   return { data, fail, reload: load };
 }
 
-export function RepiSignals({ load, kind, relId, programId, decideUrl, onReview, quietDenied = false, refresh = 0 }: {
+type SignalsProps = {
   load: string; kind: TiDraft["kind"]; relId: string; programId: string | null;
   decideUrl: (proposalId: string) => string;
   /** Abre el editor de programas de siempre con el pedido a la vista (no lo aplica). */
@@ -44,7 +45,14 @@ export function RepiSignals({ load, kind, relId, programId, decideUrl, onReview,
   quietDenied?: boolean;
   /** Cambia cuando Training Intelligence cargó o decidió algo (abre y cierra propuestas): se vuelve a leer sin vaciar la sección. */
   refresh?: number;
-}) {
+};
+
+/** Con el Asistente REPI apagado (flag `assistant`) no hay sección ni pedido, igual que en la app del socio. */
+export function RepiSignals(props: SignalsProps) {
+  return featureOn("assistant") ? <Signals {...props} /> : null;
+}
+
+function Signals({ load, kind, relId, programId, decideUrl, onReview, quietDenied = false, refresh = 0 }: SignalsProps) {
   const { data, fail, reload } = useSignals(load);
   useEffect(() => { if (refresh > 0) void reload(); }, [refresh]); // eslint-disable-line react-hooks/exhaustive-deps
   const [msg, setMsg] = useState<string | null>(null);

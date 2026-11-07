@@ -25,7 +25,7 @@ import { audit, type Tx } from "../access/util";
 import { enqueue } from "../push/services";
 import { myActive, timedPeIds } from "../training/services";
 import { historyRows, outlookFor } from "../training/intelligence";
-import { getPrefs } from "./prefs";
+import { assistantOn, getPrefs } from "./prefs";
 import { activeInterventions, arDayStart, cancelObsoleteInterventions, upsertIntervention, type InterventionView } from "./store";
 
 const { user, userPref, workoutSession, setLog, exercise, program, programVersion, programExercise, ownRoutine, checkin, brainIntervention, notificationOutbox } = schema;
@@ -72,12 +72,15 @@ async function sessionMarks(userId: string, s: SessionRow) {
     .from(setLog).where(and(eq(setLog.sessionId, s.id), sql`${setLog.voidedAt} is null`));
   if (!today.length) return { prs: [] as { exercise: { id: string; name: string }; markText: string; sessionId: string; at: string }[], mainSets: 0 };
   const exIds = [...new Set(today.map((t) => t.ex))].slice(0, 12);
-  const prior = (await db.execute<{ exercise_id: string; program_exercise_id: string; set_index: number; set_kind: string | null; stage_index: number | null; weight_kg: string | null; reps: number }>(sql`
-    select sl.exercise_id, sl.program_exercise_id, sl.set_index, sl.set_kind, sl.stage_index, sl.weight_kg, max(sl.reps)::int as reps
+  // Por fila y carga: las repeticiones máximas y, aparte, las máximas de 1 a 12 (el 1RM estimado sale de cada serie válida:
+  // una AMRAP de 14 a esa carga no tapa una serie de 10, que sí estima).
+  const prior = (await db.execute<{ exercise_id: string; program_exercise_id: string; set_index: number; set_kind: string | null; stage_index: number | null; weight_kg: string | null; reps: number; reps_e1rm: number | null }>(sql`
+    select sl.exercise_id, sl.program_exercise_id, sl.set_index, sl.set_kind, sl.stage_index, sl.weight_kg, max(sl.reps)::int as reps,
+      (max(sl.reps) filter (where sl.reps between 1 and 12))::int as reps_e1rm
     from ${setLog} sl join ${workoutSession} ws on ws.id = sl.session_id
     where ws.user_id = ${userId} and ws.status = 'completed' and ws.id <> ${s.id} and ws.ended_at < ${s.endedAt.toISOString()}::timestamptz
       and sl.voided_at is null and sl.reps > 0 and sl.exercise_id in (${sql.join(exIds.map((x) => sql`${x}`), sql`, `)})
-    group by 1, 2, 3, 4, 5, 6`)) as unknown as { exercise_id: string; program_exercise_id: string; set_index: number; set_kind: string | null; stage_index: number | null; weight_kg: string | null; reps: number }[];
+    group by 1, 2, 3, 4, 5, 6`)) as unknown as { exercise_id: string; program_exercise_id: string; set_index: number; set_kind: string | null; stage_index: number | null; weight_kg: string | null; reps: number; reps_e1rm: number | null }[];
   const plan = await timedPeIds([...today.map((t) => t.pe), ...prior.map((p) => p.program_exercise_id)]);
   const flags = (pe: string, i: number) => plan.flags?.(pe, i) ?? { kind: "work" as SetKind, stage: 0, timed: false };
   const toSet = (pe: string, i: number, w: string | null, r: number | null, kind: string | null, stage: number | null): ReviewSet & { timed: boolean } => {
@@ -91,13 +94,13 @@ async function sessionMarks(userId: string, s: SessionRow) {
   for (const ex of exIds) {
     const sets = today.filter((t) => t.ex === ex).map((t) => toSet(t.pe, t.i, t.w, t.r, t.kind, t.stage));
     mainSets += sets.filter(isMain).length;
-    const before = prior.filter((p) => p.exercise_id === ex).map((p) => toSet(p.program_exercise_id, p.set_index, p.weight_kg, p.reps, p.set_kind, p.stage_index)).filter(isMain);
+    const before = prior.filter((p) => p.exercise_id === ex).map((p) => ({ ...toSet(p.program_exercise_id, p.set_index, p.weight_kg, p.reps, p.set_kind, p.stage_index), r12: p.reps_e1rm })).filter(isMain);
     if (!before.length) continue; // la primera vez no es una marca
     const measure: Measure = sets.some((x) => x.timed) ? "time" : sets.some((x) => (x.w ?? 0) > 0) ? "load" : "reps";
     const loaded = before.filter((x) => !x.timed && (x.w ?? 0) > 0);
     const marks: PriorMarks = {
       maxLoadKg: loaded.length ? Math.max(...loaded.map((x) => x.w!)) : null,
-      e1rm: loaded.length ? Math.max(0, ...loaded.map((x) => epley1rm(x.w!, x.r!) ?? 0)) || null : null,
+      e1rm: loaded.length ? Math.max(0, ...loaded.map((x) => (x.r12 == null ? 0 : epley1rm(x.w!, x.r12) ?? 0))) || null : null,
       repsAtLoad: loaded.map((x) => ({ w: x.w!, r: x.r! })),
       bestReps: before.some((x) => !x.timed && !(x.w ?? 0)) ? Math.max(...before.filter((x) => !x.timed && !(x.w ?? 0)).map((x) => x.r!)) : null,
       bestSec: before.some((x) => x.timed) ? Math.max(...before.filter((x) => x.timed).map((x) => x.r!)) : null,
@@ -266,6 +269,7 @@ const EMPTY = (): ProactiveResult => ({ emitted: [], suppressed: {}, duplicates:
  */
 export async function proactiveFor(userId: string, now = new Date(), o: { push?: boolean } = {}): Promise<ProactiveResult> {
   const out = EMPTY();
+  if (!assistantOn()) return out; // módulo apagado: ni Inicio ni el cron generan avisos
   const prefs = await getPrefs(userId);
   if (!prefs.proactive) return out; // caso 46: con la asistencia proactiva apagada no se evalúa ni se avisa nada
   const [u] = await db.select({ birth: user.birthDate }).from(user).where(eq(user.id, userId));
@@ -355,6 +359,7 @@ export async function runProactive(now = new Date(), o: { force?: boolean; users
   const t0 = Date.now();
   const p = arParts(now);
   const base: ProactiveRun = { ran: false, users: 0, evaluated: 0, emitted: 0, pushed: 0, cancelled: 0, duplicates: 0, suppressed: {}, failed: 0, ms: 0, budgetHit: false };
+  if (!assistantOn()) return { ...base, reason: "módulo apagado" };
   if (!o.force && !(PROACTIVE_SLOTS as readonly number[]).includes(p.hh)) return { ...base, reason: "fuera de franja" };
   if (o.users && !o.users.length) return { ...base, reason: "sin personas" };
   const bucket = o.force ? null : p.mm % BUCKETS;

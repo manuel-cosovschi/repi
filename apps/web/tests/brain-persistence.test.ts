@@ -265,3 +265,39 @@ describe("acciones", () => {
     expect((await getAction(a, action.id)).status).toBe("proposed");
   });
 });
+
+describe("ejecución de acciones sin transacción abierta (revisión AC3: hallazgos 15, 17 y 19)", () => {
+  it("hallazgo 15 · mientras corre el ejecutor no hay una transacción reteniendo la fila (ni su conexión)", async () => {
+    const u = await person();
+    const { action } = await proposeAction(u, { kind: "save_preference", idempotencyKey: `t:${randomUUID()}`, autonomy: 1 });
+    const r = await executeActionOnce(u, action.id, async () => {
+      // Con la fila bloqueada por otra transacción esto fallaría al instante (NOWAIT): los servicios del ejecutor abren las suyas.
+      const [row] = await db.transaction((tx) => tx.select().from(schema.brainAction).where(eq(schema.brainAction.id, action.id)).for("update", { noWait: true }));
+      return { seen: row.status };
+    });
+    expect(r).toMatchObject({ executed: true, action: { status: "executed", result: { seen: "confirmed" } } });
+  });
+  it("hallazgo 17 · una falla pasajera no consume la propuesta: vuelve a «proposed» y el reintento la ejecuta", async () => {
+    const u = await person();
+    const { action } = await proposeAction(u, { kind: "apply_substitution", idempotencyKey: `x:${randomUUID()}`, autonomy: 1 });
+    const r = await executeActionOnce(u, action.id, async () => { throw new Error("conexión cortada"); });
+    expect(r).toMatchObject({ executed: false, action: { status: "proposed", error: "error" } });
+    const again = await executeActionOnce(u, action.id, async () => ({ ok: 1 }));
+    expect(again).toMatchObject({ executed: true, action: { status: "executed", error: null, result: { ok: 1 } } });
+  });
+  it("mientras corre: otro pedido espera el resultado o responde «en curso»; no se cancela a mitad de camino", async () => {
+    const u = await person();
+    const { action } = await proposeAction(u, { kind: "apply_short_session", idempotencyKey: `c:${randomUUID()}`, autonomy: 1 });
+    let release!: () => void;
+    const gate = new Promise<void>((ok) => { release = ok; });
+    const first = executeActionOnce(u, action.id, async () => { await gate; return { done: 1 }; });
+    for (let i = 0; i < 40 && (await getAction(u, action.id)).status !== "confirmed"; i++) await new Promise((ok) => setTimeout(ok, 25));
+    expect((await getAction(u, action.id))).toMatchObject({ status: "confirmed", result: null }); // la marca del reclamo no se muestra
+    expect(await err(executeActionOnce(u, action.id, async () => ({}), new Date(), { waitMs: 100 }))).toMatchObject({ code: "in_progress", status: 409 });
+    expect(await err(transitionAction(u, action.id, "cancelled"))).toMatchObject({ code: "in_progress", status: 409 });
+    const waiting = executeActionOnce(u, action.id, async () => ({ twice: true }));
+    release();
+    expect(await first).toMatchObject({ executed: true, action: { status: "executed", result: { done: 1 } } });
+    expect(await waiting).toMatchObject({ executed: false, action: { status: "executed", result: { done: 1 } } });
+  });
+});

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, schema } from "@/db";
@@ -83,8 +84,44 @@ describe("chat con IA: respuesta válida", () => {
     const r = await send(w.user, QUESTION);
     expect(r.reply.via).toBe("fallback");
     expect(r.reply.text).not.toContain("140");
-    expect(__test.inventedLoads("Hiciste 60 kg y 62,5 kg", ["La última vez hiciste 3 × 10 con 60 kg", "{\"w\":62.5}"])).toEqual([]);
-    expect(__test.inventedLoads("Subí a 80 kilos", ["60 kg"])).toEqual([80]);
+    expect(__test.inventedNumbers("Hiciste 60 kg y 62,5 kg", ["La última vez hiciste 3 × 10 con 60 kg", "Y la anterior, 62,5 kg"])).toEqual([]);
+    expect(__test.inventedNumbers("Subí a 80 kilos", ["60 kg"])).toEqual(["80 kg"]);
+  });
+
+  it("hallazgo 8 · un número suelto del contexto no habilita cargas; repeticiones y series también se controlan", () => {
+    const ctx = JSON.stringify({ today: "2026-11-07", history: { sessions30d: 12, sessions7d: 3 }, exercises: { e1: "Press banca", e7: "Vuelos laterales" } });
+    expect(__test.inventedNumbers("Probá con 12 kg en las laterales", [ctx])).toEqual(["12 kg"]);
+    expect(__test.inventedNumbers("Subí a 7 kg", [ctx])).toEqual(["7 kg"]);
+    expect(__test.inventedNumbers("La última vez hiciste 10 repeticiones", ["¿Cómo vengo?"])).toEqual(["10 repeticiones"]);
+    expect(__test.inventedNumbers("Hacé 4 series de 8 reps", [])).toEqual(["8 repeticiones", "4 series"]);
+    expect(__test.inventedNumbers("Hiciste 3x10 con 60 kg", ["La última vez hiciste 3 × 10 con 60 kg"])).toEqual([]);
+    expect(__test.inventedNumbers("Hice 10 repeticiones, buenísimo", ["Hoy hice 10 repeticiones"])).toEqual([]);
+    // Las series de la sesión abierta (previstas, hechas, restantes) sí están en el contexto.
+    expect(__test.inventedNumbers("Te quedan 2 series", [], { sets: [1, 3, 2] })).toEqual([]);
+    expect(__test.inventedNumbers("Probá con 60 lb", ["La última vez: 60 kg"])).toEqual(["60 lb"]);
+  });
+
+  it("hallazgo 8 · repeticiones inventadas → no se usa la respuesta", async () => {
+    const w = await coachWorld();
+    stubAi(() => ok({ reply: "La última vez hiciste 10 repeticiones: vas muy bien." }));
+    const r = await send(w.user, QUESTION);
+    expect(r.reply.via).toBe("fallback");
+    expect(r.reply.text).not.toContain("10 repeticiones");
+  });
+
+  it("hallazgo 20 · un reintento mientras el primero espera a la IA: espera esa respuesta y no paga otra llamada", async () => {
+    const w = await coachWorld();
+    const f = stubAi(async () => { await new Promise((ok2) => setTimeout(ok2, 900)); return ok({ reply: "Sirve en series muy pesadas; consultalo con tu profe." }); });
+    const clientId = randomUUID();
+    const first = send(w.user, QUESTION, { clientId });
+    // El reintento llega cuando el mensaje ya está guardado y la llamada a la IA sigue en curso.
+    for (let i = 0; i < 80 && !(await db.select().from(schema.brainMessage).where(eq(schema.brainMessage.id, clientId))).length; i++) await new Promise((ok2) => setTimeout(ok2, 20));
+    const retry = await send(w.user, QUESTION, { clientId });
+    const a = await first;
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(retry).toMatchObject({ replayed: true, reply: { id: a.reply.id, via: "ai", text: "Sirve en series muy pesadas; consultalo con tu profe." } });
+    const usage = await db.select().from(schema.aiUsage).where(eq(schema.aiUsage.userId, w.user));
+    expect(usage.map((x) => x.outcome)).toEqual(["ok"]);
   });
 });
 

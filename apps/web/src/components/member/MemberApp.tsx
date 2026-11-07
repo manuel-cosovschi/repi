@@ -43,7 +43,7 @@ import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
 import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
 import { BrainProvider, useBrain } from "@/components/brain/BrainProvider";
-import { RepiCard } from "@/components/brain/RepiCard";
+import { RepiCard, repiCardVisible } from "@/components/brain/RepiCard";
 import { RepiPrefs } from "@/components/brain/RepiPrefs";
 import type { Draft, InterventionView, Navigate } from "@/components/brain/types";
 
@@ -493,9 +493,12 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
   onCardOpen: (c: InterventionView) => void;
 }) {
-  // D209: la tarjeta de REPI absorbe el aviso de programa actualizado (un solo aviso, resuelto en el servidor).
-  const brainCard = useBrain().home?.card ?? null;
-  const repiCoversProgram = brainCard?.kind === "program_updated";
+  // D209: la tarjeta de REPI absorbe el aviso de programa actualizado (un solo aviso, resuelto en el servidor), pero sólo mientras
+  // se ve (asistente encendido y con conexión) y con lo mismo que decía el aviso: versión, motivo y «Ver anterior» (revisión AC3
+  // #27/#29: sin conexión no quedaba ninguno de los dos, y la versión anterior ya no se podía abrir desde ningún lado).
+  const brain = useBrain();
+  const progUpdate = t.state === "ready" ? t.program?.update ?? null : null;
+  const repiCoversProgram = !!progUpdate && repiCardVisible(brain) && brain.home?.card?.kind === "program_updated";
   const connect = !!inbox?.gym?.connect;
   const gymRel = t.relation?.kind === "gym";
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
@@ -564,7 +567,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       <RepiCard startName={next?.name ?? t.openSessionDay ?? null}
         onStart={(k) => onStart(k && t.program?.days.some((d) => d.id === k) ? k : next?.id ?? "")}
         onOpen={onCardOpen}
-        onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }} />
+        onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }}
+        extra={repiCoversProgram && progUpdate && t.program ? <ProgramUpdateInfo u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} /> : null} />
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}
@@ -572,7 +576,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
       {!offline && <Ideas offline={offline} flash={flash} />}
       {!offline && <NextAppointment flash={flash} />}
-      {t.state === "ready" && t.program?.update && !repiCoversProgram && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
+      {progUpdate && t.program && !repiCoversProgram && <ProgramNotice u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
       {inbox?.accessRequests.map((a) => (
         <button key={a.id} type="button" className="hbanner cyan" onClick={() => go("perfil")}>
           <span className="dot" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
@@ -1073,39 +1077,65 @@ function MyData({ flash }: { flash: (m: string) => void }) {
 // F-CL-14: aviso de programa nuevo o actualizado, con autor; la versión anterior queda consultable.
 // Visto por versión en este teléfono (no es un dato de salud ni privado de otra persona).
 type PrevVersion = { number: number; name: string; createdAt: string; days: { name: string; exercises: { name: string; sets: number; reps: string; rir: number | null; restSec: number }[] }[] };
+/** La versión anterior del programa, para consultar: la abren el aviso y la tarjeta de REPI que lo reemplaza. */
+function usePrevVersion(flash: (m: string) => void) {
+  const [prev, setPrev] = useState<PrevVersion | null>(null);
+  const open = async () => { try { setPrev(await api<PrevVersion>("/api/me/training/previous")); } catch (e) { flash((e as Error).message); } };
+  return { prev, open, close: () => setPrev(null) };
+}
+function PrevVersionSheet({ prev, u, version, onClose }: { prev: PrevVersion; u: ProgramUpdate; version: number; onClose: () => void }) {
+  return (
+    <Sheet title={`Versión ${prev.number} · ${prev.name}`} sub={`Hasta el ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(u.at))}. Sólo para consultar: entrenás con la versión ${version}.`} onClose={onClose}>
+      {prev.days.map((d) => (
+        <div key={d.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <b style={{ fontSize: 15 }}>{d.name}</b>
+          {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {e.sets} × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""}</span>)}
+        </div>
+      ))}
+    </Sheet>
+  );
+}
+const updateWhen = (u: ProgramUpdate) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(u.at));
+/** «Versión 3 · 5 nov · motivo» (o la fecha, si es un programa nuevo). */
+const updateMeta = (u: ProgramUpdate, version: number) => (u.kind === "new" ? updateWhen(u) : `Versión ${version} · ${updateWhen(u)}${u.reason ? ` · ${u.reason}` : ""}`);
+const canSeePrev = (u: ProgramUpdate, offline: boolean) => u.kind === "updated" && u.hasPrevious && !offline;
+
 function ProgramNotice({ u, version, name, offline, flash }: { u: ProgramUpdate; version: number; name: string; offline: boolean; flash: (m: string) => void }) {
   const key = `repi_prog_seen:${u.key}`;
   const [seen, setSeen] = useState(true);
-  const [prev, setPrev] = useState<PrevVersion | null>(null);
+  const pv = usePrevVersion(flash);
   useEffect(() => { try { setSeen(localStorage.getItem(key) === "1"); } catch { setSeen(false); } }, [key]);
   const done = () => { try { localStorage.setItem(key, "1"); } catch { /* */ } setSeen(true); };
-  const open = async () => { try { setPrev(await api<PrevVersion>("/api/me/training/previous")); } catch (e) { flash((e as Error).message); } };
-  if (seen && !prev) return null;
+  if (seen && !pv.prev) return null;
   const who = u.author?.split(" ")[0] ?? "Tu coach";
-  const when = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(u.at));
   return (
     <>
       {!seen && (
         <div className="hbanner cyan" style={{ flexWrap: "wrap" }} role="status">
           <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
           <span><b>{u.kind === "new" ? `${who} te asignó «${name}»` : `${who} actualizó tu programa`}</b>
-            <small>{u.kind === "new" ? when : `Versión ${version} · ${when}${u.reason ? ` · ${u.reason}` : ""}`}</small></span>
+            <small>{updateMeta(u, version)}</small></span>
           <span style={{ display: "flex", gap: 6 }}>
-            {u.kind === "updated" && u.hasPrevious && !offline && <button type="button" className="ghost sm" style={{ height: 36 }} onClick={open}>Ver anterior</button>}
+            {canSeePrev(u, offline) && <button type="button" className="ghost sm" style={{ height: 36 }} onClick={pv.open}>Ver anterior</button>}
             <button type="button" className="cta sm" style={{ height: 36 }} onClick={done}>Ok</button>
           </span>
         </div>
       )}
-      {prev && (
-        <Sheet title={`Versión ${prev.number} · ${prev.name}`} sub={`Hasta el ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(u.at))}. Sólo para consultar: entrenás con la versión ${version}.`} onClose={() => setPrev(null)}>
-          {prev.days.map((d) => (
-            <div key={d.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <b style={{ fontSize: 15 }}>{d.name}</b>
-              {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {e.sets} × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""}</span>)}
-            </div>
-          ))}
-        </Sheet>
-      )}
+      {pv.prev && <PrevVersionSheet prev={pv.prev} u={u} version={version} onClose={pv.close} />}
+    </>
+  );
+}
+/** D209: dentro de la tarjeta de REPI «Rutina actualizada», lo que decía el aviso: quién, versión, fecha, motivo y «Ver anterior». */
+function ProgramUpdateInfo({ u, version, name, offline, flash }: { u: ProgramUpdate; version: number; name: string; offline: boolean; flash: (m: string) => void }) {
+  const pv = usePrevVersion(flash);
+  const who = u.author?.split(" ")[0] ?? null;
+  const label = u.kind === "new" ? `Programa nuevo · ${updateWhen(u)}` : `Versión ${version} · ${updateWhen(u)}`;
+  const text = u.kind === "new" ? `${who ?? "Tu coach"} te asignó «${name}».` : [who ? `Lo actualizó ${who}.` : null, u.reason ? `Motivo: ${u.reason}` : null].filter(Boolean).join(" ");
+  return (
+    <>
+      <p className="rp-small"><small>{label}</small>{text || null}</p>
+      {canSeePrev(u, offline) && <button type="button" className="ghost sm" onClick={pv.open}>Ver la versión anterior</button>}
+      {pv.prev && <PrevVersionSheet prev={pv.prev} u={u} version={version} onClose={pv.close} />}
     </>
   );
 }

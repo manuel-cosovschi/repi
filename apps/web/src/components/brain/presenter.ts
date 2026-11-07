@@ -172,3 +172,53 @@ export function cleanRef(ref: BrainRef | null | undefined): BrainRef | null {
 
 /** Texto del aviso sin conexión (no alarmante; nada se bloquea). */
 export const OFFLINE_NOTE = "REPI responde cuando vuelva la conexión.";
+
+/**
+ * Cierre de la sesión · «Para la próxima»: la propuesta, salvo que el texto del cierre ya la diga. Cuando decide el profe, el
+ * dominio ya le agrega «Lo decide tu profe.»: la interfaz no lo repite (revisión AC3 #14).
+ */
+export function reviewNextLine(v: { text: string; next: { text: string } | null }): string | null {
+  const t = v.next?.text?.trim();
+  return t && !v.text.includes(t) ? t : null;
+}
+
+// ── Panel ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/** Aire entre el panel de arriba y el dock (y el borde superior). */
+export const PANEL_GAP = 20;
+/** Por debajo de este alto libre el panel de arriba queda compacto: sin presentación y con atajos sólo antes de la charla. */
+export const PANEL_FULL_MIN = 300;
+export type PanelPlace = { top: boolean; max: number | null; compact: boolean; wide: boolean };
+/**
+ * Dónde va el panel (revisión AC3 #24/#25). Con un dock a la vista (registrar la serie) y pantalla angosta: arriba, con un alto
+ * máximo que NUNCA pasa el espacio libre sobre el dock (antes se forzaba un mínimo de 240 px y en 320×568 tapaba los botones de
+ * peso). Con el teclado abierto (la parte visible se achica y el dock queda debajo del teclado) se escribe en el panel: usa lo
+ * visible. Sin dock: abajo (o al costado en pantallas anchas).
+ */
+export function panelPlace(p: { dockH: number | null; vh: number; layoutH: number; wide: boolean }): PanelPlace {
+  const top = p.dockH != null && !p.wide;
+  if (!top) return { top: false, max: null, compact: false, wide: p.wide };
+  const keyboard = p.layoutH - p.vh > 120;
+  const free = Math.max(0, Math.floor(p.vh - (keyboard ? 0 : p.dockH!) - PANEL_GAP));
+  return { top: true, max: free, compact: free < PANEL_FULL_MIN, wide: false };
+}
+/**
+ * Al cambiar de pantalla, ¿sigue abierto el panel? Entrar o salir del entrenamiento lo cierra (lo abierto en Progreso quedaba
+ * abajo tapando el dock; los atajos del entrenamiento no tienen sentido fuera de él). La conversación no se pierde.
+ */
+export const panelSurvives = (from: string, to: string) => from === to || (from !== "workout" && to !== "workout");
+
+/**
+ * Pedidos de a uno y en orden; sólo la respuesta del último pedido se aplica (revisión AC3 #26: dos cambios seguidos de las
+ * preferencias no se pisan en el servidor y una respuesta vieja que llega tarde no deshace lo nuevo). Un pedido que falla no
+ * frena a los siguientes; el error vuelve a quien lo pidió.
+ */
+export function serialLatest<T>(apply: (r: T) => void): (req: () => Promise<T>) => Promise<T> {
+  let chain: Promise<unknown> = Promise.resolve();
+  let seq = 0;
+  return (req) => {
+    const mine = ++seq;
+    const run = chain.catch(() => {}).then(req);
+    chain = run;
+    return run.then((r) => { if (mine === seq) apply(r); return r; });
+  };
+}
