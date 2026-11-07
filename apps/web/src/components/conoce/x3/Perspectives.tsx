@@ -45,7 +45,7 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
   useGSAP(() => {
     if (reduced()) return;
     const q = gsap.utils.selector(root);
-    gsap.fromTo(q(".x3-pv-head > *"), { opacity: 0, y: 24, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.7, stagger: 0.06, ease: "expo.out" });
+    gsap.fromTo(q(".x3-pv-head > *"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.06, ease: "expo.out" });
     gsap.fromTo(q(".x3-pv-shot"), { clipPath: "inset(0 0 100% 0 round 28px)" }, { clipPath: "inset(0 0 0% 0 round 28px)", duration: 0.9, stagger: 0.12, ease: "expo.inOut" });
     gsap.fromTo(q(".x3-pv-flow li"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.07, delay: 0.2, ease: "power3.out" });
   }, { scope: root, dependencies: [p], revertOnUpdate: true });

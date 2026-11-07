@@ -17,7 +17,7 @@ export function Finale() {
     if (reduced()) return;
     const q = gsap.utils.selector(root);
     gsap.timeline({ scrollTrigger: { trigger: root.current, start: "top 70%", end: "top 10%", scrub: 0.6 } })
-      .fromTo(q(".x3-fin-wm"), { scale: 0.6, opacity: 0, filter: "blur(10px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", ease: "power2.out" })
+      .fromTo(q(".x3-fin-wm"), { opacity: 0 }, { opacity: 1, ease: "power2.out" })
       .fromTo(q(".x3-fin-h .ln > span"), { yPercent: 105 }, { yPercent: 0, stagger: 0.15, ease: "expo.out" }, "<0.2")
       .fromTo(q(".x3-fin-act > *"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.08 }, "<0.3");
   }, { scope: root });

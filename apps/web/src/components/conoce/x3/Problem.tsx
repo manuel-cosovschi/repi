@@ -5,7 +5,7 @@
 // (menos de 560 px de alto, p. ej. con zoom): los dos estados se muestran uno debajo del otro, sin animación ni recorte.
 import { useRef } from "react";
 import { Wordmark } from "@/components/access/Wordmark";
-import { gsap, PIN_MQ, ScrollTrigger, useGSAP } from "./gsap";
+import { gsap, PIN_MQ, useGSAP } from "./gsap";
 
 const FRAGS = [
   { id: "paper", cls: "paper", x: 9, y: 18, r: -6, body: <><b>Rutina</b><span>Sentadilla 4×8</span><span>Prensa 3×12</span><span className="smudge">Remo ¿?</span></> },
@@ -47,7 +47,7 @@ export function Problem() {
         scrollTrigger: { trigger: root.current, start: "top top", end: "bottom bottom", scrub: 0.8, invalidateOnRefresh: true, onRefreshInit: place },
       });
       tl.to(lines, { strokeDashoffset: 0, duration: 0.3, stagger: 0.03 }, 0.15)
-        .to(q(".x3-prob-before"), { opacity: 0, y: -24, filter: "blur(8px)", duration: 0.12 }, 0.5)
+        .to(q(".x3-prob-before"), { opacity: 0, y: -24, duration: 0.12 }, 0.5)
         .to(frags, {
           x: (i: number) => { const r = frags[i].getBoundingClientRect(), pr = pin.getBoundingClientRect(); return hub().x - (r.left - pr.left + r.width / 2); },
           y: (i: number) => { const r = frags[i].getBoundingClientRect(), pr = pin.getBoundingClientRect(); return hub().y - (r.top - pr.top + r.height / 2); },
@@ -57,15 +57,6 @@ export function Problem() {
         .fromTo(q(".x3-prob-core"), { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.16, ease: "back.out(2)" }, 0.66)
         .fromTo(q(".x3-prob-after"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.14, ease: "power2.out" }, 0.74)
         .fromTo(q(".x3-prob-roles li"), { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.1, stagger: 0.04, ease: "power2.out" }, 0.8);
-      // Si cambia el alto de la página (pestañas de perfiles, preguntas, puertas de demos), se recalculan las escenas fijadas una
-      // sola vez y fuera del cuadro de la interacción.
-      let lastH = Math.round(document.body.getBoundingClientRect().height), timer = 0;
-      const ro = new ResizeObserver(([e]) => {
-        const h = Math.round(e.contentRect.height); if (h === lastH) return;
-        lastH = h; clearTimeout(timer); timer = window.setTimeout(() => ScrollTrigger.refresh(), 150);
-      });
-      ro.observe(document.body);
-      return () => { ro.disconnect(); clearTimeout(timer); };
     });
     return () => mm.revert();
   }, { scope: root });

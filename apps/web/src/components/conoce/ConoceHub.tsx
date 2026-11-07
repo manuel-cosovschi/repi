@@ -30,6 +30,8 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
   return (
     <div className="st cn x3">
       <Tracker profile={profile} />
+      {/* Sin JavaScript no hay encendido del hero: la sala se ve encendida desde el principio. */}
+      <noscript dangerouslySetInnerHTML={{ __html: "<style>.sala-svg{opacity:1!important}</style>" }} />
       <Stage />
       <FilmProvider>
         <a className="st-skip" href="#contenido">Saltar al contenido</a>

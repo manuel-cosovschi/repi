@@ -1,6 +1,7 @@
 "use client";
-// Número que se transforma: cada dígito cambia con profundidad (el anterior sube y se desenfoca, el nuevo llega desde abajo).
-// Lo leen los lectores de pantalla como texto normal (aria-live en quien lo usa); la animación es sólo visual.
+// Número que se transforma (Roll v2): cada dígito que cambia rueda dentro de su máscara (el anterior sale hacia arriba y el
+// nuevo llega desde abajo), sólo con translateY y opacidad: sin desenfoque ni escala, en cifras tabulares, así sirve también
+// a tamaño de pantalla. Lo leen los lectores de pantalla como texto normal (aria-live en quien lo usa).
 import { useEffect, useRef, useState } from "react";
 
 export function Roll({ value, className }: { value: string; className?: string }) {
@@ -11,7 +12,7 @@ export function Roll({ value, className }: { value: string; className?: string }
     if (value === shown) return;
     setPrev(shown); setShown(value);
     if (t.current) clearTimeout(t.current);
-    t.current = window.setTimeout(() => setPrev(null), 520);
+    t.current = window.setTimeout(() => setPrev(null), 460);
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   const len = Math.max(shown.length, prev?.length ?? 0);
   const a = shown.padStart(len, " "), b = (prev ?? shown).padStart(len, " ");

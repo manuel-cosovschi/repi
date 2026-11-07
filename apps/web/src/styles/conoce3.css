@@ -22,26 +22,50 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 
 /* ── Escenario: la sala ─────────────────────────────────────────────── */
 .sala { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--x-navy); }
-.sala-svg { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity .6s var(--x-ease); }
+.sala-world { position: absolute; inset: 0; }
+/* Encendido del hero (Motion 2): la luz se expande desde donde cae el punto; fuera del radio la sala queda apagada (.25). */
+.sala-world[data-reveal] { -webkit-mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 var(--r), rgba(0, 0, 0, .25) calc(var(--r) + 140px));
+  mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 var(--r), rgba(0, 0, 0, .25) calc(var(--r) + 140px)); }
+/* El encuadre corrido (lente) mueve el <svg> entero: el piso sigue más allá del plano para que nunca se vea un borde. */
+.sala-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transition: opacity .6s var(--x-ease), translate 1.1s var(--x-ease); }
+/* Primer pintado con movimiento: la sala llega apagada desde el servidor, el mismo valor que pone la hidratación (sin el ciclo
+   brillante → oscuro → brillante). Sin JavaScript, <noscript> la enciende. */
+@media (prefers-reduced-motion: no-preference) { .sala-svg { opacity: .25; } }
+@media (min-width: 760px) { .sala-svg { translate: 20vw 0; } }
+@media (max-width: 759px) { .sala-svg { translate: 0 -20vh; } }
 .sala-view { transform-origin: 0 0; transition: transform 1.1s var(--x-ease); will-change: transform; }
-.sala-view.still { transition: none; }
+.sala-view.still, .sala-view.snap, .sala-svg.snap { transition: none; }
+.sala-plan { transform-origin: 0 0; }
 .sala-floor { fill: #0F1620; }
 .sala-grid line { stroke: #1F2B3B; stroke-width: 1; }
 .sala-zone { fill: rgba(26, 36, 51, .7); stroke: #4A5D78; stroke-width: 1.5; transition: stroke .5s, fill .5s; }
-.sala-zone[data-on="1"] { stroke: var(--x-cyan); fill: rgba(0, 209, 255, .06); }
+/* La zona en foco se marca en blanco (el cian queda para lo vivo); la que está bajo el puntero, más suave. */
+.sala-zone[data-on="1"] { stroke: var(--x-white); fill: rgba(248, 250, 252, .07); }
+.sala-zone[data-on="pre"] { stroke: rgba(248, 250, 252, .55); fill: rgba(248, 250, 252, .03); }
 .sala-gear { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1; }
 .sala-qr { fill: none; stroke: var(--x-cyan); stroke-width: 2; }
 .sala-member { fill: var(--x-cyan); }
 .sala-staff { fill: var(--x-teal); }
+/* Sala sin REPI (escena 02): nadie está «vivo», las personas en acero. El paso a cian es un corte. */
+.sala-svg[data-cold="1"] .sala-member, .sala-svg[data-cold="1"] .sala-staff { fill: #4A5D78; }
+/* Valentina: un anillo que respira (se detiene con «Pausar animaciones» y con movimiento reducido). */
+.sala-ring { fill: none; stroke: var(--x-cyan); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: sala-breathe 2.8s ease-in-out infinite; transition: opacity .4s; }
+@keyframes sala-breathe { 0%, 100% { transform: scale(.82); stroke-opacity: .9; } 50% { transform: scale(1.12); stroke-opacity: .35; } }
+/* Pedido «Que venga alguien» sobre el piso: va en cian y vuelve «Voy» en turquesa. */
+.sala-req { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; }
+.sala-req[data-back="1"] { stroke: var(--x-teal); }
 .sala-3d { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s var(--x-ease); }
 .sala[data-3d="1"] .sala-3d { opacity: 1; }
 .sala[data-3d="1"] .sala-svg { opacity: 0 !important; }
 .sala-canvas { width: 100% !important; height: 100% !important; }
+/* Velo frío: la sala «sin REPI» (02) y la toma abierta del entrenamiento (03). Sólo opacidad. */
+.sala-tone { position: absolute; inset: 0; background: #131B26; opacity: 0; }
 /* Viñeta funcional: asegura contraste del texto sobre la sala (no es decoración). */
 .sala-vignette { position: absolute; inset: 0; background:
   linear-gradient(90deg, rgba(11, 15, 20, .86) 0%, rgba(11, 15, 20, .55) 42%, rgba(11, 15, 20, .1) 75%),
   linear-gradient(0deg, rgba(11, 15, 20, .7) 0%, transparent 35%, transparent 80%, rgba(11, 15, 20, .55) 100%); }
-@media (max-width: 759px) { .sala-vignette { background: linear-gradient(0deg, rgba(11, 15, 20, .92) 0%, rgba(11, 15, 20, .55) 50%, rgba(11, 15, 20, .45) 100%); } }
+/* Teléfono: el texto va abajo (.92 para el contraste) y arriba la sala se ve (.35). */
+@media (max-width: 759px) { .sala-vignette { background: linear-gradient(0deg, rgba(11, 15, 20, .92) 0%, rgba(11, 15, 20, .55) 50%, rgba(11, 15, 20, .35) 100%); } }
 
 /* ── Tipografía ─────────────────────────────────────────────────────── */
 .x3-h2 { margin: 0 0 clamp(20px, 3vw, 36px); font: 700 clamp(2.4rem, 6.2vw, 5.4rem)/.92 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); text-wrap: balance; max-width: 18ch; }
@@ -54,6 +78,15 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-lead { margin: 0 0 28px; max-width: 58ch; font-size: clamp(1.02rem, 1.6vw, 1.2rem); line-height: 1.55; color: var(--x-muted); }
 .x3-fine { font-size: 13px; line-height: 1.5; color: var(--x-dim); }
 .x3-fine.center { text-align: center; margin: 28px auto 0; max-width: 56ch; }
+
+/* ── Afirmaciones cinéticas (<Say>) ─────────────────────────────────── */
+/* Cada palabra en su máscara: el relleno amplía la caja que recorta (tildes y comas) sin cambiar el diseño. */
+.x3-say-v { display: inline; }
+.x3-w { display: inline-block; vertical-align: top; overflow: clip; padding: .12em 0 .1em; margin: -.12em 0 -.1em; }
+.x3-wi { display: inline-block; position: relative; will-change: transform; }
+.x3-say .k { color: var(--x-white); }
+.x3-say .k .x3-wi { white-space: nowrap; } /* la frase clave es una sola pieza con su subrayado de corrido */
+.x3-u { position: absolute; left: 0; right: 0; bottom: .01em; height: max(2px, .05em); background: currentColor; transform-origin: 0 50%; }
 
 /* ── Botones ────────────────────────────────────────────────────────── */
 /* Pedido del titular (07/11): nada de píldoras cian enormes con sombra. Botones rectos y precisos (G · Atlética): esquina de
@@ -217,14 +250,14 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-train-steps li:not([data-on="1"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
-/* ── Roll: dígitos con profundidad ──────────────────────────────────── */
+/* ── Roll v2: cada dígito rueda en su máscara (sólo translateY y opacidad) ── */
 .x3-roll-digits { display: inline-flex; font-variant-numeric: tabular-nums; }
-.x3-roll-d { position: relative; display: inline-block; overflow: hidden; }
+.x3-roll-d { position: relative; display: inline-block; overflow: clip; padding: .08em 0; margin: -.08em 0; }
 .x3-roll-new, .x3-roll-old { display: inline-block; white-space: pre; }
-.x3-roll-d[data-change] .x3-roll-new { animation: x3-in .5s var(--x-ease) both; }
-.x3-roll-old { position: absolute; left: 0; top: 0; animation: x3-out .5s var(--x-ease) both; }
-@keyframes x3-in { from { transform: translateY(70%) scale(.9); opacity: 0; filter: blur(3px); } }
-@keyframes x3-out { to { transform: translateY(-70%) scale(.9); opacity: 0; filter: blur(3px); } }
+.x3-roll-d[data-change] .x3-roll-new { animation: x3-in .42s var(--x-ease) both; }
+.x3-roll-old { position: absolute; left: 0; top: .08em; animation: x3-out .42s var(--x-ease) both; }
+@keyframes x3-in { from { transform: translateY(100%); opacity: 0; } }
+@keyframes x3-out { to { transform: translateY(-100%); opacity: 0; } }
 
 /* ── 04 · Perspectivas ──────────────────────────────────────────────── */
 .x3-pv { padding: clamp(90px, 14vh, 160px) 0; }
@@ -274,7 +307,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-sc-index { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--x-dim); }
 .x3-sc-index li[data-on] { color: var(--x-white); }
 .x3-sc-visual { animation: x3-swap .6s var(--x-ease) both; }
-@keyframes x3-swap { from { opacity: 0; transform: translateY(16px) scale(.98); filter: blur(4px); } }
+@keyframes x3-swap { from { opacity: 0; transform: translateY(16px); } }
 .x3-layers { position: relative; height: min(64vh, 560px); }
 .x3-layers img { position: absolute; height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); box-shadow: 0 40px 70px -35px rgba(0, 0, 0, .9); }
 .x3-layers img:first-child { left: 0; top: 0; }

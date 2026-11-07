@@ -1,22 +1,23 @@
 "use client";
 // La sala en 3D (React Three Fiber). Se carga con importación dinámica después del primer pintado y sólo en los niveles
 // «high» y «medium» (store.detectQuality). Dibuja el plano, las zonas, los equipos, las personas en movimiento, el QR de la
-// recepción y el pedido socio → entrenador. La cámara sigue la toma que piden las escenas (store.stage) con amortiguación.
+// recepción y el pedido socio → entrenador. La cámara sigue la toma que piden las escenas (store.stage) con amortiguación y
+// el encuadre corrido hacia el lado libre del texto (setViewOffset). Arranca en la toma cenital `plan`, con el mismo encuadre
+// que el SVG, y recién después baja a la toma del hero: el 3D entra sin cambiar el punto de vista.
 // Sin texturas ni modelos externos: geometría propia y liviana. Al desmontar, R3F libera el contexto y la GPU.
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { FLOOR, GEAR, HERO_RACK, PEOPLE, QR_SPOT, SHOTS, ZONES, along } from "./model";
+import { FLOOR, GEAR, JULIAN, PEOPLE, QR_SPOT, SHOTS, SVG_S, ZONES, lensPx, placePerson, svgFit, type Shot, type ShotId } from "./model";
 import { stage, type Quality } from "./store";
 
 // Paleta: una sola fuente, los tokens --x-* de styles/conoce3.css. Se lee una vez al montar (three.js no entiende var()).
-const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white" } as const;
+const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white", muted: "--x-muted" } as const;
 const C = {} as Record<keyof typeof TOKENS, string>;
 function readPalette() {
   const cs = getComputedStyle(document.querySelector(".x3") ?? document.documentElement);
   for (const [k, v] of Object.entries(TOKENS)) C[k as keyof typeof TOKENS] = cs.getPropertyValue(v).trim() || "gray";
 }
-const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 /** Tiempo de la escena: avanza con cada cuadro salvo cuando la persona pausó las animaciones. Es propio (no el reloj de R3F,
  *  que se reinicia al cambiar el modo de dibujo), así las personas siguen donde estaban al volver a mostrarse. */
@@ -56,8 +57,8 @@ function Floor() {
     zones.forEach((z, i) => {
       const m = zoneMats.current[i];
       if (!m) return;
-      const on = s.focus === z.id;
-      m.color.set(on ? C.cyan : C.line);
+      const on = s.focus === z.id, pre = !on && s.preview === z.id;
+      m.color.set(on ? C.white : pre ? C.muted : C.line);
       m.opacity = s.lit;
     });
   });
@@ -93,7 +94,7 @@ function Gear() {
       const m = mats.current[i];
       if (!m) return;
       const on = s.focus != null && it.zone === s.focus;
-      m.color.set(on ? C.cyan : C.edge);
+      m.color.set(on ? C.white : C.edge);
       m.opacity = s.lit;
     });
   });
@@ -109,51 +110,79 @@ function Gear() {
   );
 }
 
-/** Personas en movimiento (instancias). Socios cian, equipo turquesa. */
+/** Personas en movimiento (instancias). Socios cian, equipo turquesa (también sus halos); en la sala «sin REPI», acero.
+ *  Valentina (la primera) está siempre, con un anillo que respira. Lejos se ven en su tamaño; cerca se achican para no superar
+ *  ~56 px en pantalla (siguen siendo personas en un plano, no figuras). */
 function People({ count }: { count: number }) {
   const list = useMemo(() => PEOPLE.slice(0, count), [count]);
   const members = useRef<THREE.InstancedMesh>(null);
   const staff = useRef<THREE.InstancedMesh>(null);
-  const halos = useRef<THREE.InstancedMesh>(null);
+  const halosM = useRef<THREE.InstancedMesh>(null);
+  const halosS = useRef<THREE.InstancedMesh>(null);
+  const ring = useRef<THREE.Mesh>(null);
+  const mats = useRef<{ m: THREE.MeshStandardMaterial | null; s: THREE.MeshStandardMaterial | null }>({ m: null, s: null });
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const camera = useThree((st) => st.camera) as THREE.PerspectiveCamera;
+  const size = useThree((st) => st.size);
+  const cold = useRef<boolean | null>(null);
   useFrame(() => {
     const s = stage.get(), t = sceneTime.t;
+    if (cold.current !== s.cold && mats.current.m && mats.current.s) {
+      cold.current = s.cold;
+      for (const [m, c] of [[mats.current.m, C.cyan], [mats.current.s, C.teal]] as const) { m.color.set(s.cold ? C.line : c); m.emissive.set(s.cold ? C.steel : c); m.emissiveIntensity = s.cold ? 0.2 : 0.85; }
+    }
+    const pxPerM = size.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    const allIn = s.gather >= 0.985;
     let mi = 0, si = 0;
     list.forEach((p, i) => {
-      const [x, z] = along(p, t);
-      const sc = Math.max(0.001, s.lit);
-      dummy.position.set(x, 0.42, z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(sc); dummy.updateMatrix();
-      if (p.kind === "member") members.current?.setMatrixAt(mi++, dummy.matrix); else staff.current?.setMatrixAt(si++, dummy.matrix);
-      dummy.position.set(x, 0.03, z); dummy.rotation.set(-Math.PI / 2, 0, 0); dummy.scale.setScalar(sc * (1 + 0.15 * Math.sin(t * 2 + i))); dummy.updateMatrix();
-      halos.current?.setMatrixAt(i, dummy.matrix);
+      const [x, z] = placePerson(i, t, s);
+      const d = camera.position.distanceTo(dummy.position.set(x, 0.42, z));
+      const fit = Math.min(1, 56 / (1.0 * pxPerM / Math.max(0.1, d)));
+      const hide = (allIn && i > 0) || (s.dotOut && i === 0);
+      const sc = hide ? 0.0001 : Math.max(0.001, s.lit) * fit;
+      dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(sc); dummy.updateMatrix();
+      if (p.kind === "member") members.current?.setMatrixAt(mi, dummy.matrix); else staff.current?.setMatrixAt(si, dummy.matrix);
+      dummy.position.set(x, 0.03, z); dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.scale.setScalar(s.cold || s.gather > 0.2 ? 0.0001 : sc * (1 + 0.15 * Math.sin(t * 2 + i))); dummy.updateMatrix();
+      if (p.kind === "member") halosM.current?.setMatrixAt(mi++, dummy.matrix); else halosS.current?.setMatrixAt(si++, dummy.matrix);
+      if (i === 0 && ring.current) {
+        ring.current.position.set(x, 0.05, z);
+        ring.current.scale.setScalar(fit * (1.05 + 0.25 * Math.sin(t * 2.2)));
+        ring.current.visible = !hide && !s.cold && s.gather < 0.3 && s.lit > 0.5;
+      }
     });
-    for (const m of [members.current, staff.current, halos.current]) if (m) m.instanceMatrix.needsUpdate = true;
+    for (const m of [members.current, staff.current, halosM.current, halosS.current]) if (m) m.instanceMatrix.needsUpdate = true;
   });
   const nm = list.filter((p) => p.kind === "member").length, ns = list.length - nm;
   return (
     <group>
       <instancedMesh ref={members} args={[undefined, undefined, nm]}>
         <capsuleGeometry args={[0.2, 0.42, 4, 10]} />
-        <meshStandardMaterial color={C.cyan} emissive={C.cyan} emissiveIntensity={0.9} />
+        <meshStandardMaterial ref={(m) => { mats.current.m = m; }} color={C.cyan} emissive={C.cyan} emissiveIntensity={0.85} />
       </instancedMesh>
       <instancedMesh ref={staff} args={[undefined, undefined, ns]}>
         <capsuleGeometry args={[0.22, 0.46, 4, 10]} />
-        <meshStandardMaterial color={C.teal} emissive={C.teal} emissiveIntensity={0.8} />
+        <meshStandardMaterial ref={(m) => { mats.current.s = m; }} color={C.teal} emissive={C.teal} emissiveIntensity={0.85} />
       </instancedMesh>
-      <instancedMesh ref={halos} args={[undefined, undefined, list.length]}>
+      <instancedMesh ref={halosM} args={[undefined, undefined, nm]}>
         <ringGeometry args={[0.42, 0.5, 32]} />
         <meshBasicMaterial color={C.cyan} transparent opacity={0.35} side={THREE.DoubleSide} />
       </instancedMesh>
+      <instancedMesh ref={halosS} args={[undefined, undefined, ns]}>
+        <ringGeometry args={[0.42, 0.5, 32]} />
+        <meshBasicMaterial color={C.teal} transparent opacity={0.35} side={THREE.DoubleSide} />
+      </instancedMesh>
+      <mesh ref={ring} rotation-x={-Math.PI / 2} visible={false}><ringGeometry args={[0.62, 0.7, 48]} /><meshBasicMaterial color={C.cyan} transparent opacity={0.6} /></mesh>
     </group>
   );
 }
 
-/** QR de la sede en la recepción y el pedido socio → entrenador (un pulso que viaja y vuelve con «Voy»). */
+/** QR de la sede en la recepción y el pedido Julián → entrenadora (un pulso que viaja y vuelve con «Voy»). */
 function Signals() {
   const pulse = useRef<THREE.Mesh>(null);
   const trail = useRef<THREE.Line>(null);
   const qr = useRef<THREE.Mesh>(null);
-  const from = new THREE.Vector3(HERO_RACK[0], 0.6, HERO_RACK[1] + 1.2), to = new THREE.Vector3(-14.5, 0.6, -4.5);
+  const from = new THREE.Vector3(JULIAN[0], 0.6, JULIAN[1]), to = new THREE.Vector3(-14.5, 0.6, -4.5);
   const mid = new THREE.Vector3((from.x + to.x) / 2, 3.2, (from.z + to.z) / 2);
   const curve = useMemo(() => new THREE.QuadraticBezierCurve3(from, mid, to), []); // eslint-disable-line react-hooks/exhaustive-deps
   const geo = useMemo(() => new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)), [curve]);
@@ -183,26 +212,49 @@ function Signals() {
   );
 }
 
-/** Onda del punto cian al caer sobre la sala (hero). */
-function Drop() {
-  const ring = useRef<THREE.Mesh>(null);
-  useFrame(() => {
-    const s = stage.get();
-    if (!ring.current) return;
-    const k = Math.min(1, s.lit * 1.4);
-    ring.current.scale.setScalar(0.5 + k * 30);
-    (ring.current.material as THREE.MeshBasicMaterial).opacity = (1 - k) * 0.8;
-    ring.current.visible = k < 0.999 && s.lit > 0;
-  });
-  return <mesh ref={ring} rotation-x={-Math.PI / 2} position={[0, 0.05, 0]}><ringGeometry args={[0.9, 1, 64]} /><meshBasicMaterial color={C.cyan} transparent opacity={0} /></mesh>;
+/** Toma cenital con el mismo encuadre que el SVG del hero (zoom, centro y lente): calculada con el tamaño de la pantalla. */
+function planShot(vw: number, vh: number, fov: number): Shot {
+  const [cx, cz, zoom] = SHOTS.hero.svg, { s0 } = svgFit(vw, vh);
+  const visH = vh / (SVG_S * s0 * zoom);
+  const h = visH / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2)));
+  return { pos: [cx, h, cz + 0.001], look: [cx, 0, cz], svg: SHOTS.hero.svg };
+}
+const shotOf = (id: ShotId, vw: number, vh: number, fov: number): Shot => (id === "plan" ? planShot(vw, vh, fov) : SHOTS[id]);
+
+/** Proyección del 3D (para las escenas): con la toma de destino y su lente, nunca con la cámara amortiguada. */
+function Publish() {
+  const camera = useThree((st) => st.camera) as THREE.PerspectiveCamera;
+  const size = useThree((st) => st.size);
+  useEffect(() => {
+    const tmp = new THREE.PerspectiveCamera(camera.fov, size.width / size.height, camera.near, camera.far);
+    const v = new THREE.Vector3();
+    return stage.publish("gl", (x, z, shot) => {
+      const sh = shotOf(shot, size.width, size.height, camera.fov), [lx, ly] = lensPx(shot, size.width, size.height);
+      tmp.position.set(...sh.pos); tmp.lookAt(...sh.look);
+      tmp.setViewOffset(size.width, size.height, -lx, -ly, size.width, size.height);
+      tmp.updateMatrixWorld();
+      v.set(x, 0.42, z).project(tmp);
+      return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
+    });
+  }, [camera, size]);
+  return null;
 }
 
-/** Cámara: mezcla entre las tomas a y b según t, con amortiguación (y un leve paralaje con el mouse en escritorio). */
+const easeIO = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+/** Cámara: mezcla entre las tomas a y b según t, con amortiguación (y un leve paralaje con el mouse en escritorio). Entrada:
+ *  si la persona sigue arriba de todo, el 3D aparece en la cenital `plan` (igual que el SVG), espera el fundido y baja en
+ *  2,4 s hasta la toma del hero; si ya hizo scroll o pausó las animaciones, adopta la toma actual sin viaje. */
 function Rig({ parallax }: { parallax: boolean }) {
-  const camera = useThree((s) => s.camera);
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const size = useThree((s) => s.size);
   const look = useRef(new THREE.Vector3());
   const goalPos = useMemo(() => new THREE.Vector3(), []), goalLook = useMemo(() => new THREE.Vector3(), []);
+  const fromPos = useMemo(() => new THREE.Vector3(), []), fromLook = useMemo(() => new THREE.Vector3(), []);
+  const lens = useRef<[number, number]>([0, 0]);
   const mouse = useRef({ x: 0, y: 0 });
+  /** hold: quieta en `plan` mientras aparece; intro: baja a la toma; live: sigue al scroll. */
+  const phase = useRef<{ mode: "init" | "hold" | "intro" | "live"; at: number }>({ mode: "init", at: 0 });
   useEffect(() => {
     if (!parallax) return;
     const on = (e: PointerEvent) => { mouse.current.x = e.clientX / window.innerWidth - 0.5; mouse.current.y = e.clientY / window.innerHeight - 0.5; };
@@ -210,17 +262,53 @@ function Rig({ parallax }: { parallax: boolean }) {
     return () => window.removeEventListener("pointermove", on);
   }, [parallax]);
   useFrame((state, dt) => {
-    const s = stage.get(), A = SHOTS[s.a], B = SHOTS[s.b], k = ease(Math.min(1, Math.max(0, s.t)));
+    const s = stage.get(), now = state.clock.elapsedTime;
+    const A = shotOf(s.a, size.width, size.height, camera.fov), B = shotOf(s.b, size.width, size.height, camera.fov), k = easeIO(Math.min(1, Math.max(0, s.t)));
     goalPos.set(A.pos[0] + (B.pos[0] - A.pos[0]) * k + mouse.current.x * 1.2, A.pos[1] + (B.pos[1] - A.pos[1]) * k - mouse.current.y * 0.8, A.pos[2] + (B.pos[2] - A.pos[2]) * k);
     goalLook.set(A.look[0] + (B.look[0] - A.look[0]) * k, A.look[1] + (B.look[1] - A.look[1]) * k, A.look[2] + (B.look[2] - A.look[2]) * k);
-    const damp = 1 - Math.exp(-dt * 3.2);
-    camera.position.lerp(goalPos, damp);
-    look.current.lerp(goalLook, damp);
+    const la = lensPx(s.a, size.width, size.height), lb = lensPx(s.b, size.width, size.height);
+    const goalLens: [number, number] = [la[0] + (lb[0] - la[0]) * k, la[1] + (lb[1] - la[1]) * k];
+    const ph = phase.current;
+    const atTop = s.b === "hero" && s.t >= 1 && window.scrollY < 40;
+    if (ph.mode === "init") {
+      if (atTop && !s.paused) {
+        const P = planShot(size.width, size.height, camera.fov);
+        camera.position.set(...P.pos); look.current.set(...P.look); lens.current = lensPx("hero", size.width, size.height);
+        phase.current = { mode: "hold", at: now };
+      } else { camera.position.copy(goalPos); look.current.copy(goalLook); lens.current = goalLens; phase.current = { mode: "live", at: now }; }
+    } else if (ph.mode === "hold") {
+      if (!atTop || s.paused) phase.current = { mode: "live", at: now };
+      else if (now - ph.at > 1.5) { fromPos.copy(camera.position); fromLook.copy(look.current); phase.current = { mode: "intro", at: now }; }
+    } else if (ph.mode === "intro") {
+      const u = Math.min(1, (now - ph.at) / 2.4);
+      if (!atTop || s.paused || u >= 1) phase.current = { mode: "live", at: now };
+      else { const e = easeIO(u); camera.position.lerpVectors(fromPos, goalPos, e); look.current.lerpVectors(fromLook, goalLook, e); }
+    }
+    if (phase.current.mode === "live") {
+      const damp = 1 - Math.exp(-dt * 3.2);
+      camera.position.lerp(goalPos, damp);
+      look.current.lerp(goalLook, damp);
+    }
     camera.lookAt(look.current);
+    const dl = 1 - Math.exp(-dt * 3.2), L = lens.current;
+    const nx = L[0] + (goalLens[0] - L[0]) * dl, ny = L[1] + (goalLens[1] - L[1]) * dl;
+    if (Math.abs(nx - L[0]) > 0.05 || Math.abs(ny - L[1]) > 0.05 || !camera.view) { lens.current = [nx, ny]; camera.setViewOffset(size.width, size.height, -nx, -ny, size.width, size.height); }
     // En modo «a pedido» (animaciones pausadas) sigue pidiendo cuadros hasta llegar a la toma.
-    if (camera.position.distanceToSquared(goalPos) > 1e-4 || look.current.distanceToSquared(goalLook) > 1e-4) state.invalidate();
+    if (phase.current.mode !== "live" || camera.position.distanceToSquared(goalPos) > 1e-4 || look.current.distanceToSquared(goalLook) > 1e-4 || Math.abs(nx - goalLens[0]) > 0.5) state.invalidate();
   });
   return null;
+}
+
+/** Vuelta al punto (cierre): el plano entero (piso, zonas, equipos) se encoge hacia el origen. */
+function Gather({ children }: { children: ReactNode }) {
+  const g = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const s = stage.get(), el = g.current; if (!el) return;
+    const x = Math.min(1, Math.max(0, s.gather / 0.9)), e = x * x * (3 - 2 * x), sc = Math.max(0.0001, 1 - 0.98 * e);
+    el.scale.setScalar(sc); el.position.set(s.origin[0] * (1 - sc), 0, s.origin[1] * (1 - sc));
+    el.visible = sc > 0.01;
+  });
+  return <group ref={g}>{children}</group>;
 }
 
 /** Modo de dibujo: nada si una sección sólida tapa la sala o la pestaña no se ve; «a pedido» (sólo la cámara, que sigue al
@@ -257,20 +345,22 @@ export default function SalaCanvas({ quality, onReady, onLost }: { quality: Qual
   const high = quality === "high";
   return (
     <Canvas className="sala-canvas" dpr={high ? [1, 2] : [1, 1.5]} shadows={high} gl={{ antialias: high, powerPreference: high ? "high-performance" : "low-power", alpha: false }}
-      camera={{ fov: 38, near: 0.1, far: 200, position: SHOTS.dark.pos }} aria-hidden="true"
+      camera={{ fov: 38, near: 0.1, far: 200, position: SHOTS.hero.pos }} aria-hidden="true"
       onCreated={({ gl }) => gl.domElement.addEventListener("webglcontextlost", onLost, { once: true })}>
       <color attach="background" args={[C.navy]} />
       <fog attach="fog" args={[C.navy, 45, 130]} />
       <ambientLight intensity={0.55} />
       <directionalLight position={[12, 30, 14]} intensity={1.1} castShadow={high} shadow-mapSize={[1024, 1024]} />
       <hemisphereLight args={[C.teal, C.navy, 0.25]} />
-      <Floor />
-      <Gear />
+      <Gather>
+        <Floor />
+        <Gear />
+        <Signals />
+      </Gather>
       <People count={high ? PEOPLE.length : 9} />
-      <Signals />
-      <Drop />
       <Clock />
       <Rig parallax={high} />
+      <Publish />
       <Pauser />
       <Ready onReady={onReady} />
     </Canvas>
