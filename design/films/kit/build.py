@@ -402,7 +402,7 @@ LOGO = lambda s, d: s_logo(s, d, "_Cada_ _repetición_ cuenta.")
 
 def deportistas(size):
     return dict(
-        title="REPI para deportistas", dur=40.0, size=size, music=("volatile-reaction.mp3", 24.0), sfx="auto", poster=36.5,
+        title="REPI para deportistas", dur=40.0, size=size, music=("volatile-reaction.mp3", 24.0), sfx="auto", poster=16.2,
         scenes=[
             ("dot", 3.0, lambda s, d: s_dot(s, d, "Llegás al gimnasio.")),
             ("home", 4.5, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 0.0, 0, 4.5)], "Tu rutina, *lista.*", panels=[
@@ -420,7 +420,7 @@ def deportistas(size):
 
 FILMS.update({
     "gimnasios": dict(
-        title="REPI para gimnasios", dur=61.6, music=("five-armies.mp3", 68.0), sfx="auto", poster=58.5,
+        title="REPI para gimnasios", dur=61.6, music=("five-armies.mp3", 68.0), sfx="auto", poster=46.5,
         scenes=[
             ("dot", 3.6, lambda s, d: s_dot(s, d, "En cada gimnasio, todos los días.")),
             ("scatter", 13.0, lambda s, d: s_scatter(s, d, "Cada sala, _a_ _ciegas._", "Hasta que *todo* se conecta.", 7.4, FRAGS_GYM)),
@@ -437,7 +437,7 @@ FILMS.update({
             ("end", 4.5, END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
         ]),
     "entrenadores": dict(
-        title="REPI para entrenadores", dur=49.1, music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=46.0,
+        title="REPI para entrenadores", dur=49.1, music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=21.0,
         scenes=[
             ("dot", 3.6, lambda s, d: s_dot(s, d, "Un entrenador, muchos alumnos.")),
             ("scatter", 12.0, lambda s, d: s_scatter(s, d, "Cada alumno, _en_ _otro_ _chat._", "Hasta que *tu* *método* se ordena.", 6.8, FRAGS_COACH)),
@@ -454,7 +454,7 @@ FILMS.update({
     "deportistas": deportistas((1920, 1080)),
     "deportistas-vertical": deportistas((1080, 1920)),
     "aliados": dict(
-        title="REPI · Tecnología para el entrenamiento", dur=66.5, music=("rising-game.mp3", 25.0), sfx="auto", poster=63.0,
+        title="REPI · Tecnología para el entrenamiento", dur=66.5, music=("rising-game.mp3", 25.0), sfx="auto", poster=31.2,
         scenes=[
             ("dot", 4.0, lambda s, d: s_dot(s, d, "Gimnasios y entrenadores, con papel, planillas y mensajes.")),
             ("scatter", 12.0, lambda s, d: s_scatter(s, d, "La sala, _sin_ _datos._", "REPI la *conecta.*", 6.8, FRAGS_GYM)),
@@ -493,7 +493,7 @@ FILMS.update({
             ("end", 4.5, END("Mirá *tu* *progreso.*", "repiclub.com/conoce/deportistas")),
         ]),
     "altas": dict(
-        title="Altas por QR", dur=23.5, music=("five-armies.mp3", 120.0), sfx="auto", poster=6.0,
+        title="Altas por QR", dur=23.5, music=("five-armies.mp3", 120.0), sfx="auto", poster=12.5,
         scenes=[
             ("dot", 3.0, lambda s, d: s_dot(s, d, "Un QR por sede.")),
             ("req", 7.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 6.0, 0, 3.5), ("gym-owner.mp4", 10.0, 3.5, 3.5)], "Cada socio *pide* *acceso.*", panels=[
