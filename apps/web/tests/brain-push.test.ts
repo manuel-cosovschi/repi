@@ -30,7 +30,13 @@ beforeAll(async () => {
   EX = (await db.insert(schema.exercise).values({ name: EX_NAME, muscleGroup: "Espalda" }).onConflictDoNothing().returning())[0]?.id
     ?? (await db.select().from(schema.exercise).where(eq(schema.exercise.name, EX_NAME)))[0].id;
 });
-beforeEach(() => { resetRateLimits(); resetProactiveThrottle(); });
+beforeEach(async () => {
+  resetRateLimits(); resetProactiveThrottle();
+  // Cola aislada: processOutbox toma los 1000 pendientes más viejos y en la suite completa quedan pendientes de otras pruebas
+  // (de otros archivos, que corren uno por vez). Sin esto, la fila de la prueba podía quedar fuera de la tanda según el orden
+  // de los archivos (falló así en CI). Base descartable repi_test.
+  await db.update(schema.notificationOutbox).set({ status: "skipped", lastError: "prueba: cola aislada" }).where(eq(schema.notificationOutbox.status, "pending"));
+});
 afterEach(() => { vi.unstubAllEnvs(); });
 
 /** Alumno de un coach con una sesión de hace 8 días (aviso «¿Retomamos?», que puede salir por push). */
