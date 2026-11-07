@@ -50,6 +50,14 @@ Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y v
   - La corrida más larga tardó 738 ms.
   - Detalle en §10 del contrato.
 - **Aparte, en investigación:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base.
+- **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
+  - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
+  - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
+  - **Propuesta:**
+    1. guardar el token en Supabase Vault y que el job lo lea de `vault.decrypted_secrets`;
+    2. rotar `CRON_SECRET` en Vercel y en Vault;
+    3. ajustar `schedule-cron.ts`.
+  - Toca producción y la configuración de Vercel: requiere aprobación. La clave no se copia en ningún documento.
 - **Queda por ver en producción:**
   - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
   - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
