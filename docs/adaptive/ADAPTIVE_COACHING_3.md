@@ -316,11 +316,23 @@ Resumen en `ac3-auditoria/evidencia.md`. Lo que aplican las reglas del cerebro:
   de las 9 y las 18 h de Argentina. Las organizaciones demo quedan excluidas. Push de coaching sólo para adultos con
   opt-in.
 
+**Primera franja proactiva en producción** (18 h de Argentina, 21:00–21:59 UTC del 07/11; evidencia: `net._http_response`
+del proceso programado y `audit_event` `brain.proactive_run`, sin leer contenido):
+- **Proceso programado:** 60 llamadas a `/api/cron/notifications`, las 60 con respuesta 200 y ninguna demorada; ningún
+  paso del cerebro falló.
+- **Evaluaciones:** 10 corridas con personas evaluaron a 10 personas reales y emitieron 6 tarjetas dentro de la app.
+  - 0 suprimidas, 0 push y 0 fallas.
+  - La corrida más larga tardó 738 ms; no se llegó al tope de tiempo.
+- **Tarjetas en la base al cierre:** 6, todas de personas reales (ninguna demo) y pendientes de ver: 2 de marca personal, 2
+  de inactividad, 1 de programa actualizado y 1 de cierre de sesión.
+- **IA:** 0 llamadas y costo 0.
+- **Vercel:** sin errores del proceso programado ni del cerebro. Hubo un corte por tiempo (300 s) en
+  `/api/admin/[[...path]]` a las 21:07 UTC; ya había pasado el 06/11, antes de AC3, y se investiga aparte. En la base
+  ninguna consulta superó los 5 s.
+
 **Sin verificar todavía en producción, con evidencia sólo local:**
 - **Una respuesta generada por IA:** las tres preguntas de la verificación se resolvieron por reglas, como corresponde.
   No se forzó una llamada paga para probar.
-- **La primera franja proactiva:** el despliegue fue a las 14:26 en Argentina. Hasta las 18 h el paso respondió `brain:
-  null` («fuera de franja»), que es lo esperado.
 - **REPI Admin → Coaching IA:** requiere una cuenta de administración real, y no hay demo de Admin.
 
 **Pendiente:** nada bloqueante. Mejoras futuras en `docs/POST_LAUNCH_ROADMAP.md`.

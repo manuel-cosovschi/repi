@@ -43,8 +43,14 @@ Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y v
 - **Pruebas (local):**
   - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
   - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
+- **Primera franja proactiva (18 h, 07/11), verificada:**
+  - 60 llamadas del proceso programado, todas con respuesta 200.
+  - 10 personas reales evaluadas y 6 tarjetas dentro de la app.
+  - 0 push, 0 fallas, 0 llamadas de IA.
+  - La corrida más larga tardó 738 ms.
+  - Detalle en §10 del contrato.
+- **Aparte, en investigación:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base.
 - **Queda por ver en producción:**
-  - **Primera franja proactiva**, hoy a las 18 h de Argentina. Fuera de franja, el paso responde `brain: null`.
   - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
   - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
 - **Próximo:** ejercicios por tiempo (cinta: duración, velocidad e inclinación), en `claude/ejercicios-por-tiempo`. Lleva la migración 0052 aditiva, que requiere respaldo antes de aplicarse.
