@@ -195,11 +195,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-frag.sheet .cells i { height: 10px; background: var(--x-steel); border-radius: 2px; }
 .x3-frag.chat { border-radius: 14px 14px 14px 4px; background: #1F2D3F; }
 .x3-frag.chat.alt { border-radius: 14px 14px 4px 14px; }
-.x3-frag .typing { display: flex; gap: 4px; padding-top: 2px; }
-.x3-frag .typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--x-muted); animation: x3-typing 1.2s ease-in-out infinite; }
-.x3-frag .typing i:nth-child(2) { animation-delay: .15s; }
-.x3-frag .typing i:nth-child(3) { animation-delay: .3s; }
-@keyframes x3-typing { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.x3-frag .typing { font-style: italic; }
 .x3-frag.prog .flat { color: var(--x-dim); }
 /* El pedido que nadie vio parpadea en acero: sin REPI no llega a nadie (por eso no es cian). */
 .x3-frag.call { border-color: #4A5D78; animation: x3-drift 6s ease-in-out infinite alternate, x3-unseen 1.6s steps(1, end) infinite; }
@@ -558,7 +554,9 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-prob-pin { height: auto; overflow: visible; padding: 90px 0; display: flex; flex-direction: column; align-items: center; gap: 36px; }
   .x3-frags, .x3-prob-lines, .x3-prob-ring { display: none; }
   .x3-prob-wm, .x3-prob-copy, .x3-prob-screens { position: static; translate: none; }
-  .x3-prob-copy { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .x3-prob-copy { display: contents; } /* «Antes…», el logo, «Ahora…» y las pantallas, en ese orden */
+  .x3-prob-h, .x3-prob-p, .x3-prob-now { text-align: center; padding: 0 var(--x-gutter); }
+  .x3-prob-p { margin-top: -18px; }
   .x3-prob-wm { order: 1; }
   .x3-prob-now { order: 2; margin-top: 36px; color: var(--x-muted); }
   .x3-prob-screens { order: 3; }

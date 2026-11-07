@@ -18,7 +18,7 @@ const FRAGS = [
   { id: "paper", cls: "paper", at: [-4, -4.4], r: -6, body: <><b>Rutina</b><span>Sentadilla 4×8</span><span>Prensa 3×12</span><span className="smudge">Remo ¿?</span></> },
   { id: "sheet", cls: "sheet", at: [14, 9.5], r: 4, wide: true, body: <><b>planilla_socios_v3.xlsx</b><span className="cells">{Array.from({ length: 12 }, (_, i) => <i key={i} />)}</span></> },
   { id: "chat", cls: "chat", at: [1.5, 8.5], r: 3, body: <><small>Socio · 19:42</small><span>Profe, ¿qué me toca hoy?</span></> },
-  { id: "ask", cls: "chat alt", at: [11.5, -4], r: -3, body: <><small>Socio · 20:05</small><span>¿Cuánto le pongo a la prensa?</span><span className="typing"><i /><i /><i /></span></> },
+  { id: "ask", cls: "chat alt", at: [11.5, -4], r: -3, body: <><small>Socio · 20:05</small><span>¿Cuánto le pongo a la prensa?</span><small className="typing">Escribiendo otra consulta…</small></> },
   { id: "prog", cls: "prog", at: [1.5, -1.5], r: -2, body: <><b>Progreso</b><span className="flat">— sin datos —</span></> },
   { id: "panel", cls: "panel", at: [14, 6.5], r: 2, wide: true, body: <><b>Sala · hoy</b><span>¿Quién entrenó?</span><span>¿Quién necesitó ayuda?</span></> },
   { id: "call", cls: "call", at: [-14.5, -5.5], r: 5, body: <><b>Pedido de ayuda</b><span>Nadie lo vio</span></> },
