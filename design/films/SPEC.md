@@ -64,4 +64,4 @@ REPI_MEDIA_SRC=<medios> OUT=<masters> design/films/kit/tools/render-all.sh [film
 - **Sonido automático:** whoosh en cada corte (dos tomas alternadas), impacto en la marca, pop en cada panel que aterriza, whoosh
   cinemático antes de que los fragmentos vuelen y riser que llega al golpe final.
 - **Audio:** `tools/finish.py` normaliza con loudnorm en dos pasadas (objetivo −14,6 LUFS integrado para quedar en −14 ± 0,5 medido
-  con EBU R128, pico verdadero ≤ −1 dBTP) y exporta la versión web (H.264 high, CRF 24, tope 3 Mb/s, `faststart`, AAC 160 kb/s).
+  con EBU R128, pico verdadero ≤ −1 dBTP) y exporta la versión web (H.264 high, CRF 24, tope 3 Mb/s, `faststart`; el audio normalizado AAC 256 kb/s se copia sin recodificar, porque una segunda codificación AAC subía el pico verdadero por encima de 0 dBTP).

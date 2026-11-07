@@ -12,7 +12,7 @@ r = run("ffmpeg", "-v", "error", "-y", "-i", src, "-c:v", "copy", "-af", af, "-c
 assert r.returncode == 0, r.stderr
 part = web[:-4] + ".part.mp4"  # se renombra al final: un corte a mitad no deja un archivo web roto
 r = run("ffmpeg", "-v", "error", "-y", "-i", norm, "-c:v", "libx264", "-preset", "slow", "-crf", "24", "-maxrate", "3M", "-bufsize", "6M",
-        "-pix_fmt", "yuv420p", "-profile:v", "high", "-movflags", "+faststart", "-c:a", "aac", "-b:a", "160k", part)
+        "-pix_fmt", "yuv420p", "-profile:v", "high", "-movflags", "+faststart", "-c:a", "copy", part)  # audio ya normalizado: recodificar AAC sube el pico
 assert r.returncode == 0, r.stderr
 r = run("ffmpeg", "-v", "error", "-y", "-ss", at, "-i", norm, "-frames:v", "1", "-vf", "scale=1280:-2", "-c:v", "libwebp", "-quality", "80", poster)
 assert r.returncode == 0, r.stderr
