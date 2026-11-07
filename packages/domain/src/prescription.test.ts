@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comboNext, emptyDetail, groupLabels, presetPlan, setTarget, setTargetText, straightRow, uniformPlan, validateDetail, type ExerciseDetail } from "./prescription";
+import { combineWithNext, combinedWithNext, comboNext, emptyDetail, groupLabels, separateFromGroup, presetPlan, setTarget, setTargetText, straightRow, uniformPlan, validateDetail, type ExerciseDetail } from "./prescription";
 import { validateProgramDoc } from "./training";
 
 describe("prescripción avanzada", () => {
@@ -62,5 +62,49 @@ describe("prescripción avanzada", () => {
     for (const k of [1, 2]) { done.add(`0:${k}`); done.add(`2:${k}`); }
     expect(comboNext(exs, isDone, 2, 2)).toBeNull(); // todo hecho
     expect(comboNext([{ sets: 3, detail: g("A") }, { sets: 3, detail: g("A"), change: { kind: "skip" } }], () => false, 0, 0)).toBeNull(); // el salteado no cuenta
+  });
+});
+
+describe("combinar desde la fila del editor (pedido de sala, 07/11/2026)", () => {
+  const ex = (name: string, group: string | null = null, groupKind: ExerciseDetail["groupKind"] = null, rounds: number | null = null) =>
+    ({ name, detail: group ? { ...emptyDetail(), group, groupKind, rounds } : null });
+  const g = (xs: { detail?: ExerciseDetail | null }[]) => xs.map((x) => (x.detail?.group ? `${x.detail.group}:${x.detail.groupKind}${x.detail.rounds ? `×${x.detail.rounds}` : ""}` : "-"));
+
+  it("dos ejercicios sueltos forman una superserie con la primera letra libre", () => {
+    const r = combineWithNext([ex("Press"), ex("Remo"), ex("Sentadilla")], 0)!;
+    expect(g(r)).toEqual(["A:superset", "A:superset", "-"]);
+    expect(groupLabels(r)).toEqual(["A1", "A2", null]);
+    expect(combinedWithNext(r, 0)).toBe(true);
+    expect(combinedWithNext(r, 1)).toBe(false);
+    // Con la A ocupada por otros, usa la B.
+    expect(g(combineWithNext([ex("Press", "A", "superset"), ex("Remo", "A", "superset"), ex("Prensa"), ex("Curl")], 2)!)).toEqual(["A:superset", "A:superset", "B:superset", "B:superset"]);
+  });
+
+  it("un tercero se suma al grupo (biserie → triserie) y respeta circuito y vueltas", () => {
+    const tri = combineWithNext([ex("Press", "A", "superset"), ex("Remo", "A", "superset"), ex("Fondos")], 1)!;
+    expect(g(tri)).toEqual(["A:superset", "A:superset", "A:superset"]);
+    const circ = combineWithNext([ex("Burpees", "C", "circuit", 3), ex("Saltos")], 0)!;
+    expect(g(circ)).toEqual(["C:circuit×3", "C:circuit×3"]);
+    // El de abajo ya estaba en un grupo: el de arriba se suma a ese.
+    expect(g(combineWithNext([ex("Press"), ex("Remo", "B", "superset"), ex("Curl", "B", "superset")], 0)!)).toEqual(["B:superset", "B:superset", "B:superset"]);
+  });
+
+  it("al mover un ejercicio de grupo, el que queda solo se separa; sin siguiente no combina", () => {
+    const r = combineWithNext([ex("Press", "A", "superset"), ex("Remo", "B", "superset"), ex("Curl", "B", "superset")], 0)!;
+    expect(g(r)).toEqual(["A:superset", "A:superset", "-"]);
+    expect(combineWithNext([ex("Press"), ex("Remo")], 1)).toBeNull();
+  });
+
+  it("sin letras libres no combina (máximo ocho grupos por día)", () => {
+    const full = ["A", "B", "C", "D", "E", "F", "G", "H"].flatMap((l) => [ex(`${l}1`, l, "superset"), ex(`${l}2`, l, "superset")]);
+    expect(combineWithNext([...full, ex("X"), ex("Y")], 16)).toBeNull();
+  });
+
+  it("separar saca al ejercicio y deshace el grupo si queda uno solo", () => {
+    const two = [ex("Press", "A", "superset"), ex("Remo", "A", "superset")];
+    expect(g(separateFromGroup(two, 0))).toEqual(["-", "-"]);
+    const three = [ex("Press", "A", "superset"), ex("Remo", "A", "superset"), ex("Fondos", "A", "superset")];
+    expect(g(separateFromGroup(three, 2))).toEqual(["A:superset", "A:superset", "-"]);
+    expect(separateFromGroup([ex("Press")], 0)).toEqual([ex("Press")]);
   });
 });

@@ -3,7 +3,7 @@
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
 import { SharedWishes, type SharedWishesView } from "@/components/coach/SharedWishes";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { TASK_CATEGORY, copyDayContent, formatRest, groupLabels, isStraightPlan, mainSets, mentionsHealth, parseRest, pasteDay, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
+import { TASK_CATEGORY, combineWithNext, combinedWithNext, copyDayContent, formatRest, groupLabels, separateFromGroup, isStraightPlan, mainSets, mentionsHealth, parseRest, pasteDay, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
@@ -71,6 +71,8 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   const [noteKind, setNoteKind] = useState<"institutional" | "personal">("institutional");
   const [draft, setDraft] = useState("");
   const [edit, setEdit] = useState(false);
+  // Después de guardar, el editor espera la versión nueva: reabrirlo enseguida mostraba la anterior y se podía editar encima.
+  const [refreshing, setRefreshing] = useState(false);
   const [task, setTask] = useState(false);
   const { busy, run } = useAct(shell.flash);
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
@@ -93,7 +95,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
         <div className="co-actions">
           {floor && <button type="button" className="btn" onClick={() => setTask(true)}>Nueva tarea</button>}
           {floor && <button type="button" className="btn" aria-busy={busy === "chat" || undefined} onClick={write}>Escribir</button>}
-          {m.canEdit && <button type="button" className="btn pri" onClick={() => setEdit(true)}>{m.program ? "Editar programa" : "Crear programa"}</button>}
+          {m.canEdit && <button type="button" className="btn pri" disabled={refreshing} aria-busy={refreshing || undefined} onClick={() => setEdit(true)}>{m.program ? "Editar programa" : "Crear programa"}</button>}
         </div>
       </section>
       <div className="grid-2" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,360px),1fr))" }}>
@@ -171,7 +173,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
           <span className="muted" style={{ fontSize: 14 }}>{m.restricted.join(" · ")}. El gym no los ve: son del socio y de las relaciones que él autorice.</span>
         </div>
       </section>
-      {edit && <EditProgramModal shell={shell} member={m} onClose={(ok) => { setEdit(false); if (ok) { d.reload(); onChanged(); shell.refreshBadges(); } }} />}
+      {edit && <EditProgramModal shell={shell} member={m} onClose={(ok) => { setEdit(false); if (ok) { setRefreshing(true); void d.reload().finally(() => setRefreshing(false)); onChanged(); shell.refreshBadges(); } }} />}
       {task && <NewTaskModal shell={shell} loc={loc} gymMemberId={m.id} memberName={m.name} onClose={(ok) => { setTask(false); if (ok) d.reload(); }} />}
     </>
   );
@@ -233,6 +235,15 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   };
   const cur = doc.days[day];
   const labels = groupLabels(cur.exercises);
+  // Combinar desde la fila (pedido de un entrenador de sala): superserie con el de abajo, o sumarlo a su grupo; «Separar» lo saca.
+  const setDayExercises = (exs: Ex[]) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => (j === day ? { ...x, exercises: exs } : x)) }));
+  const combine = (i: number) => {
+    const next = combineWithNext(cur.exercises, i);
+    if (!next) return shell.flash("Este día ya tiene 8 grupos combinados: separá alguno para combinar otro.");
+    const sync = syncCircuit(next, i);
+    const ok = !sync.removed.length || window.confirm(`El circuito tiene ${sync.rounds} vueltas: se quitan series de ${sync.removed.map((r) => `${r.exercise} (${r.blocks})`).join(", ")}. ¿Seguir?`);
+    setDayExercises(ok ? sync.exs : next);
+  };
   // D192: copiar y pegar días. El portapapeles es una referencia (socio y día) en esta pestaña; el contenido lo arma el servidor
   // con lo guardado y vuelve a este borrador, que se guarda con motivo como cualquier revisión.
   const [clip, setClip] = useState<DayClip | null>(() => readClip("gym", shell.orgId));
@@ -302,6 +313,8 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         <div className="exrow">
           <span className="c-name">{labels[i] && <code>{labels[i]}</code>}{e.name}
             <button type="button" className="ex-edit" onClick={() => setDetailFor(i)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
+            {i < cur.exercises.length - 1 && !combinedWithNext(cur.exercises, i) && <button type="button" className="subs-btn" onClick={() => combine(i)} aria-label={`Combinar ${e.name} con ${cur.exercises[i + 1].name}`}>Combinar con el siguiente</button>}
+            {e.detail?.group && <button type="button" className="subs-btn" onClick={() => setDayExercises(separateFromGroup(cur.exercises, i))} aria-label={`Separar ${e.name} de su grupo`}>Separar</button>}
             {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsPanel.isOpen(subsRow(i, e.exerciseId))} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
               onClick={() => subsPanel.toggle(subsRow(i, e.exerciseId))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}
             {!e.note && noteOpen !== `${day}:${i}` && <NoteButton name={e.name} onOpen={() => setNoteOpen(`${day}:${i}`)} />}</span>
