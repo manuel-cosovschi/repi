@@ -9,6 +9,7 @@ import { closeShiftsAfterHours, syncScheduledShifts } from "@/server/gym/service
 import { closeIdleWorkouts } from "@/server/training/services";
 import { checkBackupFreshness } from "@/server/ops/backup-watch";
 import { remindProgramBriefs } from "@/server/training/program-request";
+import { runProactive } from "@/server/brain/proactive";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,13 @@ export async function GET(req: Request) {
   const workoutsClosed = await step("workouts", () => closeIdleWorkouts(), 0); // D160: entrenamientos olvidados (22 h en el gym, 6 h sin actividad)
   const consentReminders = await step("consent", () => remindPendingConsent(), 0); // D160: altas aprobadas sin terminar, a las 8
   const briefReminders = await step("brief", () => remindProgramBriefs(), 0); // D206: pedidos de programa sin preferencias, un push por pedido (10 a 21)
+  // D209: Asistente REPI. Sólo a las 9 y a las 18 (hora AR); cada minuto de la franja evalúa 1/60 de las personas activas, con
+  // tope de personas y de tiempo; idempotente (claves únicas y lock por persona). Antes de la cola: su push sale en este mismo minuto.
+  const brain = await step("brain", () => runProactive(), null);
   const p = await step("outbox", () => processOutbox(), { processed: 0 });
   // D198: vigilante de respaldos, una vez por hora (minuto 7), independiente del cronograma de GitHub.
   const backup = new Date().getUTCMinutes() === 7 ? await step("backup", () => checkBackupFreshness(), null) : null;
-  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders, briefReminders, backup };
+  const brainOut = brain?.ran ? { evaluated: brain.evaluated, emitted: brain.emitted, pushed: brain.pushed, duplicates: brain.duplicates, failed: brain.failed, ms: brain.ms, budgetHit: brain.budgetHit } : null;
+  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders, briefReminders, brain: brainOut, backup };
   return failed.length ? Response.json({ ...out, error: "job falló", failed }, { status: 500 }) : Response.json(out);
 }

@@ -38,8 +38,9 @@ export const PROACTIVE_SLOTS = [9, 18] as const;
 const BUCKETS = 60;
 /** Personas con actividad reciente (sesiones terminadas) que entran al barrido del cron. */
 export const ACTIVE_DAYS = 45;
-const RUN_LIMIT = 150;
-const RUN_BUDGET_MS = 10_000;
+/** Tope por minuto: el cron de cada minuto corre muchos pasos seguidos y pg_net corta a los 20 s (auditoría notify.md §241). */
+const RUN_LIMIT = 100;
+const RUN_BUDGET_MS = 8_000;
 /** Inicio se reevalúa como mucho una vez por minuto por persona (por instancia); lo demás sale de la base. */
 const HOME_THROTTLE_MS = 60_000;
 /** Marcas: sólo de una sesión terminada hace menos de esto (después ya no es novedad). */
@@ -124,12 +125,12 @@ async function sessionTrends(userId: string, s: SessionRow, now: Date) {
     const pe = peById.get(byEx.get(ex)!);
     const rows = hist.get(ex) ?? [];
     if (!pe || !rows.length) continue;
-    const ctx: ExCtx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: pe.detail as ExerciseDetail | null };
+    const ctx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null };
     const fatigue = rows.slice(0, 12).filter((r) => r.feel === "limite" || r.rir === 0).length >= 4;
     const o = outlookFor(ctx, rows, now, coachOwned, fatigue);
     if (!o) continue;
     // Las fechas de la evidencia son las de las sesiones que la tendencia comparó (las mismas reglas que outlookFor).
-    const plan = Array.from({ length: ctx.sets }, (_, i) => rowContext(ctx, i));
+    const plan = Array.from({ length: ctx.sets }, (_, i) => rowContext(ctx as ExCtx, i));
     const main = plan.find((c) => c.cls === "main" || c.cls === "top")!;
     const pts = sessionPoints(main, rows, now, plan.filter((c) => c.cls === main.cls && c.stage === 0 && c.label === main.label).length);
     out.push({ input: { exercise: { id: ex, name: names.get(ex) ?? "este ejercicio" }, trend: o.trend, proposal: o.proposal, lastAt: rows[0].at, sessions: pts.map((p) => ({ at: p.at })) }, sessionId: rows[0].sessionId });
@@ -335,14 +336,6 @@ export async function homeCandidates(userId: string, now?: Date): Promise<{ card
     .filter((i) => i.channel !== "inline" && (prefs.proactive || i.category === "safety"));
   const card = items[0] ?? null;
   return { card, interventions: items.slice(1) };
-}
-
-/** Abrir el centro de notificaciones cuenta como «visto» para los avisos de REPI pendientes (caso 51: no se vuelven a empujar). */
-export async function markInterventionsSeen(userId: string, now = new Date()) {
-  const rows = await db.update(brainIntervention).set({ status: "shown", shownAt: now })
-    .where(and(eq(brainIntervention.userId, userId), eq(brainIntervention.status, "pending"), sql`${brainIntervention.channel} <> 'inline'`, lte(brainIntervention.createdAt, now)))
-    .returning({ id: brainIntervention.id });
-  return rows.length;
 }
 
 // ── Cron ────────────────────────────────────────────────────────────────────

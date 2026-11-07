@@ -8,7 +8,7 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { ageEligibility, localDate, nextDayIndex, parseReps, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
 import {
-  contextVersion, endOfArDay, fact, noFact, type AgeBand, type BrainContext, type BrainPrefs, type ExerciseRef, type MemoryItem, type Section,
+  arDaysBetween, contextVersion, endOfArDay, fact, noFact, type AgeBand, type BrainContext, type BrainPrefs, type ExerciseRef, type MemoryItem, type Section,
 } from "@repi/domain/brain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
@@ -277,7 +277,7 @@ export async function loadContext(userId: string, opts: { section?: Section; ref
       // El servidor no ve la cola del teléfono: lo dice el cliente si hace falta.
       offlinePending: false,
     },
-    history: { sessions30d: h?.s30 ?? 0, sessions7d: h?.s7 ?? 0, lastSessionAt: lastAt, daysSinceLast: lastAt ? Math.floor((now.getTime() - Date.parse(lastAt)) / DAY) : null, voided30d: h?.v30 ?? 0 },
+    history: { sessions30d: h?.s30 ?? 0, sessions7d: h?.s7 ?? 0, lastSessionAt: lastAt, daysSinceLast: lastAt ? arDaysBetween(lastAt, now) : null, voided30d: h?.v30 ?? 0 },
     readiness: {
       energy: ci ? fact<number | null>(ci.energy, "check_in", now.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),
       sleep: ci ? fact<number | null>(ci.sleep, "check_in", now.toISOString(), "declared", "high", { validUntil: eod, consent: "health" }) : noFact<number | null>(null, "check_in"),

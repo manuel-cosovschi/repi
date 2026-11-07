@@ -8,6 +8,7 @@ import * as sp from "@/server/support/services";
 import * as bp from "@/server/commercial/payments";
 import * as an from "@/server/announcements/services";
 import * as se from "@/server/site/events";
+import * as ab from "@/server/brain/admin";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -21,6 +22,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "summary") return cm.adminSummary(me);
   if (a === "announcements") return an.adminAnnouncements(me); // D202
   if (a === "site") return se.siteSummary(me, Number(u.searchParams.get("days")) || 30); // D205
+  if (a === "brain" && !b) return ab.brainMetrics(me, { days: Number(u.searchParams.get("days")) || 7 }); // D209: Coaching IA (agregados)
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" || f === "ideas" ? f : "active"); }
@@ -91,5 +93,14 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   }
   if (a === "leads" && b) return cm.setLeadStatus(me, b, (await body(req, z.object({ status: z.enum(["contacted", "converted", "discarded"]) }))).status);
   if (a === "corrections" && b) return cm.answerCorrection(me, b, (await body(req, z.object({ answer: z.string().max(800) }))).answer);
+  throw NF();
+});
+
+// D209 · Coaching IA: límites de la IA del cerebro (global u organización). Validación estricta en el servicio.
+export const PUT = handle<Ctx>(async (req, { params }) => {
+  const [a, b] = (await params).path ?? [];
+  const me = await sessionUserId();
+  await limit(`admin:${me}`, 60);
+  if (a === "brain" && (!b || b === "policy")) return ab.updateBrainPolicy(me, await body(req, z.object({ scope: z.string().max(80), config: z.record(z.string(), z.unknown()) })));
   throw NF();
 });
