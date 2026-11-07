@@ -3,9 +3,10 @@
 // La ficha nunca muestra salud, nutrición, Mi cuerpo, la app del socio ni su relación con un coach privado (DEC-10/11).
 import { SharedWishes, type SharedWishesView } from "@/components/coach/SharedWishes";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { TASK_CATEGORY, circuitIssues, combineWithNext, combinedWithNext, copyDayContent, formatRest, groupLabels, separateFromGroup, isStraightPlan, mainSets, mentionsHealth, parseRest, pasteDay, resizeBlocks, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
+import { TASK_CATEGORY, activityOf, circuitIssues, combineWithNext, combinedWithNext, copyDayContent, formatRest, groupLabels, isActivityProfile, separateFromGroup, isStraightPlan, mainSets, mentionsHealth, parseRest, pasteDay, prescriptionText, resizeBlocks, straightRow, syncCircuit, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { NewExercise } from "@/components/coach/NewExercise";
+import { ActivityFields, ActivityLast, ConvertToActivity, editorProfile, libMatches, rowDefaults, toActivityRow } from "@/components/coach/ActivityFields";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { DayMenu, GymDayPaste, readClip, writeClip, type DayClip } from "@/components/coach/DayCopy";
 import { NoteButton, NoteField } from "@/components/coach/ExerciseNote";
@@ -132,7 +133,8 @@ function MemberDetail({ shell, id, loc, onChanged, page = false }: { shell: Shel
               {m.program.doc.days.map((day, i) => (
                 <div key={i} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <b style={{ fontSize: 13 }}>{day.name}</b>
-                  {day.exercises.map((e, j) => <div key={j} className="trow" style={{ padding: "6px 4px" }}><span style={{ flex: 1 }}>{e.name}</span><span className="muted">{e.sets} × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""} · {formatRest(e.restSec)}</span></div>)}
+                  {/* Ejercicios por tiempo: una actividad se lee «10 min · 5 km/h · incl. 3» (sin series, RIR ni descanso). */}
+                  {day.exercises.map((e, j) => <div key={j} className="trow" style={{ padding: "6px 4px" }}><span style={{ flex: 1 }}>{e.name}</span><span className="muted">{prescriptionText(e, { rir: true })}{activityOf(e.detail) && e.sets <= 1 ? "" : ` · ${formatRest(e.restSec)}`}</span></div>)}
                 </div>
               ))}
               <h2 style={{ fontSize: 14, marginTop: 6 }}>Revisiones</h2>
@@ -220,7 +222,7 @@ export function MemberProgramModal({ shell, memberId, taskId, onClose }: { shell
   );
 }
 
-type Lib = { id: string; name: string; group: string; kind: string; own?: boolean }[];
+type Lib = { id: string; name: string; group: string; kind: string; own?: boolean; profile?: string | null }[];
 type Ex = ProgramDoc["days"][number]["exercises"][number];
 
 function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: Detail; onClose: (ok: boolean) => void }) {
@@ -261,8 +263,11 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
   const [tiApplied, setTiApplied] = useState<string | null>(null);
   const setEx = (i: number, patch: Partial<Ex>) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.map((e, k) => k === i ? { ...e, ...patch } : e) } : x) }));
   const removeEx = (i: number) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: x.exercises.filter((_, k) => k !== i) } : x) }));
-  const addEx = (e: Lib[number]) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: [...x.exercises, { exerciseId: e.id, name: e.name, sets: 3, reps: "10-12", rir: 2, restSec: 90, note: null }] } : x) }));
-  const filtered = useMemo(() => (lib.data ?? []).filter((e) => !libQ || (e.name + " " + e.group).toLowerCase().includes(libQ.toLowerCase())).slice(0, 24), [lib.data, libQ]);
+  // Ejercicios por tiempo: cada ejercicio entra con los valores de su perfil. Antes todo entraba como 3 × 10-12 con RIR 2 y una
+  // cinta quedaba como musculación; ahora es 10 min a 5 km/h, inclinación 0, sin series ni RIR (la musculación sigue en 10-12).
+  const addEx = (e: Lib[number]) => setDoc((d) => ({ ...d, days: d.days.map((x, j) => j === day ? { ...x, exercises: [...x.exercises, { exerciseId: e.id, name: e.name, ...rowDefaults(editorProfile({ name: e.name }, e), "10-12"), note: null }] } : x) }));
+  const filtered = useMemo(() => (lib.data ?? []).filter((e) => libMatches(e, libQ)).slice(0, 24), [lib.data, libQ]);
+  const libById = useMemo(() => new Map((lib.data ?? []).map((e) => [e.id, e])), [lib.data]);
   const save = async () => {
     const r = await run("save", () => api<{ revision: number; completed: { ref: string; invite: string | null } | null }>(`/api/gym/${shell.orgId}/members/${member.id}/program`, { body: { doc, reason, completeTaskId: complete && related ? related.id : null } }),
       (x) => { const y = x as { revision: number; completed: { ref: string; invite: string | null } | null }; return y.completed ? `Programa guardado (revisión ${y.revision}) y ${y.completed.ref} completada.${y.completed.invite === "pending" ? ` ${member.name.split(" ")[0]} recibirá una invitación opcional para opinar.` : ""}` : `Programa guardado. Revisión ${y.revision} registrada para el equipo.`; });
@@ -361,31 +366,41 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         }} />}
       <label className="field">Nombre del día<input value={cur.name} maxLength={60} onChange={(e) => setDoc({ ...doc, days: doc.days.map((x, j) => j === day ? { ...x, name: e.target.value } : x) })} /></label>
       <div className="exhead"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Desc.</span><span className="c-act" /></div>
-      {cur.exercises.map((e, i) => (
+      {cur.exercises.map((e, i) => {
+        // Ejercicios por tiempo: una actividad (cinta, bici, remo…) muestra sólo la duración y sus campos, sin series, RIR ni
+        // técnica; una escrita como texto en una revisión anterior sigue como estaba y ofrece «Configurar por duración».
+        const act = activityOf(e.detail);
+        const prof = editorProfile(e, libById.get(e.exerciseId));
+        const convert = !act && isActivityProfile(prof) ? prof : null;
+        return (
         <Fragment key={i}>
-        <div className="exrow">
+        <div className={act ? "exrow is-activity" : "exrow"}>
           <span className="c-name"><code>{labels[i] ?? String(i + 1).padStart(2, "0")}</code>{e.name}
-            <button type="button" className="ex-edit" onClick={() => setDetailFor(i)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
+            {!act && <button type="button" className="ex-edit" onClick={() => setDetailFor(i)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>}
             {i < cur.exercises.length - 1 && !combinedWithNext(cur.exercises, i) && <button type="button" className="subs-btn" onClick={() => combine(i)} aria-label={`Combinar ${e.name} con ${cur.exercises[i + 1].name}`}>Combinar con el siguiente</button>}
             {e.detail?.group && <button type="button" className="subs-btn" onClick={() => setDayExercises(separateFromGroup(cur.exercises, i))} aria-label={`Separar ${e.name} de su grupo`}>Separar</button>}
             {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsPanel.isOpen(subsRow(i, e.exerciseId))} aria-label={`${subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} de ${e.name}`}
               onClick={() => subsPanel.toggle(subsRow(i, e.exerciseId))}>{subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)}</button>}
             {!e.note && noteOpen !== `${day}:${i}` && <NoteButton name={e.name} onOpen={() => setNoteOpen(`${day}:${i}`)} />}</span>
           {detailSummary(e, labels[i]) && <span className="ex-sum">{detailSummary(e, labels[i])}</span>}
+          {act ? <ActivityFields e={e} profile={act.profile} onChange={(p) => setEx(i, p)} /> : <>
           <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={!!e.detail?.setPlan && !isStraightPlan(e.detail)} aria-label={`Series de ${e.name}`} min={1} max={20} value={!!e.detail?.setPlan && !isStraightPlan(e.detail) ? mainSets(e.detail, e.sets) : e.sets} onChange={(n) => n != null && setEx(i, straightRow(e.detail, { sets: n }))} /></span>
           <span className="c-r"><small className="c-lbl">Reps</small><input aria-label={`Repeticiones de ${e.name}`} value={e.reps} maxLength={20} onChange={(ev) => setEx(i, straightRow(e.detail, { reps: ev.target.value }))} /></span>
           <span className="c-rir"><small className="c-lbl">RIR</small><IntInput aria-label={`RIR de ${e.name}`} min={0} max={5} nullable value={e.rir} onChange={(n) => setEx(i, straightRow(e.detail, { rir: n }))} /></span>
           <span className="c-rest"><small className="c-lbl">Descanso</small><input aria-label={`Descanso de ${e.name}`} defaultValue={formatRest(e.restSec)} onBlur={(ev) => { const r = parseRest(ev.target.value); if (r != null) setEx(i, { restSec: r }); }} /></span>
+          </>}
           <span className="c-act">
             <button type="button" className="ibtn" aria-label={`Subir ${e.name}`} disabled={i === 0} onClick={() => moveUp(i)}>↑</button>
             <button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={() => removeEx(i)}>×</button>
           </span>
+          {convert && <ConvertToActivity name={e.name} reps={e.reps} profile={convert} onConvert={() => setEx(i, toActivityRow(e, convert))} />}
           {(!!e.note || noteOpen === `${day}:${i}`) && <NoteField name={e.name} value={e.note ?? ""} who="el socio" onChange={(v) => setEx(i, { note: v })} onEmpty={() => setNoteOpen(null)} />}
         </div>
-        <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setEx(i, { detail })} />
+        {act ? <ActivityLast last={lastTimes[e.exerciseId]} /> : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setEx(i, { detail })} />}
         {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} onAdded={subsPanel.close} />}
         </Fragment>
-      ))}
+        );
+      })}
       {!cur.exercises.length && <span className="muted">Agregá ejercicios desde la biblioteca: un día sin ejercicios no le aparece al socio para empezar.</span>}
       {issues.length > 0 && (
         <div className="err-box" role="alert">
@@ -396,7 +411,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
           }))}>Igualar a {issues[0].rounds} vueltas</button>
         </div>
       )}
-      {detailFor != null && cur.exercises[detailFor] && <ExerciseDetailEditor e={cur.exercises[detailFor]} types={{ kind: "gym", orgId: shell.orgId }} onClose={() => setDetailFor(null)}
+      {detailFor != null && cur.exercises[detailFor] && !activityOf(cur.exercises[detailFor].detail) && <ExerciseDetailEditor e={cur.exercises[detailFor]} types={{ kind: "gym", orgId: shell.orgId }} onClose={() => setDetailFor(null)}
         onSave={(p) => {
           // D183: en un circuito con vueltas, todos sus ejercicios quedan con una serie por vuelta (quitar series se confirma).
           const exs = cur.exercises.map((y, k) => (k === detailFor ? { ...y, detail: p.detail, sets: p.sets } : y));

@@ -28,6 +28,9 @@ describe("prescripción", () => {
     expect(fmtSeconds(90)).toBe("1 min 30 s");
     expect(repsText("1200 s")).toBe("20 min");
     expect(repsText("8-10")).toBe("8-10");
+    // Una distancia escrita como texto no se lee como minutos («500 m» no es «500 min»); «20 m» sigue siendo 20 minutos.
+    expect(repsText("500 m")).toBe("500 m");
+    expect(repsText("20 m")).toBe("20 min");
     expect(parseReps("al fallo técnico")).toEqual({ kind: "free", text: "al fallo técnico" });
     expect(defaultRepsFor("8-10")).toBe(8);
     expect(defaultRepsFor("40 s")).toBeNull();

@@ -2,14 +2,18 @@
 // Cambiar un ejercicio sólo en esta sesión (F-HX-21, D106): saltarlo o hacer otro compatible en su lugar, con motivo.
 // No toca el programa ni lo que indicó el coach. Las alternativas necesitan conexión; saltar funciona sin red.
 // No sugiere cargas: otro ejercicio no tiene la misma carga (se muestra la última registrada de ese ejercicio, si existe).
+// Ejercicios por tiempo: cada alternativa trae su perfil (otra máquina de cardio en lugar de la cinta) y viaja con el reemplazo,
+// así el teléfono muestra los campos de lo que se hace, también sin conexión. Su «última vez» es una duración, no kilos.
 import { useState } from "react";
-import { EXERCISE_CHANGE_REASONS, type ExerciseChangeReason, type WeightUnit } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, fmtSeconds, isActivityProfile, type ExerciseChangeReason, type MetricsProfile, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import type { ExChange, LocalEx } from "@/lib/offline/store";
 import { Sheet } from "./Sheet";
 import { kg } from "./types";
 
-type Alt = { id: string; name: string; muscleGroup: string; sameGroup: boolean; approved: boolean; approvedNote: string | null; prev: LocalEx["prev"] };
+type Alt = { id: string; name: string; muscleGroup: string; sameGroup: boolean; approved: boolean; approvedNote: string | null; prev: LocalEx["prev"]; profile?: MetricsProfile | null };
+const lastTxt = (a: Alt, unit: WeightUnit) => !a.prev ? "sin registro previo"
+  : isActivityProfile(a.profile) || a.profile === "hold" ? `última vez ${a.prev.reps != null ? fmtSeconds(a.prev.reps) : "—"}` : `última vez ${kg(a.prev.weightKg, unit)} × ${a.prev.reps ?? "—"}`;
 
 export function ExerciseChangeSheet({ sessionId, ex, unit, onApply, onPain, onClose }: {
   sessionId: string; ex: LocalEx; unit: WeightUnit; onApply: (c: ExChange | null, prev?: LocalEx["prev"]) => void; onPain: () => void; onClose: () => void;
@@ -27,6 +31,7 @@ export function ExerciseChangeSheet({ sessionId, ex, unit, onApply, onPain, onCl
     finally { setBusy(false); }
   };
   const pick = (c: ExChange | null, prev?: LocalEx["prev"]) => { onApply(c, prev); onClose(); };
+  const activity = isActivityProfile(ex.profile ?? ex.activity?.profile);
   return (
     <Sheet title={`Cambiar ${ex.name}`} sub="Sólo para este entrenamiento: tu programa no cambia y tu coach ve qué hiciste y por qué." onClose={onClose}
       groups={[{ label: "¿Qué pasa?", opts: Object.entries(EXERCISE_CHANGE_REASONS) as [string, string][], value: reason, onPick: (v) => { setReason(v as ExerciseChangeReason); setErr(null); } }]}
@@ -49,16 +54,16 @@ export function ExerciseChangeSheet({ sessionId, ex, unit, onApply, onPain, onCl
         <ul className="xc-list" aria-label="Alternativas compatibles">
           {alts.map((a) => (
             <li key={a.id}>
-              <button type="button" onClick={() => pick({ kind: "substitute", reason: reason!, substitute: { exerciseId: a.id, name: a.name } }, a.prev)}>
+              <button type="button" onClick={() => pick({ kind: "substitute", reason: reason!, substitute: { exerciseId: a.id, name: a.name, profile: a.profile ?? null } }, a.prev)}>
                 <strong>{a.name}</strong>
                 {a.approved && <small className="xc-ok">{by === "gym" ? "Aprobado por el gimnasio" : "Aprobado por tu coach"}{a.approvedNote ? ` · ${a.approvedNote}` : ""}</small>}
-                <small>{a.muscleGroup}{a.sameGroup ? " · mismo grupo" : ""} · {a.prev ? `última vez ${kg(a.prev.weightKg, unit)} × ${a.prev.reps ?? "—"}` : "sin registro previo"}</small>
+                <small>{a.muscleGroup}{a.sameGroup ? " · mismo grupo" : ""} · {lastTxt(a, unit)}</small>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {alts && <p className="sheet-sub">Las cargas no son equivalentes entre ejercicios: empezá liviano y ajustá.</p>}
+      {alts && <p className="sheet-sub">{activity ? "Cada máquina es distinta: ajustá velocidad, nivel o inclinación a cómo te sentís." : "Las cargas no son equivalentes entre ejercicios: empezá liviano y ajustá."}</p>}
     </Sheet>
   );
 }

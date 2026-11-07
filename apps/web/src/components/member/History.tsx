@@ -5,12 +5,14 @@
 // de que el servidor lo confirme. Anular es reversible y lo dice antes de hacerlo.
 import { useCallback, useEffect, useState } from "react";
 import { HISTORY_STATUS_LABEL, SET_FEEL, correctionSummary, formatClock, kgTo, parseWeightIn, volumeIn, type SetFeel, type WeightUnit } from "@repi/domain";
+import { ACTIVITY_FIELD_SPEC, PROFILE_FIELDS, emptyDetail, fmtSeconds, isActivityProfile, prescriptionText, sameMetrics, type ActivityDetail, type ActivityField, type ExerciseDetail, type MetricsProfile, type SetMetrics } from "@repi/domain";
 import { api, ApiError } from "@/lib/api";
 import { RepiAsk } from "@/components/brain/RepiAsk";
 import { delLocal, getLocal } from "@/lib/offline/store";
 import { pendingFor } from "@/lib/offline/queue";
 import { Sheet } from "./Sheet";
-import { kg } from "./types";
+import { activityLogTxt, activityTargetSec, kg } from "./types";
+import { cleanFieldDraft, fieldLabel, fieldValueText, minutesText, parseField, parseMinutes } from "./ActivitySet";
 import { useUnit } from "./units";
 import { Hint } from "./Hint";
 import { SessionCalories } from "./SessionCalories";
@@ -19,9 +21,12 @@ export type HistoryItem = {
   id: string; dayName: string; startedAt: string; endedAt: string; durationSec: number; status: "completed" | "voided";
   exercises: number; sets: number; volumeKg: number; rpe: number | null; voidedAt: string | null; corrected: boolean; voidedSets: number;
 };
-type SetLogV = { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; completedAt: string; revision: number; voidedAt: string | null; voidReason: string | null; corrected: boolean; added: boolean };
+type SetLogV = { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; completedAt: string; revision: number; voidedAt: string | null; voidReason: string | null; corrected: boolean; added: boolean;
+  metrics?: SetMetrics | null }; // ejercicios por tiempo: velocidad, inclinación, nivel… de una actividad
 type Row = { setIndex: number; label: string | null; kind: string; block: number; stage: number; timed: boolean; warmup: boolean; planned: { reps: string; weightKg: number | null }; log: SetLogV | null; skipped: boolean };
+// Ejercicios por tiempo: `profile` (lo que se hizo: cinta, bici, remo… o fuerza) y la actividad indicada por el profe.
 type Ex = { id: string; name: string; doneName: string; sets: number; reps: string; change: { kind: string; reason: string; substitute: string | null } | null; rows: Row[];
+  profile?: MetricsProfile | null; activity?: ActivityDetail | null; detail?: ExerciseDetail | null;
   compare: { previous: { weightKg: number | null; reps: number | null }; current: { weightKg: number | null; reps: number | null } } | null };
 type Detail = {
   id: string; dayName: string; status: "completed" | "voided"; startedAt: string; endedAt: string; durationSec: number; rpe: number | null; note: string | null; revision: number;
@@ -36,6 +41,8 @@ const dateTxt = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "A
 const timeTxt = (iso: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 const rid = () => crypto.randomUUID();
 const setName = (r: Row) => (r.stage > 0 ? `${r.label ?? "Etapa"} de la serie ${r.block + 1}` : `Serie ${r.block + 1}${r.label ? ` · ${r.label}` : ""}`);
+/** Actividad con que se lee y corrige una fila (null: peso, repeticiones o segundos, como siempre). */
+const rowActivity = (e: Ex, r: Row) => (r.timed && isActivityProfile(e.profile) ? e.profile : null);
 const ACTION_TXT: Record<string, string> = { set_edit: "Serie corregida", set_void: "Serie anulada", set_restore: "Serie restaurada", set_add: "Serie agregada", session_void: "Entrenamiento anulado", session_restore: "Entrenamiento restaurado" };
 
 /** Cuando el servidor confirmó una corrección: la copia del teléfono de esa sesión (resumen viejo) se descarta si no tiene pendientes. */
@@ -109,7 +116,9 @@ export function HistorySession({ id, flash, onClose, onChanged, offline, onRegis
               <ul className="hx-sets" aria-label={`Series de ${e.doneName}`}>
                 {e.rows.map((r) => {
                   const l = r.log;
-                  const val = l ? `${r.timed ? `${l.reps ?? "—"} s` : `${l.weightKg != null && l.weightKg > 0 ? `${kg(l.weightKg, unit)} × ` : ""}${l.reps ?? "—"}`}${l.rir != null ? ` · RIR ${l.rir}` : ""}${l.feel ? ` · ${SET_FEEL[l.feel as SetFeel] ?? l.feel}` : ""}` : r.skipped ? "Sin hacer" : "No registrada";
+                  // Ejercicios por tiempo: una actividad dice duración y valores («12 min · 5,5 km/h · incl. 4»); otro tiempo, «1 min 30 s».
+                  const amount = !l ? "" : rowActivity(e, r) ? activityLogTxt(l.reps, l.metrics) : r.timed ? (l.reps != null ? fmtSeconds(l.reps) : "—") : `${l.weightKg != null && l.weightKg > 0 ? `${kg(l.weightKg, unit)} × ` : ""}${l.reps ?? "—"}`;
+                  const val = l ? `${amount}${l.rir != null ? ` · RIR ${l.rir}` : ""}${l.feel ? ` · ${SET_FEEL[l.feel as SetFeel] ?? l.feel}` : ""}` : r.skipped ? "Sin hacer" : "No registrada";
                   const can = d.actions.edit && !offline;
                   return (
                     <li key={r.setIndex}><button type="button" className={`hx-set${r.stage > 0 ? " stage" : ""}${l?.voidedAt ? " is-void" : ""}${!l ? " is-empty" : ""}`} disabled={!can}
@@ -169,6 +178,16 @@ function SetEditSheet({ sessionId, ex, row, unit, onClose, onDone, onStale, flas
   sessionId: string; ex: Ex; row: Row; unit: WeightUnit; onClose: () => void; onDone: (msg: string) => void; onStale: () => void; flash: (t: string) => void;
 }) {
   const l = row.log;
+  // Ejercicios por tiempo: una actividad se corrige con su duración (minutos) y los campos de su perfil; sin peso ni RIR. Al
+  // agregar una serie que faltó, arranca con lo indicado por el profe (como en el entrenamiento), para revisar antes de guardar.
+  const ap = rowActivity(ex, row);
+  const plan = ap && ex.activity?.profile === ap ? ex.activity : null;
+  const targetSec = ap ? activityTargetSec({ reps: row.planned.reps }, ap) : null;
+  const initialDur = l?.reps != null ? minutesText(l.reps) : ap && !l && targetSec ? minutesText(targetSec) : "";
+  const startM: SetMetrics | null | undefined = l ? l.metrics : plan;
+  const initialM = Object.fromEntries((ap ? PROFILE_FIELDS[ap] : []).map((f) => [f, fieldValueText(f, startM?.[f])])) as Partial<Record<ActivityField, string>>;
+  const [dur, setDur] = useState(initialDur);
+  const [mv, setMv] = useState(initialM);
   const shownW = l?.weightKg != null ? kgTo(l.weightKg, unit) : null;
   const initialW = shownW != null ? String(shownW).replace(".", ",") : "";
   const initialR = l?.reps != null ? String(l.reps) : "";
@@ -183,6 +202,22 @@ function SetEditSheet({ sessionId, ex, row, unit, onClose, onDone, onStale, flas
   const voided = !!l?.voidedAt;
   const values = () => {
     const out: Record<string, unknown> = {};
+    if (ap) {
+      const sec = dur.trim() ? parseMinutes(dur) : null;
+      if (dur.trim() && sec == null) throw new Error("La duración va de 1 segundo a 4 horas: escribí los minutos (12, 12,5 o 12:30).");
+      if (l == null || dur !== initialDur) out.reps = sec;
+      const m: SetMetrics = {};
+      for (const f of PROFILE_FIELDS[ap]) {
+        const v = parseField(f, mv[f] ?? "");
+        if (v === undefined) throw new Error(ACTIVITY_FIELD_SPEC[f].error);
+        if (v != null) m[f] = v;
+      }
+      const mm = Object.keys(m).length ? m : null;
+      if (l == null ? mm != null : !sameMetrics(mm, l.metrics)) out.metrics = mm;
+      if (l == null || feel !== l.feel) out.feel = feel;
+      if (l == null || (note.trim() || null) !== (l.note ?? null)) out.note = note.trim() || null;
+      return out;
+    }
     const wk = w.trim() ? parseWeightIn(w, unit) : null;
     if (w.trim() && wk == null) throw new Error(`Peso inválido: hasta 2 decimales, entre 0 y ${unit === "kg" ? "1000 kg" : "2204 lb"}.`);
     // Sólo si la persona cambió lo escrito: en lb, reenviar lo mostrado «corregiría» un redondeo de la conversión.
@@ -220,19 +255,32 @@ function SetEditSheet({ sessionId, ex, row, unit, onClose, onDone, onStale, flas
     catch (e) { flash((e as Error).message); } finally { setBusy(false); }
   };
   return (
-    <Sheet title={`${l ? "Corregir" : "Agregar"} · ${setName(row)}`} sub={`${ex.doneName} · indicado: ${row.planned.reps}${row.planned.weightKg != null ? ` · ${kg(row.planned.weightKg, unit)}` : ""}`} closeLabel="Cancelar" onClose={onClose}>
+    <Sheet title={`${l ? "Corregir" : "Agregar"} · ${setName(row)}`} sub={`${ex.doneName} · indicado: ${ex.activity ? prescriptionText({ sets: 1, reps: row.planned.reps, detail: ex.detail ?? { ...emptyDetail(), activity: ex.activity } }) : row.planned.reps}${row.planned.weightKg != null ? ` · ${kg(row.planned.weightKg, unit)}` : ""}`} closeLabel="Cancelar" onClose={onClose}>
       {voided ? (
         <p className="sheet-warn" role="note">Esta serie está anulada{l?.voidReason ? ` (${l.voidReason})` : ""}. Restaurala para que vuelva a contar o para corregirla.</p>
       ) : (
         <>
           {!l && <p className="sheet-warn" role="note">Sólo agregá una serie que hiciste de verdad. Queda con la hora del cierre del entrenamiento y marcada como agregada después.</p>}
-          <div className="hx-fields">
-            {!row.timed && <label className="hx-field">Peso ({unit})<input inputMode="decimal" value={w} onChange={(e) => setW(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Peso corporal" /></label>}
-            <label className="hx-field">{row.timed ? "Segundos" : "Repeticiones"}<input inputMode="numeric" value={r} onChange={(e) => setR(e.target.value.replace(/\D/g, ""))} aria-label={row.timed ? "Segundos" : "Repeticiones"} /></label>
-          </div>
-          <fieldset className="sheet-group"><legend>Reps en reserva (RIR, opcional)</legend><div>
-            {[0, 1, 2, 3, 4].map((v) => <button type="button" key={v} aria-pressed={rir === v} onClick={() => setRir(rir === v ? null : v)}>{v === 4 ? "4+" : v}</button>)}
-            {rir != null && rir > 4 && <button type="button" aria-pressed="true" onClick={() => setRir(null)}>RIR {rir}</button>}</div></fieldset>
+          {ap ? (
+            <div className="hx-fields hx-act">
+              <label className="hx-field">Duración (min)<input inputMode="decimal" value={dur} placeholder="12 o 12:30" onChange={(e) => setDur(cleanFieldDraft("duration", e.target.value))} /></label>
+              {PROFILE_FIELDS[ap].map((f) => {
+                const unitTxt = ACTIVITY_FIELD_SPEC[f].unit;
+                return <label key={f} className="hx-field">{fieldLabel(f)}{unitTxt ? ` (${unitTxt})` : ""}<input inputMode={f === "incline" || f === "pace500Sec" ? "text" : "decimal"} value={mv[f] ?? ""}
+                  placeholder={f === "pace500Sec" ? "2:05" : "—"} onChange={(e) => setMv((x) => ({ ...x, [f]: cleanFieldDraft(f, e.target.value) }))} /></label>;
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="hx-fields">
+                {!row.timed && <label className="hx-field">Peso ({unit})<input inputMode="decimal" value={w} onChange={(e) => setW(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Peso corporal" /></label>}
+                <label className="hx-field">{row.timed ? "Segundos" : "Repeticiones"}<input inputMode="numeric" value={r} onChange={(e) => setR(e.target.value.replace(/\D/g, ""))} aria-label={row.timed ? "Segundos" : "Repeticiones"} /></label>
+              </div>
+              <fieldset className="sheet-group"><legend>Reps en reserva (RIR, opcional)</legend><div>
+                {[0, 1, 2, 3, 4].map((v) => <button type="button" key={v} aria-pressed={rir === v} onClick={() => setRir(rir === v ? null : v)}>{v === 4 ? "4+" : v}</button>)}
+                {rir != null && rir > 4 && <button type="button" aria-pressed="true" onClick={() => setRir(null)}>RIR {rir}</button>}</div></fieldset>
+            </>
+          )}
           <fieldset className="sheet-group"><legend>Sensación (opcional)</legend><div>
             {FEELS.map((k) => <button type="button" key={k} aria-pressed={feel === k} onClick={() => setFeel(feel === k ? null : k)}>{SET_FEEL[k]}</button>)}</div></fieldset>
           <label className="hx-field">Nota (opcional)<input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} /></label>

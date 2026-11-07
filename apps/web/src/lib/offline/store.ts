@@ -2,7 +2,7 @@
 // Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
 import {
-  ACTIVITY_FIELDS, activityOf, applySessionAction, carriesLoad, defaultRepsFor, kindAt, labelAt, parseReps, startWeight,
+  ACTIVITY_FIELDS, activityOf, applySessionAction, repsDistance, carriesLoad, defaultRepsFor, kindAt, labelAt, parseReps, startWeight,
   type ActivityDetail, type ExerciseChangeReason, type ExerciseDetail, type MetricsProfile, type Proposal, type RowTarget, type SessionStatus, type SetKind, type SetMetrics, type Suggestion, type Trend, type LoadLadder,
 } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
@@ -164,7 +164,8 @@ export function fromServer(x: {
     // Ejercicios por tiempo: una actividad indicada arranca con su duración (segundos) y sus valores (velocidad, inclinación…).
     const act = e.change ? null : e.activity ?? activityOf(e.detail);
     const draftM = activityDraft(act);
-    const dur = act ? parseReps(e.reps) : null;
+    // Remo por distancia («500 m»): no hay duración que precargar (leerlo como minutos daría 500 min).
+    const dur = act && repsDistance(act.profile, e.reps) == null ? parseReps(e.reps) : null;
     const draftSec = dur?.kind === "time" ? dur.seconds : null;
     for (let i = 0; i < e.sets; i++) {
       const l = e.logs.find((y) => y.setIndex === i);

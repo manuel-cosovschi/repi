@@ -3,7 +3,7 @@
 // Todo se calcula en el servidor con las series válidas (anuladas fuera, corregidas con su valor vigente); el teléfono sólo
 // pide el resumen y el ejercicio elegido, nunca todo el historial. Unidades: se guardan kg y se muestran en la unidad elegida.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PROGRESS_RANGES, kgTo, volumeIn, type ProgressRange, type WeightUnit } from "@repi/domain";
+import { PROGRESS_RANGES, isActivityProfile, kgTo, volumeIn, type ProgressRange, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
 import { RepiAsk } from "@/components/brain/RepiAsk";
 import { ProgressChart, type ChartPoint } from "./ProgressChart";
@@ -17,7 +17,8 @@ type Summary = {
 type ExItem = { id: string; name: string; group: string; kind: string; sessions: number; lastDay: string; imported: boolean };
 type Point = { day: string; at: string; source: "session" | "import"; sessionId: string | null; dayName: string | null; sets: number; reps: number; volumeKg: number;
   topKg: number | null; repsAtTop: number | null; e1rm: number | null; best: { weightKg: number; reps: number } | null; maxReps: number | null; maxSec: number | null; record: boolean; first: boolean };
-type ExProgress = { exercise: { id: string; name: string; group: string; kind: string }; metric: "load" | "reps" | "time"; points: Point[]; records: number; truncated: boolean;
+// `profile` (ejercicios por tiempo): una actividad (cinta, bici, remo…) se sigue por su duración.
+type ExProgress = { exercise: { id: string; name: string; group: string; kind: string; profile?: string | null }; metric: "load" | "reps" | "time"; points: Point[]; records: number; truncated: boolean;
   totals: { sessions: number; sets: number; volumeKg: number; firstDay: string | null }; best: { day: string; e1rm: number; set: { weightKg: number; reps: number } } | null };
 type Metric = "e1rm" | "top" | "reps" | "volume" | "bw" | "time";
 
@@ -94,6 +95,10 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
   }, [exId, range, offline]);
 
   const metrics: Metric[] = ex?.metric === "load" ? ["e1rm", "top", "reps", "volume"] : ex?.metric === "reps" ? ["bw"] : ex ? ["time"] : [];
+  // Ejercicios por tiempo: en una actividad, «Duración» (la más larga de cada sesión), no «Tiempo» de una serie.
+  const act = isActivityProfile(ex?.exercise.profile);
+  const mTxt = (m: Metric) => (act && m === "time" ? "Duración" : METRIC_TXT[m]);
+  const mHelp = (m: Metric) => (act && m === "time" ? "La duración más larga de cada sesión (la velocidad, el nivel o la inclinación se ven en el entrenamiento)." : METRIC_HELP[m]);
   const fmt = fmtFor(metric, unit);
   const pts = useMemo<ChartPoint[]>(() => (ex?.points ?? []).flatMap((p, i) => {
     const y = valueFor(p, metric);
@@ -181,12 +186,12 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
               chips={[{ label: "¿Estoy progresando?", text: `¿Estoy progresando en ${ex.exercise.name}?` }, { label: "Mi última marca", text: `¿Qué marca hice la última vez en ${ex.exercise.name}?` }, { label: "¿Por qué me estanqué?", text: `¿Por qué estoy estancado en ${ex.exercise.name}?` }]} />
             {metrics.length > 1 && (
               <div className="pp-ranges" role="group" aria-label="Métrica">
-                {metrics.map((m) => <button key={m} type="button" aria-pressed={metric === m} onClick={() => setMetric(m)}>{METRIC_TXT[m]}</button>)}
+                {metrics.map((m) => <button key={m} type="button" aria-pressed={metric === m} onClick={() => setMetric(m)}>{mTxt(m)}</button>)}
               </div>
             )}
-            <ProgressChart key={`${ex.exercise.id}-${metric}-${range}`} title={`${METRIC_TXT[metric]} de ${ex.exercise.name}`} points={pts} fmt={fmt}
-              empty={ex.points.length ? `No hay registros de ${METRIC_TXT[metric].toLowerCase()} en este período.` : "Sin registros de este ejercicio en el período elegido."} />
-            <small className="mb-muted">{METRIC_HELP[metric]}</small>
+            <ProgressChart key={`${ex.exercise.id}-${metric}-${range}`} title={`${mTxt(metric)} de ${ex.exercise.name}`} points={pts} fmt={fmt}
+              empty={ex.points.length ? `No hay registros de ${mTxt(metric).toLowerCase()} en este período.` : "Sin registros de este ejercicio en el período elegido."} />
+            <small className="mb-muted">{mHelp(metric)}</small>
             {ex.best && metric !== "volume" && <small className="mb-muted">Mejor 1RM estimado del período: {n1(kgTo(ex.best.e1rm, unit))} {unit} ({n1(kgTo(ex.best.set.weightKg, unit))} {unit} × {ex.best.set.reps}, {dayTxt(ex.best.day)}).</small>}
             {ex.truncated && <small className="mb-muted">Se muestran las series más recientes; se alcanzó el límite de lectura.</small>}
             {pts.length > 0 && (

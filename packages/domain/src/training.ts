@@ -47,7 +47,16 @@ export function fmtSeconds(sec: number): string {
   return ss ? `${mm} min ${ss} s` : `${mm} min`;
 }
 /** La prescripción tal como se lee: un tiempo en minutos y segundos; lo demás, como se escribió. */
-export const repsText = (reps: string) => { const t = parseReps(reps); return t.kind === "time" ? fmtSeconds(t.seconds) : reps; };
+/**
+ * Repeticiones legibles: los tiempos con su unidad («600 s» → «10 min»). «500 m» (100 m o más) es una distancia escrita como
+ * texto (remo, trineo): se muestra tal cual y no como «500 min» (`parseReps` sigue leyendo «20 m» como 20 minutos).
+ */
+export const repsText = (reps: string) => {
+  const d = /^(\d{3})\s*m$/i.exec(reps.trim());
+  if (d && Number(d[1]) >= 100) return reps.trim();
+  const t = parseReps(reps);
+  return t.kind === "time" ? fmtSeconds(t.seconds) : reps;
+};
 export const repsLabel = (t: RepsTarget) =>
   t.kind === "reps" ? (t.min === t.max ? `${t.min}` : `${t.min}-${t.max}`) : t.kind === "time" ? fmtSeconds(t.seconds) : t.text;
 

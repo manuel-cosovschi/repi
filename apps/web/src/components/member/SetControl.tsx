@@ -2,8 +2,10 @@
 // Control propio de la serie en curso (D148). Series por tiempo: cronómetro con el objetivo, aviso al llegar (vibración y un
 // pitido corto) y «Listo» guarda los segundos hechos. AMRAP o al fallo: botón grande que cuenta cada repetición con un toque.
 // Lo que se guarda es lo mismo que con los botones − y + (segundos o repeticiones): el registro y la sincronización no cambian.
+// Ejercicios por tiempo (07/11/2026): `ActivityTimer`, cronómetro compacto de una actividad (cinta, bici, remo…) con el objetivo
+// en minutos; «Listo» deja el tiempo hecho como duración real, que la persona puede corregir antes de completar.
 import { useEffect, useRef, useState } from "react";
-import { formatClock } from "@repi/domain";
+import { fmtSeconds, formatClock } from "@repi/domain";
 
 type Ctl = { mode: "time"; seconds: number } | { mode: "amrap" } | { mode: "amrap_time"; seconds: number; unit: "reps" | "rounds" };
 
@@ -75,13 +77,13 @@ function TimeSet({ target, onSet }: { target: number; onSet: (r: number) => void
   const reset = () => { setAcc(0); setSince(null); warned.current = false; };
   return (
     <div className="set-ctl" role="group" aria-label="Cronómetro de la serie">
-      <div className="set-ctl-clock" aria-live="off"><strong>{formatClock(sec)}</strong><small>Objetivo {target} s{sec >= target ? " · cumplido" : ""}</small></div>
+      <div className="set-ctl-clock" aria-live="off"><strong>{formatClock(sec)}</strong><small>Objetivo {fmtSeconds(target)}{sec >= target ? " · cumplido" : ""}</small></div>
       <div className="set-ctl-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.min(1, elapsed / Math.max(1, target))})` }} /></div>
       <div className="set-ctl-act">
         {since == null
           ? <button type="button" className="cta sm" onClick={() => setSince(Date.now())}>{acc ? "Seguir" : "Empezar"}</button>
           : <button type="button" className="ghost sm" onClick={stop}>Pausar</button>}
-        <button type="button" className="ghost sm" disabled={!sec} onClick={() => { stop(); onSet(sec); }}>Listo: {sec} s</button>
+        <button type="button" className="ghost sm" disabled={!sec} onClick={() => { stop(); onSet(sec); }}>Listo: {sec < 60 ? `${sec} s` : formatClock(sec)}</button>
         {(acc > 0 || since != null) && <button type="button" className="linkbtn" onClick={reset}>Reiniciar</button>}
       </div>
     </div>
@@ -100,6 +102,45 @@ function AmrapSet({ onSet }: { onSet: (r: number) => void }) {
         <button type="button" className="ghost sm" disabled={!n} onClick={() => put(n - 1)}>−1</button>
         {n > 0 && <button type="button" className="linkbtn" onClick={() => put(0)}>Volver a 0</button>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Ejercicios por tiempo: cronómetro de una actividad. Cuenta desde 0 con el objetivo a la vista («de 10:00»), avisa al llegar
+ * (vibración y pitido) y sigue contando si la persona sigue. Por hora del dispositivo, como el de las series por tiempo.
+ * Sin objetivo (un remo indicado por distancia) es un cronómetro común. Nunca registra solo: «Listo» carga la duración.
+ */
+export function ActivityTimer({ target, onSet }: { target: number | null; onSet: (sec: number) => void }) {
+  const [acc, setAcc] = useState(0);
+  const [since, setSince] = useState<number | null>(null);
+  const [, tick] = useState(0);
+  const warned = useRef(false);
+  const elapsed = acc + (since ? (Date.now() - since) / 1000 : 0);
+  useEffect(() => {
+    if (since == null) return;
+    const t = setInterval(() => tick((x) => x + 1), 250);
+    return () => clearInterval(t);
+  }, [since]);
+  useEffect(() => {
+    if (target && since != null && !warned.current && elapsed >= target) { warned.current = true; navigator.vibrate?.([200, 100, 200]); beep(); }
+  });
+  const sec = Math.floor(elapsed);
+  const stop = () => { setAcc(elapsed); setSince(null); };
+  const reset = () => { setAcc(0); setSince(null); warned.current = false; };
+  return (
+    <div className="act-timer" role="group" aria-label="Cronómetro de la actividad">
+      <div className="act-timer-row">
+        <span className="act-clock" aria-live="off"><strong>{formatClock(sec)}</strong>
+          <small>{target ? `de ${formatClock(target)}${sec >= target ? " · cumplido" : ""}` : "Cronómetro"}</small></span>
+        {since == null
+          ? <button type="button" className="cta sm" onClick={() => setSince(Date.now())}>{acc ? "Seguir" : "Empezar"}</button>
+          : <button type="button" className="ghost sm" onClick={stop}>Pausar</button>}
+        <button type="button" className="ghost sm" disabled={!sec} aria-label={sec ? `Listo: usar ${fmtSeconds(sec)} como duración` : "Listo"}
+          onClick={() => { stop(); onSet(sec); }}>Listo</button>
+      </div>
+      {target ? <div className="set-ctl-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.min(1, elapsed / Math.max(1, target))})` }} /></div> : null}
+      {(acc > 0 || since != null) && <button type="button" className="linkbtn act-reset" onClick={reset}>Reiniciar cronómetro</button>}
     </div>
   );
 }

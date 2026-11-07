@@ -1474,6 +1474,6 @@ export async function previousVersion(userId: string) {
   const { version, doc } = await readVersion(prev.id);
   return {
     number: version.number, name: doc.name, weeks: doc.weeks, createdAt: version.createdAt,
-    days: doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec })) })),
+    days: doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null })) })),
   };
 }
