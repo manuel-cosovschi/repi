@@ -57,7 +57,13 @@ const cap = (f) => {
   return pathToFileURL(p).href;
 };
 const wm = (w, dot = "#00D1FF") => `<span class="wm" style="width:${w}"><img src="${asset("wm_full.png")}" alt="repi"><i style="background:${dot}"></i></span>`;
-const phone = (img, w = "62mm", extra = "") => `<div class="phone" style="width:${w};${extra}"><div class="screen"><img src="${cap(img)}" alt=""></div></div>`;
+// Mockup de iPhone (marco de titanio, Dynamic Island y botones laterales), dibujado en CSS y sin sombras: Chromium
+// rasteriza las sombras en el PDF y quedan como una mancha oscura. La barra de estado va arriba de la captura, así la
+// isla no tapa la interfaz.
+const STATUS = `<svg class="sb-ic" viewBox="0 0 68 12" aria-hidden="true"><g fill="#fff"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="4.6" y="6" width="3" height="6" rx=".8"/><rect x="9.2" y="3.5" width="3" height="8.5" rx=".8"/><rect x="13.8" y="1" width="3" height="11" rx=".8"/>
+<path d="M30 3.2a10 10 0 0 1 12.6 0l-1.5 1.6a7.8 7.8 0 0 0-9.6 0zM32.6 6a6 6 0 0 1 7.4 0l-1.5 1.6a3.8 3.8 0 0 0-4.4 0zM36.3 11.4l-2-2.1a2.6 2.6 0 0 1 4 0z"/>
+<rect x="47.5" y="1.2" width="17" height="9.6" rx="2.6" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1"/><rect x="49" y="2.7" width="12.6" height="6.6" rx="1.4"/><path d="M65.6 4.4v3.2a1.6 1.6 0 0 0 0-3.2z" fill-opacity=".45"/></g></svg>`;
+const phone = (img, w = "62mm", extra = "") => `<div class="phone" style="width:${w};${extra}"><div class="frame"><i class="pb a"></i><i class="pb v1"></i><i class="pb v2"></i><i class="pb p"></i><div class="bezel"><div class="screen"><div class="sb"><span class="sb-t">9:41</span><span class="di"></span>${STATUS}</div><img src="${cap(img)}" alt=""></div></div></div></div>`;
 const browser = (img, w = "170mm", extra = "", ratio = "1280 / 800") => `<div class="browser" style="width:${w};${extra}"><div class="bar"><i></i><i></i><i></i><span>repiclub.com</span></div><img src="${cap(img)}" alt="" style="aspect-ratio:${ratio}"></div>`;
 
 // Íconos (trazos simples, mismo grosor; no reemplazan el logo).
@@ -114,10 +120,20 @@ h2.d { font-size: 40pt; margin-top: 3mm; }
 .dark .foot { color: #7D8A9C; }
 .glow { position: absolute; pointer-events: none; border-radius: 50%; filter: blur(2px); background: radial-gradient(closest-side, rgba(0,209,255,.30), rgba(0,209,255,0) 70%); }
 .glow.tq { background: radial-gradient(closest-side, rgba(93,230,216,.22), rgba(93,230,216,0) 70%); }
-.phone { position: relative; border-radius: 9mm; padding: 2.3mm; background: linear-gradient(145deg, #2a3546, #0b0f14 45%, #1d2735); box-shadow: 0 6mm 14mm rgba(0,0,0,.35), inset 0 0 0 .35mm rgba(255,255,255,.12); }
-.phone .screen { border-radius: 7mm; overflow: hidden; background: #000; aspect-ratio: 390 / 844; }
-.phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-.browser { border-radius: 3.2mm; overflow: hidden; background: #fff; box-shadow: 0 6mm 16mm rgba(11,15,20,.28), 0 0 0 .3mm rgba(11,15,20,.12); }
+.phone { container-type: inline-size; }
+.phone .frame { position: relative; padding: 1.5cqw; border-radius: 16cqw; background: linear-gradient(150deg, #8D96A0 0%, #3A4149 22%, #23282E 50%, #3A4149 78%, #8D96A0 100%); }
+.phone .bezel { background: #050608; padding: 3cqw; border-radius: 14.6cqw; }
+.phone .screen { position: relative; border-radius: 11.8cqw; overflow: hidden; background: #0B0F14; }
+.phone .sb { position: relative; height: 13.2cqw; display: flex; align-items: center; justify-content: space-between; padding: 1.6cqw 7.5cqw 0 9.5cqw; background: #0B0F14; }
+.phone .sb-t { font: 600 4.6cqw/1 Barlow, Arial, sans-serif; color: #fff; letter-spacing: .01em; }
+.phone .di { position: absolute; left: 50%; top: 2.9cqw; transform: translateX(-50%); width: 30cqw; height: 8.4cqw; border-radius: 5cqw; background: #000; }
+.phone .sb-ic { height: 3.4cqw; width: auto; display: block; }
+.phone img { width: 100%; aspect-ratio: 390 / 844; object-fit: cover; object-position: top; display: block; }
+.phone .pb { position: absolute; width: 1.1cqw; border-radius: .6cqw; background: linear-gradient(90deg, #2A3036, #7A838C); }
+.phone .pb.a { left: -.9cqw; top: 17%; height: 5%; } .phone .pb.v1 { left: -.9cqw; top: 25%; height: 9%; } .phone .pb.v2 { left: -.9cqw; top: 36%; height: 9%; }
+.phone .pb.p { right: -.9cqw; top: 28%; height: 14%; background: linear-gradient(90deg, #7A838C, #2A3036); }
+.browser { border-radius: 3.2mm; overflow: hidden; background: #fff; box-shadow: 0 0 0 .3mm rgba(11,15,20,.16); } /* sin sombras: en el PDF quedan como manchas */
+.dark .browser { box-shadow: 0 0 0 .3mm rgba(255,255,255,.14); }
 .browser .bar { height: 6.5mm; background: #E9E6DF; display: flex; align-items: center; gap: 1.6mm; padding: 0 3mm; }
 .dark .browser .bar { background: #1F2a3a; }
 .browser .bar i { width: 2.2mm; height: 2.2mm; border-radius: 50%; background: #C9C4BA; display: block; }
