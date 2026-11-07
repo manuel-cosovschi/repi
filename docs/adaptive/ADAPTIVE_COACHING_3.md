@@ -279,6 +279,48 @@ Resumen en `ac3-auditoria/evidencia.md`. Lo que aplican las reglas del cerebro:
   «suena bien».
 - Las pruebas que podrían llamar a OpenAI usan un doble: sin clave, ninguna prueba gasta.
 
-## 10. Estado
+## 10. Estado — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`)
 
-Se completa al cerrar el bloque: qué quedó activo, qué quedó con interruptor y qué quedó pendiente, con evidencia.
+**Publicación** (en este orden):
+1. CI en verde sobre `f76a19c`.
+2. Respaldo `backup-20261107-165801-42393734774` en verde (issue #76).
+3. `hosted-0051.sql` aplicado en producción y verificado:
+   - 52 migraciones registradas, con el hash de la 0051;
+   - las nueve tablas tienen dueño `repi_app` y RLS activo;
+   - ningún permiso público.
+4. Squash merge `ef22c73`.
+5. `/api/version` = `ef22c73adb15` desde las 17:26 UTC.
+
+**Verificación en producción** (Playwright contra repiclub.com con cuentas demo ficticias, sin datos reales):
+
+| Qué | Resultado |
+| --- | --- |
+| Alumno (teléfono): tarjeta de REPI en Inicio | «Hoy te toca Torso A, con cuatro ejercicios.», rotulada «Calculado por REPI» |
+| «¿Qué me toca hoy?» | Respuesta por reglas con el día del programa vigente y el atajo «Empezar Torso A» (no cambia la rutina) |
+| «me duele mucho el pecho» | Respuesta fija de seguridad: «Pará ahora…», 107 / 911, sin diagnóstico |
+| «me duele la rodilla» | Propone «Registrar la molestia» como dato de salud privado, con intensidad y confirmación; no registra nada sola |
+| Coach (escritorio): ficha → Rendimiento | «Señales de REPI» con «Análisis de REPI», la aclaración de privacidad y «Qué no incluye» |
+| Errores | Ninguno en el navegador, ninguna respuesta 5xx, ningún error de ejecución en Vercel |
+| Base | Sólo un hilo, de la cuenta demo (dominio `.invalid`, se purga con el sandbox); 0 llamadas de IA y costo 0 |
+
+**Activo en producción:**
+- El módulo `assistant` está encendido por defecto; no hay override en Vercel.
+- El asistente del socio completo: tarjeta, conversación, briefing y lectura de series, cierre y preferencias.
+- Las respuestas de seguridad por reglas.
+- Las acciones del catálogo, con confirmación y una sola ejecución.
+- «Señales de REPI» para coach y sala.
+- La conversación libre con IA: la clave de OpenAI ya existía en producción y aplica los topes de `DEFAULT_POLICY` (30
+  mensajes por persona por día, US$2 por día en total, US$20 por mes por organización, concurrencia 4). Las cuentas demo
+  también pueden usarla, dentro de esos mismos topes.
+- La proactividad corre en el proceso programado de cada minuto (pg_cron → `/api/cron/notifications`), sólo en las franjas
+  de las 9 y las 18 h de Argentina. Las organizaciones demo quedan excluidas. Push de coaching sólo para adultos con
+  opt-in.
+
+**Sin verificar todavía en producción, con evidencia sólo local:**
+- **Una respuesta generada por IA:** las tres preguntas de la verificación se resolvieron por reglas, como corresponde.
+  No se forzó una llamada paga para probar.
+- **La primera franja proactiva:** el despliegue fue a las 14:26 en Argentina. Hasta las 18 h el paso respondió `brain:
+  null` («fuera de franja»), que es lo esperado.
+- **REPI Admin → Coaching IA:** requiere una cuenta de administración real, y no hay demo de Admin.
+
+**Pendiente:** nada bloqueante. Mejoras futuras en `docs/POST_LAUNCH_ROADMAP.md`.
