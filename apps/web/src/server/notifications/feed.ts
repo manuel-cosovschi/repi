@@ -4,7 +4,7 @@
 // última apertura del centro figura como leído; no cambia el estado de cada fuente (eso lo hace su propia pantalla).
 // No incluye datos de salud, check-ins ni molestias, y nada de esto se envía como push.
 import { and, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
-import { REQUEST_KIND, type RequestKind } from "@repi/domain";
+import { REQUEST_KIND, toWhom, type RequestKind } from "@repi/domain";
 import { db, schema } from "@/db";
 import { addDays } from "../access/util";
 import { myInbox } from "../followup/services";
@@ -14,6 +14,7 @@ import { myThreads } from "../messages/services";
 import { myCharges } from "../coachpay/services";
 import { myAppointments } from "../training/agenda";
 import { markAnnouncementsRead, myAnnouncements } from "../announcements/services";
+import { pendingBriefs } from "../training/program-request";
 
 const { memberNotice, communityPost, userPref } = schema;
 
@@ -38,12 +39,13 @@ const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 export async function myNotifications(userId: string, now = new Date()) {
   const since = addDays(now, -WINDOW_DAYS);
-  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts, ann] = await Promise.all([
+  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts, ann, briefs] = await Promise.all([
     db.select({ seenAt: userPref.notificationsSeenAt }).from(userPref).where(eq(userPref.userId, userId)),
     myInbox(userId), myGymRelations(userId), myGymTasks(userId), myReviewInvites(userId), myThreads(userId), myCharges(userId, now),
     db.select().from(memberNotice).where(and(eq(memberNotice.userId, userId), gte(memberNotice.createdAt, since))).orderBy(desc(memberNotice.createdAt)).limit(20),
     myAppointments(userId, now),
     myAnnouncements(userId, "member", { now }),
+    pendingBriefs(userId).catch(() => []),
   ]);
   const posts = gymRels.length ? await db.select({ p: communityPost }).from(communityPost).where(and(
     inArray(communityPost.orgId, gymRels.map((r) => r.org.id)), isNull(communityPost.deletedAt), gte(communityPost.createdAt, since),
@@ -109,7 +111,10 @@ export async function myNotifications(userId: string, now = new Date()) {
   // Novedades de REPI (D202): su estado de lectura es por anuncio (announcement_read), compartido con coach y gimnasio.
   const annItems: Notif[] = ann.items.map((a) => ({ id: `ann:${a.id}`, title: a.title, body: clip(a.summary, 160), at: a.at, tone: "cyan", origin: "repi", cta: a.destination !== "none" ? a.ctaLabel : null,
     dest: ANN_DEST[a.destination] ?? { tab: "home" }, unread: a.unread }));
-  const list = [...items.map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen })), ...annItems].sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX);
+  // D206: pedido de programa sin preferencias. Es algo para hacer: queda sin leer hasta que se completa.
+  const briefItems: Notif[] = briefs.map((x) => ({ id: `brief:${x.id}`, title: "Completá tu pedido de programa", body: `Contale ${toWhom(x.to)} tu objetivo, cuántos días podés entrenar y si tenés alguna lesión. Sin eso no puede armarlo.`,
+    at: x.createdAt, tone: "cyan", dest: { tab: "home" }, unread: true, cta: "Completar" }));
+  const list = [...briefItems, ...[...items.map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen })), ...annItems].sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX - briefItems.length)];
   return { items: list, unread: list.filter((x) => x.unread).length, seenAt: seen ? seen.toISOString() : null };
 }
 

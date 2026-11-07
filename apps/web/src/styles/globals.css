@@ -123,3 +123,12 @@ button[aria-busy="true"] { pointer-events: none; cursor: progress; }
 .thp-compact .thp-opt:has(input:checked) { background: var(--ui-surface); box-shadow: none; color: var(--ui-text); }
 .thp-compact .thp-opt:has(input:checked)::after { content: none; }
 .thp-compact .thp-opt:has(input:checked) svg { color: var(--ui-link); }
+
+/* D206: preferencias del pedido de programa (bandejas del equipo de sala y del coach). */
+.brief { margin: 0; display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 4px 12px; font-size: 14px; line-height: 1.4; padding: 10px 12px; border-radius: 10px; background: var(--ui-surface-2); border: 1px solid var(--ui-divider); }
+.brief > div { display: contents; }
+.brief dt { color: var(--ui-muted); }
+.brief dd { margin: 0; color: var(--ui-text); white-space: pre-line; }
+.brief .alert dt, .brief .alert dd { color: var(--ui-warning-text); font-weight: 600; }
+.brief.compact { font-size: 13px; padding: 8px 10px; }
+.brief-missing { margin: 0; font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 10px; background: var(--ui-chip-warn-bg); color: var(--ui-chip-warn-ink); }

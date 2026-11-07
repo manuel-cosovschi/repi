@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import {
   ACCESS_ITEMS, ACCESS_REQUEST_TTL_DAYS, ORPHAN_VIDEO_HOURS, VIDEO_RETENTION_DAYS, accessRetryAt, INJURY_ZONES, PAIN_ZONES, coachSeesPain, isAccessItem, localDate, resolveGrants,
-  gymCan, scale10, scale5, videoOk, type AccessItem, type InjuryStatus, type RequestKind, TERMS_VERSION, CONSENT_CATALOG,
+  gymCan, scale10, scale5, videoOk, type AccessItem, type InjuryStatus, type RequestKind, TERMS_VERSION, CONSENT_CATALOG, briefSummary, briefView,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { consentOffered } from "@/lib/features";
@@ -13,6 +13,7 @@ import { minorWithoutGuardian } from "../access/services";
 import { requireCoach } from "../training/services";
 import { deleteObject, putObject } from "../storage";
 import { authorizeCommunityMedia } from "../community/services";
+import { afterBriefSaved, parseBrief } from "../training/program-request";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, checkin, painReport, injury, mediaObject,
   studentRequest, accessRequest, dataAccessLog } = schema;
@@ -93,8 +94,10 @@ export async function uploadRequestVideo(userId: string, f: { mime: string; byte
   return { id: row.id };
 }
 
-export async function createRequest(userId: string, p: { kind: RequestKind; text: string; videoId?: string | null }) {
-  if (!["rutina", "tecnica", "consulta", "programa"].includes(p.kind) || (p.text ?? "").trim().length < 3) throw new AccessError("invalid", "Contá qué necesitás.");
+export async function createRequest(userId: string, p: { kind: RequestKind; text: string; videoId?: string | null; brief?: unknown }) {
+  if (!["rutina", "tecnica", "consulta", "programa"].includes(p.kind) || (p.kind !== "programa" && (p.text ?? "").trim().length < 3)) throw new AccessError("invalid", "Contá qué necesitás.");
+  // D206: un pedido de programa sin objetivo, días, experiencia y lesiones le llega vacío al profe.
+  const brief = p.kind === "programa" ? parseBrief(p.brief) : null;
   const rel = await myRelation(userId);
   if (!rel) throw new AccessError("no_coach", "Todavía no tenés coach. Los pedidos al equipo de sala del gym llegan pronto.", 409);
   if (p.videoId) {
@@ -103,11 +106,13 @@ export async function createRequest(userId: string, p: { kind: RequestKind; text
     const used = await db.select({ id: studentRequest.id }).from(studentRequest).where(eq(studentRequest.videoId, p.videoId));
     if (!v || used.length) throw new AccessError("invalid", "El video no es válido.");
   }
-  if (p.kind === "programa") {
+  if (brief) {
     const [open] = await db.select().from(studentRequest).where(and(eq(studentRequest.userId, userId), eq(studentRequest.kind, "programa"), eq(studentRequest.status, "open")));
-    if (open) return { id: open.id, coachName: rel.coachName, duplicate: true };
+    // Ya pedido: se actualizan sus preferencias (sirve también para completar un pedido anterior a D206).
+    if (open) { await db.update(studentRequest).set({ brief, text: briefSummary(brief, 1000) }).where(eq(studentRequest.id, open.id)); await afterBriefSaved(userId, brief); return { id: open.id, coachName: rel.coachName, duplicate: true }; }
   }
-  const [row] = await db.insert(studentRequest).values({ userId, coachClientId: rel.rel.id, kind: p.kind, text: p.text.trim().slice(0, 1000), videoId: p.videoId ?? null }).returning();
+  const [row] = await db.insert(studentRequest).values({ userId, coachClientId: rel.rel.id, kind: p.kind, text: brief ? briefSummary(brief, 1000) : p.text.trim().slice(0, 1000), videoId: p.videoId ?? null, brief }).returning();
+  if (brief) await afterBriefSaved(userId, brief);
   return { id: row.id, coachName: rel.coachName, duplicate: false };
 }
 
@@ -222,7 +227,7 @@ export async function coachInbox(actorId: string, orgId: string) {
   const vids = reqs.filter((r) => r.videoId).map((r) => r.videoId!);
   const gone = new Set(vids.length ? (await db.select({ id: mediaObject.id }).from(mediaObject).where(and(inArray(mediaObject.id, vids), sql`${mediaObject.deletedAt} is not null`))).map((v) => v.id) : []);
   return {
-    requests: reqs.map((r) => ({ id: r.id, relId: r.coachClientId, member: nameOf(r.coachClientId), kind: r.kind, text: r.text, status: r.status, createdAt: r.createdAt, videoId: r.videoId && !gone.has(r.videoId) ? r.videoId : null, videoDeleted: !!r.videoId && gone.has(r.videoId) })),
+    requests: reqs.map((r) => ({ id: r.id, relId: r.coachClientId, member: nameOf(r.coachClientId), kind: r.kind, text: r.text, status: r.status, createdAt: r.createdAt, videoId: r.videoId && !gone.has(r.videoId) ? r.videoId : null, videoDeleted: !!r.videoId && gone.has(r.videoId), brief: briefView(r.kind === "programa", r.brief) })), // D206
     pains: visiblePains.map((p) => ({ id: p.id, relId: userToRel.get(p.userId)!, member: nameOf(userToRel.get(p.userId)!), zone: p.zone, level: p.level, context: p.context, exerciseName: p.exerciseName, note: p.note, createdAt: p.createdAt, shared: !healthRel.has(userToRel.get(p.userId)!) })),
     checkins: cks.map((c) => ({ id: c.id, relId: userToRel.get(c.userId)!, member: nameOf(userToRel.get(c.userId)!), date: c.date, energy: c.energy, sleep: c.sleep, mood: c.mood })),
     access: access.map((a) => ({ id: a.id, relId: a.coachClientId, member: nameOf(a.coachClientId), item: a.item, label: ACCESS_ITEMS[a.item as AccessItem]?.label ?? a.item, status: a.status, createdAt: a.createdAt })),

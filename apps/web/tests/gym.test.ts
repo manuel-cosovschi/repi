@@ -10,6 +10,7 @@ import * as mt from "@/server/gym/metrics";
 import * as msg from "@/server/messages/services";
 import * as tr from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
+import { BRIEF } from "./fixtures/brief";
 
 const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
 
@@ -177,8 +178,8 @@ describe("socio: pedido al equipo de sala (D41), programa institucional y relaci
     const q = await gym.listQueue(w.t1, w.org, w.A);
     const row = q.shared.find((x) => x.id === r.id)!;
     expect([row.source, row.category, row.member]).toEqual(["app", "tecnica", "Valentina Socia"]);
-    const p1 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa" });
-    const p2 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa" });
+    const p1 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa", brief: BRIEF });
+    const p2 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa", brief: BRIEF });
     expect(p2).toMatchObject({ id: p1.id, duplicate: true });
     expect((await gym.myGymTasks(w.vale.userId)).find((x) => x.id === r.id)?.status).toBe("open");
     const nobody = await verified();
@@ -190,7 +191,7 @@ describe("socio: pedido al equipo de sala (D41), programa institucional y relaci
     await gym.startShift(w.t1, w.org, w.A);
     expect((await err(gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC(), reason: "" })))?.code).toBe("invalid");
     expect((await err(gym.saveMemberProgram(w.t2, w.org, w.vale.memberId, { doc: DOC(), reason: "Programa inicial" })))?.code).toBe("no_shift");
-    const task = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa" });
+    const task = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa", brief: BRIEF });
     const r = await gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC(), reason: "Programa inicial", completeTaskId: task.id });
     expect(r.revision).toBe(1);
     expect(r.completed?.invite).toBe("pending");
@@ -210,7 +211,7 @@ describe("socio: pedido al equipo de sala (D41), programa institucional y relaci
     expect(d.log[0].exercises[0].sets[0]).toMatchObject({ n: 1, weightKg: 42.5, reps: 8, rir: 2, feel: "bien" });
     expect(d.program?.revisions.map((x) => [x.number, x.author, x.reason])).toEqual([[2, "Agustín Sala", "Subí volumen"], [1, "Agustín Sala", "Programa inicial"]]);
     // Una tarea de programa tomada y «en atención» también se cierra al guardar, sólo por quien la tomó.
-    const t2 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Cambiemos el programa" });
+    const t2 = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Cambiemos el programa", brief: BRIEF });
     await db.update(schema.gymTask).set({ status: "in_progress", assigneeUserId: w.t1 }).where(eq(schema.gymTask.id, t2.id));
     expect((await gym.memberDetail(w.t1, w.org, w.vale.memberId)).programTaskId).toBe(t2.id);
     expect((await gym.memberDetail(w.t2, w.org, w.vale.memberId)).programTaskId).toBeNull();
@@ -394,5 +395,65 @@ describe("roles distintos por sede no se combinan", () => {
     expect(memberships.find(x => x.locationId === w.B)?.afterHoursAccess).toBe(false);
     const b = await gym.createTask(w.tB, w.org, w.B, { summary: "Consulta sede B", category: "consulta" });
     expect((await err(gym.takeTask(w.t1, w.org, b.id)))?.code).toBe("no_shift");
+  });
+});
+
+describe("D206 · pedido de programa con preferencias (gimnasio)", () => {
+  const full = { ...BRIEF, daysPerWeek: 4, level: "intermediate", hasLimitations: true, limitationsDetail: "Hombro derecho operado (2024)", focus: ["gluteos"], likes: "Hip thrust" };
+
+  it("sin objetivo, días, experiencia o lesiones no se pide; con ellas el equipo las ve y precargan «Armar con REPI»", async () => {
+    const w = await world();
+    const e = await err(gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa" }));
+    expect(e?.code).toBe("brief_required");
+    expect((await err(gym.createMemberTask(w.vale.userId, { kind: "programa", text: "x", brief: { ...full, hasLimitations: true, limitationsDetail: "" } })))?.code).toBe("brief_required");
+    const r = await gym.createMemberTask(w.vale.userId, { kind: "programa", text: "Quiero un programa", brief: full });
+    const [t] = await db.select().from(schema.gymTask).where(eq(schema.gymTask.id, r.id));
+    expect(t.summary).toContain("Lesiones o limitaciones: Hombro derecho operado (2024)");
+    expect(t.context?.brief?.daysPerWeek).toBe(4);
+    const q = await gym.listQueue(w.t1, w.org, w.A);
+    const row = q.shared.find((x) => x.id === r.id)!;
+    expect(row.brief?.missing).toBe(false);
+    expect(row.brief?.rows.find((x) => x.label === "Lesiones o limitaciones")).toMatchObject({ alert: true });
+    await gym.startShift(w.t1, w.org, w.A);
+    const d = await gym.memberDetail(w.t1, w.org, w.vale.memberId); // quien arma programas (sala o coordinación)
+    expect(d.programBrief).toMatchObject({ goal: "muscle", daysPerWeek: 4, level: "intermediate", limitations: "Hombro derecho operado (2024)" });
+    // Lo que busca entrenando se actualiza (sin las lesiones) y no se comparte solo.
+    const [pref] = await db.select().from(schema.userPref).where(eq(schema.userPref.userId, w.vale.userId));
+    expect(pref.wishes).toMatchObject({ goal: "muscle", daysPerWeek: 4, minutes: 60, likes: "Hip thrust", shareWithTrainers: false });
+    expect(JSON.stringify(pref.wishes)).not.toContain("Hombro");
+  });
+
+  it("un pedido anterior (o creado por el gimnasio) sin datos: aviso al socio, push una vez de día, completar y avisar a quien lo tomó", async () => {
+    const { pendingBriefs, completeProgramBrief, remindProgramBriefs } = await import("@/server/training/program-request");
+    const { myNotifications, markNotificationsSeen } = await import("@/server/notifications/feed");
+    const w = await world();
+    await gym.startShift(w.t1, w.org, w.A);
+    const t = await gym.createTask(w.t1, w.org, w.A, { gymMemberId: w.vale.memberId, category: "programa_nuevo", summary: "Socio sin programa vigente." });
+    await gym.takeTask(w.t1, w.org, t.id);
+    const pend = await pendingBriefs(w.vale.userId);
+    expect(pend).toEqual([expect.objectContaining({ id: t.id, source: "gym" })]);
+    await markNotificationsSeen(w.vale.userId);
+    const feed = await myNotifications(w.vale.userId);
+    expect(feed.items[0]).toMatchObject({ id: `brief:${t.id}`, unread: true, title: "Completá tu pedido de programa" });
+    const row = (await gym.listQueue(w.t1, w.org, w.A)).mine.find((x) => x.id === t.id);
+    expect(row?.brief?.missing).toBe(true);
+    // Push: una sola vez y sólo de día (14:00 de Buenos Aires = 17:00 UTC; 23:00 = 02:00 UTC).
+    expect(await remindProgramBriefs(new Date("2026-11-07T02:00:00Z"))).toBe(0);
+    expect(await remindProgramBriefs(new Date("2026-11-07T17:00:00Z"))).toBeGreaterThanOrEqual(1);
+    await remindProgramBriefs(new Date("2026-11-07T17:15:00Z"));
+    const pushes = await db.select().from(schema.notificationOutbox).where(eq(schema.notificationOutbox.dedupeKey, `brief:${t.id}:${w.vale.userId}`));
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0]).toMatchObject({ kind: "program_brief", url: "/app?completar=programa" });
+    // Completar: se adjunta al pedido existente (sin crear otro) y le llega aviso a quien lo tomó.
+    expect((await err(completeProgramBrief(w.vale.userId, { goal: "muscle" })))?.code).toBe("brief_required");
+    expect(await completeProgramBrief(w.vale.userId, full)).toEqual({ completed: 1 });
+    const [after] = await db.select().from(schema.gymTask).where(eq(schema.gymTask.id, t.id));
+    expect(after.context?.brief?.limitationsDetail).toBe("Hombro derecho operado (2024)");
+    expect(after.summary).toContain("Objetivo: Ganar músculo");
+    expect(await db.select().from(schema.gymTask).where(and(eq(schema.gymTask.gymMemberId, w.vale.memberId), eq(schema.gymTask.category, "programa_nuevo")))).toHaveLength(1);
+    expect((await db.select().from(schema.notificationOutbox).where(eq(schema.notificationOutbox.dedupeKey, `brief-done:${t.id}:${w.t1}`)))).toHaveLength(1);
+    expect(await pendingBriefs(w.vale.userId)).toEqual([]);
+    expect((await myNotifications(w.vale.userId)).items.some((x) => x.id === `brief:${t.id}`)).toBe(false);
+    expect((await err(completeProgramBrief(w.vale.userId, full)))?.code).toBe("no_pending");
   });
 });

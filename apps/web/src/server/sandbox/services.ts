@@ -4,7 +4,7 @@
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
-import { applyMethod, localDate, rowRef, type ExerciseDetail } from "@repi/domain";
+import { applyMethod, briefSummary, cleanProgramBrief, localDate, rowRef, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { AccessError } from "../access/util";
@@ -143,6 +143,14 @@ export async function startDemo(role: DemoRole, now = new Date()) {
       [julian, "tecnica", "media", "sala", "Revisar técnica de peso muerto rumano."],
     ] as const) {
       await db.insert(schema.gymTask).values({ number: ++n, orgId: gym.id, locationId: palermo.id, gymMemberId: members[m.id], category, priority, source, summary, createdBy: owner.id });
+    }
+    // D206: un pedido de programa con las preferencias completas (objetivo, días, experiencia y lesiones), como llega ahora.
+    const demoBrief = cleanProgramBrief({ goal: "muscle", daysPerWeek: 4, minutes: 60, level: "intermediate", hasLimitations: true,
+      limitationsDetail: "Molestia en el hombro derecho al levantar por encima de la cabeza (ficticio)", focus: ["gluteos", "espalda"], place: "gym",
+      likes: "Hip thrust y remo", avoid: "Press militar con barra", notes: "Juego al vóley los sábados" }, now);
+    if (demoBrief.ok) {
+      await db.insert(schema.gymTask).values({ number: ++n, orgId: gym.id, locationId: palermo.id, gymMemberId: members[martina.id], category: "programa_nuevo", priority: "alta", source: "app",
+        summary: briefSummary(demoBrief.brief, 500), context: { brief: demoBrief.brief }, createdBy: martina.id, createdAt: new Date(now.getTime() - 50 * 60_000) });
     }
     await db.insert(schema.communityPost).values([
       { orgId: gym.id, locationId: palermo.id, type: "novedad", title: "Nueva zona de peso libre", text: "Sumamos 2 racks y mancuernas hasta 50 kg en planta alta.", createdBy: owner.id },

@@ -6,6 +6,7 @@ import * as acc from "@/server/access/services";
 import * as fu from "@/server/followup/services";
 import { setClientStatus } from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
+import { BRIEF } from "./fixtures/brief";
 
 const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
 
@@ -169,8 +170,8 @@ describe("pedidos del alumno", () => {
 
   it("«Pedir mi programa» no se duplica; sin coach no hay a quién pedir", async () => {
     const { user } = await pair();
-    const a = await fu.createRequest(user, { kind: "programa", text: "Quiero que me armen un programa." });
-    const b = await fu.createRequest(user, { kind: "programa", text: "Quiero que me armen un programa." });
+    const a = await fu.createRequest(user, { kind: "programa", text: "Quiero que me armen un programa.", brief: BRIEF });
+    const b = await fu.createRequest(user, { kind: "programa", text: "Quiero que me armen un programa.", brief: BRIEF });
     expect(b).toMatchObject({ id: a.id, duplicate: true });
     const lone = await verified();
     expect((await err(fu.createRequest(lone, { kind: "consulta", text: "Hola coach" })))?.code).toBe("no_coach");
@@ -198,5 +199,30 @@ describe("retención de videos (D39)", () => {
     }
     const req = (await fu.coachInbox(coach, orgId)).requests.find((x) => x.id === r.id)!;
     expect(req).toMatchObject({ videoId: null, videoDeleted: true });
+  });
+});
+
+describe("D206 · pedido de programa con preferencias (coach)", () => {
+  it("el coach recibe objetivo, días, experiencia y lesiones; un pedido viejo sin datos se completa sin duplicarse", async () => {
+    const { pendingBriefs, completeProgramBrief } = await import("@/server/training/program-request");
+    const { coach, orgId, user, relId } = await pair();
+    expect((await err(fu.createRequest(user, { kind: "programa", text: "Quiero que me armen un programa." })))?.code).toBe("brief_required");
+    // Pedido anterior a D206 (sin preferencias).
+    const [old] = await db.insert(schema.studentRequest).values({ userId: user, coachClientId: relId, kind: "programa", text: "Quiero que me armen un programa." }).returning();
+    expect(await pendingBriefs(user)).toEqual([expect.objectContaining({ id: old.id, source: "coach" })]);
+    let inbox = await fu.coachInbox(coach, orgId);
+    expect(inbox.requests.find((r) => r.id === old.id)?.brief).toEqual({ rows: [], missing: true });
+    await completeProgramBrief(user, { ...BRIEF, hasLimitations: true, limitationsDetail: "Lumbalgia leve" });
+    inbox = await fu.coachInbox(coach, orgId);
+    const r = inbox.requests.find((x) => x.id === old.id)!;
+    expect(r.brief?.missing).toBe(false);
+    expect(r.brief?.rows.find((x) => x.label === "Lesiones o limitaciones")).toMatchObject({ value: "Lumbalgia leve", alert: true });
+    expect(r.text).toContain("Disponibilidad: 3 días por semana · 60 min");
+    expect(await pendingBriefs(user)).toEqual([]);
+    // Pedir de nuevo con el pedido abierto actualiza ese mismo pedido.
+    const again = await fu.createRequest(user, { kind: "programa", text: "x", brief: { ...BRIEF, daysPerWeek: 5 } });
+    expect(again).toMatchObject({ id: old.id, duplicate: true });
+    const [row] = await db.select().from(schema.studentRequest).where(eq(schema.studentRequest.id, old.id));
+    expect(row.brief?.daysPerWeek).toBe(5);
   });
 });

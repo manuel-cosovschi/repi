@@ -123,6 +123,6 @@ Formulario:
 ## 8. Pendiente
 
 - **Videos:** hay cuatro grabaciones reales de la demo (Training Intelligence, deportistas, entrenadores y gimnasios), en la sección «Mirá cómo funciona», en cada perfil y en la tarjeta de Training Intelligence. Falta el de aliados/inversores y, más adelante, versiones con locución. Ver [VIDEOS_PENDIENTES.md](VIDEOS_PENDIENTES.md).
-- **Logo de Smart Center Gym:** existe `marketing/kit-gimnasios/assets/smart-center-gym.svg`, pero no hay autorización documentada para usarlo en la presentación de REPI. Por eso se muestra sólo el nombre. Si el gimnasio autoriza, sumar el logo (y, si lo dan, un testimonio real).
+- **Logo de Smart Center Gym:** autorizado por el gimnasio (07/11/2026) y publicado en «Caso real» (`public/conoce/smart-center-gym.webp`, convertido del SVG del kit con su tipografía). Falta un testimonio real cuando el gimnasio lo dé.
 - **QR impreso:** listo en `marketing/qr-remera/`. SVG vectorial y PNG en navy sobre blanco y en blanco sobre navy, corrección Q, verificados con jsQR. Probar en la tela real antes de la tirada.
 - **Aviso de nuevos contactos por email:** hoy se ven en REPI Admin (con contador). Un aviso por correo sería un cambio aparte.

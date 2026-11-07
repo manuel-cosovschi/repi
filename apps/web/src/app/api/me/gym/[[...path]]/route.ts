@@ -48,13 +48,14 @@ export const GET = handle<Ctx>(async (req, { params }) => {
 export const POST = handle<Ctx>(async (req, { params }) => {
   const [a, b, c, d] = (await params).path ?? [];
   const me = await sessionUserId();
-  if (a === "requests" && !b) return gym.createMemberTask(me, await body(req, z.object({ kind: z.enum(["rutina", "tecnica", "consulta", "programa"]), text: z.string().max(1000), videoId: z.string().max(64).nullable().optional(), gymMemberId: z.string().max(64).nullable().optional() })));
+  if (a === "requests" && !b) return gym.createMemberTask(me, await body(req, z.object({ kind: z.enum(["rutina", "tecnica", "consulta", "programa"]), text: z.string().max(1000), videoId: z.string().max(64).nullable().optional(), gymMemberId: z.string().max(64).nullable().optional(), brief: z.record(z.string(), z.unknown()).optional() })));
   if (a === "requests" && b && c === "seen") { await gym.markGymTaskSeen(me, b); return { ok: true }; }
   if (a === "connect" && !b) {
     await limit("connect-create", 20);
     return connect.memberCreate(me, await body(req, z.object({
       reason: z.string().max(30), comment: z.string().max(300).nullable().optional(), clientKey: z.string().max(64).nullable().optional(), gymMemberId: id.nullable().optional(),
       context: z.object({ sessionId: id.nullable().optional(), programExerciseId: id.nullable().optional(), exerciseId: id.nullable().optional(), setIndex: z.number().int().nullable().optional() }).nullable().optional(),
+      brief: z.record(z.string(), z.unknown()).optional(), // D206
     })));
   }
   if (a === "checkin") {

@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Head, PRI_CHIP, SOURCE, fmt, useAct, useLoad, when, type Shell, type Task } from "./shared";
 import { FloorAlertsCard } from "./Access";
 import { HOURS_EVENT, HoursModal } from "./Hours";
+import { BriefBlock } from "@/components/shared/BriefBlock";
 
 type ShiftView = {
   location: { id: string; name: string }; status: "off" | "on" | "ended" | "elsewhere"; startedAt: string | null;
@@ -111,7 +112,7 @@ export function TaskCard({ t, children }: { t: Task; children?: React.ReactNode 
           {t.completedOffShift && <span className="chip mute">Fuera de turno</span>}
         </div>
         <span style={{ fontSize: 15, fontWeight: 600 }}>{t.member ?? "Sin socio asociado"}</span>
-        {t.summary && <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>{t.summary}</span>}
+        {t.brief ? <BriefBlock brief={t.brief} compact /> : t.summary && <span className="muted" style={{ fontSize: 13, lineHeight: 1.4 }}>{t.summary}</span>}
         {t.videoId && <video src={`/api/media/${t.videoId}`} controls preload="metadata" style={{ width: "100%", maxWidth: 360, maxHeight: 220, borderRadius: 10, background: "var(--ui-border)" }} aria-label={`Video adjunto a ${t.ref}`} />}
       </div>
       <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>

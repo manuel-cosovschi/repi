@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { TASK_CATEGORY, TASK_PRIORITY } from "@repi/domain";
 import { api } from "@/lib/api";
+import type { BriefViewData } from "@/components/shared/BriefBlock";
 
 export type GymScreen =
   | "shift" | "queue" | "members" | "handoff" | "msgs" | "perf"
@@ -12,7 +13,7 @@ export type GymScreen =
 export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean };
 export type Task = {
   id: string; ref: string; member: string | null; gymMemberId: string | null; category: keyof typeof TASK_CATEGORY; priority: keyof typeof TASK_PRIORITY;
-  status: "open" | "pending_acceptance" | "in_progress" | "follow_up" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null;
+  status: "open" | "pending_acceptance" | "in_progress" | "follow_up" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null; brief?: BriefViewData;
   assignee: { id: string; name: string } | null; completedBy: string | null; completedOffShift: boolean;
   createdAt: string; dueAt: string | null; takenAt: string | null; completedAt: string | null; overdue: boolean; handoffFrom: { name: string; at: string } | null;
 };

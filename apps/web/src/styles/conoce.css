@@ -196,6 +196,8 @@
 .cn-case { display: grid; gap: 14px; }
 @media (min-width: 860px) { .cn-case { grid-template-columns: .9fr 1.1fr; gap: 48px; align-items: end; } }
 .cn-case p { margin: 0; font-size: 18px; line-height: 1.55; color: var(--ui-text-2); }
+.cn-case-logo { display: inline-flex; margin-top: 18px; padding: 16px 22px; border-radius: 16px; background: var(--core-navy900); }
+.cn-case-logo img { display: block; width: 220px; height: auto; }
 .cn-steps { counter-reset: cn; margin: 26px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 @media (min-width: 860px) { .cn-steps { grid-template-columns: repeat(5, 1fr); } }
 .cn-steps li { counter-increment: cn; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 16px; padding: 18px; font-size: 15px; line-height: 1.45; color: var(--ui-text-2); }

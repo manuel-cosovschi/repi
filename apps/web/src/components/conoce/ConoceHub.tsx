@@ -161,6 +161,11 @@ export function ConoceHub({ profile }: { profile: Profile | null }) {
             <div>
               <p className="cn-kicker dark">Caso real</p>
               <h2 id="cn-caso">Smart Center Gym, Mar del Plata.</h2>
+              {/* Logo autorizado por el gimnasio (07/11/2026). */}
+              <span className="cn-case-logo">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/conoce/smart-center-gym.webp" alt="Smart Center Gym" width={260} height={70} loading="lazy" decoding="async" />
+              </span>
             </div>
             <div>
               <p>REPI está en funcionamiento en Smart Center Gym. Sus socios piden acceso con el QR de la sede, el equipo los aprueba y entrenan con su rutina en el teléfono, incluida la que ya tenían antes de REPI.</p>

@@ -12,6 +12,7 @@ import * as fu from "@/server/followup/services";
 import * as msg from "@/server/messages/services";
 import * as tr from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
+import { BRIEF } from "./fixtures/brief";
 
 let n = 0;
 const mail = () => `lf${++n}.${Date.now()}@test.repi.local`;
@@ -69,7 +70,7 @@ describe("circuito Coach de punta a punta", () => {
       ] },
     ] });
     // El «Pedir mi programa» abierto se responde al asignar (F-17).
-    await fu.createRequest(alumno.id, { kind: "programa", text: "Quiero que me armen un programa." });
+    await fu.createRequest(alumno.id, { kind: "programa", text: "Quiero que me armen un programa.", brief: BRIEF });
     await tr.assignProgram(coach, orgId, pid, { coachClientIds: [rel.relationId], startsOn: localDate(new Date()) });
     expect((await db.select().from(schema.studentRequest).where(eq(schema.studentRequest.coachClientId, rel.relationId))).map((r) => r.status)).toEqual(["done"]);
     const t = await tr.myTraining(alumno.id);

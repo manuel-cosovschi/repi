@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { ProgramRequestBrief } from "@repi/domain";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const now = (name: string) => ts(name).notNull().defaultNow();
@@ -910,6 +911,8 @@ export const studentRequest = pgTable("student_request", {
   resolvedBy: text("resolved_by").references(() => user.id),
   resolvedAt: ts("resolved_at"),
   seenResolvedAt: ts("seen_resolved_at"),
+  // D206: preferencias del pedido de programa (objetivo, días, experiencia, lesiones…). Sólo en kind «programa».
+  brief: jsonb("brief").$type<ProgramRequestBrief>(),
   createdAt: now("created_at"),
 }, (t) => [index("request_relation_idx").on(t.coachClientId, t.status), index("request_user_idx").on(t.userId)]);
 
@@ -1037,7 +1040,7 @@ export const gymTask = pgTable("gym_task", {
   // REPI Connect (D126): motivo elegido por el socio, referencias estructuradas al ejercicio, clave de reintento,
   // inicio de la atención, cancelación y opinión opcional del socio («¿Te sirvió?»).
   reason: text("reason"),
-  context: jsonb("context").$type<{ exerciseId?: string; exerciseName?: string; sessionId?: string; programExerciseId?: string; setIndex?: number; programName?: string; fromSession?: boolean }>(),
+  context: jsonb("context").$type<{ exerciseId?: string; exerciseName?: string; sessionId?: string; programExerciseId?: string; setIndex?: number; programName?: string; fromSession?: boolean; brief?: ProgramRequestBrief }>(), // D206: brief en «programa_nuevo»
   clientKey: text("client_key"),
   startedAt: ts("started_at"),
   cancelledAt: ts("cancelled_at"),
@@ -1561,7 +1564,7 @@ export const notifyPref = pgTable("notify_pref", {
 export const notificationOutbox = pgTable("notification_outbox", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten"] }).notNull(),
+  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten", "program_brief"] }).notNull(), // program_brief: D206
   title: text("title").notNull(),
   body: text("body").notNull(),
   url: text("url").notNull(),

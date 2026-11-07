@@ -14,6 +14,7 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Workout } from "./Workout";
 import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./FollowSheets";
+import { PendingBriefBanner, ProgramRequestSheet, type PendingBrief, type ProgramRequestState } from "./ProgramRequest";
 import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
 import { Nudges, type Nudge } from "./Nudges";
@@ -479,14 +480,20 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
   const next = t.program?.days[t.program.nextDay];
   const v = t.stats.volumeLastWeek ? Math.round(((t.stats.volumeThisWeek - t.stats.volumeLastWeek) / t.stats.volumeLastWeek) * 100) : null;
-  const askProgram = async () => {
-    try {
-      const r = await api<{ duplicate: boolean }>(gymRel ? "/api/me/gym/requests" : "/api/me/requests", { body: { kind: "programa", text: "Quiero que me armen un programa." } });
-      const to = gymRel ? "al equipo de sala" : `a ${coachFirst}`; // «a el» no va (F-15)
-      flash(r.duplicate ? `Ya le pediste tu programa ${to}.` : `Pedido enviado ${to}.`);
-      reloadInbox();
-    } catch (e) { flash((e as Error).message); }
-  };
+  // D206: el pedido de programa lleva objetivo, días, experiencia y lesiones; sin eso el profe no sabe qué armar.
+  const [briefSheet, setBriefSheet] = useState<null | "new" | "complete">(null);
+  const [briefs, setBriefs] = useState<PendingBrief[]>([]);
+  const loadBriefs = useCallback(() => { if (!offline) api<ProgramRequestState>("/api/me/program-request").then((s) => setBriefs(s.pending)).catch(() => {}); }, [offline]);
+  useEffect(() => { loadBriefs(); }, [loadBriefs, inbox]);
+  useEffect(() => {
+    // Desde el push o la campanita (/app?completar=programa): abre el formulario si hay un pedido esperando datos.
+    if (briefs.length && new URLSearchParams(location.search).get("completar") === "programa") {
+      setBriefSheet("complete");
+      try { const u = new URL(location.href); u.searchParams.delete("completar"); history.replaceState(history.state, "", u); } catch { /* */ }
+    }
+  }, [briefs]);
+  const askProgram = () => setBriefSheet(briefs.length ? "complete" : "new");
+  const toWho = gymRel ? "el equipo de sala" : coachFirst;
   const pendingProgram = gymRel ? inbox?.gymRequests.some((r) => r.category === "programa_nuevo" && r.status !== "done") : inbox?.requests.some((r) => r.kind === "programa" && r.status === "open");
   const QUICK: [string, Icon, () => void][] = [
     ["Pedir ayuda", Question, () => onSheet({ type: "help" })],
@@ -502,6 +509,11 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         <span className="mb-muted" style={{ fontSize: 15 }}>{t.openSession ? "Tenés un entrenamiento en curso." : "Hoy es un gran día para entrenar."}</span>
       </div>
       <RelationPicker t={t} offline={offline} busyOpen={!!t.openSession} onChange={onRelation} flash={flash} />
+      {!offline && <PendingBriefBanner pending={briefs} onOpen={() => setBriefSheet("complete")} />}
+      {briefSheet && (
+        <ProgramRequestSheet mode={briefSheet} to={briefSheet === "complete" && briefs[0] ? briefs[0].to : toWho} url={gymRel ? "/api/me/gym/requests" : "/api/me/requests"} offline={offline}
+          onClose={() => setBriefSheet(null)} onDone={(msg) => { setBriefSheet(null); flash(msg); reloadInbox(); loadBriefs(); }} />
+      )}
       {presence && !offline && t.program && <PresenceChip p={presence} onValidate={() => onSheet({ type: "presence" })} />}
       {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
           ahí se ve qué pasó con su sincronización y se decide qué hacer con lo guardado en el teléfono. */}
