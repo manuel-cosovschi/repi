@@ -42,13 +42,15 @@ export function Training() {
   useGSAP(() => {
     if (reduced()) { setStep(4); return; }
     const q = gsap.utils.selector(root);
+    // En pantallas angostas el teléfono está arriba del título: entra sin bajar para no taparlo.
+    const narrow = window.matchMedia("(max-width: 899px)").matches;
     gsap.timeline({
       scrollTrigger: {
         trigger: q(".x3-train-pin")[0], start: "top top", end: () => `+=${window.innerHeight * 3.4}`, pin: true, scrub: 0.6,
         onUpdate: (s) => setStep(Math.min(4, Math.floor(s.progress * 5.2))),
       },
     })
-      .fromTo(q(".x3-phone"), { rotateX: 38, rotateZ: -8, y: 140, scale: 0.78 }, { rotateX: 8, rotateZ: -2, y: 0, scale: 1, ease: "power2.out", duration: 0.25 })
+      .fromTo(q(".x3-phone"), narrow ? { rotateX: 24, rotateZ: -5, y: -24, scale: 0.84 } : { rotateX: 38, rotateZ: -8, y: 140, scale: 0.78 }, { rotateX: 8, rotateZ: -2, y: 0, scale: 1, ease: "power2.out", duration: 0.25 })
       .to(q(".x3-phone"), { rotateX: 0, rotateZ: 0, rotateY: -10, duration: 0.5, ease: "none" })
       .to(q(".x3-phone"), { rotateY: 0, scale: 1.04, duration: 0.25, ease: "power1.inOut" });
   }, { scope: root });

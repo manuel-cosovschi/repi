@@ -96,21 +96,32 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
 
 El canvas se carga con importación dinámica después del primer pintado y se libera al desmontar.
 
-## Videos (HyperFrames, 1920×1080 a 30 fps; verticales 1080×1920 cuando sirvan)
+## Videos (HyperFrames, 1920×1080 a 30 fps; vertical 1080×1920 para deportistas)
 
-- **01 · Film de marca** (35–55 s).
-- **02 · Gimnasios** (60–90 s).
-- **03 · Entrenadores** (50–75 s).
-- **04 · Deportistas** (35–55 s, con versión vertical).
-- **05 · Empresas y aliados** (60–90 s). Reemplaza al de locución.
-- **06 · Training Intelligence** (30–50 s).
-- **07+ · Funciones:** progreso, gestión de alumnos, sala, altas por QR y comunidad (20–45 s).
+Hechos (D208): diez films generados desde `design/films/kit/build.py` (spec, pistas y producción en `design/films/SPEC.md`).
+
+| Archivo web | Film | Dónde se abre en `/conoce` |
+| --- | --- | --- |
+| `film-marca` | 01 · Marca, 48 s | Hero: «Mirá REPI en acción» |
+| `perfil-gimnasios` | 02 · Gimnasios, 1:02 | Escena 04, perfil Gimnasios |
+| `perfil-entrenadores` | 03 · Entrenadores, 0:49 | Escena 04, perfil Entrenadores |
+| `perfil-deportistas` (+ `-vertical`) | 04 · Deportistas, 0:40 | Escena 04, perfil Deportistas (9:16 en teléfonos en vertical) |
+| `perfil-aliados` | 05 · Aliados, 1:06 (reemplaza al de locución) | Escena 04, perfil Aliados |
+| `f-intelligence` | 06 · Training Intelligence, 0:33 | Escena 05, módulo Training Intelligence |
+| `f-progreso`, `f-altas`, `f-sala` | 07–09 · Funciones, 0:23–0:24 | Escena 05, módulos correspondientes |
 
 **Reglas para todos los videos:**
 
-- **Audio:** sin voz. Música instrumental con licencia comercial registrada y diseño de sonido. Mezcla a −14 LUFS y −1 dBTP.
-- **Capturas:** son materia prima dentro de motion graphics, nunca el video terminado.
-- **Archivos:** los masters quedan fuera de Git (este contenedor no tiene el SSD del titular). En `public/` van sólo las versiones web y los pósters.
+- **Audio:** sin voz. Música de Kevin MacLeod (CC BY 4.0, atribución en el reproductor y en `marketing/videos/LICENCIAS.md`) y
+  efectos de Pixabay. Mezcla a −14 LUFS y −1 dBTP.
+- **Capturas:** grabaciones de la demo con datos ficticios, siempre dentro de motion graphics (sala, títulos, paneles con los
+  valores de la acción), nunca el video terminado.
+- **Archivos:** los masters quedan fuera de Git y se pueden regenerar (render determinista). En `public/` van sólo las versiones
+  web y los pósters.
+- **Reproductor:** diálogo modal, sonido sólo porque la persona tocó «reproducir», `preload="metadata"`; nada se descarga hasta abrirlo.
+
+Pendientes (segunda tanda): registro de cada serie, Mi cuerpo, IA para borradores, gestión de alumnos y comunidad
+(guiones en `VIDEOS_PENDIENTES.md`).
 
 ## Conversión y medición
 

@@ -33,13 +33,35 @@ QA:      snapshot de cada beat; tira de cortes; lectura a 360 px; audio medido (
          `hyperframes audio`; check sin errores.
 ```
 
-## Pistas (masters fuera de Git)
+## Films y pistas (masters fuera de Git)
 
-| Film | Pista | Tramo | Por qué |
-| --- | --- | --- | --- |
-| 01 Marca (48 s) | Kevin MacLeod · Heroic Age | 30,0 → 78,0 s | 14 s de tensión, sube en 44 s y cae en 48 s: el logo entra en el golpe |
-| 02 Gimnasios (~80 s) | Kevin MacLeod · Five Armies | 68 → 148 s | Calma (problema) → construcción (solución) → clímax (cierre) |
-| 03 Entrenadores (~60 s) | Kevin MacLeod · Exciting Trailer | 0 → 60 s | Tráiler con pulso, pico en 33–43 s |
-| 04 Deportistas (~45 s, también vertical) | Kevin MacLeod · Volatile Reaction | 24 → 69 s | Electrónica de alta energía (152 bpm) |
-| 05 Aliados (~80 s) | Kevin MacLeod · Rising Game | 25 → 105 s | Crecimiento sostenido hasta un final grande |
-| 06 Training Intelligence (~40 s) | Kevin MacLeod · Volatile Reaction | 120 → 160 s | Segundo ascenso, tecnológico |
+| Film (`design/films/<film>`) | Archivo web | Duración | Pista (Kevin MacLeod, CC BY 4.0) | Tramo |
+| --- | --- | --- | --- | --- |
+| `brand` | `film-marca` | 48,0 s | Heroic Age | 30,0 → 78,0 s |
+| `gimnasios` | `perfil-gimnasios` | 61,6 s | Five Armies | 68,0 → 129,6 s |
+| `entrenadores` | `perfil-entrenadores` | 49,1 s | Exciting Trailer | 4,0 → 53,1 s |
+| `deportistas` / `deportistas-vertical` | `perfil-deportistas` / `-vertical` (1080×1920) | 40,0 s | Volatile Reaction | 24,0 → 64,0 s |
+| `aliados` | `perfil-aliados` | 66,5 s | Rising Game | 25,0 → 91,5 s |
+| `intelligence` | `f-intelligence` | 33,0 s | Volatile Reaction | 120,0 → 153,0 s |
+| `progreso` | `f-progreso` | 22,5 s | Clash Defiant | 150,0 → 172,5 s |
+| `altas` | `f-altas` | 23,5 s | Five Armies | 120,0 → 143,5 s |
+| `sala` | `f-sala` | 23,5 s | Clash Defiant | 0,0 → 23,5 s |
+
+## Producción
+
+```bash
+# 1. Medios (fuera de Git): grabaciones de la demo local (tools/rec-raw.mjs) en <medios>/footage y pistas en <medios>/audio.
+# 2. Generar, revisar y renderizar (se saltea lo ya hecho; FORCE=1 rehace):
+python3 design/films/kit/build.py [film ...]                  # proyectos HyperFrames
+(cd design/films/<film> && npx hyperframes@0.8.193 check)    # sin errores ni avisos
+REPI_MEDIA_SRC=<medios> OUT=<masters> design/films/kit/tools/render-all.sh [film ...]
+# → <masters>/<film>-master.mp4 (CRF 16), -norm.mp4 (audio −14 LUFS / −1 dBTP) y web/<archivo>.mp4 + .webp
+```
+
+- **Teléfono:** cada escena de producto usa **un solo** `<video>` precortado con ffmpeg (`cut-<escena>.mp4`, CFR 30 fps, GOP 15) y
+  su primer cuadro como póster debajo. Con varios `<video>` o con clips que arrancan a mitad de escena, el render de HyperFrames
+  0.8.193 dejaba la pantalla del teléfono en blanco algunos cuadros. `tools/blank.py` lo controla en cada master (debe dar 0).
+- **Sonido automático:** whoosh en cada corte (dos tomas alternadas), impacto en la marca, pop en cada panel que aterriza, whoosh
+  cinemático antes de que los fragmentos vuelen y riser que llega al golpe final.
+- **Audio:** `tools/finish.py` normaliza con loudnorm en dos pasadas (objetivo −14,6 LUFS integrado para quedar en −14 ± 0,5 medido
+  con EBU R128, pico verdadero ≤ −1 dBTP) y exporta la versión web (H.264 high, CRF 24, tope 3 Mb/s, `faststart`, AAC 160 kb/s).
