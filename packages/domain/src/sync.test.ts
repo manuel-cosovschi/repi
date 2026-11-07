@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySessionAction, clampClientTime, decideSetWrite } from "./sync";
+import { applySessionAction, clampClientTime, decideSetWrite, sameSetValues } from "./sync";
 
 const srv = { id: "a", revision: 2, weightKg: 80, reps: 10, rir: 2 };
 describe("decideSetWrite", () => {
@@ -42,5 +42,21 @@ describe("clampClientTime", () => {
     expect(clampClientTime("2026-10-26T13:00:00Z", now)).toBe("invalid");
     expect(clampClientTime("2026-10-20T12:00:00Z", now)).toBe("invalid");
     expect(clampClientTime("x", now)).toBe("invalid");
+  });
+});
+
+describe("ejercicios por tiempo · sincronización con métricas", () => {
+  const cinta = { id: "a", revision: 2, weightKg: null, reps: 720, rir: null, metrics: { speedKmh: 5, incline: 3 } };
+  it("cambiar sólo la velocidad o la inclinación no es «sin cambios»", () => {
+    expect(decideSetWrite(cinta, { id: "a", baseRevision: 2, weightKg: null, reps: 720, rir: null, metrics: { speedKmh: 5.5, incline: 3 } })).toEqual({ kind: "update" });
+    expect(decideSetWrite(cinta, { id: "a", baseRevision: 1, weightKg: null, reps: 720, rir: null, metrics: { speedKmh: 5, incline: 4 } })).toEqual({ kind: "conflict", reason: "stale_base" });
+    expect(decideSetWrite(cinta, { id: "a", baseRevision: 2, weightKg: null, reps: 720, rir: null, metrics: null })).toEqual({ kind: "update" });
+  });
+  it("mismas métricas en otro orden: reintento sin cambios", () => {
+    expect(decideSetWrite(cinta, { id: "a", baseRevision: 1, weightKg: null, reps: 720, rir: null, metrics: { incline: 3, speedKmh: 5 } })).toEqual({ kind: "noop" });
+  });
+  it("una app anterior que no manda métricas no las cuenta como cambio (ni las borra)", () => {
+    expect(decideSetWrite(cinta, { id: "a", baseRevision: 1, weightKg: null, reps: 720, rir: null })).toEqual({ kind: "noop" });
+    expect(sameSetValues({ weightKg: 80, reps: 10, rir: 2 }, { weightKg: 80, reps: 10, rir: 2, metrics: null })).toBe(true);
   });
 });

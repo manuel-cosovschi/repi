@@ -381,3 +381,16 @@ describe("session · revisión: comparar sólo lo comparable y proponer lo prude
     expect(b.text).not.toMatch(/3 series de 12/);
   });
 });
+
+describe("session · reemplazos de una actividad (ejercicios por tiempo)", () => {
+  const cinta = { exerciseId: "cinta", name: "Cinta (caminata)", muscleGroup: "Cardio", kind: "time" };
+  it("una actividad sólo por otra actividad, nunca por un aguante del mismo tipo de registro", () => {
+    const opts = [
+      { exerciseId: "plancha", name: "Plancha", muscleGroup: "Cardio", kind: "time" },
+      { exerciseId: "bici", name: "Bicicleta fija", muscleGroup: "Cardio", kind: "time" },
+      { exerciseId: "eliptico", name: "Elíptico", muscleGroup: "Cardio", kind: "time", approvedByCoach: true },
+    ];
+    expect(rankAlternatives(cinta, opts).map((x) => x.exerciseId)).toEqual(["eliptico", "bici"]);
+    expect(rankAlternatives({ exerciseId: "p", name: "Plancha", muscleGroup: "Core", kind: "time" }, [{ exerciseId: "bici", name: "Bicicleta fija", muscleGroup: "Core", kind: "time", approvedByCoach: true }])).toEqual([]);
+  });
+});

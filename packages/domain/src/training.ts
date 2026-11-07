@@ -190,14 +190,16 @@ export function validateProgramDoc(doc: ProgramDoc): { ok: true; doc: ProgramDoc
     const exercises: ProgramExerciseDoc[] = [];
     for (const e of d.exercises) {
       if (!e.exerciseId) return { ok: false, error: `${dn}: ejercicio sin referencia a la biblioteca.` };
-      const det = validateDetail(e.detail, e.sets); // con plan serie por serie, las series salen del plan
+      const det = validateDetail(e.detail, e.sets, e.reps ?? ""); // con plan serie por serie, las series salen del plan
       if (!det.ok) return { ok: false, error: `${dn} · ${e.name}: ${det.error}` };
+      // Ejercicios por tiempo: una actividad (cinta, bici…) no lleva RIR; la duración va en `reps` (validada arriba).
+      const rir = det.detail?.activity ? null : e.rir ?? null;
       // D183: con plan, `sets` son las filas registrables (series principales + etapas, hasta 40); las series principales, hasta 20.
       if (!Number.isInteger(det.sets) || det.sets < 1 || det.sets > (det.detail?.setPlan ? MAX_PLAN_ROWS : PROGRAM_LIMITS.sets)) return { ok: false, error: `${dn} · ${e.name}: las series van de 1 a 20.` };
       if (!e.reps?.trim()) return { ok: false, error: `${dn} · ${e.name}: indicá las repeticiones.` };
-      if (e.rir != null && (!Number.isInteger(e.rir) || e.rir < 0 || e.rir > PROGRAM_LIMITS.rir)) return { ok: false, error: `${dn} · ${e.name}: el RIR va de 0 a 5.` };
+      if (rir != null && (!Number.isInteger(rir) || rir < 0 || rir > PROGRAM_LIMITS.rir)) return { ok: false, error: `${dn} · ${e.name}: el RIR va de 0 a 5.` };
       if (!Number.isInteger(e.restSec) || e.restSec < 0 || e.restSec > PROGRAM_LIMITS.restSec) return { ok: false, error: `${dn} · ${e.name}: el descanso va de 0:00 a 15:00.` };
-      exercises.push({ exerciseId: e.exerciseId, name: e.name.trim(), sets: det.sets, reps: e.reps.trim(), rir: e.rir ?? null, restSec: e.restSec, note: e.note?.trim() || null, ...(det.detail ? { detail: det.detail } : {}) });
+      exercises.push({ exerciseId: e.exerciseId, name: e.name.trim(), sets: det.sets, reps: e.reps.trim(), rir, restSec: e.restSec, note: e.note?.trim() || null, ...(det.detail ? { detail: det.detail } : {}) });
     }
     // D183: las vueltas de un circuito gobiernan la ejecución: cada ejercicio tiene que tener una serie por vuelta.
     const bad = circuitIssues(exercises)[0];

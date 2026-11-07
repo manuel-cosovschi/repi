@@ -2,7 +2,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
-  weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
+  weeklyAdherence, FEEL_ALERTS, isSetFeel, isTimedRow, type LoggedSet, type ProgramDoc, type SetFeel,
   applyLoad, coachSetLoads, suggestNext, type LastSet, workoutAutoClose, WORKOUT_IDLE_CLOSE_MS,
   progressionApplies, kindAt, GENERAL_PAIN_DAYS, PAIN_LOOKBACK_DAYS, type SafetySignals, exerciseKey,
   rowFlags, rowRef, sessionMetrics, exerciseComplete, type SetKind, validateDetail, mainSets, circuitIssues, MAX_PLAN_ROWS,
@@ -491,7 +491,8 @@ export async function timedPeIds(peIds: Iterable<string>): Promise<PlanIndex> {
   if (!ids.length) return new Set();
   const rows = await db.select({ id: programExercise.id, reps: programExercise.reps, sets: programExercise.sets, detail: programExercise.detail }).from(programExercise).where(inArray(programExercise.id, ids));
   const byId = new Map(rows.map((r) => [r.id, { sets: r.sets, reps: r.reps, detail: r.detail as ExerciseDetail | null }]));
-  const out = new Set(rows.filter((r) => parseReps(r.reps).kind === "time").map((r) => r.id)) as Set<string> & { flags?: PlanIndex["flags"] };
+  // Por tiempo: «40 s», «10 min» o una actividad configurada (cinta, bici, remo…), con el predicado único del dominio.
+  const out = new Set(rows.filter((r) => isTimedRow({ reps: r.reps, detail: r.detail as ExerciseDetail | null })).map((r) => r.id)) as Set<string> & { flags?: PlanIndex["flags"] };
   out.flags = (peId, i) => { const e = byId.get(peId); return e ? rowFlags(e, i) : { kind: "work" as SetKind, block: i, stage: 0, timed: false, warmup: false, rounds: false, durationSec: null }; };
   return out;
 }

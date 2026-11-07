@@ -7,7 +7,12 @@
 //  · Métodos (drop set, rest-pause, EMOM, AMRAP, superseries, circuitos) se detectan con `detectMethod`/`detectGroupWord` y se
 //    aplican con las mismas reglas del constructor (method-detect.ts). Lo ambiguo se pregunta.
 // Fotos, capturas y PDF los transcribe el servidor con el mismo contrato (`fromAiExercise`), y pasan por las mismas reglas.
+// Ejercicios por tiempo (07/11/2026): en cardio se leen velocidad («vel 5», «5 km/h»: es velocidad, nunca una distancia),
+// inclinación («incl 3», sin %), nivel, cadencia, ritmo cada 500 m y distancia del remo («Remo 500 m»), y quedan en `activity`.
+import { ACTIVITY_FIELDS, PROFILE_FIELDS, activityFieldText, activityValuesText, cleanActivityValues, isActivityProfile, validateActivity,
+  type ActivityDetail, type ActivityProfile, type ActivityValues } from "./activity";
 import { parseCsv } from "./csv";
+import { guessProfile } from "./exercise-guess";
 import { detectGroupLabel, detectGroupWord, detectMethod, methodDetail, detectedLabel, type DetectedMethod } from "./method-detect";
 import { emptyDetail, GROUP_LETTERS, type ExerciseDetail, type GroupKind, type SetSpec } from "./prescription";
 import { LB_PER_KG } from "./units";
@@ -29,6 +34,8 @@ export type ImportExercise = {
   groupKind: GroupKind | null; rounds: number | null;
   unit: "kg" | "lb" | null; // unidad escrita (lb se convierte a kg)
   issues: ImportIssue[];
+  /** Ejercicios por tiempo: actividad leída (cinta, bici, remo…) con sus valores; la duración o la distancia quedan en `reps`. */
+  activity?: ActivityDetail | null;
 };
 export type ImportDay = { name: string; exercises: ImportExercise[] };
 export type ImportVariant = { name: string; days: ImportDay[] };
@@ -64,7 +71,8 @@ function weightList(numbers: string, unit: string): { kg: number[]; unit: "kg" |
 
 const FAIL = String.raw`al\s+fallo|fallo|failure|amrap|max(?:imo)?|máx(?:imo)?|maximas?|máximas?`;
 const TIME = String.raw`\d+\s*(?:s|seg(?:undos)?|"|''|sec|min(?:utos)?|')`;
-const DIST = String.raw`\d+(?:[.,]\d+)?\s*(?:m|mts|metros|km)\b`;
+// «5 km/h» es una velocidad, no una distancia de 5 km.
+const DIST = String.raw`\d+(?:[.,]\d+)?\s*(?:m|mts|metros|km)\b(?!\s*\/\s*h)`;
 const REPS = String.raw`(?:${TIME}|${DIST}|${FAIL}|\d{1,3}(?:\s*[/;\-–]\s*\d{1,3})*(?:\s*\+\s*\d{1,3})?)`;
 
 /** Repeticiones escritas → lista por serie («12/10/8») o valor común («8-12», «al fallo», «30 s»). */
@@ -97,6 +105,71 @@ export function cleanLine(line: string): string {
     .replace(/\t+/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// ── Cardio: velocidad, inclinación, nivel, cadencia y ritmo ─────────────────────────────────────────────────────────────
+/** Actividad que dice el nombre («Cinta», «Bici fija», «Remo ergómetro», «Elíptico», «Escaladora», «Soga»); null si no es cardio. */
+export function activityGuess(name: string | null | undefined): ActivityProfile | null {
+  const g = name ? guessProfile(name) : null;
+  return isActivityProfile(g) ? g : null;
+}
+const SPEED_UNIT = /(?:\ba\s+)?(\d{1,2}(?:[.,]\d+)?)\s*(?:km\s*\/\s*h|kmh|kph|km\s+por\s+hora)(?![\p{L}])/iu;
+const SPEED_WORD = /\b(?:vel(?:ocidad)?|speed)\.?\s*[:=]?\s*(\d{1,2}(?:[.,]\d+)?)(?:\s*(?:km\s*\/\s*h|kmh|kph))?/i;
+const FIELD_RE: [Exclude<keyof ActivityValues, "speedKmh" | "distanceM">, RegExp][] = [
+  ["incline", /\b(?:incl(?:inaci[oó]n)?|inclinada|pendiente|incline)\.?\s*[:=]?\s*(-?\d{1,2}(?:[.,]\d+)?)\s*%?/i],
+  ["level", /\b(?:nivel|niv\.?|level|lvl|resistencia)\s*[:=]?\s*(\d{1,2})\b/i],
+  ["cadenceRpm", /(?:\bcadencia\s*[:=]?\s*)?(\d{2,3})\s*rpm\b|\bcadencia\s*[:=]?\s*(\d{2,3})\b/i],
+  ["pace500Sec", /\b(?:ritmo|pace|split)\s*[:=]?\s*(\d{1,2}):([0-5]\d)(?:\s*(?:\/|por|cada)?\s*500\s*m?\b)?|(\d{1,2}):([0-5]\d)\s*(?:\/|por|cada)\s*500\s*m?\b/i],
+];
+/**
+ * Lee lo propio de una actividad en un texto y lo saca del texto (sus números no son series, cargas ni tempo). «km/h» siempre es
+ * velocidad; con velocidad o inclinación escritas, una caminata o un trote sin máquina en el nombre se toma como cinta. Cada campo
+ * se lee sólo si la actividad lo tiene (una inclinación en la bici queda en la nota).
+ */
+export function readActivityText(text: string, named: ActivityProfile | null): { profile: ActivityProfile | null; values: ActivityValues; rest: string } {
+  let rest = ` ${text} `;
+  const take = (re: RegExp) => { const m = re.exec(rest); if (m) rest = rest.slice(0, m.index) + " " + rest.slice(m.index + m[0].length); return m; };
+  let profile = named;
+  const values: ActivityValues = {};
+  const sp = take(SPEED_UNIT) ?? (profile ? take(SPEED_WORD) : null);
+  if (sp) values.speedKmh = toNum(sp[1]);
+  if (sp && (!profile || profile === "duration")) profile = "treadmill";
+  if (profile === "duration" && FIELD_RE[0][1].test(rest)) profile = "treadmill"; // «Trote 20 min incl 2»: en cinta
+  if (profile) {
+    for (const [f, re] of FIELD_RE) {
+      if (!PROFILE_FIELDS[profile].includes(f)) continue;
+      const m = take(re);
+      if (!m) continue;
+      values[f] = f === "pace500Sec" ? Number(m[1] ?? m[3]) * 60 + Number(m[2] ?? m[4]) : f === "cadenceRpm" ? Number(m[1] ?? m[2]) : toNum(m[1]);
+    }
+  }
+  return { profile, values, rest };
+}
+/**
+ * Arma la actividad del ejercicio importado con lo leído: los valores fuera de rango o que la actividad no tiene quedan en la nota
+ * (marcados para revisar); si lo indicado no es una duración (ni una distancia en el remo), queda como antes, sin actividad.
+ */
+function importActivity(e: Draft, profile: ActivityProfile, values: ActivityValues) {
+  const clean: ActivityValues = {};
+  const toNote: string[] = [];
+  for (const f of ACTIVITY_FIELDS) {
+    const v = values[f];
+    if (v == null) continue;
+    if (!PROFILE_FIELDS[profile].includes(f)) { toNote.push(activityFieldText(f, v)); continue; }
+    const r = cleanActivityValues(profile, { [f]: v });
+    if (r.ok) Object.assign(clean, r.values);
+    else { toNote.push(activityFieldText(f, v)); e.issues.push({ field: "line", kind: "unclear", text: r.error }); }
+  }
+  const a = validateActivity({ profile, ...clean }, e.reps ? { reps: e.reps } : {});
+  if (a.ok) {
+    e.activity = a.activity; e.rir = null; e.weightKg = null; e.perSet = null; e.tempo = null;
+  } else {
+    e.activity = null;
+    const txt = activityValuesText(clean);
+    if (txt) toNote.unshift(txt);
+    e.issues.push({ field: "reps", kind: "unclear", text: a.error });
+  }
+  if (toNote.length) e.note = clip([e.note, ...toNote].filter(Boolean).join(" · "), 120);
+}
+
 // ── Un ejercicio en una línea ───────────────────────────────────────────────────────────────────────────────────────────
 type Draft = Omit<ImportExercise, "issues" | "section" | "groupKind" | "rounds"> & { issues: ImportIssue[] };
 const emptyEx = (written: string, source: string | null): Draft => ({ written, source, sets: null, reps: null, weightKg: null, perSet: null, restSec: null, rir: null, rpe: null, tempo: null, note: null, technique: null, group: null, unit: null, issues: [] });
@@ -109,12 +182,15 @@ const OTHER_LOAD = /\b(?:placa|placas|ladrillos?|bloques?|pin|nivel|banda\s+\w+|
  * tempo y método. Lo que no entiende queda en la nota; nunca se descarta.
  */
 export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } = {}): Draft {
-  let rest = ` ${text} `;
+  // Cardio primero: velocidad, inclinación, nivel, cadencia y ritmo (sus números no son series, cargas ni tempo).
+  const act = readActivityText(text, activityGuess(e.written));
+  let prof = act.profile;
+  let rest = act.rest;
   const take = (re: RegExp) => { const m = re.exec(rest); if (m) rest = rest.slice(0, m.index) + " " + rest.slice(m.index + m[0].length); return m; };
   // Descanso, tempo, RIR y RPE primero: sus números no son series ni cargas.
   const r = take(new RegExp(String.raw`(?:desc(?:anso)?|rest|pausa|recup(?:eraci[oó]n)?|recuperar)\.?\s*(?:de|entre series)?\s*[:=]?\s*(${NUM})\s*(min(?:utos)?|m\b|'|s\b|seg(?:undos)?|sec|"|'')?(?:(?<=')(\d{2})(?:"|''|s\b)?)?(?::\d{2})?`, "i"));
   if (r) e.restSec = restSeconds(r);
-  const tp = take(/\b(?:tempo|cadencia|ritmo)\s*[:=]?\s*([0-9xX])\s*[-–.:/]?\s*([0-9xX])\s*[-–.:/]?\s*([0-9xX])\s*[-–.:/]?\s*([0-9xX])?/i);
+  const tp = prof ? null : take(/\b(?:tempo|cadencia|ritmo)\s*[:=]?\s*([0-9xX])\s*[-–.:/]?\s*([0-9xX])\s*[-–.:/]?\s*([0-9xX])\s*[-–.:/]?\s*([0-9xX])?/i);
   if (tp) e.tempo = [tp[1], tp[2], tp[3], tp[4]].filter((x) => x != null).join("-").toUpperCase();
   const rir = take(/@?\s*\brir\s*[:=]?\s*(\d(?:[.,]5)?)(?:\s*[-–/]\s*(\d))?/i);
   if (rir) { if (rir[2]) e.note = [e.note, `RIR ${rir[1]}-${rir[2]}`].filter(Boolean).join(" · "); else e.rir = Math.min(5, toNum(rir[1])); }
@@ -124,7 +200,7 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
   // Cargas con unidad (antes que series × reps: «60kg x 10» es carga × repeticiones).
   let weights: number[] | null = null;
   const loadRe = new RegExp(String.raw`(${NUM}(?:\s*[/;\-–,]\s*${NUM})*)\s*(kg|kgs|kilos?|kilogramos?|lbs?|libras?)\b(\s*(?:c\/?\s*lado|por\s+lado|x\s+lado|cada\s+lado|de\s+cada\s+lado))?(\s*(?:c\/?u|cada\s+una?|por\s+mano|por\s+mancuerna))?`, "i");
-  const wl = take(loadRe);
+  const wl = prof ? null : take(loadRe); // en una actividad, un «5 kg» (chaleco) queda en la nota
   if (wl) {
     const w = weightList(wl[1], wl[2]);
     if (w && wl[3]) {
@@ -157,8 +233,8 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
 
   const other = take(OTHER_LOAD);
   if (other) e.note = [e.note, other[0].trim()].filter(Boolean).join(" · ");
-  // Carga sin unidad: «@ 60» o un número suelto que queda después de «4x10» («Press banca 4x10 60»).
-  if (!weights) {
+  // Carga sin unidad: «@ 60» o un número suelto que queda después de «4x10» («Press banca 4x10 60»). Nunca en una actividad.
+  if (!weights && !prof) {
     const at = take(new RegExp(String.raw`@\s*(${NUM}(?:\s*[/;\-–]\s*${NUM})*)(?!\s*%)`, "i"));
     const bare = at ?? (setsN != null || repsRaw ? take(new RegExp(String.raw`(?:^|\s|\()(${NUM}(?:\s*[/;\-–]\s*${NUM})*)(?=\s*\)|\s*$|\s+[^\d%])(?!\s*%)`, "i")) : null);
     if (bare) {
@@ -174,6 +250,9 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
   if (setsN == null && repsRaw && new RegExp(`^(?:${TIME}|${DIST})$`, "i").test(repsRaw.trim()) && !sx) {
     setsN = 1; e.issues.push({ field: "sets", kind: "info", text: "Un bloque (dice sólo la duración o la distancia)." });
   }
+
+  // «Remo 500 m»: un remo con distancia es el remo ergómetro (el «Remo con barra 4x10» sigue siendo de espalda).
+  if (!prof && repsRaw && /^remo\b/i.test(e.written.trim()) && new RegExp(`^(?:${DIST})$`, "i").test(repsRaw.trim())) prof = "rower";
 
   // Repeticiones por serie y su coherencia con las series y las cargas.
   const rx = repsRaw ? repsExpr(repsRaw) : null;
@@ -212,11 +291,15 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
   if (method || gw) e.technique = clip(method?.matched ?? gw?.matched, 80);
   if (left && !/^[\s\p{P}]*$/u.test(left)) e.note = clip([e.note, left].filter(Boolean).join(" · "), 120);
   if (ILLEGIBLE.test(text)) e.issues.push({ field: "line", kind: "unclear", text: "Una parte no se lee: revisá lo marcado." });
+  if (prof) importActivity(e, prof, act.values);
+  else if (act.values.speedKmh != null) e.note = clip([e.note, activityFieldText("speedKmh", act.values.speedKmh)].filter(Boolean).join(" · "), 120);
   return e;
 }
 
 const METHOD_IN_NAME = /\s(?=(?:emom|amrap|drop ?sets?|dropsets?|rest[- ]?pause|myo[- ]?reps?|cluster|top ?set|back[- ]?offs?|superserie|biserie|triserie|pir[aá]mide|al fallo|hasta el fallo)\b)/i;
 const NAME_STOP = new RegExp(String.raw`(\s|^)(?=\d|@|\(\s*\d|[-–—:|]\s*\d|(?:desc(?:anso)?|rest|rir|rpe|tempo)\b)`, "i");
+// «Cinta incl 3 vel 5 10 min»: en cardio, «vel», «incl», «nivel», «ritmo» o «cadencia» con un número cortan el nombre.
+const ACT_STOP = /\s(?=(?:vel(?:ocidad)?|incl(?:inaci[oó]n)?|nivel|niv|ritmo|cadencia|resistencia)\.?\s*[:=]?\s*-?\d)/i;
 /** «A1. Press banca — 4 × 10 — 60 kg» → ejercicio con nombre, combinado y prescripción. */
 export function parseExerciseLine(line: string, hint: { lb?: boolean } = {}): Draft | null {
   const src = cleanLine(line);
@@ -228,8 +311,11 @@ export function parseExerciseLine(line: string, hint: { lb?: boolean } = {}): Dr
   const lead = /^(\d{1,2}\s*(?:x|×)\s*\d{1,3}(?:\s*[-/]\s*\d{1,3})*)\s+(?=\p{L})/u.exec(body);
   if (lead) { pre = lead[1]; body = body.slice(lead[0].length); }
   const cut = NAME_STOP.exec(body);
-  let name = (cut ? body.slice(0, cut.index) : body).replace(/[\s\-–—:|,.;(]+$/g, "").trim();
-  let tail = cut ? body.slice(cut.index) : "";
+  let at = cut ? cut.index : body.length;
+  const ac = ACT_STOP.exec(body);
+  if (ac && ac.index > 0 && ac.index < at && activityGuess(body.slice(0, ac.index))) at = ac.index;
+  let name = body.slice(0, at).replace(/[\s\-–—:|,.;(]+$/g, "").trim();
+  let tail = body.slice(at);
   // Un método escrito pegado al nombre («Burpees AMRAP 8 min», «Remo drop set») va a la prescripción.
   const mm = METHOD_IN_NAME.exec(name);
   if (mm && mm.index > 1) { tail = `${name.slice(mm.index)} ${tail}`; name = name.slice(0, mm.index); }
@@ -321,6 +407,7 @@ export function parseRoutineText(text: string): ImportParse {
         }
         if (add.note) { prev.note = clip([prev.note, add.note].filter(Boolean).join(" · "), 120); used = true; }
         prev.issues.push(...add.issues);
+        if (add.activity) { prev.activity = { ...(prev.activity ?? {}), ...add.activity }; prev.rir = null; prev.weightKg = null; prev.perSet = null; used = true; }
         if (add.technique && !prev.technique) prev.technique = add.technique;
         prev.source = clip(`${prev.source ?? ""} / ${line}`, 160);
         if (!used) unread.push(line.slice(0, 160));
@@ -451,7 +538,13 @@ function sheetRows(name: string, csv: string, multi: boolean): { days: ImportDay
         }
       }
     }
-    const note = [cell(c.note), cell(c.tech)].filter(Boolean).join(" · ");
+    let note = [cell(c.note), cell(c.tech)].filter(Boolean).join(" · ");
+    // Cardio: «vel 5 incl 3» o «nivel 8» en la columna de notas también son de la actividad.
+    const prof = e.activity?.profile ?? activityGuess(written);
+    if (note && prof) {
+      const a = readActivityText(note, prof);
+      if (Object.keys(a.values).length && a.profile) { importActivity(e, a.profile, { ...(e.activity ?? {}), ...a.values }); note = a.rest.replace(/\s+/g, " ").replace(/^[\s·,;-]+|[\s·,;-]+$/g, "").trim(); }
+    }
     if (note) { e.note = clip([e.note, note].filter(Boolean).join(" · "), 120); const m = detectMethod(note) ?? null; const g = detectGroupWord(note); if (m || g) e.technique = clip(m?.matched ?? g?.matched, 80); }
     cur.exercises.push(finishExercise({ ...e, section: null, groupKind: e.group ? "superset" : null, rounds: null }));
   }
@@ -537,6 +630,17 @@ export function fromAiExercise(a: AiExercise): ImportExercise {
     const f = fieldOf[fold(String(u)).trim()];
     if (f) e.issues.push({ field: f, kind: "unclear", text: f === "name" ? "El nombre no se lee bien: confirmalo." : "No se lee bien: confirmalo." });
   }
+  // Cardio: la velocidad, la inclinación o el nivel suelen venir en la nota («vel 5 incl 3»); nunca son una carga.
+  const named = activityGuess(written);
+  if (named) {
+    const a = readActivityText(e.note ?? "", named);
+    const kg = e.weightKg;
+    if (a.profile) {
+      if (Object.keys(a.values).length) e.note = clip(a.rest.replace(/^[\s·,;-]+|[\s·,;-]+$/g, ""), 120);
+      importActivity(e, a.profile, a.values);
+      if (e.activity && kg != null) e.note = clip([e.note, `${String(kg).replace(".", ",")} kg`].filter(Boolean).join(" · "), 120);
+    }
+  }
   // Evidencia: si el renglón leído no tiene ningún número, las series y repeticiones no pueden venir de ahí.
   if (e.source && !/\d/.test(e.source) && (e.sets != null || (e.reps && /\d/.test(e.reps)))) {
     e.issues.push({ field: "sets", kind: "unclear", text: "No encontramos las series escritas en ese renglón: confirmalas." });
@@ -549,8 +653,14 @@ export function fromAiExercise(a: AiExercise): ImportExercise {
  * Valores ya revisados → series y detalle con las mismas formas del constructor. Valores por serie, RIR/RPE o tempo se
  * guardan en el plan (`setPlan`), igual que en un programa del coach. Nunca agrega datos: lo que no hay queda vacío.
  */
-export function importedDetail(e: { sets: number; reps: string; weightKg: number | null; perSet: ImportSetValue[] | null; rir: number | null; rpe: number | null; tempo: string | null }): ExerciseDetail | null {
+export function importedDetail(e: { sets: number; reps: string; weightKg: number | null; perSet: ImportSetValue[] | null; rir: number | null; rpe: number | null; tempo: string | null; activity?: ActivityDetail | null }): ExerciseDetail | null {
   const base = emptyDetail();
+  // Ejercicios por tiempo: una actividad se guarda configurada por duración (sin plan por serie). Si lo revisado ya no es una
+  // duración (o una distancia en el remo), se guarda como antes, sin la actividad.
+  if (e.activity) {
+    const a = validateActivity(e.activity, { reps: e.reps });
+    if (a.ok) return { ...base, activity: a.activity };
+  }
   const rows = e.perSet && e.perSet.length === e.sets ? e.perSet : null;
   const needsPlan = !!rows || e.rir != null || e.rpe != null;
   const out: ExerciseDetail = { ...base, tempo: e.tempo };
@@ -590,6 +700,8 @@ export type ImportOriginExercise = {
   written: string; exerciseId: string; sets: number | null; reps: string | null; weightKg: number | null; perSet: ImportSetValue[] | null;
   restSec: number | null; rir: number | null; rpe: number | null; tempo: string | null; technique: string | null;
   unknown: ImportField[]; completed: ImportField[]; suggested: ImportField[];
+  /** Ejercicios por tiempo: la actividad leída del documento (cinta, bici, remo…). */
+  activity?: ActivityDetail | null;
 };
 export type ImportOrigin = { kind: "import"; opId: string; day: number; at: string; source: "sheet" | "text" | "ai"; file: "text" | "sheet" | "image" | "pdf"; dayName: string; exercises: ImportOriginExercise[] };
 export const IMPORT_SOURCES = ["sheet", "text", "ai"] as const;

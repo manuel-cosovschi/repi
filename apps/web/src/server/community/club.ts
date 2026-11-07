@@ -3,7 +3,7 @@
 // El ranking usa sólo sesiones del programa institucional del gym y asistencia: nunca la relación con un coach privado.
 import { and, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { createHash, randomUUID } from "node:crypto";
-import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, fileOk, hasLink, liftRanking, localDate, parseReps, rowFlags, volumeKg, type ExerciseDetail } from "@repi/domain";
+import { CLUB_AUTOHIDE_REPORTS, CLUB_COMMENT_MAX, CLUB_POST_MAX, CLUB_RATE, classifyAge, clubName, clubRanking, epley1rm, fileOk, hasLink, isTimedRow, liftRanking, localDate, rowFlags, volumeKg, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
@@ -11,6 +11,10 @@ import { minorWithoutGuardian } from "../access/services";
 import { putObject } from "../storage";
 
 const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise, programExercise, mediaObject } = schema;
+/** Sólo la actividad del detalle (cinta, bici…): alcanza para `isTimedRow` sin traer el plan entero de cada serie. */
+const peActivity = sql<unknown>`${programExercise.detail}->'activity'`;
+/** DATA-6 y ejercicios por tiempo: en una fila por tiempo o de una actividad, `reps` son segundos (sin 1RM ni marcas de kilos). */
+const timedTarget = (x: { target: string | null; act: unknown }) => x.target != null && isTimedRow({ reps: x.target, detail: { activity: x.act } });
 
 async function activeMember(userId: string, orgId: string) {
   const [m] = await db.select().from(gymMember).where(and(eq(gymMember.userId, userId), eq(gymMember.orgId, orgId), eq(gymMember.status, "active")));
@@ -124,14 +128,14 @@ const cleanText = (t: string, max: number) => {
 // la serie más pesada. Se publica una instantánea elegida; el historial completo nunca se expone.
 type Point = { d: string; kg: number; reps: number; e1rm: number | null };
 async function evolution(gymMemberId: string, exerciseId: string, limit = 8): Promise<Point[]> {
-  const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps }).from(setLog)
+  const rows = await db.select({ sid: workoutSession.id, at: workoutSession.startedAt, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps, act: peActivity }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(eq(workoutSession.gymMemberId, gymMemberId), eq(setLog.exerciseId, exerciseId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt)))
     .orderBy(desc(workoutSession.startedAt)).limit(400);
   const best = new Map<string, Point>();
   for (const r of rows) {
     const kg = r.w == null ? 0 : Number(r.w), reps = r.r ?? 0;
-    const timed = r.target != null && parseReps(r.target).kind === "time"; // DATA-6: segundos, sin 1RM estimado
+    const timed = timedTarget(r); // DATA-6: segundos, sin 1RM estimado
     const cur = best.get(r.sid);
     if (!cur || kg > cur.kg || (kg === cur.kg && reps > cur.reps)) best.set(r.sid, { d: localDate(r.at), kg, reps, e1rm: timed ? null : epley1rm(kg, reps) });
   }
@@ -233,13 +237,13 @@ export async function createClubPost(userId: string, orgId: string, p: { text?: 
  * programa institucional, con el 1RM estimado. Los 8 de mayor 1RM. Series por tiempo no cuentan (DATA-6).
  */
 export async function maxesOf(gymMemberId: string, limit = 8) {
-  const rows = await db.select({ ex: setLog.exerciseId, name: exercise.name, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
+  const rows = await db.select({ ex: setLog.exerciseId, name: exercise.name, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps, act: peActivity }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).innerJoin(exercise, eq(exercise.id, setLog.exerciseId))
     .leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(eq(workoutSession.gymMemberId, gymMemberId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt)));
   const best = new Map<string, { exercise: string; kg: number; reps: number; e1rm: number; at: Date }>();
   for (const x of rows) {
-    if (x.w == null || x.r == null || x.r < 1 || (x.target != null && parseReps(x.target).kind === "time")) continue;
+    if (x.w == null || x.r == null || x.r < 1 || timedTarget(x)) continue;
     const kg = Number(x.w);
     if (kg <= 0) continue;
     const cur = best.get(x.ex);
@@ -410,14 +414,14 @@ export async function rankingMembers(orgId: string, now = new Date()) {
 /** Mejor 1RM estimado por ejercicio y socio en los últimos 90 días (y la mejor hasta hace 7 días), D144. También para D168. */
 export async function liftBests(gms: string[], now = new Date()) {
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
-  const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps }).from(setLog)
+  const sets = await db.select({ gm: workoutSession.gymMemberId, ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, at: setLog.completedAt, target: programExercise.reps, act: peActivity }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(inArray(workoutSession.gymMemberId, gms), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), gte(setLog.completedAt, new Date(now.getTime() - 90 * 86_400_000))));
   // Mejor marca por ejercicio y persona, y la mejor hasta hace una semana.
   const best = new Map<string, Map<string, { best: number; before: number | null }>>();
   for (const x of sets) {
     // QA 29/10 (DATA-6): en una serie por tiempo `reps` son segundos; 140 kg × 10 s no es un 1RM de 187 kg en la TV.
-    const e = x.w == null || x.r == null || (x.target != null && parseReps(x.target).kind === "time") ? null : epley1rm(Number(x.w), x.r);
+    const e = x.w == null || x.r == null || timedTarget(x) ? null : epley1rm(Number(x.w), x.r);
     if (e == null || !x.gm) continue;
     const per = best.get(x.ex) ?? new Map(); best.set(x.ex, per);
     const cur = per.get(x.gm) ?? { best: 0, before: null };

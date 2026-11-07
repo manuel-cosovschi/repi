@@ -262,3 +262,85 @@ describe("SI2 · emparejar con la biblioteca", () => {
     expect(rankExerciseCandidates("Zercher carry", lib)).toEqual([]);
   });
 });
+
+describe("SI2 · cardio: ejercicios por tiempo", () => {
+  const act = (line: string) => { const e = ex(line); return { written: e.written, sets: e.sets, reps: e.reps, weightKg: e.weightKg, activity: e.activity ?? null }; };
+  it("«Cinta 10 min vel 5 incl 3»: duración, velocidad e inclinación; ningún número se toma como carga", () => {
+    expect(act("Cinta 10 min vel 5 incl 3")).toEqual({ written: "Cinta", sets: 1, reps: "10 min", weightKg: null, activity: { profile: "treadmill", speedKmh: 5, incline: 3 } });
+    expect(act("Cinta caminadora 10' vel 5 incl 3%")).toEqual({ written: "Cinta caminadora", sets: 1, reps: "10 min", weightKg: null, activity: { profile: "treadmill", speedKmh: 5, incline: 3 } });
+    // Con «vel» o «incl» antes de la duración, el nombre se corta igual.
+    expect(act("Cinta incl 3 vel 5 10 min")).toEqual({ written: "Cinta", sets: 1, reps: "10 min", weightKg: null, activity: { profile: "treadmill", speedKmh: 5, incline: 3 } });
+    expect(act("Cinta 10 min")).toEqual({ written: "Cinta", sets: 1, reps: "10 min", weightKg: null, activity: { profile: "treadmill" } });
+  });
+  it("«km/h» es velocidad, no distancia: «5 km/h» nunca queda como «5 km»", () => {
+    expect(act("Cinta 30 min 5 km/h")).toEqual({ written: "Cinta", sets: 1, reps: "30 min", weightKg: null, activity: { profile: "treadmill", speedKmh: 5 } });
+    expect(act("Caminata 30 min a 5,5 km/h")).toEqual({ written: "Caminata", sets: 1, reps: "30 min", weightKg: null, activity: { profile: "treadmill", speedKmh: 5.5 } });
+    expect(act("Trote 20 min 9 kmh")).toEqual({ written: "Trote", sets: 1, reps: "20 min", weightKg: null, activity: { profile: "treadmill", speedKmh: 9 } });
+    expect(ex("Caminata 30 min a 5,5 km/h").note).toBeNull();
+  });
+  it("«Remo 500 m»: remo ergómetro por distancia (500 metros, no 500 minutos)", () => {
+    expect(act("Remo 500 m")).toEqual({ written: "Remo", sets: 1, reps: "500 m", weightKg: null, activity: { profile: "rower", distanceM: 500 } });
+    expect(act("Remo 4x500 m")).toEqual({ written: "Remo", sets: 4, reps: "500 m", weightKg: null, activity: { profile: "rower", distanceM: 500 } });
+    expect(act("Remo ergómetro 10 min ritmo 2:05 nivel 5")).toEqual({ written: "Remo ergómetro", sets: 1, reps: "10 min", weightKg: null, activity: { profile: "rower", pace500Sec: 125, level: 5 } });
+    // «Remo con barra» sigue siendo de espalda.
+    expect(act("Remo con barra 4x10 50kg")).toEqual({ written: "Remo con barra", sets: 4, reps: "10", weightKg: 50, activity: null });
+  });
+  it("bici, elíptico, escaladora y sólo duración con sus campos", () => {
+    expect(act("Bici 20 min nivel 8")).toEqual({ written: "Bici", sets: 1, reps: "20 min", weightKg: null, activity: { profile: "bike", level: 8 } });
+    expect(act("Bici fija 30 min 90 rpm").activity).toEqual({ profile: "bike", cadenceRpm: 90 });
+    expect(act("Bici 20 min cadencia 100").activity).toEqual({ profile: "bike", cadenceRpm: 100 }); // no es un tempo «1-0-0»
+    expect(act("Elíptico 15 min nivel 6 incl 4").activity).toEqual({ profile: "elliptical", level: 6, incline: 4 });
+    expect(act("Escaladora 10 min nivel 7").activity).toEqual({ profile: "stair", level: 7 });
+    expect(act("Soga 5 min").activity).toEqual({ profile: "duration" });
+  });
+  it("lo que no es de la actividad o está fuera de rango queda en la nota, marcado", () => {
+    const fast = ex("Cinta 10 min vel 30");
+    expect(fast.activity).toEqual({ profile: "treadmill" });
+    expect(fast.note).toBe("30 km/h");
+    expect(fast.issues).toContainEqual({ field: "line", kind: "unclear", text: "La velocidad va de 0,5 a 25 km/h." });
+    expect(ex("Cinta 10 min con chaleco 5 kg")).toMatchObject({ weightKg: null, note: "con chaleco 5 kg", activity: { profile: "treadmill" } });
+    expect(ex("Bici 20 min 25 km/h")).toMatchObject({ note: "25 km/h", activity: { profile: "bike" } });
+  });
+  it("sin una duración (ni distancia en el remo) queda como antes y se pide revisar", () => {
+    const e = ex("Cinta 2 km");
+    expect([e.reps, e.activity]).toEqual(["2 km", null]);
+    expect(e.issues).toContainEqual({ field: "reps", kind: "unclear", text: "Indicá la duración en minutos (por ejemplo, 10 min)." });
+  });
+  it("la musculación y el aguante no cambian", () => {
+    expect(act("Plancha 3x30s")).toEqual({ written: "Plancha", sets: 3, reps: "30 s", weightKg: null, activity: null });
+    expect(act("Press incl 4x10 60kg")).toEqual({ written: "Press incl", sets: 4, reps: "10", weightKg: 60, activity: null });
+    expect(act("Press banca 4x10 vel. explosiva 60kg")).toMatchObject({ written: "Press banca", sets: 4, reps: "10", weightKg: 60, activity: null });
+  });
+  it("continuación en el renglón de abajo y planillas con notas", () => {
+    const [c, p] = flat("Día 1\nCinta\n10 min vel 5 incl 3\nPress banca 4x10 60kg");
+    expect([c.written, c.sets, c.reps, c.activity]).toEqual(["Cinta", 1, "10 min", { profile: "treadmill", speedKmh: 5, incline: 3 }]);
+    expect([p.written, p.activity ?? null]).toEqual(["Press banca", null]);
+    const sheet = parseRoutineSheet("Ejercicio,Series,Reps,Notas\nCinta caminadora,1,10 min,vel 5 incl 3\nPress banca,4,10,")!.variants[0].days[0].exercises;
+    expect(sheet.map((e) => [e.written, e.sets, e.reps, e.activity ?? null, e.note])).toEqual([["Cinta caminadora", 1, "10 min", { profile: "treadmill", speedKmh: 5, incline: 3 }, null], ["Press banca", 4, "10", null, null]]);
+  });
+  it("lo transcripto por la IA: la velocidad de la nota no es una carga", () => {
+    const base: AiExercise = { name: "Cinta", group: "", section: "", sets: 1, reps: "10 min", set_reps: [], set_weights: [], weight: 5, unit: null, rest_sec: null, rir: null, rpe: null, tempo: null, technique: "", note: "vel 5 incl 3", unclear: [], source: "Cinta 10 min vel 5 incl 3" };
+    const e = fromAiExercise(base);
+    expect([e.sets, e.reps, e.weightKg, e.activity]).toEqual([1, "10 min", null, { profile: "treadmill", speedKmh: 5, incline: 3 }]);
+    expect(e.note).toBe("5 kg");
+    expect(fromAiExercise({ ...base, name: "Press banca", reps: "10", note: "", weight: 60 }).activity ?? null).toBeNull();
+  });
+  it("al guardar: la actividad queda en el detalle; si lo revisado ya no es una duración, se guarda como antes", () => {
+    const b = { sets: 1, weightKg: null, perSet: null, rir: null, rpe: null, tempo: null };
+    expect(importedDetail({ ...b, reps: "10 min", activity: { profile: "treadmill", speedKmh: 5, incline: 3 } })).toEqual({ technique: "straight", setPlan: null, group: null, groupKind: null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null, activity: { profile: "treadmill", speedKmh: 5, incline: 3 } });
+    expect(importedDetail({ ...b, reps: "500 m", activity: { profile: "rower" } })?.activity).toEqual({ profile: "rower", distanceM: 500 });
+    expect(importedDetail({ ...b, reps: "10-12", activity: { profile: "treadmill", speedKmh: 5 } })).toBeNull();
+  });
+  it("la búsqueda por nombre reconoce los sinónimos del catálogo", () => {
+    const lib = EXERCISE_CATALOG.map(([n], i) => ({ id: `e${i}`, name: n }));
+    const m = makeExerciseMatcher(lib);
+    expect(m("Cinta caminadora")?.name).toBe("Cinta (caminata)");
+    expect(m("Caminadora")?.name).toBe("Cinta (caminata)");
+    expect(m("Treadmill")?.name).toBe("Cinta (caminata)");
+    expect(m("Cinta para correr")?.name).toBe("Cinta (trote)");
+    expect(m("Spinning")?.name).toBe("Bicicleta fija");
+    expect(m("Remo indoor")?.name).toBe("Remo ergómetro");
+    expect(m("Elíptica")?.name).toBe("Elíptico");
+    expect(m("Cinta")).toBeNull(); // sigue siendo ambiguo
+  });
+});

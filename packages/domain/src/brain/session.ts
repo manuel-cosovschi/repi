@@ -8,6 +8,7 @@ import { epley1rm, fmtSeconds, parseReps } from "../training";
 import { GUARD_TEXT, type GuardCode } from "../load-safety";
 import type { ExerciseDetail, SetKind } from "../prescription";
 import { normalizePlan } from "../stages";
+import { isActivityProfile, profileOf } from "../activity";
 import { fmtArDate } from "./quiet";
 import { fmtKg, listEs, norm, numEs } from "./util";
 
@@ -461,6 +462,8 @@ export function rankAlternatives(current: AltCurrent, options: AltOption[], ctx:
   const scored = options.map((o, i) => {
     if (o.exerciseId === current.exerciseId || exclude.has(o.exerciseId)) return null;
     if (o.kind && current.kind && o.kind !== current.kind) return null;
+    // Ejercicios por tiempo: una actividad (cinta, bici, remo…) sólo por otra actividad; nunca una actividad por musculación.
+    if (isActivityProfile(profileOf(o)) !== isActivityProfile(profileOf(current))) return null;
     if (matches(o, avoid) || matches(o, restricted)) return null;
     if (o.equipment && unavailable.has(norm(o.equipment))) return null;
     if (sameEquipBlocked && o.equipment && current.equipment && norm(o.equipment) === norm(current.equipment)) return null;

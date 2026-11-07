@@ -108,3 +108,50 @@ describe("combinar desde la fila del editor (pedido de sala, 07/11/2026)", () =>
     expect(separateFromGroup([ex("Press")], 0)).toEqual([ex("Press")]);
   });
 });
+
+describe("ejercicios por tiempo · detail.activity", () => {
+  it("validateDetail conserva y normaliza la actividad, y la cuenta para no dejar el detalle vacío", () => {
+    const r = validateDetail({ ...emptyDetail(), activity: { profile: "treadmill", speedKmh: 5, incline: 3, level: 4 } } as ExerciseDetail, 1, "10 min");
+    expect(r).toMatchObject({ ok: true, sets: 1 });
+    expect(r.ok && r.detail?.activity).toEqual({ profile: "treadmill", speedKmh: 5, incline: 3 });
+    // Sólo la actividad (sin velocidad ni inclinación) ya no es un detalle vacío.
+    const only = validateDetail({ activity: { profile: "duration" } } as ExerciseDetail, 1, "5 min");
+    expect(only.ok && only.detail?.activity).toEqual({ profile: "duration" });
+  });
+  it("una actividad no lleva plan por serie, técnica, tempo, EMOM, saltos de carga ni «unilateral»", () => {
+    const r = validateDetail({ ...emptyDetail(), technique: "emom", emomSec: 60, tempo: "3-1-1-0", unilateral: true, variant: "en subida",
+      setPlan: [{ kind: "work", reps: "10", weightKg: 40, pct1rm: null, rir: 2, rpe: null, restSec: null, note: null }], load: { equipment: "dumbbell", incrementKg: 2 },
+      group: "A", groupKind: "circuit", rounds: 3, activity: { profile: "bike", level: 8 } } as ExerciseDetail, 3, "3 min");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.sets).toBe(3);
+    expect(r.detail).toEqual({ technique: "straight", setPlan: null, group: "A", groupKind: "circuit", rounds: 3, tempo: null, variant: "en subida", unilateral: false, progression: null, activity: { profile: "bike", level: 8 } });
+  });
+  it("errores claros de la actividad y de la duración", () => {
+    expect(validateDetail({ activity: { profile: "treadmill", speedKmh: 40 } } as ExerciseDetail, 1, "10 min")).toEqual({ ok: false, error: "La velocidad va de 0,5 a 25 km/h." });
+    expect(validateDetail({ activity: { profile: "treadmill" } } as ExerciseDetail, 1, "10-12")).toEqual({ ok: false, error: "Indicá la duración en minutos (por ejemplo, 10 min)." });
+    expect(validateDetail({ activity: { profile: "otra" } } as unknown as ExerciseDetail, 1, "10 min")).toMatchObject({ ok: false });
+  });
+  it("sin actividad, el detalle sigue igual que antes", () => {
+    expect(validateDetail({ ...emptyDetail() }, 3)).toEqual({ ok: true, detail: null, sets: 3 });
+    expect(validateDetail({ ...emptyDetail(), tempo: "3-1-1-0" }, 3)).toMatchObject({ ok: true, detail: { tempo: "3-1-1-0" } });
+    expect(validateDetail({ ...emptyDetail(), activity: null }, 3)).toEqual({ ok: true, detail: null, sets: 3 });
+  });
+  it("validateProgramDoc guarda la cinta con su actividad, sin RIR; los programas anteriores no cambian", () => {
+    const v = validateProgramDoc({ name: "P", weeks: 4, note: "", days: [{ name: "Día 1", exercises: [
+      { exerciseId: "c", name: "Cinta (caminata)", sets: 1, reps: "10 min", rir: 2, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "treadmill", speedKmh: 5, incline: 3 } } },
+      { exerciseId: "p", name: "Plancha", sets: 3, reps: "40 s", rir: null, restSec: 60 },
+      { exerciseId: "b", name: "Press de banca", sets: 3, reps: "8-10", rir: 2, restSec: 120 },
+    ] }] });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    const [c, p, b] = v.doc.days[0].exercises;
+    expect(c).toEqual({ exerciseId: "c", name: "Cinta (caminata)", sets: 1, reps: "10 min", rir: null, restSec: 0, note: null, detail: { ...emptyDetail(), activity: { profile: "treadmill", speedKmh: 5, incline: 3 } } });
+    expect(p).toEqual({ exerciseId: "p", name: "Plancha", sets: 3, reps: "40 s", rir: null, restSec: 60, note: null });
+    expect(b).toEqual({ exerciseId: "b", name: "Press de banca", sets: 3, reps: "8-10", rir: 2, restSec: 120, note: null });
+    const bad = validateProgramDoc({ name: "P", weeks: 4, note: "", days: [{ name: "Día 1", exercises: [{ exerciseId: "c", name: "Cinta", sets: 1, reps: "5 h", rir: null, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "treadmill" } } }] }] });
+    expect(bad).toEqual({ ok: false, error: "Día 1 · Cinta: Indicá la duración en minutos (por ejemplo, 10 min)." });
+    const long = validateProgramDoc({ name: "P", weeks: 4, note: "", days: [{ name: "Día 1", exercises: [{ exerciseId: "c", name: "Cinta", sets: 1, reps: "300 min", rir: null, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "treadmill" } } }] }] });
+    expect(long).toEqual({ ok: false, error: "Día 1 · Cinta: La duración va de 1 segundo a 4 horas." });
+  });
+});
