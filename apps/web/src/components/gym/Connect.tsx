@@ -77,6 +77,8 @@ export function ConnectQueueScreen({ shell }: { shell: Shell }) {
   const b = useLoad<Board>(`/api/gym/${shell.orgId}/connect/board?loc=${loc}`);
   const [tab, setTab] = useState<"me" | "pending" | "follow" | "team" | "closed">("me");
   const [open, setOpen] = useState<string | null>(shell.sel);
+  // M06: la pantalla queda viva; si se vuelve a ella con un pedido elegido (sel), se abre ese pedido.
+  useEffect(() => { if (shell.sel) setOpen(shell.sel); }, [shell.sel]);
   const { busy, run } = useAct(shell.flash);
   const reload = () => { b.reload(); shell.refreshBadges(); };
   useEffect(() => { const t = setInterval(() => { if (!document.hidden && !open) b.reload(); }, 30_000); return () => clearInterval(t); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -165,7 +167,7 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
             {t.brief ? <BriefBlock brief={t.brief} /> : t.summary !== `${t.label}${t.exercise ? ` · ${t.exercise}` : ""}` && <p style={{ margin: 0 }}>«{t.summary}»</p>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {programs && <button type="button" className="btn sm pri" onClick={() => setEditing(true)}>{t.program ? "Editar programa" : "Crear programa"}</button>}
-              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("member", { sel: t.gymMemberId })}>Abrir ficha del socio</button>}
+              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => { const id = t.gymMemberId!; onClose(changed); shell.openMember(id, { name: t.member }); }}>Abrir ficha del socio</button>}
             </div>
           </section>
           {t.context && (

@@ -17,7 +17,8 @@ export type EditableDoc = { name: string; weeks: number; note: string; days: Doc
 export type ProgramFull = { id: string; kind: "template" | "client_copy"; forClient: string | null; clients: string[]; version: number; locked: boolean; doc: EditableDoc };
 export type TemplateRow = { id: string; name: string; weeks: number; version: number; days: number; clients: number };
 export type LibEx = { id: string; name: string; group: string; kind: string; own: boolean };
-export type Screen = "dash" | "clients" | "agenda" | "builder" | "videos" | "msgs" | "inbox" | "pay" | "terms" | "guide" | "repinews";
+// "client": ficha de un cliente como página propia (fuera del menú, M06 / pedido del titular del 07/11/2026).
+export type Screen = "dash" | "clients" | "client" | "agenda" | "builder" | "videos" | "msgs" | "inbox" | "pay" | "terms" | "guide" | "repinews";
 
 export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 export const fmtDate = (iso: string | null | undefined, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) =>

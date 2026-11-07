@@ -84,6 +84,14 @@ html:has(.co), body:has(.co) { background: var(--ui-sidebar-bg); }
 
 /* Clientes: split view */
 .split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+/* Clientes del coach (pedido del titular, 07/11/2026): cuando la lista y la ficha no entran lado a lado, la ficha se abre como
+   página propia («Volver a Clientes») en vez de quedar debajo de toda la lista. */
+.co-clients { container-type: inline-size; }
+.co-clients .co-list-back { display: none; align-self: flex-start; align-items: center; gap: 6px; }
+@container (max-width: 835px) {
+  .co-clients[data-sel="0"] > .detail-pane, .co-clients[data-sel="1"] > .list-pane { display: none; }
+  .co-clients .co-list-back { display: inline-flex; }
+}
 .list-pane { flex: 1 1 300px; max-width: 100%; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .detail-pane { flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .search { display: flex; align-items: center; gap: 8px; height: 42px; border: 1px solid var(--ui-control-border); border-radius: 10px; padding: 0 12px; background: var(--ui-input-bg); color: var(--ui-text); }

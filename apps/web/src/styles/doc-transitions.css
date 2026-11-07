@@ -1,0 +1,15 @@
+/* M06 · Entre documentos (S9, docs/MOTION_NAVEGACION.md): /app ↔ /app/informe, /cuenta, /ayuda, /instalar, /acceso,
+   /demo y los escritorios Coach, Gym y Admin se funden con View Transitions entre documentos donde el navegador las tenga
+   (Chrome 126+, Safari 18.2+). Mejora progresiva: sin soporte, la carga queda como siempre. Sólo lo importan las páginas
+   de las apps (ambos documentos tienen que optar); el sitio público y /conoce no cambian.
+   Interruptor: si el iPhone del titular muestra parpadeos con iOS 26 (WebKit 299091, degradés y desenfoque), se borra este
+   archivo o su bloque @view-transition. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: 120ms var(--ease-in) both vt-out; }
+::view-transition-new(root) { animation: 180ms var(--ease-out) both vt-in; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

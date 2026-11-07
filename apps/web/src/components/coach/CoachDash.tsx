@@ -5,8 +5,9 @@ import { TodayAgenda } from "./CoachAgenda";
 
 const greet = () => { const h = Number(new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "numeric", hour12: false }).format(new Date())); return h < 13 ? "Buen día" : h < 20 ? "Buenas tardes" : "Buenas noches"; };
 
-export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
+export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go, openClient }: {
   orgId: string; ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
+  openClient?: (relId: string) => void;
 }) {
   const today = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const k = ov.kpis;
@@ -18,7 +19,7 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
   ];
   const todos = [
     ...ov.clients.filter((c) => c.status === "active" && !c.program).map((c) => ({ t: `${c.name} no tiene programa`, d: "Asignale uno para que lo vea en su app", dot: "var(--ui-accent)", cta: "Asignar programa", go: () => go("builder") })),
-    ...ov.clients.filter((c) => c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => go("clients", { sel: c.id }) })),
+    ...ov.clients.filter((c) => c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => (openClient ? openClient(c.id) : go("clients", { sel: c.id })) })),
     ...(k.pendingInvites ? [{ t: `${k.pendingInvites} ${k.pendingInvites === 1 ? "invitación pendiente" : "invitaciones pendientes"}`, d: "Esperando que la persona acepte en su app", dot: "var(--ui-accent-2)", cta: "Invitar otra", go: onInvite }] : []),
   ];
   return (
