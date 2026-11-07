@@ -240,6 +240,8 @@ El objetivo actualizado del lote incluye estas cinco interacciones y la selecci�
 - Barlow (cuerpo) y Barlow Condensed 700 (títulos destacados) autoalojadas con `next/font`; Phosphor Bold con `@phosphor-icons/react` 2.1.10 (MIT), importación optimizada por ícono. Barra Cristal flotante en la app del alumno; fundido de 160 ms (token nuevo `motion.duration_ms.section_fade`) en alumno, Coach, Gym y Admin. Detalle en `docs/DESIGN_CONTRACT.md`.
 - Medido en Chrome headless (cuadros reales, 60 Hz): la opacidad del contenido pasa de 0 a 1 entre 14 y 169 ms. Cinco toques rápidos seguidos terminan en la sección correcta, con un solo panel montado y el indicador en su lugar. Con `prefers-reduced-motion: reduce` el contenido está en 1 desde el primer cuadro.
 
+- **Superado en los cambios de sección (07/11/2026):** por pedido del titular del 06/11/2026 («muy rígido, nada fluido… quiero mantener la velocidad pero que haya más fluidez, alguna animación interesante»), el fundido de 160 ms entre secciones quedó reemplazado por **M06 «Carril»** (§13; plan y mediciones en `docs/MOTION_NAVEGACION.md`). Con movimiento reducido el cambio sigue siendo inmediato. Barlow/Barlow Condensed, la cápsula «Cristal flotante» y M01–M05 no cambian.
+
 ### Utilidades compartidas
 - `apps/web/src/lib/motion.ts`: curvas y duraciones desde los tokens y `prefersReducedMotion`/`useReducedMotion`.
 - `apps/web/src/lib/confetti.ts`: partículas deterministas (semilla, mulberry32). La misma fórmula está en la composición M02.
@@ -335,3 +337,30 @@ El objetivo actualizado del lote incluye estas cinco interacciones y la selecci�
 - **RIR 5:** decidir si el registro admite RIR 5 (hoy el servidor sí y el selector no).
 - **Aprobación visual del usuario:** pendiente para G aplicada a toda la app y para M01–M05. Nada de esto se deduce de las pruebas técnicas.
 
+## 13. M06 · Carril (07/11/2026)
+
+**Pedido.** Titular, 06/11/2026, con una grabación del iPhone (PWA instalada, app del alumno): el paso entre secciones es «muy rígido, nada fluido, hasta trabado»; mantener la velocidad y sumar fluidez. Vale para alumno, Coach, Gym y Admin. Plan completo, decisiones técnicas, riesgos y mediciones antes/después: `docs/MOTION_NAVEGACION.md`. Decisión: D211.
+
+**Idea.** Cambiar de sección es cambiar de carril en la pista. El indicador sale como un sprint, lo viejo se aparta y lo nuevo entra en el sentido del viaje, y el título se revela como un corte de meta con una línea cian de 2 px (el punto del logo). Todo arranca en el toque y termina en ≤ 240 ms; sólo `transform`, `opacity` y `clip-path`; lo que entra es interactivo desde el primer cuadro; un toque nuevo corta lo que esté en curso.
+
+| Pieza | Especificación |
+|---|---|
+| Dirección | Orden de la barra o del menú. Perfil, ficha del socio, ficha sola del cliente y contrato de Admin = profundidad. Eje vertical en el escritorio staff (≥ 768 px), horizontal debajo |
+| Indicador «sprint» (barra del alumno) | 240 ms `--ease-std`, con `startTime` explícito (se mueve en el primer cuadro); estiramiento sobre `scale` (1 → 1 + 0,16·\|Δ\| máx. 1,32 × 0,9 al 40 % → 1, `ease-out`) |
+| Ícono destino | Escala .86 → 1 en 240 ms, `--ease-spring` |
+| Salida | 100 ms `--ease-in`: opacidad 1 → 0, −12 px; queda fija, inerte, `aria-hidden` y recortada al viewport |
+| Entrada | 200 ms `--ease-out` (220 en escritorio): opacidad 0 → 1, +24 px (32 en profundidad; ±12 en Y) → 0, sin retardo |
+| Corte de meta | `h1`: `clip-path` en el sentido del viaje + 8 px en 200 ms; línea `--ui-primary` de 2 px en 240 ms |
+| Formación | 4 primeros bloques visibles, 10 px·i, 180 ms, paso 20 ms |
+| Indicador deslizante | Segmentos, pestañas y menú lateral: 200 ms `--ease-std`, toma el tamaño del elegido, se redirige |
+| Revelado | Bloque opcional que llega tarde: alto 0 → real en 200 ms y opacidad en 160 ms |
+| Hojas, modales, avisos | Fondo con fundido de 200 ms; salida con copia inerte (hoja 180 ms, modal y aviso 150 ms) |
+| Entrenamiento | Entrar: sube 16 px en 240 ms. Volver: la sección sube 12 px en 200 ms |
+| Entre documentos | View Transitions: salida 120 ms, entrada 180 ms (sólo páginas de las apps; interruptor: `styles/doc-transitions.css`) |
+| Movimiento reducido | Todo inmediato (también lo que va por JS: `canAnimate()`) |
+
+**Tokens nuevos** (`motion.duration_ms`): `section_exit` 100, `section_enter` 200, `stagger` 20, `press` 90, `exit` 160.
+
+**Implementación.** `components/motion/SectionStage.tsx` (secciones vivas con `<Activity>`, scroll por sección y foco), `components/member/TabBar.tsx`, `components/motion/SlideIndicator.tsx`, `components/motion/Skeleton.tsx`, `lib/cache.ts`, `lib/ghost.ts`, `components/ui/FlashToast.tsx`, `styles/motion-nav.css`, `styles/doc-transitions.css`. Sin dependencias nuevas; `Workout.tsx` sin cambios.
+
+**Verificación** (`e2e/motion-nav.spec.ts`, Chromium 153, Pixel 7 con CPU ×4): el indicador se mueve en el primer cuadro después del toque y llega en ≤ 260 ms; ningún cuadro sin contenido; layout-shift 0 al volver y ≤ 0,001 en la primera visita; sin tareas largas al volver; cinco toques en 250 ms terminan en la última sección sin paneles trabados; foco al `h1` cuando quedaba en lo que sale; movimiento reducido sin animaciones. Escritorio Gym: el scroll se recupera al volver y el lateral no se mueve. **Pendiente:** prueba en el iPhone del titular (iOS 26, PWA), aprobación visual y el vuelo del nombre hacia la ficha del socio.

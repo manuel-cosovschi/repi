@@ -1,7 +1,27 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D209; **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-transiciones`, sin publicar; hasta D209; **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
+
+## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 07/11/2026 · EN RAMA, SIN PUBLICAR (D211)
+
+- **Pedidos del titular:** 06/11 (grabación del iPhone, PWA del alumno): «muy rígido, nada fluido, hasta trabado… es rápido y quiero mantenerlo, pero más fluidez, alguna animación interesante» (todas las apps). 07/11: «Abrir ficha socio» desde Sala debe abrir sólo la ficha, no el listado.
+- **Rama:** `claude/app-transiciones` (worktree `/home/user/repi-tx`, sobre `main` `218cd53`, que ya traía la pantalla «member» de #70). **Sin push, sin PR, sin despliegue.** Plan, decisiones, riesgos y mediciones: `docs/MOTION_NAVEGACION.md`; especificación: `motion.md` §13; contrato: `docs/DESIGN_CONTRACT.md`.
+- **Hecho:**
+  - **Escenario de secciones** (`components/motion/SectionStage.tsx`): secciones vivas con `<Activity>` (LRU 6), salida fija e inerte de 100 ms, entrada de 200 ms en el sentido del viaje (vertical en el escritorio staff), corte de meta en el `h1`, formación, scroll por sección antes de pintar, foco al `h1` si se perdía (staff: siempre), reinicio por relación o sede, entrada «volver» del entrenamiento.
+  - **Alumno:** `TabBar.tsx` (indicador «sprint» que se mueve en el primer cuadro, arranque del ícono, FLIP al aparecer Gym, vuelta arriba, lectura anticipada); `MemberApp.tsx` con 5 bloques mecánicos (~36 líneas) y `Workout.tsx` sin tocar. Primera visita sin blanco ni saltos (caché + esqueletos + `Reveal`) en Tu gym, Progreso, NIVEL, Antes de REPI, rutinas propias, Desafíos, Nudges, Deseos, En sala ahora, Mensajes, chat, Mi cuerpo y Fotos.
+  - **Compartido:** `lib/cache.ts` (memoria, stale-while-revalidate), `lib/ghost.ts` (salidas de hojas, modales y avisos), `components/motion/Skeleton.tsx`, `components/motion/SlideIndicator.tsx` (segmentos, pestañas y menú lateral), `components/ui/FlashToast.tsx`, `styles/motion-nav.css`, tokens nuevos (`section_exit`, `section_enter`, `stagger`, `press`, `exit`).
+  - **Staff:** Gym, Coach y Admin con el escenario; `useLoad` sobre la caché (con `keep` en Socios, Performance Center y Agenda); avisos y novedades como máximo cada 30 s; armazón en esqueleto en la primera carga; esqueletos en ficha, ficha del cliente, contrato y lista de mensajes; cajón con fundido de salida.
+  - **Ficha sola:** Gym `openMember` (título = nombre desde el primer cuadro, `pushState`, «atrás» del sistema y «Volver a …», recarga con `from`, modal del pedido se cierra antes). Coach: pantalla «client» (`?s=client&c=…&from=…`) desde Solicitudes, Panel, Cobros y Mensajes; en Clientes angosto, tocar abre la ficha como página.
+  - **Entre documentos:** `styles/doc-transitions.css` (View Transitions, sólo páginas de las apps; borrar el archivo es el interruptor).
+- **Pruebas** (servidor propio `next start -p 3104`, `repi_dev`, demos; nunca vitest):
+  - `pnpm typecheck` ✓ (ojo: `pnpm -s typecheck` oculta errores), `pnpm build` ✓, `tsx --test tests/theme/theme-tokens.check.ts` ✓.
+  - `e2e/motion-nav.spec.ts` nueva: alumno (recorrido con CPU ×4, cinco toques, foco, movimiento reducido, ids, hojas) y escritorio Gym ✓. Indicador en el primer cuadro, 0 cuadros vacíos, layout-shift 0 al volver y ≤ 0,001 en la primera visita, sin tareas largas al volver.
+  - `e2e/gym-member-page.spec.ts` ampliada (foco, 390×844, atrás, Mi turno, Coach «Ver ficha») ✓.
+  - Suites existentes: ver la tabla de resultados en `docs/MOTION_NAVEGACION.md` §17 y el cierre de esta sesión.
+- **No hecho / pendiente:** vuelo FLIP del nombre hacia la ficha; videos antes/después y prueba en el iPhone del titular (iOS 26, PWA; lista en §16 del documento); PR. Fase 2 en `MemberApp.tsx` después de fusionar AC3 (§14).
+- **Rebase pendiente:** mientras se trabajaba, `main` avanzó a `ef22c73` (AC3 #75, que tomó D210, y «Nuevo mensaje» en Sala #74). `git merge-tree` marca conflictos en 10 archivos: `AdminApp`, `CoachApp`, `CoachClients`, `CoachDash`, `GymApp`, `Members`, `MemberApp`, `Messages` (alumno), `OwnRoutines` y `ProgressTraining`. Esta rama es la segunda en fusionarse: hace el rebase y vuelve a correr `motion-nav`, `gym-member-page` y las suites de alumno y staff. La decisión quedó como D211.
+- **Próxima acción:** revisar con el titular (videos y su iPhone) y, con su aprobación, abrir el PR.
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 
