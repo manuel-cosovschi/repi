@@ -25,7 +25,7 @@ Presentación comercial pública para quien escanea el QR de la remera (ATICMA A
 - **Nuevo material:** sumar una clave en `QR_CAMPAIGNS` (destino + UTM) e imprimir `repiclub.com/qr/<clave>`. Así cada pieza se mide por separado.
 - El escaneo lo cuenta el servidor (funciona aunque el teléfono bloquee scripts). Más de 30 por minuto desde una IP siguen redirigiendo pero no se cuentan.
 
-Para el QR impreso: generar el código de `https://repiclub.com/qr` con corrección de errores M o Q (la librería `uqr` del kit de difusión sirve). Probar con iPhone y Android a la distancia real antes de la tirada.
+QR impreso listo en `marketing/qr-remera/` (SVG y PNG, corrección Q, verificado). Probar con iPhone y Android en la tela real antes de la tirada.
 
 ## 3. Estructura de la página
 
@@ -36,6 +36,7 @@ Para el QR impreso: generar el código de `https://repiclub.com/qr` con correcci
    - CTA contextual (formulario preseleccionado o reunión) y WhatsApp con mensaje precompletado.
    Al elegir un perfil, la URL cambia a `/conoce/<perfil>` para compartirla.
 3. **Inteligencia que se explica:** cómo funciona Training Intelligence en cuatro pasos y un **simulador con el motor real** (`recommendExercise` + `adjustAfterSet` de `@repi/domain`). Al lado, la IA generativa real (borradores de programa, «No vino el profe», lectura de historiales y asistente del dueño), con sus límites.
+3b. **Mirá cómo funciona:** grabaciones reales de la app (sin audio, con subtítulos). Cargan sólo al tocar «Reproducir». La sección aparece sólo si hay videos con archivo.
 4. **No te lo contamos. Probalo.:** las 4 demos guiadas reales (`POST /api/demo`). Cada tarjeta dice qué se ve, para quién es y cuántos pasos tiene.
 5. **Lo que REPI ya hace:** 12 funciones con estado («Disponible», «se activa por gimnasio», «primera etapa»), captura real y «Verla en la demo». En el teléfono, carrusel horizontal.
 6. **Caso real:** Smart Center Gym, sin cifras ni testimonios.
@@ -121,7 +122,7 @@ Formulario:
 
 ## 8. Pendiente
 
-- **Videos:** ninguno real existe todavía. El único archivo audiovisual del repositorio es la animación del logo (M01–M05), no un video de producto. Guiones en [VIDEOS_PENDIENTES.md](VIDEOS_PENDIENTES.md).
+- **Videos:** hay cuatro grabaciones reales de la demo (Training Intelligence, deportistas, entrenadores y gimnasios), en la sección «Mirá cómo funciona», en cada perfil y en la tarjeta de Training Intelligence. Falta el de aliados/inversores y, más adelante, versiones con locución. Ver [VIDEOS_PENDIENTES.md](VIDEOS_PENDIENTES.md).
 - **Logo de Smart Center Gym:** existe `marketing/kit-gimnasios/assets/smart-center-gym.svg`, pero no hay autorización documentada para usarlo en la presentación de REPI. Por eso se muestra sólo el nombre. Si el gimnasio autoriza, sumar el logo (y, si lo dan, un testimonio real).
-- **QR impreso:** generar el código final de `repiclub.com/qr` cuando se diseñe la remera (fuera de este bloque).
+- **QR impreso:** listo en `marketing/qr-remera/`. SVG vectorial y PNG en navy sobre blanco y en blanco sobre navy, corrección Q, verificados con jsQR. Probar en la tela real antes de la tirada.
 - **Aviso de nuevos contactos por email:** hoy se ven en REPI Admin (con contador). Un aviso por correo sería un cambio aparte.

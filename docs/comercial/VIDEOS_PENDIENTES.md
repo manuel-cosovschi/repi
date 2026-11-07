@@ -1,8 +1,23 @@
-# Videos pendientes del Experience Hub (D205)
+# Videos del Experience Hub (D205): hechos y pendientes
 
-En el repositorio no hay videos de producto. El único archivo es `documentacion/motion/previews/REPI_motion_M01-M05_60fps.mp4`, que es la animación del logo y las transiciones (motion M01–M05). Puede servir de apertura o cierre de estos videos, pero no los reemplaza.
+## Ya publicados en /conoce (07/11/2026)
 
-La página ya está preparada: cada video tiene su lugar en `VIDEOS` (`apps/web/src/content/conoce.ts`). Al completar `src`, aparece con «Reproducir» en lugar de la captura.
+Grabaciones reales de la demo guiada local (datos ficticios, la app tal cual), en vertical 720×1558, sin audio, con subtítulos y títulos en pantalla (Barlow / Barlow Condensed). H.264, `faststart`, menos de 1,5 MB cada uno. Póster WebP. Están en `apps/web/public/conoce/videos/`.
+
+| Id | Duración | Qué muestra |
+| --- | --- | --- |
+| `f-intelligence` | 0:33 | Press de banca: «Tu profe indicó», «REPI recomienda 53 kg × 8», «¿Por qué?». La serie sale en 5 repeticiones y el objetivo siguiente baja a 50 kg × 8–10 con su explicación |
+| `perfil-deportistas` | 0:42 | Inicio, entrenamiento con registro y descanso, evolución por ejercicio y objetivo de peso privado |
+| `perfil-entrenadores` | 0:34 | Panel, clientes, ficha y rendimiento de Valentina, programas versionados y mensajes |
+| `perfil-gimnasios` | 0:50 | Ejecutivo, alta de Camila por QR (método de validación y aprobación), comunidad y la sala: «Quiero que venga un entrenador» → «Voy» |
+
+**Regenerarlos:** build local + `next start` sobre `repi_dev`. El guion de grabación (Playwright + screencast de Chrome + ffmpeg) quedó en el checkpoint de PROXIMA_SESION. Si cambia la interfaz, regrabar para que el video siga siendo fiel.
+
+## Pendientes
+
+Antes del 07/11 no había videos de producto. El único archivo era `documentacion/motion/previews/REPI_motion_M01-M05_60fps.mp4`, que es la animación del logo y las transiciones (motion M01–M05). Puede servir de apertura o cierre de estos videos, pero no los reemplaza.
+
+Para cambiar o sumar uno: `VIDEOS` en `apps/web/src/content/conoce.ts`. Al completar `src`, aparece con «Reproducir» en lugar de la captura. Con voz, sumar `captions` (.vtt). Las versiones de abajo con locución, música y animación son una segunda etapa; las grabaciones de arriba ya cubren los perfiles de gimnasio, entrenador y deportista, y Training Intelligence. **Falta el de aliados/inversores (4)**, que necesita una pieza narrativa (no alcanza con la grabación de la app).
 
 ## Cómo producirlos
 

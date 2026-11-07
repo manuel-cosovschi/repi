@@ -8,7 +8,7 @@ import type { Video } from "@/content/conoce";
 import type { Profile } from "@/lib/site-events";
 import { track } from "@/lib/site-track";
 
-export function Media({ video, shot, alt, profile, phone = true }: { video?: Video | null; shot: string; alt: string; profile?: Profile | null; phone?: boolean }) {
+export function Media({ video, shot, alt, profile, phone = true, compact = false }: { video?: Video | null; shot: string; alt: string; profile?: Profile | null; phone?: boolean; compact?: boolean }) {
   const [playing, setPlaying] = useState(false);
   const marks = useRef(new Set<number>());
   const ref = useRef<HTMLVideoElement>(null);
@@ -35,7 +35,7 @@ export function Media({ video, shot, alt, profile, phone = true }: { video?: Vid
     for (const m of [25, 50, 75]) if (pct >= m && !marks.current.has(m)) { marks.current.add(m); track("video_progress", { profile, target: `${v.id}-${m}` }); }
   };
   return (
-    <figure className={`cn-video${v.vertical ? " vertical" : ""}`}>
+    <figure className={`cn-video${v.vertical ? " vertical" : ""}${compact ? " compact" : ""}${playing ? " playing" : ""}`}>
       {playing ? (
         <video ref={ref} controls playsInline preload="none" poster={v.poster ?? shot} onTimeUpdate={onTime} onEnded={() => track("video_complete", { profile, target: v.id })} aria-label={v.title}>
           <source src={v.src!} type={v.src!.endsWith(".webm") ? "video/webm" : "video/mp4"} />
@@ -49,7 +49,7 @@ export function Media({ video, shot, alt, profile, phone = true }: { video?: Vid
           {v.duration && <span className="cn-dur">{v.duration}</span>}
         </button>
       )}
-      <figcaption>{v.title}</figcaption>
+      <figcaption>{v.title}{v.duration ? ` · ${v.duration}` : ""} · sin audio, con subtítulos</figcaption>
     </figure>
   );
 }

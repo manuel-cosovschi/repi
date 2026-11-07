@@ -180,6 +180,17 @@
 .cn-play { position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--core-cyan); color: var(--core-navy900); box-shadow: 0 10px 30px rgba(0, 0, 0, .4); }
 .cn-dur { position: absolute; right: 10px; bottom: 10px; padding: 3px 8px; border-radius: 8px; background: rgba(0, 0, 0, .7); color: #fff; font: 500 12px var(--font-mono); }
 .cn-video figcaption { margin-top: 8px; font-size: 13px; color: var(--dark-muted); }
+.cn-light .cn-video figcaption, .cn-panel .cn-video figcaption { color: var(--ui-muted); }
+.cn-video.vertical figcaption { text-align: center; }
+/* En tarjetas de funciones: póster recortado a lo ancho; al reproducir, el video vertical entero. */
+.cn-video.compact .cn-video-poster { aspect-ratio: 16 / 10; max-width: none; border-radius: 0; }
+.cn-video.compact.playing video { aspect-ratio: auto; max-height: 75vh; width: auto; max-width: 100%; margin: 0 auto; border-radius: 0; }
+.cn-video.compact figcaption { padding: 0 20px; }
+.cn-video.compact.playing { background: #000; }
+.cn-videos-sec { padding-top: 8px; border-top: 0; }
+.cn-video-row { display: flex; gap: 14px; margin-top: 24px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
+.cn-video-item { flex: 0 0 min(72vw, 260px); scroll-snap-align: start; }
+@media (min-width: 1040px) { .cn-video-row { overflow: visible; } .cn-video-item { flex: 1 1 0; } }
 
 /* Caso real e implementación */
 .cn-case { display: grid; gap: 14px; }

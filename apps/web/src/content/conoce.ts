@@ -14,12 +14,15 @@ export type Video = {
   duration: string | null; vertical?: boolean;
 };
 export const VIDEOS: Record<string, Video> = {
-  "perfil-gimnasios": { id: "perfil-gimnasios", title: "REPI para gimnasios", audience: "Dueños y gerencia", src: null, poster: null, captions: null, duration: null },
-  "perfil-entrenadores": { id: "perfil-entrenadores", title: "REPI para entrenadores personales", audience: "Personal trainers", src: null, poster: null, captions: null, duration: null },
-  "perfil-deportistas": { id: "perfil-deportistas", title: "REPI para alumnos y deportistas", audience: "Quien entrena", src: null, poster: null, captions: null, duration: null },
+  // Grabaciones reales de la demo guiada (datos ficticios) con subtítulos en pantalla; sin audio. Ver VIDEOS_PENDIENTES.md.
+  "perfil-gimnasios": { id: "perfil-gimnasios", title: "REPI para gimnasios", audience: "Dueños y gerencia", src: "/conoce/videos/perfil-gimnasios.mp4", poster: "/conoce/videos/perfil-gimnasios.webp", captions: null, duration: "0:50", vertical: true },
+  "perfil-entrenadores": { id: "perfil-entrenadores", title: "REPI para entrenadores personales", audience: "Personal trainers", src: "/conoce/videos/perfil-entrenadores.mp4", poster: "/conoce/videos/perfil-entrenadores.webp", captions: null, duration: "0:34", vertical: true },
+  "perfil-deportistas": { id: "perfil-deportistas", title: "REPI para alumnos y deportistas", audience: "Quien entrena", src: "/conoce/videos/perfil-deportistas.mp4", poster: "/conoce/videos/perfil-deportistas.webp", captions: null, duration: "0:42", vertical: true },
   "perfil-aliados": { id: "perfil-aliados", title: "REPI, empresa de tecnología deportiva", audience: "Empresas, inversores y aliados", src: null, poster: null, captions: null, duration: null },
-  "f-intelligence": { id: "f-intelligence", title: "Training Intelligence en una serie", audience: "Todos", src: null, poster: null, captions: null, duration: null },
+  "f-intelligence": { id: "f-intelligence", title: "Training Intelligence en una serie", audience: "Todos", src: "/conoce/videos/f-intelligence.mp4", poster: "/conoce/videos/f-intelligence.webp", captions: null, duration: "0:33", vertical: true },
 };
+/** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
+export const VIDEO_ORDER = ["f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados"];
 
 // ── Demos reales (POST /api/demo) ───────────────────────────────────────────
 // Los pasos salen del recorrido guiado real (components/demo/DemoTour.tsx). Entorno ficticio propio por visita, se borra a las 6 h.

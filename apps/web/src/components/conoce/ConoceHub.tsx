@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Brain, ChatCircle, CheckCircle, EnvelopeSimple, Lightning, MapPin, Sparkle, Target } from "@phosphor-icons/react/dist/ssr";
 import { Wordmark } from "@/components/access/Wordmark";
 import { SiteFooter } from "@/components/site/PublicSite";
-import { DEMOS, FAQ, FEATURES, STATUS_LABEL, STEPS, VIDEOS } from "@/content/conoce";
+import { DEMOS, FAQ, FEATURES, STATUS_LABEL, STEPS, VIDEOS, VIDEO_ORDER } from "@/content/conoce";
 import { CONTACT } from "@/lib/contact";
 import type { Profile } from "@/lib/site-events";
 import { ContactForm } from "./ContactForm";
@@ -27,7 +27,7 @@ export function ConoceHub({ profile }: { profile: Profile | null }) {
         <div className="st-wrap">
           <Link href="/conoce" aria-label="REPI, presentación"><Wordmark width={72} /></Link>
           <nav className="st-nav" aria-label="Secciones">
-            <a href="#perfiles">Para quién</a><a href="#inteligencia">Inteligencia</a><a href="#demos">Demos</a><a href="#funciones">Funciones</a><a href="#preguntas">Preguntas</a>
+            <a href="#perfiles">Para quién</a><a href="#inteligencia">Inteligencia</a><a href="#videos">Videos</a><a href="#demos">Demos</a><a href="#funciones">Funciones</a><a href="#preguntas">Preguntas</a>
           </nav>
           <div className="st-head-cta">
             <Link className="st-btn ghost cn-hide-sm" href="/acceso">Ingresar</Link>
@@ -90,6 +90,21 @@ export function ConoceHub({ profile }: { profile: Profile | null }) {
           </div>
         </section>
 
+        {/* 3b · Centro audiovisual: sólo videos que existen (grabaciones reales de la demo) */}
+        {VIDEO_ORDER.some((k) => VIDEOS[k]?.src) && (
+          <section id="videos" className="cn-sec cn-videos-sec" aria-labelledby="cn-videos">
+            <div className="st-wrap">
+              <h2 id="cn-videos">Mirá cómo funciona.</h2>
+              <p className="cn-sub dark">Grabaciones reales de la app con datos de ejemplo. Se reproducen sólo si las tocás.</p>
+              <div className="cn-video-row" role="list">
+                {VIDEO_ORDER.filter((k) => VIDEOS[k]?.src).map((k) => (
+                  <div key={k} role="listitem" className="cn-video-item"><Media video={VIDEOS[k]} shot={VIDEOS[k].poster ?? ""} alt="" /></div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* 4 · Demos reales */}
         <section id="demos" className="cn-sec cn-light" aria-labelledby="cn-demos">
           <div className="st-wrap">
@@ -125,7 +140,7 @@ export function ConoceHub({ profile }: { profile: Profile | null }) {
             <div className="cn-features" role="region" aria-label="Funciones de REPI" tabIndex={0}>
               {FEATURES.map((f) => (
                 <article key={f.id} id={`f-${f.id}`} className="cn-feature" aria-labelledby={`cn-f-${f.id}`}>
-                  <Media video={f.video ? VIDEOS[f.video] : null} shot={f.shot} alt={f.shotAlt} phone={false} />
+                  <Media video={f.video ? VIDEOS[f.video] : null} shot={f.shot} alt={f.shotAlt} phone={false} compact />
                   <div className="cn-feature-body">
                     <span className={`cn-chip ${f.status}`}>{STATUS_LABEL[f.status]}</span>
                     <h3 id={`cn-f-${f.id}`}>{f.title}</h3>
