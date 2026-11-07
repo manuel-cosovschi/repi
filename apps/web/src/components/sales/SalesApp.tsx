@@ -21,6 +21,15 @@ const NAV: [Screen, string][] = [["home", "Inicio"], ["pipeline", "Prospectos"],
   ["payouts", "Liquidaciones"], ["targets", "Objetivos"], ["materials", "Material de ventas"], ["notices", "Avisos"], ["profile", "Mi perfil"]];
 const MONEY_ONLY: Screen[] = ["commissions", "payouts", "notices", "profile", "clients", "home"];
 export const money = (m: number | null | undefined, c: string = "ARS") => (m == null ? "—" : fmtMoney(m, c as Currency));
+/** «7 nov 2026» desde una fecha ISO (AAAA-MM-DD), sin corrimiento por zona horaria. */
+export const dayTxt = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" }) : iso;
+/** Condiciones del plan en una línea, omitiendo las que no aplican (sin retención, sin mínimo, sin tope). */
+export const planTerms = (r: CommissionRules) => [
+  r.holdDays ? `se libera para liquidar ${r.holdDays} ${r.holdDays === 1 ? "día" : "días"} después de devengarse` : "se libera para liquidar apenas se devenga",
+  r.minPayoutMinor ? `mínimo de liquidación ${money(r.minPayoutMinor, r.currency)}` : null,
+  r.capPerDealMinor ? `tope por venta ${money(r.capPerDealMinor, r.currency)}` : null,
+  r.notes || null,
+].filter(Boolean).join(" · ");
 export const curMap = (o: Record<string, number> | null | undefined) => { const e = Object.entries(o ?? {}).filter(([, v]) => v); return e.length ? e.map(([c, v]) => money(v, c)).join(" · ") : "—"; };
 const today = () => localDate(new Date());
 const newKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}${Math.random()}`).replace(/[^A-Za-z0-9]/g, "").slice(0, 40);
@@ -628,9 +637,9 @@ function Commissions() {
   return (
     <>
       <Head kicker="Derecho económico (devengada) ≠ disponible para liquidar ≠ pagada. Cada comisión dice de qué cliente, período y concepto viene." title="Comisiones" />
-      {plan && <section className="card"><h2>Tu plan: {plan.name} v{plan.version} <small className="muted">desde {plan.effectiveFrom}</small></h2>
+      {plan && <section className="card"><h2>Tu plan: {plan.name} v{plan.version} <small className="muted">desde el {dayTxt(plan.effectiveFrom)}</small></h2>
         <ul className="sv-timeline">{plan.rules.components.map((c, i) => <li key={i}>{describeComponent(c, (m) => money(m, plan.rules.currency))}</li>)}</ul>
-        <p className="sv-note">Retención: {plan.rules.holdDays} días · mínimo de liquidación {money(plan.rules.minPayoutMinor, plan.rules.currency)}{plan.rules.capPerDealMinor ? ` · tope por venta ${money(plan.rules.capPerDealMinor, plan.rules.currency)}` : ""}{plan.rules.notes ? ` · ${plan.rules.notes}` : ""}</p></section>}
+        <p className="sv-note">{planTerms(plan.rules)[0].toUpperCase() + planTerms(plan.rules).slice(1)}.</p></section>}
       {prof.data && !plan && <p className="gy-warn" style={{ margin: 0 }}>Todavía no tenés un plan de comisiones asignado. REPI lo define según tu acuerdo comercial.</p>}
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
       {!v ? <p className="muted">Cargando…</p> : <>
@@ -668,7 +677,7 @@ function Payouts({ focus }: { focus?: string }) {
       <Head kicker="Liquidaciones internas de tus comisiones y los pagos que registró REPI. No son facturas ni comprobantes fiscales." title="Liquidaciones" />
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
       {!d.data ? <p className="muted">Cargando…</p> : !d.data.batches.length ? <div className="empty">Todavía no hay liquidaciones.</div> : d.data.batches.map((b) => (
-        <div key={b.id} className="sv-row"><span className="main"><b>Corte al {b.cutoffOn}</b><small>Pagado {money(b.paidMinor, b.currency)} de {money(b.totalMinor, b.currency)}</small></span>
+        <div key={b.id} className="sv-row"><span className="main"><b>Corte al {dayTxt(b.cutoffOn)}</b><small>Pagado {money(b.paidMinor, b.currency)} de {money(b.totalMinor, b.currency)}</small></span>
           <span className="sv-money">{money(b.totalMinor, b.currency)}</span><span className={`chip ${BATCH_ST[b.status]?.[1] ?? "mute"}`}>{BATCH_ST[b.status]?.[0] ?? b.status}</span>
           <button type="button" className="btn sm" onClick={() => setOpen(b.id)}>Ver</button></div>
       ))}

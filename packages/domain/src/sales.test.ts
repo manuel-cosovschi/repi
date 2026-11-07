@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyBps, canMoveStage, dealPreview, desiredEntries, diffLedger, duplicateSignals, entryState, nextPayoutDate, payoutCutoff,
-  repCapabilities, splitAmount, tierBonusFor, validateRules, validateSplit, type CommissionRules, type DealForCommission,
+  bracketFor, describeBrackets, repCapabilities, splitAmount, tierBonusFor, validateRules, validateSplit, type CommissionRules, type DealForCommission,
 } from "./sales";
 
 const rules = (over: Partial<CommissionRules> = {}): CommissionRules => ({
@@ -158,5 +158,48 @@ describe("libro inmutable", () => {
     expect(entryState({ amountMinor: 1, availableOn: "2026-01-01", reversed: false, payoutStatus: null, isReversal: false }, "2026-01-15")).toBe("available");
     expect(entryState({ amountMinor: 1, availableOn: "2026-01-01", reversed: false, payoutStatus: "approved", isReversal: false }, "2026-01-15")).toBe("in_payout");
     expect(entryState({ amountMinor: 1, availableOn: "2026-01-01", reversed: true, payoutStatus: "paid", isReversal: false }, "2026-01-15")).toBe("paid");
+  });
+});
+
+describe("comisión del primer mes según socios", () => {
+  const brackets = [{ minMembers: 50, bps: 3500 }, { minMembers: 300, bps: 5000 }, { minMembers: 400, bps: 6500 }];
+  const r = rules({ components: [{ type: "first_month_by_members", brackets }] });
+  it("elige el tramo por cantidad de socios, con los bordes en el tramo superior", () => {
+    expect(bracketFor(brackets, 49)).toBeNull();
+    expect(bracketFor(brackets, 50)?.bps).toBe(3500);
+    expect(bracketFor(brackets, 299)?.bps).toBe(3500);
+    expect(bracketFor(brackets, 300)?.bps).toBe(5000);
+    expect(bracketFor(brackets, 399)?.bps).toBe(5000);
+    expect(bracketFor(brackets, 400)?.bps).toBe(6500);
+    expect(bracketFor(brackets, 5000)?.bps).toBe(6500);
+    expect(describeBrackets(brackets)).toBe("50 a 299 socios → 35 % · 300 a 399 socios → 50 % · 400 o más socios → 65 %");
+  });
+  it("valida tramos crecientes y porcentajes", () => {
+    expect(validateRules(r)).toEqual([]);
+    expect(validateRules(rules({ components: [{ type: "first_month_by_members", brackets: [{ minMembers: 300, bps: 5000 }, { minMembers: 50, bps: 3500 }] }] }))).toHaveLength(1);
+    expect(validateRules(rules({ components: [{ type: "first_month_by_members", brackets: [{ minMembers: 50, bps: 0 }] }] }))).toHaveLength(1);
+    expect(validateRules(rules({ components: [{ type: "first_month_by_members", brackets: [] }] }))).toHaveLength(1);
+  });
+  it("devenga sólo sobre el primer cobro registrado, con el % del tramo", () => {
+    expect(desiredEntries(r, deal({ members: 450 }), [], {}, "2026-03-01").entries).toEqual([]);
+    const { entries } = desiredEntries(r, deal({ members: 450 }), [pay("p1", 90000_00, "2026-01-10"), pay("p2", 90000_00, "2026-02-10")], {}, "2026-03-01");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ sourceId: "p1", baseMinor: 90000_00, rateBps: 6500, amountMinor: 58500_00 });
+    const mid = desiredEntries(r, deal({ members: 350 }), [pay("p1", 70000_00, "2026-01-10")], {}, "2026-03-01").entries;
+    expect(mid[0].amountMinor).toBe(35000_00);
+  });
+  it("con cobro trimestral toma la parte de un mes", () => {
+    const { entries } = desiredEntries(r, deal({ members: 400, periodicityMonths: 3 }), [pay("p1", 240000_00, "2026-01-10")], {}, "2026-03-01");
+    expect(entries[0]).toMatchObject({ baseMinor: 80000_00, amountMinor: 52000_00 });
+  });
+  it("por debajo del primer tramo no comisiona y lo explica", () => {
+    const res = desiredEntries(r, deal({ members: 40 }), [pay("p1", 8000_00, "2026-01-10")], {}, "2026-03-01");
+    expect(res.entries).toEqual([]);
+    expect(res.excluded[0].reason).toMatch(/40 socios/);
+  });
+  it("anular el primer cobro mueve la comisión al siguiente cobro válido", () => {
+    const { entries } = desiredEntries(r, deal({ members: 300 }), [pay("p1", 60000_00, "2026-01-10", "voided"), pay("p2", 60000_00, "2026-01-12")], {}, "2026-03-01");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ sourceId: "p2", amountMinor: 30000_00 });
   });
 });

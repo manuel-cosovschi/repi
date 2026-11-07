@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D209; **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
 ## Adaptive Coaching 3.0 (D210) — 07/11/2026 · LISTO PARA PUBLICAR (renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
@@ -30,6 +30,33 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
   - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
 - **Próximo:** PR → CI → «Respaldo» → `hosted-0051.sql` en producción → merge → deploy → verificación con cuentas demo → §10 del contrato y esta sección.
+
+
+## Sala: combinar, guía de demo, ficha del socio y editor a la par del coach — 07/11/2026 · PUBLICADO Y VERIFICADO (#68–#71)
+
+- **#68 · Combinar ejercicios** (pedido urgente de un entrenador de sala, «hacelo ya… y lanzalo»):
+  - «Combinar con el siguiente» y «Separar» en la fila de cada ejercicio, en el editor de sala y en el constructor del coach. Antes la opción estaba escondida dentro de «Series y técnica».
+  - La lógica está en el dominio (`combineWithNext`, `separateFromGroup`, `combinedWithNext` en `packages/domain/src/prescription.ts`).
+  - «Editar programa» espera la versión nueva después de guardar.
+  - Producción: demo de sala, A1/A2 guardado y reabierto, sin errores.
+- **#69 · Guía de demo:** `DemoTour` (layout raíz) se muestra sólo en `/app`, `/coach` y `/gym`. Antes la píldora «Demo · Guía · Otro perfil» quedaba flotando en /conoce y /demo durante las 6 h de la sesión de demo.
+  - Producción: antes 1 píldora en cada página; después 0.
+  - E2E: `demo-tour-scope.spec.ts`.
+- **#70 · Ficha del socio como página:** pantalla nueva `member` (`?s=member&sel=…`, `MemberPage` en `components/gym/Members.tsx`).
+  - Sala, Mi turno y Tus pendientes abren sólo la ficha, con el nombre como título, «Volver a Sala» y «Todos los socios».
+  - En «Socios», por debajo de 836 px se ve la lista o la ficha, una por vez (container query sobre `.gy-members`).
+  - Producción: escritorio y teléfono, sin lista y con el programa a la vista, sin errores.
+  - E2E: `gym-member-page.spec.ts`.
+- **#71 · Editor de sala a la par del coach** (pedido: «tiene que aparecer ahí también… revisá todo»). La revisión función por función mostró que ya estaban las piezas de Urko: series y técnica, reemplazos, notas, carga sugerida, copiar/pegar días, asistente, importar y TI. Faltaba:
+  - borrador local por socio y revisión: cerrar con ×, Escape o tocando afuera ya no pierde lo armado; «Descartar cambios»; «Cancelar» pregunta antes;
+  - subir ejercicio ↑ y quitar día;
+  - «Indicación para el socio»;
+  - aviso de circuito con «Igualar a N vueltas»;
+  - filas numeradas 01, 02…
+  - E2E: `gym-editor-parity.spec.ts`.
+- **Pruebas locales del conjunto** (servidor de producción local, demos ficticias): 21 E2E en verde y 1 omitida (sólo corre en teléfono). Archivos: gym-editor-parity, gym-member-page, demo-tour-scope, combine-exercises, connect-program y coach-workflow.
+- **Pendiente conocido, no relacionado:** `e2e/mobile-layout.spec.ts` «alumno: importa una rutina con métodos escritos» falla en local (no encuentra «Método: … Drop set» en «Revisá tu rutina»). La E2E no corre en CI; revisar contra SI2.
+- **Sin migraciones.**
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 
@@ -140,7 +167,6 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
 - **Próximo bloque:** REPI — Adaptive Coaching 3.0. El punto de integración es `own_routine.origin` junto con las sesiones y la versión vigente (ver `docs/SMART_IMPORT_2.md`, «Preparación para Adaptive Coaching 3.0»).
 
 
-> **Rama `claude/tender-cerf-0cm7r9` (PR #63, borrador):** REPI Sales Force & Commission OS (D209, migración 0050 `sales_force`, sin aplicar) y dossier comercial para gimnasios. Rebasada sobre `main` 8cb0794 (D207/D208 y 0049 ya eran de Smart Import 2.0). Publicar requiere aprobación del titular: Respaldo → `hosted-0050.sql` → merge → smoke. Detalle en `docs/comercial/SALES_FORCE.md`.
 
 
 
@@ -157,7 +183,13 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
 - **No verificado:** `repiclub.com` no es accesible desde este contenedor; el destino del QR se verificó contra la ruta publicada (D205) y en la build local (200).
 - **Pendiente del titular:** aprobar el material antes de enviarlo; confirmar si los importes ilustrativos pueden circular así.
 
-## REPI Sales Force & Commission OS 1.0 (D209) — 07/11/2026 · EN REVISIÓN, SIN PUBLICAR
+## REPI Sales Force & Commission OS 1.0 (D209) — 07/11/2026 · PUBLICADO (#63, 2b5e69f)
+
+- **Publicado (con aprobación del titular):**
+  - Respaldo `backup-20261107-130358-42375065427` (#67) verde.
+  - 0050 aplicada con `hosted-0050.sql`: 51 migraciones; las 19 tablas con RLS y dueño `repi_app`; `commercial_lead.referral_code` y trigger de inmutabilidad presentes; `postgres` sigue sin SET ni herencia sobre `repi_app`; `repi_backup` lee las tablas nuevas.
+  - CI verde y merge #63 (squash) → `2b5e69f`; `/api/version` en producción = `2b5e69f1dce3`.
+- **Smoke de producción (sin datos):** `/ventas/activar/<token>` sirve la activación de vendedor; `/api/ventas/*` y `/api/admin/sales/*` sin sesión responden 401. No se crearon vendedores ni datos de prueba en producción. El recorrido completo con sesión de Admin (crear e invitar) queda para el titular: Admin › Vendedores › «Nuevo vendedor».
 
 - **Pedido:** master prompt del titular «REPI Sales Force & Commission OS 1.0»: vendedores en todo el país con panel propio, CRM, registro de ventas, comisiones y liquidaciones, todo administrado desde REPI Admin y sobre los clientes y contratos reales.
 - **Rama:** `claude/tender-cerf-0cm7r9`, rebasada sobre `main` `8cb0794`. Detalle completo en `docs/comercial/SALES_FORCE.md`; decisión D209 en `docs/DECISIONS.md`.
@@ -170,7 +202,7 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   - `commercial/services.ts`: `createClientTx`, `addTermTx`, `publishTermNotice`; sincroniza comisiones al habilitar o suspender; no borra clientes con venta aprobada o comisiones; `createLead` guarda `referralCode` sólo de vendedores activos.
   - `commercial/payments.ts`: sincroniza comisiones al registrar o anular un pago.
   - `access/services.ts` (espacio «REPI Ventas»), `api/access/sign-up` (flujo `seller`), `AccessFlow.tsx` (activación de vendedor), `AdminApp.tsx` (dos entradas y «Pasar a ventas» en Contactos), `admin/page.tsx` (parámetros de aviso), `ContactForm.tsx` (`?ref=`).
-- **Migración 0050 (aditiva, NO aplicada en producción):**
+- **Migración 0050 (aditiva, aplicada en producción el 07/11):**
   - 19 tablas nuevas, `commercial_lead.referral_code` y trigger de inmutabilidad de `commission_entry`.
   - `apps/web/scripts/operations/hosted-0050.sql` y `scripts/rollback/0050_sales_force.down.sql`.
   - Ensayo en base descartable local: huella igual a `migrate.ts`, RLS en las 19 tablas, dueño `repi_app`, reintento falla entero, reversión que se niega con datos, revertir y reaplicar.
@@ -182,7 +214,8 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   - Navegador (build local + `repi_dev`, iPhone 13 y escritorio 1366): recorrido completo Admin ↔ vendedor sin errores de consola ni 5xx; accesos a Admin y a recursos ajenos 404 y auditados; sin scroll horizontal. El script quedó fuera del repo (usa `psql` sobre `repi_dev`).
 - **Corregido en el camino:** abrir un modal desde la URL (`?deal=`, `?rep=`, `?p=`, `?b=`) rompía el render del servidor (`Modal` usa `document`): ahora se abre tras montar.
 - **Decisiones pendientes del titular:** planes reales y moneda; regla de renegociación con otro vendedor (hoy el cobro va a la última venta aprobada vigente); visibilidad del responsable comercial sobre su equipo; evidencia como archivo y PDF del servidor; IA comercial (no implementada).
-- **Primera acción al retomar:** revisar el PR de esta rama; con aprobación del titular, respaldo → `hosted-0050.sql` → merge → smoke.
+- **Ajuste 07/11 (pedido del titular tras probar en producción):** el selector de plan de la ficha estaba vacío porque no había planes, y el modelo pedido no existía. Se agregó la comisión «primer mes según socios» con tramos editables y el alta rápida «Crear y asignar» en la ficha. En el editor de planes se agregaron «Guardar y aprobar» y la opción de ocultar los archivados; en el teléfono, la lista de vendedores pasa a tarjetas y las fechas se muestran legibles. Recorrido completo en iPhone (oscuro) de Admin y vendedor sin errores ni scroll horizontal. Detalle en `docs/comercial/SALES_FORCE.md`.
+- **Primera acción al retomar:** acompañar el alta del primer vendedor real (Admin › Vendedores) y cargar el primer plan de comisiones cuando el titular defina montos; revisar el buzón de envíos si la invitación no llega.
 
 ## Pedido de programa con preferencias (D206) — 07/11/2026 · PUBLICADO Y VERIFICADO (#58, 297a936)
 

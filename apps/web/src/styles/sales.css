@@ -56,3 +56,24 @@
 @media print {
   .sv-print-hide { display: none !important; }
 }
+/* Tramos por cantidad de socios (Admin › ficha del vendedor y editor de planes) */
+.sv-quick, .sv-brackets { display: grid; gap: 12px; min-width: 0; }
+.sv-bracket { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; gap: 10px; align-items: start; min-width: 0; }
+.sv-bracket .field { min-width: 0; margin: 0; }
+.sv-bracket-to { display: block; font-size: 12px; color: var(--ui-muted); margin-top: 4px; font-weight: 400; min-height: 16px; }
+.sv-bracket-x { align-self: start; margin-top: 26px; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--ui-border); background: transparent; color: var(--ui-text); font-size: 20px; line-height: 1; cursor: pointer; }
+.sv-bracket-x:disabled { opacity: .35; cursor: default; }
+.sv-bracket-ex { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: var(--ui-surface-2); min-width: 0; }
+/* Admin › Vendedores: en el teléfono cada vendedor es una tarjeta (sin columnas cortadas). */
+@media (max-width: 640px) {
+  .sv-reps-table thead { display: none; }
+  .sv-reps-table, .sv-reps-table tbody { display: block; }
+  .sv-reps-table tr { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 10px; padding: 14px 12px; border-bottom: 1px solid var(--ui-border); align-items: start; }
+  .sv-reps-table td, .sv-reps-table th { display: block; padding: 0; border: 0; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+  .sv-reps-table td:first-child { grid-row: 1 / span 6; padding-top: 2px; }
+  .sv-reps-table th[scope="row"] { grid-column: 2; }
+  .sv-reps-table td:nth-child(3) { grid-column: 3; grid-row: 1; }
+  .sv-reps-table td[data-label] { grid-column: 2 / span 2; font-size: 13px; color: var(--ui-muted); }
+  .sv-reps-table td[data-label]::before { content: attr(data-label) ": "; }
+  .sv-reps-table td:last-child { grid-column: 2 / span 2; margin-top: 6px; }
+}
