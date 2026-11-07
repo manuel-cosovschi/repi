@@ -165,7 +165,7 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
             {t.brief ? <BriefBlock brief={t.brief} /> : t.summary !== `${t.label}${t.exercise ? ` · ${t.exercise}` : ""}` && <p style={{ margin: 0 }}>«{t.summary}»</p>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {programs && <button type="button" className="btn sm pri" onClick={() => setEditing(true)}>{t.program ? "Editar programa" : "Crear programa"}</button>}
-              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir ficha del socio</button>}
+              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("member", { sel: t.gymMemberId })}>Abrir ficha del socio</button>}
             </div>
           </section>
           {t.context && (

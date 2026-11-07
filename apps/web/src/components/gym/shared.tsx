@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import type { BriefViewData } from "@/components/shared/BriefBlock";
 
 export type GymScreen =
-  | "shift" | "queue" | "members" | "handoff" | "msgs" | "perf"
+  | "shift" | "queue" | "members" | "member" | "handoff" | "msgs" | "perf"
   | "mdash" | "pc" | "staff" | "tasks" | "reviews" | "shifts" | "engage" | "community" | "validations"
   | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence" | "videos" | "equipment" | "repinews";
 

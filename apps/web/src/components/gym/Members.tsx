@@ -14,9 +14,9 @@ import { ApprovedSubs, subsLabel, subsRow, useSubsPanel, useSubstitutions } from
 import { LoadSuggestion, useLastTimes } from "@/components/coach/LoadSuggestion";
 import { featureOn } from "@/lib/features";
 import { NewTaskModal, TaskCard } from "./Floor";
-import { Bars, Head, fmt, initials, useAct, useLoad, when, type Shell, type Task } from "./shared";
+import { Bars, Head, fmt, initials, useAct, useLoad, when, type GymScreen, type Shell, type Task } from "./shared";
 import { Ic } from "@/components/ui/Ic";
-import { Lock, MagnifyingGlass } from "@phosphor-icons/react";
+import { ArrowLeft, Lock, MagnifyingGlass } from "@phosphor-icons/react";
 import { IntInput } from "@/components/ui/IntInput";
 import { ProgramAssistant, type BriefPrefill } from "@/components/coach/ProgramAssistant";
 import { ProgramImportModal } from "@/components/coach/ProgramImportModal";
@@ -45,13 +45,13 @@ export function MembersScreen({ shell }: { shell: Shell }) {
     <>
       <Head kicker={`${shell.ctx.org.name}${list.data ? ` · ${list.data.location.name}` : ""}`} title="Socios" />
       {list.err && <p role="alert" className="err-box">{list.err}</p>}
-      <div className="split">
+      <div className="split gy-members" data-sel={shell.sel ? "1" : "0"}>
         <div className="list-pane">
           <label className="search"><Ic i={MagnifyingGlass} size={16} color="var(--ui-muted)" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar socio" aria-label="Buscar socio" /></label>
           {/* QA 29/10 (DATA-10): la lista trae hasta 200; con más, se avisa y se busca por nombre. */}
           {(list.data?.members.length ?? 0) >= 200 && <span className="muted" role="status" style={{ padding: "8px 12px", fontSize: 13 }}>Se muestran los primeros 200 en orden alfabético. Buscá por nombre para encontrar al resto.</span>}
           {list.data?.members.map((m) => (
-            <button key={m.id} type="button" className="crow" aria-current={m.id === current} onClick={() => shell.setSel(m.id)}>
+            <button key={m.id} type="button" className="crow" aria-current={m.id === current} onClick={() => { shell.setSel(m.id); window.scrollTo(0, 0); }}>
               <span className="av36">{initials(m.name)}</span>
               <span><b>{m.name}</b><small className="muted">{m.program ? m.program.name : "Sin programa"} · {m.visits30} {m.visits30 === 1 ? "sesión" : "sesiones"} en 30 días</small></span>
               <span className={`chip ${m.status.tone}`}>{m.status.label}</span>
@@ -60,13 +60,30 @@ export function MembersScreen({ shell }: { shell: Shell }) {
           {list.data && !list.data.members.length && <span className="muted" style={{ padding: 20, textAlign: "center", fontSize: 14 }}>{qq ? "Sin resultados." : "Todavía no hay socios activos en REPI en esta sede."}</span>}
           {!!list.data?.awaiting.length && <span className="muted" style={{ padding: "8px 12px", fontSize: 13 }}>Aprobados, falta que confirmen en su app qué comparten: {list.data.awaiting.join(", ")}. Aparecen acá al confirmar.</span>}
         </div>
-        <div className="detail-pane">{current ? <MemberDetail key={current} shell={shell} id={current} loc={loc!} onChanged={list.reload} /> : list.data && <div className="empty">Elegí un socio.</div>}</div>
+        <div className="detail-pane">
+          <button type="button" className="btn sm gy-list-back" onClick={() => shell.setSel(null)}><Ic i={ArrowLeft} size={16} /> Todos los socios</button>
+          {current ? <MemberDetail key={current} shell={shell} id={current} loc={loc!} onChanged={list.reload} /> : list.data && <div className="empty">Elegí un socio.</div>}</div>
       </div>
     </>
   );
 }
 
-function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string; loc: string; onChanged: () => void }) {
+/** Ficha de un socio como página propia: desde Sala, Mi turno o la lista en el teléfono (pedido del titular, 07/11/2026). */
+export function MemberPage({ shell, back }: { shell: Shell; back: { to: GymScreen; label: string } | null }) {
+  const loc = shell.loc ?? shell.ctx.locations[0]?.id;
+  const id = shell.sel;
+  return (
+    <>
+      <nav className="gy-back" aria-label="Volver">
+        {back && <button type="button" className="btn sm" onClick={() => shell.go(back.to)}><Ic i={ArrowLeft} size={16} /> Volver a {back.label}</button>}
+        <button type="button" className={back ? "btn sm gy-ghost" : "btn sm"} onClick={() => shell.go("members")}>{back ? "Todos los socios" : <><Ic i={ArrowLeft} size={16} /> Todos los socios</>}</button>
+      </nav>
+      {id && loc ? <MemberDetail key={id} shell={shell} id={id} loc={loc} onChanged={() => {}} page /> : <><Head title="Ficha del socio" /><div className="empty">Elegí un socio desde «Socios».</div></>}
+    </>
+  );
+}
+
+function MemberDetail({ shell, id, loc, onChanged, page = false }: { shell: Shell; id: string; loc: string; onChanged: () => void; page?: boolean }) {
   const d = useLoad<Detail>(`/api/gym/${shell.orgId}/members/${id}`);
   const [noteKind, setNoteKind] = useState<"institutional" | "personal">("institutional");
   const [draft, setDraft] = useState("");
@@ -75,8 +92,10 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   const [refreshing, setRefreshing] = useState(false);
   const [task, setTask] = useState(false);
   const { busy, run } = useAct(shell.flash);
-  if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
-  if (!d.data) return <p className="muted">Cargando ficha…</p>;
+  // Como página, el nombre es el título (h1): GymApp le pasa el foco al navegar.
+  const head = (title: string) => page && <Head kicker={`${shell.ctx.org.name} · Ficha del socio`} title={title} />;
+  if (d.err) return <>{head("Ficha del socio")}<p role="alert" className="err-box">{d.err}</p></>;
+  if (!d.data) return <>{head("Ficha del socio")}<p className="muted">Cargando ficha…</p></>;
   const m = d.data;
   const notes = m.notes.filter((n) => n.kind === noteKind);
   const saveNote = () => run("note", () => api(`/api/gym/${shell.orgId}/members/${id}/notes`, { body: { kind: noteKind, text: draft } }),
@@ -85,10 +104,11 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   const floor = shell.ctx.caps.includes("floor.work");
   return (
     <>
+      {head(m.name)}
       <section className="card who" style={{ flexDirection: "row" }}>
         <span className="av56">{initials(m.name)}</span>
         <div style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 22, fontWeight: 600 }}>{m.name}</span>
+          {!page && <span style={{ fontSize: 22, fontWeight: 600 }}>{m.name}</span>}
           <span className="muted" style={{ fontSize: 13 }}>Socio en REPI desde {fmt(m.since, { month: "short", year: "numeric" })} · última sesión {m.lastSessionAt ? when(m.lastSessionAt) : "—"} · {m.visits30} en 30 días</span>
         </div>
         <span className={`chip ${m.status.tone}`}>{m.status.label}</span>
