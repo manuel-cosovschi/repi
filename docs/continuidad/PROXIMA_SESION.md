@@ -1,8 +1,8 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D207; **Smart Program Import 2.0**, ver primera sección; próximo bloque: REPI — Adaptive Coaching 3.0). Antes: 07/11/2026 (hasta D206; pedido de programa con preferencias publicado, Experience Hub publicado).
+Actualizado: 07/11/2026 (hasta D207; **Smart Program Import 2.0 PUBLICADO Y VERIFICADO**, ver primera sección; próximo bloque: REPI — Adaptive Coaching 3.0). Antes: 07/11/2026 (hasta D206; pedido de programa con preferencias publicado, Experience Hub publicado).
 
-## Smart Program Import 2.0 (D207) — 07/11/2026 · EN PUBLICACIÓN
+## Smart Program Import 2.0 (D207) — 07/11/2026 · PUBLICADO Y VERIFICADO (#60, 3c2353c)
 
 - **Pedido:** máster «REPI — Smart Program Import 2.0»: importar rutinas de cualquier formato sin reescribirlas ni inventar datos, con guardado seguro, para el alumno, el coach y el gimnasio. Deja preparado Adaptive Coaching 3.0. Detalle: `docs/SMART_IMPORT_2.md`.
 - **Rama:** `claude/smart-import-2`, desde `main` `5e2c94d`.
@@ -31,10 +31,22 @@ Actualizado: 07/11/2026 (hasta D207; **Smart Program Import 2.0**, ver primera s
   - **Dominio:** 491 pruebas, entre ellas los fixtures de `packages/domain/fixtures/import/` (documentos ficticios: texto, WhatsApp, Excel de 3 hojas, foto de hoja impresa, captura de WhatsApp, PDF de 2 páginas).
   - **Web:** `tests/program-import.test.ts`, 13 pruebas de integración.
   - **QA visual con la demo local:** alumno, coach y gimnasio; corte de red simulado sin duplicar; borrador recuperable; oscuro; 320 px; axe sin violaciones.
-- **Próxima acción:**
-  - Respaldo, 0049 en producción, CI verde, merge y deploy.
-  - Smoke con cuentas demo: texto, Excel y foto con IA si la clave está configurada.
-  - Actualizar esta sección.
+- **Publicado:**
+  - Respaldo `backup-20261107-034900-42335519371` (#61) verde.
+  - 0049 aplicada con `hosted-0049.sql`: 50 migraciones; huella de las 6 rutinas reales idéntica (`dd6ab5fa…`); dueño `repi_app`; `postgres` sin SET; `repi_backup` lee la tabla.
+  - CI verde y merge #60 → `3c2353c` en producción.
+- **Smoke de producción (sólo cuentas demo) ✓:**
+  - **Alumno:**
+    - Texto con un ejercicio sin series: marcado, no inventado.
+    - Corte de red simulado al guardar y reintento: 2 rutinas, sin duplicar; procedencia con `unknown` y `suggested`.
+    - Excel de 3 hojas sin IA.
+    - **Foto de hoja impresa leída con IA en producción:** 2 días y 8 ejercicios fieles a la foto (por serie, «fallo», 25 kg). «Curl femoral» sin datos marcado y «6?» dudoso.
+  - **Coach:** programa nuevo sin asignar.
+  - **Gimnasio:** importado al borrador sin guardar.
+  - 0 errores de página.
+  - Rutinas de usuarios reales importadas: 0.
+- **Vercel:** la API sigue sin equipos visibles para esta sesión (no se leyeron los logs de runtime); la verificación fue independiente (navegador y base).
+- **Próximo bloque:** REPI — Adaptive Coaching 3.0. El punto de integración es `own_routine.origin` junto con las sesiones y la versión vigente (ver `docs/SMART_IMPORT_2.md`, «Preparación para Adaptive Coaching 3.0»).
 
 
 
