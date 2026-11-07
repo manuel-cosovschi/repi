@@ -74,7 +74,7 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
 
 ## Sistema de movimiento
 
-- **Motor único:** GSAP con ScrollTrigger y `@gsap/react` (`useGSAP` limpia al desmontar). R3F para la sala 3D, renderizando sólo cuando cambia (`frameloop="demand"` y `invalidate` desde las timelines).
+- **Motor único:** GSAP con ScrollTrigger y `@gsap/react` (`useGSAP` limpia al desmontar). R3F para la sala 3D: dibujo continuo mientras se ve, nada cuando una sección sólida la tapa y «a pedido» (`frameloop="demand"`, sólo la cámara) con las animaciones pausadas.
 - **Firmas:**
   1. La caída del punto (hero).
   2. Trazos de luz que conectan (problema).
@@ -83,7 +83,15 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
   5. Convergencia final.
 - **Entradas:** sin el mismo fade-up en todo. Cada escena tiene su propia entrada (dibujo de líneas, máscara, escala, foco).
 - **Microinteracciones:** botones con respuesta de presión; puertas de demo con inclinación al cursor en escritorio (en táctil, con un toque); selector de perfiles con indicador que se desliza.
-- **Movimiento reducido:** sin cámara ni *scrub*. Cada escena muestra su estado final; el contenido es el mismo.
+- **Movimiento reducido:** sin cámara ni *scrub*. Cada escena muestra su estado final; el contenido es el mismo. La sala SVG
+  corta entre tomas (sin zoom que acompañe al scroll).
+- **Escenas fijadas (02 y 03):** `position: sticky` dentro de una sección más alta, con *scrub* de ScrollTrigger sin `pin`
+  (el pin de GSAP pasaba a `position: fixed` y Chrome lo medía como salto de diseño: CLS 1,5 en teléfono). Con menos de
+  560 px de alto (zoom fuerte, teléfono acostado) se apilan como con movimiento reducido (`PIN_MQ`/`STACK_MQ` en `x3/gsap.ts`).
+- **Pausar animaciones (WCAG 2.2.2):** botón en el encabezado (`x3/motion.tsx`). Detiene las personas de la sala, el pedido en
+  bucle, el descanso que corre y las animaciones CSS en bucle; la cámara sigue al scroll. Se recuerda en el navegador.
+- **Hero:** el título, los textos y los botones vienen pintados del servidor (LCP) y la animación nunca los oculta: sólo se
+  animan el punto de la «ı» y el encendido de la sala.
 - **Scroll hacia atrás:** todas las timelines son reversibles.
 
 ## 3D y niveles de calidad
@@ -92,9 +100,15 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
 
 - **Alto:** escritorio con WebGL2 y GPU no débil. Sala 3D completa y teléfono 3D.
 - **Medio:** teléfonos modernos. Sala 3D con menos geometría y DPR ≤ 1,5; sin sombras.
-- **Bajo:** sin WebGL, con `prefers-reduced-motion`, ahorro de datos o pocos núcleos. La misma sala en SVG con animaciones CSS y GSAP livianas. Nunca una pantalla vacía.
+- **Bajo:** sin WebGL, con `prefers-reduced-motion`, ahorro de datos, pocos núcleos o WebGL por software (SwiftShader,
+  llvmpipe: equipos sin GPU y los navegadores sin pantalla de Lighthouse/PageSpeed). La misma sala en SVG con animaciones
+  CSS y GSAP livianas. Nunca una pantalla vacía.
 
-El canvas se carga con importación dinámica después del primer pintado y se libera al desmontar.
+El canvas se carga con importación dinámica después del primer pintado. El SVG sigue a la vista hasta que el 3D dibuja su
+primer cuadro (fundido cruzado, sin hueco mientras baja el código). Si el código del 3D no carga, si WebGL falla o si se
+pierde el contexto, un límite de error lo descarta y queda el SVG: la página nunca se cae por la capa decorativa. El dibujo
+se detiene cuando una sección sólida tapa la sala o la pestaña no se ve; `setFrameloop` sólo se llama al cambiar de modo
+(en R3F reinicia el reloj).
 
 ## Videos (HyperFrames, 1920×1080 a 30 fps; vertical 1080×1920 para deportistas)
 
@@ -119,6 +133,12 @@ Hechos (D208): diez films generados desde `design/films/kit/build.py` (spec, pis
 - **Archivos:** los masters quedan fuera de Git y se pueden regenerar (render determinista). En `public/` van sólo las versiones
   web y los pósters.
 - **Reproductor:** diálogo modal, sonido sólo porque la persona tocó «reproducir», `preload="metadata"`; nada se descarga hasta abrirlo.
+  La proporción del video está reservada (sin saltos al llegar el póster).
+- **Sin voz, con descripción:** cada film trae su descripción en texto escena por escena («Descripción del video en texto»
+  en el reproductor) y una pista WebVTT `kind="descriptions"` (`<id>.descripcion.vtt`). Se generan desde los guiones con
+  `design/films/kit/tools/describe.py` (también `src/content/film-descriptions.json`).
+- **Atribución:** «Música: «Título», Kevin MacLeod (incompetech.com), licencia CC BY 4.0. Fragmento editado y sincronizado
+  con la imagen.» (la licencia pide indicar la modificación).
 
 Pendientes (segunda tanda): registro de cada serie, Mi cuerpo, IA para borradores, gestión de alumnos y comunidad
 (guiones en `VIDEOS_PENDIENTES.md`).
@@ -128,6 +148,23 @@ Pendientes (segunda tanda): registro de cada serie, Mi cuerpo, IA para borradore
 - **Se conservan:** UTM y QR, eventos de `site_event` (`profile_select`, `video_play` y avance, `demo_start`, `whatsapp_click`, `lead_submit`) y el formulario de leads hacia REPI Admin.
 - **Eventos nuevos:** sólo `scene_view` por escena, una vez por visita, y `film_open`. Sin rastreo del scroll.
 - **A/B:** titular y CTA del hero salen de `content/conoce.ts` (`HERO_VARIANTS`) con un parámetro `?v=` para probar variantes en el futuro, sin plataforma externa.
+
+## Verificación (07/11, build de producción local)
+
+Detalle con cifras en la PR. Resumen:
+
+- **Revisión independiente** del código por dimensiones (ciclo de vida, accesibilidad, contratos, rendimiento, seguridad),
+  con verificación adversarial de cada hallazgo: 24 confirmados, todos corregidos. El más grave: el pie quedaba debajo del
+  escenario fijo. También: el formulario había dejado de seguir el perfil elegido y los errores del formulario eran ilegibles.
+- **axe (WCAG 2.2 AA):** 0 violaciones en `/conoce` y los cuatro perfiles, teléfono y escritorio, con y sin movimiento, y en
+  el reproductor abierto. **Impeccable:** 0 hallazgos en escritorio, teléfono y aliados.
+- **E2E:** `e2e/conoce.spec.ts` (17 pruebas × teléfono y escritorio) y `e2e/public.spec.ts`: 56/56.
+- **Lighthouse móvil:** CLS 0, TBT 70–110 ms, accesibilidad, buenas prácticas y SEO 100. LCP (el párrafo del hero, pintado en
+  la primera pintura): 3,5–3,9 s simulado y 2,6 s con limitación real de red y CPU, sobre `next start` local sin CDN. Referencia
+  en las mismas condiciones de Lighthouse: la `/conoce` anterior en producción (con CDN) da 3,0 s y 2,4 s. Lo que pesa es la
+  red: HTML, 3 hojas de estilo, 6 fuentes y ~270 KB de JS antes de la primera pintura. El LCP de campo se verifica después de
+  publicar (Speed Insights).
+- **CLS al recorrer la página** (layout-shift con scroll continuo): 0 en teléfono y 0,036 en escritorio.
 
 ## Criterios de aceptación
 

@@ -56,7 +56,12 @@ python3 design/films/kit/build.py [film ...]                  # proyectos HyperF
 (cd design/films/<film> && npx hyperframes@0.8.193 check)    # sin errores ni avisos
 REPI_MEDIA_SRC=<medios> OUT=<masters> design/films/kit/tools/render-all.sh [film ...]
 # → <masters>/<film>-master.mp4 (CRF 16), -norm.mp4 (audio −14 LUFS / −1 dBTP) y web/<archivo>.mp4 + .webp
+# 3. Copiar web/*.mp4 y *.webp a apps/web/public/conoce/videos/ y regenerar las descripciones en texto:
+python3 design/films/kit/tools/describe.py   # <id>.descripcion.vtt + apps/web/src/content/film-descriptions.json
 ```
+
+- **Póster:** el segundo `poster` de cada film en `FILMS` es una escena representativa con el título y el panel a la vista (no el
+  cierre a medio armar).
 
 - **Teléfono:** cada escena de producto usa **un solo** `<video>` precortado con ffmpeg (`cut-<escena>.mp4`, CFR 30 fps, GOP 15) y
   su primer cuadro como póster debajo. Con varios `<video>` o con clips que arrancan a mitad de escena, el render de HyperFrames
