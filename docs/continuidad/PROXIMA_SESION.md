@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 07/11/2026 (hasta D209; **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
@@ -112,7 +112,6 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
 - **Próximo bloque:** REPI — Adaptive Coaching 3.0. El punto de integración es `own_routine.origin` junto con las sesiones y la versión vigente (ver `docs/SMART_IMPORT_2.md`, «Preparación para Adaptive Coaching 3.0»).
 
 
-> **Rama `claude/tender-cerf-0cm7r9` (PR #63, borrador):** REPI Sales Force & Commission OS (D209, migración 0050 `sales_force`, sin aplicar) y dossier comercial para gimnasios. Rebasada sobre `main` 8cb0794 (D207/D208 y 0049 ya eran de Smart Import 2.0). Publicar requiere aprobación del titular: Respaldo → `hosted-0050.sql` → merge → smoke. Detalle en `docs/comercial/SALES_FORCE.md`.
 
 
 
@@ -129,7 +128,13 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
 - **No verificado:** `repiclub.com` no es accesible desde este contenedor; el destino del QR se verificó contra la ruta publicada (D205) y en la build local (200).
 - **Pendiente del titular:** aprobar el material antes de enviarlo; confirmar si los importes ilustrativos pueden circular así.
 
-## REPI Sales Force & Commission OS 1.0 (D209) — 07/11/2026 · EN REVISIÓN, SIN PUBLICAR
+## REPI Sales Force & Commission OS 1.0 (D209) — 07/11/2026 · PUBLICADO (#63, 2b5e69f)
+
+- **Publicado (con aprobación del titular):**
+  - Respaldo `backup-20261107-130358-42375065427` (#67) verde.
+  - 0050 aplicada con `hosted-0050.sql`: 51 migraciones; las 19 tablas con RLS y dueño `repi_app`; `commercial_lead.referral_code` y trigger de inmutabilidad presentes; `postgres` sigue sin SET ni herencia sobre `repi_app`; `repi_backup` lee las tablas nuevas.
+  - CI verde y merge #63 (squash) → `2b5e69f`; `/api/version` en producción = `2b5e69f1dce3`.
+- **Smoke de producción (sin datos):** `/ventas/activar/<token>` sirve la activación de vendedor; `/api/ventas/*` y `/api/admin/sales/*` sin sesión responden 401. No se crearon vendedores ni datos de prueba en producción. El recorrido completo con sesión de Admin (crear e invitar) queda para el titular: Admin › Vendedores › «Nuevo vendedor».
 
 - **Pedido:** master prompt del titular «REPI Sales Force & Commission OS 1.0»: vendedores en todo el país con panel propio, CRM, registro de ventas, comisiones y liquidaciones, todo administrado desde REPI Admin y sobre los clientes y contratos reales.
 - **Rama:** `claude/tender-cerf-0cm7r9`, rebasada sobre `main` `8cb0794`. Detalle completo en `docs/comercial/SALES_FORCE.md`; decisión D209 en `docs/DECISIONS.md`.
@@ -142,7 +147,7 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   - `commercial/services.ts`: `createClientTx`, `addTermTx`, `publishTermNotice`; sincroniza comisiones al habilitar o suspender; no borra clientes con venta aprobada o comisiones; `createLead` guarda `referralCode` sólo de vendedores activos.
   - `commercial/payments.ts`: sincroniza comisiones al registrar o anular un pago.
   - `access/services.ts` (espacio «REPI Ventas»), `api/access/sign-up` (flujo `seller`), `AccessFlow.tsx` (activación de vendedor), `AdminApp.tsx` (dos entradas y «Pasar a ventas» en Contactos), `admin/page.tsx` (parámetros de aviso), `ContactForm.tsx` (`?ref=`).
-- **Migración 0050 (aditiva, NO aplicada en producción):**
+- **Migración 0050 (aditiva, aplicada en producción el 07/11):**
   - 19 tablas nuevas, `commercial_lead.referral_code` y trigger de inmutabilidad de `commission_entry`.
   - `apps/web/scripts/operations/hosted-0050.sql` y `scripts/rollback/0050_sales_force.down.sql`.
   - Ensayo en base descartable local: huella igual a `migrate.ts`, RLS en las 19 tablas, dueño `repi_app`, reintento falla entero, reversión que se niega con datos, revertir y reaplicar.
@@ -154,7 +159,7 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   - Navegador (build local + `repi_dev`, iPhone 13 y escritorio 1366): recorrido completo Admin ↔ vendedor sin errores de consola ni 5xx; accesos a Admin y a recursos ajenos 404 y auditados; sin scroll horizontal. El script quedó fuera del repo (usa `psql` sobre `repi_dev`).
 - **Corregido en el camino:** abrir un modal desde la URL (`?deal=`, `?rep=`, `?p=`, `?b=`) rompía el render del servidor (`Modal` usa `document`): ahora se abre tras montar.
 - **Decisiones pendientes del titular:** planes reales y moneda; regla de renegociación con otro vendedor (hoy el cobro va a la última venta aprobada vigente); visibilidad del responsable comercial sobre su equipo; evidencia como archivo y PDF del servidor; IA comercial (no implementada).
-- **Primera acción al retomar:** revisar el PR de esta rama; con aprobación del titular, respaldo → `hosted-0050.sql` → merge → smoke.
+- **Primera acción al retomar:** acompañar el alta del primer vendedor real (Admin › Vendedores) y cargar el primer plan de comisiones cuando el titular defina montos; revisar el buzón de envíos si la invitación no llega.
 
 ## Pedido de programa con preferencias (D206) — 07/11/2026 · PUBLICADO Y VERIFICADO (#58, 297a936)
 

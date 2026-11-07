@@ -4,7 +4,7 @@ Módulo comercial nativo dentro de REPI: vendedores, CRM, cierres declarados, at
 
 ## Estado
 
-- **Técnico:** integrado y verificado localmente (dominio, integración sobre `repi_test`, build y recorrido en navegador sobre `repi_dev`). **No publicado.** Migración 0050 **no aplicada** en producción.
+- **Técnico:** publicado el 07/11/2026 (#63, `2b5e69f`). Migración 0050 aplicada en producción con `hosted-0050.sql` tras el respaldo `backup-20261107-130358-42375065427`. Verificado localmente (dominio, integración sobre `repi_test`, build y recorrido en navegador sobre `repi_dev`) y en CI.
 - **Producto:** pedido del titular (master prompt 07/11/2026). Las reglas económicas reales (planes, porcentajes, mínimos) **no están cargadas**: las define Admin.
 
 ## Arquitectura
