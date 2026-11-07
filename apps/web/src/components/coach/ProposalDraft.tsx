@@ -8,6 +8,8 @@ import { applyLoad, canApplyLoad, fmtWeight, type ExerciseDetail } from "@repi/d
 export type TiDraft = {
   kind: "coach" | "gym"; relId: string; programId: string | null; proposalId: string;
   exerciseId: string; name: string; text: string; weightKg: number | null;
+  /** D209: «student» = pedido del alumno desde REPI (llega desde «Señales de REPI»); sin valor = Training Intelligence. */
+  source?: "ti" | "student";
 };
 const KEY = "repi:ti-draft";
 
@@ -41,8 +43,8 @@ export function ProposalBanner({ draft, days, onApply, onDismiss }: {
   const patches = draftPatches(draft, days);
   const present = days.some((x) => x.exercises.some((e) => e.exerciseId === draft.exerciseId));
   return (
-    <section className="ti-draft" role="region" aria-label="Propuesta de Training Intelligence">
-      <b>Propuesta de Training Intelligence · {draft.name}</b>
+    <section className="ti-draft" role="region" aria-label={draft.source === "student" ? "Pedido del alumno desde REPI" : "Propuesta de Training Intelligence"}>
+      <b>{draft.source === "student" ? "Pedido del alumno desde REPI" : "Propuesta de Training Intelligence"} · {draft.name}</b>
       <span>{draft.text}</span>
       <small className="muted">
         {!present ? "Este ejercicio ya no está en el programa: la propuesta no se puede aplicar acá."

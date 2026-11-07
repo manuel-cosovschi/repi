@@ -11,7 +11,7 @@ vi.mock("@/server/access/util", () => ({
   AccessError: class extends Error { constructor(public code: string, message: string, public status = 400) { super(message); } },
   audit: vi.fn(), rateLimit: vi.fn(),
 }));
-vi.mock("@/server/brain/coach", () => ({ coachInsights: vi.fn(async () => ({ insights: [] })), memberInsights: vi.fn(async () => ({ insights: [] })) }));
+vi.mock("@/server/brain/coach", () => ({ coachInsights: vi.fn(async () => ({ insights: [] })), memberInsights: vi.fn(async () => ({ insights: [] })), coachPendingSignals: vi.fn(async () => ({ clients: [] })) }));
 vi.mock("@/server/brain/admin", () => ({ brainMetrics: vi.fn(async () => ({ ok: 1 })), updateBrainPolicy: vi.fn(async () => ({ scope: "global" })) }));
 vi.mock("@/server/push/services", () => ({ subscribe: vi.fn(async () => ({ ok: true })), unsubscribe: vi.fn(), setPaused: vi.fn(), pushStatus: vi.fn(async () => ({ coaching: { enabled: false, eligible: true } })) }));
 vi.mock("@/server/commercial/services", () => ({}));
@@ -22,11 +22,12 @@ vi.mock("@/server/announcements/services", () => ({}));
 vi.mock("@/server/site/events", () => ({}));
 
 import { auth } from "@/server/auth";
-import { coachInsights, memberInsights } from "@/server/brain/coach";
+import { coachInsights, coachPendingSignals, memberInsights } from "@/server/brain/coach";
 import { brainMetrics, updateBrainPolicy } from "@/server/brain/admin";
 import { subscribe } from "@/server/push/services";
 import { GET as coachGET } from "@/app/api/coach/[orgId]/clients/[relId]/brain/route";
 import { GET as gymGET } from "@/app/api/gym/[orgId]/members/[memberId]/brain/route";
+import { GET as coachPendingGET } from "@/app/api/coach/[orgId]/brain/route";
 import { GET as adminGET, PUT as adminPUT } from "@/app/api/admin/[[...path]]/route";
 import { GET as pushGET, POST as pushPOST } from "@/app/api/push/[[...path]]/route";
 
@@ -42,13 +43,14 @@ describe("sin sesión: 401 y el servicio no se toca", () => {
     const calls = [
       coachGET(req("/api/coach/o/clients/r/brain"), p({ orgId: "o", relId: "r" })),
       gymGET(req("/api/gym/o/members/m/brain"), p({ orgId: "o", memberId: "m" })),
+      coachPendingGET(req("/api/coach/o/brain"), p({ orgId: "o" })),
       adminGET(req("/api/admin/brain"), p({ path: ["brain"] })),
       adminPUT(req("/api/admin/brain/policy", "PUT", { scope: "global", config: {} }), p({ path: ["brain", "policy"] })),
       pushPOST(req("/api/push/subscribe", "POST", { endpoint: "https://fcm.googleapis.com/x", keys: { p256dh: "a", auth: "b" }, coaching: true }), p({ path: ["subscribe"] })),
       pushGET(req("/api/push"), p({ path: [] })),
     ];
     for (const r of await Promise.all(calls)) expect(r.status).toBe(401);
-    for (const f of [coachInsights, memberInsights, brainMetrics, updateBrainPolicy, subscribe]) expect(f).not.toHaveBeenCalled();
+    for (const f of [coachInsights, memberInsights, coachPendingSignals, brainMetrics, updateBrainPolicy, subscribe]) expect(f).not.toHaveBeenCalled();
   });
 });
 
@@ -60,6 +62,9 @@ describe("con sesión", () => {
     session("sala-1");
     expect((await gymGET(req("/api/gym/o/members/m/brain"), p({ orgId: "o", memberId: "m" }))).status).toBe(200);
     expect(memberInsights).toHaveBeenCalledWith("sala-1", "o", "m");
+    session("coach-2");
+    expect((await coachPendingGET(req("/api/coach/o/brain"), p({ orgId: "o" }))).status).toBe(200);
+    expect(coachPendingSignals).toHaveBeenCalledWith("coach-2", "o");
   });
   it("REPI Admin: métricas con días acotados por el servicio; política por PUT validada; otra ruta 404", async () => {
     session("admin-1");

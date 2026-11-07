@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PROGRESS_RANGES, kgTo, volumeIn, type ProgressRange, type WeightUnit } from "@repi/domain";
 import { api } from "@/lib/api";
+import { RepiAsk } from "@/components/brain/RepiAsk";
 import { ProgressChart, type ChartPoint } from "./ProgressChart";
 import { useUnit } from "./units";
 
@@ -116,7 +117,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
   return (
     <>
       <section className="pp-card" aria-labelledby="pp-sum">
-        <div className="pp-head"><h2 id="pp-sum">Tu período</h2></div>
+        <div className="pp-head"><h2 id="pp-sum">Tu período</h2>{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
         <RangePicker value={range} onChange={setRange} label="Período" />
         {err && <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={loadSum}>Reintentar</button></p>}
         {!sum && !err && <span className="mb-muted">Cargando…</span>}
@@ -175,6 +176,9 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         {ex ? (
           <>
             <div><b style={{ fontSize: 17 }}>{ex.exercise.name}</b><br /><small className="mb-muted">{ex.exercise.group} · desde {ex.totals.firstDay ? dayTxt(ex.totals.firstDay) : "—"}{ex.records ? ` · ${ex.records} ${ex.records === 1 ? "récord" : "récords"} en el período` : ""}</small></div>
+            {/* D209: «Preguntale a REPI» sobre el ejercicio del gráfico (el servidor valida que sea tuyo). */}
+            <RepiAsk section="progress" refs={{ exerciseId: ex.exercise.id }} subject={ex.exercise.name} label="Preguntale a REPI sobre este ejercicio"
+              chips={[{ label: "¿Estoy progresando?", text: `¿Estoy progresando en ${ex.exercise.name}?` }, { label: "Mi última marca", text: `¿Qué marca hice la última vez en ${ex.exercise.name}?` }, { label: "¿Por qué me estanqué?", text: `¿Por qué estoy estancado en ${ex.exercise.name}?` }]} />
             {metrics.length > 1 && (
               <div className="pp-ranges" role="group" aria-label="Métrica">
                 {metrics.map((m) => <button key={m} type="button" aria-pressed={metric === m} onClick={() => setMetric(m)}>{METRIC_TXT[m]}</button>)}

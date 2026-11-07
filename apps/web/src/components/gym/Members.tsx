@@ -22,6 +22,7 @@ import { ProgramAssistant, type BriefPrefill } from "@/components/coach/ProgramA
 import { ProgramImportModal } from "@/components/coach/ProgramImportModal";
 import { SessionLog, type LoggedSession } from "@/components/coach/SessionLog";
 import { IntelSection } from "@/components/coach/CoachIntelligence";
+import { RepiSignals } from "@/components/coach/RepiSignals";
 import { ProposalBanner, clearTiDraft, readTiDraft, stashTiDraft, type TiDraft } from "@/components/coach/ProposalDraft";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
@@ -72,6 +73,7 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
   const [draft, setDraft] = useState("");
   const [edit, setEdit] = useState(false);
   const [task, setTask] = useState(false);
+  const [intelTick, setIntelTick] = useState(0); // D209: Training Intelligence cargó o decidió → «Señales de REPI» relee
   const { busy, run } = useAct(shell.flash);
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
   if (!d.data) return <p className="muted">Cargando ficha…</p>;
@@ -128,9 +130,13 @@ function MemberDetail({ shell, id, loc, onChanged }: { shell: Shell; id: string;
           : !m.log.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span>
           : <SessionLog sessions={m.log} />}
       </section>
+      {/* D209: señales de REPI para quien programa en la sede (program.edit + consentimiento; el servidor lo vuelve a exigir). Dueño,
+          gerencia y recepción reciben 403 y no ven nada: ni la sección ni pistas de lo que habría. */}
+      {m.trainingShared && m.canEdit && <RepiSignals kind="gym" relId={m.id} programId={m.program?.programId ?? null} quietDenied load={`/api/gym/${shell.orgId}/members/${m.id}/brain`}
+        decideUrl={(pid) => `/api/gym/${shell.orgId}/intel-proposals/${pid}`} onReview={(t) => { stashTiDraft(t); setEdit(true); }} refresh={intelTick} />}
       {/* D191: quien arma su programa en la sede y sólo si el socio compartió su entrenamiento (el servidor lo vuelve a exigir). */}
       {m.trainingShared && m.canEdit && <IntelSection kind="gym" relId={m.id} who="en esta sede" load={`/api/gym/${shell.orgId}/members/${m.id}/intelligence`}
-        decideUrl={(pid) => `/api/gym/${shell.orgId}/intel-proposals/${pid}`} onReview={(t) => { stashTiDraft(t); setEdit(true); }} />}
+        decideUrl={(pid) => `/api/gym/${shell.orgId}/intel-proposals/${pid}`} onReview={(t) => { stashTiDraft(t); setEdit(true); }} onLoaded={() => setIntelTick((n) => n + 1)} />}
       <SharedWishes w={m.wishes} who={m.name.split(" ")[0]} />
       {m.community && (
         <section className="card">

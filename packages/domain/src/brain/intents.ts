@@ -166,7 +166,7 @@ const RULES: Rule[] = [
   ["ask_coach", 0.75, /\b(cambia|cambiar|modifica|modificar|reescribi|rehace|rehacer|arma(me)? (una )?nueva) (mi |la |toda la |el )?(rutina|programa|plan)\b|\bsubi(me)? (todas )?las cargas\b|\bcambia(me)? (todo|todos los ejercicios)\b/],
   ["floor_help", 0.9, /\b(necesito|quiero|pedir|pedime|llama\w*) (ayuda|un profe|una profe|alguien|a alguien|al profe|un profesor|un entrenador)\b|\bque venga (un|una|el|alguien)\b|\bayuda en (la )?sala\b|\bme ayuda alguien\b|\bno se usar (esta|la) maquina\b/],
   ["floor_help", 0.55, /^(ayuda|ayudame|auxilio)$/],
-  ["forget", 0.92, /\b(olvidate|olvida|olvidar|borra|borrar|elimina|eliminar|saca|sacar)\b.{0,25}\b(eso|lo que (te )?dije|esa preferencia|preferencia|lo de|que|mi memoria|lo que recordas|lo que sabes|todo)\b|\bno (lo )?recuerdes\b|\bya no (prefiero|me molesta|quiero que recuerdes)\b/],
+  ["forget", 0.92, /\b(olvidate|olvida|olvidar|borra|borrar|elimina|eliminar|saca|sacar)\b.{0,25}\b(eso|lo que (te )?dije|esa preferencia|preferencia|lo del?|que|mi memoria|lo que recordas|lo que sabes|todo)\b|\bno (lo )?recuerdes\b|\bya no (prefiero|me molesta|quiero que recuerdes)\b/],
   ["fewer_messages", 0.85, /\bmenos (avisos|mensajes|notificaciones|recordatorios)\b|\bdeja de (mandarme|escribirme|avisarme|notificarme|molestarme)\b|\bno me (mandes|escribas|avises|notifiques) (tanto|tantos|tantas|mas)\b|\b(basta|para) (de|con) (los |las )?(avisos|mensajes|notificaciones)\b|\bme (saturas|llenas de mensajes)\b|\bsilencia(r|me)?\b/],
   ["busy_machine", 0.92, /\b(esta|estan) ocupad[oa]s?\b|\bocupad[oa]s?\b|\bme (ganaron|sacaron|robaron) (la|el) (maquina|banco|lugar|rack|barra)\b|\bhay (cola|fila|gente esperando)\b|\b(la|lo) (estan|esta) usando\b|\bno (hay|queda) (lugar|banco|maquina|barra|rack|polea) (libre|disponible)\b/],
   ["busy_machine", 0.86, /\bno (tengo|hay|tienen|encuentro) (mancuernas|barra|barras|discos|polea|banco|rack|maquina|equipo|bandas|kettlebell|pesas|pesa rusa|soga|cajon)\b|\bfalta (la|el|una|un) (barra|polea|banco|maquina|mancuerna|rack)\b|\b(esta|anda) (rota|roto|fuera de servicio)\b/],
@@ -266,14 +266,20 @@ export function classify(text: string, ctx: IntentCtx = {}): Intent {
     case "short_time": { const m = minutesOf(text); slots.minutes = m.minutes; if (m.raw != null && m.minutes == null) slots.outOfRange = m.raw; break; }
     case "explain_method": slots.method = method; if (!method) conf = 0.4; break;
     case "set_preference": slots.key = pref?.key ?? null; slots.value = pref ? (typeof pref.value === "object" ? JSON.stringify(pref.value) : String(pref.value)) : null; slots.text = pref?.text ?? null; break;
-    case "forget": { const m = /\b(?:olvidate|olvida|olvidar|borra|borrar|elimina|eliminar|saca|sacar)\s+(?:de\s+)?(?:que\s+)?(.{3,80})$/.exec(t); slots.target = m ? m[1] : null; break; }
+    // D209 (UI): «olvidate de lo del remo» → «remo» (sin «lo de»/«lo del», que no ayudan a encontrar el recuerdo).
+    case "forget": { const m = /\b(?:olvidate|olvida|olvidar|borra|borrar|elimina|eliminar|saca|sacar)\s+(?:de\s+)?(?:que\s+)?(?:lo\s+del?\s+)?(.{3,80})$/.exec(t); slots.target = m ? m[1] : null; break; }
     case "busy_machine": slots.reason = /\bno (tengo|hay|tienen|encuentro)\b|\bfalta\b|\brot[oa]\b|\bfuera de servicio\b/.test(t) && !/\bocupad|\blibre\b|\bdisponible\b|\bcola\b|\bfila\b|\busando\b|\bganaron\b/.test(t) ? "no_equipment" : "busy"; break;
     case "change_exercise": slots.reason = /\bno me gusta|\bodio\b|\bno me copa/.test(t) ? "dislike" : /\bocupad/.test(t) ? "busy" : null; break;
     case "count": slots.period = periodOf(t); break;
     case "weekly_plan": slots.days = daysOf(t); break;
     case "set_feedback": slots.feel = feelOf(t); break;
     case "today": slots.mode = /\bno (vino|esta|viene) (mi |el )?(profe|entrenador)\b/.test(t) ? "solo" : null; break;
-    case "ask_coach": slots.request = /\b(cambia|cambiar|modifica|modificar|reescribi|rehace|rehacer|nueva|subi|todas las cargas)\b/.test(t) && !/\b(pregunta|consulta|deci|avisa|escribi|manda)le\b/.test(t) ? "program_change" : "message"; break;
+    case "ask_coach":
+      // «subime las cargas» pide un cambio de programa igual que «subí» (lo decide el entrenador, nunca REPI).
+      slots.request = /\b(cambia|cambiar|modifica|modificar|reescribi|rehace|rehacer|nueva|subi(me)?|todas las cargas)\b/.test(t) && !/\b(pregunta|consulta|deci|avisa|escribi|manda)le\b/.test(t) ? "program_change" : "message";
+      // Si nombra un ejercicio («preguntale a mi profe por el press banca»), la consulta o la propuesta van sobre ese.
+      if (ex) { slots.exerciseId = ex.id; slots.exercise = ex.name; }
+      break;
   }
   if (conf < INTENT_THRESHOLD) return { name: "unknown", slots: { guess: name }, confidence: conf };
   return { name, slots, confidence: Math.round(conf * 100) / 100 };

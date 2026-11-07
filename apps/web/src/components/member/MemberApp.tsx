@@ -42,6 +42,10 @@ import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
 import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
+import { BrainProvider, useBrain } from "@/components/brain/BrainProvider";
+import { RepiCard } from "@/components/brain/RepiCard";
+import { RepiPrefs } from "@/components/brain/RepiPrefs";
+import type { Draft, InterventionView, Navigate } from "@/components/brain/types";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -105,6 +109,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [gymTab, setGymTab] = useState<GymTab | undefined>(undefined);
   const [openCh, setOpenCh] = useState<string | null>(null); // D168: desafío a abrir desde una invitación
+  // D209: borrador que REPI dejó para Mensajes (nunca se envía solo: queda en el campo para revisarlo).
+  const [msgDraft, setMsgDraft] = useState<{ text: string; to: Draft["to"]; n: number } | null>(null);
   const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then(setFeed).catch(() => {}), []);
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
   // Online primero; si no hay red, el programa guardado en el teléfono. Antes de mostrar nada se verifica el dueño.
@@ -306,21 +312,31 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     } catch { flash("Este navegador no permite guardar datos en el teléfono; no se puede entrenar sin conexión."); }
   };
 
+  // D209: a dónde lleva una acción de REPI ya confirmada por el servidor (abrir el entrenamiento, ver el historial).
+  const brainNavigate = (n: Navigate) => {
+    if (n.to === "workout") { if (openId) setWorkout(openId); else if (n.dayKey && t?.program?.days.some((d) => d.id === n.dayKey)) void start(n.dayKey); else go("train"); return; }
+    if (n.to === "history") { go("prog"); setProgSeg("train"); }
+  };
+  const brainDraft = (d: Draft) => { go("msgs"); setMsgDraft({ text: d.draft, to: d.to, n: Date.now() }); };
+  const assistant = featureOn("assistant");
+
   const tabs = ([["home", "Inicio", House], ["train", "Entrenar", Barbell], ["prog", "Progreso", ChartLineUp], ["msgs", "Mensajes", ChatCircle],
     ...(inbox?.gym ? [["gym", "Gym", Storefront] as const] : [])] as const);
 
   workoutRef.current = workout;
   coachFirstRef.current = coachFirst;
   const unit: WeightUnit = t?.weightUnit ?? "kg";
+  // D209: el proveedor de REPI envuelve las dos ramas (misma posición y tipo), así la conversación sigue con el entrenamiento abierto.
+  const brainProps = { enabled: assistant, offline: !!offlineAt, activeKey: workout ? "workout" : tab, onNavigate: brainNavigate, onDraft: brainDraft };
   if (workout) return (
-    <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
+    <UnitContext.Provider value={unit}><BrainProvider {...brainProps}><div className="mb"><div className="mb-col">
       <Workout sessionId={workout} coachFirst={coachFirst} programChanged={changedMidWorkout} onDismissChange={() => setChangedMidWorkout(false)} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setChangedMidWorkout(false); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }}
         onNudge={(n) => { setWorkout(null); setChangedMidWorkout(false); goNudge(n); load(); }} />
-    </div><Toast t={toast} /></div></UnitContext.Provider>
+    </div><Toast t={toast} /></div></BrainProvider></UnitContext.Provider>
   );
 
   return (
-    <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
+    <UnitContext.Provider value={unit}><BrainProvider {...brainProps}><div className="mb"><div className="mb-col">
       {/* F-BR-02: intro de marca; con un entrenamiento abierto sale enseguida. */}
       <BrandIntro abort={!!openId} />
       <main className="mb-scroll">
@@ -337,12 +353,13 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
-              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge} />}
+              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge}
+              onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
             {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
               own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
             {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
-            {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
+            {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
             {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
           </div>
@@ -384,7 +401,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     </div>
     {/* A11Y-1: el aviso queda fuera de .mb-col, que se vuelve inert con una hoja abierta (si no, el lector no lo anuncia). */}
     {unlocks.length > 0 && <TrophyUnlock items={unlocks} onDone={closeUnlocks} />}
-    <Toast t={toast} /></div></UnitContext.Provider>
+    <Toast t={toast} /></div></BrainProvider></UnitContext.Provider>
   );
 }
 
@@ -471,10 +488,14 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge }: {
+function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge, onCardOpen }: {
   t: Training; coachFirst: string; onStart: (dayId: string) => void; onOwn: (routineId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
+  onCardOpen: (c: InterventionView) => void;
 }) {
+  // D209: la tarjeta de REPI absorbe el aviso de programa actualizado (un solo aviso, resuelto en el servidor).
+  const brainCard = useBrain().home?.card ?? null;
+  const repiCoversProgram = brainCard?.kind === "program_updated";
   const connect = !!inbox?.gym?.connect;
   const gymRel = t.relation?.kind === "gym";
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
@@ -539,6 +560,11 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
         </div>} />
       )}
+      {/* D209: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
+      <RepiCard startName={next?.name ?? t.openSessionDay ?? null}
+        onStart={(k) => onStart(k && t.program?.days.some((d) => d.id === k) ? k : next?.id ?? "")}
+        onOpen={onCardOpen}
+        onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }} />
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}
@@ -546,7 +572,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
       {!offline && <Ideas offline={offline} flash={flash} />}
       {!offline && <NextAppointment flash={flash} />}
-      {t.state === "ready" && t.program?.update && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
+      {t.state === "ready" && t.program?.update && !repiCoversProgram && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
       {inbox?.accessRequests.map((a) => (
         <button key={a.id} type="button" className="hbanner cyan" onClick={() => go("perfil")}>
           <span className="dot" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
@@ -905,6 +931,8 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       </section>
       <MyCharges />
       <Wishes offline={offline} flash={flash} />
+      {/* D209: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
+      <RepiPrefs offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>

@@ -135,7 +135,9 @@ const SCHEMAS: Record<ActionKind, { fields: string[]; check: (i: Record<string, 
       if (new Set(skip).size !== skip.length) err("Hay ejercicios repetidos.");
       if (skip.some((x) => !isId(x) || !pending.includes(x))) err("Sólo se pueden omitir ejercicios pendientes de tu sesión.");
       if (skip.some((x) => done.has(x as string))) err("Nunca se omite un ejercicio con series registradas.");
-      if (skip.length >= pending.filter((x) => !done.has(x)).length) err("Tiene que quedar al menos un ejercicio.");
+      // Queda al menos uno: alguno sin tocar o el que está en curso (pendiente con series registradas, que nunca se omite).
+      // Así se pueden dejar para otro día todos los que no empezaste mientras terminás el que tenés a medias.
+      if (skip.length >= pending.length) err("Tiene que quedar al menos un ejercicio.");
     }
     return { minutes: i.minutes, skip };
   } },

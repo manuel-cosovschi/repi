@@ -43,11 +43,14 @@ const TABLE: [string, IntentName, Record<string, unknown>?][] = [
   ["no quiero recordatorios de motivación", "set_preference", { key: "category_off:motivation" }], ["hablame más corto", "set_preference", { key: "tone", value: "breve" }],
   ["prefiero entrenar temprano", "set_preference", { key: "prefers_time", value: "morning" }], ["no me gusta el remo en máquina", "set_preference", { key: "avoid_exercise:remo_en_maquina" }],
   ["consultame antes de cambiar algo", "set_preference", { key: "confirm_before_change" }], ["no quiero el resumen semanal", "set_preference", { key: "category_off:weekly" }],
-  ["olvidate de que no me gusta el remo", "forget", { target: "no me gusta el remo" }], ["olvidá lo que te dije", "forget"], ["borrá esa preferencia", "forget"],
+  ["olvidate de que no me gusta el remo", "forget", { target: "no me gusta el remo" }], ["olvidate de lo del remo", "forget", { target: "remo" }], ["borrá lo de la polea", "forget"], ["olvidá lo que te dije", "forget"], ["borrá esa preferencia", "forget"],
   ["mandame menos notificaciones", "fewer_messages"], ["no me mandes tantos avisos", "fewer_messages"], ["dejá de escribirme", "fewer_messages"],
   // Entrenador
   ["preguntale a mi profe si puedo cambiar el ejercicio", "ask_coach", { request: "message" }], ["quiero hablar con mi profe", "ask_coach", { request: "message" }],
   ["preparame una consulta para mi entrenador", "ask_coach"], ["cambiá mi rutina", "ask_coach", { request: "program_change" }], ["subí todas las cargas", "ask_coach", { request: "program_change" }],
+  // D209 (UI): «subime» también es pedir un cambio de programa; el ejercicio nombrado queda en la consulta.
+  ["subime las cargas", "ask_coach", { request: "program_change" }], ["subime las cargas del press banca", "ask_coach", { request: "program_change", exerciseId: EX.pb.id }],
+  ["preguntale a mi profe si puedo cambiar el press banca", "ask_coach", { request: "message", exerciseId: EX.pb.id, exercise: EX.pb.name }],
   // Cuerpo, rutina importada, semana
   ["¿Cómo viene mi objetivo de peso?", "body_goal"], ["¿cuánto bajé desde que empecé?", "body_goal"], ["quiero bajar de peso", "body_goal"],
   ["Explicame la rutina que importé", "import_explain"], ["¿qué le falta a mi rutina?", "import_explain"], ["¿qué se sugirió?", "import_explain"],

@@ -155,6 +155,25 @@ Reglas:
 - Nunca: memoria, conversación, textos de avisos, notas, salud, rutinas propias o importadas del alumno. Sólo lectura: no crea
   propuestas (a diferencia de la ficha de Training Intelligence).
 
+Agregado en la interfaz (bloque D, aditivo): el insight `pending_proposals` trae además `refs.items`:
+`[{ "proposalId", "exerciseId", "exerciseName", "kind", "source": "ti" | "student" }]` — sin el texto de la propuesta ni la nota
+del alumno. `source: "student"` = pedido del alumno desde REPI (`payload.trend = "student_request"`), que la ficha de Training
+Intelligence no lista; la interfaz lo lleva al editor de siempre (`ProposalDraft`, `source: "student"`) y lo decide con las rutas
+existentes (`POST /api/coach/[orgId]/proposals/[id]`, `POST /api/gym/[orgId]/intel-proposals/[id]`).
+
+### `GET /api/coach/[orgId]/brain` — «Pendientes» del panel del coach
+
+Permisos: `requireCoach`; por alumno, relación no terminada con el permiso `training` activo (sin permiso, no cuenta). Sólo
+números (`coachPendingSignals`, `server/brain/coach.ts`; prueba `tests/brain-coach-pending.test.ts`):
+
+```json
+{ "generatedAt": "…", "clients": [{ "relId": "…", "pendingProposals": 2, "studentRequests": 1 }],
+  "totals": { "clients": 1, "pendingProposals": 2, "studentRequests": 1 } }
+```
+
+`studentRequests` = propuestas abiertas a las que apunta una acción `propose_to_coach` ejecutada. 404 si no es coach de esa
+organización.
+
 Errores:
 
 | Código | Cuándo |

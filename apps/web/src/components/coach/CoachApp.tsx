@@ -68,8 +68,10 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   }, [screen, sel, pid]);
 
-  const go = (s: Screen, extra?: { sel?: string; pid?: string | null }) => {
-    setScreen(s); setDrawer(false);
+  // D209: abrir la ficha directo en una pestaña (p. ej. «Rendimiento» desde «Pendientes» con señales de REPI).
+  const [ctab, setCtab] = useState<string | null>(null);
+  const go = (s: Screen, extra?: { sel?: string; pid?: string | null; tab?: string }) => {
+    setScreen(s); setDrawer(false); setCtab(extra?.tab ?? null);
     if (extra?.sel !== undefined) setSel(extra.sel);
     if (extra?.pid !== undefined) setPid(extra.pid);
     requestAnimationFrame(() => { mainRef.current?.querySelector("h1")?.focus(); window.scrollTo(0, 0); });
@@ -126,7 +128,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
             <>
               {screen === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}
               {screen === "dash" && <CoachDash orgId={orgId} ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} />}
-              {screen === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} />}
+              {screen === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} initialTab={ctab} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} />}
               {screen === "videos" && <ExerciseVideos orgId={orgId} flash={flash} />}
               {screen === "builder" && <ProgramBuilder orgId={orgId} ov={ov} pid={pid} setPid={setPid} flash={flash} onNewProgram={newProgram} onAssigned={reload} />}
               {screen === "inbox" && <CoachInbox orgId={orgId} flash={flash} go={go} onChanged={reload} />}

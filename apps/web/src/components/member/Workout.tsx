@@ -31,6 +31,10 @@ import { Ic } from "@/components/ui/Ic";
 import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, ChatCircleText, Check, ListBullets, NotePencil, Pause, Play, PlayCircle, Trophy } from "@phosphor-icons/react";
 import { featureOn } from "@/lib/features";
 import { Nudges, type Nudge } from "./Nudges";
+import { useBrain } from "@/components/brain/BrainProvider";
+import { workoutBrief } from "@/components/brain/brief";
+import { WORKOUT_CHIPS } from "@/components/brain/presenter";
+import { SessionReview } from "@/components/brain/SessionReview";
 
 const RING = 207.35;
 type DoneData = {
@@ -238,6 +242,56 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     window.addEventListener("repi:floor-alert", on);
     return () => window.removeEventListener("repi:floor-alert", on);
   }, [flash]);
+
+  // D209 · Asistente REPI. El panel de conversación vive arriba (MemberApp) y sobrevive al entrenamiento; desde acá se le ofrece
+  // adoptar un cambio que REPI hizo en el servidor (reemplazo u omisión sólo por hoy, ya confirmado) y abrir «Cambiar ejercicio».
+  const brain = useBrain();
+  const sRef = useRef(s);
+  sRef.current = s;
+  const { registerWorkout } = brain;
+  useEffect(() => {
+    // Un ejercicio que el servidor reemplazó u omitió hoy: se adopta tal cual (sólo si en el teléfono no tiene series hechas).
+    const adopt = async (ids: string[]) => {
+      const cur = sRef.current;
+      if (!cur || !ids.length) return;
+      try {
+        const fresh = fromServer(await api<Parameters<typeof fromServer>[0]>(`/api/me/sessions/${cur.id}`), cur.rest);
+        setS((c) => {
+          if (!c) return c;
+          const sets = { ...c.sets };
+          const exercises = c.exercises.map((e) => {
+            const f = ids.includes(e.id) ? fresh.exercises.find((x) => x.id === e.id) : null;
+            if (!f || Array.from({ length: e.sets }, (_, i) => c.sets[setKey(e.id, i)]).some((x) => x?.done)) return e;
+            for (let i = 0; i < f.sets; i++) { const k = setKey(e.id, i); if (fresh.sets[k]) sets[k] = fresh.sets[k]; }
+            return { ...e, change: f.change ?? null, prev: f.prev, origPrev: f.change?.kind === "substitute" ? (e.change?.kind === "substitute" ? e.origPrev : e.prev) : undefined };
+          });
+          const m = { ...c, exercises, sets };
+          void putLocal(m);
+          return m;
+        });
+        setSel(null);
+      } catch { flash("El cambio quedó en tu cuenta. Si no lo ves acá, salí y volvé a entrar al entrenamiento."); }
+    };
+    registerWorkout({
+      sessionChanged: (ids) => void adopt(ids),
+      changeExercise: (peId) => { const i = sRef.current?.exercises.findIndex((e) => e.id === peId) ?? -1; if (i >= 0) { setExIdx(i); setSel(null); setChanging(true); } },
+    });
+    return () => registerWorkout(null);
+  }, [registerWorkout, flash]);
+  // El mensaje por serie que calculó el servidor (mismas reglas): si el teléfono no tenía uno (p. ej. sin objetivos porque el
+  // entrenamiento empezó sin conexión), se muestra en el descanso. El de las reglas locales sigue siendo el que vale sin conexión.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ sid: string; peId: string; event: { code: string; text: string; restPlusSec: number | null } }>).detail;
+      const cur = sRef.current;
+      if (!d?.event?.text || !cur || d.sid !== cur.id) return;
+      const key = `${d.peId}:${d.event.code}`;
+      if (cur.intel || (cur.intelSeen ?? []).includes(key) || !cur.rest || cur.rest.paused) return;
+      void commit({ ...cur, intel: { key, text: d.event.text, restPlusSec: d.event.restPlusSec ?? null, at: new Date().toISOString() }, intelSeen: [...(cur.intelSeen ?? []), key] });
+    };
+    window.addEventListener("repi:set-intel", on);
+    return () => window.removeEventListener("repi:set-intel", on);
+  }, [commit]);
 
   const editCur = (p: Partial<{ w: number; r: number; rir: number | null; feel: string | null }>) => {
     if (!s || !ex || cur < 0) return;
@@ -508,6 +562,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const keep = () => { lastAct.current = Date.now(); setStill(null); };
   // D191: objetivo de la fila en curso (no con un reemplazo hecho en el teléfono: el objetivo era del ejercicio original).
   const curTarget = !ex.change && cur >= 0 ? ex.targets?.find((t) => t.setIndex === cur) ?? null : null;
+  // D209: briefing antes del ejercicio (sin series hechas todavía), con lo que ya está en el teléfono: anda sin conexión.
+  const brief = brain.enabled && !paused && !rows.some((r) => r?.done) ? workoutBrief(ex, brain.tone) : null;
+  const askRepi = () => brain.open({ section: "workout", chips: WORKOUT_CHIPS, subject: sub ? sub.name : ex.name, offlinePending: sync.pending > 0,
+    // Sólo identificadores que el servidor ya conoce (un entrenamiento empezado sin conexión todavía no está en la cuenta).
+    ref: s.synced ? { sessionId: s.id, programExerciseId: ex.id, setIndex: cur >= 0 ? cur : null } : null });
   // Suma tiempo al descanso en curso sin reiniciarlo (sólo si la persona lo toca); la propuesta queda usada y no se repite.
   const addRest = (sec: number) => rest && commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + sec, total: rest.total + sec } : { ...rest, end: (rest.end ?? Date.now()) + sec * 1000, total: rest.total + sec },
     intel: s.intel ? { ...s.intel, restPlusSec: null } : null });
@@ -588,6 +647,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               // «Al fallo», AMRAP o por tiempo: las repeticiones son el resultado, no se precargan (D184); sólo la carga.
               onUse={(w, r) => { const numeric = parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Propuesta cargada: ajustala si hace falta antes de registrar."); }} />
           )}
+          {brief && <p className="rp-brief"><span className="rp-origin" data-kind="rules">Calculado por REPI</span>{localizeWeights(brief.text, unit)}</p>}
           <div className="sets" role="list" aria-label="Series">
             <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
             {/* D183: cada serie principal con sus etapas conectadas debajo (drops, mini series, bloques de cluster). */}
@@ -651,6 +711,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 </>}
               </div>
             )}
+            {brain.enabled && <div className="wo-tools"><button type="button" className="linkbtn" onClick={askRepi}>Preguntale a REPI</button></div>}
           </>
         ) : exSkipped && sel == null ? (
           <>
@@ -720,6 +781,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
               <button type="button" className="linkbtn" onClick={() => setNoteOpen(true)}>{noteDraft?.trim() ? "Editar nota" : "Nota de la serie"}</button>
               {connectPlace && <button type="button" className="linkbtn" onClick={() => setAsking(true)}>Pedir ayuda a sala</button>}
+              {brain.enabled && <button type="button" className="linkbtn" onClick={askRepi}>Preguntale a REPI</button>}
             </div>
           </>
         ) : (
@@ -840,6 +902,8 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
             <span>Anterior: {kg(pr.previous.weightKg, unit)} × {pr.previous.reps}{pr.previousAt ? ` · ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(pr.previousAt))}` : ""} · Epley {kgTo(pr.previous.e1rm, unit).toLocaleString("es-AR")} → {kgTo(pr.current.e1rm, unit).toLocaleString("es-AR")} {unit}</span></div>
         </div>
       )}
+      {/* D209: el cierre de REPI (previsto contra hecho, la anterior, marcas y la próxima), después de las marcas. */}
+      <SessionReview sessionId={sum.id} local={sum.local} />
       {!sum.local && <SessionCalories sessionId={sum.id} refresh={sent === "server" ? 1 : 0} />}
       {/* D168: con lo que acaba de levantar, dónde entraría en desafíos y rankings del gym. */}
       {onNudge && !sum.local && <Nudges go={onNudge} flash={flash} only={["challenge", "ranking_optin", "club"]} max={1} title="Con lo que venís levantando" />}

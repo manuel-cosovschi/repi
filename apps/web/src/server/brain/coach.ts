@@ -22,7 +22,7 @@ import { requireClientOf, requireCoach, readVersion } from "../training/services
 import { historyRows } from "../training/intelligence";
 import { gymContext, inScope, need } from "../gym/services";
 
-const { programAssignment, program, trainingProposal, gymMember, consentGrant } = schema;
+const { programAssignment, program, trainingProposal, gymMember, consentGrant, exercise } = schema;
 const DAY = 86_400_000;
 /** Ventana de las cantidades (rechazos, pedidos). */
 export const INSIGHT_WINDOW_DAYS = 30;
@@ -41,8 +41,14 @@ export type CoachInsight = {
   count: number;
   evidence: { basis: string; sessions?: { at: string }[] };
   /** Referencias para abrir la pantalla correspondiente (ejercicios del programa, propuestas). Nunca contenido del alumno. */
-  refs?: { exerciseIds?: string[]; proposalIds?: string[] };
+  refs?: { exerciseIds?: string[]; proposalIds?: string[]; items?: PendingItem[] };
 };
+/**
+ * Una propuesta abierta, sin su texto (D209 · interfaz): ejercicio, tipo y origen. `source: "student"` = pedido del alumno desde
+ * REPI (propose_to_coach), que la ficha de Training Intelligence no lista; la interfaz lo lleva al editor de siempre y deja
+ * decidir con las rutas existentes. Nunca la nota del alumno.
+ */
+export type PendingItem = { proposalId: string; exerciseId: string; exerciseName: string | null; kind: string; source: "ti" | "student" };
 export type ExerciseSignal = { exerciseId: string; name: string; trend: Trend["kind"]; confidence: Trend["confidence"]; sessions: number; dates: string[]; rising: boolean };
 export type InsightsView = {
   relation: { kind: "coach" | "gym"; id: string };
@@ -132,7 +138,8 @@ export async function relationInsights(rel: InsightRel, now = new Date()): Promi
       join workout_session ws on ws.id = bi.payload->'data'->>'sessionId'
       where bi.user_id = ${rel.userId} and bi.kind in (${sql.join(RECOMMENDATION_KINDS.map((k) => sql`${k}`), sql`, `)}) and bi.status in ('dismissed', 'never')
         and bi.created_at >= ${since}::timestamptz and ${relSessionsSql(rel)}`) as unknown as Promise<{ n: number }[]>,
-    db.select({ id: trainingProposal.id, exerciseId: trainingProposal.exerciseId }).from(trainingProposal)
+    db.select({ id: trainingProposal.id, exerciseId: trainingProposal.exerciseId, kind: trainingProposal.kind, trend: sql<string | null>`${trainingProposal.payload}->>'trend'`, name: exercise.name })
+      .from(trainingProposal).leftJoin(exercise, eq(exercise.id, trainingProposal.exerciseId))
       .where(and(eq(propCol, rel.id), eq(trainingProposal.status, "open"))).orderBy(desc(trainingProposal.createdAt)).limit(50),
     // Pedidos del alumno al profe desde REPI: la acción ejecutada deja en su resultado la propuesta creada para ESTA relación.
     db.execute<{ kind: string | null; n: number }>(sql`
@@ -164,7 +171,8 @@ export async function relationInsights(rel: InsightRel, now = new Date()): Promi
       evidence: { basis: "Tarjetas de tendencia o de poca energía que descartó, atadas a sesiones de esta relación. Sólo la cantidad." } });
   }
   if (open.length) {
-    insights.push({ kind: "pending_proposals", count: open.length, refs: { proposalIds: open.map((x) => x.id), exerciseIds: [...new Set(open.map((x) => x.exerciseId))] },
+    const items: PendingItem[] = open.map((x) => ({ proposalId: x.id, exerciseId: x.exerciseId, exerciseName: x.name ?? null, kind: x.kind, source: x.trend === "student_request" ? "student" : "ti" }));
+    insights.push({ kind: "pending_proposals", count: open.length, refs: { proposalIds: open.map((x) => x.id), exerciseIds: [...new Set(open.map((x) => x.exerciseId))], items },
       text: open.length === 1 ? "Hay una propuesta pendiente para revisar antes del próximo entrenamiento." : `Hay ${numEs(open.length, false)} propuestas pendientes para revisar antes del próximo entrenamiento.`,
       evidence: { basis: "Propuestas de Training Intelligence o del alumno que todavía no decidiste. Ninguna cambia el programa sola." } });
   }
@@ -185,5 +193,38 @@ export async function relationInsights(rel: InsightRel, now = new Date()): Promi
       "Rutinas propias o importadas por el alumno e historial importado",
       "Entrenamientos con otros profes u otras organizaciones",
     ],
+  };
+}
+
+// ── Panel del entrenador · «Pendientes» ─────────────────────────────────────
+export type PendingSignals = {
+  generatedAt: string;
+  /** Sólo alumnos con algo pendiente: relación vigente (no terminada) y permiso de entrenamientos activo. */
+  clients: { relId: string; pendingProposals: number; studentRequests: number }[];
+  totals: { clients: number; pendingProposals: number; studentRequests: number };
+};
+
+/**
+ * Cantidades para «Pendientes» del panel del coach (D209 · interfaz): por alumno, propuestas abiertas y, de ellas, cuántas son
+ * pedidos del alumno desde REPI (acción propose_to_coach ejecutada que apunta a esa propuesta). Mismo alcance que la ficha:
+ * requireCoach y, por alumno, relación no terminada con el permiso «training» activo (sin permiso, no cuenta). Sólo números:
+ * ningún texto de la propuesta ni del alumno. Es una lectura: no crea propuestas.
+ */
+export async function coachPendingSignals(actorId: string, orgId: string, now = new Date()): Promise<PendingSignals> {
+  await requireCoach(actorId, orgId);
+  const rows = await (db.execute<{ rel_id: string; proposals: number; requests: number }>(sql`
+    select cc.id as rel_id, count(tp.id)::int as proposals,
+      count(tp.id) filter (where exists (select 1 from brain_action a where a.user_id = cc.user_id and a.kind = 'propose_to_coach'
+        and a.status = 'executed' and a.result->>'proposalId' = tp.id))::int as requests
+    from coach_client cc
+    join training_proposal tp on tp.coach_client_id = cc.id and tp.status = 'open'
+    where cc.coach_org_id = ${orgId} and cc.status <> 'ended'
+      and exists (select 1 from consent_grant g where g.relation_id = cc.id and g.item = 'training' and g.status = 'active')
+    group by cc.id
+    order by count(tp.id) desc, cc.id`) as unknown as Promise<{ rel_id: string; proposals: number; requests: number }[]>);
+  const clients = rows.map((r) => ({ relId: r.rel_id, pendingProposals: r.proposals, studentRequests: r.requests }));
+  return {
+    generatedAt: now.toISOString(), clients,
+    totals: { clients: clients.length, pendingProposals: clients.reduce((s, c) => s + c.pendingProposals, 0), studentRequests: clients.reduce((s, c) => s + c.studentRequests, 0) },
   };
 }

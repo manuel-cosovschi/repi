@@ -1009,3 +1009,170 @@
 .notif-origin { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; font: 700 10px/16px var(--font-ui); background: var(--ui-text); color: var(--ui-surface); vertical-align: 1px; }
 .notif-cta { font-size: 12.5px; color: var(--ui-link); font-weight: 600; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .pc-dot { transition: none; } }
+
+/* ── D209 · Asistente REPI (Adaptive Coaching 3.0): una familia (.rp-*), sólo tokens --ui-* en Claro, Oscuro y Automático ── */
+.rp-badge { display: inline-grid; place-items: center; height: 22px; padding: 0 8px; border-radius: 7px; background: var(--ui-text); color: var(--ui-page); font: 700 12px/1 var(--font-display); letter-spacing: .06em; flex: none; }
+/* Procedencia: siempre visible junto a lo que dice REPI. */
+.rp-origin { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 11px; font: 600 11.5px/1.2 var(--font-ui); background: var(--ui-chip-info-bg); color: var(--ui-chip-info-ink); white-space: nowrap; }
+.rp-origin[data-kind="data"] { background: var(--ui-chip-ok-bg); color: var(--ui-chip-ok-ink); }
+.rp-origin[data-kind="ai"] { background: var(--ui-chip-mute-bg); color: var(--ui-chip-mute-ink); }
+.rp-origin[data-kind="safety"] { background: var(--ui-chip-warn-bg); color: var(--ui-chip-warn-ink); }
+
+/* Tarjeta de Inicio y cierre de la sesión. */
+.rp-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 16px; background: var(--ui-accent-tint); border: 1px solid var(--ui-accent-line); color: var(--ui-text); }
+.rp-card.is-quiet { background: var(--ui-surface-2); border-color: var(--ui-divider); }
+.rp-card[data-cat="safety"] { background: var(--ui-warning-tint); border-color: var(--ui-warning); }
+.rp-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mb .rp-card-title { font: 600 17px/1.3 var(--font-ui); margin: 0; text-wrap: pretty; }
+.rp-card-body { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ui-text-2); text-wrap: pretty; }
+.rp-card-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.rp-card-acts .cta.sm, .rp-card-acts .ghost.sm, .rp-card .ghost.sm { min-height: 44px; height: auto; padding: 8px 14px; }
+.rp-card-more { display: flex; gap: 4px 16px; flex-wrap: wrap; }
+.rp-card-more .linkbtn { min-height: 44px; font-size: 13px; }
+.rp-rev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rp-rev li { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--ui-line-subtle); }
+.rp-rev li:last-child { border-bottom: 0; }
+.rp-rev li > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rp-rev b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.rp-rev small, .rp-cmp small { font-size: 12px; color: var(--ui-muted); }
+.rp-cmp { display: flex; flex-direction: column; align-items: flex-end; text-align: right; gap: 2px; font-size: 12.5px; font-weight: 600; color: var(--ui-text-2); max-width: 55%; }
+.rp-cmp[data-cmp="more"] { color: var(--ui-success-text); }
+.rp-cmp[data-cmp="fewer"] { color: var(--ui-warning-text); }
+.rp-marks { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.45; display: flex; flex-direction: column; gap: 4px; }
+.rp-next, .rp-small { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.45; }
+.rp-next small, .rp-small small, .rp-ev small, .rp-plan small { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ui-muted); }
+
+/* Entradas contextuales «Preguntale a REPI». */
+.rp-ask { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; align-self: flex-start; }
+.rp-ask-btn { display: inline-flex; align-items: center; gap: 6px; }
+.pp-head .rp-ask { min-height: 36px; }
+
+/* Briefing antes del ejercicio (bajo la guía de la serie): una línea, hasta 3 renglones, nunca tapa controles. */
+.rp-brief { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ui-text-2); display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.rp-brief .rp-origin { margin-right: 6px; vertical-align: 1px; }
+
+/* Panel de conversación: no modal, debajo de hojas (40) y avisos (30), encima de la barra (10). */
+.rp-panel { position: fixed; z-index: 20; left: 50%; transform: translateX(-50%); bottom: 0; width: 100%; max-width: 480px; height: min(74dvh, 680px); display: flex; flex-direction: column;
+  background: var(--ui-surface-2); color: var(--ui-text); border: 1px solid var(--ui-border); border-bottom: 0; border-radius: 22px 22px 0 0; box-shadow: var(--ui-shadow-modal);
+  animation: rp-in var(--dur-sheet) var(--ease-out); }
+.rp-panel[data-expanded] { height: calc(100dvh - max(8px, var(--safe-top))); }
+/* En el entrenamiento, arriba: el dock (registrar la serie) queda siempre libre. */
+.rp-panel[data-place="top"] { top: max(6px, var(--safe-top)); bottom: auto; height: auto; max-height: 60dvh; border-radius: 0 0 22px 22px; border-top: 0; border-bottom: 1px solid var(--ui-border); animation-name: rp-in-top; }
+@media (min-width: 1280px) {
+  .rp-panel, .rp-panel[data-place="top"] { left: auto; right: 24px; transform: none; top: 24px; bottom: 24px; height: auto; max-height: none; width: 400px; max-width: calc(100vw - 48px); border: 1px solid var(--ui-border); border-radius: 22px; animation-name: rp-in-side; }
+}
+@keyframes rp-in { from { opacity: 0; translate: 0 24px; } to { opacity: 1; translate: 0 0; } }
+@keyframes rp-in-top { from { opacity: 0; translate: 0 -24px; } to { opacity: 1; translate: 0 0; } }
+@keyframes rp-in-side { from { opacity: 0; translate: 16px 0; } to { opacity: 1; translate: 0 0; } }
+.rp-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--ui-divider); flex: none; }
+.rp-head-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rp-head h2 { margin: 0; font: 700 20px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: -.005em; }
+.rp-head h2:focus-visible { outline-offset: 2px; }
+.rp-head small { font-size: 12px; color: var(--ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.rp-sys { margin: 0; font-size: 14px; }
+.rp-intro { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--ui-surface); font-size: 14px; line-height: 1.45; color: var(--ui-text-2); }
+.rp-intro b { color: var(--ui-text); font-size: 15px; }
+.rp-msg { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.rp-msg.mine { align-items: flex-end; }
+.rp-bubble { max-width: 82%; padding: 10px 14px; border-radius: 16px 16px 4px 16px; background: var(--ui-primary); color: var(--ui-on-primary); font-size: 15px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rp-meta { font-size: 12px; color: var(--ui-muted); }
+.rp-failed { color: var(--ui-warning-text); }
+.rp-failed .linkbtn { min-height: 32px; font-size: 12px; }
+.rp-reply { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; border-radius: 4px 16px 16px 16px; background: var(--ui-surface); }
+.rp-msg[data-mood="safety"] .rp-reply { background: var(--ui-warning-tint); }
+.rp-text { margin: 0; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty; }
+.rp-fact { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--ui-surface-2); border: 1px solid var(--ui-line-subtle); }
+.rp-fact-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rp-fact-top b { font-size: 14px; }
+.rp-fact dl { margin: 0; display: flex; flex-direction: column; }
+.rp-fact dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--ui-line-subtle); font-size: 14px; }
+.rp-fact dl > div:last-child { border-bottom: 0; }
+.rp-fact dt { color: var(--ui-muted); }
+.rp-fact dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rp-why { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.rp-why > .linkbtn { min-height: 36px; align-self: flex-start; }
+.rp-ev { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.rp-ev p { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 1.45; color: var(--ui-text-2); }
+.rp-alts { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.rp-alts li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 10px; border-radius: 10px; background: var(--ui-surface-2); font-size: 14px; }
+.rp-alts small { flex-basis: 100%; font-size: 12.5px; color: var(--ui-muted); line-height: 1.4; }
+.rp-ok { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--ui-chip-ok-bg); color: var(--ui-chip-ok-ink); }
+.rp-plan { width: 100%; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.45; }
+.rp-plan p { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.rp-plan-note { color: var(--ui-text-2); }
+/* Una acción se ve distinta de una respuesta: borde discontinuo, rótulo y vista previa de lo que cambia. */
+.rp-action { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; border: 1.5px dashed var(--ui-accent-line); background: var(--ui-page); }
+.rp-action[data-tone="health"] { border-color: var(--ui-warning); }
+.rp-action[data-state="done"] { border-style: solid; border-color: var(--ui-success); }
+.rp-action[data-state="cancelled"] { border-style: solid; border-color: var(--ui-divider); }
+.rp-kicker { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ui-link); }
+.rp-action[data-tone="health"] .rp-kicker { color: var(--ui-warning-text); }
+.rp-action > b { font-size: 15px; font-weight: 600; }
+.rp-preview { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ui-text-2); }
+.rp-action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.rp-action-btns .cta.sm, .rp-action-btns .ghost.sm { min-height: 44px; height: auto; padding: 8px 14px; }
+.rp-action-btns .cta.sm:disabled { opacity: .45; cursor: default; }
+.rp-result { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ui-text-2); }
+.rp-result[data-ok] { color: var(--ui-success-text); font-weight: 600; }
+.rp-details { display: flex; flex-direction: column; gap: 8px; }
+.rp-picker { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rp-picker legend { font-size: 13px; font-weight: 600; color: var(--ui-text-2); padding: 0; margin-bottom: 6px; }
+.rp-picker [role="radiogroup"] { display: flex; flex-wrap: wrap; gap: 6px; }
+.rp-picker .ai-chip { min-width: 44px; min-height: 44px; }
+.rp-fb { display: flex; gap: 4px; }
+.rp-thumb { width: 44px; height: 36px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--ui-muted); display: grid; place-items: center; cursor: pointer; }
+.rp-thumb[aria-pressed="true"] { color: var(--ui-text); border-color: var(--ui-border); background: var(--ui-surface); }
+.rp-thumb:disabled { opacity: .5; cursor: default; }
+.rp-typing { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ui-muted); }
+.rp-typing span { width: 8px; height: 8px; border-radius: 50%; background: var(--ui-accent); }
+@media (prefers-reduced-motion: no-preference) { .rp-typing span { animation: wo-live-pulse 1.2s ease-in-out infinite; } }
+.rp-foot { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--ui-divider); }
+.rp-panel[data-place="top"] .rp-foot { padding-bottom: 10px; }
+.rp-offline { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--ui-surface); font-size: 13px; line-height: 1.4; color: var(--ui-text-2); }
+.rp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.rp-chip { min-height: 36px; color: var(--ui-text); background: var(--ui-surface); }
+.rp-chip:disabled { opacity: .5; cursor: default; }
+.rp-compose { display: flex; gap: 8px; align-items: flex-end; }
+.rp-compose textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 120px; border-radius: 22px; border: 1px solid var(--ui-control-border); background: var(--ui-input-bg); color: var(--ui-text); padding: 11px 16px; font: 15px var(--font-ui); resize: none; }
+.rp-compose textarea::placeholder { color: var(--ui-placeholder); }
+.rp-compose button { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--ui-primary); display: grid; place-items: center; cursor: pointer; flex: none; }
+.rp-compose button:disabled { opacity: .4; cursor: default; }
+.rp-new { align-self: center; min-height: 32px; font-size: 12px; }
+.rp-why-fb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.rp-why-fb .ghost.sm { min-height: 44px; height: auto; }
+
+/* Perfil → Asistente REPI. */
+.rp-prefs { display: flex; flex-direction: column; gap: 10px; }
+.rp-fs { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rp-fs legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 8px; }
+.rp-fs:disabled { opacity: .6; }
+.rp-quiet { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rp-quiet label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ui-text-2); }
+.rp-quiet input { min-height: 44px; border-radius: 12px; border: 1px solid var(--ui-control-border); background: var(--ui-input-bg); color: var(--ui-text); padding: 0 12px; font: 15px var(--font-ui); }
+.rp-radios { display: flex; flex-direction: column; gap: 6px; }
+.rp-radio { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; min-height: 56px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text); font: inherit; cursor: pointer; }
+.rp-radio b { font-size: 15px; font-weight: 600; }
+.rp-radio small { font-size: 12.5px; color: var(--ui-muted); line-height: 1.4; }
+.rp-radio[aria-checked="true"] { border-color: var(--ui-accent); background: var(--ui-accent-tint); }
+.rp-mem { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.rp-mem h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.rp-mem-list { list-style: none; margin: 0; padding: 4px 14px; border-radius: 14px; background: var(--ui-surface); display: flex; flex-direction: column; }
+.rp-mem-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--ui-border); }
+.rp-mem-list li:last-child { border-bottom: 0; }
+.rp-mem-list li > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rp-mem-list b { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.rp-mem-list small { font-size: 12px; color: var(--ui-muted); }
+.rp-mem-list .ghost.sm { min-height: 44px; height: auto; flex: none; }
+/* En el entrenamiento el panel comparte la pantalla con el dock: atajos en una sola fila deslizable y menos aire. */
+.rp-panel[data-place="top"] .rp-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.rp-panel[data-place="top"] .rp-chips::-webkit-scrollbar { display: none; }
+.rp-panel[data-place="top"] .rp-chip { flex: none; }
+.rp-panel[data-place="top"] .rp-new { display: none; }
+.rp-panel[data-place="top"] .rp-head { padding-top: 6px; padding-bottom: 6px; }
+.rp-panel[data-place="top"] .rp-log { padding-top: 10px; padding-bottom: 10px; gap: 10px; }
+/* La píldora de la demo (z 91) no tapa el campo del panel: se oculta mientras el panel está abierto abajo o al costado, como con una hoja. */
+body:has(.rp-panel:not([data-place="top"])) .dt-pill { display: none; }
+.rp-card > .ghost.sm { align-self: flex-start; }
+/* Con «Preguntale a REPI» la fila de herramientas puede pasar a dos renglones: sin aire de más entre renglones. */
+.wo-tools { row-gap: 0; }

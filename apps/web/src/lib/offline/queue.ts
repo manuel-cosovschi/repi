@@ -159,6 +159,10 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
       // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
       const alert = data.alert as { notified: number } | null | undefined;
       if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
+      // D209: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono). La pantalla decide si lo muestra;
+      // no se guarda acá (la copia local la maneja el entrenamiento) y nunca demora la cola.
+      const intel = data.intel as { event?: { code: string; text: string; restPlusSec: number | null } | null } | null | undefined;
+      if (intel?.event && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:set-intel", { detail: { sid: it.sid, peId: it.peId, idx: it.idx, event: intel.event } }));
     }
     await putLocal(s);
     if (!changedMeanwhile || data.status === "conflict") await idbDel("queue", it.seq!);

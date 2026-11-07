@@ -12,6 +12,7 @@ import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
 import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, repsText, syncCircuit, circuitIssues, resizeBlocks, type ExerciseDetail, type WeightUnit } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { api } from "@/lib/api";
+import { RepiAsk } from "@/components/brain/RepiAsk";
 import { Ic } from "@/components/ui/Ic";
 import { RoutineImportSheet } from "./RoutineImport";
 import { IntInput } from "@/components/ui/IntInput";
@@ -82,6 +83,8 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
               <Ic i={Play} size={16} weight="fill" color="var(--ui-on-primary)" />{busyOpen ? "Continuar el que está en curso" : "Empezar"}
             </button>
             <button type="button" className="ghost sm" onClick={() => open(r)}>Editar</button>
+            {/* D209: qué decía la rutina importada, qué faltaba, qué completaste y qué se sugirió (lo explica REPI con la procedencia). */}
+            {r.imported && !offline && <RepiAsk section="routines" refs={{ routineId: r.id }} subject={r.name} label="Entender esta rutina" className="ghost sm rp-ask-btn" send="Explicame esta rutina" />}
             <button type="button" className="ghost sm" disabled={offline} onClick={async () => {
               try { await api(`/api/me/routines/${r.id}/duplicate`, { body: {} }); flash(`Duplicaste «${r.name}».`); void load(); } catch (e) { flash((e as Error).message); }
             }}>Duplicar</button>

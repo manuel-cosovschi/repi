@@ -4,6 +4,7 @@
 // No hay cobros reales: ciclo, prorrateo, mora y proveedor de pagos siguen pendientes (§12).
 import { AdminAnnouncements } from "./AdminAnnouncements";
 import { AdminSite } from "./AdminSite";
+import { AdminCoaching } from "./AdminCoaching";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
@@ -45,7 +46,7 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
-type Screen = "summary" | "clients" | "leads" | "site" | "support" | "ideas" | "privacy" | "announcements" | "guide";
+type Screen = "summary" | "clients" | "leads" | "site" | "coaching" | "support" | "ideas" | "privacy" | "announcements" | "guide";
 
 export function AdminApp({ me }: { me: { name: string } }) {
   const [screen, setScreen] = useState<Screen>("summary");
@@ -67,7 +68,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
       <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["site", "Sitio y QR"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]] as const).map(([k, l]) => (
+          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["site", "Sitio y QR"], ["coaching", "Coaching IA"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); if (k === "summary") void sum.reload(); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
               {k === "support" && openSupport > 0 && <span className="nbadge" aria-label={`${openSupport} consultas abiertas`}>{openSupport}</span>}
@@ -111,6 +112,8 @@ export function AdminApp({ me }: { me: { name: string } }) {
           {screen === "announcements" && <AdminAnnouncements flash={flash} />}
           {screen === "guide" && <AdminGuide />}
           {screen === "site" && <AdminSite />}
+          {/* D209: métricas agregadas del asistente REPI y límites de la IA (sin datos de alumnos). */}
+          {screen === "coaching" && <AdminCoaching flash={flash} orgs={(list.data?.clients ?? []).map((c) => ({ id: c.orgId, name: c.name }))} />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
         </div>
       </main>

@@ -3,7 +3,7 @@
 // permiso para su programa). Tendencia por ejercicio del programa, objetivos de REPI y cómo se resolvieron, y propuestas
 // para la próxima programación. Decidir sobre una propuesta NO cambia la rutina: «Revisar en el editor» la lleva al editor
 // de siempre, donde sólo cambia el borrador si se aplica y se guarda con una versión nueva y su autoría.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useLoad } from "@/components/gym/shared";
 import type { TiDraft } from "./ProposalDraft";
@@ -18,16 +18,20 @@ type Ex = {
 type View = { formula: string; exercises: Ex[]; adherence: { sessions28d: number } | null; programId: string | null };
 const CONF: Record<Trend["confidence"], string> = { none: "datos insuficientes", possible: "tendencia posible", consistent: "tendencia consistente" };
 const DECIDED: Record<string, string> = { accepted: "Aceptada: todavía no se aplicó a la rutina", modified: "Aceptada con cambios", kept: "Se mantuvo la programación", rejected: "Rechazada" };
-const KIND: Record<string, string> = { load: "Carga", reps: "Repeticiones", hold: "Mantener", review: "Revisar", deload: "Posible descarga", rest: "Descanso" };
+export const PROPOSAL_KIND: Record<string, string> = { load: "Carga", reps: "Repeticiones", hold: "Mantener", review: "Revisar", deload: "Posible descarga", rest: "Descanso" };
+const KIND = PROPOSAL_KIND;
 // La ficha del coach y la de Gym muestran todo en kg (como el resto de esos paneles); la unidad del alumno es de su app.
 const kg = (n: number | null) => (n == null ? "" : `${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })} kg`);
 
-export function IntelSection({ load, decideUrl, relId, kind, who = "con vos", onReview }: {
+export function IntelSection({ load, decideUrl, relId, kind, who = "con vos", onReview, onLoaded }: {
   load: string; decideUrl: (proposalId: string) => string; relId: string; kind: TiDraft["kind"]; who?: string;
   /** Abre el editor de programas de siempre con la propuesta a la vista (no la aplica). */
   onReview?: (d: TiDraft) => void;
+  /** D209: cada carga puede abrir o cerrar propuestas; «Señales de REPI» se actualiza para contar lo mismo. */
+  onLoaded?: () => void;
 }) {
   const d = useLoad<View>(load);
+  useEffect(() => { if (d.data) onLoaded?.(); }, [d.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
@@ -43,7 +47,7 @@ export function IntelSection({ load, decideUrl, relId, kind, who = "con vos", on
   };
   return (
     <section className="card" aria-labelledby={`ti-h-${relId}`}>
-      <h2 id={`ti-h-${relId}`}>Training Intelligence</h2>
+      <h2 id={`ti-h-${relId}`} tabIndex={-1}>Training Intelligence</h2>
       <span className="muted" style={{ fontSize: 13 }}>{formula}{adherence ? ` Entrenamientos completados ${who} en 28 días: ${adherence.sessions28d}.` : ""}</span>
       {msg && <p role="status" style={{ fontSize: 13, margin: 0 }}>{msg}</p>}
       {!exercises.length ? <div className="empty">Sin programa activo o sin series registradas todavía.</div> : (

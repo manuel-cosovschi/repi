@@ -391,3 +391,69 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 /* PP1 · Novedades de REPI (D202) */
 .repinews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
 .repinews .card { padding: 16px 18px; }
+
+/* D209 · «Señales de REPI» (ficha del coach → Rendimiento y ficha del socio en Gym): análisis de REPI, distinto de los datos
+   del alumno; cada señal dice de dónde sale. Sólo tokens --ui-*. */
+.rs-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.rs-tag { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--ui-accent-tint); color: var(--ui-text); font: 600 11px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; }
+.rs-sub, .rs-note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ui-text-2); }
+.rs-status { margin: 0; font-size: 13px; line-height: 1.45; }
+.rs-status:empty { display: none; }
+.rs-retry { align-self: flex-start; }
+.rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rs-item { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--ui-divider); }
+.rs-item:last-child { border-bottom: 0; }
+.rs-n { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--ui-surface-2); border: 1px solid var(--ui-divider); font: 700 18px var(--font-display); color: var(--ui-text); }
+.rs-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rs-text { margin: 0; font-size: 14px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.rs-origin { display: inline-flex; align-items: center; gap: 6px; font: 600 11px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; color: var(--ui-muted); }
+.rs-origin::before { content: ""; width: 6px; height: 6px; border-radius: 3px; background: currentColor; }
+.rs-origin[data-o="calc"] { color: var(--ui-link); }
+.rs-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-why summary, .rs-excluded summary { display: flex; align-items: center; gap: 6px; min-height: 44px; width: fit-content; cursor: pointer; list-style: none; font: 600 13px var(--font-ui); color: var(--ui-link); }
+.rs-why summary::-webkit-details-marker, .rs-excluded summary::-webkit-details-marker { display: none; }
+.rs-why summary::before, .rs-excluded summary::before { content: "▸"; font-size: 12px; transition: transform var(--dur-micro) var(--ease-std); }
+.rs-why[open] summary::before, .rs-excluded[open] summary::before { transform: rotate(90deg); }
+.rs-why p { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--ui-surface-2); font-size: 13px; line-height: 1.5; color: var(--ui-text-2); }
+.rs-excluded { border-top: 1px solid var(--ui-divider); }
+.rs-excluded ul { margin: 0 0 4px; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--ui-text-2); }
+.rs-props { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rs-prop { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ui-divider); background: var(--ui-surface-2); }
+.rs-prop-h { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
+.rs-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--ui-selection-bg); border: 1px solid var(--ui-selection-border); font-size: 13px; line-height: 1.45; }
+@media (pointer: coarse) { .rs .btn.sm, .ac .btn.sm { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .rs-why summary::before, .rs-excluded summary::before { transition: none; } }
+
+/* D209 · REPI Admin › Coaching IA: agregados reales en tablas y barras simples; límites con revisión y confirmación. */
+.ac { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ac h3, .ac-h3 { margin: 4px 0 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--ui-muted); }
+.ac-period { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--ui-muted); }
+.ac-period select { height: 42px; border-radius: 10px; border: 1px solid var(--ui-control-border); padding: 0 10px; font: 500 14px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
+.ac-range { margin: 0; font-size: 13px; }
+.ac-kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }
+.ac-kpi { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ac-kpi span { font-size: 13px; color: var(--ui-muted); }
+.ac-kpi strong { font: 700 30px/1.05 var(--font-display); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.ac-kpi small { font-size: 12px; color: var(--ui-muted); line-height: 1.4; }
+.ac-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
+.ac-grid > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ac-status { display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-note { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ui-text-2); }
+.ac-empty { margin: 0; font-size: 14px; }
+.ac-scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
+.ac-scroll:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.ac-bars { display: flex; flex-direction: column; gap: 12px; }
+.ac-eff { border: 1px solid var(--ui-divider); border-radius: 12px; padding: 12px 14px; background: var(--ui-surface-2); display: flex; flex-direction: column; gap: 8px; }
+.ac-eff dl { margin: 0; display: grid; gap: 8px 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.ac-eff dt { font-size: 12px; color: var(--ui-muted); }
+.ac-eff dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; }
+.ac-scope { max-width: 420px; }
+.ac-form { display: grid; gap: 14px 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); align-items: start; }
+.ac-form small { font-size: 12px; font-weight: 400; line-height: 1.4; }
+.ac-err { color: var(--ui-error-text); }
+.ac-form input[aria-invalid="true"] { border-color: var(--ui-error); }
+.ac-foot { display: flex; gap: 8px; flex-wrap: wrap; }
+.ac-table .num { text-align: right; }
+.ac-table tbody th[scope="row"] { white-space: normal; min-width: 9em; }
+@media (max-width: 560px) { .ac-table th, .ac-table td { padding: 8px 6px; } }
