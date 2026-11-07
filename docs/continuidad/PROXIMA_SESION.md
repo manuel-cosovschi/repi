@@ -2,26 +2,34 @@
 
 Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## Adaptive Coaching 3.0 (D210) — 07/11/2026 · EN CONSTRUCCIÓN (renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
+## Adaptive Coaching 3.0 (D210) — 07/11/2026 · LISTO PARA PUBLICAR (renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
 - **Pedido:** máster del titular, guardado en `docs/adaptive/AC3_MASTER_PROMPT.md`.
   - Autoriza el bloque de punta a punta: migraciones aditivas, merge y deploy con respaldo y pruebas críticas en verde.
-  - Prohíbe gastos nuevos, borrar o modificar datos reales, migraciones destructivas y notificaciones masivas sin consentimiento.
-- **Rama:** `claude/adaptive-coaching-3`, desde `main` 08d4a50 (HEAD confirmado).
+  - Prohíbe gastos nuevos sin aprobación, borrar o modificar datos reales, migraciones destructivas y notificaciones masivas sin consentimiento.
+- **Gasto de IA:** aprobado por el titular el 07/11 con los topes previstos: 30 mensajes por persona por día, US$2 por día en total y US$20 por mes por organización. Se cambia en Admin → Coaching IA. Sin IA o al tope, responde por reglas.
+- **Rama:** `claude/adaptive-coaching-3`, con main integrado (incluye #63 ventas y #68–#73).
 - **Contrato:** `docs/adaptive/ADAPTIVE_COACHING_3.md`.
-- **Auditoría:** `docs/adaptive/ac3-auditoria/`, con evidencia y modelos de OpenAI.
-- **Matriz de los 70 casos:** `docs/adaptive/AC3_PRUEBAS.md`.
-- **Hecho:**
-  - Núcleo de dominio `packages/domain/src/brain` (902 pruebas de dominio en verde).
-  - Corrección de pirámides en Training Intelligence.
-  - Migración 0051 (`brain_*`, `ai_usage`, `ai_policy`, `ai_breaker`) con `hosted-0051.sql`, `verify-0051.sh` (ensayada en local) y reversión.
-  - Gateway de IA con cuotas, presupuesto, breaker, concurrencia, caché y costo.
-  - Privacidad: exportación, borrado, retención y purga de demos.
-- **En curso:**
-  - Servidor (contexto, chat, acciones, revisión de sesión, proactividad, push, coach, admin).
-  - Después: interfaz, pruebas E2E, revisión, PR, Respaldo, `hosted-0051` en producción, merge, deploy y smoke con cuentas demo.
-- **IA:** modelo `gpt-6-luna` (`OPENAI_MODEL_BRAIN`, el vigente más económico según la documentación oficial), con topes por defecto: 30 llamadas por persona por día, US$2 por día global, US$20 por mes por organización. Con 0, la IA del cerebro queda apagada y todo sigue por reglas.
-
+- **Matriz de pruebas:** `docs/adaptive/AC3_PRUEBAS.md`.
+- **Decisión:** D210 en `docs/DECISIONS.md`.
+- **Privacidad:** sección «Asistente REPI» en `docs/PRIVACIDAD_OPERACION.md`.
+- **Migración 0051 `brain`** (aditiva, nueve tablas):
+  - Archivos: `hosted-0051.sql`, `verify-0051.sh` y `rollback/0051_brain.down.sql`.
+  - Mismo SQL y mismo sha256 que la 0050 original; `when` nuevo en el journal, posterior al de 0050.
+  - Ensayo local en una copia descartable, todo correcto: aplicación, RLS, restricciones, cascada, reintento, reversión negada con datos y reaplicación.
+- **Revisión independiente y correcciones:**
+  - Confirmados: 8 de dominio, 13 de servidor y 11 de interfaz, más los conocidos K1–K3. Todos corregidos, con pruebas de regresión.
+  - Destacado: alarmas de salud que se escapaban («me duele mucho el pecho», «me bajó la presión»).
+  - Una verificación independiente encontró 5 problemas bajos nuevos, también corregidos:
+    - duración máxima de las rutas frente al reclamo;
+    - una falla después del efecto ya no duplica la acción;
+    - alimentación sin falsos positivos;
+    - una molestia propuesta vale todo el día;
+    - el panel pasa a hoja cuando no entra arriba del dock.
+- **Pruebas (local):**
+  - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
+  - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
+- **Próximo:** PR → CI → «Respaldo» → `hosted-0051.sql` en producción → merge → deploy → verificación con cuentas demo → §10 del contrato y esta sección.
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 
