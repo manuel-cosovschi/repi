@@ -37,4 +37,10 @@ export function watchLayout() {
   void document.fonts?.ready.then(() => { if (alive && loaded) idle(() => { if (alive) ScrollTrigger.refresh(); }, { timeout: 1500 }); });
   return () => { alive = false; ro.disconnect(); clearTimeout(timer); window.removeEventListener("load", onLoad); };
 }
+/** Corre `f` cuando el navegador está libre (o a más tardar en `timeout` ms); devuelve la cancelación. */
+export function whenIdle(f: () => void, timeout = 1500) {
+  const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+  if (w.requestIdleCallback) { const id = w.requestIdleCallback(f, { timeout }); return () => w.cancelIdleCallback?.(id); }
+  const id = window.setTimeout(f, 200); return () => clearTimeout(id);
+}
 export { gsap, ScrollTrigger, useGSAP };

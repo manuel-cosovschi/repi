@@ -7,7 +7,7 @@
 // El 3D es decorativo: si su código no carga, si WebGL falla o si se pierde el contexto, queda el SVG y la página sigue igual.
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ScrollTrigger, watchLayout } from "../x3/gsap";
+import { ScrollTrigger, watchLayout, whenIdle } from "../x3/gsap";
 import { SalaSvg } from "./SalaSvg";
 import { detectQuality, stage, type Quality } from "./store";
 import type { ShotId } from "./model";
@@ -50,7 +50,9 @@ function useShotDirector() {
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
     const remeasure = () => { measure(); onScroll(); };
-    measure(); update();
+    // La primera medición, en un momento libre (la página arranca en el hero, que es la toma inicial de la tienda); después,
+    // en cada refresh de ScrollTrigger y al cambiar el tamaño.
+    const cancel = whenIdle(remeasure, 1000);
     // Un perfil elegido cambia su toma (`data-shot`): sólo cambia el nombre, no las posiciones, pero se relee todo junto.
     const mo = new MutationObserver(remeasure);
     mo.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["data-shot"] });
@@ -58,7 +60,7 @@ function useShotDirector() {
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", remeasure);
     return () => {
-      mo.disconnect(); ScrollTrigger.removeEventListener("refresh", remeasure);
+      cancel(); mo.disconnect(); ScrollTrigger.removeEventListener("refresh", remeasure);
       window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", remeasure); cancelAnimationFrame(raf);
     };
   }, []);

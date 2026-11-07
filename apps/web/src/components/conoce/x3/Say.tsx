@@ -5,7 +5,7 @@
 // Por defecto acompaña al scroll (de «top 85%» a «top 45%», reversible); con `auto={false}` la anima la escena (sayIn/sayOut).
 // Movimiento reducido: el estado final, quieto (es el CSS por defecto).
 import { Fragment, useRef, type ElementType } from "react";
-import { gsap, MOTION_MQ, useGSAP } from "./gsap";
+import { gsap, MOTION_MQ, useGSAP, whenIdle } from "./gsap";
 
 type Word = { t: string; k: boolean };
 /** «Antes, cada dato *en otro lado.*» → palabras; la frase clave va entera en una sola máscara (con su subrayado de corrido). */
@@ -25,8 +25,13 @@ export function Say({ text, as: Tag = "h2", id, className, auto = true, snap = f
     if (!auto) return;
     const mm = gsap.matchMedia();
     mm.add(MOTION_MQ, () => {
-      const tl = gsap.timeline({ defaults: { ease: "none" }, scrollTrigger: { trigger: root.current, start: "top 85%", end: "top 45%", scrub: 0.5 } });
-      sayIn(tl, root.current!, 0, 1, snap);
+      // Se arma en un momento libre (no en el cuadro de la hidratación): todas las afirmaciones están lejos del primer pantallazo.
+      let tl: gsap.core.Timeline | null = null;
+      const cancel = whenIdle(() => {
+        tl = gsap.timeline({ defaults: { ease: "none" }, scrollTrigger: { trigger: root.current, start: "top 85%", end: "top 45%", scrub: 0.5 } });
+        sayIn(tl, root.current!, 0, 1, snap);
+      });
+      return () => { cancel(); tl?.scrollTrigger?.kill(); tl?.revert(); };
     });
     return () => mm.revert();
   }, { scope: root, dependencies: [text] });

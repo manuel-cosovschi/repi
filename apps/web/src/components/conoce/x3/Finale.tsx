@@ -13,7 +13,7 @@ import { stage } from "../sala/store";
 import { DemoButton } from "../DemoButton";
 import { TrackLink } from "../TrackLink";
 import { quad } from "./curves";
-import { gsap, PIN_MQ, ScrollTrigger, useGSAP } from "./gsap";
+import { gsap, PIN_MQ, ScrollTrigger, useGSAP, whenIdle } from "./gsap";
 
 const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 const ORIGIN: [number, number] = [0, 0];
@@ -69,10 +69,11 @@ export function Finale() {
         acts.forEach((a, i) => { const v = eOut(seg(p, 0.8 + i * 0.03, 0.88 + i * 0.03)); a.style.opacity = String(+v.toFixed(3)); a.style.transform = `translateY(${(18 * (1 - v)).toFixed(1)}px)`; });
         under.style.transform = `scaleX(${eIO(seg(p, 0.84, 0.92)).toFixed(3)})`;
       };
-      const trig = ScrollTrigger.create({ trigger: sec, start: "top top", end: "bottom bottom", scrub: 0.6, onRefreshInit: measure, onUpdate: (s) => { p = s.progress; render(); } });
-      measure();
+      // El disparador y la primera medición, en un momento libre (no en el cuadro de la hidratación); después, cada refresh.
+      let trig: ScrollTrigger | null = null;
+      const idle = whenIdle(() => { trig = ScrollTrigger.create({ trigger: sec, start: "top top", end: "bottom bottom", scrub: 0.6, onRefreshInit: measure, onUpdate: (s) => { p = s.progress; render(); } }); measure(); });
       return () => {
-        trig.kill();
+        idle(); trig?.kill();
         stage.set({ gather: 0, dotOut: false });
         for (const el of [dot, img, ring, under, ...lines, ...acts]) { el.style.transform = ""; el.style.opacity = ""; }
       };

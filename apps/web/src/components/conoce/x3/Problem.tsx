@@ -11,7 +11,7 @@ import { Wordmark } from "@/components/access/Wordmark";
 import { stage } from "../sala/store";
 import type { ShotId } from "../sala/model";
 import { organic, type Curve } from "./curves";
-import { gsap, PIN_MQ, ScrollTrigger, useGSAP } from "./gsap";
+import { gsap, PIN_MQ, ScrollTrigger, useGSAP, whenIdle } from "./gsap";
 
 /** Cada pedazo flota sobre la zona donde pasa eso en la sala (x, z del mundo). `wide`: sólo en pantallas anchas. */
 const FRAGS = [
@@ -180,17 +180,22 @@ export function Problem() {
         }
       };
 
-      const trig = ScrollTrigger.create({
-        trigger: sec, start: "top top", end: "bottom bottom", scrub: 0.6,
-        onRefreshInit: measure,
-        onUpdate: (s) => { st.p = s.progress; render(); },
-      });
-      // La sala se enfría mientras la escena entra (y vuelve a estar viva al subir al hero).
-      const enter = ScrollTrigger.create({
-        trigger: sec, start: "top 85%", end: "top 15%",
-        onUpdate: (s) => { st.enter = s.progress; render(); },
-        onLeaveBack: () => { st.enter = 0; render(); },
-      });
+      // Los disparadores y la primera medición se crean en un momento libre, no en el cuadro de la hidratación (TBT).
+      let trig: ScrollTrigger | null = null, enter: ScrollTrigger | null = null;
+      const setup = () => {
+        trig = ScrollTrigger.create({
+          trigger: sec, start: "top top", end: "bottom bottom", scrub: 0.6,
+          onRefreshInit: measure,
+          onUpdate: (s) => { st.p = s.progress; render(); },
+        });
+        // La sala se enfría mientras la escena entra (y vuelve a estar viva al subir al hero).
+        enter = ScrollTrigger.create({
+          trigger: sec, start: "top 85%", end: "top 15%",
+          onUpdate: (s) => { st.enter = s.progress; render(); },
+          onLeaveBack: () => { st.enter = 0; render(); },
+        });
+        measure();
+      };
       // Las capturas del «después» se decodifican con una pantalla de anticipación (sin trabar el cuadro en que suben).
       const io = new IntersectionObserver(([e]) => {
         if (!e.isIntersecting) return;
@@ -198,9 +203,9 @@ export function Problem() {
         (q(".x3-prob-screens img") as HTMLImageElement[]).filter((im) => im.offsetParent !== null).forEach((im) => { im.loading = "eager"; void im.decode?.().catch(() => {}); });
       }, { rootMargin: "100% 0px" });
       io.observe(sec);
-      measure();
+      const idle = whenIdle(setup);
       return () => {
-        trig.kill(); enter.kill(); io.disconnect();
+        idle(); trig?.kill(); enter?.kill(); io.disconnect();
         stage.set({ tone: 0, cold: false });
         for (const el of [...frags, ...shots, ...roles, ...phones, ...restA, ...restB, slotA, slotB, para, dot, ring, under, keyB]) { el.style.transform = ""; el.style.opacity = ""; }
         frags.forEach((f) => { f.style.left = ""; f.style.top = ""; });
