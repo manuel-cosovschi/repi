@@ -2,12 +2,12 @@
 
 Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## /conoce · Experience 3 Motion 2 «El punto que ordena» — 07/11/2026 · LISTO EN RAMA, SIN PUBLICAR
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 07/11/2026 · RONDA 2 LISTA EN RAMA, SIN PUBLICAR
 
 - **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
   y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
 - **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (sin push). Plan, decisiones y evidencia:
-  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10 tiene la tabla de commits y la verificación).
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2).
 - **Hecho (un commit por paso, P0–P7 + verificación):**
   - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
     ≤ 2,4 y foco en blanco, director sin lecturas por cuadro, `Say`, `curves.ts`, `Roll` v2, sin desenfoques animados.
@@ -19,8 +19,22 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   - P4 (cierre): toda la sala vuelve al punto y el punto se acomoda en la «ı».
   - P5–P7: módulos como tomas y «Que venga alguien → Voy» con el scroll; perspectivas al llegar y sin remontar; «PROBALO.»,
     puertas sin reflujo, bordes curvos y pasos que se dibujan.
+- **Ronda 2 (revisión independiente, 07/11):** corregidos los 8 puntos (detalle y evidencia en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §11):
+  - cierre sin logo «raro»: no hay logo hasta que el punto llega a la «ı» y después nace entero desde el punto;
+  - el trazo «Voy» ya no queda suelto en el teléfono;
+  - ningún pedazo de 02 pisa el titular en iPhone 15 (nueva prueba e2e);
+  - 3D con equipos ≤ 58 px, personas cian sin luz y sin cuadro vacío en 03;
+  - recortes de 03 enteros, «62,5 kg × 8–10» en una línea y teléfono vertical en escritorio;
+  - el trazo de Gestión rodea el teléfono;
+  - Training Intelligence muestra la misma serie que 03 (`x3/EngineScreen.tsx`, compartido).
+  Más audacia: impacto del hero como evento de luz, 02 sin tiempos muertos y con golpe de cian en el corte, la sala que gira
+  en espiral alrededor del logo en el cierre y la sala que responde al mouse.
+  Pruebas: typecheck ✓; e2e `conoce` + `public` 65 ✓ + 1 omitida; Lighthouse móvil mediana 86 (TBT 98 ms, CLS 0, A11y 100);
+  CLS de recorrido 0,0011 / 0; axe 0 (20 pasadas); Impeccable 0; pausa sin cambios; SwiftShader en SVG.
+  Sin migraciones ni dependencias nuevas.
 - **Archivos:** `apps/web/src/components/conoce/sala/{store,model,Stage,SalaSvg,SalaCanvas}.ts(x)`,
-  `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap}.ts(x)`,
+  `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap,EngineScreen}.ts(x)`,
   `apps/web/src/components/conoce/ConoceHub.tsx`, `apps/web/src/styles/conoce3.css`, `apps/web/e2e/conoce.spec.ts`.
   `TargetCard.tsx` no se tocó (sólo se reutiliza).
 - **Pruebas:** typecheck ✓; e2e `conoce` + `public` 64/64 contra `next start` local; axe 0 (32 pasadas); Impeccable 0;
@@ -31,9 +45,10 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   `aria-label` del logo (fallaba igual antes de esta pasada).
 - **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
   socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
-- **Próxima acción:** que el titular revise `/conoce` (en especial la «ı» vacía durante el scrub del cierre, riesgo 4 del
-  plan); después, PR desde `claude/conoce-ajustes`, respaldo según `docs/RESPALDOS.md` si correspondiera (no hay migraciones),
-  publicar y medir el LCP de campo.
+- **Próxima acción:** que el titular revise `/conoce` con la ronda 2. Después, PR desde `claude/conoce-ajustes`. No hay
+  migraciones, así que el respaldo de `docs/RESPALDOS.md` sólo corre si el despliegue lo pide. Luego publicar y medir el
+  LCP de campo. Antes de levantar `next start` en 3103, cerrar el `next-server` anterior de `/home/user/repi-cx/apps/web`
+  (el `pkill` del `npm exec` no lo cierra y la página se sirve con la build vieja).
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 

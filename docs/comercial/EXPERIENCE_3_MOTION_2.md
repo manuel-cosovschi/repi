@@ -625,3 +625,58 @@ Rama `claude/conoce-ajustes` (worktree `/home/user/repi-cx`), sin publicar ni em
 
 **Pendiente o fuera de esta pasada:** lo de §8. La «ı» vacía durante el scrub del cierre (riesgo 4) queda para que el
 titular la vea en la revisión. El LCP de campo se mide después de publicar.
+
+## 11. Ronda 2: cambios de la revisión independiente (07/11/2026)
+
+La revisión de la ronda 1 dio el presupuesto en verde, pero pidió cambios antes de mostrársela al titular: un logo «raro» en el
+cierre, un trazo suelto en el teléfono, un pedazo sobre el titular de 02, el 3D fuera de sus reglas, recortes rotos en 03 y
+más audacia. Cada punto se comprobó antes de tocarlo. Nota de la verificación: un `next-server` viejo seguía ocupando el
+puerto 3103 (el `pkill` del arranque mata el `npm exec`, no al servidor). Ahora se cierra por su carpeta antes de cada
+arranque.
+
+**Lo que se corrigió**
+
+| # | Problema | Arreglo |
+|---|---|---|
+| 1 | Cierre: logo gris al 35 % con la «ı» vacía, también en reposo | Antes de que llegue el punto no hay logo: `clip-path: circle(0)` en la «ı». Cuando el punto se acomoda (p ≥ .72), las letras se abren desde él con el círculo de 02, como un evento de 0,6 s (0,3 s al revés si se sube). En reposo, el logo está entero o no está. Con la pausa, sin transición. |
+| 2 | Teléfono: el trazo «Voy» de la sala reaparecía en #caso y quedaba hasta el CTA final | El scrub del módulo de gestión seguía llamando a `write()` después de `onLeave`. Ahora hay una marca que bloquea esas escrituras y se libera en `onEnter` y `onEnterBack`. Además, el SVG y el 3D sólo dibujan el pedido en la toma `pedido` y nunca durante la vuelta al punto. |
+| 3 | 02 en iPhone 15: «¿Cuánto le pongo a la prensa?» sobre «CADA» | `placeNear` devuelve `null` si no hay lugar libre y ese pedazo no se muestra (`data-drop`). Nueva prueba e2e con movimiento en 393 × 659. |
+| 4 | 3D: losas de ≈ 300 px detrás de la tarjeta, personas grises y un cuadro vacío de 1,2 s | Equipos en 3D chicos y bajos (`gear3d`: planta ≤ 0,9 m, 30 % del alto), más el contorno de su planta en el piso (el mismo del SVG, para que el cambio no se note). Tomas más altas y lejanas: un script con la cámara de destino y su lente da ≤ 48 px a 1440 × 900 y ≤ 58 px en todas las pantallas entre 393 × 659 y 1920 × 1080. Personas sin luz (`meshBasicMaterial`) y `flat` (sin tone mapping): el cian del 3D es el del SVG. Piso y zonas con el mismo brillo que el SVG. El teléfono y el subtítulo de 03 entran mientras el título sale. |
+| 5 | 03: «Torso A» cortado, un arco del botón vecino y «8–/10» | Recortes nuevos con la pieza entera, sin el botón. El valor de «REPI recomienda» va en una línea (`nowrap` desde la hoja de /conoce; `TargetCard.tsx` no se tocó). Se comprobó sin desborde entre 360 × 740 y 1440 × 900. En escritorio, el teléfono tiene proporción de teléfono, con el pie real de la pantalla: sensaciones, «Completar serie 1» y los enlaces. |
+| 6 | 05 Gestión: el trazo cruzaba la captura y el pulso 3D medía ≈ 25 px | El trazo va detrás del teléfono (opaco) y lo rodea por debajo. El pulso 3D bajó a 0,16 m de radio. |
+| 7 | 05 Training Intelligence: captura con «53» y 52,5 kg | El módulo muestra la misma serie que 03, con `EngineScreen`, que se comparte con 03: TargetCard real, motor real y la columna «REPI recomienda» encendida. |
+
+**Más allá (lo que pidió el titular, sobre la base de sus referencias)**
+
+- **Hero, un evento de luz.**
+  - El punto crece al caer, hasta 22 px.
+  - Al tocar el piso se aplasta fuerte (2,7 / 0,28) y salen dos anillos grandes.
+  - Un frente de luz fino recorre el piso. El contorno de cada zona se dibuja cuando el frente la alcanza, y los equipos se aclaran mientras los cruza.
+- **02 sin tiempos muertos.**
+  - Pedazos más grandes (16 px) y con más contraste.
+  - Cometas de 5 px, con una cabeza de 52 px.
+  - El logo se abre mientras «dato en otro lado» todavía sale.
+  - El corte tiñe la sala de cian un instante (`wash`). Es el golpe de color de la escena; el crema de 07 es el otro.
+- **Cierre: la sala gira alrededor del logo.**
+  - Cada persona da una vuelta en espiral alrededor del centro antes de volverse un punto.
+  - El punto crece con lo que se tragó, a ≈ 20 px (`gatherGrow`), y con ese tamaño la página lo lleva a la «ı».
+- **La sala responde al mouse (escritorio, los dos niveles).**
+  - Las personas cerca del puntero se agrandan hasta 1,6×.
+  - La zona de abajo se marca: en SVG, con la inversa del encuadre; en 3D, con un rayo contra el piso.
+  - Se apaga con movimiento reducido y en pantallas táctiles.
+
+**Verificación**
+
+Build de producción local y `next start` en 3103. La evidencia está en el scratchpad, carpetas `cx-motion/r2` y `cx-motion/r2out`.
+
+| Medida | Resultado |
+|---|---|
+| Lighthouse móvil (3 corridas) | Rendimiento 85, 86 y 87 (mediana 86). TBT 126, 98 y 81 ms. CLS 0. Accesibilidad, buenas prácticas y SEO 100. |
+| CLS al recorrer toda la página a 220 px/s | Escritorio con 3D: 0,0011. Teléfono: 0. |
+| axe (WCAG 2.2 AA) | 0 violaciones en 20 pasadas. |
+| Impeccable (por CDP) | 0 en 1280 × 800 y en 390 × 844. |
+| E2E `conoce` + `public` | 65 pasaron y 1 se saltó (la prueba nueva de 393 × 659 corre una sola vez, en el proyecto mobile). |
+| Sondas de la revisión | Pedazos: sin solapes en iPhone 15, Pixel 7 y 1440. `.sala-req`: 0 desde que se sale del módulo de gestión hasta el final, en teléfono y escritorio. Cierre en reposo: sin logo y sin punto antes de p .56; punto viajando hasta .72; después, logo entero. |
+| Pausa | Con «Pausar animaciones», ninguna escena cambia en escritorio con 3D, escritorio por defecto ni teléfono. |
+| SwiftShader | Queda en `data-sala="low"` (SVG). |
+| Movimiento reducido | Todas las escenas en su estado final: logo entero en 02 y en el cierre, y el teléfono de 03 y de Training Intelligence en su estado final. |
