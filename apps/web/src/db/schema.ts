@@ -3,6 +3,7 @@ import {
   bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { ImportOrigin, ProgramRequestBrief } from "@repi/domain";
+import type { ActionProposal, BrainPrefs, Evidence, ReplyCard } from "@repi/domain/brain/types";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const now = (name: string) => ts(name).notNull().defaultNow();
@@ -1752,3 +1753,170 @@ export const announcementRead = pgTable("announcement_read", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   readAt: now("read_at"),
 }, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index("announcement_read_user_idx").on(t.userId)]);
+
+// ── REPI Intelligence Core («brain», Adaptive Coaching 3.0, D209) ───────────
+// Contrato: docs/adaptive/ADAPTIVE_COACHING_3.md §4. Todo es de la persona: cascada a `user` (y a `organization` donde
+// aplica), entra en exportMyData y en el borrado de la cuenta. Nadie más lo lee: ni el entrenador, ni la gerencia, ni REPI
+// Admin (que sólo ve agregados de ai_usage). Los servicios filtran SIEMPRE por el user_id de la sesión (RLS sin políticas).
+
+// Preferencias de asistencia. Sin fila = DEFAULT_PREFS del dominio (proactivo dentro de la app, push apagado).
+export const brainPref = pgTable("brain_pref", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  proactive: boolean("proactive").notNull().default(true), // avisos dentro de la app
+  push: boolean("push").notNull().default(false), // requiere opt-in (y ser adulto)
+  categories: jsonb("categories").$type<BrainPrefs["categories"]>().notNull()
+    .default({ training: true, progress: true, performance: true, motivation: false, weekly: true }),
+  quietStart: text("quiet_start").notNull().default("22:00"), // HH:MM, hora de Buenos Aires
+  quietEnd: text("quiet_end").notNull().default("08:00"),
+  maxPerDay: integer("max_per_day").notNull().default(2),
+  autonomy: integer("autonomy").notNull().default(1), // 0 informa · 1 propone y confirma · 2 ejecuta lo de bajo riesgo habilitado
+  tone: text("tone", { enum: ["normal", "breve"] }).notNull().default("normal"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  check("brain_pref_autonomy_valid", sql`${t.autonomy} in (0, 1, 2)`),
+  check("brain_pref_tone_valid", sql`${t.tone} in ('normal', 'breve')`),
+  check("brain_pref_max_per_day_range", sql`${t.maxPerDay} between 0 and 10`),
+  check("brain_pref_quiet_valid", sql`${t.quietStart} ~ '^([01]\\d|2[0-3]):[0-5]\\d$' and ${t.quietEnd} ~ '^([01]\\d|2[0-3]):[0-5]\\d$'`),
+]);
+
+// Memoria: preferencias declaradas, decisiones, resultados y contexto temporal. Los hechos NO se guardan (se leen de la
+// base). Procedencia (`source`, `ref`), vencimiento por tipo (`expires_at`) e invalidación (`revoked_at`). La purga diaria
+// borra lo vencido; borrar desde «Lo que REPI recuerda» es definitivo.
+export const brainMemory = pgTable("brain_memory", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["preference", "decision", "outcome", "temporal"] }).notNull(),
+  key: text("key").notNull(), // clave normalizada: "tone", "avoid_exercise", "minutes_today", "rejected:<kind>"…
+  value: jsonb("value").$type<unknown>(),
+  text: text("text").notNull(), // lo que se le muestra a la persona
+  source: text("source", { enum: ["user", "system", "coach"] }).notNull(),
+  ref: jsonb("ref").$type<Record<string, string | number | null>>(), // dato de origen (programa, sesión, ejercicio) para invalidar
+  createdAt: now("created_at"),
+  expiresAt: ts("expires_at"), // null = hasta que se borre (preferencias)
+  revokedAt: ts("revoked_at"),
+}, (t) => [
+  index("brain_memory_user_key_idx").on(t.userId, t.kind, t.key),
+  index("brain_memory_expires_idx").on(t.expiresAt),
+  check("brain_memory_kind_valid", sql`${t.kind} in ('preference', 'decision', 'outcome', 'temporal')`),
+  check("brain_memory_source_valid", sql`${t.source} in ('user', 'system', 'coach')`),
+]);
+
+// Conversación con REPI: una abierta por persona (índice único parcial); cerrarla deja empezar otra.
+export const brainThread = pgTable("brain_thread", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+  closedAt: ts("closed_at"),
+}, (t) => [
+  uniqueIndex("brain_thread_one_open").on(t.userId).where(sql`${t.closedAt} is null`),
+  index("brain_thread_user_idx").on(t.userId, t.createdAt),
+]);
+
+// Mensajes (retención: 180 días). `via` dice de dónde sale cada respuesta de REPI (reglas, IA, sin IA por límite, seguridad).
+// El id puede venir del cliente: un reintento del mismo mensaje no lo duplica.
+export const brainMessage = pgTable("brain_message", {
+  id: id(),
+  threadId: text("thread_id").notNull().references(() => brainThread.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  role: text("role", { enum: ["user", "repi"] }).notNull(),
+  text: text("text").notNull(),
+  cards: jsonb("cards").$type<ReplyCard[]>(),
+  actions: jsonb("actions").$type<ActionProposal[]>(),
+  section: text("section"), // Section del dominio: desde dónde se habló
+  ref: jsonb("ref").$type<Record<string, string | number | null>>(),
+  via: text("via", { enum: ["rules", "ai", "fallback", "safety"] }),
+  feedback: integer("feedback"), // −1 / 1 (sólo respuestas de REPI)
+  createdAt: now("created_at"),
+}, (t) => [
+  index("brain_message_thread_idx").on(t.threadId, t.createdAt),
+  index("brain_message_user_idx").on(t.userId, t.createdAt),
+  check("brain_message_role_valid", sql`${t.role} in ('user', 'repi')`),
+  check("brain_message_via_valid", sql`${t.via} is null or ${t.via} in ('rules', 'ai', 'fallback', 'safety')`),
+  check("brain_message_feedback_valid", sql`${t.feedback} is null or ${t.feedback} in (-1, 1)`),
+]);
+
+// Avisos y tarjetas, también los suprimidos (métricas). (user_id, dedupe_key) único: el cron de cada minuto y sus reintentos
+// no duplican (caso 49). `priority` = rango de la categoría (0 = seguridad). La categoría y el texto van en `payload`.
+export const brainIntervention = pgTable("brain_intervention", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  dedupeKey: text("dedupe_key").notNull(),
+  priority: integer("priority").notNull(),
+  channel: text("channel", { enum: ["card", "inline", "push"] }).notNull(),
+  status: text("status", { enum: ["pending", "shown", "accepted", "dismissed", "never", "expired", "cancelled", "suppressed"] }).notNull().default("pending"),
+  reason: text("reason"), // motivo de supresión o de cierre (SuppressReason, «program_changed»…)
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  evidence: jsonb("evidence").$type<Evidence | null>(),
+  programVersionId: text("program_version_id").references(() => programVersion.id, { onDelete: "set null" }), // vuelve obsoleto el aviso
+  createdAt: now("created_at"),
+  shownAt: ts("shown_at"),
+  resolvedAt: ts("resolved_at"),
+  expiresAt: ts("expires_at"),
+}, (t) => [
+  uniqueIndex("brain_intervention_dedupe_unique").on(t.userId, t.dedupeKey),
+  index("brain_intervention_user_idx").on(t.userId, t.createdAt),
+  index("brain_intervention_status_idx").on(t.status, t.expiresAt),
+  check("brain_intervention_channel_valid", sql`${t.channel} in ('card', 'inline', 'push')`),
+  check("brain_intervention_status_valid", sql`${t.status} in ('pending', 'shown', 'accepted', 'dismissed', 'never', 'expired', 'cancelled', 'suppressed')`),
+]);
+
+// Registro de acciones. (user_id, idempotency_key) único: un reintento devuelve la misma acción (caso 23).
+export const brainAction = pgTable("brain_action", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // ActionKind del dominio (catálogo en código)
+  idempotencyKey: text("idempotency_key").notNull(),
+  status: text("status", { enum: ["proposed", "confirmed", "executed", "failed", "blocked", "cancelled"] }).notNull().default("proposed"),
+  autonomy: integer("autonomy").notNull(),
+  input: jsonb("input").$type<Record<string, unknown>>().notNull().default({}),
+  result: jsonb("result").$type<Record<string, unknown>>(),
+  error: text("error"), // código, nunca contenido
+  createdAt: now("created_at"),
+  executedAt: ts("executed_at"),
+}, (t) => [
+  uniqueIndex("brain_action_idempotency_unique").on(t.userId, t.idempotencyKey),
+  index("brain_action_user_idx").on(t.userId, t.createdAt),
+  check("brain_action_status_valid", sql`${t.status} in ('proposed', 'confirmed', 'executed', 'failed', 'blocked', 'cancelled')`),
+  check("brain_action_autonomy_valid", sql`${t.autonomy} in (0, 1, 2)`),
+]);
+
+// Uso de IA SIN contenido (ni prompt ni respuesta). Retención: 400 días. La fila nace al admitir la llamada con
+// `outcome` null («en curso»: cuenta para la concurrencia por un rato corto) y se completa al terminar. user_id null = sistema.
+export const aiUsage = pgTable("ai_usage", {
+  id: id(),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  orgId: text("org_id").references(() => organization.id, { onDelete: "cascade" }),
+  task: text("task").notNull(),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0), // total de entrada (incluye los cacheados)
+  cachedTokens: integer("cached_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costMicros: integer("cost_micros").notNull().default(0), // micro-dólares estimados según PRICES de server/brain/gateway.ts
+  latencyMs: integer("latency_ms"),
+  outcome: text("outcome", { enum: ["ok", "error", "timeout", "cancelled", "refused", "bad_output", "budget", "quota", "breaker", "concurrency", "cache"] }),
+  createdAt: now("created_at"),
+}, (t) => [
+  index("ai_usage_created_idx").on(t.createdAt),
+  index("ai_usage_user_idx").on(t.userId, t.createdAt),
+  index("ai_usage_org_idx").on(t.orgId, t.createdAt),
+  check("ai_usage_outcome_valid", sql`${t.outcome} is null or ${t.outcome} in ('ok', 'error', 'timeout', 'cancelled', 'refused', 'bad_output', 'budget', 'quota', 'breaker', 'concurrency', 'cache')`),
+  check("ai_usage_counts_valid", sql`${t.inputTokens} >= 0 and ${t.cachedTokens} >= 0 and ${t.outputTokens} >= 0 and ${t.costMicros} >= 0`),
+]);
+
+// Límites configurables desde REPI Admin. Sin fila = valores por defecto del gateway. `scope`: global, org:<id> o user:<id>.
+export const aiPolicy = pgTable("ai_policy", {
+  scope: text("scope").primaryKey(),
+  config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: now("updated_at"),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [check("ai_policy_scope_valid", sql`${t.scope} = 'global' or ${t.scope} ~ '^(org|user):.+$'`)]);
+
+// Circuit breaker por tarea: 5 fallas seguidas → abierto 10 minutos; después deja pasar (semiabierto) y una falla lo reabre.
+export const aiBreaker = pgTable("ai_breaker", {
+  task: text("task").primaryKey(),
+  failures: integer("failures").notNull().default(0),
+  openedUntil: ts("opened_until"),
+  updatedAt: now("updated_at"),
+});

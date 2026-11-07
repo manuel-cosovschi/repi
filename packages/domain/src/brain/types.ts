@@ -35,7 +35,13 @@ export type ExerciseBriefInput = {
   /** Última sesión comparable (series principales comparables). */
   last: { at: string; sets: { w: number | null; r: number | null; rir: number | null }[] } | null;
   /** Recomendación vigente de Training Intelligence para la primera serie principal. */
-  recommendation: { weightKg: number | null; reps: number | null; repsMin: number | null; repsMax: number | null; action: string; why: string | null; status: string } | null;
+  recommendation: {
+    weightKg: number | null; reps: number | null; repsMin: number | null; repsMax: number | null; action: string; why: string | null; status: string;
+    /** Protecciones que frenaron la carga (códigos de `GuardCode`), para avisarlas sin repetir el `why` completo. */
+    guards?: string[];
+    /** Diferencia con la carga del profe que conviene revisar (nunca cambia el plan). */
+    review?: string | null;
+  } | null;
   restrictions: string[];
   missing: string[];
 };
@@ -246,4 +252,6 @@ export type ActionSpec = {
   inSession?: boolean;
   /** Nunca modifica el programa del entrenador: sólo hoy o borrador. */
   scope: "today" | "draft" | "pref" | "nav" | "record";
+  /** Modificación operativa del entrenamiento (cambiar la sesión de hoy o proponer cambios al programa): con autonomía 0 no se ofrece. */
+  operational?: boolean;
 };

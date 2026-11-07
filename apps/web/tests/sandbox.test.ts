@@ -44,12 +44,27 @@ describe("demo guiada", () => {
     const [day] = await db.select({ id: schema.programDay.id }).from(schema.programDay).innerJoin(schema.programVersion, eq(schema.programVersion.id, schema.programDay.versionId))
       .innerJoin(schema.program, eq(schema.program.id, schema.programVersion.programId)).where(eq(schema.program.orgId, coachId)).limit(1);
     await db.insert(schema.programExercise).values({ dayId: day.id, position: 99, exerciseId: own.id, name: own.name, sets: 3, reps: "10", restSec: 90 });
+    // D209 (auditoría AC3, tests.md gap 9): lo de REPI de las personas de la demo también se borra (cascada + ai_policy).
+    const vale = by("valentina.gomez");
+    const [thread] = await db.insert(schema.brainThread).values({ userId: vale }).returning();
+    await db.insert(schema.brainMessage).values({ threadId: thread.id, userId: vale, role: "user", text: "¿Qué toca hoy?" });
+    await db.insert(schema.brainPref).values({ userId: vale, tone: "breve" });
+    await db.insert(schema.brainMemory).values({ userId: vale, kind: "preference", key: "tone", text: "Breve", source: "user" });
+    await db.insert(schema.brainIntervention).values({ userId: vale, kind: "pr", dedupeKey: "pr:demo", priority: 4, channel: "card", programVersionId: (await db.select({ v: schema.programVersion.id }).from(schema.programVersion).innerJoin(schema.program, eq(schema.program.id, schema.programVersion.programId)).where(eq(schema.program.orgId, coachId)).limit(1))[0].v });
+    await db.insert(schema.brainAction).values({ userId: vale, kind: "save_preference", idempotencyKey: "demo-1", autonomy: 1 });
+    await db.insert(schema.aiUsage).values([{ userId: vale, orgId: coachId, task: "brain.chat", model: "gpt-6-luna", outcome: "ok" }, { orgId: gymId, task: "brain.chat", model: "gpt-6-luna", outcome: "ok" }]);
+    await db.insert(schema.aiPolicy).values([{ scope: `user:${vale}`, config: { user_daily_calls: 5 } }, { scope: `org:${gymId}`, config: { enabled: false } }]);
     // Limpieza.
     await db.update(schema.demoSandbox).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.demoSandbox.id, box.id));
     expect(await purgeSandboxes()).toBe(1);
     expect(await db.select().from(schema.user).where(inArray(schema.user.id, box.userIds as string[]))).toHaveLength(0);
     expect(await db.select().from(schema.organization).where(inArray(schema.organization.id, [gymId, coachId]))).toHaveLength(0);
     expect(await db.select().from(schema.exercise).where(eq(schema.exercise.id, own.id))).toHaveLength(0);
+    for (const t of [schema.brainThread, schema.brainMessage, schema.brainPref, schema.brainMemory, schema.brainIntervention, schema.brainAction, schema.aiUsage]) {
+      expect(await db.select().from(t).where(inArray(t.userId, box.userIds as string[]))).toHaveLength(0);
+    }
+    expect(await db.select().from(schema.aiUsage).where(inArray(schema.aiUsage.orgId, [gymId, coachId]))).toHaveLength(0);
+    expect(await db.select().from(schema.aiPolicy).where(inArray(schema.aiPolicy.scope, [`user:${vale}`, `org:${gymId}`]))).toHaveLength(0);
   });
 
   it("D197: las sedes de una demo no aparecen en la búsqueda pública de gimnasios", async () => {

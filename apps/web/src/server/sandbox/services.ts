@@ -328,6 +328,10 @@ export async function purgeSandboxes(now = new Date()) {
           await tx.delete(schema.workoutSession).where(inArray(schema.workoutSession.userId, users));
           await tx.delete(schema.auditEvent).where(inArray(schema.auditEvent.actorUserId, users));
         }
+        // D209: lo de REPI (brain_*, ai_usage) cae en cascada con la persona y la organización; los límites de IA por
+        // alcance (ai_policy «user:<id>» / «org:<id>») no tienen FK y se borran acá.
+        const scopes = [...users.map((u) => `user:${u}`), ...orgs.map((o) => `org:${o}`)];
+        if (scopes.length) await tx.delete(schema.aiPolicy).where(inArray(schema.aiPolicy.scope, scopes));
         if (orgs.length) {
           // Auditoría 30/10: programas y alumnos antes que la organización. En un solo DELETE en cascada Postgres puede chequear
           // program_exercise → exercise (un ejercicio propio de la demo usado en un programa) antes de borrar el programa, y falla.
