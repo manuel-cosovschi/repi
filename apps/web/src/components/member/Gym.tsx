@@ -68,11 +68,12 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
   const kicker = { fontSize: 13, color: "var(--ui-accent-2)", fontWeight: 600, minHeight: 16 } as const;
   if (!h) return (
     <div aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <Loading what="tu gym" />
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={{ ...kicker, display: "flex", alignItems: "center" }}><Skel w="52%" h={11} /></span><h1 tabIndex={-1}>Tu gym</h1></div>
       <div className="hbanner" aria-hidden="true" style={{ cursor: "default" }}><Skel w={28} h={28} r={8} /><span><Skel w="30%" h={14} style={{ margin: "2px 0" }} /><Skel w="68%" h={12} style={{ margin: "2px 0" }} /></span></div>
       <div className="gtabs" aria-hidden="true" inert>{tabs.map(([k, l], i) => <button key={k} type="button" role="tab" tabIndex={-1} aria-selected={i === 0}>{l}</button>)}</div>
       {rv.ambient ? <Ambient label="Cargando tu gym" /> : <div style={{ minHeight: 220 }} />}
+      {/* Al final: los bloques quedan en la misma posición que los reales (React reutiliza los nodos y no cuenta un salto). */}
+      <Loading what="tu gym" />
     </div>
   );
   return (

@@ -8,6 +8,8 @@
 .sec-stage { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; align-items: start; }
 .sec-stage > .sec-pane { grid-area: 1 / 1; min-width: 0; }
 .sec-stage > .sec-pane[data-leaving] { pointer-events: none; }
+/* Sin h1 en la pantalla, el foco va a la sección (tabindex=-1): es un destino de foco programático, sin anillo. */
+.sec-stage > .sec-pane:focus { outline: none; }
 /* Lo que entra desde el costado no genera scroll horizontal (en el teléfono, el navegador alejaría la vista y movería la
    barra fija): se recorta en el borde de la columna. `clip` no crea contenedor de scroll (sticky sigue funcionando). */
 .mb-col, .co-main { overflow-x: clip; }
@@ -77,6 +79,12 @@
 /* Cajón del staff (< 768 px): el fondo siempre está, con fundido de entrada y de salida (antes aparecía y desaparecía). */
 .co-scrim { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--dur-toast) var(--ease-std), visibility 0s linear var(--dur-toast); }
 .co-scrim[data-open="1"] { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity var(--dur-toast) var(--ease-std); }
+/* Cajón cerrado: además de fuera de la pantalla, oculto para el teclado y los lectores (antes el foco podía quedar en un
+   botón del menú cerrado). Se oculta al terminar de cerrarse y se muestra en el acto al abrirse. */
+@media (max-width: 767px) {
+  .co[data-drawer="0"] .co-side { visibility: hidden; transition: transform var(--dur-sheet) var(--ease-out), visibility 0s linear var(--dur-sheet); }
+  .co[data-drawer="1"] .co-side { visibility: visible; transition: transform var(--dur-sheet) var(--ease-out); }
+}
 
 /* Entrar al entrenamiento: la vista sube 16 px y aparece (240 ms). «Cargando entrenamiento…» sólo si la lectura del
    teléfono pasa los 180 ms (Workout.tsx no cambia). Volver usa la entrada «volver» del escenario. */

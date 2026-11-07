@@ -48,7 +48,8 @@ export function MemberMessages({ offline, onSeen }: { offline: boolean; onSeen: 
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Mensajes</h1>
       {err && <p className="mb-err" role="alert">{err}</p>}
-      {!threads ? (err ? null : <div className="panel" aria-busy="true"><Loading what="tus conversaciones" />{[0, 1, 2].map((i) => <div key={i} className="prow-dark" aria-hidden="true" style={{ display: "flex", padding: "12px 0", gap: 10 }}><span style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}><Skel w={i === 1 ? "38%" : "50%"} h={14} /><Skel w={i === 2 ? "60%" : "82%"} h={11} /></span></div>)}</div>)
+      {/* Dos filas (coach y gym, el caso de más de una relación) con el alto de las reales: la nota de abajo no se mueve. */}
+      {!threads ? (err ? null : <div className="panel" aria-busy="true"><Loading what="tus conversaciones" />{[0, 1].map((i) => <div key={i} className="prow-dark" aria-hidden="true" style={{ display: "flex", padding: "12px 0", gap: 10 }}><span style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}><Skel w={i ? "62%" : "44%"} h={15} style={{ margin: "2px 0" }} /><Skel w={i ? "40%" : "88%"} h={11} />{!i && <Skel w="56%" h={11} />}</span></div>)}</div>)
         : !threads.length ? <div className="dashed-card"><span>Cuando tengas coach o gym en REPI, vas a poder escribirles acá.</span></div> : (
         <div className="panel">
           {threads.map((t) => (

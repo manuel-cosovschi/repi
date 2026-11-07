@@ -22,7 +22,8 @@ test("sala: «Abrir ficha del socio» abre su ficha sola y «Volver a Sala» reg
   // M06: las pantallas visitadas quedan vivas y ocultas (Activity): se mira sólo lo que está a la vista.
   await expect(page.getByLabel("Buscar socio")).toBeHidden();
   await expect(page.locator(".crow:visible")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Socios" }).first()).toHaveAttribute("aria-current", "page");
+  // En el teléfono el cajón cerrado queda oculto para los lectores (QA M06): se mira el botón del menú directamente.
+  await expect(page.locator('.co-nav button[title="Socios"]')).toHaveAttribute("aria-current", "page");
   await expectNoHorizontalOverflow(page, "ficha del socio");
 
   // Recargar deja la misma ficha (la URL la describe).
@@ -121,4 +122,102 @@ test("coach: «Ver ficha» desde Solicitudes abre sólo la ficha del cliente, co
   await expect(page).toHaveURL(/[?&]s=inbox/);
   await expect(page.getByRole("heading", { level: 1, name: "Solicitudes" })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+// QA M06 (07/11): con movimiento normal, Sala seguía viva y visible durante su salida y tomaba el id del socio como pedido:
+// abría un segundo diálogo «Solicitud» con error que quedaba abierto al volver. playwright.config corre con movimiento
+// reducido; acá se prueba con movimiento y se cuentan también los diálogos ocultos (pantallas vivas con Activity).
+test.describe("con movimiento", () => {
+  test.use({ reducedMotion: "no-preference" });
+  const dialogs = (page: import("@playwright/test").Page) => page.locator('[role="dialog"]');
+
+  test("sala → ficha → volver: ningún diálogo de más y el título de la ficha no cambia mientras sale", async ({ page }) => {
+    const errors = watchErrors(page);
+    const href = await openDemo(page, "floor");
+    await page.goto(href.replace("s=shift", "s=queue"));
+    const card = page.locator(".cx-task").filter({ hasText: "Martina" }).filter({ hasText: "Programa nuevo" });
+    const openFile = async () => {
+      await page.getByRole("tab", { name: /^Pendientes/ }).click();
+      await card.getByRole("button", { name: "Abrir" }).click();
+      await page.getByRole("dialog", { name: /· Programa nuevo$/ }).getByRole("button", { name: "Abrir ficha del socio" }).click();
+      await expect(page.getByRole("heading", { level: 1, name: /Martina/ })).toBeVisible();
+      await page.waitForTimeout(400); // pasa la salida de Sala
+      await expect(dialogs(page)).toHaveCount(0);
+    };
+    await openFile();
+    // Mientras la ficha sale, su título sigue siendo el nombre (no «Ficha del socio»).
+    const titles = page.evaluate(() => new Promise<string[]>((res) => {
+      const seen = new Set<string>(); const t0 = performance.now();
+      const tick = () => {
+        for (const h of document.querySelectorAll<HTMLElement>(".co-pane h1")) if (h.getClientRects().length && getComputedStyle(h.closest(".co-pane")!).display !== "none") seen.add(h.textContent?.trim() ?? "");
+        if (performance.now() - t0 < 400) requestAnimationFrame(tick); else res([...seen]);
+      };
+      requestAnimationFrame(tick);
+    }));
+    await page.getByRole("button", { name: "Volver a Sala" }).click();
+    expect((await titles).filter((x) => /Ficha del socio/i.test(x))).toEqual([]);
+    const sala = page.getByRole("heading", { level: 1, name: "Sala" });
+    await expect(sala).toBeVisible();
+    await page.waitForTimeout(400);
+    await expect(dialogs(page)).toHaveCount(0);
+    await expect(sala).toBeFocused();
+    await expect(page.getByRole("tab", { name: /^Pendientes/ })).toHaveAttribute("aria-selected", "true");
+    // Otra vez, ahora con el «atrás» del navegador.
+    await openFile();
+    await page.goBack();
+    await expect(sala).toBeVisible();
+    await page.waitForTimeout(400);
+    await expect(dialogs(page)).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  // QA M06: «Ver perfil →» desde Mensajes dejaba en Mensajes el id del cliente como si fuera una conversación; al volver no
+  // quedaba ninguna abierta.
+  test("coach: Mensajes → «Ver perfil →» → «Volver a Mensajes» conserva la conversación abierta", async ({ page }) => {
+    const errors = watchErrors(page);
+    await openDemo(page, "coach");
+    const menu = page.getByRole("button", { name: "Abrir menú" });
+    if (await menu.isVisible()) await menu.click();
+    await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: /^Mensajes/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Mensajes" })).toBeVisible();
+    const rows = page.locator(".list-pane .crow:visible");
+    await expect(rows.first()).toBeVisible();
+    const pick = (await rows.count()) > 1 ? rows.nth(1) : rows.first(); // otra que la abierta por defecto, si hay
+    const name = (await pick.locator("b").innerText()).trim();
+    await pick.click();
+    const conv = page.getByRole("region", { name: `Conversación con ${name}` });
+    await expect(conv).toBeVisible();
+    await conv.getByRole("button", { name: "Ver perfil →" }).click();
+    await expect(page).toHaveURL(/[?&]s=client&c=/);
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await page.getByRole("button", { name: "Volver a Mensajes" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Mensajes" })).toBeVisible();
+    await expect(conv).toBeVisible();
+    await expect(page.locator(".list-pane .crow:visible").filter({ hasText: name }).first()).toHaveAttribute("aria-current", "true");
+    expect(errors).toEqual([]);
+  });
+
+  // QA M06: la primera visita a Programas pasaba por el vacío «Creá tu primer programa», «Cargando programa…» y el editor,
+  // y el foco terminaba en body porque el h1 se reemplazaba por el nombre editable.
+  test("coach: Programas la primera vez no muestra el vacío falso y el foco queda en el título", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.route("**/api/coach/*/programs**", async (r) => { await new Promise((s) => setTimeout(s, 500)); await r.continue(); });
+    await openDemo(page, "coach");
+    const menu = page.getByRole("button", { name: "Abrir menú" });
+    if (await menu.isVisible()) await menu.click();
+    const seen = page.evaluate(() => new Promise<string[]>((res) => {
+      const out = new Set<string>(); const t0 = performance.now();
+      const tick = () => {
+        const pane = document.querySelector<HTMLElement>(".co-pane[data-active]");
+        if (pane?.querySelector(".empty")) out.add(pane.querySelector(".empty")!.textContent!.trim().slice(0, 40));
+        if (performance.now() - t0 < 2500) requestAnimationFrame(tick); else res([...out]);
+      };
+      requestAnimationFrame(tick);
+    }));
+    await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: "Programas", exact: true }).click();
+    await expect(page.getByLabel("Nombre del programa")).toBeVisible();
+    expect((await seen).filter((x) => /Creá tu primer programa|Cargando programa/.test(x))).toEqual([]);
+    await expect(page.getByRole("heading", { level: 1, name: "Programas" })).toBeFocused();
+    expect(errors).toEqual([]);
+  });
 });

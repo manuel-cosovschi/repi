@@ -1,6 +1,6 @@
 # Navegación fluida en las apps · M06 «Carril»
 
-> Rama `claude/app-transiciones` (worktree `/home/user/repi-tx`, base `main` en `218cd53`). Estado: **implementado en la rama, sin publicar** (S0–S9; S10 documentación y verificación en esta misma rama, sin PR ni despliegue).
+> Rama `claude/app-transiciones` (worktree `/home/user/repi-tx`, base `main` en `218cd53`). Estado: **implementado en la rama, sin publicar** (S0–S9; S10 documentación y verificación en esta misma rama, sin PR ni despliegue). QA independiente del 07/11 corregida (§18).
 > Fuentes: pedido del titular del 06/11/2026 (grabación del iPhone, PWA instalada, app del alumno) y pedido del 07/11/2026 sobre «Abrir ficha del socio» desde Sala. Especificación de movimiento: `motion.md` §13. Decisión: `docs/DECISIONS.md` D211.
 
 ## 0. Pedidos y reglas que no cambian
@@ -35,7 +35,7 @@ Cambiar de sección es **cambiar de carril en la pista**: el indicador sale como
 | Toque | Botones y filas a escala .97; íconos de la barra a .90 | 90 ms baja, 150 ms vuelve | `--ease-std` | `motion-nav.css` |
 | Indicador «sprint» (barra del alumno) | Traslación por Web Animations con `startTime` explícito (se mueve en el primer cuadro) + estiramiento sobre `scale`: 1 → (1 + 0,16·\|Δ\|, máx. 1,32) × 0,9 al 40 % → 1 | 240 ms | traslación `--ease-std`; estiramiento `ease-out` | `TabBar.tsx` |
 | Ícono destino «arranque» | Escala .86 → 1 | 240 ms | `--ease-spring` | `motion-nav.css` |
-| Salida de sección | Opacidad 1 → 0 y −12 px en el sentido del viaje; queda fija e inerte | 100 ms | `--ease-in` | `SectionStage.tsx` |
+| Salida de sección | −12 px en el sentido del viaje en 100 ms y opacidad 1 → 0 en 70 ms (los dos títulos casi no se superponen); queda fija e inerte y se oculta al terminar sin esperar a React | 100 ms (opacidad 70) | traslación `--ease-in`; opacidad `--ease-std` | `SectionStage.tsx` |
 | Entrada de sección | Opacidad 0 → 1 y +24 px → 0, sin retardo | 200 ms (220 en escritorio) | `--ease-out` | `SectionStage.tsx` |
 | Corte de meta | `h1` con `clip-path: inset()` en el sentido del viaje y +8 px; línea cian (`--ui-primary`) de 2 px que barre y se apaga | 200 ms (línea 240 ms) | `--ease-out` | `SectionStage.tsx`, `.sec-cut` |
 | Formación | Primeros 4 bloques visibles escalonados, 10 px·i (sólo `transform`) | 180 ms, paso 20 ms | `--ease-out` | `SectionStage.tsx` |
@@ -67,7 +67,7 @@ Las secciones dentro de la app **no** usan `<ViewTransition>` de React: en Chrom
 
 | Archivo | Responsabilidad |
 |---|---|
-| `apps/web/src/components/motion/SectionStage.tsx` | Escenario: secciones vivas (LRU), dirección, salida fija, entrada, corte de meta, formación, scroll por sección antes de pintar, foco, reinicio por `resetKey` y entrada «volver» |
+| `apps/web/src/components/motion/SectionStage.tsx` | Escenario: secciones vivas (LRU), dirección, salida fija, entrada, corte de meta, formación, scroll por sección antes de pintar, foco (sin `h1`, a la sección), reinicio por `resetKey` y entrada «volver». Sólo la activa se vuelve a dibujar: la que sale y las ocultas conservan su último nodo |
 | `apps/web/src/components/member/TabBar.tsx` | Barra «Cristal flotante» con estado urgente, sprint, arranque del ícono, FLIP al aparecer Gym, toque, vuelta arriba y lectura anticipada |
 | `apps/web/src/components/motion/SlideIndicator.tsx` | Indicador medido (patrón M01) para `.gtabs`, `.seg`, `.tabs` y `.co-nav`; `useEnter` para paneles de segmento |
 | `apps/web/src/components/motion/Skeleton.tsx` | `Skel`, `SkelCard`, `Loading` (role=status oculto) y `Reveal` |
@@ -108,7 +108,8 @@ Dentro de la app nada depende de View Transitions. Sin `Element.animate` el camb
 
 ## 9. Accesibilidad y scroll
 
-- **Foco.** Si está en la barra o en el menú lateral, se queda (convención nativa). Si quedó en la sección que sale o en `body`, va al `h1` de la nueva (`tabIndex={-1}`, `preventScroll`). En Coach, Gym y Admin (`focus="title"`) siempre al `h1` después del commit (se borró el `requestAnimationFrame` de `go()`, que con `startTransition` enfocaba el título viejo). Admin ganó `go()`.
+- **Foco.** Si está en la barra o en el menú lateral, se queda (convención nativa). Si quedó en la sección que sale o en `body`, va al `h1` de la nueva (`tabIndex={-1}`, `preventScroll`). En Coach, Gym y Admin (`focus="title"`) siempre al `h1` después del commit (se borró el `requestAnimationFrame` de `go()`, que con `startTransition` enfocaba el título viejo). Admin ganó `go()`. Una pantalla sin `h1` (p. ej. «Videos de ejercicios») recibe el foco en la sección misma (`tabIndex={-1}`, sin anillo). Un `h1` que la pantalla reemplaza al cargar se mantiene como el mismo elemento (Programas: queda oculto a la vista junto al nombre editable).
+- **Cajón del staff (< 768 px).** Cerrado, además de estar fuera de la pantalla queda `visibility: hidden` (se oculta al terminar de cerrarse, aparece en el acto al abrirse): sus botones no reciben foco ni se leen.
 - **Lectores.** La sección que sale queda `inert` y `aria-hidden` desde el primer cuadro; las ocultas están en `display: none`: nunca hay dos `h1` ni dos regiones expuestas. No se agregó una región viva extra.
 - **Scroll por sección** restaurado antes de pintar con el contenido real, también en el staff; abrir un recurso concreto (ficha, contrato) empieza arriba.
 - **DOM oculto.** `DemoTour` elige objetivos visibles (`checkVisibility()`); prueba de `id` duplicados; los diálogos que navegan cierran antes de navegar (Connect).
@@ -138,6 +139,7 @@ Dentro de la app nada depende de View Transitions. Sin `Element.animate` el camb
 | S8 | Staff: escenario, `useLoad` con caché, avisos, esqueletos, menú lateral | Hecho, salvo el vuelo del nombre |
 | S9 | View Transitions entre documentos | Hecho (`doc-transitions.css`) |
 | S10 | Documentación, verificación, material para el titular | Documentación y verificación hechas; PR y videos pendientes (§16) |
+| S11 | Correcciones de la QA independiente (§18) | Hecho |
 
 ## 12. Verificación
 
@@ -243,3 +245,23 @@ Misma prueba (`e2e/motion-nav.spec.ts`, versión final) contra dos servidores: `
 | Foco en el `h1` nuevo | Sí | Sí |
 | Lateral fijo | Sí | Sí |
 | Indicador del menú | Salta | Se desliza (se mueve en 2 cuadros, llega en ~170–200 ms) |
+
+## 18. QA independiente (07/11) y correcciones
+
+Cada hallazgo se reprodujo antes de corregirlo con los mismos guiones de la QA (copiados a `scratchpad/tx-fix/qa`, para no pisar su evidencia en `scratchpad/tx-qa`), contra un servidor propio en 3104 y `repi_dev`.
+
+| # | Hallazgo (gravedad) | Causa | Corrección | Resultado |
+|---|---|---|---|---|
+| 1 | Sala → pedido → «Abrir ficha del socio»: Sala, viva, abría un segundo diálogo «Solicitud» con error que seguía abierto al volver (ALTA) | Selección `sel` compartida por todas las pantallas: `openMember` la ponía en el id del socio y Sala, todavía visible durante su salida, la tomaba como pedido | **Selección por pantalla** en Gym y Coach (`sels`: cada pantalla viva ve sólo la suya; ir a una pantalla fija la suya). Además el escenario **congela la sección que sale y las ocultas** (conservan su último nodo: no ven el estado nuevo). La entrada del historial del origen se reescribe con su selección al salir | Diálogos 0 en la ficha y al volver (con «Volver a Sala» y con el «atrás»), foco en «Sala», 2 de 2 corridas con movimiento normal |
+| 2 | Coach Mensajes → «Ver perfil →» → «Volver a Mensajes» perdía la conversación (MEDIA) | Misma selección compartida: el id del cliente llegaba a `ChatPane` como conversación | Selección por pantalla (`client`/`clients` guardan el cliente; `msgs`, su conversación) | Vuelve con «Valentina Gómez» abierta |
+| 3 | Progreso, primera visita con latencia: CLS 0,082–0,099; las marcas «Nuevo» corrían los botones (MEDIA) | Esqueleto de «Tu período» ~165 px más bajo que lo real; «Nuevo» se dibujaba después de leer las ayudas | Esqueletos con el mismo marcado y alto que lo real (indicadores con sus rótulos, frecuencia de 80 px, 8 filas de marcas; «Evolución por ejercicio» con gráfico, leyenda, dato y notas); ayudas leídas al abrir la app y disponibles en forma síncrona (`Hint.tsx`); lectura anticipada del resumen y la lista al tocar Progreso | Esqueleto 701/579 px = real 701/579 px; CLS 0 en 2 de 2 corridas (CPU ×4 + 450 ms) |
+| 4 | Tu gym con latencia: contenido → vacío → contenido (MEDIA) | `useReveal` fijaba el cruce en `useEffect`: un cuadro con el contenido entero antes de apagarlo bajo el ambiente | `useReveal` en `useLayoutEffect` (el cruce empieza en el cuadro en que llegan los datos). El esqueleto deja el aviso para lectores al final: los bloques reales reutilizan los nodos en la misma posición (sin salto falso de 0,011) | 3 de 3 corridas: el primer cuadro con datos ya tiene el contenido en 0 bajo el ambiente que sale y sube sin bajar |
+| 5 | Coach «Programas», primera visita: vacío falso, «Cargando programa…» y editor; CLS 0,67–0,76; foco en `body` (MEDIA) | Estados de carga distintos del editor; el `h1` se reemplazaba por el nombre editable | Editor en esqueleto (lista, acciones, días, ejercicios e indicación) mientras llega la lista o el programa; el vacío sólo con la lista vacía; error de lista con «Reintentar»; `h1` estable (oculto a la vista junto al nombre) | CLS 0; foco en el `h1` «Programas» |
+| 6 | Tareas largas al volver con CPU ×4 (BAJA–MEDIA) | Secciones ocultas que se volvían a dibujar en cada render del padre | Las ocultas conservan su último nodo (no se recorren) | 3 ciclos de vuelta: 2 tareas > 50 ms en 15 vueltas (67 y 52 ms; antes 81–147 ms en varias); indicador en ≤ 218 ms al volver |
+| 7 | Dos títulos legibles a la vez ~5 cuadros (BAJA, diseño) | Opacidad de salida en `--ease-in` de 100 ms | Opacidad de salida en 70 ms con `--ease-std` (la traslación sigue en 100 ms `--ease-in`); al terminar se oculta y se quita `data-leaving` sin esperar a React | 1 cuadro en los 10 cambios; lo que sale deja de verse a los ~63 ms |
+| 8 | «Volver a Sala»: el título de la ficha que sale pasaba a «Ficha del socio» (BAJA) | La selección compartida se vaciaba con la ficha todavía visible | Sección que sale congelada + selección por pantalla | Prueba E2E: ningún cuadro con «Ficha del socio» durante la salida |
+| 9 | Pantallas sin `h1` y cajón cerrado: el foco quedaba en un botón del menú fuera de la pantalla (BAJA) | Sin `h1` no se movía el foco; el cajón cerrado sólo estaba trasladado | Foco a la sección cuando no hay `h1`; cajón cerrado con `visibility: hidden` en < 768 px | — |
+
+**Pruebas nuevas:** `gym-member-page.spec.ts` › «con movimiento» (`reducedMotion: "no-preference"`): diálogos (también ocultos) en 0 en la ficha, después de «Volver a Sala» y del «atrás», título de la ficha estable durante la salida; Coach Mensajes → «Ver perfil →» → «Volver» con la misma conversación; Programas sin vacío falso y con el foco en el título. `motion-nav.spec.ts` › «primera visita con latencia» (CPU ×4 y 450 ms por pedido): Progreso con layout-shift ≤ 0,05 (mide 0) y Tu gym sin apagarse una vez a la vista. Una aserción de `gym-member-page` que buscaba «Socios» por rol en el cajón cerrado pasó a mirar el botón del menú directamente (el cajón cerrado ya no se expone a los lectores).
+
+**Corridas** (servidor propio en 3104, `repi_dev`, demos): `motion-nav` + `gym-member-page` 23 ✓ (teléfono y escritorio; «Mi turno» se saltea como antes); `roles`, `coach-workflow`, `connect-program`, `theme`, `experience-ux`, `demo-tour-scope`, `member-workout`, `join-pending-staff`, `combine-exercises`, `coach-methods`, `template-rollout` 56 ✓; `mobile-layout`, `personal-progress`, `theme-visual`, `own-routine-create`, `weight-edit`, `offline-reload`, `training-intelligence`, `connected-stages`, `emom-sync`, `prescribed-weights` 47 ✓ y los 2 fallos ya conocidos de §12 (importar métodos escritos, que también falla en `main`; fotos, por el segundo contexto en el puerto 3000). El tope de 300 demos de `repi_dev` volvió a llenarse: se purgaron sólo demos `is_demo` con más de 30 minutos con el mismo `purgeSandboxes` (el guion anterior leía mal el valor devuelto y paraba en la primera tanda de 50; la copia corregida está en `scratchpad/tx-fix/purge-old.ts`).

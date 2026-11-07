@@ -111,7 +111,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         <div className="pp-head"><h2 id="pp-sum">Tu período</h2></div>
         <RangePicker value={range} onChange={setRange} label="Período" />
         {err && <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={loadSum}>Reintentar</button></p>}
-        {!sum && !err && <PeriodSkeleton />}
+        {!sum && !err && <PeriodSkeleton unit={unit} />}
         {t && t.sessions === 0 && <span className="mb-muted" style={{ fontSize: 14 }}>Sin entrenamientos registrados en este período.</span>}
         {t && t.sessions > 0 && (
           <>
@@ -164,7 +164,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
           </>
         )}
         {exErr && <p className="mb-err" role="alert">{exErr}</p>}
-        {!ex && !exErr && (list === null || !!list.length) && <ExerciseSkeleton />}
+        {!ex && !exErr && (list === null || !!list.length) && <><Loading what="la evolución por ejercicio" /><ExerciseSkeleton /></>}
         {ex ? (
           <>
             <div><b style={{ fontSize: 17 }}>{ex.exercise.name}</b><br /><small className="mb-muted">{ex.exercise.group} · desde {ex.totals.firstDay ? dayTxt(ex.totals.firstDay) : "—"}{ex.records ? ` · ${ex.records} ${ex.records === 1 ? "récord" : "récords"} en el período` : ""}</small></div>
@@ -191,32 +191,43 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
               </details>
             )}
           </>
-        ) : exId && !exErr ? <span className="mb-muted">Cargando…</span> : null}
+        ) : null}
       </section>
     </>
   );
 }
 
-/** M06: «Tu período» en esqueleto con la forma final (indicadores, frecuencia y marcas). */
-function PeriodSkeleton() {
+/**
+ * M06: «Tu período» en esqueleto con la forma y el alto de la tarjeta real (QA: con latencia, la tarjeta real era ~165 px
+ * más alta y empujaba «Evolución por ejercicio»). Mismo marcado que lo real: indicadores con sus rótulos (los de dos
+ * renglones también), frecuencia de 80 px y las 8 marcas que muestra el servidor como máximo (filas de .pp-rows).
+ */
+function PeriodSkeleton({ unit }: { unit: WeightUnit }) {
   return (
-    <div aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <>
       <Loading what="tu período" />
-      <div className="pp-kpis" aria-hidden="true">{[0, 1, 2, 3, 4].map((i) => <div key={i}><Skel w="56%" h={22} style={{ margin: "3px 0" }} /><Skel w="80%" h={11} style={{ marginTop: 3 }} /></div>)}</div>
-      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 8 }}><Skel w="52%" h={14} /><Skel h={80} r={10} /></div>
-      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 12 }}><Skel w="60%" h={14} />{[0, 1, 2, 3, 4].map((i) => <Skel key={i} w={i % 2 ? "88%" : "100%"} h={18} />)}</div>
-    </div>
+      <div className="pp-kpis" aria-hidden="true">
+        {["Sesiones", "Series", "Repeticiones", `Volumen (${unit})`, "Minutos activos"].map((l) => <div key={l}><Skel w="56%" h={20} style={{ margin: "3px 0" }} /><span>{l}</span></div>)}
+      </div>
+      <div aria-hidden="true"><Skel w="58%" h={13} style={{ margin: "2px 0 10px" }} /><Skel h={80} r={10} /></div>
+      <div aria-hidden="true">
+        <Skel w="52%" h={13} style={{ margin: "2px 0 6px" }} />
+        <ul className="pp-rows">{[62, 48, 40, 56, 44, 36, 52, 46].map((w, i) => <li key={i}><Skel w={`${w}%`} h={16} /><Skel w={64} h={12} /></li>)}</ul>
+      </div>
+    </>
   );
 }
 
-/** M06: «Evolución por ejercicio» en esqueleto (nombre, métricas y gráfico). */
+/** M06: «Evolución por ejercicio» en esqueleto con el alto de la real (nombre, métricas, gráfico con leyenda y dato, notas). */
 function ExerciseSkeleton() {
   return (
-    <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w="46%" h={17} /><Skel w="72%" h={12} /></div>
-      <div style={{ display: "flex", gap: 4 }}>{[64, 56, 72, 64].map((w, i) => <Skel key={i} w={w} h={32} r={16} />)}</div>
-      <Skel h={220} r={12} />
-      <Skel w="90%" h={12} />
-    </div>
+    <>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 7 }}><Skel w="46%" h={17} style={{ margin: "2px 0 1px" }} /><Skel w="80%" h={12} /><Skel w="40%" h={12} /></div>
+      <div aria-hidden="true" style={{ display: "flex", gap: 4 }}>{[96, 104, 120, 72].map((w, i) => <Skel key={i} w={w} h={32} r={16} />)}</div>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 8 }}><Skel h={188} r={12} /><Skel w="70%" h={12} style={{ margin: "11px 0" }} /><Skel h={44} r={12} /></div>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w="92%" h={12} style={{ marginTop: 2 }} /><Skel w="60%" h={12} /></div>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w="88%" h={12} style={{ marginTop: 2 }} /><Skel w="50%" h={12} /></div>
+      <Skel w="44%" h={14} style={{ margin: "2px 0 1px" }} />
+    </>
   );
 }

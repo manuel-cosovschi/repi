@@ -3,14 +3,20 @@
 // (docs/MOTION_NAVEGACION.md §4): el indicador sale como un sprint en el mismo toque (estado urgente, antes de dibujar la
 // sección), el ícono destino arranca con rebote, al aparecer Gym los botones se reacomodan (FLIP) y tocar otra vez la
 // pestaña activa lleva el scroll arriba. Marcado y nombres accesibles iguales a los de antes (pruebas por rol y nombre).
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Ic } from "@/components/ui/Ic";
 import { prefetch } from "@/lib/cache";
 import { EASE, M06, canAnimate, play } from "@/lib/motion";
+import { featureOn } from "@/lib/features";
+import { preloadHints } from "./Hint";
 
-/** Lectura anticipada en el pointerdown: el endpoint principal de cada sección (gana 50–100 ms en la primera visita). */
-const PREFETCH: Record<string, string[]> = { gym: ["/api/me/gym/home"], prog: ["/api/me/level"], msgs: ["/api/messages"] };
+/** Lectura anticipada en el pointerdown: los endpoints de la primera vista de cada sección (gana 50–100 ms en la primera
+ *  visita). Las URL son exactamente las que pide cada sección (la caché es por URL). */
+const PREFETCH: Record<string, string[]> = {
+  gym: ["/api/me/gym/home"], msgs: ["/api/messages"],
+  prog: [...(featureOn("progress") ? ["/api/me/progress/summary?range=90d", "/api/me/progress/exercises?q="] : []), "/api/me/level"],
+};
 
 export function TabBar<K extends string>({ tabs, active, onGo, badge }: {
   tabs: readonly (readonly [K, string, Icon])[];
@@ -25,6 +31,9 @@ export function TabBar<K extends string>({ tabs, active, onGo, badge }: {
   const i = tabs.findIndex((x) => x[0] === cur);
   const nav = useRef<HTMLElement>(null);
   const ind = useRef<HTMLElement>(null);
+  // Las ayudas vistas (marcas «Nuevo» de Progreso) se leen en segundo plano al abrir la app: al entrar a la sección ya se
+  // sabe si van, y se dibujan en el primer cuadro sin correr los botones.
+  useEffect(() => { preloadHints(); }, []);
 
   // FLIP cuando aparece la pestaña Gym (4 → 5 columnas): los botones se reacomodan y el nuevo entra con escala.
   const rects = useRef(new Map<string, number>());

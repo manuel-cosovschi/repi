@@ -7,25 +7,31 @@ import { api } from "@/lib/api";
 
 const LS = "repi:hints";
 let cache: Promise<Record<string, string>> | null = null;
+// M06: lo ya leído queda a mano en forma síncrona: una sección que se abre después dibuja sus «Nuevo» en el primer cuadro
+// (antes aparecían un instante después y corrían los botones de las pestañas de Progreso).
+let resolved: Record<string, string> | null = null;
 const local = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(LS) ?? "{}") as Record<string, string>; } catch { return {}; } };
 function hints() {
-  cache ??= api<{ hints: Record<string, string> }>("/api/me/hints").then((x) => ({ ...local(), ...x.hints })).catch(() => local());
+  cache ??= api<{ hints: Record<string, string> }>("/api/me/hints").then((x) => ({ ...local(), ...x.hints })).catch(() => local()).then((h) => (resolved = h));
   return cache;
 }
+/** Lectura anticipada de las ayudas vistas (la barra del alumno la pide al montar). */
+export function preloadHints() { void hints(); }
 export function markHint(id: string, seen = true) {
   try { const m = local(); if (seen) m[id] = new Date().toISOString(); else delete m[id]; localStorage.setItem(LS, JSON.stringify(m)); } catch { /* sin almacenamiento */ }
+  if (resolved) { resolved = { ...resolved }; if (seen) resolved[id] = new Date().toISOString(); else delete resolved[id]; }
   cache = null;
   void api("/api/me/hints", { body: { key: id, seen } }).catch(() => {});
 }
 /** Vuelve a mostrar todas las ayudas (Perfil → «Volver a ver las ayudas»). */
 export async function resetHints() {
   try { localStorage.removeItem(LS); } catch { /* sin almacenamiento */ }
-  cache = null;
+  cache = null; resolved = null;
   await api("/api/me/hints", { body: { reset: true } });
 }
 /** ¿Ya vio esta ayuda? null mientras carga (no se muestra nada hasta saberlo, para no parpadear). */
 export function useHintSeen(id: string) {
-  const [seen, setSeen] = useState<boolean | null>(null);
+  const [seen, setSeen] = useState<boolean | null>(() => (resolved ? !!resolved[id] : null));
   useEffect(() => { let off = false; void hints().then((h) => { if (!off) setSeen(!!h[id]); }); return () => { off = true; }; }, [id]);
   return [seen, () => { setSeen(true); markHint(id); }] as const;
 }

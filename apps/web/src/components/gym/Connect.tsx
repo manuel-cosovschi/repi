@@ -77,7 +77,7 @@ export function ConnectQueueScreen({ shell }: { shell: Shell }) {
   const b = useLoad<Board>(`/api/gym/${shell.orgId}/connect/board?loc=${loc}`);
   const [tab, setTab] = useState<"me" | "pending" | "follow" | "team" | "closed">("me");
   const [open, setOpen] = useState<string | null>(shell.sel);
-  // M06: la pantalla queda viva; si se vuelve a ella con un pedido elegido (sel), se abre ese pedido.
+  // M06: la pantalla queda viva; si se vuelve a ella con un pedido elegido (sel de Sala, nunca el de otra pantalla), se abre.
   useEffect(() => { if (shell.sel) setOpen(shell.sel); }, [shell.sel]);
   const { busy, run } = useAct(shell.flash);
   const reload = () => { b.reload(); shell.refreshBadges(); };

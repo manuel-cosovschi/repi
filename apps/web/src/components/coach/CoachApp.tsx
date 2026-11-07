@@ -1,6 +1,6 @@
 "use client";
 // REPI Coach desktop. Estructura, jerarquía y textos de handoff/.../REPI Desktop Coach.dc.html; datos reales de /api/coach.
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -44,7 +44,15 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
   const [screen, setScreen] = useState<Screen>(navItems().some((n) => n[0] === initial.s) || (initial.s === "client" && !!initial.c) ? (initial.s as Screen) : "dash");
   const [from, setFrom] = useState<Screen | null>(initial.s === "client" && navItems().some((n) => n[0] === initial.from) ? (initial.from as Screen) : null);
   const [navSel, setNavSel] = useState<Screen | null>(null);
-  const [sel, setSel] = useState<string | null>(initial.c ?? null);
+  // Selección por pantalla: la ficha sola («client») y Clientes guardan el cliente; Mensajes, su conversación. Con una sola
+  // selección, «Ver perfil →» dejaba en Mensajes el id del cliente y al volver no quedaba ninguna conversación abierta (QA M06).
+  const [sels, setSels] = useState<Partial<Record<Screen, string | null>>>(() => (initial.c ? { [screen]: initial.c } : {}));
+  const sel = sels[screen] ?? null;
+  const selOf = (k: Screen) => sels[k] ?? null;
+  const setSelFor = useMemo(() => {
+    const m = new Map<Screen, (id: string | null) => void>();
+    return (k: Screen) => { let f = m.get(k); if (!f) { f = (id) => setSels((p) => (p[k] === id ? p : { ...p, [k]: id })); m.set(k, f); } return f; };
+  }, []);
   const [pid, setPid] = useState<string | null>(initial.p ?? null);
   const [ov, setOv] = useState<Overview | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -101,7 +109,7 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
     startTransition(() => {
       setScreen(s);
       if (s !== "client") setFrom(null);
-      if (extra?.sel !== undefined) setSel(extra.sel);
+      if (extra?.sel !== undefined) setSels((p) => ({ ...p, [s]: extra.sel }));
       if (extra?.pid !== undefined) setPid(extra.pid);
     });
   }, []);
@@ -185,14 +193,14 @@ export function CoachApp({ orgId, me, initial }: { orgId: string; me: { name: st
             <SectionStage active={screen} order={navItems().map((n) => n[0])} axis="auto" focus="title" paneClass="co-pane" top={(k) => k === "client"} render={(k) => <>
               {k === "agenda" && <CoachAgenda orgId={orgId} ov={ov} flash={flash} />}
               {k === "dash" && <CoachDash orgId={orgId} ov={ov} first={first} onInvite={() => setInvite(true)} onNewProgram={newProgram} go={go} openClient={openClient} />}
-              {k === "clients" && <CoachClients orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} onOpen={openClient} />}
-              {k === "client" && <CoachClients key={sel ?? ""} orgId={orgId} ov={ov} sel={sel} setSel={setSel} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash}
+              {k === "clients" && <CoachClients orgId={orgId} ov={ov} sel={selOf("clients")} setSel={setSelFor("clients")} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash} onOpen={openClient} />}
+              {k === "client" && <CoachClients key={selOf("client") ?? ""} orgId={orgId} ov={ov} sel={selOf("client")} setSel={setSelFor("client")} onInvite={() => setInvite(true)} onImported={reload} go={go} flash={flash}
                 solo={{ back: from ? { label: navItems().find((n) => n[0] === from)?.[1] ?? "Atrás", go: back } : { label: "Clientes", go: () => go("clients") } }} />}
               {k === "videos" && <ExerciseVideos orgId={orgId} flash={flash} />}
               {k === "builder" && <ProgramBuilder orgId={orgId} ov={ov} pid={pid} setPid={setPid} flash={flash} onNewProgram={newProgram} onAssigned={reload} />}
               {k === "inbox" && <CoachInbox orgId={orgId} flash={flash} go={go} openClient={openClient} onChanged={reload} />}
               {k === "msgs" && <ChatPane listUrl={`/api/coach/${orgId}/messages`} kicker="Conversaciones privadas entre vos y cada cliente" emptyText="Todavía no tenés clientes. Las conversaciones aparecen cuando aceptan tu invitación."
-                initial={sel} onSeen={reload} profile={(t) => <button type="button" className="btn sm" onClick={() => t.relId && openClient(t.relId)}>Ver perfil →</button>} />}
+                initial={selOf("msgs")} onSeen={reload} profile={(t) => <button type="button" className="btn sm" onClick={() => t.relId && openClient(t.relId)}>Ver perfil →</button>} />}
               {k === "pay" && <CoachPayments orgId={orgId} flash={flash} openClient={openClient} />}
               {k === "terms" && <ConditionsScreen orgId={orgId} flash={flash} unit="alumnos" onSeen={termsSeen} />}
               {k === "guide" && <CoachGuide />}

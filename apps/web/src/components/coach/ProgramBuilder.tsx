@@ -21,6 +21,7 @@ import { CoachDayCopy, DayMenu, readClip, writeClip, type DayClip } from "./DayC
 import { TemplateRollout } from "./TemplateRollout";
 import { ProgramImportModal } from "./ProgramImportModal";
 import { copyDayContent } from "@repi/domain";
+import { Loading, Skel } from "@/components/motion/Skeleton";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
 
@@ -57,8 +58,10 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const [copy, setCopy] = useState<{ from: { programId: string; day: number }; fromLabel: string; to: { programId: string; day: number } | null } | null>(null);
   useEffect(() => { setTiDraft(prog ? readTiDraft({ kind: "coach", programId: prog.id }) : null); }, [prog?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); return r.programs; }), [orgId]);
-  useEffect(() => { loadList().then((ps) => { if (!pid && ps[0]) setPid(ps[0].id); }).catch((e) => flash(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [listErr, setListErr] = useState(false);
+  const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); setListErr(false); return r.programs; }), [orgId]);
+  const firstLoad = useCallback(() => { loadList().then((ps) => { if (!pid && ps[0]) setPid(ps[0].id); }).catch((e) => { setListErr(true); flash(e.message); }); }, [loadList, pid]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { firstLoad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { api<{ exercises: LibEx[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
   useEffect(() => {
     if (!pid) { setProg(null); setDoc(null); return; }
@@ -204,15 +207,21 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   // <cliente>» y el profe cargaba las cargas en la plantilla creyendo que le llegaban a su alumno.
   const firsts = prog?.clients.map((c) => c.split(" ")[0]).join(", ") ?? "";
   const forTxt = !prog ? "" : prog.kind === "client_copy" ? `Programa de ${prog.forClient ?? "un cliente"} · versión ${prog.version}` : `Plantilla · ${prog.clients.length ? `base del programa de ${firsts}` : "sin clientes asignados"} · versión ${prog.version}`;
+  // M06 (QA): mientras llega la lista o el programa elegido se ve el editor en esqueleto, nunca el vacío «Creá tu primer
+  // programa» ni un «Cargando programa…» suelto (pasaba por tres diseños). El anterior igual no queda a la vista (F-05).
+  const loading = !doc && (pid != null || (list === null && !listErr));
 
   return (
     <>
       <div className="co-head">
         <div style={{ flex: "1 1 320px" }}>
-          <span className="co-kicker">{forTxt} {saveLabel(save)}</span>
-          {doc ? <input className="pname" value={doc.name} onChange={(e) => edit((d) => ({ ...d, name: e.target.value }))} aria-label="Nombre del programa" maxLength={120} />
-            : <h1 tabIndex={-1}>Programas</h1>}
+          {loading ? <Skel w={240} h={12} style={{ margin: "2px 0" }} /> : <span className="co-kicker">{forTxt} {saveLabel(save)}</span>}
+          {/* El h1 es siempre el mismo elemento (sólo se oculta a la vista cuando está el nombre editable): el foco que le da
+              el escenario al entrar no se pierde cuando llega el programa (QA M06: quedaba en body). */}
+          <h1 tabIndex={-1} className={doc ? "sr-only" : undefined} style={doc ? undefined : { lineHeight: "31px" }}>Programas</h1>
+          {doc && <input className="pname" value={doc.name} onChange={(e) => edit((d) => ({ ...d, name: e.target.value }))} aria-label="Nombre del programa" maxLength={120} />}
         </div>
+        {loading && <div className="co-actions" aria-hidden="true"><Skel w={85} h={42} r={10} /><Skel w={85} h={42} r={10} /><Skel w={145} h={42} r={10} /></div>}
         {prog && (
           <div className="co-actions">
             <button type="button" className="btn danger" onClick={() => setDel(true)}>Eliminar</button>
@@ -259,6 +268,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             </button>
           ))}
           {list && !list.length && <span className="muted" style={{ padding: 8 }}>Todavía no creaste programas.</span>}
+          {list === null && !listErr && [0, 1].map((i) => <div key={i} className="prow" aria-hidden="true" style={{ cursor: "default" }}><Skel w={`${70 - i * 14}%`} h={14} style={{ margin: "2px 0" }} /><Skel w="80%" h={12} style={{ margin: "2px 0" }} /></div>)}
           <button type="button" className="dashed" onClick={onNewProgram}>+ Programa en blanco</button>
           {/* SI2: un programa que ya existe (foto, PDF, planilla o texto) entra como programa nuevo, sin asignar. */}
           <button type="button" className="dashed" onClick={() => setImporting(true)}>Importar programa</button>
@@ -322,7 +332,12 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             <label className="field">Indicación para el cliente<textarea className="note" rows={2} value={doc.note} maxLength={1000} onChange={(e) => edit((d) => ({ ...d, note: e.target.value }))} /></label>
           </section>
         ) : (
-          <section className="card" style={{ flex: "3 1 480px" }}><div className="empty">{pid ? "Cargando programa…" : list?.length ? "Elegí un programa." : "Creá tu primer programa en blanco."}</div></section>
+          loading ? <EditorSkeleton /> : (
+            <section className="card" style={{ flex: "3 1 480px" }}>
+              {listErr && !list ? <div className="empty">No pudimos cargar tus programas. <button type="button" className="btn sm" onClick={firstLoad}>Reintentar</button></div>
+                : <div className="empty">{list?.length ? "Elegí un programa." : "Creá tu primer programa en blanco."}</div>}
+            </section>
+          )
         )}
         <div className="side-pane" style={{ gap: 6 }}>
           <span className="lbl-up" style={{ padding: "6px 8px" }}>Biblioteca</span>
@@ -351,6 +366,20 @@ function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); }
 
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
+
+/** M06: el editor en esqueleto con su forma (asistente, días, nombre del día, dos ejercicios e indicación) mientras carga. */
+function EditorSkeleton() {
+  return (
+    <section className="card" aria-busy="true" style={{ flex: "3 1 480px", minWidth: 0, gap: 14 }}>
+      <Loading what="el programa" />
+      <Skel w={130} h={38} r={10} />
+      <div aria-hidden="true" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}><Skel w={180} h={40} r={10} /><Skel w={190} h={14} /></div>
+      <div aria-hidden="true" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}><Skel w={260} h={44} r={10} /><Skel w={80} h={44} r={10} /></div>
+      {[0, 1].map((i) => <div key={i} aria-hidden="true" className="skel-card" style={{ minHeight: 174 }}><Skel w="38%" h={16} /><Skel h={12} /><Skel w="76%" h={12} /><Skel w="54%" h={12} /></div>)}
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w={180} h={13} /><Skel h={56} r={10} /></div>
+    </section>
+  );
+}
 
 function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove, onCombine, onSeparate, nextName }: {
   orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;

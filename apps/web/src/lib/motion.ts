@@ -23,7 +23,8 @@ export function play(el: Element | null | undefined, keyframes: Keyframe[] | Pro
 
 /** Tiempos y distancias de M06 (motion.md §13). Todo termina en ≤ 240 ms y sólo mueve transform, opacity y clip-path. */
 export const M06 = {
-  exit: DUR.section_exit,          // salida de sección: 100 ms, --ease-in
+  exit: DUR.section_exit,          // salida de sección: traslación 100 ms, --ease-in
+  fade: 70,                        // salida de sección: opacidad 70 ms, --ease-std (los dos títulos casi no se superponen)
   enter: DUR.section_enter,        // entrada de sección: 200 ms, --ease-out, sin retardo
   enterDesk: DUR.screen_desktop,   // entrada en el eje vertical del escritorio: 220 ms
   stagger: DUR.stagger,            // formación: paso de 20 ms

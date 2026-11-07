@@ -2,11 +2,12 @@
 // M06 «Carril» (motion.md §13, docs/MOTION_NAVEGACION.md §3–§4): escenario de secciones para alumno, Coach, Gym y Admin.
 // - Las secciones visitadas quedan vivas con <Activity>: al volver se muestran al instante con su estado, su DOM y sus
 //   datos; sus efectos vuelven a correr (revalidan en segundo plano) y los sondeos se pausan mientras están ocultas.
+// - Sólo la activa se vuelve a dibujar; la que sale y las ocultas conservan su último nodo (no ven el estado nuevo).
 // - Cambiar de sección es cambiar de carril: la que sale queda fija 100 ms, inerte y sin toques, y se aparta; la nueva
 //   entra en el sentido del viaje (orden de la barra o del menú; fuera del orden = profundidad), con el corte de meta en su
 //   h1 y los primeros bloques en formación. Sólo transform, opacity y clip-path; un toque nuevo corta lo que esté en curso.
 // - Sin Web Animations o con movimiento reducido el cambio es inmediato.
-// - Cada sección recupera su scroll antes de pintar; el foco sigue la regla de §9.
+// - Cada sección recupera su scroll antes de pintar; el foco sigue la regla de §9 (sin h1, a la sección misma).
 import { Activity, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { invalidate } from "@/lib/cache";
 import { EASE, M06, canAnimate } from "@/lib/motion";
@@ -44,7 +45,7 @@ function direction<K extends string>(order: readonly K[], from: K, to: K) {
   return { dir: -1, depth: true };           // vuelve de ella
 }
 
-const PIN = ["position", "top", "left", "width", "margin", "z-index", "clip-path", "pointer-events", "opacity", "transform"];
+const PIN = ["position", "top", "left", "width", "margin", "z-index", "clip-path", "pointer-events", "opacity", "transform", "visibility"];
 const unpin = (el: HTMLElement | null) => { if (el) for (const p of PIN) el.style.removeProperty(p); };
 
 export function SectionStage<K extends string>({ active, order, render, axis = "x", resetKey = null, keep = 6, focus = "lost", paneClass = "sec-pane-plain", top, className }: SectionStageProps<K>) {
@@ -71,14 +72,20 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
     setSt(s);
   }
 
-  // Los nodos de cada sección se reutilizan mientras `render` no cambie: al terminar una salida (sólo cambia `leaving`)
-  // React no vuelve a dibujar el contenido.
-  const memo = useRef<{ fn: unknown; nodes: Map<K, ReactNode> }>({ fn: null, nodes: new Map() });
-  if (memo.current.fn !== render) memo.current = { fn: render, nodes: new Map() };
+  // Sólo la sección activa se vuelve a dibujar con las props nuevas. La que sale y las ocultas conservan el último nodo que
+  // se dibujó para ellas (mismo elemento: React no las recorre). Así la que sale no ve el estado de la pantalla nueva
+  // durante su salida (p. ej. la selección de otra pantalla, QA M06) y las ocultas no se vuelven a dibujar en cada render
+  // del padre. Al volver a ser activa, la sección se dibuja con las props de ese momento.
+  const memo = useRef<{ reset: string; nodes: Map<K, { fn: unknown; node: ReactNode }> }>({ reset: s.reset, nodes: new Map() });
+  if (memo.current.reset !== s.reset) memo.current = { reset: s.reset, nodes: new Map() };
   const node = (k: K) => {
-    if (!memo.current.nodes.has(k)) memo.current.nodes.set(k, render(k));
-    return memo.current.nodes.get(k);
+    const m = memo.current.nodes, e = m.get(k);
+    if (e && (k !== s.active || e.fn === render)) return e.node;
+    const n = render(k);
+    m.set(k, { fn: render, node: n });
+    return n;
   };
+  for (const k of [...memo.current.nodes.keys()]) if (!s.visited.includes(k)) memo.current.nodes.delete(k);
 
   const stage = useRef<HTMLDivElement>(null);
   const shown = useRef<K>(active);
@@ -140,20 +147,27 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
     const prevPane = out ?? pane(prev);
     const lost = !ae || ae === document.body || !ae.isConnected || (!!prevPane && prevPane.contains(ae));
     const h1 = inn ? [...inn.querySelectorAll<HTMLElement>("h1")].find((h) => h.getClientRects().length > 0) ?? inn.querySelector<HTMLElement>("h1") : null;
-    if (h1 && (focus === "title" || lost)) {
-      if (!h1.hasAttribute("tabindex")) h1.tabIndex = -1;
-      h1.focus({ preventScroll: true });
+    // Sin h1 (p. ej. «Videos de ejercicios»), el foco va a la sección misma: nunca queda en el menú cerrado ni en body.
+    const target = h1 ?? inn;
+    if (target && (focus === "title" || lost)) {
+      if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+      target.focus({ preventScroll: true });
     }
     if (!out || !inn || !canAnimate()) return;
     const yAxis = axis === "auto" && window.matchMedia("(min-width: 768px)").matches;
     const d = s.dir;
     const tr = (px: number) => (yAxis ? `translateY(${px}px)` : `translateX(${px}px)`);
     try {
-      // 5. Salida: 100 ms, --ease-in. Al terminar, la sección pasa a oculta.
-      const ex = out.animate([{ opacity: 0, transform: tr(-(yAxis ? M06.yOut : M06.away) * d) }], { duration: M06.exit, easing: EASE.in, fill: "forwards" });
+      // 5. Salida: se aparta 12 px en 100 ms (--ease-in) y se apaga antes, en 70 ms (--ease-std): los dos títulos casi no
+      //    se leen a la vez (QA: con la opacidad en --ease-in quedaban ~5 cuadros superpuestos). Al terminar se oculta en el
+      //    acto (sin esperar a React) y después pasa a oculta (display:none).
+      const ex = out.animate([{ transform: tr(-(yAxis ? M06.yOut : M06.away) * d) }], { duration: M06.exit, easing: EASE.in, fill: "forwards" });
+      L.anims.push(ex, out.animate([{ opacity: 0 }], { duration: M06.fade, easing: EASE.std, fill: "forwards" }));
       const cycle = s.cycle;
-      ex.finished.then(() => setSt((p) => (p.cycle === cycle && p.leaving != null ? { ...p, leaving: null } : p))).catch(() => {});
-      L.anims.push(ex);
+      ex.finished.then(() => {
+        if (live.current.pinned === out) { out.style.setProperty("visibility", "hidden"); out.removeAttribute("data-leaving"); }
+        setSt((p) => (p.cycle === cycle && p.leaving != null ? { ...p, leaving: null } : p));
+      }).catch(() => {});
       // 6. Entrada: 200 ms (220 en el eje vertical), --ease-out, sin retardo (se superpone con la salida).
       const dist = yAxis ? M06.yIn : s.depth ? M06.depth : M06.shift;
       L.anims.push(inn.animate([{ opacity: fromOpacity, transform: tr(dist * d) }, { opacity: 1, transform: "none" }], { duration: yAxis ? M06.enterDesk : M06.enter, easing: EASE.out }));

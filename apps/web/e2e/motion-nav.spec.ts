@@ -123,6 +123,42 @@ test.describe("alumno", () => {
     }
   });
 
+  // QA M06: con la red de un teléfono real (450 ms por pedido) y CPU ×4, la primera visita a Progreso saltaba al llegar los
+  // datos (CLS 0,08–0,10: esqueleto más bajo que lo real y las marcas «Nuevo» corrían las pestañas) y Tu gym pintaba el
+  // contenido un cuadro, lo apagaba bajo el ambiente M03 y lo volvía a mostrar.
+  test("primera visita con latencia: Progreso no salta y Tu gym no parpadea", async ({ page }, info) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await page.route("**/api/**", async (r) => { if (!r.request().url().includes("/api/demo")) await new Promise((s) => setTimeout(s, 450)); await r.continue(); });
+    await memberReady(page);
+    await page.waitForTimeout(1200); // con la latencia, las cargas iniciales tardan más
+    await throttle(page, 4);
+    const click = async (name: string) => { const box = (await tabBtn(page, name).boundingBox())!; await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); };
+    const prog = await measureTap(page, () => click("Progreso"), "prog", "primera", 2600);
+    const gymFrames = page.evaluate(() => new Promise<{ t: number; op: number | null }[]>((res) => {
+      const eff = (el: Element | null) => { let o = 1; while (el && el !== document.documentElement) { const cs = getComputedStyle(el); if (cs.display === "none") return 0; o *= parseFloat(cs.opacity || "1"); el = el.parentElement; } return o; };
+      const out: { t: number; op: number | null }[] = []; const t0 = performance.now();
+      const tick = () => {
+        const el = document.querySelector('[role="tablist"][aria-label="Secciones del gym"] + div');
+        out.push({ t: Math.round(performance.now() - t0), op: el ? Math.round(eff(el) * 100) / 100 : null });
+        if (performance.now() - t0 < 2600) requestAnimationFrame(tick); else res(out);
+      };
+      requestAnimationFrame(tick);
+    }));
+    await page.waitForTimeout(32);
+    await click("Gym");
+    const gf = await gymFrames;
+    const firstFull = gf.findIndex((f) => (f.op ?? 0) >= .9);
+    const dipAfterFull = firstFull < 0 ? null : Math.min(...gf.slice(firstFull).map((f) => f.op ?? 0));
+    await report(info, "latencia", { prog, gym: { firstFullMs: firstFull < 0 ? null : gf[firstFull].t, dipAfterFull } });
+    expect(errors).toEqual([]);
+    if (BASELINE) return;
+    expect.soft(prog.blank, "Progreso: cuadros sin contenido").toBe(0);
+    expect.soft(prog.cls, "Progreso (primera, con latencia): layout-shift").toBeLessThanOrEqual(0.05);
+    expect(firstFull, "Tu gym: el contenido termina a la vista").toBeGreaterThanOrEqual(0);
+    expect(dipAfterFull ?? 0, "Tu gym: una vez a la vista, el contenido no se apaga").toBeGreaterThanOrEqual(.5);
+  });
+
   test("cinco toques en 250 ms terminan en la última sección, sin paneles trabados", async ({ page }, info) => {
     await memberReady(page);
     await throttle(page, 4);
