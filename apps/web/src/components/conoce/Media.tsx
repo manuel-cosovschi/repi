@@ -49,7 +49,7 @@ export function Media({ video, shot, alt, profile, phone = true, compact = false
           {v.duration && <span className="cn-dur">{v.duration}</span>}
         </button>
       )}
-      <figcaption>{v.title}{v.duration ? ` · ${v.duration}` : ""} · sin audio, con subtítulos</figcaption>
+      <figcaption>{v.title}{v.duration ? ` · ${v.duration}` : ""} · {v.audio ? "con voz y subtítulos" : "sin audio, con subtítulos"}</figcaption>
     </figure>
   );
 }

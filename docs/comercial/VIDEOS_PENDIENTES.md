@@ -10,6 +10,7 @@ Grabaciones reales de la demo guiada local (datos ficticios, la app tal cual), e
 | `perfil-deportistas` | 0:42 | Inicio, entrenamiento con registro y descanso, evolución por ejercicio y objetivo de peso privado |
 | `perfil-entrenadores` | 0:34 | Panel, clientes, ficha y rendimiento de Valentina, programas versionados y mensajes |
 | `perfil-gimnasios` | 0:50 | Ejecutivo, alta de Camila por QR (método de validación y aprobación), comunidad y la sala: «Quiero que venga un entrenador» → «Voy» |
+| `perfil-aliados` | 0:59 | **Con locución** (ElevenLabs, voz «Eric» en español neutro) y subtítulos. Escenas de marca y clips reales: el problema, qué es REPI, Training Intelligence, entrenadores y gimnasios, modelo B2B2C, Smart Center (logo autorizado), alianzas. Fuente para regenerar: `marketing/videos/aliados/` |
 
 **Regenerarlos:** build local + `next start` sobre `repi_dev`. El guion de grabación (Playwright + screencast de Chrome + ffmpeg) quedó en el checkpoint de PROXIMA_SESION. Si cambia la interfaz, regrabar para que el video siga siendo fiel.
 
@@ -17,7 +18,7 @@ Grabaciones reales de la demo guiada local (datos ficticios, la app tal cual), e
 
 Antes del 07/11 no había videos de producto. El único archivo era `documentacion/motion/previews/REPI_motion_M01-M05_60fps.mp4`, que es la animación del logo y las transiciones (motion M01–M05). Puede servir de apertura o cierre de estos videos, pero no los reemplaza.
 
-Para cambiar o sumar uno: `VIDEOS` en `apps/web/src/content/conoce.ts`. Al completar `src`, aparece con «Reproducir» en lugar de la captura. Con voz, sumar `captions` (.vtt). Las versiones de abajo con locución, música y animación son una segunda etapa; las grabaciones de arriba ya cubren los perfiles de gimnasio, entrenador y deportista, y Training Intelligence. **Falta el de aliados/inversores (4)**, que necesita una pieza narrativa (no alcanza con la grabación de la app).
+Para cambiar o sumar uno: `VIDEOS` en `apps/web/src/content/conoce.ts`. Al completar `src`, aparece con «Reproducir» en lugar de la captura. Con voz, sumar `captions` (.vtt). Las versiones de abajo con locución, música y animación son una segunda etapa; las grabaciones de arriba ya cubren los perfiles de gimnasio, entrenador y deportista, y Training Intelligence. El de aliados/inversores ya está, con locución. Para una voz argentina hace falta un plan pago de ElevenLabs (el gratuito no permite voces de la biblioteca por API).
 
 ## Cómo producirlos
 
