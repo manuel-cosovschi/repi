@@ -95,9 +95,10 @@ describe("Gym Access · membresía y política", () => {
     const own = await import("@/server/training/own-routines");
     const csv = ["Ejercicio,Series,Reps", ...Array.from({ length: 15 }, () => "Remo acceso,3,10")].join("\n");
     const p = await own.previewRoutineImport(v.userId, { fileName: "r.csv", kind: "text", text: csv });
-    expect(p.days.map((d) => d.exercises.length)).toEqual([12, 3]);
-    expect(p.days.map((d) => d.name)).toEqual(["Mi rutina 1", "Mi rutina 2"]);
-    expect(p.days.flatMap((d) => d.exercises).every((e) => e.exerciseId === EX)).toBe(true);
+    const days = p.variants[0].days;
+    expect(days.map((d) => d.exercises.length)).toEqual([12, 3]);
+    expect(days.map((d) => d.name)).toEqual(["Mi rutina 1", "Mi rutina 2"]);
+    expect(days.flatMap((d) => d.exercises).every((e) => e.exerciseId === EX)).toBe(true);
     expect(p.notes.join(" ")).toMatch(/15 ejercicios/);
   });
 

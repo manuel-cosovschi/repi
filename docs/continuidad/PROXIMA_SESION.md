@@ -1,6 +1,41 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D206; **pedido de programa con preferencias PUBLICADO**, Experience Hub publicado; ver primeras secciones). Antes: 06/11/2026 (hasta D204; **Personal Progress & Body Tracking 1.0 PUBLICADO Y VERIFICADO en producción**, ver primera sección; próximo bloque: REPI — Smart Program Import 2.0). Antes: 06/11/2026 (hasta D202; **Personal Progress & Body Tracking 1.0 en revisión, sin publicar**, ver primera sección). Antes: 05/11/2026 (hasta D198; **bloque 06/06 «Final Release Hardening» PUBLICADO** (PR #36, `ab4e1ad`, 21:06 UTC) y validado con demos; vigilante de respaldos **activo** (OIDC, 23:07 UTC); bloque 05/06 publicado y validado con el PR #24, la 0045 y el hotfix #26; respaldos D190 con vigilante D198). Serie 01/06–06/06 cerrada en desarrollo; próximo: decisiones del titular (planes, teléfonos, legal) y Personal Progress & Body Tracking 1.0 después del 06/06. Antes de esto: 05/11/2026 (hasta D195; **bloque 05/06 publicado y validado en producción** con el PR #24, la 0045 y el hotfix #26; respaldos con turno de reserva y fecha de publicación (PR #27); próximo: Master Prompt 06/06; D192/D194 publicados con el PR #21 y la 0044; hotfix D193 publicado; 04/06 y 03/06 publicados; bloques 01/06 y 02/06 publicados), sobre la release candidata rc-2026.10.27 (D111). Leer primero docs/RELEASE_READINESS.md y docs/LAUNCH_BLOCKERS.md. Máster activo: ../../MASTER_PROMPT.md.
+Actualizado: 07/11/2026 (hasta D207; **Smart Program Import 2.0**, ver primera sección; próximo bloque: REPI — Adaptive Coaching 3.0). Antes: 07/11/2026 (hasta D206; pedido de programa con preferencias publicado, Experience Hub publicado).
+
+## Smart Program Import 2.0 (D207) — 07/11/2026 · EN PUBLICACIÓN
+
+- **Pedido:** máster «REPI — Smart Program Import 2.0»: importar rutinas de cualquier formato sin reescribirlas ni inventar datos, con guardado seguro, para el alumno, el coach y el gimnasio. Deja preparado Adaptive Coaching 3.0. Detalle: `docs/SMART_IMPORT_2.md`.
+- **Rama:** `claude/smart-import-2`, desde `main` `5e2c94d`.
+- **Hecho:**
+  - **Dominio:**
+    - `packages/domain/src/program-import.ts`: texto, WhatsApp y planillas; tres estados por dato; valores por serie; libras; métodos; procedencia `ImportOrigin`.
+    - `exercise-match.ts`: abreviaturas, plurales, inglés, paréntesis, guardia de variantes y alternativas.
+  - **Servidor:**
+    - `server/training/program-import.ts`: firma de archivo; determinístico primero; IA con esquema estricto y el documento como dato; emparejamiento validado; partir días largos con aviso.
+    - `own-routines.ts`: `previewRoutineImport` y `saveImportedRoutines`, una transacción idempotente por `opId`.
+    - `createTemplate(…, imported)`: idempotente por `opId`.
+  - **Rutas:**
+    - `/api/me/routines/import`, `/api/me/routines/import/save`;
+    - `/api/coach/[orgId]/programs/import` y `programs` con `imported`;
+    - `/api/gym/[orgId]/programs/import`.
+  - **Interfaz:**
+    - `components/shared/ProgramImport.tsx`: lectura con estado, cancelar y reintentar; revisión con filas compactas, faltantes, sugerido explícito, tabla por serie, alternativas, métodos y borrador en el teléfono.
+    - `member/RoutineImport.tsx` (Mis rutinas) y `coach/ProgramImportModal.tsx`, en el constructor del coach y en el editor del socio en Gym.
+    - Estilos `.pi-*` en `globals.css`.
+  - **Archivos:** `lib/import-file.ts` (marca las planillas). El archivo original no se guarda.
+- **Migración 0049, aditiva:**
+  - `own_routine.origin` jsonb y el índice único parcial `(user_id, origin->>'opId', origin->>'day')`.
+  - `scripts/operations/hosted-0049.sql`, `verify-0049.sh` (ensayada: aplicar, reintento que falla entero, revertir, reaplicar; huella de rutinas igual) y `scripts/rollback/0049_own_routine_origin.down.sql`.
+  - El código actual de producción es compatible con 0049 aplicada: aplicar ANTES de integrar, con respaldo verde.
+- **Pruebas:**
+  - **Dominio:** 491 pruebas, entre ellas los fixtures de `packages/domain/fixtures/import/` (documentos ficticios: texto, WhatsApp, Excel de 3 hojas, foto de hoja impresa, captura de WhatsApp, PDF de 2 páginas).
+  - **Web:** `tests/program-import.test.ts`, 13 pruebas de integración.
+  - **QA visual con la demo local:** alumno, coach y gimnasio; corte de red simulado sin duplicar; borrador recuperable; oscuro; 320 px; axe sin violaciones.
+- **Próxima acción:**
+  - Respaldo, 0049 en producción, CI verde, merge y deploy.
+  - Smoke con cuentas demo: texto, Excel y foto con IA si la clave está configurada.
+  - Actualizar esta sección.
+
 
 
 
