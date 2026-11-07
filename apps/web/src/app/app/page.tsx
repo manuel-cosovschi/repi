@@ -6,6 +6,7 @@ import { MemberApp } from "@/components/member/MemberApp";
 import { requireUser } from "@/server/access/guard";
 import "@/styles/member.css";
 import "@/styles/method-editor.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "REPI" };
 

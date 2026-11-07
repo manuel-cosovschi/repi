@@ -4,6 +4,7 @@ import { AccessShell } from "@/components/access/AccessShell";
 import { Account } from "@/components/access/Account";
 import { requireUser } from "@/server/access/guard";
 import "@/styles/access.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "Mi cuenta · REPI" };
 

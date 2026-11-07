@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AccessShell } from "@/components/access/AccessShell";
 import { InstallHelp } from "@/components/access/InstallHelp";
 import "@/styles/access.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "Agregar a inicio · REPI" };
 
