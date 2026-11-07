@@ -8,6 +8,15 @@ Actualizado: 07/11/2026 (hasta D207; **REPI Sales Force & Commission OS en revis
 
 
 
+## REPI Commercial Sales Kit 2026 · dossier para gimnasios — 07/11/2026 · LISTO, SIN DISTRIBUIR
+
+- **Pedido:** master prompt del titular «REPI Commercial Sales Kit 2026»: dossier premium para dueños de gimnasios y resumen de una página.
+- **Dónde:** `marketing/dossier-gimnasios-2026/` (LEEME con instrucciones). PDF en `salida/`, vistas por página en `paginas/`, capturas reales de la demo en `capturas/`, fuente en `fuente/` (`generar.mjs`, `capturas.mjs`, `precios.json`), registro `FUNCIONALIDADES_VERIFICADAS.md`.
+- **Hecho:** dossier A4 de 11 páginas y resumen A4; HTML/CSS → PDF con Chromium; Barlow/Barlow Condensed incrustadas; gráficos SVG calculados desde `precios.json` (400 × $200 = $80.000; 500 × $170 = $85.000; +25 % socios, −15 % precio, +6,25 % mensualidad, $5.000; $60.000 → $60.170 = 0,28 %); QR decodificado a `repiclub.com/conoce/gimnasios?utm_source=dossier…`; enlaces a WhatsApp y email oficiales (`lib/contact.ts`, D109). Opción `--ref`/`--asesor` para versiones por vendedor.
+- **Revisión:** todas las páginas renderizadas e inspeccionadas; corregidos superposiciones y desbordes; afirmaciones contrastadas con el código (p. ej. la verificación en dos pasos es opcional, no obligatoria).
+- **No verificado:** `repiclub.com` no es accesible desde este contenedor; el destino del QR se verificó contra la ruta publicada (D205) y en la build local (200).
+- **Pendiente del titular:** aprobar el material antes de enviarlo; confirmar si los importes ilustrativos pueden circular así.
+
 ## REPI Sales Force & Commission OS 1.0 (D207) — 07/11/2026 · EN REVISIÓN, SIN PUBLICAR
 
 - **Pedido:** master prompt del titular «REPI Sales Force & Commission OS 1.0»: vendedores en todo el país con panel propio, CRM, registro de ventas, comisiones y liquidaciones, todo administrado desde REPI Admin y sobre los clientes y contratos reales.
