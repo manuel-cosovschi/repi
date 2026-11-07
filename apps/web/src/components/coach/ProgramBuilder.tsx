@@ -12,7 +12,7 @@ import type { EditableDoc, LibEx, Overview, ProgramFull, TemplateRow } from "./t
 import { NewExercise } from "./NewExercise";
 import { ExerciseDetailEditor, detailSummary } from "./ExerciseDetailEditor";
 import { NoteButton, NoteField } from "./ExerciseNote";
-import { circuitIssues, groupLabels, isStraightPlan, mainSets, resizeBlocks, straightRow, syncCircuit } from "@repi/domain";
+import { circuitIssues, combineWithNext, combinedWithNext, groupLabels, isStraightPlan, mainSets, resizeBlocks, separateFromGroup, straightRow, syncCircuit } from "@repi/domain";
 import { IntInput } from "@/components/ui/IntInput";
 import { LoadSuggestion, useLastTimes } from "./LoadSuggestion";
 import { ProgramAssistant } from "./ProgramAssistant";
@@ -148,6 +148,15 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     }
     setDayDoc((x) => ({ ...x, exercises: sync.exs }));
     if (sync.rounds != null && sync.exs.some((y, k) => y.sets !== exs[k].sets)) flash(`Los ejercicios del circuito quedaron con ${sync.rounds} ${sync.rounds === 1 ? "serie" : "series"}, una por vuelta.`);
+  };
+  /** Combinar desde la fila: superserie con el de abajo o sumarlo a su grupo (en un circuito se igualan las vueltas, como al guardar). */
+  const combine = (i: number) => {
+    if (!cur) return;
+    const next = combineWithNext(cur.exercises, i);
+    if (!next) { flash("Este día ya tiene 8 grupos combinados: separá alguno para combinar otro."); return; }
+    const sync = syncCircuit(next, i);
+    const ok = !sync.removed.length || window.confirm(`El circuito tiene ${sync.rounds} vueltas: se quitan series de ${sync.removed.map((r) => `${r.exercise} (${r.blocks})`).join(", ")}. ¿Seguir?`);
+    setDayDoc((x) => ({ ...x, exercises: ok ? sync.exs : next }));
   };
   const issues = cur ? circuitIssues(cur.exercises) : [];
   const libq = libQ.trim().toLowerCase();
@@ -292,6 +301,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                   onSubs={() => subsPanel.toggle(subsRow(i, e.exerciseId))}
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
                   onDetail={(p) => saveDetail(i, p)}
+                  onCombine={i < cur.exercises.length - 1 && !combinedWithNext(cur.exercises, i) ? () => combine(i) : undefined} nextName={cur.exercises[i + 1]?.name}
+                  onSeparate={e.detail?.group ? () => setDayDoc((x) => ({ ...x, exercises: separateFromGroup(x.exercises, i) })) : undefined}
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
                 <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />
@@ -341,8 +352,9 @@ function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); }
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
 
-function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove }: {
+function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove, onCombine, onSeparate, nextName }: {
   orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;
+  onCombine?: () => void; onSeparate?: () => void; nextName?: string;
   onChange: (p: Partial<EditableDoc["days"][number]["exercises"][number]>) => void; onMove: (d: 1 | -1) => void; onRemove: () => void;
   onDetail: (p: { detail: EditableDoc["days"][number]["exercises"][number]["detail"]; sets: number }) => void;
 }) {
@@ -358,6 +370,8 @@ function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail,
     <div className="exrow">
       <span className="c-name"><code>{group ?? String(n + 1).padStart(2, "0")}</code>{e.name}
         <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
+        {onCombine && <button type="button" className="subs-btn" onClick={onCombine} aria-label={`Combinar ${e.name} con ${nextName ?? "el siguiente"}`}>Combinar con el siguiente</button>}
+        {onSeparate && <button type="button" className="subs-btn" onClick={onSeparate} aria-label={`Separar ${e.name} de su grupo`}>Separar</button>}
         {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}
         {!noteOpen && !e.note && <NoteButton name={e.name} onOpen={() => setNoteOpen(true)} />}</span>
       {sum && <span className="ex-sum">{sum}</span>}
