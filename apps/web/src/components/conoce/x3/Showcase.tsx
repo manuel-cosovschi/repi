@@ -5,6 +5,9 @@
 // Motion 2 (P5): cada módulo es una toma de la sala (`data-shot`), el velo queda sólo detrás del texto, el cambio de módulo es
 // un barrido (sin desenfoque) y la firma del módulo de gestión es «Que venga alguien → Voy» con el scroll: Julián pide ayuda
 // desde su serie, un cometa cruza el piso hasta Sofía, ella responde «Voy» y camina hasta él (los nombres de la demo real).
+// El trazo de la pantalla rodea el teléfono por debajo (no cruza la captura) y el de la sala se apaga al salir del módulo
+// aunque el scrub todavía esté alcanzando al scroll. Training Intelligence muestra la misma serie que 03 (el TargetCard real
+// con el motor), no otra captura con otros números.
 import { useEffect, useRef, useState } from "react";
 import { Say } from "./Say";
 import { ScrollTrigger, useGSAP } from "./gsap";
@@ -17,6 +20,8 @@ import { useFilm } from "./FilmPlayer";
 import { gsap, reduced } from "./gsap";
 import { usePaused } from "./motion";
 import { Play } from "@phosphor-icons/react";
+import { targetLine } from "@/components/member/TargetCard";
+import { EngineScreen, useEngine } from "./EngineScreen";
 
 type Mod = { id: string; title: string; value: string; points: string[]; status: FeatureStatus; demo: DemoRole; note?: string; video?: string; visual: string };
 /** Toma de la sala para cada módulo (en orden): el rack, el rack, el plano de progreso, el box, el pedido, la sala abierta y cardio. */
@@ -96,13 +101,28 @@ function Rest({ on }: { on: boolean }) {
   );
 }
 
+/** Training Intelligence: la misma serie de Valentina que en 03 (press de banca, 60 kg × 10 la última vez), con el TargetCard
+ *  real y el motor; la columna «REPI recomienda» encendida. */
+function TiPhone() {
+  const engine = useEngine();
+  const t = engine.base[0];
+  const label = `Serie de press de banca en REPI: la última vez ${t.prev ? `${String(t.prev.w).replace(".", ",")} kg × ${t.prev.r}` : "sin referencia"}, REPI recomienda ${targetLine(t, "kg")}, real por registrar`;
+  return (
+    <div className="x3-sc-phone" role="img" aria-label={label}>
+      <div aria-hidden="true"><EngineScreen engine={engine} step={2} /></div>
+    </div>
+  );
+}
+
 /** «Que venga alguien → Voy». Lo mueve el scroll del módulo de gestión (Showcase escribe --rq en `.x3-req`): primero el pedido
- *  de Julián, después el trazo y el «Voy» de Sofía. Movimiento reducido o pausa: todo a la vista, quieto (el CSS por defecto). */
+ *  de Julián, después el trazo y el «Voy» de Sofía. El trazo va detrás del teléfono y lo rodea por debajo: sale del pedido,
+ *  baja por la izquierda, pasa bajo la pantalla y sube hasta el «Voy» (como el pedido que cruza el piso, no un garabato sobre
+ *  la interfaz). Movimiento reducido o pausa: todo a la vista, quieto (el CSS por defecto). */
 function Request() {
   return (
     <div className="x3-req">
       <div className="x3-req-a"><small>Julián · Sentadilla</small><b>Que venga alguien</b></div>
-      <svg viewBox="0 0 300 80" aria-hidden="true"><path className="x3-req-path" pathLength={1} d="M20,10 C120,10 180,70 280,70" /></svg>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path className="x3-req-path" pathLength={1} vectorEffect="non-scaling-stroke" d="M9,27 C2,48 2,86 20,98 C34,107 66,107 80,98 C90,92 94,86 93,79" /></svg>
       <div className="x3-req-b"><small>Sofía · Sala</small><b>Voy</b></div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/conoce/shots/floor.webp" alt="Turno del entrenador de sala en REPI con los pedidos de los socios" width={390} height={844} loading="lazy" decoding="async" />
@@ -117,7 +137,7 @@ function Visual({ id, on, m }: { id: string; on: boolean; m: MetricId }) {
     case "rest": return <Rest on={on} />;
     case "request": return <Request />;
     case "coach": return <div className="x3-layers">{img("/conoce/shots/clients.webp", "Clientes del personal trainer en REPI")}{img("/conoce/shots/programs.webp", "Editor de programas en REPI")}</div>;
-    case "ti": return <div className="x3-layers one">{img("/conoce/shots/intelligence.webp", "Serie con Anterior, REPI recomienda y Real")}</div>;
+    case "ti": return <TiPhone />;
     case "community": return <div className="x3-layers one">{img("/conoce/shots/community.webp", "Comunidad del gimnasio en REPI")}</div>;
     default: return <div className="x3-layers one">{img("/conoce/shots/body.webp", "Objetivo de peso en Mi cuerpo, en REPI")}</div>;
   }
@@ -155,6 +175,9 @@ export function Showcase() {
     const gym = blocks.current[MODS.findIndex((x) => x.visual === "request")];
     if (!gym || reduced()) return;
     let back: gsap.core.Tween | null = null;
+    // Afuera del módulo (por abajo) el scrub todavía alcanza al scroll durante medio segundo y llamaría a write() con valores
+    // < 1: eso volvía a encender el trazo de la sala después de apagarlo. Afuera no se escribe.
+    let out = false;
     const write = (u: number) => {
       // En la sección (se hereda): el visual del pedido puede montarse en cualquier momento y ya llega en su punto.
       root.current?.style.setProperty("--rq", u.toFixed(3));
@@ -163,16 +186,19 @@ export function Showcase() {
     };
     const st = ScrollTrigger.create({
       trigger: gym, start: "top 75%", end: "bottom 45%", scrub: 0.5,
-      onUpdate: (self) => { back?.kill(); back = null; write(self.progress); },
-      onEnter: () => { back?.kill(); back = null; },
+      onUpdate: (self) => { if (out) return; back?.kill(); back = null; write(self.progress); },
+      onEnter: () => { out = false; back?.kill(); back = null; },
+      onEnterBack: () => { out = false; back?.kill(); back = null; },
       onLeave: () => {
         // Sigue el scroll hacia abajo: el trazo se apaga y Sofía vuelve sola (o al instante, si la animación está pausada).
+        out = true;
+        root.current?.style.setProperty("--rq", "1");
         stage.set({ request: null });
         const o = { w: stage.get().walk };
         if (stage.get().paused) { stage.set({ walk: 0 }); return; }
         back = gsap.to(o, { w: 0, duration: 1.4, ease: "power2.inOut", onUpdate: () => stage.set({ walk: +o.w.toFixed(3) }) });
       },
-      onLeaveBack: () => { write(0); },
+      onLeaveBack: () => { write(0); out = true; },
     });
     return () => { st.kill(); back?.kill(); root.current?.style.removeProperty("--rq"); stage.set({ request: null, walk: 0 }); };
   }, { scope: root, dependencies: [wide] });

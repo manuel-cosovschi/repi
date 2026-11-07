@@ -5,44 +5,16 @@
 // (@repi/domain/intelligence) con un ejemplo fijo, el mismo del simulador de abajo. El teléfono muestra interfaz real: recortes
 // de la captura de la sesión sin ningún número y el TargetCard real de la app alimentado por el mismo motor, así lo que dice el
 // subtítulo y lo que muestra la pantalla es siempre lo mismo. Fijada con sticky; sólo cambia el estado al cambiar de paso o de
-// repetición. Movimiento reducido o pantalla baja: tabla quieta con los valores.
-import { useEffect, useMemo, useRef, useState } from "react";
-import { adjustAfterSet, recommendExercise, type HistRow } from "@repi/domain/intelligence";
-import { TargetCard, targetLine } from "@/components/member/TargetCard";
+// repetición. El teléfono y el subtítulo entran mientras el título todavía sale (ningún cuadro queda sólo con la sala).
+// Movimiento reducido o pantalla baja: tabla quieta con los valores.
+import { useEffect, useRef, useState } from "react";
+import { targetLine } from "@/components/member/TargetCard";
 import { stage } from "../sala/store";
 import { gsap, PIN_MQ, ScrollTrigger, STACK_MQ, useGSAP } from "./gsap";
 import { Roll } from "./Roll";
 import { Say } from "./Say";
 import { IntelSim } from "../IntelSim";
-
-// Press de banca 3 × 8–10, RIR 2 (con 4 series el motor ya no sube la carga sobre un historial de 3: se comprobó con un
-// script suelto, docs/comercial/EXPERIENCE_3_MOTION_2.md P3; por eso el recorte de la captura deja afuera «4 series»).
-const EX = { sets: 3, reps: "8-10", rir: 2, restSec: 120, detail: null };
-const hist = (sid: string, at: string, reps: number[], w: number): HistRow[] =>
-  reps.map((r, i) => ({ sessionId: sid, at, specId: `r${i}`, kind: "work", stage: 0, reps: "8-10", w, r, rir: 2, feel: null, source: "repi" }));
-const kg = (n: number | null | undefined) => (n == null ? "—" : `${String(n).replace(".", ",")} kg`);
-
-function useEngine() {
-  return useMemo(() => {
-    const now = new Date();
-    const d = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString();
-    const base = recommendExercise({ ex: EX, now, history: [...hist("a", d(3), [10, 10, 10], 60), ...hist("b", d(7), [10, 9, 9], 60)] });
-    const real = { w: base[0].weightKg ?? 0, r: 6, rir: 1, feel: "dificil" as const };
-    const after = adjustAfterSet({ ex: EX, targets: base, done: [{ index: 0, w: real.w, r: real.r, rir: real.rir, feel: real.feel }], justDone: 0 });
-    return { base, real, after };
-  }, []);
-}
-
-/** Recortes de la captura real de la sesión (training.webp, 600 × 1298 px), sin ningún número a la vista. */
-const CROPS = {
-  top: { x: 0, y: 22, w: 300, h: 42 },      // ← Torso A
-  title: { x: 30, y: 492, w: 300, h: 38 },  // Press de banca
-  feel: { x: 0, y: 918, w: 600, h: 54 },    // Fácil · Bien · Difícil · Al límite · Con molestia
-};
-function Crop({ c }: { c: { x: number; y: number; w: number; h: number } }) {
-  const W = 600, H = 1298;
-  return <span className="x3-crop" style={{ width: `${(c.w / W) * 100}%`, aspectRatio: `${c.w} / ${c.h}`, backgroundSize: `${(W / c.w) * 100}% auto`, backgroundPosition: `${(c.x / (W - c.w || 1)) * 100}% ${(c.y / (H - c.h)) * 100}%` }} />;
-}
+import { EngineScreen, kg, useEngine } from "./EngineScreen";
 
 /** Tramo de cada paso en el progreso de la escena (y el conteo de repeticiones del paso 4). */
 const AT = [0, 0.16, 0.32, 0.5, 0.76];
@@ -53,7 +25,8 @@ export function Training() {
   const phone = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
   const [rep, setRep] = useState(0);
-  const { base, real, after } = useEngine();
+  const engine = useEngine();
+  const { base, real, after } = engine;
   const t0 = base[0], next = after.targets[1];
   // Los objetivos se escriben con la misma función que la tarjeta de la app: el subtítulo y la pantalla dicen siempre lo mismo.
   const rec = targetLine(t0, "kg") || "—", rec2 = next ? targetLine(next, "kg") || "—" : "—";
@@ -89,13 +62,16 @@ export function Training() {
           },
         },
       });
-      // El teléfono entra en el primer 10 % y después gira apenas con el scroll (±6°); flota solo (CSS, se pausa).
-      tl.fromTo(q(".x3-phone"), { yPercent: 18, rotateX: 18, opacity: 0 }, { yPercent: 0, rotateX: 0, opacity: 1, duration: 0.1, ease: "power2.out" }, 0)
-        .fromTo(q(".x3-phone"), { rotateY: -6 }, { rotateY: 6, duration: 0.9 }, 0.1)
-        .fromTo(q(".x3-train-say"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.08, ease: "power2.out" }, 0.02);
+      // El teléfono y el subtítulo entran mientras el título «cobra vida» todavía está a la vista (desde que el tramo asoma
+      // abajo hasta que se fija): nunca queda un cuadro sólo con la sala. Después el teléfono gira apenas con el scroll (±6°)
+      // y flota solo (CSS, se pausa).
+      const entry = gsap.timeline({ defaults: { ease: "none" }, scrollTrigger: { trigger: track, start: "top 75%", end: "top top", scrub: 0.6 } })
+        .fromTo(q(".x3-phone"), { yPercent: 18, rotateX: 18, opacity: 0 }, { yPercent: 0, rotateX: 0, opacity: 1, duration: 0.7, ease: "power2.out" }, 0.1)
+        .fromTo(q(".x3-train-say"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.25);
+      tl.fromTo(q(".x3-phone"), { rotateY: -6 }, { rotateY: 6, duration: 1 }, 0);
       // La sala, con el velo frío a .5 mientras se cuenta la serie (el teléfono y los números al frente).
       const veil = ScrollTrigger.create({ trigger: track, start: "top 40%", end: "bottom 60%", onToggle: (s) => stage.set({ tone: s.isActive ? 0.5 : 0 }) });
-      return () => { veil.kill(); stage.set({ tone: 0 }); };
+      return () => { veil.kill(); entry.scrollTrigger?.kill(); entry.kill(); stage.set({ tone: 0 }); };
     });
     return () => mm.revert();
   }, { scope: root });
@@ -107,7 +83,6 @@ export function Training() {
   }, [rep, step]);
 
   const cur = STEPS[step];
-  const realRow = step >= 3 ? { w: real.w, r: reps, rir: real.rir } : null;
   return (
     <section ref={root} id="en-accion" className="x3-train" data-shot="training" aria-labelledby="cn-train">
       <div className="x3-wrap"><Say id="cn-train" className="x3-h2" text="El entrenamiento *cobra vida.*" /></div>
@@ -127,23 +102,7 @@ export function Training() {
             <div className="x3-phone-stage" aria-hidden="true">
               <div className="x3-phone">
                 <div ref={phone} className="x3-phone-float">
-                  <div className="x3-phone-screen" data-step={step}>
-                    <Crop c={CROPS.top} />
-                    <div className="x3-phone-card">
-                      <Crop c={CROPS.title} />
-                      <div className="x3-phone-sets" data-next={step >= 4 ? "1" : undefined}>
-                        <div className="x3-phone-set">
-                          <small className="x3-phone-lbl">Serie 1</small>
-                          <TargetCard t={t0} unit="kg" label="Serie 1" real={realRow} onUse={() => {}} canUse={false} />
-                        </div>
-                        <div className="x3-phone-set">
-                          <small className="x3-phone-lbl">Serie 2</small>
-                          {next && <TargetCard t={next} unit="kg" label="Serie 2" real={null} onUse={() => {}} canUse={false} />}
-                        </div>
-                      </div>
-                    </div>
-                    <Crop c={CROPS.feel} />
-                  </div>
+                  <EngineScreen engine={engine} step={step} reps={reps} />
                 </div>
               </div>
             </div>

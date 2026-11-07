@@ -5,6 +5,8 @@
 // por su trazo y el punto se lo traga. Ese punto es el de la «ı» del logo real: crece hasta su tamaño exacto y las letras se
 // abren desde él. En ese cuadro la sala pasa de fría a viva (corte), el titular rueda de «Antes» a «Ahora» («cada» queda quieta)
 // y suben las tres pantallas reales (sala, socio y dueño). Todo es una función del progreso del scroll: reversible.
+// Sin tiempos muertos: el logo empieza a abrirse mientras «dato en otro lado» todavía sale, y el corte tiñe la sala de cian un
+// instante (el único golpe de color de la escena). Un pedazo que no entra sin pisar el texto (pantallas bajas) no se muestra.
 // Fijada con position: sticky (CSS). Movimiento reducido o pantalla baja: apilado y quieto (sin pedazos ni velo).
 import { useRef } from "react";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -33,15 +35,16 @@ const SCREENS = [
 
 const SHOT: ShotId = "problem";
 /** Largo del guion brillante del cometa (px). */
-const COMET = 34;
+const COMET = 52;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const seg = (p: number, a: number, b: number) => clamp01((p - a) / (b - a));
 const eIn = (x: number) => x * x, eOut = (x: number) => 1 - (1 - x) * (1 - x), eIO = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 type R = { x: number; y: number; w: number; h: number };
 const hit = (a: R, b: R) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-/** Ubica un pedazo lo más cerca posible de su zona sin pisar el texto, el logo ni otro pedazo. */
-function placeNear(ax: number, ay: number, w: number, h: number, blocks: R[], bounds: R): R {
+/** Ubica un pedazo lo más cerca posible de su zona sin pisar el texto, el logo ni otro pedazo; null si no hay lugar libre
+ *  (pantallas bajas): ese pedazo no se muestra en esa pantalla, nunca se lo pone encima del texto. */
+function placeNear(ax: number, ay: number, w: number, h: number, blocks: R[], bounds: R): R | null {
   const fit = (x: number, y: number): R => ({ x: Math.min(Math.max(x, bounds.x), bounds.x + bounds.w - w), y: Math.min(Math.max(y, bounds.y), bounds.y + bounds.h - h), w, h });
   const free = (r: R) => !blocks.some((b) => hit(r, b));
   const cands: R[] = [fit(ax - w / 2, ay - h / 2)];
@@ -50,7 +53,7 @@ function placeNear(ax: number, ay: number, w: number, h: number, blocks: R[], bo
   if (!cands.some(free)) for (let y = bounds.y; y <= bounds.y + bounds.h - h; y += 24) for (let x = bounds.x; x <= bounds.x + bounds.w - w; x += 24) cands.push({ x, y, w, h });
   let best: R | null = null, bd = Infinity;
   for (const c of cands) { if (!free(c)) continue; const d = Math.hypot(c.x + w / 2 - ax, c.y + h / 2 - ay); if (d < bd) { bd = d; best = c; } }
-  return best ?? fit(ax - w / 2, ay - h / 2);
+  return best;
 }
 
 export function Problem() {
@@ -96,13 +99,17 @@ export function Problem() {
         const placed: (R | null)[] = FRAGS.map((_, i) => {
           if (!shown[i]) return null;
           const r = placeNear(anchors[i].x, anchors[i].y, sizes[i][0], sizes[i][1], blocks, bounds);
-          blocks.push({ x: r.x - 8, y: r.y - 8, w: r.w + 16, h: r.h + 16 });
+          if (r) blocks.push({ x: r.x - 8, y: r.y - 8, w: r.w + 16, h: r.h + 16 });
           return r;
         });
         // Escritura.
         centers = placed.map((r) => (r ? [r.x + r.w / 2, r.y + r.h / 2] : [0, 0]));
         curves = placed.map((r, i) => (r ? organic(centers[i], hub, i % 2 ? 0.3 : -0.3) : null));
-        frags.forEach((f, i) => { const r = placed[i]; if (r) { f.style.left = `${r.x.toFixed(1)}px`; f.style.top = `${r.y.toFixed(1)}px`; } });
+        frags.forEach((f, i) => {
+          const r = placed[i];
+          if (r) { f.style.left = `${r.x.toFixed(1)}px`; f.style.top = `${r.y.toFixed(1)}px`; delete f.dataset.drop; }
+          else if (shown[i]) f.dataset.drop = "1";
+        });
         curves.forEach((c, i) => {
           for (const el of [comets[i], trails[i]]) { if (c) el.setAttribute("d", c.d); else el.removeAttribute("d"); }
           if (c) { comets[i].style.strokeDasharray = `${COMET} ${(c.length + COMET).toFixed(1)}`; trails[i].style.strokeDasharray = `${c.length.toFixed(1)} ${(c.length + 2).toFixed(1)}`; }
@@ -119,16 +126,17 @@ export function Problem() {
         const { p, enter } = st;
         if (p === last.p && enter === last.enter) return;
         last.p = p; last.enter = enter;
-        // Sala: fría mientras la escena entra y hasta el corte (.62); viva después.
-        const cut = p >= 0.62;
-        stage.set({ tone: +(cut ? 0.45 * (1 - seg(p, 0.62, 0.635)) : 0.45 * enter).toFixed(3), cold: enter > 0.5 && !cut });
-        // Caos vivo (0–.10): los pedazos se asientan. Trazos (.08–.38), escalonados. Absorción (.30–.52).
+        // Sala: fría mientras la escena entra y hasta el corte (.52); viva después. En el corte, un golpe de cian que se apaga.
+        const cut = p >= 0.52;
+        const wash = cut ? 0.16 * (1 - eOut(seg(p, 0.52, 0.64))) : 0;
+        stage.set({ tone: +(cut ? 0.45 * (1 - seg(p, 0.52, 0.535)) : 0.45 * enter).toFixed(3), cold: enter > 0.5 && !cut, wash: +wash.toFixed(3) });
+        // Caos vivo (0–.10): los pedazos se asientan. Trazos (.06–.34), escalonados. Absorción (.26–.47).
         let absorbed = 0;
         order.forEach((i, rank) => {
           const c = curves[i]!, f = frags[i];
           const settle = eOut(seg(p, 0, 0.1));
-          const c0 = 0.08 + rank * 0.026, uc = seg(p, c0, c0 + 0.14);
-          const m0 = 0.3 + rank * 0.02, um = seg(p, m0, m0 + 0.1), em = eIn(um);
+          const c0 = 0.06 + rank * 0.024, uc = seg(p, c0, c0 + 0.13);
+          const m0 = 0.26 + rank * 0.018, um = seg(p, m0, m0 + 0.09), em = eIn(um);
           const [x, y] = um > 0 ? c.at(em) : centers[i];
           const tx = x - centers[i][0], ty = y - centers[i][1] + (1 - settle) * 26;
           const sc = (0.94 + 0.06 * settle) * (1 - 0.85 * em), rot = FRAGS[i].r * (1 - em);
@@ -144,37 +152,37 @@ export function Problem() {
         });
         const n = order.length || 1;
         // «Antes» sale palabra por palabra hacia arriba; el párrafo se va antes.
-        const pOut = seg(p, 0.28, 0.36);
+        const pOut = seg(p, 0.24, 0.32);
         para.style.opacity = String(+(1 - pOut).toFixed(3));
         para.style.transform = `translateY(${(-16 * pOut).toFixed(1)}px)`;
-        restA.forEach((w, j) => { w.style.transform = `translateY(${(-112 * eIn(seg(p, 0.34 + j * 0.014, 0.42 + j * 0.014))).toFixed(1)}%)`; });
+        restA.forEach((w, j) => { w.style.transform = `translateY(${(-112 * eIn(seg(p, 0.42 + j * 0.014, 0.49 + j * 0.014))).toFixed(1)}%)`; });
         // El punto: aparece en el hub cuando llegan los trazos, crece con cada pedazo que se traga y llega al tamaño exacto del
-        // punto de la «ı» (.56). Es el <i> real del logo: no hay entrega entre dos puntos.
-        const ds = p < 0.4 ? 0 : p >= 0.56 ? 1 : Math.max(0.2 * eOut(seg(p, 0.4, 0.46)), 0.2 + 0.5 * (absorbed / n) + 0.3 * eOut(seg(p, 0.5, 0.56)) * (absorbed / n));
+        // punto de la «ı» (.48). Es el <i> real del logo: no hay entrega entre dos puntos.
+        const ds = p < 0.32 ? 0 : p >= 0.48 ? 1 : Math.max(0.2 * eOut(seg(p, 0.32, 0.37)), 0.2 + 0.5 * (absorbed / n) + 0.3 * eOut(seg(p, 0.43, 0.48)) * (absorbed / n));
         dot.style.transform = `scale(${ds.toFixed(3)})`;
-        // Nace el logo (.56–.64): las letras se abren desde el punto con un círculo que crece.
-        const open = eIO(seg(p, 0.56, 0.64));
+        // Nace el logo (.46–.55), mientras «dato en otro lado» todavía sale: las letras se abren desde el punto con un círculo.
+        const open = eIO(seg(p, 0.46, 0.55));
         const cx = dotBox.x + dotBox.w / 2, cy = dotBox.y + dotBox.h / 2, R = Math.hypot(Math.max(cx, imgBox.w - cx), Math.max(cy, imgBox.h - cy)) + 2;
         img.style.clipPath = open >= 1 ? "none" : `circle(${(open * R).toFixed(1)}px at ${cx.toFixed(1)}px ${cy.toFixed(1)}px)`;
-        // El corte (.62): un anillo sale una vez desde el logo hacia la sala.
-        const rg = seg(p, 0.62, 0.72);
+        // El corte (.52): un anillo sale una vez desde el logo hacia la sala.
+        const rg = seg(p, 0.52, 0.64);
         ring.style.opacity = rg > 0 && rg < 1 ? String(+(0.9 * (1 - rg)).toFixed(3)) : "0";
         ring.style.transform = `scale(${(1 + eOut(rg) * 15).toFixed(3)})`;
-        // Ahora (.62–.74): la primera palabra rueda (Antes, → Ahora,), «cada» queda quieta y el resto entra palabra por palabra.
-        const sw = eIO(seg(p, 0.62, 0.67));
+        // Ahora (.52–.66): la primera palabra rueda (Antes, → Ahora,), «cada» queda quieta y el resto entra palabra por palabra.
+        const sw = eIO(seg(p, 0.52, 0.57));
         slotA.style.transform = `translateY(${(-112 * sw).toFixed(1)}%)`;
         slotB.style.transform = `translateY(${(112 * (1 - sw)).toFixed(1)}%)`;
-        restB.forEach((w, j) => { w.style.transform = `translateY(${(112 * (1 - eOut(seg(p, 0.64 + j * 0.016, 0.7 + j * 0.016)))).toFixed(1)}%)`; });
-        keyB.style.opacity = String(+(0.42 + 0.58 * seg(p, 0.7, 0.74)).toFixed(3));
-        under.style.transform = `scaleX(${eIO(seg(p, 0.72, 0.78)).toFixed(3)})`;
-        // Tres pantallas reales (.70–.95): en escritorio suben y quedan asomadas; en el teléfono, una sola que cambia de pantalla.
+        restB.forEach((w, j) => { w.style.transform = `translateY(${(112 * (1 - eOut(seg(p, 0.54 + j * 0.016, 0.6 + j * 0.016)))).toFixed(1)}%)`; });
+        keyB.style.opacity = String(+(0.42 + 0.58 * seg(p, 0.6, 0.64)).toFixed(3));
+        under.style.transform = `scaleX(${eIO(seg(p, 0.62, 0.68)).toFixed(3)})`;
+        // Tres pantallas reales (.62–.90): en escritorio suben y quedan asomadas; en el teléfono, una sola que cambia de pantalla.
         if (!narrow) {
-          phones.forEach((ph, j) => { const o = [0.04, 0, 0.08][j] ?? 0, u = eOut(seg(p, 0.7 + o, 0.8 + o)); ph.style.transform = `translateY(${(100 * (1 - u)).toFixed(2)}%)`; });
-          roles.forEach((r, j) => { const o = [0.04, 0, 0.08][j], u = seg(p, 0.78 + o, 0.86 + o); r.style.opacity = String(+u.toFixed(3)); r.style.transform = `translateY(${(14 * (1 - u)).toFixed(1)}px)`; });
+          phones.forEach((ph, j) => { const o = [0.04, 0, 0.08][j] ?? 0, u = eOut(seg(p, 0.62 + o, 0.72 + o)); ph.style.transform = `translateY(${(100 * (1 - u)).toFixed(2)}%)`; });
+          roles.forEach((r, j) => { const o = [0.04, 0, 0.08][j], u = seg(p, 0.7 + o, 0.78 + o); r.style.opacity = String(+u.toFixed(3)); r.style.transform = `translateY(${(14 * (1 - u)).toFixed(1)}px)`; });
         } else {
-          const u = eOut(seg(p, 0.7, 0.78));
+          const u = eOut(seg(p, 0.62, 0.7));
           phones.forEach((ph) => { ph.style.transform = `translateY(${(100 * (1 - u)).toFixed(2)}%)`; });
-          const idx = eIO(seg(p, 0.8, 0.85)) + eIO(seg(p, 0.88, 0.93));
+          const idx = eIO(seg(p, 0.74, 0.79)) + eIO(seg(p, 0.84, 0.89));
           shots.forEach((s, j) => { s.style.transform = `translateX(${((j - idx) * 100).toFixed(2)}%)`; });
           roles.forEach((r, j) => { r.style.opacity = String(+(u * clamp01(1 - Math.abs(j - idx))).toFixed(3)); r.style.transform = `translateY(${((j - idx) * 100).toFixed(1)}%)`; });
         }
@@ -206,9 +214,9 @@ export function Problem() {
       const idle = whenIdle(setup);
       return () => {
         idle(); trig?.kill(); enter?.kill(); io.disconnect();
-        stage.set({ tone: 0, cold: false });
+        stage.set({ tone: 0, cold: false, wash: 0 });
         for (const el of [...frags, ...shots, ...roles, ...phones, ...restA, ...restB, slotA, slotB, para, dot, ring, under, keyB]) { el.style.transform = ""; el.style.opacity = ""; }
-        frags.forEach((f) => { f.style.left = ""; f.style.top = ""; });
+        frags.forEach((f) => { f.style.left = ""; f.style.top = ""; delete f.dataset.drop; });
         img.style.clipPath = "";
       };
     });

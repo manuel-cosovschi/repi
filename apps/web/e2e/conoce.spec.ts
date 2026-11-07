@@ -212,3 +212,31 @@ test("los errores del formulario se leen sobre la tarjeta clara", async ({ page 
   await expect(err).toBeVisible();
   expect(await err.evaluate((el) => getComputedStyle(el).color)).not.toBe("rgb(255, 180, 168)");
 });
+
+// Motion 2 · ronda 2: en un teléfono bajo (iPhone 15, 393 × 659) no hay lugar para todos los pedazos de 02 alrededor del
+// titular. Los que no entran no se muestran: ninguno puede quedar encima del texto.
+test.describe("con movimiento, en un teléfono bajo", () => {
+  test.use({ reducedMotion: "no-preference", viewport: { width: 393, height: 659 } });
+  test("02: ningún pedazo pisa el titular ni el párrafo", async ({ page }, info) => {
+    test.skip(info.project.name !== "mobile", "una sola vez (el tamaño de pantalla es el mismo en los dos proyectos)");
+    await page.goto("/conoce?sala=low");
+    const top = await page.locator("#problema").evaluate((s) => s.getBoundingClientRect().top + window.scrollY);
+    await page.evaluate((z) => new Promise<void>((res) => {
+      let y = 0, last = performance.now();
+      const st = (n: number) => { y += (400 * Math.min(100, n - last)) / 1000; last = n; window.scrollTo(0, Math.min(y, z)); if (y >= z) return res(); requestAnimationFrame(st); };
+      requestAnimationFrame(st);
+    }), top + 60);
+    await expect(page.locator(".x3-frag").first()).toHaveAttribute("style", /left/);
+    await page.waitForTimeout(1200);
+    const over = await page.evaluate(() => {
+      type B = { x: number; y: number; w: number; h: number };
+      const R = (e: Element): B => { const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+      const hit = (a: B, b: B) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      const texts = [...document.querySelectorAll(".x3-prob-vis .l1, .x3-prob-vis .r.a, .x3-prob-p")].map(R);
+      return [...document.querySelectorAll<HTMLElement>(".x3-frag")]
+        .filter((f) => f.offsetParent && getComputedStyle(f).visibility !== "hidden" && +getComputedStyle(f).opacity > 0.05)
+        .filter((f) => texts.some((t) => hit(R(f), t))).map((f) => f.className);
+    });
+    expect(over).toEqual([]);
+  });
+});

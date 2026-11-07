@@ -28,6 +28,10 @@ export const GEAR: [number, number, number, number, number][] = [
   [-14.5, 9.5, 4.5, 1, 1.1], [-14.5, -5.5, 3, 1.2, 0.8], [14, 8.5, 3.2, 1.4, 0.8],
 ];
 
+/** Medidas de un equipo en 3D: menos de la mitad de su planta (como mucho 0,9 m) y el 30 % del alto. Losas bajas que marcan dónde
+ *  está cada cosa sin tapar a las personas ni competir con la interfaz. */
+export const gear3d = ([x, z, w, d, h]: [number, number, number, number, number]) => ({ x, z, w: Math.min(0.9, w * 0.45), d: Math.min(0.9, d * 0.45), h: h * 0.3 });
+
 /** El QR de la sede (recepción). */
 export const QR_SPOT: [number, number] = [-11.5, 10.8];
 
@@ -78,8 +82,13 @@ export function gatherDelay(i: number, start: [number, number], origin: [number,
   return 0.08 + Math.min(1, Math.hypot(start[0] - origin[0], start[1] - origin[1]) / 22) * 0.32;
 }
 
+/** Vueltas que da cada persona alrededor del centro al volver al punto (cierre): la sala gira como un remolino alrededor
+ *  del logo antes de quedar en un solo punto. */
+const ORBIT = Math.PI * 2;
+
 /** Posición de la persona i con todo lo que la escena pide: su recorrido, Sofía que camina hasta Julián (`walk`) y la vuelta
- *  al punto del cierre (`gather`, por una curva: no en línea recta). La usan el SVG y el 3D por igual. */
+ *  al punto del cierre (`gather`: una espiral de una vuelta que se cierra en el centro, no una línea recta). La usan el SVG
+ *  y el 3D por igual. */
 export function placePerson(i: number, t: number, s: { walk: number; gather: number; origin: [number, number] }): [number, number] {
   const p = PEOPLE[i];
   let [x, z] = along(p, t);
@@ -88,16 +97,23 @@ export function placePerson(i: number, t: number, s: { walk: number; gather: num
     const d = gatherDelay(i, [x, z], s.origin);
     const k = smooth((s.gather - d) / (1 - d));
     if (k > 0) {
-      const dx = s.origin[0] - x, dz = s.origin[1] - z, len = Math.hypot(dx, dz) || 1;
-      const bend = Math.sin(Math.PI * k) * Math.min(4, len * 0.22) * (i % 2 ? 1 : -1);
-      x += dx * k + (-dz / len) * bend; z += dz * k + (dx / len) * bend;
+      // El radio se cierra con k y el ángulo avanza una vuelta: todas giran en el mismo sentido, alrededor del logo.
+      const dx = x - s.origin[0], dz = z - s.origin[1], r = Math.hypot(dx, dz) * (1 - k), a = Math.atan2(dz, dx) + ORBIT * k;
+      x = s.origin[0] + r * Math.cos(a); z = s.origin[1] + r * Math.sin(a);
     }
   }
   return [x, z];
 }
 
+/** Al final de la vuelta al punto, el punto que queda (Valentina) crece con todo lo que se tragó: de una persona (≈14 px) a
+ *  ≈20 px, el tamaño con el que la página lo toma y lo lleva a la «ı». */
+export const gatherGrow = (gather: number) => 1 + 0.45 * smooth((gather - 0.55) / 0.4);
+
 /** Tomas de cámara por escena: posición y punto de mira del 3D, y `svg` (centro x, z y zoom) para la misma toma en el plano.
- *  El zoom del SVG llega hasta 2,4: más cerca, las personas y los equipos dejan de leerse como plano. */
+ *  El zoom del SVG llega hasta 2,4: más cerca, las personas y los equipos dejan de leerse como plano. En 3D las tomas quedan
+ *  altas y lejos (≈ 30–40 m): ningún equipo (que en 3D se dibuja bajo y chico, `gear3d`) pasa de ≈ 58 px en ninguna pantalla
+ *  entre 393 × 659 y 1920 × 1080 (comprobado con la cámara de destino y su lente), así la sala sigue siendo un plano detrás de
+ *  la interfaz y no un decorado. */
 export type Shot = { pos: [number, number, number]; look: [number, number, number]; svg: [number, number, number] };
 export const SVG_ZOOM_MAX = 2.4;
 export const SHOTS = {
@@ -105,19 +121,19 @@ export const SHOTS = {
   /** Cenital del 3D con el mismo encuadre que el SVG del hero: el 3D entra sin cambiar el punto de vista (SalaCanvas la
    *  recalcula en el cliente con el tamaño de la pantalla; estos valores son sólo el respaldo). */
   plan: { pos: [0, 30, 0.01], look: [0, 0, 0], svg: [0, 0, 1] },
-  hero: { pos: [14, 20, 24], look: [2, 0, 0], svg: [0, 0, 1] },
-  problem: { pos: [-8, 18, 20], look: [0, 0, 0], svg: [0, 0, 1.15] },
-  training: { pos: [1.5, 7.5, 9], look: [-2, 0.6, 0.4], svg: [-2, 0.4, 2.4] },
-  gimnasios: { pos: [0, 16, 22], look: [0, 0, 7], svg: [0, 7, 1.6] },
-  entrenadores: { pos: [-9, 9, 6], look: [-14, 0, -5], svg: [-13, -4, 2.4] },
-  deportistas: { pos: [2, 8, 9], look: [-2, 0.5, -1], svg: [-2, 0, 2.4] },
+  hero: { pos: [16.4, 24, 28.8], look: [2, 0, 0], svg: [0, 0, 1] },
+  problem: { pos: [-11.6, 26.1, 29], look: [0, 0, 0], svg: [0, 0, 1.15] },
+  training: { pos: [-0.5, 28.8, 23.4], look: [-2, 0.4, -0.4], svg: [-2, 0.4, 2.4] },
+  gimnasios: { pos: [0, 24.8, 30.3], look: [0, 0, 7], svg: [0, 7, 1.6] },
+  entrenadores: { pos: [-8.6, 27, 18], look: [-14, 0, -5], svg: [-13, -4, 2.4] },
+  deportistas: { pos: [0.9, 28.8, 22.2], look: [-2, 0.4, -1], svg: [-2, 0, 2.4] },
   aliados: { pos: [0, 46, 0.5], look: [0, 0, 0], svg: [0, 0, 0.85] },
-  showcase: { pos: [16, 12, 12], look: [9, 0, -2], svg: [9, -2, 2] },
-  rack: { pos: [4, 9, 10], look: [-2, 0.5, -1.2], svg: [-2, -1, 2.2] },
-  box: { pos: [-7, 10, 5], look: [-14, 0, -5], svg: [-13, -4, 2.2] },
-  pedido: { pos: [-3, 15, 11], look: [-9.5, 0, -3.5], svg: [-9.5, -3.2, 1.9] },
-  cardio: { pos: [7, 10, 19], look: [0, 0, 8], svg: [0, 7.5, 2] },
-  open: { pos: [0, 24, 26], look: [0, 0, 1], svg: [0, 0, 1.1] },
+  showcase: { pos: [20.2, 28, 20.4], look: [9, 0, -2], svg: [9, -2, 2] },
+  rack: { pos: [3.8, 28.8, 22.3], look: [-2, 0.4, -1.2], svg: [-2, -1, 2.2] },
+  box: { pos: [-7, 28, 18.8], look: [-14, 0, -5], svg: [-13, -4, 2.2] },
+  pedido: { pos: [-0.4, 31.4, 23.7], look: [-9.5, 0, -3.5], svg: [-9.5, -3.2, 1.9] },
+  cardio: { pos: [7.2, 21.6, 27.2], look: [0, 0, 8], svg: [0, 7.5, 2] },
+  open: { pos: [0, 26.4, 28.5], look: [0, 0, 1], svg: [0, 0, 1.1] },
   finale: { pos: [0, 52, 6], look: [0, 0, 0], svg: [0, 0, 0.8] },
 } satisfies Record<string, Shot>;
 export type ShotId = keyof typeof SHOTS;

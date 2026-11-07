@@ -17,6 +17,8 @@ export type StageState = {
   walk: number;
   /** Velo frío sobre la sala (0–1): la sala «sin REPI» de la escena 02 y la toma abierta de 03. */
   tone: number;
+  /** Golpe de color del corte de 02 (0–1): la sala se tiñe de cian un instante cuando se enciende. Sólo opacidad. */
+  wash: number;
   /** Personas en acero (sin REPI nadie está «vivo»). */
   cold: boolean;
   /** Toda la sala vuelve al punto (0–1, cierre). */
@@ -37,7 +39,7 @@ export type StageState = {
 
 const state: StageState = {
   // Arranca en la toma del hero, la misma que pinta el HTML del servidor: la sala no «viaja» al cargar.
-  a: "hero", b: "hero", t: 1, lit: 0, focus: null, preview: null, request: null, walk: 0, tone: 0, cold: false, gather: 0, origin: [0, 0], dotOut: false,
+  a: "hero", b: "hero", t: 1, lit: 0, focus: null, preview: null, request: null, walk: 0, tone: 0, wash: 0, cold: false, gather: 0, origin: [0, 0], dotOut: false,
   reveal: null, gl: false, hidden: false, paused: false,
 };
 const subs = new Set<() => void>();
@@ -64,6 +66,15 @@ export const stage = {
     if (!f) return { x: typeof window === "undefined" ? 0 : window.innerWidth / 2, y: typeof window === "undefined" ? 0 : window.innerHeight / 2 };
     return f(x, z, shot ?? state.b);
   },
+};
+
+/** Puntero sobre la sala (sólo mouse en escritorio): las personas cerca se agrandan y la zona debajo se marca. Va aparte de
+ *  la tienda para no despertar a todos los suscriptores con cada movimiento: lo leen el SVG (al cambiar) y el 3D (por cuadro). */
+export const pointer = {
+  x: 0, y: 0, on: false,
+  subs: new Set<() => void>(),
+  set(x: number, y: number, on: boolean) { if (x === this.x && y === this.y && on === this.on) return; this.x = x; this.y = y; this.on = on; this.subs.forEach((f) => f()); },
+  subscribe(f: () => void) { this.subs.add(f); return () => { this.subs.delete(f); }; },
 };
 
 /** Nivel de calidad del escenario, decidido una vez en el cliente. */

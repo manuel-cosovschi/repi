@@ -42,7 +42,9 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 /* La zona en foco se marca en blanco (el cian queda para lo vivo); la que está bajo el puntero, más suave. */
 .sala-zone[data-on="1"] { stroke: var(--x-white); fill: rgba(248, 250, 252, .07); }
 .sala-zone[data-on="pre"] { stroke: rgba(248, 250, 252, .55); fill: rgba(248, 250, 252, .03); }
-.sala-gear { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1; }
+.sala-gear { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1; transition: stroke .35s; }
+/* El frente de luz del encendido del hero cruza el equipo. */
+.sala-gear[data-lit="1"] { stroke: rgba(248, 250, 252, .8); transition: stroke .08s; }
 .sala-qr { fill: none; stroke: var(--x-cyan); stroke-width: 2; }
 .sala-member { fill: var(--x-cyan); }
 .sala-staff { fill: var(--x-teal); }
@@ -60,6 +62,8 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .sala-canvas { width: 100% !important; height: 100% !important; }
 /* Velo frío: la sala «sin REPI» (02) y la toma abierta del entrenamiento (03). Sólo opacidad. */
 .sala-tone { position: absolute; inset: 0; background: #131B26; opacity: 0; }
+/* Golpe de color del corte de 02: la sala se tiñe de cian un instante cuando se enciende (la persona, viva). Sólo opacidad. */
+.sala-wash { position: absolute; inset: 0; background: var(--x-cyan); opacity: 0; }
 /* Viñeta funcional: asegura contraste del texto sobre la sala (no es decoración). */
 .sala-vignette { position: absolute; inset: 0; background:
   linear-gradient(90deg, rgba(11, 15, 20, .86) 0%, rgba(11, 15, 20, .55) 42%, rgba(11, 15, 20, .1) 75%),
@@ -151,6 +155,8 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-drop { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--x-cyan); opacity: 0; pointer-events: none; z-index: 2; will-change: transform; }
 /* Los dos anillos del impacto del punto sobre la sala (fijos a la pantalla, como la sala). */
 .x3-hero-ring { position: fixed; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: 0; pointer-events: none; z-index: 2; }
+.x3-hero-front { position: fixed; inset: 0; width: 100%; height: 100%; overflow: visible; opacity: 0; pointer-events: none; z-index: -1; } /* sobre la sala, debajo del texto */
+.x3-hero-front circle { fill: none; stroke: var(--x-cyan); stroke-width: 1.5; }
 .x3-hero-h1 { margin: 0; font: 700 clamp(3.1rem, 10vw, 6rem)/.86 var(--font-display); text-transform: uppercase; letter-spacing: -.025em; }
 .x3-hero-h1 .ln { display: block; padding-bottom: .06em; }
 .x3-hero-h1 .ln > span { display: inline-block; }
@@ -178,25 +184,27 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 @media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-prob { height: 260svh; } .x3-train-track { height: 340svh; } }
 .x3-prob-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .x3-prob-lines path { fill: none; stroke-linecap: round; }
-.x3-prob-lines .tr { stroke: var(--x-cyan); stroke-width: 1.5; stroke-opacity: .24; opacity: 0; }
-.x3-prob-lines .cm { stroke: var(--x-cyan); stroke-width: 3; opacity: 0; }
+.x3-prob-lines .tr { stroke: var(--x-cyan); stroke-width: 2; stroke-opacity: .34; opacity: 0; }
+.x3-prob-lines .cm { stroke: var(--x-cyan); stroke-width: 5; opacity: 0; }
 .x3-frags { position: absolute; inset: 0; }
-.x3-frag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; min-width: 150px; max-width: 220px; border-radius: 12px; font-size: 14px; line-height: 1.3;
-  background: var(--x-surface); border: 1px solid var(--x-steel); color: var(--x-white); will-change: transform, opacity; animation: x3-drift 6s ease-in-out infinite alternate; }
+.x3-frag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; min-width: 176px; max-width: 250px; border-radius: 12px; font-size: 16px; line-height: 1.3;
+  background: #223047; border: 1px solid #3D4E66; color: var(--x-white); box-shadow: 0 18px 40px -22px rgba(0, 0, 0, .9); will-change: transform, opacity; animation: x3-drift 6s ease-in-out infinite alternate; }
+/* Sin lugar libre en esta pantalla (no entra sin pisar el texto): no se muestra. */
+.x3-frag[data-drop] { visibility: hidden; }
 .x3-frag:nth-child(2n) { animation-duration: 7.5s; animation-delay: -2s; }
 .x3-frag:nth-child(3n) { animation-duration: 5.2s; animation-delay: -1s; }
 @keyframes x3-drift { from { translate: 0 0; } to { translate: 5px -8px; } }
-.x3-frag b { font-weight: 700; font-size: 13px; color: var(--x-muted); }
-.x3-frag small { color: var(--x-muted); font-size: 12px; }
+.x3-frag b { font-weight: 700; font-size: 14px; color: #B4C0CF; }
+.x3-frag small { color: #B4C0CF; font-size: 13px; }
 .x3-frag.paper { background: var(--x-cream); color: var(--x-ink); border-color: #DCD5C6; font-style: italic; }
 .x3-frag.paper b { color: var(--x-ink-2); font-style: normal; }
 .x3-frag.paper .smudge { color: #706657; text-decoration: line-through; }
 .x3-frag.sheet .cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
 .x3-frag.sheet .cells i { height: 10px; background: var(--x-steel); border-radius: 2px; }
-.x3-frag.chat { border-radius: 14px 14px 14px 4px; background: #1F2D3F; }
+.x3-frag.chat { border-radius: 14px 14px 14px 4px; background: #26364D; }
 .x3-frag.chat.alt { border-radius: 14px 14px 4px 14px; }
 .x3-frag .typing { font-style: italic; }
-.x3-frag.prog .flat { color: var(--x-dim); }
+.x3-frag.prog .flat { color: #B4C0CF; }
 /* El pedido que nadie vio parpadea en acero: sin REPI no llega a nadie (por eso no es cian). */
 .x3-frag.call { border-color: #4A5D78; animation: x3-drift 6s ease-in-out infinite alternate, x3-unseen 1.6s steps(1, end) infinite; }
 .x3-frag.call b { color: var(--x-muted); }
@@ -228,7 +236,8 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-prob-scr img { display: block; width: 100%; height: auto; border-radius: 26px; border: 1px solid var(--x-steel); background: var(--x-cream); }
 .x3-prob-scr.push { display: none; }
 @media (max-width: 759px) {
-  .x3-frag { min-width: 0; max-width: 46vw; font-size: 12px; padding: 9px 10px; }
+  .x3-frag { min-width: 0; max-width: 46vw; font-size: 13px; padding: 10px 12px; }
+  .x3-frag b { font-size: 12px; } .x3-frag small { font-size: 11.5px; }
   .x3-frag[data-wide] { display: none; }
   .x3-prob-screens { --pw: min(46vw, 25svh); gap: 10px; }
   .x3-prob-roles { display: block; position: relative; width: 100%; height: 2.8em; overflow: clip; }
@@ -278,7 +287,17 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 @keyframes x3-float { from { translate: 0 -6px; } to { translate: 0 6px; } }
 .x3-phone-screen { --ui-surface: #FFFFFF; --ui-text: #0E1726; --ui-text-2: #334155; --ui-muted: #5A6372; --ui-link: #006F8E; --ui-accent-tint: rgba(0, 137, 176, .10); --ui-accent-line: rgba(0, 137, 176, .40); --ui-warning-text: #8A5300;
   display: flex; flex-direction: column; gap: 10px; padding: 22px 14px 16px; border-radius: 34px 34px 22px 22px; background: #F4F1EA; border: 1px solid var(--x-steel); outline: 6px solid #10161F; color: var(--ui-text); font-family: var(--font-ui); overflow: clip; }
-.x3-crop { display: block; background-image: url(/conoce/shots/training.webp); background-repeat: no-repeat; }
+.x3-crop { display: block; flex: none; background-image: url(/conoce/shots/training.webp); background-repeat: no-repeat; }
+.x3-phone-foot { display: flex; flex-direction: column; gap: 10px; }
+.x3-crop.links { align-self: center; }
+/* Escritorio: un teléfono de verdad (proporción vertical) con el pie real de la pantalla de la sesión abajo; en el teléfono
+   angosto entra sólo la tarjeta y las sensaciones (el subtítulo va debajo). */
+@media (min-width: 900px) {
+  .x3-phone { width: clamp(300px, 26vw, 340px); }
+  .x3-phone .x3-phone-screen { height: min(calc(clamp(300px, 26vw, 340px) * 1.6), calc(100svh - 150px)); }
+  .x3-phone .x3-phone-foot { margin-top: auto; }
+}
+@media (max-width: 899px) { .x3-train .x3-crop.cta, .x3-train .x3-crop.links, .x3-train .x3-crop.how { display: none; } }
 .x3-phone-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; background: var(--ui-surface); overflow: clip; }
 .x3-phone-sets { display: flex; gap: 16px; transition: transform .55s var(--x-ease); }
 .x3-phone-sets[data-next] { transform: translateX(calc(-100% - 16px)); }
@@ -286,12 +305,12 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-phone-lbl { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ui-muted); }
 /* Reglas de la tarjeta real (member.css) copiadas sólo para este teléfono: no se importa toda la hoja de la app. */
 .x3-phone-screen .ti-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--ui-accent-tint); border: 1px solid var(--ui-accent-line); }
-.x3-phone-screen .ti-cols { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 8px; align-items: start; }
+.x3-phone-screen .ti-cols { display: grid; grid-template-columns: .95fr 1.5fr .85fr; gap: 8px; align-items: start; }
 .x3-phone-screen .ti-cols > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; transition: opacity .35s; }
 .x3-phone-screen .ti-cols small { font-size: 10px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--ui-muted); }
 .x3-phone-screen .ti-cols b { font-size: 13px; line-height: 1.25; color: var(--ui-text); overflow-wrap: anywhere; }
 .x3-phone-screen .ti-cols .ti-main small { color: var(--ui-link); }
-.x3-phone-screen .ti-cols .ti-main b { font-size: 15px; }
+.x3-phone-screen .ti-cols .ti-main b { font-size: 15px; white-space: nowrap; overflow-wrap: normal; } /* «62,5 kg × 8–10» en una línea */
 .x3-phone-screen .ti-cols .ti-rir { text-transform: none; letter-spacing: 0; color: var(--ui-text-2); font-weight: 500; }
 .x3-phone-screen .ti-quality { display: none; } /* recorte: la nota de discos no entra en esta pantalla */
 .x3-phone-screen .ti-why, .x3-phone-screen .ti-review { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ui-text-2); transition: opacity .35s; }
@@ -315,7 +334,9 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-train-pin { padding: 78px 0 16px; align-items: stretch; }
   .x3-train-grid { grid-template-columns: 1fr; grid-template-rows: 44svh auto; gap: 14px; align-content: space-between; height: calc(100svh - 94px); }
   .x3-phone-stage { order: -1; align-items: flex-start; overflow: visible; }
-  .x3-phone { width: min(300px, 74vw, 46svh); }
+  .x3-phone { width: min(320px, 82vw, 46svh); }
+  .x3-phone-screen { padding: 18px 10px 12px; }
+  .x3-phone-screen .ti-cols .ti-main b { font-size: 14px; }
   .x3-train-v { font-size: clamp(2.6rem, 13vw, 8.5rem); }
   .x3-train-d { min-height: 6.2em; font-size: 15px; }
 }
@@ -414,15 +435,21 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-rest-ring small { font-size: 11px; color: var(--x-muted); }
 .x3-req { --rq: 1; position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
 @media (prefers-reduced-motion: no-preference) { .x3-sc { --rq: 0; } .x3-req { --rq: inherit; } }
-.x3-req img { height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); opacity: .8; }
+.x3-req img { position: relative; z-index: 1; height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); } /* opaca: los trazos pasan por detrás */
 .x3-req-a, .x3-req-b { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 16px; background: var(--x-surface); border: 1px solid var(--x-cyan); }
 /* Lo mueve el scroll del módulo (--rq de 0 a 1): el pedido, el trazo y la respuesta, en ese orden. */
 .x3-req-a { left: 0; top: 14%; opacity: clamp(0, calc((var(--rq) - .04) * 8), 1); translate: 0 calc(clamp(0, calc(1 - (var(--rq) - .04) * 8), 1) * 12px); }
 .x3-req-b { right: 0; bottom: 22%; border-color: var(--x-teal); opacity: clamp(0, calc((var(--rq) - .58) * 8), 1); translate: 0 calc(clamp(0, calc(1 - (var(--rq) - .58) * 8), 1) * 12px); }
 .x3-req-a small, .x3-req-b small { font-size: 12px; color: var(--x-muted); }
 .x3-req-a b, .x3-req-b b { font: 700 22px var(--font-display); text-transform: uppercase; }
-.x3-req svg { position: absolute; z-index: 1; left: 12%; right: 12%; top: 30%; width: 76%; }
-.x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 2.5; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - clamp(0, calc((var(--rq) - .18) / .4), 1)); stroke-linecap: round; }
+/* El trazo va detrás del teléfono (z 0) y lo rodea por debajo: del pedido (arriba a la izquierda) al «Voy» (abajo a la derecha). */
+.x3-req svg { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - clamp(0, calc((var(--rq) - .18) / .4), 1)); stroke-linecap: round; }
+/* Training Intelligence: la serie de 03 con el TargetCard real, en un teléfono. */
+.x3-sc-phone { height: min(64vh, 560px); display: flex; justify-content: center; }
+.x3-sc-phone > div { height: 100%; width: min(100%, 340px); }
+.x3-sc-phone .x3-phone-screen { height: 100%; }
+.x3-sc-phone .x3-phone-foot { margin-top: auto; }
 @media (min-width: 960px) { .x3-sc-inline { display: none; } }
 @media (max-width: 959px) {
   .x3-sc-grid { grid-template-columns: 1fr; }
@@ -430,7 +457,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-sc-mod { min-height: 0; opacity: 1; padding: 36px 0; border-top: 1px solid var(--x-line); }
   .x3-sc-inline { margin-top: 16px; min-height: 440px; }
   .x3-sc-inline[data-v="chart"] { min-height: 0; aspect-ratio: 400 / 266; }
-  .x3-sc-inline .x3-layers, .x3-sc-inline .x3-rest, .x3-sc-inline .x3-req { height: 440px; }
+  .x3-sc-inline .x3-layers, .x3-sc-inline .x3-rest, .x3-sc-inline .x3-req, .x3-sc-inline .x3-sc-phone { height: 440px; }
   .x3-sc-inline .x3-layers img:nth-child(2) { display: none; }
 }
 
@@ -511,7 +538,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 @media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
   .x3-fin { height: 180svh; }
   .x3-fin-pin { position: sticky; top: 0; height: 100svh; min-height: 0; padding: 64px 0 0; }
-  .x3-fin-wm img { opacity: .35; }
+  .x3-fin-wm img { clip-path: circle(0 at 94% 12%); } /* sin logo a medias: nace del punto cuando llega a la «ı» */
   .x3-fin-wm > i { opacity: 0; }
   .x3-fin-h .ln > span { transform: translateY(135%); }
   .x3-fin-act > :not(.cn-demo-act), .x3-fin-act > .cn-demo-act > * { opacity: 0; }

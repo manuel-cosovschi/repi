@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ScrollTrigger, watchLayout, whenIdle } from "../x3/gsap";
 import { SalaSvg } from "./SalaSvg";
-import { detectQuality, stage, type Quality } from "./store";
+import { detectQuality, pointer, stage, type Quality } from "./store";
 import type { ShotId } from "./model";
 
 const load3d = () => import("./SalaCanvas");
@@ -66,14 +66,17 @@ function useShotDirector() {
   }, []);
 }
 
-/** Capas que dependen de la tienda y no del nivel: el velo frío (`tone`) y la luz del encendido del hero (máscara radial). */
-function useLayers(world: React.RefObject<HTMLDivElement | null>, tone: React.RefObject<HTMLDivElement | null>) {
+/** Capas que dependen de la tienda y no del nivel: el velo frío (`tone`), el golpe de color del corte de 02 (`wash`) y la
+ *  luz del encendido del hero (máscara radial). */
+function useLayers(world: React.RefObject<HTMLDivElement | null>, tone: React.RefObject<HTMLDivElement | null>, wash: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
-    let lastTone = "", lastReveal = "";
+    let lastTone = "", lastWash = "", lastReveal = "";
     const upd = () => {
       const s = stage.get();
       const tn = String(+s.tone.toFixed(3));
       if (tn !== lastTone && tone.current) { tone.current.style.opacity = tn; lastTone = tn; }
+      const wn = String(+s.wash.toFixed(3));
+      if (wn !== lastWash && wash.current) { wash.current.style.opacity = wn; lastWash = wn; }
       const w = world.current; if (!w) return;
       const rv = s.reveal;
       const key = rv ? `${rv.x | 0}|${rv.y | 0}|${rv.r | 0}` : "";
@@ -85,7 +88,21 @@ function useLayers(world: React.RefObject<HTMLDivElement | null>, tone: React.Re
     };
     upd();
     return stage.subscribe(upd);
-  }, [world, tone]);
+  }, [world, tone, wash]);
+}
+
+/** El puntero sobre la sala (sólo mouse, con movimiento): una lectura por cuadro como mucho, sin medir nada. */
+function usePointer() {
+  useEffect(() => {
+    if (!window.matchMedia?.("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches) return;
+    let raf = 0, x = 0, y = 0;
+    const flush = () => { raf = 0; pointer.set(x, y, true); };
+    const move = (e: PointerEvent) => { if (e.pointerType !== "mouse") return; x = e.clientX; y = e.clientY; if (!raf) raf = requestAnimationFrame(flush); };
+    const out = (e: MouseEvent) => { if (!e.relatedTarget) { cancelAnimationFrame(raf); raf = 0; pointer.set(pointer.x, pointer.y, false); } };
+    window.addEventListener("pointermove", move, { passive: true });
+    document.addEventListener("mouseout", out);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("pointermove", move); document.removeEventListener("mouseout", out); pointer.set(pointer.x, pointer.y, false); };
+  }, []);
 }
 
 export function Stage() {
@@ -94,9 +111,10 @@ export function Stage() {
   /** mount: se monta el 3D (navegador libre). shown: el 3D ya dibujó su primer cuadro y reemplaza al SVG. */
   const [mount3d, setMount3d] = useState(false);
   const [shown3d, setShown3d] = useState(false);
-  const world = useRef<HTMLDivElement>(null), tone = useRef<HTMLDivElement>(null);
+  const world = useRef<HTMLDivElement>(null), tone = useRef<HTMLDivElement>(null), wash = useRef<HTMLDivElement>(null);
   useShotDirector();
-  useLayers(world, tone);
+  useLayers(world, tone, wash);
+  usePointer();
   useEffect(() => watchLayout(), []);
   useEffect(() => {
     const q = detectQuality();
@@ -133,6 +151,7 @@ export function Stage() {
         <SalaSvg animate={quality !== null && quality !== "low" && !shown3d} still={still} />
         {on3d && <div className="sala-3d"><Quiet onError={fail}><SalaCanvas quality={quality} onReady={ready} onLost={fail} /></Quiet></div>}
       </div>
+      <div ref={wash} className="sala-wash" />
       <div ref={tone} className="sala-tone" />
       <div className="sala-vignette" />
     </div>

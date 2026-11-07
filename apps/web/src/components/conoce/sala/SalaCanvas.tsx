@@ -5,11 +5,14 @@
 // el encuadre corrido hacia el lado libre del texto (setViewOffset). Arranca en la toma cenital `plan`, con el mismo encuadre
 // que el SVG, y recién después baja a la toma del hero: el 3D entra sin cambiar el punto de vista.
 // Sin texturas ni modelos externos: geometría propia y liviana. Al desmontar, R3F libera el contexto y la GPU.
+// Colores planos (`flat`, sin tone mapping) y personas sin luz: el cian del 3D es el mismo hex que el del SVG y el primer cuadro
+// del 3D tiene el mismo brillo que el último del SVG. Con el mouse (escritorio), las personas cerca del puntero se agrandan y
+// la zona de abajo se marca, igual que en el SVG.
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { FLOOR, GEAR, JULIAN, PEOPLE, QR_SPOT, SHOTS, SVG_S, ZONES, lensPx, placePerson, svgFit, type Shot, type ShotId } from "./model";
-import { stage, type Quality } from "./store";
+import { FLOOR, GEAR, JULIAN, PEOPLE, QR_SPOT, SHOTS, SVG_S, ZONES, gatherGrow, gear3d, lensPx, placePerson, svgFit, type Shot, type ShotId, type ZoneId } from "./model";
+import { pointer, stage, type Quality } from "./store";
 
 // Paleta: una sola fuente, los tokens --x-* de styles/conoce3.css. Se lee una vez al montar (three.js no entiende var()).
 const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white", muted: "--x-muted" } as const;
@@ -47,6 +50,9 @@ function Floor() {
   }), []);
   const gridMat = useRef<THREE.LineBasicMaterial>(null);
   const zoneMats = useRef<(THREE.LineBasicMaterial | null)[]>([]);
+  const camera = useThree((st) => st.camera);
+  const size = useThree((st) => st.size);
+  const ray = useMemo(() => ({ r: new THREE.Raycaster(), ndc: new THREE.Vector2(), hit: new THREE.Vector3(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) }), []);
   const wall = useMemo(() => {
     const w = FLOOR.w / 2, d = FLOOR.d / 2;
     return lineGeometry([-w, 0.02, -d, w, 0.02, -d, w, 0.02, -d, w, 0.02, d, w, 0.02, d, -w, 0.02, d, -w, 0.02, d, -w, 0.02, -d]);
@@ -55,11 +61,18 @@ function Floor() {
     const s = stage.get();
     const lv = 0.25 + 0.75 * s.lit; // como el SVG: apagada se ve a .25
     if (gridMat.current) gridMat.current.opacity = 0.55 * lv;
+    // Zona bajo el puntero: el rayo de la cámara (con su lente) contra el piso.
+    let near: ZoneId | null = null;
+    if (pointer.on && s.gather === 0) {
+      ray.ndc.set((pointer.x / size.width) * 2 - 1, -(pointer.y / size.height) * 2 + 1);
+      ray.r.setFromCamera(ray.ndc, camera);
+      if (ray.r.ray.intersectPlane(ray.plane, ray.hit)) near = ZONES.find((z) => Math.abs(ray.hit.x - z.x) <= z.w / 2 && Math.abs(ray.hit.z - z.z) <= z.d / 2)?.id ?? null;
+    }
     zones.forEach((z, i) => {
       const m = zoneMats.current[i];
       if (!m) return;
-      const on = s.focus === z.id, pre = !on && s.preview === z.id;
-      m.color.set(on ? C.white : pre ? C.muted : C.line);
+      const on = s.focus === z.id, pre = !on && (s.preview === z.id || near === z.id);
+      m.color.set(on ? C.white : pre ? C.muted : C.edge);
       m.opacity = lv;
     });
   });
@@ -67,10 +80,10 @@ function Floor() {
     <group>
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[FLOOR.w + 30, FLOOR.d + 30]} />
-        <meshStandardMaterial color={C.floor} roughness={0.95} />
+        <meshBasicMaterial color={C.floor} />
       </mesh>
       {ZONES.map((z) => (
-        <mesh key={`f-${z.id}`} rotation-x={-Math.PI / 2} position={[z.x, 0.012, z.z]}><planeGeometry args={[z.w, z.d]} /><meshBasicMaterial color={C.surface} transparent opacity={0.55} /></mesh>
+        <mesh key={`f-${z.id}`} rotation-x={-Math.PI / 2} position={[z.x, 0.012, z.z]}><planeGeometry args={[z.w, z.d]} /><meshBasicMaterial color={C.surface} transparent opacity={0.7} /></mesh>
       ))}
       <lineSegments geometry={grid}><lineBasicMaterial ref={gridMat} color={C.steel} transparent opacity={0} /></lineSegments>
       <lineSegments geometry={wall}><lineBasicMaterial color={C.line} transparent opacity={0.9} /></lineSegments>
@@ -81,13 +94,23 @@ function Floor() {
   );
 }
 
-/** Equipos: cajas oscuras con bordes; se iluminan cuando su zona está en foco. */
+/** Equipos: en el piso, el mismo contorno que dibuja el SVG (así el cambio de SVG a 3D no cambia el plano) y, en el centro,
+ *  una losa baja y oscura con bordes (`gear3d`: chica, para que ninguna pase de ≈ 60 px). Se iluminan cuando su zona está en
+ *  foco. */
 function Gear() {
-  const items = useMemo(() => GEAR.map(([x, z, w, d, h]) => {
+  const items = useMemo(() => GEAR.map((g) => {
+    const { x, z, w, d, h } = gear3d(g);
     const box = new THREE.BoxGeometry(w, h, d);
     const zone = ZONES.find((zn) => Math.abs(x - zn.x) <= zn.w / 2 && Math.abs(z - zn.z) <= zn.d / 2)?.id ?? null;
     return { x, z, h, box, edges: new THREE.EdgesGeometry(box), zone };
   }), []);
+  // Contornos de la planta de cada equipo (todos en una sola geometría de líneas).
+  const plan = useMemo(() => {
+    const p: number[] = [], y = 0.015;
+    for (const [x, z, w, d] of GEAR) { const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2; p.push(x0, y, z0, x1, y, z0, x1, y, z0, x1, y, z1, x1, y, z1, x0, y, z1, x0, y, z1, x0, y, z0); }
+    return lineGeometry(p);
+  }, []);
+  const planMat = useRef<THREE.LineBasicMaterial>(null);
   const mats = useRef<(THREE.LineBasicMaterial | null)[]>([]);
   useFrame(() => {
     const s = stage.get();
@@ -98,9 +121,11 @@ function Gear() {
       m.color.set(on ? C.white : C.edge);
       m.opacity = 0.25 + 0.75 * s.lit;
     });
+    if (planMat.current) planMat.current.opacity = 0.7 * (0.25 + 0.75 * s.lit);
   });
   return (
     <group>
+      <lineSegments geometry={plan}><lineBasicMaterial ref={planMat} color={C.edge} transparent opacity={0} /></lineSegments>
       {items.map((it, i) => (
         <group key={i} position={[it.x, it.h / 2, it.z]}>
           <mesh geometry={it.box} castShadow><meshStandardMaterial color={C.gear} roughness={0.6} metalness={0.25} /></mesh>
@@ -111,9 +136,10 @@ function Gear() {
   );
 }
 
-/** Personas en movimiento (instancias). Socios cian, equipo turquesa (también sus halos); en la sala «sin REPI», acero.
- *  Valentina (la primera) está siempre, con un anillo que respira. Lejos se ven en su tamaño; cerca se achican para no superar
- *  ~56 px en pantalla (siguen siendo personas en un plano, no figuras). */
+/** Personas en movimiento (instancias). Socios cian, equipo turquesa (también sus halos), sin luz ni sombra: el mismo color que
+ *  los puntos del SVG; en la sala «sin REPI», acero. Valentina (la primera) está siempre, con un anillo que respira, y al final
+ *  de la vuelta al punto crece con todo lo que se tragó. Lejos se ven en su tamaño; cerca se achican para no superar ~56 px en
+ *  pantalla (siguen siendo personas en un plano, no figuras). Con el mouse cerca, se agrandan un poco. */
 function People({ count }: { count: number }) {
   const list = useMemo(() => PEOPLE.slice(0, count), [count]);
   const members = useRef<THREE.InstancedMesh>(null);
@@ -121,7 +147,7 @@ function People({ count }: { count: number }) {
   const halosM = useRef<THREE.InstancedMesh>(null);
   const halosS = useRef<THREE.InstancedMesh>(null);
   const ring = useRef<THREE.Mesh>(null);
-  const mats = useRef<{ m: THREE.MeshStandardMaterial | null; s: THREE.MeshStandardMaterial | null }>({ m: null, s: null });
+  const mats = useRef<{ m: THREE.MeshBasicMaterial | null; s: THREE.MeshBasicMaterial | null }>({ m: null, s: null });
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const proj = useMemo(() => new THREE.Vector3(), []);
   const camera = useThree((st) => st.camera) as THREE.PerspectiveCamera;
@@ -131,7 +157,7 @@ function People({ count }: { count: number }) {
     const s = stage.get(), t = sceneTime.t;
     if (cold.current !== s.cold && mats.current.m && mats.current.s) {
       cold.current = s.cold;
-      for (const [m, c] of [[mats.current.m, C.cyan], [mats.current.s, C.teal]] as const) { m.color.set(s.cold ? C.line : c); m.emissive.set(s.cold ? C.steel : c); m.emissiveIntensity = s.cold ? 0.2 : 0.85; }
+      for (const [m, c] of [[mats.current.m, C.cyan], [mats.current.s, C.teal]] as const) m.color.set(s.cold ? C.line : c);
     }
     const pxPerM = size.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     const allIn = s.gather >= 0.985, rv = s.reveal;
@@ -142,8 +168,14 @@ function People({ count }: { count: number }) {
       const fit = Math.min(1, 56 / (1.0 * pxPerM / Math.max(0.1, d)));
       const hide = (allIn && i > 0) || (s.dotOut && i === 0);
       let pop = 1;
-      if (rv) { proj.copy(dummy.position).project(camera); const sx = ((proj.x + 1) / 2) * size.width, sy = ((1 - proj.y) / 2) * size.height; const v = Math.min(1, Math.max(0, (rv.r - Math.hypot(sx - rv.x, sy - rv.y)) / 70 + 1)); pop = v * v * (3 - 2 * v); }
-      const sc = hide ? 0.0001 : Math.max(0.001, s.lit * pop) * fit;
+      if (rv || pointer.on) {
+        proj.copy(dummy.position).project(camera);
+        const sx = ((proj.x + 1) / 2) * size.width, sy = ((1 - proj.y) / 2) * size.height;
+        if (rv) { const v = Math.min(1, Math.max(0, (rv.r - Math.hypot(sx - rv.x, sy - rv.y)) / 70 + 1)); pop = v * v * (3 - 2 * v); }
+        if (pointer.on && s.gather === 0) { const v = Math.max(0, 1 - Math.hypot(sx - pointer.x, sy - pointer.y) / 150); pop *= 1 + 0.6 * v * v; }
+      }
+      const grow = i === 0 && s.gather > 0 ? gatherGrow(s.gather) : 1;
+      const sc = hide ? 0.0001 : Math.max(0.001, s.lit * pop) * fit * grow;
       dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(sc); dummy.updateMatrix();
       if (p.kind === "member") members.current?.setMatrixAt(mi, dummy.matrix); else staff.current?.setMatrixAt(si, dummy.matrix);
       dummy.position.set(x, 0.03, z); dummy.rotation.set(-Math.PI / 2, 0, 0);
@@ -162,11 +194,11 @@ function People({ count }: { count: number }) {
     <group>
       <instancedMesh ref={members} args={[undefined, undefined, nm]}>
         <capsuleGeometry args={[0.2, 0.42, 4, 10]} />
-        <meshStandardMaterial ref={(m) => { mats.current.m = m; }} color={C.cyan} emissive={C.cyan} emissiveIntensity={0.85} />
+        <meshBasicMaterial ref={(m) => { mats.current.m = m; }} color={C.cyan} />
       </instancedMesh>
       <instancedMesh ref={staff} args={[undefined, undefined, ns]}>
         <capsuleGeometry args={[0.22, 0.46, 4, 10]} />
-        <meshStandardMaterial ref={(m) => { mats.current.s = m; }} color={C.teal} emissive={C.teal} emissiveIntensity={0.85} />
+        <meshBasicMaterial ref={(m) => { mats.current.s = m; }} color={C.teal} />
       </instancedMesh>
       <instancedMesh ref={halosM} args={[undefined, undefined, nm]}>
         <ringGeometry args={[0.42, 0.5, 32]} />
@@ -193,7 +225,8 @@ function Signals() {
   useFrame(() => {
     const s = stage.get();
     if (pulse.current && trail.current) {
-      const on = s.request != null;
+      // Sólo en la toma del pedido y nunca durante la vuelta al punto (aunque un disparador tardío deje `request` escrito).
+      const on = s.request != null && s.gather === 0 && (s.a === "pedido" || s.b === "pedido");
       pulse.current.visible = on; trail.current.visible = on;
       if (on) {
         const u = s.request! < 0.5 ? s.request! * 2 : 2 - s.request! * 2; // ida (pedido) y vuelta («Voy»)
@@ -205,7 +238,7 @@ function Signals() {
   });
   return (
     <group>
-      <mesh ref={pulse} visible={false}><sphereGeometry args={[0.32, 16, 16]} /><meshBasicMaterial color={C.cyan} /></mesh>
+      <mesh ref={pulse} visible={false}><sphereGeometry args={[0.16, 12, 12]} /><meshBasicMaterial color={C.cyan} /></mesh>
       {/* @ts-expect-error: <line> de three, no el SVG */}
       <line ref={trail} geometry={geo} visible={false}><lineBasicMaterial color={C.cyan} transparent opacity={0.6} /></line>
       <mesh ref={qr} position={[QR_SPOT[0], 1.3, QR_SPOT[1]]}>
@@ -351,7 +384,7 @@ export default function SalaCanvas({ quality, onReady, onLost }: { quality: Qual
   if (!C.navy) readPalette(); // antes del primer render de la escena: los materiales se crean con la paleta ya leída
   const high = quality === "high";
   return (
-    <Canvas className="sala-canvas" dpr={high ? [1, 2] : [1, 1.5]} shadows={high} gl={{ antialias: high, powerPreference: high ? "high-performance" : "low-power", alpha: false }}
+    <Canvas className="sala-canvas" flat dpr={high ? [1, 2] : [1, 1.5]} shadows={high} gl={{ antialias: high, powerPreference: high ? "high-performance" : "low-power", alpha: false }}
       camera={{ fov: 38, near: 0.1, far: 200, position: SHOTS.hero.pos }} aria-hidden="true"
       onCreated={({ gl }) => gl.domElement.addEventListener("webglcontextlost", onLost, { once: true })}>
       <color attach="background" args={[C.navy]} />

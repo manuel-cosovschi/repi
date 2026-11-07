@@ -3,7 +3,9 @@
 // brillante → oscuro → brillante). A los 0,4 s el punto cian de la «ı» se desprende, sube un poco y cae en arco sobre el rack
 // de Valentina (la proyección real de ese punto de la sala, a un costado del texto: nunca lo cruza). Al tocar el piso se aplasta,
 // salen dos anillos y la luz se expande desde ahí: la sala se enciende por radio y cada persona aparece cuando la luz la
-// alcanza. El punto queda como Valentina, con su anillo que respira, y el logo recupera su punto. El título, los textos y los
+// alcanza. El impacto es un evento de luz: el punto crece al caer (≥ 20 px), se aplasta fuerte, salen dos anillos grandes, un
+// frente de luz recorre el piso y el contorno de cada zona se dibuja cuando el frente la alcanza (SalaSvg). El punto vuelve
+// al tamaño de una persona y queda como Valentina, con su anillo que respira, y el logo recupera su punto. El título, los textos y los
 // botones llegan pintados desde el servidor (LCP) y nunca se ocultan al hidratar; al bajar se corren como un telón (scrub).
 // Movimiento reducido, pausa guardada o llegada con scroll: el estado final, sin caída.
 import { useRef } from "react";
@@ -27,6 +29,7 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
     if (reduced()) { stage.set({ lit: 1, reveal: null }); return; }
     const q = gsap.utils.selector(root);
     const drop = q(".x3-drop")[0] as HTMLElement, mark = q(".x3-hero-wm i")[0] as HTMLElement, rings = q(".x3-hero-ring") as HTMLElement[];
+    const front = q(".x3-hero-front")[0] as unknown as SVGSVGElement | undefined, fc = front?.querySelector("circle") as SVGCircleElement | null;
     // Cada visita empieza con la sala apagada (la tienda es compartida: al volver a /conoce, `lit` podía haber quedado en 1).
     stage.set({ lit: 0, reveal: null });
     let tl: gsap.core.Timeline | null = null;
@@ -34,6 +37,7 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
       tl?.progress(1); tl?.kill(); tl = null;
       stage.set({ lit: 1, reveal: null });
       gsap.set(drop, { clearProps: "all" }); gsap.set(rings, { clearProps: "all" }); gsap.set(mark, { opacity: 1 });
+      if (front) front.style.opacity = "0";
     };
     const go = () => {
       // Pausa guardada, o la persona ya bajó: sin caída.
@@ -44,7 +48,9 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
       const s0 = { x: dr.left + dr.width / 2, y: dr.top + dr.height / 2 };
       const hit = stage.project(VALENTINA[0], VALENTINA[1], "plan");
       const texts: Box[] = q(".x3-hero-h1 .ln > span, .x3-hero-sub, .x3-hero-lead, .x3-hero-cta, .x3-hero-proof").map((e) => (e as HTMLElement).getBoundingClientRect());
-      const size = dr.width, LAND = 14 / size;
+      // El punto crece al caer hasta 22 px (se ve también en el teléfono, donde la «ı» mide 12 px), se aplasta y vuelve al
+      // tamaño de una persona de la sala (14 px) antes de quedar como Valentina.
+      const size = dr.width, BIG = 22 / size, LAND = 14 / size;
       // Arco: x lineal e y acelerada (power2.in); si así rozara el texto, la curva se mantiene alta más tiempo (power3/4/6).
       const crosses = (k: number) => {
         for (let i = 1; i < 40; i++) {
@@ -65,16 +71,21 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
         .to(drop, { y: -12, duration: 0.2, ease: "power2.out" })
         .to(drop, { x: dx, duration: 0.9, ease: "none" }, ">")
         .to(drop, { y: dy, duration: 0.9, ease: `power${Math.min(4, k)}.in` }, "<")
-        .to(drop, { scale: 0.6, duration: 0.9, ease: "power1.in" }, "<")
+        .to(drop, { scale: BIG, duration: 0.9, ease: "power1.in" }, "<")
         .addLabel("impact")
-        // Impacto: se aplasta y vuelve a ser un punto del tamaño de una persona de la sala.
-        .to(drop, { scaleX: 2.2 * LAND, scaleY: 0.3 * LAND, duration: 0.1, ease: "power2.out" }, "impact")
-        .to(drop, { scaleX: LAND, scaleY: LAND, duration: 0.35, ease: "back.out(2.4)" }, ">")
-        .to(rings[0], { scale: 4.5, opacity: 0, duration: 0.9, ease: "power2.out", startAt: { opacity: 0.9, scale: 0.2 } }, "impact")
-        .to(rings[1], { scale: 7, opacity: 0, duration: 1.1, ease: "power2.out", startAt: { opacity: 0.6, scale: 0.2 } }, "impact+=0.12")
-        // La luz se expande desde el impacto: la sala se enciende por radio y cada persona aparece cuando la luz la alcanza.
-        .add(() => { stage.set({ lit: 1, reveal: { x: hit.x, y: hit.y, r: 0 } }); }, "impact")
-        .to(light, { r: maxR, duration: 1.4, ease: "power2.out", onUpdate: () => stage.set({ reveal: { x: hit.x, y: hit.y, r: light.r } }), onComplete: () => stage.set({ reveal: null }) }, "impact")
+        // Impacto: un aplaste fuerte, un rebote y vuelve a ser un punto del tamaño de una persona de la sala.
+        .to(drop, { scaleX: 2.7 * BIG, scaleY: 0.28 * BIG, duration: 0.09, ease: "power2.out" }, "impact")
+        .to(drop, { scaleX: BIG, scaleY: BIG, duration: 0.32, ease: "back.out(2.6)" }, ">")
+        .to(drop, { scale: LAND, duration: 0.45, ease: "power2.inOut" }, ">")
+        .to(rings[0], { scale: 7, opacity: 0, duration: 0.9, ease: "power2.out", startAt: { opacity: 1, scale: 0.3 } }, "impact")
+        .to(rings[1], { scale: 12, opacity: 0, duration: 1.2, ease: "power2.out", startAt: { opacity: 0.7, scale: 0.3 } }, "impact+=0.1")
+        // La luz se expande desde el impacto: un frente (un círculo fino) recorre el piso, la sala se enciende por radio, cada
+        // zona se dibuja y cada persona aparece cuando la luz la alcanza.
+        .add(() => { stage.set({ lit: 1, reveal: { x: hit.x, y: hit.y, r: 0 } }); if (fc) { fc.setAttribute("cx", hit.x.toFixed(0)); fc.setAttribute("cy", hit.y.toFixed(0)); } }, "impact")
+        .to(light, { r: maxR, duration: 2, ease: "power1.out", onUpdate: () => {
+          stage.set({ reveal: { x: hit.x, y: hit.y, r: light.r } });
+          if (fc && front) { fc.setAttribute("r", light.r.toFixed(0)); front.style.opacity = String(+(0.75 * (1 - light.r / maxR)).toFixed(3)); }
+        }, onComplete: () => { stage.set({ reveal: null }); if (front) front.style.opacity = "0"; } }, "impact")
         // El logo recupera su punto y el punto de la caída queda como Valentina (la sala ya la dibuja ahí).
         .to(mark, { opacity: 1, duration: 0.3 }, "impact+=0.3")
         .to(drop, { opacity: 0, duration: 0.5 }, "impact+=0.6");
@@ -119,6 +130,8 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
         <p className="x3-hero-proof"><MapPin size={16} weight="bold" aria-hidden="true" /><span>Ya funciona en gimnasios de Mar del Plata.</span></p>
       </div>
       <span className="x3-hero-ring" aria-hidden="true" /><span className="x3-hero-ring" aria-hidden="true" />
+      {/* El frente de luz del encendido: un círculo fino (el trazo no crece con el radio). */}
+      <svg className="x3-hero-front" aria-hidden="true"><circle cx="0" cy="0" r="0" /></svg>
       <a className="x3-scroll" href="#problema" aria-label="Seguir: el problema que resuelve REPI"><ArrowDown size={18} weight="bold" aria-hidden="true" /></a>
     </section>
   );

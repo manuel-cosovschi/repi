@@ -4,10 +4,12 @@
 // lado libre del texto (`lensPx`) es un desplazamiento del <svg> entero. Con movimiento reducido las personas quedan quietas y
 // el cambio de toma es un corte. El bucle de las personas sólo corre mientras se anima (no en «low», ni con el 3D a la vista,
 // ni con la sala tapada o las animaciones pausadas); lo que piden las escenas (encendido, pedido, vuelta al punto) se dibuja
-// igual, con cada cambio de la tienda.
+// igual, con cada cambio de la tienda. En el encendido del hero, el contorno de cada zona se dibuja cuando la luz lo
+// alcanza y los equipos se aclaran al pasar el frente. Con el mouse (escritorio), las personas cerca del puntero se agrandan
+// y la zona de abajo se marca.
 import { useEffect, useRef } from "react";
-import { BESIDE_JULIAN, FLOOR, GEAR, JULIAN, PEOPLE, QR_SPOT, SHOTS, SVG_D, SVG_S, SVG_W, ZONES, along, lensPx, placePerson, svgFit, svgProject, svgX, svgZ } from "./model";
-import { stage } from "./store";
+import { BESIDE_JULIAN, FLOOR, GEAR, JULIAN, PEOPLE, QR_SPOT, SHOTS, SVG_D, SVG_S, SVG_W, ZONES, along, gatherGrow, lensPx, placePerson, svgFit, svgProject, svgX, svgZ, type ZoneId } from "./model";
+import { pointer, stage } from "./store";
 
 const X = svgX, Z = svgZ;
 /** Radio de las personas en px de pantalla (no crece con el zoom: siempre son puntos). */
@@ -29,6 +31,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
   const dots = useRef<(SVGCircleElement | null)[]>([]);
   const ring = useRef<SVGCircleElement>(null);
   const zones = useRef<(SVGRectElement | null)[]>([]);
+  const gear = useRef<(SVGRectElement | null)[]>([]);
   const req = useRef<SVGPathElement>(null);
   useEffect(() => {
     let raf = 0;
@@ -43,24 +46,33 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     // Cada atributo se escribe sólo si cambió (el encendido del hero y el scroll llaman seguido; casi nada cambia).
     const memo = new Map<Element, Record<string, string>>();
     const put = (el: Element, k: string, v: string) => { let m = memo.get(el); if (!m) memo.set(el, (m = {})); if (m[k] !== v) { m[k] = v; el.setAttribute(k, v); } };
+    /** Píxeles de pantalla de un punto del viewBox con el encuadre actual (sin la transición CSS: alcanza para el encendido y
+     *  el puntero). */
+    const sx = (ux: number) => fit.ox + (SVG_W / 2 + zoomNow * (ux - X(cxNow))) * fit.s0 + lens[0];
+    const sy = (uz: number) => fit.oy + (SVG_D / 2 + zoomNow * (uz - Z(czNow))) * fit.s0 + lens[1];
     const place = () => {
       const s = stage.get();
       const base = 1 / (zoomNow * fit.s0);
       const rv = s.reveal;
       const allIn = s.gather >= 0.985;
+      const pt = pointer.on && s.gather === 0;
       PEOPLE.forEach((p, i) => {
         const c = dots.current[i]; if (!c) return;
         const [x, z] = placePerson(i, clock, s);
         const ux = X(x), uz = Z(z);
         put(c, "cx", ux.toFixed(1)); put(c, "cy", uz.toFixed(1));
         let k = 1;
-        if (rv) {
+        if (rv || pt) {
+          const px = sx(ux), py = sy(uz);
           // Encendido del hero: cada persona aparece cuando la luz que se expande desde el impacto la alcanza.
-          const sx = fit.ox + (SVG_W / 2 + zoomNow * (ux - X(cxNow))) * fit.s0 + lens[0], sy = fit.oy + (SVG_D / 2 + zoomNow * (uz - Z(czNow))) * fit.s0 + lens[1];
-          k = smooth((rv.r - Math.hypot(sx - rv.x, sy - rv.y)) / 70 + 1);
+          if (rv) k = smooth((rv.r - Math.hypot(px - rv.x, py - rv.y)) / 70 + 1);
+          // El mouse cerca: un poco más grande (hasta 1,6×), con caída suave.
+          if (pt) { const v = Math.max(0, 1 - Math.hypot(px - pointer.x, py - pointer.y) / 150); k *= 1 + 0.6 * v * v; }
         }
-        // Al final de la vuelta al punto todas están en el mismo lugar: queda un solo punto, el de Valentina (cian).
+        // Al final de la vuelta al punto todas están en el mismo lugar: queda un solo punto, el de Valentina (cian), que
+        // crece con todo lo que se tragó.
         const hide = (allIn && i > 0) || (s.dotOut && i === 0);
+        if (i === 0 && s.gather > 0) k *= gatherGrow(s.gather);
         put(c, "r", hide || k <= 0.01 ? "0" : ((p.kind === "member" ? R_MEMBER : R_STAFF) * base * k).toFixed(2));
         if (i === 0 && ring.current) {
           put(ring.current, "cx", ux.toFixed(1)); put(ring.current, "cy", uz.toFixed(1)); put(ring.current, "r", (15 * base).toFixed(2));
@@ -90,10 +102,11 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
         if (!pl) { plan.current.style.transform = ""; plan.current.style.opacity = ""; }
         else { const ox = X(s.origin[0]), oz = Z(s.origin[1]); plan.current.style.transform = `translate(${ox}px, ${oz}px) scale(${Math.max(0.02, 1 - 0.95 * g).toFixed(4)}) translate(${-ox}px, ${-oz}px)`; plan.current.style.opacity = String(+(1 - g).toFixed(3)); }
       }
-      ZONES.forEach((z, i) => { const r = zones.current[i]; if (r) put(r, "data-on", s.focus === z.id ? "1" : s.preview === z.id ? "pre" : "0"); });
+      lightZones();
       // Pedido «Que venga alguien»: un cometa cian sobre el piso, de Julián a Sofía (y de vuelta, en turquesa, el «Voy»).
       if (req.current) {
-        if (s.request == null) { req.current.style.opacity = "0"; reqTo = null; }
+        // Sólo en la toma del pedido y nunca durante la vuelta al punto (aunque un disparador tardío deje `request` escrito).
+        if (s.request == null || s.gather > 0 || (s.a !== "pedido" && s.b !== "pedido")) { req.current.style.opacity = "0"; reqTo = null; }
         else {
           if (!reqTo) { const sofia = PEOPLE.findIndex((p) => p.id === "sofia"); reqTo = along(PEOPLE[sofia], clock); req.current.setAttribute("d", requestPath(reqTo)); }
           const u = s.request;
@@ -103,6 +116,38 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
         }
       }
       place();
+    };
+    /** Zonas y equipos: foco (blanco), zona pre-iluminada (perfiles o el puntero) y, durante el encendido del hero, el frente
+     *  de luz: el contorno de cada zona se dibuja desde que la luz toca su punto más cercano hasta que pasa el más lejano, y
+     *  los equipos se aclaran mientras el frente los cruza. */
+    let wasReveal = false;
+    const lightZones = () => {
+      const s = stage.get(), rv = s.reveal;
+      let near: ZoneId | null = null;
+      if (pointer.on && s.gather === 0) {
+        // Inversa del encuadre: del píxel del puntero al viewBox, y de ahí al mundo.
+        const ux = (pointer.x - lens[0] - fit.ox) / fit.s0, uz = (pointer.y - lens[1] - fit.oy) / fit.s0;
+        const wx = (X(cxNow) + (ux - SVG_W / 2) / zoomNow) / S - FLOOR.w / 2, wz = (Z(czNow) + (uz - SVG_D / 2) / zoomNow) / S - FLOOR.d / 2;
+        near = ZONES.find((z) => Math.abs(wx - z.x) <= z.w / 2 && Math.abs(wz - z.z) <= z.d / 2)?.id ?? null;
+      }
+      ZONES.forEach((z, i) => {
+        const r = zones.current[i]; if (!r) return;
+        let front = false;
+        if (rv) {
+          const xs = [sx(X(z.x - z.w / 2)), sx(X(z.x + z.w / 2))], ys = [sy(Z(z.z - z.d / 2)), sy(Z(z.z + z.d / 2))];
+          const nx = Math.min(Math.max(rv.x, xs[0]), xs[1]), ny = Math.min(Math.max(rv.y, ys[0]), ys[1]);
+          const dn = Math.hypot(nx - rv.x, ny - rv.y), df = Math.max(...xs.flatMap((x) => ys.map((y) => Math.hypot(x - rv.x, y - rv.y))));
+          const u = clamp01((rv.r - dn) / Math.max(1, df - dn)), P = 2 * (z.w + z.d) * S;
+          put(r, "stroke-dasharray", `${P} ${P}`); put(r, "stroke-dashoffset", (P * (1 - u)).toFixed(1));
+          front = u > 0 && u < 1;
+        } else if (wasReveal) { r.removeAttribute("stroke-dasharray"); r.removeAttribute("stroke-dashoffset"); memo.delete(r); }
+        put(r, "data-on", s.focus === z.id ? "1" : front || s.preview === z.id || near === z.id ? "pre" : "0");
+      });
+      if (rv || wasReveal) GEAR.forEach(([x, z], i) => {
+        const g = gear.current[i]; if (!g) return;
+        put(g, "data-lit", rv && Math.abs(rv.r - Math.hypot(sx(X(x)) - rv.x, sy(Z(z)) - rv.y)) < 90 ? "1" : "0");
+      });
+      wasReveal = !!rv;
     };
     // Tiempo propio que sólo avanza mientras se anima: al pausar o tapar la sala, las personas quedan donde estaban.
     const running = () => { const s = stage.get(); return animate && !s.hidden && !s.paused && !document.hidden; };
@@ -114,6 +159,8 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     };
     const wake = () => { if (!raf && running()) { last = 0; raf = requestAnimationFrame(tick); } };
     const off = stage.subscribe(() => { apply(); wake(); });
+    // El puntero sólo cambia personas y zonas (no el encuadre): sin el bucle (nivel «low» o pausa), se dibuja acá.
+    const offPt = pointer.subscribe(() => { lightZones(); if (!raf) place(); });
     const onResize = () => { vw = window.innerWidth; vh = window.innerHeight; fit = svgFit(vw, vh); last$.lens = ""; apply(); };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("resize", onResize);
@@ -122,7 +169,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     root.current?.classList.add("snap");
     apply(); wake();
     const id = requestAnimationFrame(() => { view.current?.classList.remove("snap"); root.current?.classList.remove("snap"); });
-    return () => { off(); unpublish(); cancelAnimationFrame(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
+    return () => { off(); offPt(); unpublish(); cancelAnimationFrame(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
   }, [animate, still]);
   const W = SVG_W, D = SVG_D, S = SVG_S;
   return (
@@ -134,7 +181,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
           <g className="sala-grid">{Array.from({ length: FLOOR.w / 2 + 1 }, (_, i) => <line key={`v${i}`} x1={i * 2 * S} y1={0} x2={i * 2 * S} y2={D} />)}
             {Array.from({ length: FLOOR.d / 2 + 1 }, (_, i) => <line key={`h${i}`} x1={0} y1={i * 2 * S} x2={W} y2={i * 2 * S} />)}</g>
           {ZONES.map((z, i) => <rect key={z.id} ref={(r) => { zones.current[i] = r; }} className="sala-zone" x={X(z.x - z.w / 2)} y={Z(z.z - z.d / 2)} width={z.w * S} height={z.d * S} rx={6} />)}
-          {GEAR.map(([x, z, w, d], i) => <rect key={i} className="sala-gear" x={X(x - w / 2)} y={Z(z - d / 2)} width={w * S} height={d * S} rx={3} />)}
+          {GEAR.map(([x, z, w, d], i) => <rect key={i} ref={(r) => { gear.current[i] = r; }} className="sala-gear" x={X(x - w / 2)} y={Z(z - d / 2)} width={w * S} height={d * S} rx={3} />)}
           <rect className="sala-qr" x={X(QR_SPOT[0]) - 11} y={Z(QR_SPOT[1]) - 11} width={22} height={22} rx={3} />
         </g>
         <path ref={req} className="sala-req" pathLength={1} d={requestPath(BESIDE_JULIAN)} />
