@@ -4,6 +4,7 @@
 // No hay cobros reales: ciclo, prorrateo, mora y proveedor de pagos siguen pendientes (§12).
 import { AdminAnnouncements } from "./AdminAnnouncements";
 import { AdminSite } from "./AdminSite";
+import { AdminSales } from "./AdminSales";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
@@ -21,7 +22,7 @@ type Client = {
   orgId: string; name: string; kind: "gym" | "coach"; demo: boolean; commercialStatus: string; contractId: string | null; stage: string | null; stageLabel: string;
   agreed: number | null; unitPrice: string | null; enabledAccesses: number; overAgreed: boolean;
 };
-type Lead = { id: string; kind: "gym" | "coach" | "partner"; orgName: string; contactName: string; email: string | null; phone: string | null; message: string | null; status: string; createdAt: string; source?: string | null; campaign?: string | null };
+type Lead = { id: string; kind: "gym" | "coach" | "partner"; orgName: string; contactName: string; email: string | null; phone: string | null; message: string | null; status: string; createdAt: string; source?: string | null; campaign?: string | null; referralCode?: string | null };
 type Clients = { clients: Client[]; demo: Client[]; leads: Lead[] };
 type Term = { id: string; kind: "quantity" | "unit_price"; version: number; value: number; currency: string | null; effectiveFrom: string; reason: string; evidence: string | null; author: string; display: string; createdAt: string };
 type Detail = {
@@ -45,10 +46,11 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
-type Screen = "summary" | "clients" | "leads" | "site" | "support" | "ideas" | "privacy" | "announcements" | "guide";
+type Screen = "summary" | "clients" | "leads" | "sales" | "reps" | "site" | "support" | "ideas" | "privacy" | "announcements" | "guide";
 
-export function AdminApp({ me }: { me: { name: string } }) {
-  const [screen, setScreen] = useState<Screen>("summary");
+export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?: string; tab?: string; deal?: string; rep?: string } }) {
+  // D209: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
+  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : "summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
       <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["site", "Sitio y QR"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]] as const).map(([k, l]) => (
+          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["sales", "Ventas"], ["reps", "Vendedores"], ["site", "Sitio y QR"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); if (k === "summary") void sum.reload(); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
               {k === "support" && openSupport > 0 && <span className="nbadge" aria-label={`${openSupport} consultas abiertas`}>{openSupport}</span>}
@@ -111,6 +113,7 @@ export function AdminApp({ me }: { me: { name: string } }) {
           {screen === "announcements" && <AdminAnnouncements flash={flash} />}
           {screen === "guide" && <AdminGuide />}
           {screen === "site" && <AdminSite />}
+          {(screen === "sales" || screen === "reps") && <AdminSales section={screen} flash={flash} initial={initial} />}
           {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
         </div>
       </main>
@@ -154,10 +157,12 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
             <b>{l.orgName} <small className="muted">· {l.kind === "gym" ? "Gimnasio" : l.kind === "coach" ? "Coach" : "Empresa o aliado"}</small></b>
             <small className="muted">{[l.contactName, l.email, l.phone, fmt(l.createdAt)].filter(Boolean).join(" · ")}{l.source ? ` · origen: ${l.source === "qr" ? "QR" : l.source}${l.campaign ? ` (${l.campaign})` : ""}` : ""}</small>
             {l.message && <small>{l.message}</small>}
+            {l.referralCode && <small>Llegó con el enlace del vendedor {l.referralCode} (origen, no venta atribuida)</small>}
           </span>
           <span className={`chip ${l.status === "new" ? "warn" : l.status === "converted" ? "ok" : "mute"}`}>{{ new: "Nuevo", contacted: "Contactado", converted: "Convertido", discarded: "Descartado" }[l.status] ?? l.status}</span>
           {l.status === "new" && <button type="button" className="btn sm" onClick={() => set(l.id, "contacted")}>Marcar contactado</button>}
           {l.kind !== "partner" && l.status !== "converted" && l.status !== "discarded" && <button type="button" className="btn sm" onClick={() => { void set(l.id, "converted"); onCreate(); }}>Dar de alta</button>}
+          {l.kind !== "partner" && l.status !== "converted" && l.status !== "discarded" && <button type="button" className="btn sm" onClick={async () => { try { await api(`/api/admin/sales/leads/${l.id}/prospect`, { body: {} }); flash(l.referralCode ? "Prospecto creado y asignado al vendedor del enlace." : "Prospecto creado: asignalo desde Ventas › Pipeline."); reload(); } catch (e) { flash((e as Error).message); } }}>Pasar a ventas</button>}
           {l.status !== "discarded" && l.status !== "converted" && <button type="button" className="btn sm" onClick={() => set(l.id, "discarded")}>Descartar</button>}
         </div>
       ))}

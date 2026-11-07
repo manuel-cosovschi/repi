@@ -9,6 +9,16 @@ import type { Profile } from "@/lib/site-events";
 import { track, visitContext } from "@/lib/site-track";
 
 type Kind = "gym" | "coach" | "partner";
+// D209: enlace personal de un vendedor (/conoce?ref=V-XXXXXX). Se recuerda en la pestaña; el servidor sólo lo acepta si es de
+// un vendedor activo y lo guarda como origen del contacto, nunca como una venta atribuida.
+const REF_KEY = "repi:ref:v1";
+function referral(): string | null {
+  try {
+    const q = new URLSearchParams(location.search).get("ref");
+    if (q && /^V-[A-Z0-9]{6}$/i.test(q)) { sessionStorage.setItem(REF_KEY, q.toUpperCase()); return q.toUpperCase(); }
+    return sessionStorage.getItem(REF_KEY);
+  } catch { return null; }
+}
 const KIND_OF: Record<Profile, Kind> = { gimnasios: "gym", entrenadores: "coach", deportistas: "gym", aliados: "partner" };
 const KINDS: [Kind, string][] = [["gym", "Un gimnasio"], ["coach", "Soy entrenador"], ["partner", "Empresa o alianza"]];
 
@@ -28,6 +38,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
     window.addEventListener("repi:interest", on);
     return () => window.removeEventListener("repi:interest", on);
   }, []);
+  useEffect(() => { referral(); }, []);
   useEffect(() => { if (done) { doneRef.current?.focus(); doneRef.current?.scrollIntoView({ block: "center" }); } }, [done]);
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
@@ -47,6 +58,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
         kind, orgName: f.orgName || null, contactName: f.contactName, email: f.email || null, phone: f.phone || null,
         message: [meeting ? "Pide una reunión." : "", f.message].filter(Boolean).join(" ") || null,
         source: attr.source, campaign: attr.utmCampaign ?? attr.campaign, interest, website: f.website, elapsedMs: Date.now() - shown.current,
+        referralCode: referral(),
       } });
       track("form_submit", { profile: interest, target: kind });
       if (meeting || kind === "partner") track("meeting_request", { profile: interest, target: "form" });

@@ -63,6 +63,7 @@ export async function recordPayment(actorId: string, contractId: string, p: {
     reference: p.reference.trim().slice(0, 200), note: p.note?.trim().slice(0, 300) || null, createdBy: actorId, createdAt: now,
   }).returning();
   await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "billing.payment_recorded", resourceType: "billing_payment", resourceId: row.id, meta: { amountMinor: row.amountMinor, currency: row.currency } });
+  await (await import("../sales/commissions")).syncContractSafe(c.id); // D209: comisiones sobre cobros verificados
   return { id: row.id, amountTxt: fmtMoney(row.amountMinor, row.currency as Currency) };
 }
 
@@ -75,6 +76,7 @@ export async function voidPayment(actorId: string, paymentId: string, reason: st
   if (!p) throw new AccessError("not_found", "El pago no existe o ya está anulado.", 404);
   const c = await contractOf(p.contractId);
   await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "billing.payment_voided", resourceType: "billing_payment", resourceId: p.id });
+  await (await import("../sales/commissions")).syncContractSafe(c.id); // D209: una anulación revierte su comisión con un asiento negativo
   return { ok: true };
 }
 
