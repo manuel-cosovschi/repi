@@ -203,10 +203,23 @@ export type CommissionComponent =
   | { type: "first_payment_pct"; bps: number }
   | { type: "recurring_pct"; bps: number; months: number }
   | { type: "per_member"; amountMinor: number; trigger: OneOffTrigger; maxMembers?: number | null }
-  | { type: "tier_bonus"; metric: "approved_deals" | "agreed_members"; tiers: { min: number; amountMinor: number }[] };
+  | { type: "tier_bonus"; metric: "approved_deals" | "agreed_members"; tiers: { min: number; amountMinor: number }[] }
+  /** % del primer mes cobrado, con el porcentaje según los socios acordados del gimnasio (tramos «desde N socios»). */
+  | { type: "first_month_by_members"; brackets: MemberBracket[] };
+export type MemberBracket = { minMembers: number; bps: number };
+/** Tramo que corresponde a una cantidad de socios: el de mayor mínimo que se cumple (null = por debajo del primero). */
+export function bracketFor(brackets: MemberBracket[], members: number): MemberBracket | null {
+  return [...brackets].sort((a, b) => a.minMembers - b.minMembers).filter((b) => members >= b.minMembers).at(-1) ?? null;
+}
+/** «50 a 299 socios → 35 % · 300 a 399 → 50 % · 400 o más → 65 %». */
+export function describeBrackets(brackets: MemberBracket[]): string {
+  const pct = (b: number) => `${(b / 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })} %`;
+  const s = [...brackets].sort((a, b) => a.minMembers - b.minMembers);
+  return s.map((b, i) => `${i + 1 < s.length ? `${b.minMembers} a ${s[i + 1].minMembers - 1}` : `${b.minMembers} o más`} socios → ${pct(b.bps)}`).join(" · ");
+}
 export const COMPONENT_LABEL: Record<CommissionComponent["type"], string> = {
   fixed_per_sale: "Monto fijo por venta", first_payment_pct: "Porcentaje del primer cobro", recurring_pct: "Porcentaje recurrente",
-  per_member: "Monto por socio acordado", tier_bonus: "Bono escalonado mensual",
+  per_member: "Monto por socio acordado", tier_bonus: "Bono escalonado mensual", first_month_by_members: "Porcentaje del primer mes según socios",
 };
 export type CommissionRules = {
   currency: "ARS" | "USD";
@@ -249,6 +262,11 @@ export function validateRules(r: Partial<CommissionRules> | null | undefined): s
       const ok = (c.metric === "approved_deals" || c.metric === "agreed_members") && Array.isArray(c.tiers) && c.tiers.length > 0 && c.tiers.length <= 10
         && c.tiers.every((t, j) => Number.isInteger(t.min) && t.min > 0 && isMoney(t.amountMinor) && t.amountMinor > 0 && (j === 0 || t.min > c.tiers[j - 1].min));
       if (!ok) e.push(`${n}: escalones con mínimo creciente y bono.`);
+    } else if (c.type === "first_month_by_members") {
+      const b = c.brackets;
+      const ok = Array.isArray(b) && b.length > 0 && b.length <= 10
+        && b.every((t, j) => Number.isInteger(t.minMembers) && t.minMembers >= 1 && t.minMembers <= 1_000_000 && isBps(t.bps) && (j === 0 || t.minMembers > b[j - 1].minMembers));
+      if (!ok) e.push(`${n}: cada tramo necesita «desde cuántos socios» (creciente, sin repetir) y un porcentaje entre 0,01 y 100.`);
     } else e.push(`${n}: tipo desconocido.`);
   }
   return e;
@@ -262,6 +280,7 @@ export function describeComponent(c: CommissionComponent, money: (m: number) => 
     case "recurring_pct": return `${pct(c.bps)} de cada cobro registrado durante ${c.months} ${c.months === 1 ? "mes" : "meses"} desde el inicio`;
     case "per_member": return `${money(c.amountMinor)} por socio acordado${c.maxMembers ? ` (hasta ${c.maxMembers})` : ""} · ${TRIGGER_LABEL[c.trigger].toLowerCase()}`;
     case "tier_bonus": return `Bono mensual por ${c.metric === "approved_deals" ? "ventas aprobadas" : "socios acordados"}: ${c.tiers.map((t) => `${t.min}+ → ${money(t.amountMinor)}`).join(" · ")}`;
+    case "first_month_by_members": return `Del primer mes cobrado, según los socios del gimnasio: ${describeBrackets(c.brackets)}`;
   }
 }
 
@@ -286,6 +305,8 @@ export type LedgerPayment = { id: string; amountMinor: number; currency: string;
 export type DealForCommission = {
   id: string; kind: DealKind; currency: string; contractStart: string; approvedOn: string; members: number; previousMembers: number;
   split: Split; contractEnabledOn: string | null; contractStoppedOn: string | null;
+  /** Meses que cubre cada cobro (1 mensual, 3 trimestral…). El «primer mes» de un cobro trimestral es un tercio. */
+  periodicityMonths?: number;
 };
 export type DesiredEntry = {
   key: string; repId: string; componentIndex: number; component: CommissionComponent["type"]; sourceType: "deal" | "payment"; sourceId: string;
@@ -333,6 +354,14 @@ export function desiredEntries(rules: CommissionRules, deal: DealForCommission, 
       if (!first) { excluded.push({ componentIndex: i, reason: "Todavía no hay un cobro registrado." }); return; }
       if (stopped(first.receivedOn)) { excluded.push({ componentIndex: i, reason: "Cobro posterior a la suspensión o fin del contrato (regla del plan).", sourceId: first.id }); return; }
       push(i, c, "payment", first.id, first.amountMinor, c.bps, applyBps(first.amountMinor, c.bps), first.currency, first.receivedOn, `${COMPONENT_LABEL[c.type]} (${first.receivedOn})`);
+    } else if (c.type === "first_month_by_members") {
+      if (!first) { excluded.push({ componentIndex: i, reason: "Todavía no hay un cobro registrado." }); return; }
+      if (stopped(first.receivedOn)) { excluded.push({ componentIndex: i, reason: "Cobro posterior a la suspensión o fin del contrato (regla del plan).", sourceId: first.id }); return; }
+      const b = bracketFor(c.brackets, deal.members);
+      if (!b) { excluded.push({ componentIndex: i, reason: `${deal.members} socios: menos que el primer tramo del plan (${Math.min(...c.brackets.map((x) => x.minMembers))}).` }); return; }
+      const months = Math.max(1, deal.periodicityMonths ?? 1);
+      const base = months > 1 ? Math.round(first.amountMinor / months) : first.amountMinor;
+      push(i, c, "payment", first.id, base, b.bps, applyBps(base, b.bps), first.currency, first.receivedOn, `Primer mes (${deal.members} socios, ${(b.bps / 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })} %)`);
     } else if (c.type === "recurring_pct") {
       const until = addMonthsIso(deal.contractStart, c.months);
       if (!live.length) { excluded.push({ componentIndex: i, reason: "Todavía no hay cobros registrados." }); return; }

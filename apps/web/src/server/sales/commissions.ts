@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
-  COMPONENT_LABEL, ENTRY_STATE_LABEL, TRIGGER_LABEL, applyBps, dealPreview, desiredEntries, diffLedger, entryState, fmtMoney, holdUntil, localDate, tierBonusFor, validateRules,
+  BILLING_PERIODICITY, COMPONENT_LABEL, ENTRY_STATE_LABEL, bracketFor, TRIGGER_LABEL, applyBps, dealPreview, desiredEntries, diffLedger, entryState, fmtMoney, holdUntil, localDate, tierBonusFor, validateRules,
   type CommissionRules, type Currency, type DealKind, type EntryState,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -85,6 +85,11 @@ export function estimateForDeal(rules: CommissionRules, d: { members: number; un
       lines.push({ label: COMPONENT_LABEL[c.type], amountMinor: d.currency === rules.currency ? n * c.amountMinor : null, currency: rules.currency, note: `${n} socios · ${TRIGGER_LABEL[c.trigger]}` });
     } else if (c.type === "first_payment_pct") lines.push({ label: COMPONENT_LABEL[c.type], amountMinor: applyBps(prev.perPeriod, c.bps), currency: d.currency, note: "Si el primer cobro registrado es el importe del período" });
     else if (c.type === "recurring_pct") lines.push({ label: COMPONENT_LABEL[c.type], amountMinor: applyBps(prev.monthlyNet, c.bps) * c.months, currency: d.currency, note: `Si se cobra lo pactado durante ${c.months} meses` });
+    else if (c.type === "first_month_by_members") {
+      const b = bracketFor(c.brackets, d.members);
+      lines.push({ label: COMPONENT_LABEL[c.type], amountMinor: b ? applyBps(prev.monthlyNet, b.bps) : 0, currency: d.currency,
+        note: b ? `${d.members} socios → ${(b.bps / 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })} % del primer mes, al registrarse el primer cobro` : `${d.members} socios: por debajo del primer tramo del plan` });
+    }
     else if (c.type === "tier_bonus") lines.push({ label: COMPONENT_LABEL[c.type], amountMinor: null, currency: rules.currency, note: "Depende de lo aprobado en el mes" });
   }
   return { lines, disclaimer: "Estimación sobre lo pactado. Se devenga sólo con eventos verificados y cobros registrados por REPI." };
@@ -124,6 +129,7 @@ export async function syncContract(contractId: string, now = new Date()) {
       const { entries } = desiredEntries(rules, {
         id: d.id, kind: d.kind as DealKind, currency: d.currency, contractStart: d.contractStart, approvedOn: localDate(d.approvedAt ?? now), members: d.members, previousMembers: d.previousMembers,
         split, contractEnabledOn: c.enabledAt ? localDate(c.enabledAt) : null, contractStoppedOn: stoppedOn,
+        periodicityMonths: BILLING_PERIODICITY[d.periodicity as keyof typeof BILLING_PERIODICITY]?.[1] ?? 1,
       }, mine, term, t);
       const existing = await tx.select({ key: E.key, amountMinor: E.amountMinor, reversalOf: E.reversalOf, id: E.id, repId: E.repId, currency: E.currency, concept: E.concept, availableOn: E.availableOn })
         .from(E).where(and(eq(E.dealId, d.id), inArray(E.sourceType, ["deal", "payment", "reversal"])));

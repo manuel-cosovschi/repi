@@ -3,13 +3,13 @@
 // Contratado, cobrado y comisiones van separados y con su definición. Nada de esto emite cobros ni transferencias.
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  BILLING_PERIODICITY, COMPONENT_LABEL, DEAL_STATUS, DUP_SIGNAL_LABEL, ENGAGEMENT, MATERIAL_KINDS, PAYOUT_FREQUENCY, REP_STATUS, STAGES, TARGET_METRICS, TRIGGER_LABEL, describeComponent, localDate, parseMoney,
-  type CommissionComponent, type CommissionRules, type Currency, type RepStatus, type Stage,
+  BILLING_PERIODICITY, COMPONENT_LABEL, DEAL_STATUS, DUP_SIGNAL_LABEL, ENGAGEMENT, MATERIAL_KINDS, PAYOUT_FREQUENCY, REP_STATUS, STAGES, TARGET_METRICS, TRIGGER_LABEL, applyBps, bracketFor, describeComponent, localDate, parseMoney, validateRules,
+  type CommissionComponent, type CommissionRules, type Currency, type MemberBracket, type RepStatus, type Stage,
 } from "@repi/domain";
 import { api, ApiError } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Head, Seg, fmt, useLoad, when } from "@/components/gym/shared";
-import { BATCH_ST, BatchModal, curMap, money } from "@/components/sales/SalesApp";
+import { BATCH_ST, BatchModal, curMap, dayTxt, money, planTerms } from "@/components/sales/SalesApp";
 
 type Flash = (t: string) => void;
 const today = () => localDate(new Date());
@@ -142,11 +142,11 @@ function Reps({ flash, opts, reloadOpts, focus }: { flash: Flash; opts: Opt[]; r
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
       {!v ? <p className="muted">Cargando…</p> : !v.rows.length ? <div className="empty">{f.q || f.status || f.province ? "Ningún vendedor coincide con los filtros." : "Todavía no hay vendedores. Creá el primero e invitalo por email."}</div> : (
         <section className="card" style={{ padding: 0 }}><div style={{ overflowX: "auto" }} tabIndex={0}>
-          <table className="gy-table"><thead><tr><th><span className="sr-only">Seleccionar</span></th><th>Vendedor</th><th>Estado</th><th>Zona</th><th>Oportunidades</th><th>Ventas</th><th>Liquidación</th><th><span className="sr-only">Abrir</span></th></tr></thead>
+          <table className="gy-table sv-reps-table"><thead><tr><th><span className="sr-only">Seleccionar</span></th><th>Vendedor</th><th>Estado</th><th>Zona</th><th>Oportunidades</th><th>Ventas</th><th>Liquidación</th><th><span className="sr-only">Abrir</span></th></tr></thead>
             <tbody>{v.rows.map((r) => <tr key={r.id}>
               <td><input type="checkbox" aria-label={`Seleccionar ${r.name}`} checked={sel.includes(r.id)} onChange={(e) => setSel((x) => e.target.checked ? [...x, r.id] : x.filter((y) => y !== r.id))} /></td>
-              <th scope="row">{r.name}<br /><small className="muted">{r.code} · {r.email}</small></th><td><span className={`chip ${REP_CHIP[r.status]}`}>{r.statusLabel}</span></td><td>{[r.city, r.province].filter(Boolean).join(", ") || "—"}</td>
-              <td>{r.openOpportunities}</td><td>{r.approvedDeals} aprob.{r.pendingDeals ? ` · ${r.pendingDeals} pend.` : ""}</td><td>{PAYOUT_FREQUENCY[r.payoutFrequency as keyof typeof PAYOUT_FREQUENCY]}</td>
+              <th scope="row">{r.name}<br /><small className="muted">{r.code} · {r.email}</small></th><td><span className={`chip ${REP_CHIP[r.status]}`}>{r.statusLabel}</span></td><td data-label="Zona">{[r.city, r.province].filter(Boolean).join(", ") || "—"}</td>
+              <td data-label="Oportunidades">{r.openOpportunities}</td><td data-label="Ventas">{r.approvedDeals} aprob.{r.pendingDeals ? ` · ${r.pendingDeals} pend.` : ""}</td><td data-label="Liquidación">{PAYOUT_FREQUENCY[r.payoutFrequency as keyof typeof PAYOUT_FREQUENCY]}</td>
               <td><button type="button" className="btn sm" onClick={() => setOpen(r.id)}>Abrir</button></td></tr>)}</tbody></table></div></section>
       )}
       {v && v.total > v.pageSize && <div className="sv-filter"><button type="button" className="btn sm" disabled={f.page <= 1} onClick={() => setF({ ...f, page: f.page - 1 })}>Anterior</button><span className="muted">Página {v.page} de {Math.ceil(v.total / v.pageSize)} · {v.total} vendedores</span><button type="button" className="btn sm" disabled={v.page * v.pageSize >= v.total} onClick={() => setF({ ...f, page: f.page + 1 })}>Siguiente</button></div>}
@@ -219,7 +219,9 @@ function RepProfile({ id, flash, opts, onClose }: { id: string; flash: Flash; op
   const [mv, setMv] = useState({ toRepId: "", reason: "", includeClients: true });
   const v = d.data;
   const status = async (to: string, label: string) => { const reason = window.prompt(`Motivo para ${label.toLowerCase()}:`); if (!reason?.trim()) return; await go(() => api(`/api/admin/sales/reps/${id}/status`, { body: { to, reason } }), flash, `Vendedor: ${label}.`, d.reload); };
-  const approved = (plans.data ?? []).flatMap((p) => p.versions.filter((x) => x.status === "approved").map((x) => ({ id: x.id, label: `${p.name} v${x.version} (desde ${x.effectiveFrom})` })));
+  const [quick, setQuick] = useState(false);
+  const approved = (plans.data ?? []).filter((p) => p.status === "active").flatMap((p) => p.versions.filter((x) => x.status === "approved").map((x) => ({ id: x.id, label: `${p.name} · v${x.version}`, rules: x.rules })));
+  const approvedRules = new Map(approved.map((x) => [x.id, x.rules.components.map((c) => describeComponent(c, (m) => money(m, x.rules.currency))).join(" · ")]));
   return (
     <Modal label={v ? `Vendedor ${v.rep.name}` : "Vendedor"} onClose={onClose} wide>
       <div className="mhead"><h2>{v?.rep.name ?? "Cargando…"} {v && <span className={`chip ${REP_CHIP[v.rep.status]}`}>{v.rep.statusLabel}</span>}</h2><button type="button" className="x" aria-label="Cerrar" onClick={onClose}>×</button></div>
@@ -236,16 +238,21 @@ function RepProfile({ id, flash, opts, onClose }: { id: string; flash: Flash; op
           {["active", "paused"].includes(v.rep.status) && <button type="button" className="btn sm" onClick={() => status("suspended", "Suspendido")}>Suspender</button>}
           {v.rep.status !== "terminated" && <button type="button" className="btn sm danger" onClick={() => status("terminated", "Desvinculado")}>Desvincular</button>}
         </div>
-        {v.invitations.length > 0 && <p className="sv-note">Invitaciones: {v.invitations.slice(0, 3).map((i) => `${{ pending: "pendiente", accepted: "aceptada", revoked: "revocada", expired: "vencida" }[i.status]} (${{ pending: "envío en curso", submitted: "aceptada por el proveedor", local_only: "sólo buzón local", failed: "envío rechazado" }[i.delivery]}, ${fmt(i.createdAt)})`).join(" · ")}</p>}
+        {v.invitations.length > 0 && <p className="sv-note">Invitaciones: {v.invitations.slice(0, 3).map((i) => `${{ pending: "pendiente", accepted: "aceptada", revoked: "revocada", expired: "vencida" }[i.status]} (${{ pending: "envío en curso", submitted: "email enviado", local_only: "sólo buzón local", failed: "el email no se pudo enviar" }[i.delivery]}, ${fmt(i.createdAt)})`).join(" · ")}</p>}
         <section className="card"><h2>Plan de comisiones</h2>
-          {v.plans.length ? <ul className="sv-timeline">{v.plans.map((p) => <li key={p.id}><b>{p.plan} v{p.version}</b> desde {p.effectiveFrom} · {p.reason}<small>{p.rules.components.map((c) => describeComponent(c, (m) => money(m, p.rules.currency))).join(" · ")}</small></li>)}</ul> : <p className="sv-note">Sin plan asignado: sus ventas aprobadas no devengan comisiones hasta asignarlo.</p>}
-          <div className="grid-2">
-            <label className="field">Versión aprobada<select value={pa.planVersionId} onChange={(e) => setPa({ ...pa, planVersionId: e.target.value })}><option value="">Elegí…</option>{approved.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
-            <label className="field">Vigente desde<input type="date" value={pa.effectiveFrom} onChange={(e) => setPa({ ...pa, effectiveFrom: e.target.value })} /></label>
-          </div>
-          <label className="field">Motivo<input value={pa.reason} onChange={(e) => setPa({ ...pa, reason: e.target.value })} placeholder="Acuerdo firmado, renegociación…" /></label>
-          <div className="mfoot"><button type="button" className="btn" disabled={!pa.planVersionId} onClick={() => go(() => api(`/api/admin/sales/reps/${id}/plan`, { body: pa }), flash, "Plan asignado.", d.reload)}>Asignar plan</button></div>
-          <p className="sv-note">Aplica a ventas cerradas desde esa fecha. Las ventas ya aprobadas conservan el plan con el que se aprobaron.</p>
+          {v.plans.length ? <ul className="sv-timeline">{v.plans.map((p) => <li key={p.id}><b>{p.plan} v{p.version}</b> desde el {dayTxt(p.effectiveFrom)} · {p.reason}<small>{p.rules.components.map((c) => describeComponent(c, (m) => money(m, p.rules.currency))).join(" · ")}</small></li>)}</ul> : <p className="sv-note">Sin plan asignado: sus ventas aprobadas no devengan comisiones hasta asignarlo.</p>}
+          {plans.data && (approved.length === 0 || quick) ? (
+            <QuickPlan repId={id} flash={flash} canCancel={approved.length > 0} onCancel={() => setQuick(false)} onDone={() => { setQuick(false); plans.reload(); d.reload(); }} />
+          ) : plans.data ? <>
+            <div className="grid-2">
+              <label className="field">Plan<select value={pa.planVersionId} onChange={(e) => setPa({ ...pa, planVersionId: e.target.value })}><option value="">Elegí un plan…</option>{approved.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
+              <label className="field">Vigente desde<input type="date" value={pa.effectiveFrom} onChange={(e) => setPa({ ...pa, effectiveFrom: e.target.value })} /></label>
+            </div>
+            {pa.planVersionId && <p className="sv-note">{approvedRules.get(pa.planVersionId)}</p>}
+            <label className="field">Motivo<input value={pa.reason} onChange={(e) => setPa({ ...pa, reason: e.target.value })} placeholder="Acuerdo firmado, renegociación…" /></label>
+            <div className="mfoot"><button type="button" className="btn" onClick={() => setQuick(true)}>Crear plan nuevo</button><button type="button" className="btn pri" disabled={!pa.planVersionId || pa.reason.trim().length < 3} onClick={() => go(() => api(`/api/admin/sales/reps/${id}/plan`, { body: pa }), flash, "Plan asignado.", () => { setPa({ ...pa, planVersionId: "", reason: "" }); d.reload(); })}>Asignar plan</button></div>
+            <p className="sv-note">Aplica a ventas cerradas desde esa fecha. Las ventas ya aprobadas conservan el plan con el que se aprobaron.</p>
+          </> : <p className="muted">Cargando planes…</p>}
         </section>
         <section className="card"><h2>Objetivos</h2>
           {v.targets.length > 0 && <ul className="sv-timeline">{v.targets.map((t) => <li key={t.id}>{t.label}: <b>{t.actual} / {t.target}</b> ({t.pct ?? 0}%) <button type="button" className="btn sm" onClick={() => go(() => api(`/api/admin/sales/targets/${t.id}/delete`, { body: {} }), flash, "Objetivo quitado.", d.reload)}>Quitar</button></li>)}</ul>}
@@ -259,7 +266,7 @@ function RepProfile({ id, flash, opts, onClose }: { id: string; flash: Flash; op
         <div className="grid-2">
           <section className="card"><h2>Funnel</h2><Bars label="Funnel del vendedor" rows={(Object.keys(STAGES) as Stage[]).map((s) => [STAGES[s], v.funnel[s] ?? 0])} /></section>
           <section className="card"><h2>Comisiones</h2>{Object.keys(v.commissions).length ? Object.entries(v.commissions).map(([c, t]) => <dl key={c} className="sv-preview"><dt>Devengadas ({c})</dt><dd>{money(t.accrued, c)}</dd><dt>Disponibles</dt><dd>{money(t.available, c)}</dd><dt>En liquidación</dt><dd>{money(t.in_payout, c)}</dd><dt>Pagadas</dt><dd>{money(t.paid, c)}</dd></dl>) : <p className="sv-note">Sin comisiones.</p>}
-            {v.batches.length > 0 && <p className="sv-note">Liquidaciones: {v.batches.map((b) => `${b.cutoffOn} ${BATCH_ST[b.status]?.[0]} ${money(b.totalMinor, b.currency)}`).join(" · ")}</p>}</section>
+            {v.batches.length > 0 && <p className="sv-note">Liquidaciones: {v.batches.map((b) => `${dayTxt(b.cutoffOn)} ${BATCH_ST[b.status]?.[0]} ${money(b.totalMinor, b.currency)}`).join(" · ")}</p>}</section>
         </div>
         <section className="card"><h2>Clientes ({v.clients.length})</h2>{v.clients.length ? <ul className="sv-timeline">{v.clients.map((c) => <li key={c.orgId}>{c.name}<small>{c.roles.join(", ")} · contrato {c.contractStatus}</small></li>)}</ul> : <p className="sv-note">Sin clientes atribuidos.</p>}</section>
         <section className="card"><h2>Ventas</h2>{v.deals.length ? <ul className="sv-timeline">{v.deals.map((x) => <li key={x.id}>{x.businessName} · {x.members} × {money(x.unitPriceMinor, x.currency)} <span className={`chip ${DEAL_CHIP[x.status]}`}>{DEAL_STATUS[x.status as keyof typeof DEAL_STATUS]}</span><small>{fmt(x.createdAt)}</small></li>)}</ul> : <p className="sv-note">Sin ventas.</p>}</section>
@@ -435,21 +442,24 @@ function CommissionsAdmin({ flash, opts }: { flash: Flash; opts: Opt[] }) {
   const led = useLoad<Ledger>(`/api/admin/sales/ledger?${new URLSearchParams([...(repId ? [["repId", repId]] : []), ...(state ? [["state", state]] : [])])}`);
   const [editor, setEditor] = useState<{ planId: string; versionId?: string; rules?: CommissionRules; effectiveFrom?: string } | null>(null);
   const [newPlan, setNewPlan] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [adj, setAdj] = useState({ repId: "", amount: "", sign: "1", currency: "ARS", reason: "" });
   const [month, setMonth] = useState("");
   return (
     <>
       <section className="card"><h2>Planes de comisión</h2>
         <p className="sv-note">Ningún modelo se activa solo: creá el plan, definí sus reglas, aprobá la versión y asignala a cada vendedor. Una versión aprobada no se edita: los cambios son versiones nuevas con vigencia, y lo ya devengado no cambia.</p>
-        {!plans.data ? <p className="muted">Cargando…</p> : plans.data.map((p) => (
+        {!plans.data ? <p className="muted">Cargando…</p> : !plans.data.some((p) => p.status === "active") && <p className="sv-note">Todavía no hay planes activos. Escribí un nombre abajo y tocá «Crear plan».</p>}
+        {plans.data && [...plans.data.filter((p) => p.status === "active"), ...(showArchived ? plans.data.filter((p) => p.status !== "active") : [])].map((p) => (
           <div key={p.id} className="card" style={{ background: "var(--ui-surface-2)" }}>
             <div className="mhead"><b>{p.name}{p.status === "archived" && <> <span className="chip mute">Archivado</span></>}</b>{p.status === "active" && <div className="sv-filter"><button type="button" className="btn sm" onClick={() => setEditor({ planId: p.id })}>Nueva versión</button><button type="button" className="btn sm" onClick={() => window.confirm("¿Archivar el plan? Las asignaciones vigentes siguen.") && go(() => api(`/api/admin/sales/plans/${p.id}/archive`, { body: {} }), flash, "Plan archivado.", plans.reload)}>Archivar</button></div>}</div>
-            {!p.versions.length ? <p className="sv-note">Sin versiones.</p> : <ul className="sv-timeline">{p.versions.map((v) => <li key={v.id}><b>v{v.version}</b> · desde {v.effectiveFrom} · <span className={`chip ${v.status === "approved" ? "ok" : "mute"}`}>{v.status === "approved" ? "Aprobada" : "Borrador"}</span> · {v.reps} vendedor(es)
-              <small>{v.rules.components.map((c) => describeComponent(c, (m) => money(m, v.rules.currency))).join(" · ")} · retención {v.rules.holdDays} d · mínimo {money(v.rules.minPayoutMinor, v.rules.currency)}{v.rules.capPerDealMinor ? ` · tope ${money(v.rules.capPerDealMinor, v.rules.currency)}` : ""} · contrato suspendido: {v.rules.onContractStop === "stop" ? "corta" : "sigue"} · tras desvinculación: {v.rules.afterTermination === "stop" ? "corta" : "sigue"}</small>
+            {!p.versions.length ? <p className="sv-note">Sin versiones.</p> : <ul className="sv-timeline">{p.versions.map((v) => <li key={v.id}><b>v{v.version}</b> · desde el {dayTxt(v.effectiveFrom)} · <span className={`chip ${v.status === "approved" ? "ok" : "mute"}`}>{v.status === "approved" ? "Aprobada" : "Borrador"}</span> · {v.reps} vendedor(es)
+              <small>{v.rules.components.map((c) => describeComponent(c, (m) => money(m, v.rules.currency))).join(" · ")} · {planTerms(v.rules)} · contrato suspendido: {v.rules.onContractStop === "stop" ? "deja de comisionar" : "sigue"} · tras desvinculación: {v.rules.afterTermination === "stop" ? "deja de comisionar" : "sigue"}</small>
               {v.status === "draft" && <span className="sv-filter"><button type="button" className="btn sm" onClick={() => setEditor({ planId: p.id, versionId: v.id, rules: v.rules, effectiveFrom: v.effectiveFrom })}>Editar</button><button type="button" className="btn sm pri" onClick={() => window.confirm("¿Aprobar esta versión? Después no se puede editar.") && go(() => api(`/api/admin/sales/plan-versions/${v.id}/approve`, { body: {} }), flash, "Versión aprobada.", plans.reload)}>Aprobar</button></span>}</li>)}</ul>}
           </div>
         ))}
-        <div className="sv-filter"><input aria-label="Nombre del plan nuevo" placeholder="Nombre del plan nuevo" value={newPlan} onChange={(e) => setNewPlan(e.target.value)} /><button type="button" className="btn" disabled={newPlan.trim().length < 2} onClick={() => go(() => api("/api/admin/sales/plans", { body: { name: newPlan } }), flash, "Plan creado. Agregale una versión.", () => { setNewPlan(""); plans.reload(); })}>Crear plan</button></div>
+        <div className="sv-filter"><input aria-label="Nombre del plan nuevo" placeholder="Nombre del plan nuevo" value={newPlan} onChange={(e) => setNewPlan(e.target.value)} /><button type="button" className="btn" disabled={newPlan.trim().length < 2} onClick={() => go(async () => { const r = await api<{ id: string }>("/api/admin/sales/plans", { body: { name: newPlan.trim() } }); setNewPlan(""); plans.reload(); setEditor({ planId: r.id }); }, flash, "Plan creado: definí sus reglas.")}>Crear plan</button></div>
+        {plans.data?.some((p) => p.status !== "active") && <button type="button" className="btn sm" onClick={() => setShowArchived(!showArchived)}>{showArchived ? "Ocultar archivados" : `Ver archivados (${plans.data.filter((p) => p.status !== "active").length})`}</button>}
       </section>
       <section className="card"><h2>Libro de comisiones</h2>
         <div className="sv-filter">
@@ -481,19 +491,28 @@ function CommissionsAdmin({ flash, opts }: { flash: Flash; opts: Opt[] }) {
   );
 }
 function PlanEditor({ planId, versionId, rules, effectiveFrom, flash, onClose }: { planId: string; versionId?: string; rules?: CommissionRules; effectiveFrom?: string; flash: Flash; onClose: () => void }) {
-  const [r, setR] = useState<CommissionRules>(rules ?? { currency: "ARS", components: [], holdDays: 0, minPayoutMinor: 0, capPerDealMinor: null, onContractStop: "stop", afterTermination: "stop", notes: "" });
+  const [r, setR] = useState<CommissionRules>(rules ?? { currency: "ARS", components: [{ type: "first_month_by_members", brackets: DEFAULT_BRACKETS }], holdDays: 0, minPayoutMinor: 0, capPerDealMinor: null, onContractStop: "stop", afterTermination: "stop", notes: "" });
   const [from, setFrom] = useState(effectiveFrom ?? today());
-  const [add, setAdd] = useState<CommissionComponent["type"]>("fixed_per_sale");
+  const [add, setAdd] = useState<CommissionComponent["type"]>("first_month_by_members");
   const cur = r.currency as Currency;
   const mIn = (minor: number | null | undefined) => (minor ? String(minor / 100).replace(".", ",") : "");
   const setC = (i: number, c: Partial<CommissionComponent>) => setR({ ...r, components: r.components.map((x, j) => (j === i ? ({ ...x, ...c } as CommissionComponent) : x)) });
   const blank: Record<CommissionComponent["type"], CommissionComponent> = {
     fixed_per_sale: { type: "fixed_per_sale", amountMinor: 0, trigger: "deal_approved" }, first_payment_pct: { type: "first_payment_pct", bps: 0 }, recurring_pct: { type: "recurring_pct", bps: 0, months: 0 },
     per_member: { type: "per_member", amountMinor: 0, trigger: "deal_approved", maxMembers: null }, tier_bonus: { type: "tier_bonus", metric: "approved_deals", tiers: [{ min: 0, amountMinor: 0 }] },
+    first_month_by_members: { type: "first_month_by_members", brackets: DEFAULT_BRACKETS },
   };
   const pct = (bps: number) => (bps ? String(bps / 100).replace(".", ",") : "");
   const toBps = (s: string) => Math.round(Number(s.replace(",", ".")) * 100) || 0;
-  const save = () => go(() => api(`/api/admin/sales/plans/${planId}/versions`, { body: { versionId: versionId ?? null, rules: r, effectiveFrom: from } }), flash, "Borrador guardado. Aprobalo para poder asignarlo.", onClose);
+  const errs = validateRules(r);
+  const save = (approve: boolean) => {
+    if (errs.length) { flash(errs.join(" ")); return; }
+    if (approve && !window.confirm("¿Aprobar esta versión? Después no se puede editar: los cambios se hacen con una versión nueva.")) return;
+    void go(async () => {
+      const v = await api<{ id: string }>(`/api/admin/sales/plans/${planId}/versions`, { body: { versionId: versionId ?? null, rules: r, effectiveFrom: from } });
+      if (approve) await api(`/api/admin/sales/plan-versions/${v.id}/approve`, { body: {} });
+    }, flash, approve ? "Versión aprobada: ya la podés asignar desde la ficha de cada vendedor." : "Borrador guardado. Aprobalo para poder asignarlo.", onClose);
+  };
   const trig = (v: string, on: (t: "deal_approved" | "contract_enabled" | "first_payment") => void) => <label className="field">Momento<select value={v} onChange={(e) => on(e.target.value as never)}>{Object.entries(TRIGGER_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>;
   return (
     <Modal label="Versión del plan" onClose={onClose} wide>
@@ -513,13 +532,14 @@ function PlanEditor({ planId, versionId, rules, effectiveFrom, flash, onClose }:
             {c.type === "recurring_pct" && <label className="field">Meses comisionables desde el inicio<input inputMode="numeric" defaultValue={c.months || ""} onBlur={(e) => setC(i, { months: Number(e.target.value) || 0 })} /></label>}
             {c.type === "tier_bonus" && <label className="field">Métrica del mes<select value={c.metric} onChange={(e) => setC(i, { metric: e.target.value as "approved_deals" })}><option value="approved_deals">Ventas aprobadas</option><option value="agreed_members">Socios contratados</option></select></label>}
           </div>
+          {c.type === "first_month_by_members" && <BracketsEditor value={c.brackets} onChange={(b) => setC(i, { brackets: b })} />}
           {c.type === "tier_bonus" && <>
             {c.tiers.map((t, j) => <div key={j} className="grid-2"><label className="field">Desde (cantidad)<input inputMode="numeric" defaultValue={t.min || ""} onBlur={(e) => setC(i, { tiers: c.tiers.map((x, k) => (k === j ? { ...x, min: Number(e.target.value) || 0 } : x)) })} /></label><label className="field">Bono ({cur})<input inputMode="decimal" defaultValue={mIn(t.amountMinor)} onBlur={(e) => setC(i, { tiers: c.tiers.map((x, k) => (k === j ? { ...x, amountMinor: parseMoney(e.target.value, cur) ?? 0 } : x)) })} /></label></div>)}
             <button type="button" className="btn sm" onClick={() => setC(i, { tiers: [...c.tiers, { min: 0, amountMinor: 0 }] })}>Agregar escalón</button>
           </>}
         </div>
       ))}
-      <div className="sv-filter"><select aria-label="Tipo de componente" value={add} onChange={(e) => setAdd(e.target.value as never)}>{Object.entries(COMPONENT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select><button type="button" className="btn sm" onClick={() => setR({ ...r, components: [...r.components, blank[add]] })}>Agregar componente</button></div>
+      <div className="sv-filter"><select aria-label="Tipo de componente" value={add} onChange={(e) => setAdd(e.target.value as never)}>{COMPONENT_ORDER.map((k) => <option key={k} value={k}>{COMPONENT_LABEL[k]}</option>)}</select><button type="button" className="btn sm" onClick={() => setR({ ...r, components: [...r.components, blank[add]] })}>Agregar componente</button></div>
       <p className="sv-note">Híbrido = varios componentes. Los porcentajes se aplican sólo sobre cobros registrados por Admin y no anulados; una anulación revierte su comisión.</p>
       <div className="grid-2">
         <label className="field">Días de retención antes de liberar<input inputMode="numeric" value={String(r.holdDays)} onChange={(e) => setR({ ...r, holdDays: Number(e.target.value.replace(/\D/g, "")) || 0 })} /></label>
@@ -530,8 +550,97 @@ function PlanEditor({ planId, versionId, rules, effectiveFrom, flash, onClose }:
       </div>
       <label className="field">Exclusiones y condiciones del acuerdo real (texto)<textarea rows={2} value={r.notes ?? ""} onChange={(e) => setR({ ...r, notes: e.target.value })} maxLength={1000} /></label>
       <p className="sv-note">REPI no infiere reglas fiscales, laborales ni legales: cargá lo que dice el acuerdo firmado con cada vendedor.</p>
-      <div className="mfoot"><button type="button" className="btn" onClick={onClose}>Cancelar</button><button type="button" className="btn pri" onClick={save}>Guardar borrador</button></div>
+      {errs.length > 0 && r.components.length > 0 && <p className="gy-warn" style={{ margin: 0 }}>{errs.join(" ")}</p>}
+      <div className="mfoot"><button type="button" className="btn" onClick={onClose}>Cancelar</button><button type="button" className="btn" onClick={() => save(false)}>Guardar borrador</button><button type="button" className="btn pri" disabled={errs.length > 0} onClick={() => save(true)}>Guardar y aprobar</button></div>
     </Modal>
+  );
+}
+
+// ── Comisión por tamaño del gimnasio ────────────────────────────────────────
+// Valores iniciales que propuso el titular (07/11/2026); se editan antes de guardar y cada plan guarda los suyos.
+const DEFAULT_BRACKETS: MemberBracket[] = [{ minMembers: 50, bps: 3500 }, { minMembers: 300, bps: 5000 }, { minMembers: 400, bps: 6500 }];
+const COMPONENT_ORDER: CommissionComponent["type"][] = ["first_month_by_members", "first_payment_pct", "recurring_pct", "fixed_per_sale", "per_member", "tier_bonus"];
+const pctTxt = (bps: number) => `${(bps / 100).toLocaleString("es-AR", { maximumFractionDigits: 2 })} %`;
+
+/** Tramos «desde N socios → % del primer mes». Entradas como texto para poder borrar y reescribir sin saltos. */
+function BracketsEditor({ value, onChange }: { value: MemberBracket[]; onChange: (b: MemberBracket[]) => void }) {
+  const [rows, setRows] = useState(() => value.map((b) => ({ min: String(b.minMembers), pct: String(b.bps / 100).replace(".", ",") })));
+  const [ex, setEx] = useState({ members: "350", price: "" });
+  const push = (next: { min: string; pct: string }[]) => {
+    setRows(next);
+    onChange(next.map((r) => ({ minMembers: Number(r.min.replace(/\D/g, "")) || 0, bps: Math.round(Number(r.pct.replace(",", ".")) * 100) || 0 })));
+  };
+  const set = (i: number, k: "min" | "pct", val: string) => push(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)));
+  const parsed = value.filter((b) => b.minMembers > 0 && b.bps > 0);
+  const sorted = [...parsed].sort((a, b) => a.minMembers - b.minMembers);
+  const unordered = parsed.some((b, i) => i > 0 && b.minMembers <= parsed[i - 1].minMembers);
+  const m = Number(ex.members.replace(/\D/g, "")) || 0;
+  const price = parseMoney(ex.price, "ARS");
+  const hit = m ? bracketFor(sorted, m) : null;
+  return (
+    <div className="sv-brackets">
+      <p className="sv-note">Se lleva un porcentaje <b>sólo del primer mes</b> que pague el gimnasio, según cuántos socios tiene el acuerdo. Cada tramo va desde la cantidad indicada hasta la del tramo siguiente.</p>
+      {rows.map((r, i) => {
+        const next = rows[i + 1]?.min;
+        const to = next && Number(next) > 1 ? `a ${Number(next) - 1}` : "o más";
+        return (
+          <div key={i} className="sv-bracket">
+            <label className="field">Desde (socios)<input inputMode="numeric" value={r.min} onChange={(e) => set(i, "min", e.target.value)} aria-describedby={`br-to-${i}`} /><small id={`br-to-${i}`} className="sv-bracket-to">{r.min ? (to === "o más" ? "en adelante" : `hasta ${to.slice(2)}`) : " "}</small></label>
+            <label className="field">% del primer mes<input inputMode="decimal" value={r.pct} onChange={(e) => set(i, "pct", e.target.value)} /><small className="sv-bracket-to">&nbsp;</small></label>
+            <button type="button" className="sv-bracket-x" aria-label={`Quitar tramo ${i + 1}`} title="Quitar tramo" disabled={rows.length === 1} onClick={() => push(rows.filter((_, j) => j !== i))}>×</button>
+          </div>
+        );
+      })}
+      <button type="button" className="btn sm" disabled={rows.length >= 10} onClick={() => push([...rows, { min: "", pct: "" }])}>Agregar tramo</button>
+      {unordered && <p className="gy-warn" role="alert" style={{ margin: 0 }}>Ordená los tramos de menor a mayor cantidad de socios, sin repetir.</p>}
+      {sorted.length > 0 && !unordered && <p className="sv-note">Queda así: {sorted.map((b, i) => `${b.minMembers}${sorted[i + 1] ? ` a ${sorted[i + 1].minMembers - 1}` : " o más"} socios → ${pctTxt(b.bps)}`).join(" · ")}. Menos de {sorted[0].minMembers} socios: sin comisión.</p>}
+      <div className="sv-bracket-ex">
+        <b>Probar con un ejemplo</b>
+        <div className="grid-2">
+          <label className="field">Socios del gimnasio<input inputMode="numeric" value={ex.members} onChange={(e) => setEx({ ...ex, members: e.target.value })} /></label>
+          <label className="field">Precio por socio (ARS, opcional)<input inputMode="decimal" value={ex.price} onChange={(e) => setEx({ ...ex, price: e.target.value })} placeholder="Ej.: 200" /></label>
+        </div>
+        <p className="sv-note" aria-live="polite">{!m ? "Escribí una cantidad de socios." : !hit ? `${m} socios: sin comisión (por debajo del primer tramo).` : price ? `${m} socios → ${pctTxt(hit.bps)} de un primer mes de ${money(m * price, "ARS")} = ${money(applyBps(m * price, hit.bps), "ARS")}.` : `${m} socios → ${pctTxt(hit.bps)} del primer mes.`}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Alta en un paso desde la ficha: crea el plan, aprueba su primera versión y la asigna al vendedor. */
+function QuickPlan({ repId, flash, canCancel, onCancel, onDone }: { repId: string; flash: Flash; canCancel: boolean; onCancel: () => void; onDone: () => void }) {
+  const [name, setName] = useState("Primer mes según socios");
+  const [brackets, setBrackets] = useState<MemberBracket[]>(DEFAULT_BRACKETS);
+  const [from, setFrom] = useState(today());
+  const [reason, setReason] = useState("Acuerdo comercial");
+  const [busy, setBusy] = useState(false);
+  const rules: CommissionRules = { currency: "ARS", components: [{ type: "first_month_by_members", brackets: [...brackets].filter((b) => b.minMembers || b.bps) }], holdDays: 0, minPayoutMinor: 0, capPerDealMinor: null, onContractStop: "stop", afterTermination: "continue", notes: null };
+  const errs = validateRules(rules);
+  const create = async () => {
+    if (name.trim().length < 2) { flash("Poné un nombre al plan."); return; }
+    if (errs.length) { flash(errs.join(" ")); return; }
+    if (reason.trim().length < 3) { flash("Escribí el motivo de la asignación."); return; }
+    setBusy(true);
+    try {
+      const plan = await api<{ id: string }>("/api/admin/sales/plans", { body: { name: name.trim() } });
+      const ver = await api<{ id: string }>(`/api/admin/sales/plans/${plan.id}/versions`, { body: { versionId: null, rules, effectiveFrom: from } });
+      await api(`/api/admin/sales/plan-versions/${ver.id}/approve`, { body: {} });
+      await api(`/api/admin/sales/reps/${repId}/plan`, { body: { planVersionId: ver.id, effectiveFrom: from, reason: reason.trim() } });
+      flash("Plan creado y asignado.");
+      onDone();
+    } catch (e) { flash((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="sv-quick">
+      <p className="sv-note">{canCancel ? "Plan nuevo para este vendedor." : "Todavía no hay planes. Armá el primero acá: queda guardado y lo podés asignar a otros vendedores."}</p>
+      <label className="field">Nombre del plan<input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} /></label>
+      <BracketsEditor value={brackets} onChange={setBrackets} />
+      <div className="grid-2">
+        <label className="field">Vigente desde<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label className="field">Motivo<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Acuerdo firmado, renegociación…" /></label>
+      </div>
+      <p className="sv-note">Se devenga cuando registrás el primer cobro del gimnasio. Si el pago es trimestral o anual, se toma la parte de un mes. Si el vendedor se desvincula antes del cobro, igual le corresponde; si el contrato se suspende antes, no. Para otras reglas, usá Ventas › Comisiones.</p>
+      <div className="mfoot">{canCancel && <button type="button" className="btn" onClick={onCancel}>Cancelar</button>}<button type="button" className="btn pri" disabled={busy || errs.length > 0} onClick={create}>{busy ? "Guardando…" : "Crear y asignar"}</button></div>
+    </div>
   );
 }
 
@@ -559,7 +668,7 @@ function PayoutsAdmin({ flash }: { flash: Flash }) {
       <section className="card"><h2>Liquidaciones</h2>
         <div className="sv-filter"><select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Todas</option>{Object.entries(BATCH_ST).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select><a className="btn sm" href="/api/admin/sales/export/payments" style={{ display: "inline-grid", placeItems: "center", textDecoration: "none" }}>Exportar pagos (CSV)</a></div>
         {!bs.data ? <p className="muted">Cargando…</p> : !bs.data.length ? <div className="empty">Sin liquidaciones.</div> : bs.data.map((b) => (
-          <div key={b.id} className="sv-row"><span className="main"><b>{b.repName}</b><small>Corte {b.cutoffOn} · pagado {money(b.paidMinor, b.currency)} de {money(b.totalMinor, b.currency)}</small></span><span className={`chip ${BATCH_ST[b.status]?.[1]}`}>{BATCH_ST[b.status]?.[0]}</span><button type="button" className="btn sm" onClick={() => setOpen(b.id)}>Abrir</button></div>
+          <div key={b.id} className="sv-row"><span className="main"><b>{b.repName}</b><small>Corte al {dayTxt(b.cutoffOn)} · pagado {money(b.paidMinor, b.currency)} de {money(b.totalMinor, b.currency)}</small></span><span className={`chip ${BATCH_ST[b.status]?.[1]}`}>{BATCH_ST[b.status]?.[0]}</span><button type="button" className="btn sm" onClick={() => setOpen(b.id)}>Abrir</button></div>
         ))}
       </section>
       {open && <BatchModal url={`/api/admin/sales/payouts/${open}`} onClose={() => { setOpen(null); reload(); }} actions={(b, re) => <BatchActions b={b} flash={flash} reload={() => { re(); reload(); }} />} />}
