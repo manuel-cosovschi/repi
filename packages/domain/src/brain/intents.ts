@@ -6,6 +6,7 @@ import type { ExerciseRef, Intent, IntentName } from "./types";
 import { detectSafety } from "./safety";
 import { parsePreference } from "./memory";
 import { editDistance, norm, NUM_WORDS } from "./util";
+import { SHORT_MINUTES } from "./session";
 
 export const INTENT_THRESHOLD = 0.5;
 export type IntentCtx = {
@@ -134,8 +135,8 @@ export function resolveExercise(text: string, list: ExerciseRef[] = [], current?
 const THIS_ONE = /\b(este|ese|esta|esa) (ejercicio|maquina|movimiento|aparato)\b|\bla (que|maquina que) (estoy|me toca|toca)\b|\bel (que|ejercicio que) (estoy|me toca|toca)\b/;
 
 // ── Números ────────────────────────────────────────────────────────────────────────────────────────────────────────────
-const MAX_MINUTES = 240;
-/** Minutos dichos en el texto («20 min», «veinte minutos», «media hora», «hora y media»). `null` si no hay o están fuera de 1–240. */
+/** Minutos dichos en el texto («20 min», «veinte minutos», «media hora», «hora y media»). `null` si no hay o están fuera de 5–180
+ * (el rango de la versión corta, SHORT_MINUTES); `raw` conserva lo dicho para responder «fuera de rango». */
 export function minutesOf(text: string): { minutes: number | null; raw: number | null } {
   const t = intentText(text);
   let raw: number | null = null;
@@ -150,7 +151,7 @@ export function minutesOf(text: string): { minutes: number | null; raw: number |
       if (n != null) raw = /^hora/.test(m[2]) ? n * 60 : n;
     }
   }
-  return { minutes: raw != null && raw >= 1 && raw <= MAX_MINUTES ? raw : null, raw };
+  return { minutes: raw != null && raw >= SHORT_MINUTES.min && raw <= SHORT_MINUTES.max ? raw : null, raw };
 }
 function daysOf(t: string): number | null {
   const m = /\b(\d{1,2}|uno|una|dos|tres|cuatro|cinco|seis|siete) (dias|dia|veces|vez)\b/.exec(t);

@@ -74,3 +74,38 @@ describe("safety · política por edad (casos 59–60)", () => {
     expect(AGE_REPLY.unknown).toMatch(/fecha de nacimiento/);
   });
 });
+
+// Revisión AC3 (07/11/2026), hallazgos 1, 2, 3 y 12: frases reales que se escapaban o daban falsos positivos.
+describe("safety · revisión: alarmas con intensificadores, pasado y sin puntuación", () => {
+  it.each([
+    "me duele mucho el pecho", "me duele bastante el pecho", "me duele re fuerte el pecho", "tengo un dolor muy fuerte en el pecho",
+    "me dolió el pecho", "me empezó a doler el pecho", "¿es normal que me duela el pecho?", "estoy re mareado", "estoy medio mareado",
+    "estoy un poco mareada", "me sentí mareado", "me siento débil y mareado", "tengo el corazón acelerado", "me late fuerte el corazón",
+    "me bajó la presión", "estoy por desmayarme",
+    // Sin coma: «no sé», «no aguanto» no niegan el síntoma.
+    "no sé me duele el pecho", "no se me duele el pecho", "no aguanto me duele el pecho", "no puedo más me duele el pecho",
+  ])("«%s» → alarma", (text) => {
+    const r = detectSafety(text);
+    expect(r.level).toBe("alarm");
+    expect(r.reply).toMatch(/107|911/);
+  });
+  it.each([
+    ["me dolió el hombro en la última serie", "hombro"], ["me empezó a doler la rodilla", "rodilla"], ["¿es normal que me duela el hombro?", "hombro"],
+    ["me dolía la espalda", "espalda"], ["me molestó el codo", "codo"], ["me arde el hombro", "hombro"], ["me trabé la espalda", "espalda"],
+    ["se me acalambró la pierna", "pierna"], ["me doblé el tobillo", "tobillo"],
+  ])("«%s» → molestia (%s)", (text, area) => {
+    const r = detectSafety(text);
+    expect(r.level).toBe("pain");
+    expect(r.area).toBe(area);
+  });
+  it.each([
+    "le pregunto a Dolores", "mi profe Dolores me armó la rutina", "molestia cero", "0 dolor", "dolor 0", "cero dolor", "nada de dolor",
+    "no estoy mareado", "no me siento muy mareado", "no tengo ninguna molestia",
+  ])("«%s» → nada", (text) => {
+    expect(detectSafety(text).level).toBe("none");
+  });
+  it("«tengo dolores en la espalda» sigue siendo molestia", () => {
+    expect(detectSafety("tengo dolores en la espalda").level).toBe("pain");
+    expect(detectSafety("tengo dolores").level).toBe("pain");
+  });
+});

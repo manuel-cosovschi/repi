@@ -36,7 +36,9 @@ describe("cierre de la sesión", () => {
     expect(rv.exercises.find((e) => e.name === "Remo con barra")).toMatchObject({ status: "partial", doneMain: 1, plannedMain: 3 });
     expect(rv.marks[0]).toMatchObject({ type: "load", value: 62.5, previous: 60, tie: false });
     expect(rv.adaptations).toContain("acortaste la sesión por falta de tiempo");
-    expect(rv.evidence.basis).toMatch(/^Comparé cada ejercicio con su sesión comparable anterior: Press banca \(\d{2}\/\d{2}\), Remo con barra \(\d{2}\/\d{2}\)\.$/);
+    // Remo con barra quedó a medias: no se compara con la sesión anterior completa (revisión AC3, K1).
+    expect(rv.evidence.basis).toMatch(/^Comparé cada ejercicio con su sesión comparable anterior: Press banca \(\d{2}\/\d{2}\)\.$/);
+    expect(rv.exercises.find((e) => e.name === "Remo con barra")).toMatchObject({ comparison: "not_comparable", delta: null });
     expect(rv.evidence.excluded).toContain("anuladas");
 
     // El resultado queda en la memoria una sola vez (leer el cierre dos veces no lo duplica).
@@ -62,7 +64,8 @@ describe("cierre de la sesión", () => {
     // 60 × 8 iguala lo anterior (empate, no récord); los 80 kg anulados no existen para el cierre.
     expect(rv.marks.filter((m) => !m.tie)).toEqual([]);
     expect(rv.marks.some((m) => m.value === 80)).toBe(false);
-    expect(rv.exercises.find((e) => e.name === "Press banca")).toMatchObject({ doneMain: 1, comparison: "fewer" });
+    // Una serie válida de tres: queda sin terminar, no «por debajo de la anterior» (revisión AC3, K1).
+    expect(rv.exercises.find((e) => e.name === "Press banca")).toMatchObject({ doneMain: 1, status: "partial", comparison: "not_comparable" });
     expect(rv.text).not.toContain("80");
   });
 

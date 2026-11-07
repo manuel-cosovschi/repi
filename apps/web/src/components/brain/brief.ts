@@ -48,7 +48,8 @@ export function workoutBrief(ex: BriefEx, tone: "normal" | "breve" = "normal"): 
   const b = briefExercise({
     exercise: { id: ex.exerciseId, name: ex.name, short: "" },
     // Con objetivo, la carga del profe va en la recomendación (así el dominio dice «hoy no fuerces» ante una molestia).
-    prescribed: { sets: workSets, reps: ex.reps, rir: ex.rir, restSec: ex.restSec, loadKg: planKg, coachLoad: planKg != null && !first, method: tech },
+    prescribed: { sets: workSets, reps: ex.reps, rir: ex.rir, restSec: ex.restSec, loadKg: planKg, coachLoad: planKg != null && !first, method: tech,
+      scheme: rows.filter((r) => r.stage === 0 && r.cls !== "warmup").map((r) => r.reps) },
     last, recommendation, restrictions: [], missing: [],
     // Sin «la última vez» ni objetivos (sólo la sugerencia del día), una línea: lo que se recomienda.
   }, last ? tone : "breve");

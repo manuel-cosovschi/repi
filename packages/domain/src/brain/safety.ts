@@ -27,14 +27,18 @@ export const BODY_AREAS: Record<string, string> = {
 };
 const AREA_RE = Object.keys(BODY_AREAS).sort((a, b) => b.length - a.length).join("|");
 const ART = "(?:el |la |los |las |un |una |mi |mis |en el |en la |del |de la |de )?";
+/** «mucho», «re fuerte», «un poco»… entre el verbo y la zona («me duele mucho el pecho»). */
+const INT = "(?:(?:mucho|muchisimo|bastante|re|muy|super|un poco|algo|fuerte|tanto|demasiado) )*";
+/** Formas de doler y parecidas, también en pasado, infinitivo y subjuntivo («me dolió», «empezó a doler», «que me duela»). */
+const DOLER = "(?:duele|duelen|dolio|dolieron|dolia|dolian|duela|duelan|esta doliendo|estan doliendo|empezo a doler|empieza a doler|empezaron a doler|sigue doliendo)";
 
 /** Señales de alarma: detener y buscar atención médica. */
 const ALARM: [string, RegExp][] = [
-  ["pecho", new RegExp(`\\b(?:dolor|dolores|presion|opresion|puntada|puntadas|pinchazo|ardor|molestia)\\s+(?:fuerte\\s+|intens[oa]\\s+)?(?:en|de)\\s+(?:el\\s+|la\\s+|mi\\s+)?pecho\\b|\\bme\\s+(?:duele|aprieta|oprime|quema|arde|pincha)\\s+${ART}pecho\\b|\\bdolor\\s+toracico\\b|\\bpecho\\s+(?:apretado|oprimido)\\b`)],
+  ["pecho", new RegExp(`\\b(?:dolor|dolores|presion|opresion|puntada|puntadas|pinchazo|ardor|molestia)\\s+(?:(?:muy|re|bastante|super)\\s+)?(?:fuerte\\s+|intens[oa]\\s+)?(?:en|de)\\s+(?:el\\s+|la\\s+|mi\\s+)?pecho\\b|\\bme\\s+(?:${DOLER}|aprieta|apreto|oprime|oprimio|quema|quemo|arde|ardio|pincha|pincho)\\s+${INT}${ART}pecho\\b|\\bdolor\\s+toracico\\b|\\bpecho\\s+(?:apretado|oprimido)\\b`)],
   ["corazon", /\b(?:me duele|dolor (?:en|de)) (?:el |mi )?corazon\b/],
-  ["mareo", /\bme (?:mareo|maree|estoy mareando|siento mareado|siento mareada)\b|\b(?:estoy|ando|quede) mareado\b|\b(?:estoy|ando|quede) mareada\b|\bmareos?\b|\bse me (?:nublo|nubla) la vista\b|\bvision borrosa\b|\bveo borroso\b|\bveo (?:todo )?negro\b|\bse me va la cabeza\b/],
-  ["desmayo", /\bme (?:desmaye|desmayo|voy a desmayar|estoy por desmayar|desvaneci)\b|\bcasi me desmayo\b|\bdesmayo\b|\bdesmayos\b|\bperdi el conocimiento\b|\bme baje de presion\b|\bme baja la presion\b/],
-  ["palpitaciones", /\bpalpitaciones?\b|\btaquicardia\b|\barritmia\b|\bel corazon (?:me )?(?:late|va|anda|esta) (?:muy |re |super )?(?:rapido|fuerte|a mil|acelerado|raro)\b|\bcorazon a mil\b/],
+  ["mareo", /\bme (?:mareo|maree|estoy mareando|siento mareado|siento mareada)\b|\bmaread[oa]s?\b|\bmareos?\b|\bse me (?:nublo|nubla) la vista\b|\bvision borrosa\b|\bveo borroso\b|\bveo (?:todo )?negro\b|\bse me va la cabeza\b/],
+  ["desmayo", /\bme (?:desmaye|desmayo|voy a desmayar|estoy por desmayar|desvaneci)\b|\bcasi me desmayo\b|\bdesmayo\b|\bdesmayos\b|\bperdi el conocimiento\b|\bme baje de presion\b|\bme (?:baja|bajo) la presion\b|\bdesmayarme\b|\bme (?:estoy|voy a) desmayando\b/],
+  ["palpitaciones", /\bpalpitaciones?\b|\btaquicardia\b|\barritmia\b|\bel corazon (?:me )?(?:late|va|anda|esta) (?:muy |re |super )?(?:rapido|fuerte|a mil|acelerado|raro)\b|\bcorazon (?:muy |re |super )?(?:acelerado|a mil)\b|\b(?:me )?late (?:muy |re |super )?(?:fuerte|rapido|a mil)\b/],
   ["aire", /\bme falta (?:el )?aire\b|\bfalta de aire\b|\bno puedo respirar\b|\bme ahogo\b|\bme estoy ahogando\b|\bme cuesta (?:mucho )?respirar\b|\bno me entra (?:el )?aire\b/],
   ["nauseas", /\bnauseas?\b|\bganas de vomitar\b|\bvomite\b|\bestoy por vomitar\b|\bme descompuse\b|\bme estoy descomponiendo\b|\bdescompuest[oa]\b/],
   ["golpe_cabeza", /\bme (?:golpee|pegue) (?:fuerte )?(?:en )?la cabeza\b|\bgolpe (?:fuerte )?en la cabeza\b/],
@@ -42,10 +46,10 @@ const ALARM: [string, RegExp][] = [
 
 /** Molestia o lesión: detener el ejercicio, ofrecer registrarlo y consultar al entrenador o a un profesional. */
 const PAIN: [string, RegExp][] = [
-  ["lesion", /\bme (?:lesione|lastime|desgarre|torci|esguince|fisure|quebre|fracture)\b|\blesion(?:ado|ada|es)?\b|\bdesgarro\b|\besguince\b|\bcontractura\b|\bme (?:tire|pinche) (?:un |el |la )?(?:musculo|gemelo|isquio|isquios|femoral|aductor|espalda|cuello)\b|\bse me (?:trabo|bloqueo|salio) (?:la |el )?(?:espalda|cintura|hombro|rodilla|cuello)\b|\btorcedura\b/],
-  ["duele_zona", new RegExp(`\\bme (?:duele|duelen|esta doliendo|estan doliendo|molesta|molestan|tira|tiran|pincha|cruje|truena) (?:mucho |un poco |bastante |re |algo |muchisimo )?${ART}(${AREA_RE})\\b`)],
+  ["lesion", /\bme (?:lesione|lastime|desgarre|torci|esguince|fisure|quebre|fracture)\b|\bme (?:trabe|doble) (?:la |el )?(?:espalda|cintura|cuello|tobillo|rodilla|muneca|dedo)\b|\bse me (?:acalambro|acalambraron) \w+|\bcalambres?\b|\blesion(?:ado|ada|es)?\b|\bdesgarro\b|\besguince\b|\bcontractura\b|\bme (?:tire|pinche) (?:un |el |la )?(?:musculo|gemelo|isquio|isquios|femoral|aductor|espalda|cuello)\b|\bse me (?:trabo|bloqueo|salio) (?:la |el )?(?:espalda|cintura|hombro|rodilla|cuello)\b|\btorcedura\b/],
+  ["duele_zona", new RegExp(`\\bme (?:${DOLER}|molesta|molestan|molesto|molestaba|tira|tiran|tiro|pincha|pincho|cruje|truena|arde|ardio|quema) ${INT}${ART}(${AREA_RE})\\b`)],
   ["dolor_zona", new RegExp(`\\b(?:dolor|dolores|molestia|molestias|puntada|pinchazo|tiron) (?:fuerte |leve |raro |rara )?(?:en|de|del) ${ART}(${AREA_RE})\\b`)],
-  ["duele", /\bme duele\b|\bme duelen\b|\bduele\b|\bdolor\b|\bdolores\b|\bdolorid[oa]s?\b|\bpinchazo\b|\bpuntada\b|\bme hice mal\b|\bme hace mal\b/],
+  ["duele", /\bme (?:duele|duelen|dolio|dolieron|dolia|duela|duelan)\b|\b(?:empezo|empieza|sigue) a doler\b|\bduele\b|\bdolor\b|\b(?:tengo|tenia|tuve|siento|con muchos|muchos|unos) dolores\b|\bdolorid[oa]s?\b|\bpinchazo\b|\bpuntada\b|\bme hice mal\b|\bme hace mal\b/],
   ["molestia", /\bmolestia\b|\bmolestias\b|\bme molesta (?:cuando|al|si)\b|\bsiento algo raro en\b/],
 ];
 
@@ -59,13 +63,23 @@ const IDIOMS: RegExp[] = [
   /\bno pain no gain\b/g,
 ];
 
-const NEG = new Set(["no", "sin", "ni", "nunca", "jamas", "ningun", "ninguna", "nada", "tampoco"]);
-/** ¿Hay una negación en las dos palabras anteriores (sin cruzar un signo)? «ya no me duele», «sin dolor», «no tengo molestias». */
-function negated(src: string, index: number): boolean {
-  const before = src.slice(Math.max(0, index - 30), index);
-  const seg = before.split(/[.,;:!?]/).pop() ?? "";
-  const words = seg.trim().split(/\s+/).filter(Boolean).slice(-2);
-  return words.some((w) => NEG.has(w));
+const NEG = new Set(["no", "sin", "ni", "nunca", "jamas", "ningun", "ninguna", "nada", "tampoco", "cero", "0"]);
+/** Palabras que pueden ir entre la negación y el síntoma sin cortar su alcance: «no tengo molestias», «no me siento muy mareado». */
+const NEG_BRIDGE = new Set(["me", "tengo", "tenia", "tuve", "siento", "senti", "sentia", "hay", "hubo", "noto", "estoy", "ando", "quede", "de", "mas", "es", "fue", "era", "muy", "re", "tan", "super", "mucho", "algo"]);
+/**
+ * ¿La negación gobierna el síntoma? Inmediatamente antes («sin dolor», «no me duele») o separada por hasta tres palabras puente
+ * («no tengo molestias», «no me siento muy mareado»), sin cruzar un signo. «No sé me duele el pecho» o «no aguanto me duele» no
+ * niegan nada. «Nada» niega sólo como «nada de» («nada de dolor»). También «molestia cero», «dolor 0».
+ */
+function negated(src: string, index: number, len: number): boolean {
+  const before = src.slice(Math.max(0, index - 40), index);
+  const words = (before.split(/[.,;:!?]/).pop() ?? "").trim().split(/\s+/).filter(Boolean);
+  for (let k = words.length - 1, bridges = 0; k >= 0; k--) {
+    const w = words[k];
+    if (NEG.has(w)) return w !== "nada" || words[k + 1] === "de";
+    if (!NEG_BRIDGE.has(w) || ++bridges > 3) break;
+  }
+  return /^\s+(?:cero|0)\b/.test(src.slice(index + len, index + len + 6));
 }
 /** Normaliza conservando el punto como corte, para que la negación no cruce frases. */
 const prep = (s: string) =>
@@ -75,7 +89,7 @@ function firstHit(rules: [string, RegExp][], text: string): { tag: string; area:
   for (const [tag, re] of rules) {
     const g = new RegExp(re.source, "g");
     for (let m = g.exec(text); m; m = g.exec(text)) {
-      if (negated(text, m.index)) continue;
+      if (negated(text, m.index, m[0].length)) continue;
       const area = m.slice(1).find((x) => x && BODY_AREAS[x]) ?? text.split(" ").find((w) => BODY_AREAS[w] && w !== "pecho" && w !== "cabeza");
       return { tag, area: area ? BODY_AREAS[area] : null };
     }

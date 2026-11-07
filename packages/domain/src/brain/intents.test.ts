@@ -111,6 +111,8 @@ describe("intents · piezas", () => {
   it.each([
     ["20 min", 20, 20], ["veinte minutos", 20, 20], ["media hora", 30, 30], ["hora y media", 90, 90], ["tres cuartos de hora", 45, 45], ["2 horas", 120, 120],
     ["5000 minutos", null, 5000], ["0 minutos", null, 0], ["sin número", null, null],
+    // Revisión AC3 (hallazgo 13): fuera de 5–180 no se entiende como versión corta (la acción tampoco la acepta).
+    ["me quedan 3 minutos", null, 3], ["5 minutos", 5, 5], ["3 horas", 180, 180], ["4 horas", null, 240],
   ])("minutos de «%s» → %s", (text, minutes, raw) => {
     expect(minutesOf(text)).toEqual({ minutes, raw });
   });

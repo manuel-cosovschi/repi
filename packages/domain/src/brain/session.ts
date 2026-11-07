@@ -27,6 +27,8 @@ export function setsText(sets: LastSetLite[]): string | null {
 }
 function prescribedText(p: ExerciseBriefInput["prescribed"]): string {
   const t = parseReps(p.reps);
+  const scheme = (p.scheme ?? []).map((x) => x.trim()).filter(Boolean);
+  if (scheme.length > 1 && new Set(scheme).size > 1) return `Hoy tenés indicadas ${scheme.length} series: ${listEs(scheme)} repeticiones.`;
   if (t.kind === "reps") return t.min === t.max ? `Hoy tenés indicadas ${p.sets} ${p.sets === 1 ? "serie" : "series"} de ${t.min}.` : `Hoy tenés indicado trabajar entre ${t.min} y ${t.max} repeticiones.`;
   if (t.kind === "time") return `Hoy tenés indicado ${fmtSeconds(t.seconds)} por serie.`;
   return `Hoy tenés indicado: ${p.reps}.`;
@@ -205,8 +207,11 @@ const REL = 0.01;
 
 /** Compara las series principales de hoy con las de la sesión comparable anterior (misma carga: repeticiones; si no, 1RM estimado). */
 export function compareWithPrevious(today: ReviewSet[], prev: ReviewSet[], measure: Measure): { comparison: ExerciseReview["comparison"]; delta: string | null } {
-  const a = mainSets(today), b = mainSets(prev);
-  if (!a.length || !b.length) return { comparison: "not_comparable", delta: null };
+  // Mismo número de series de cada lado (las primeras, en orden): un ejercicio hecho a medias no se compara con la sesión
+  // anterior completa, ni una sesión completa con una anterior a medias (revisión AC3, hallazgo 5).
+  const n = Math.min(mainSets(today).length, mainSets(prev).length);
+  const a = mainSets(today).slice(0, n), b = mainSets(prev).slice(0, n);
+  if (!n) return { comparison: "not_comparable", delta: null };
   const dir = (x: number, y: number, tol = 0): ExerciseReview["comparison"] => (x > y + tol ? "more" : x < y - tol ? "fewer" : "same");
   if (measure === "time") {
     const x = Math.max(...a.map((s) => s.r!)), y = Math.max(...b.map((s) => s.r!));
@@ -268,7 +273,7 @@ export function detectMarks(today: ReviewSet[], before: PriorMarks | null | unde
   return marks.sort((x, y) => Number(x.tie) - Number(y.tie) || order[x.type] - order[y.type]);
 }
 
-const PROPOSAL_RANK: Record<Proposal["kind"], number> = { deload: 0, review: 1, rest: 2, load: 3, reps: 4, hold: 5 };
+const PROPOSAL_RANK: Record<Proposal["kind"], number> = { deload: 0, review: 1, rest: 2, hold: 3, reps: 4, load: 5 };
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /**
@@ -290,7 +295,9 @@ export function sessionReview(input: { at: string; exercises: ReviewExercise[]; 
     mainTotal += m.length;
     hard += m.filter((s) => s.rir === 0 || s.feel === "limite" || s.feel === "dificil").length;
     const status: ExerciseReview["status"] = e.skipped || !m.length ? "skipped" : m.length < e.plannedMain ? "partial" : "done";
-    const cmp = e.previous ? compareWithPrevious(e.sets, e.previous.sets, measure) : { comparison: (e.before ? "not_comparable" : "first") as ExerciseReview["comparison"], delta: null };
+    // Sin terminar: se dice que quedó sin terminar, no que fue «menos» que la anterior (K1).
+    const cmp = status === "partial" ? { comparison: "not_comparable" as const, delta: null }
+      : e.previous ? compareWithPrevious(e.sets, e.previous.sets, measure) : { comparison: (e.before ? "not_comparable" : "first") as ExerciseReview["comparison"], delta: null };
     if (e.previous && cmp.comparison !== "not_comparable") sessions.set(e.exercise.name, e.previous.at);
     const mk = status === "skipped" ? null : detectMarks(e.sets, e.before, measure)[0] ?? null;
     if (mk) marks.push(mk);
@@ -308,10 +315,15 @@ export function sessionReview(input: { at: string; exercises: ReviewExercise[]; 
   const fatigue = (mainTotal > 0 && hard / mainTotal >= 0.5) || (input.rpe != null && input.rpe >= 9);
 
   // Próxima sesión: la propuesta más prudente de las que trae Training Intelligence; si no hay, una nota según el día.
-  const props = input.exercises.map((e) => e.proposal).filter((x): x is Proposal => !!x).sort((a, b) => PROPOSAL_RANK[a.kind] - PROPOSAL_RANK[b.kind]);
-  const pick = props.find((x) => x.kind === "deload" || x.kind === "review") ?? (fatigue ? null : props[0] ?? null);
+  // Con fatiga o con trabajo sin hacer no se propone subir carga. La propuesta nombra su ejercicio.
+  const cautious = fatigue || skipped.length > 0 || partial.length > 0;
+  const props = input.exercises.filter((e) => e.proposal).map((e) => ({ p: e.proposal!, name: (e.substitutedBy ?? e.exercise).name }))
+    .sort((a, b) => PROPOSAL_RANK[a.p.kind] - PROPOSAL_RANK[b.p.kind]);
+  const chosen = props.find((x) => x.p.kind === "deload" || x.p.kind === "review") ?? (fatigue ? null : props.find((x) => !(cautious && x.p.kind === "load")) ?? null);
+  const pick = chosen?.p ?? null;
+  const pickText = chosen ? `Para ${chosen.name}: ${chosen.p.text ? chosen.p.text[0].toLowerCase() + chosen.p.text.slice(1) : ""}` : "";
   const next: SessionReview["next"] = pick
-    ? { kind: pick.kind, requiresCoach: pick.requiresCoach, text: pick.requiresCoach ? `${pick.text} Lo decide tu profe.` : pick.text }
+    ? { kind: pick.kind, requiresCoach: pick.requiresCoach, text: pick.requiresCoach ? `${pickText} Lo decide tu profe.` : pickText }
     : fatigue ? { kind: "hold", requiresCoach: false, text: "Fue una sesión exigente: la próxima mantené las cargas y priorizá completar el rango con buena técnica." }
       : { kind: "none", requiresCoach: false, text: "La próxima, mantené la programación y buscá repetir o mejorar lo de hoy." };
   const ask = skipped.length || partial.length ? "¿Querés que lo tengamos en cuenta para tu próxima sesión?" : null;
@@ -350,6 +362,8 @@ export type ShortenExercise = {
   /** Prioridad explícita (menor = más importante). Sin ella, manda el orden del programa (los compuestos suelen ir primero). */
   priority?: number | null;
 };
+/** Rango de «me quedan N minutos»: el mismo para entender el texto, armar la versión corta y aplicarla (acción apply_short_session). */
+export const SHORT_MINUTES = { min: 5, max: 180 } as const;
 export type ShortenPlan = { keep: ExerciseRef[]; skip: ExerciseRef[]; note: string; minutesNeeded: number; minutesKept: number; fits: boolean };
 const SEC_PER_REP = 3, SET_SETUP_SEC = 10, TRANSITION_SEC = 60, FREE_SET_SEC = 45;
 
@@ -379,8 +393,8 @@ export function shortenSession(plan: { exercises: ShortenExercise[] }, minutesLe
   const doneSet = new Set(done);
   const pending = all.filter((e) => e.setsDone < e.sets);
   const need = Math.ceil(pending.reduce((n, e) => n + remainingSeconds(e), 0) / 60);
-  if (!Number.isFinite(minutesLeft) || minutesLeft < 1 || minutesLeft > 240)
-    return { keep: pending.map((e) => e.exercise), skip: [], note: "No entendí cuántos minutos te quedan. Decime un número entre 1 y 240.", minutesNeeded: need, minutesKept: need, fits: false };
+  if (!Number.isFinite(minutesLeft) || minutesLeft < SHORT_MINUTES.min || minutesLeft > SHORT_MINUTES.max)
+    return { keep: pending.map((e) => e.exercise), skip: [], note: `No entendí cuántos minutos te quedan. Decime un número entre ${SHORT_MINUTES.min} y ${SHORT_MINUTES.max}.`, minutesNeeded: need, minutesKept: need, fits: false };
   // Unidades: un ejercicio suelto o un grupo (superserie / circuito) entero.
   const units: { exs: ShortenExercise[]; order: number; inProgress: boolean; essential: boolean; priority: number; sec: number }[] = [];
   const byGroup = new Map<string, number>();

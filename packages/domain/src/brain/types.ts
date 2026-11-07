@@ -31,7 +31,8 @@ export type ExerciseRef = { id: string; name: string; short: string };
 /** Briefing de un ejercicio de la sesión, armado desde Training Intelligence y lo prescrito. */
 export type ExerciseBriefInput = {
   exercise: ExerciseRef;
-  prescribed: { sets: number; reps: string; rir: number | null; restSec: number; loadKg: number | null; coachLoad: boolean; method: string | null };
+  /** `scheme`: repeticiones de cada serie de trabajo cuando cambian («12», «10», «8» en una pirámide). */
+  prescribed: { sets: number; reps: string; rir: number | null; restSec: number; loadKg: number | null; coachLoad: boolean; method: string | null; scheme?: string[] };
   /** Última sesión comparable (series principales comparables). */
   last: { at: string; sets: { w: number | null; r: number | null; rir: number | null }[] } | null;
   /** Recomendación vigente de Training Intelligence para la primera serie principal. */

@@ -253,7 +253,7 @@ describe("session · cierre (casos 10–11, 41)", () => {
       { exercise: EX.pb, plannedMain: 1, sets: [W(60, 10)], proposal: { kind: "load", text: "Probá 62,5 kg.", weightKg: 62.5, reps: 8, requiresCoach: false, basis: "" } },
       { exercise: EX.sq, plannedMain: 1, sets: [W(80, 8)], proposal: { kind: "review", text: "Revisá el rango con tu entrenador.", weightKg: null, reps: null, requiresCoach: true, basis: "" } },
     ] });
-    expect(props.next).toMatchObject({ kind: "review", requiresCoach: true, text: "Revisá el rango con tu entrenador. Lo decide tu profe." });
+    expect(props.next).toMatchObject({ kind: "review", requiresCoach: true, text: "Para Sentadilla: revisá el rango con tu entrenador. Lo decide tu profe." });
     const calm = sessionReview({ at: NOW, exercises: [{ exercise: EX.pb, plannedMain: 1, sets: [W(60, 10)] }] });
     expect(calm.next.text).toBe("La próxima, mantené la programación y buscá repetir o mejorar lo de hoy.");
   });
@@ -296,14 +296,17 @@ describe("session · poco tiempo (caso 14)", () => {
   });
   it("si alcanza, no omite nada; si no alcanza ni uno, conserva el prioritario y lo avisa; minutos inválidos se piden de nuevo", () => {
     expect(shortenSession(plan, 120)).toMatchObject({ skip: [], fits: true, note: expect.stringMatching(/^Te alcanza el tiempo/) });
-    const tiny = shortenSession({ exercises: [E(EX.sq, 5), E(EX.rm, 3)] }, 2);
+    const tiny = shortenSession({ exercises: [E(EX.sq, 5), E(EX.rm, 3)] }, 5);
     expect(tiny.keep.map((x) => x.id)).toEqual([EX.sq.id]);
     expect(tiny.fits).toBe(false);
     expect(shortenSession(plan, 0)).toMatchObject({ skip: [], fits: false, note: expect.stringMatching(/No entendí cuántos minutos/) });
     expect(shortenSession(plan, Number.NaN).skip).toEqual([]);
+    // Revisión AC3 (hallazgo 13): el mismo rango que la acción apply_short_session (5–180), para no proponer algo inaplicable.
+    expect(shortenSession(plan, 3)).toMatchObject({ skip: [], fits: false, note: expect.stringMatching(/entre 5 y 180/) });
+    expect(shortenSession(plan, 200).note).toMatch(/entre 5 y 180/);
   });
   it("con uno a medias y muy poco tiempo, deja para otro día todos los que no empezaste (D209)", () => {
-    const r = shortenSession(plan, 3);
+    const r = shortenSession(plan, 5);
     expect(r.keep.map((x) => x.id)).toEqual([EX.pb.id]);
     expect(r.skip.map((x) => x.id)).toEqual([EX.sq.id, EX.rm.id, EX.pi.id, EX.curl.id]);
     expect(r.fits).toBe(false);
@@ -339,5 +342,42 @@ describe("session · reemplazos (casos 11–13)", () => {
   });
   it("con molestia, no sugiere el mismo movimiento (salvo que el profe lo haya aprobado)", () => {
     expect(rankAlternatives(cur, opts, { reason: "discomfort" }).map((x) => x.exerciseId)).toEqual([EX.jpu.id, "x-row"]);
+  });
+});
+
+// Revisión AC3 (07/11/2026): hallazgos 5, 6 y 11 y conocido K1.
+describe("session · revisión: comparar sólo lo comparable y proponer lo prudente", () => {
+  const W = (w: number | null, r: number, extra: Partial<ReviewExercise["sets"][number]> = {}) => ({ w, r, kind: "work" as const, stage: 0, ...extra });
+  it("un ejercicio a medias no es «por debajo de la anterior»: queda sin terminar (K1)", () => {
+    const r = sessionReview({ at: NOW, exercises: [{ exercise: EX.rm, plannedMain: 3, sets: [W(60, 10)], previous: { at: daysAgo(4), sets: [W(60, 10), W(60, 10), W(60, 10)] } }] });
+    expect(r.exercises[0]).toMatchObject({ status: "partial", comparison: "not_comparable", delta: null });
+    expect(r.text).not.toMatch(/menos que la sesión anterior/);
+  });
+  it("una sesión completa contra una anterior a medias compara las mismas series (hallazgo 5)", () => {
+    expect(compareWithPrevious([W(50, 10), W(50, 10), W(50, 10)], [W(50, 8)], "load")).toEqual({ comparison: "more", delta: "hiciste dos repeticiones más que la sesión anterior con 50 kg" });
+    expect(compareWithPrevious([W(60, 10)], [W(60, 10), W(60, 10), W(60, 10)], "load")).toMatchObject({ comparison: "same" });
+  });
+  it("la próxima: mantener o sumar repeticiones antes que subir carga, sin subir si quedó trabajo sin hacer, y con el ejercicio nombrado (hallazgo 6)", () => {
+    const load = { kind: "load" as const, text: "Completaste el rango en todas las series. En la próxima podrías probar 62,5 kg.", weightKg: 62.5, reps: 8, requiresCoach: false, basis: "" };
+    const hold = { kind: "hold" as const, text: "Mantené 80 kg y buscá 8 en todas las series.", weightKg: 80, reps: 8, requiresCoach: false, basis: "" };
+    const both = sessionReview({ at: NOW, exercises: [
+      { exercise: EX.pb, plannedMain: 1, sets: [W(60, 10)], proposal: load },
+      { exercise: EX.sq, plannedMain: 1, sets: [W(80, 8)], proposal: hold },
+    ] });
+    expect(both.next).toMatchObject({ kind: "hold", text: "Para Sentadilla: mantené 80 kg y buscá 8 en todas las series." });
+    const partial = sessionReview({ at: NOW, exercises: [
+      { exercise: EX.pb, plannedMain: 1, sets: [W(60, 10)], proposal: load },
+      { exercise: EX.rm, plannedMain: 3, sets: [W(50, 10)] },
+    ] });
+    expect(partial.next.kind).not.toBe("load");
+    expect(partial.text).not.toMatch(/62,5 kg/);
+    const only = sessionReview({ at: NOW, exercises: [{ exercise: EX.pb, plannedMain: 1, sets: [W(60, 10)], proposal: load }] });
+    expect(only.next.text).toMatch(/^Para Press/);
+  });
+  it("una pirámide se describe serie por serie, no como «3 series de 12» (hallazgo 11)", () => {
+    const b = briefExercise({ exercise: EX.pb, prescribed: { sets: 3, reps: "12", rir: null, restSec: 90, loadKg: null, coachLoad: false, method: "pyramid", scheme: ["12", "10", "8"] },
+      last: { at: daysAgo(4), sets: [{ w: 50, r: 12, rir: null }, { w: 55, r: 10, rir: null }, { w: 60, r: 8, rir: null }] }, recommendation: null, restrictions: [], missing: [] });
+    expect(b.text).toMatch(/Hoy tenés indicadas 3 series: 12, 10 y 8 repeticiones\./);
+    expect(b.text).not.toMatch(/3 series de 12/);
   });
 });
