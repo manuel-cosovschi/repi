@@ -183,7 +183,7 @@ export function SiteFooter() {
         </nav>
       </div>
       <div className="st-wrap st-sovare">
-        <a href="https://sovare-panel.vercel.app" target="_blank" rel="noreferrer" aria-label="Sovare, el estudio que hace REPI">
+        <a href="https://sovare-panel.vercel.app" target="_blank" rel="noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/sovare-isotipo.webp" alt="" width={30} height={36} />
           <span><small>Un producto de</small><strong>SOVARE</strong><em>From where we come. For what comes next.</em></span>

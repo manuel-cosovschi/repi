@@ -36,7 +36,6 @@ export function IntelSim() {
   return (
     <div className="cn-sim" aria-labelledby="cn-sim-t">
       <div className="cn-sim-head">
-        <p className="cn-kicker">Probalo acá · motor real de REPI</p>
         <h3 id="cn-sim-t">Press de banca · 3 × 8–10 · RIR 2</h3>
         <p className="cn-sim-why"><b>Por qué {t0.text}:</b> {t0.why}</p>
       </div>

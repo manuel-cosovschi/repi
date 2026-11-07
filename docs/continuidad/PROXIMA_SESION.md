@@ -1,6 +1,41 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D207; **Smart Program Import 2.0 PUBLICADO Y VERIFICADO**, ver primera sección; próximo bloque: REPI — Adaptive Coaching 3.0). Antes: 07/11/2026 (hasta D206; pedido de programa con preferencias publicado, Experience Hub publicado).
+Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 en rama, sin publicar: espera la aprobación del titular**, ver primera sección; después: REPI — Adaptive Coaching 3.0, máster ya recibido). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+
+## Experience 3.0 (D208) — 07/11/2026 · EN RAMA, SIN PUBLICAR (espera aprobación explícita del titular)
+
+- **Pedido:** máster «REPI Experience 3.0»: reconstruir `/conoce` como experiencia interactiva premium y producir films sin voz (motion graphics + interfaz real + música instrumental con licencia). «No publicar en producción sin mi aprobación explícita»; revisión por grabaciones (sin preview de rama); «NO QUIERO LOCUCIONES DE ELEVENLABS».
+- **Rama y PR:** `claude/experience-3` (con `main` 08d4a50 integrado), **PR #64** abierta y sin integrar. Sin migraciones ni cambios de base.
+- **Hecho:**
+  - **Página** (`components/conoce/ConoceHub.tsx`, `x3/*`, `sala/*`, `styles/conoce3.css`): escenario fijo «la sala en vivo» (R3F con tres niveles y SVG de respaldo, `?sala=high|medium|low`), ocho escenas con GSAP ScrollTrigger reversibles y con movimiento reducido. Se conservan rutas, UTM, `/qr`, leads a REPI Admin, WhatsApp, demos guiadas y eventos; nuevos sólo `scene_view` y `film_open`. Contenido en `content/conoce.ts`. Spec: `docs/comercial/EXPERIENCE_3.md`; producto: `PRODUCT.md`.
+  - **Films** (`design/films/`, generador `kit/build.py`, spec `SPEC.md`): marca, gimnasios, entrenadores, deportistas (+ 9:16), aliados, Training Intelligence, progreso, altas y sala. Música de Kevin MacLeod (CC BY 4.0, atribución en el reproductor) y efectos de Pixabay: `marketing/videos/LICENCIAS.md`. Versión web en `public/conoce/videos/`; masters fuera de Git y reproducibles con `kit/tools/render-all.sh`.
+  - **Reproductor:** diálogo modal, sonido sólo con un toque, versión 9:16 en teléfonos en vertical, atribución de la música.
+  - **Limpieza:** se quitaron `ProfileExplorer.tsx` y `Media.tsx` (hub anterior, sin uso). El video con locución de aliados queda superado.
+- **Revisión independiente (07/11):** 24 hallazgos confirmados y corregidos. Entre ellos:
+  - el pie tapado por el escenario;
+  - el formulario, que no seguía el perfil elegido;
+  - errores ilegibles;
+  - el reloj del 3D;
+  - el hero, que ocultaba el título;
+  - pausa de animaciones;
+  - descripción en texto de los films;
+  - aviso de modificación de CC BY.
+  Las escenas 02 y 03 pasaron a `position: sticky` (CLS de 1,5 a 0). El WebGL por software usa el SVG.
+- **Pruebas:**
+  - typecheck y guards ✓;
+  - dominio 491 y web 513;
+  - E2E `conoce` + `public` 56/56;
+  - axe 0 (20 combinaciones y reproductor);
+  - Impeccable 0;
+  - Lighthouse móvil: CLS 0, TBT 70–110 ms; A11y, BP y SEO 100; LCP 3,5–3,9 s simulado y 2,6 s con limitación real, sobre `next start` local sin CDN (la `/conoce` de producción da 3,0 y 2,4). **LCP de campo a confirmar después de publicar.**
+  - Films: 0 cuadros en blanco, de −13,9 a −14,7 LUFS, pico ≤ −2,2 dBTP.
+  - Detalle en la PR.
+- **Para regenerar films y descripciones:** `design/films/SPEC.md` § Producción (`render-all.sh`, `describe.py`). Masters en el scratchpad de la sesión (no persisten): se rehacen con los medios.
+- **Próxima acción:**
+  1. El titular revisa las grabaciones y la PR #64 y aprueba (o pide cambios).
+  2. Con la aprobación: CI verde → squash merge → deploy (no hay migraciones). Smoke en producción: `/conoce`, perfiles, `/qr`, un film y el formulario con datos de prueba.
+  3. Después: Adaptive Coaching 3.0 (máster recibido el 07/11; empezar por la auditoría del código actual).
 
 ## Smart Program Import 2.0 (D207) — 07/11/2026 · PUBLICADO Y VERIFICADO (#60, 3c2353c)
 
