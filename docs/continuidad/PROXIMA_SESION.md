@@ -6,7 +6,7 @@ Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y v
 
 - **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
   y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
-- **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (sin push). Plan, decisiones y evidencia:
+- **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (PR abierto el 08/11, sin publicar). Plan, decisiones y evidencia:
   `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2; §12: ronda 3).
 - **Hecho (un commit por paso, P0–P7 + verificación):**
   - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
