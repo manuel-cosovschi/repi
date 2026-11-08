@@ -24,8 +24,8 @@ const { user, organization, staffMembership, coachClient, consentGrant, invitati
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 
 // ── Autorización ────────────────────────────────────────────────────────────
-export async function requireCoach(actorId: string, orgId: string) {
-  const [row] = await db.select({ org: organization }).from(staffMembership)
+export async function requireCoach(actorId: string, orgId: string, q: Tx | typeof db = db) {
+  const [row] = await q.select({ org: organization }).from(staffMembership)
     .innerJoin(organization, eq(organization.id, staffMembership.orgId))
     .where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, orgId), eq(staffMembership.role, "coach_owner"),
       eq(staffMembership.status, "active"), eq(organization.kind, "coach")));
@@ -149,10 +149,10 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
   });
 }
 
-export async function assertLibrary(orgId: string, doc: ProgramDoc) {
+export async function assertLibrary(orgId: string, doc: ProgramDoc, q: Tx | typeof db = db) {
   const ids = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
   if (!ids.length) return;
-  const ok = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
+  const ok = await q.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
   if (ok.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
 }
 
@@ -828,7 +828,7 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
     await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, day.d.versionId));
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: act.assignment!.id, versionId: day.d.versionId, dayId: day.d.id, dayName: day.d.name,
-      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
+      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now, tx) : null,
     }).returning();
     return s;
   });
@@ -893,7 +893,7 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
     const [a] = await tx.insert(programAssignment).values({ ...rel, programId: pr.id, startsOn: localDate(now), status: "ended", assignedBy: userId, assignedAt: now, endedAt: now }).returning();
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: a.id, versionId: v.id, dayId: day.id, dayName,
-      startedAt: now, lastResumedAt: now, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
+      startedAt: now, lastResumedAt: now, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now, tx) : null,
     }).returning();
     await audit(tx, { actorUserId: userId, action: own ? "own_routine.started" : "adaptive.solo_routine_started", resourceType: "workout_session", resourceId: s.id, meta: { exercises: p.exercises.length } });
     return s;

@@ -86,7 +86,8 @@ export async function completeProgramBrief(userId: string, input: unknown) {
   if (!pending.length) throw new AccessError("no_pending", "No tenés pedidos de programa esperando tus datos.", 409);
   const [me] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId));
   const gymIds = pending.filter((p) => p.source === "gym").map((p) => p.id), reqIds = pending.filter((p) => p.source === "coach").map((p) => p.id);
-  await db.transaction(async (tx) => {
+  const taken = await db.transaction(async (tx) => {
+    const out: { to: string; id: string; orgId: string }[] = [];
     if (gymIds.length) {
       const rows = await tx.select().from(gymTask).where(inArray(gymTask.id, gymIds));
       for (const t of rows) {
@@ -94,16 +95,19 @@ export async function completeProgramBrief(userId: string, input: unknown) {
         await addEvent(tx, t, { actor: userId, kind: "member_comment", note: "Completó sus preferencias para el programa (objetivo, días, experiencia y lesiones)." });
         await audit(tx, { actorUserId: userId, orgId: t.orgId, action: "task.brief_completed", resourceType: "gym_task", resourceId: t.id, meta: { hasLimitations: b.hasLimitations } });
       }
-      const taken = rows.filter((t) => t.assigneeUserId).map((t) => ({ to: t.assigneeUserId!, id: t.id, orgId: t.orgId }));
-      for (const x of taken) {
-        await enqueue([x.to], { kind: "assist_update", dedupe: `brief-done:${x.id}`, title: "Ya tenés los datos para el programa", body: `${me?.name ?? "El socio"} completó objetivo, días, experiencia y lesiones.`, url: `/gym/${x.orgId}?s=queue&sel=${x.id}` }).catch(() => {});
-      }
+      out.push(...rows.filter((t) => t.assigneeUserId).map((t) => ({ to: t.assigneeUserId!, id: t.id, orgId: t.orgId })));
     }
     if (reqIds.length) {
       await tx.update(studentRequest).set({ brief: b, text: briefSummary(b, 1000) }).where(inArray(studentRequest.id, reqIds));
       await audit(tx, { actorUserId: userId, action: "request.brief_completed", resourceType: "student_request", resourceId: reqIds[0], meta: { count: reqIds.length, hasLimitations: b.hasLimitations } });
     }
+    return out;
   });
+  // Incidente 07/11: el aviso se encola después del commit. Antes usaba otra conexión del pool con la transacción abierta
+  // (con 3 conexiones podía trabar el pool) y salía aunque la transacción se deshiciera.
+  for (const x of taken) {
+    await enqueue([x.to], { kind: "assist_update", dedupe: `brief-done:${x.id}`, title: "Ya tenés los datos para el programa", body: `${me?.name ?? "El socio"} completó objetivo, días, experiencia y lesiones.`, url: `/gym/${x.orgId}?s=queue&sel=${x.id}` }).catch(() => {});
+  }
   await syncWishes(userId, b).catch(() => {});
   return { completed: pending.length };
 }
