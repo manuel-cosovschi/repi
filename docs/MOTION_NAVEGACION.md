@@ -274,3 +274,61 @@ Merge de `7f30a06`. Conflictos resueltos conservando M06 y lo de `main`:
 - **Teléfono.** El panel de REPI va encima de la barra (diseño AC3, z 20 sobre 10). Se cambia de pestaña cerrándolo y se reabre con la misma conversación. En escritorio ancho (≥ 1280 px) queda al costado y se puede cambiar de pestaña con el panel abierto.
 - **Coach.** «Revisar» de «Pendientes» abre la ficha sola en Rendimiento. `go` lleva `tab`, y `CoachClients` aplica un pedido nuevo de pestaña aunque siga montada.
 - **Pruebas.** El DOM de las secciones ocultas sigue presente: en las pruebas nuevas de `main`, los localizadores de filas tienen que mirar sólo lo visible (`gym-new-message.spec.ts`).
+
+## 20. QA independiente, ronda 2 (08/11) y correcciones (ronda 3)
+
+Cada hallazgo se reprodujo antes de corregirlo, con las sondas de la QA copiadas a `scratchpad/tx-fix4/q` (su evidencia en `scratchpad/tx-qa/r2` no se tocó). `main` (`5141260`) se sirvió en sólo lectura desde la build de `/home/user/repi-gx` en el puerto 3114 y la rama en 3104, las dos contra la misma base. A mitad de la ronda `repi_dev` llegó al tope de 300 demos (no se purgó nada): el orquestador creó `repi_e2e_tx`, una base local nueva con las migraciones hasta 0051, y desde ahí las mediciones y las E2E corrieron contra ella.
+
+| # | Hallazgo | Causa | Corrección | Resultado |
+|---|---|---|---|---|
+| 1 | Velocidad (ALTA): con CPU ×4 el título llegaba legible después que en `main`, sobre todo en Progreso al volver (61–65 → 166–182 ms) | (a) La sección iba en `startTransition`: React la dibujaba en cortes de 5 ms, y con CPU ×4 eso agregaba 40–60 ms. (b) Al volver se recorría la sección entera aunque nada hubiera cambiado: `render` cambia de identidad en cada render del padre. (c) La entrada empezaba en el cuadro siguiente al commit, con opacidad 0 | **El indicador sale al apoyar el dedo, la sección se dibuja de un tirón en el click.** `TabBar` mueve el indicador en el `pointerdown`. En el teléfono el toque dura 50–120 ms, así que al soltar su animación ya corre en el compositor; si el dedo se va o el gesto se cancela, vuelve. `go` en `MemberApp` es un estado normal, sin `startTransition`, en el mismo click, como en `main`. **`deps` por sección** en `SectionStage`: si nada de lo que lee una sección cambió, al volver se reutiliza su último nodo. Además `keepSame`: una revalidación con el mismo contenido conserva el mismo objeto, en `useCached` y en los cargadores del alumno (`t`, `localOpen`, `inbox`, `feed`, `presence`, `hist`). **Entrada anclada al tiempo del cuadro**: el primer cuadro ya la muestra a opacidad ≈ .58 | Tabla de abajo |
+| 2 | Scroll de Ejecutivo pisado (ALTA): 600 → Avisos → Ejecutivo volvía a 500 (6 de 6) | `OwnerGuide` hacía `scrollIntoView` en un `useEffect([msgs])` que `<Activity>` vuelve a correr al mostrar la pantalla; movía la ventana después de la restauración | `OwnerGuide`: sólo cuando llega un mensaje nuevo y sólo dentro de la conversación (`scrollTop` de `.og-chat`). **Red de seguridad** en `SectionStage` (`holdScroll`): durante 160 ms después de restaurar, en cada cuadro, si la página se movió sin un toque, una rueda o una tecla, vuelve a la posición guardada | 599 → 599 en 8 muestras durante 800 ms. Con un `scrollTo(0, 120)` inyectado justo al mostrarse Ejecutivo, también vuelve a 599 (E2E) |
+| 3 | Foco en `body` al volver a tocar en el cajón la pantalla a la vista (MEDIA, regresión de la rama) | El cajón se cierra, la pantalla no cambia (no hay foco nuevo) y el botón con el foco pasa a `visibility: hidden` | `components/motion/useDrawer.ts`, común a Coach, Gym y Admin. Al cerrarse con el foco adentro y sin otra pantalla en camino, el foco va al título de la pantalla a la vista (red: 200 ms si había otra en camino y no llegó) | Foco en `h1` «Ejecutivo», cajón cerrado (E2E) |
+| 4 | Cajón y teclado (BAJA, ya estaba en `main`): Tab se iba detrás del cajón; Escape no cerraba | Sin manejo de foco | `useDrawer`: al abrirse, foco al ítem actual y `inert` en el `main`. Escape y el fondo lo cierran y el foco vuelve a «Abrir menú». Pasar a ≥ 768 px lo cierra | Enter → «Ejecutivo» en el cajón; Tab → «Avisos» (sigue adentro); Escape → «Abrir menú», cajón cerrado (E2E) |
+| 5 | Progreso con latencia, debajo del pliegue: «Evolución por ejercicio» 908 → 579 px; «Volumen por semana» 94 → 180 px | La lista para elegir ejercicio se mostraba un instante mientras se elegía el inicial; mientras cargaba el historial se veía el aviso de datos insuficientes | Sin lista mientras el ejercicio inicial está por elegirse (`autoPick`). El gráfico semanal, en esqueleto de 120 px mientras carga. «Tu período» reserva el lugar de «Preguntale a REPI» (701 → 715 px en la sonda) | 579 → 579 y 180 → 180 desde el primer cuadro (sonda `member.cjs lat`). Queda «Tu nivel» 524 → 549 px al final de la página (abajo de todo; no se tocó) |
+| 6 | Coach Programas: «PROGRAMAS» con el corte de meta y, ~0,5 s después, el nombre del programa | El `h1` visible mientras cargaba el programa que se iba a abrir | Mientras carga, el nombre en esqueleto (el `h1` queda para lectores, con el foco); sin corte de meta sobre un título que cambia | La sonda de la QA ya no marca el salto de estructura en Programas |
+| 7 | Tareas largas apenas sobre 50 ms al volver (BAJA) | Secciones que se volvían a recorrer al volver por datos que no leían (p. ej. el historial al abrir Progreso hacía recorrer Inicio y Entrenar) y revalidaciones con el mismo contenido | `deps` por sección y `keepSame` (fila 1) | 0 tareas > 50 ms en 15 vueltas (sonda con ventana de 1,2 s) y en el recorrido E2E. Quedan tareas de ~50–70 ms en algunas primeras visitas (el primer dibujo de Entrenar y Progreso, como en `main`), en Coach Programas (65–83 ms, el editor con el programa) y algunas de Admin y Gym después de los 800 ms (revalidación en segundo plano) |
+| 8 | Un toque en el cajón que no navegó, 1 de 20 (sin reproducir) | — | Sin cambio: no se reprodujo. La E2E nueva repite 8 toques apenas termina de abrirse el cajón, con CPU ×4, como guarda | 0 perdidos en 8 (E2E, varias corridas) y en las sondas de la QA (8 de 8 en Coach, Admin y Gym) |
+
+**Velocidad (alumno, iPhone 15 390×844, CPU ×4, sonda `r2/cmp.cjs` de la QA).** `main` y la rama se midieron intercalados, una corrida de cada uno por vez y con la misma carga de la máquina: 10 corridas por lado. En ms desde el toque, «título legible» = opacidad efectiva ≥ .45 en pantalla, fuera de lo que sale. La máquina estaba compartida con otras sesiones (carga 3–4 en 4 núcleos), así que hay ruido de ±15 ms y valores sueltos de más.
+
+| Cambio | `main`: título legible, mediana (mín–máx) | Rama | Indicador desde el click, mediana (`main` → rama) | Opaca del todo, mediana (`main` → rama) |
+|---|---|---|---|---|
+| Entrenar, primera | 89 (86–120) | **78** (67–87) | 76 → 78 | 171 → 102 |
+| Progreso, primera | 87 (60–105) | **80** (64–150) | 66 → 80 | 194 → 99 |
+| Mensajes, primera | 60 (44–73) | **55** (42–91) | 40 → 55 | 140 → 93 |
+| Tu gym, primera | 81 (65–112) | **27** (21–59) | 39 → 27 | 138 → 96 |
+| Inicio (ya montada al abrir) | 83 (61–93) | **45** (38–62) | 64 → 45 | 159 → 92 |
+| Entrenar, vuelta | 61 (57–83) | **42** (33–54) | 48 → 42 | 144 → 90 |
+| Progreso, vuelta | **62** (57–91) | 67 (53–131) | 45 → 67 | 152 → 97 |
+| Mensajes, vuelta | 47 (43–57) | **46** (31–62) | 26 → 46 | 127 → 91 |
+| Tu gym, vuelta | 60 (48–68) | **28** (22–45) | 27 → 28 | 127 → 90 |
+| Inicio, vuelta | 77 (59–110) | **52** (29–77) | 61 → 52 | 158 → 89 |
+
+- El título se lee antes que en `main` en 9 de 10 cambios. En Progreso al volver queda 5 ms detrás en la mediana, dentro del ruido; antes eran 166–182 ms. Lo opaco del todo llega 30–100 ms antes en todos.
+- La sonda toca como Playwright, con `pointerdown` y `click` seguidos, sin un cuadro entre los dos. Por eso la columna del indicador sale casi igual a `main`: arranca con el commit.
+- Con un toque real, la ventaja del indicador se ve. Con la misma sonda y el dedo apoyado 80 ms (`touch.cjs`, 2 corridas por lado), el indicador se mueve 12–28 ms después de apoyar el dedo. En `main`, 127–219 ms, porque recién arranca al soltar y dibujar. El título, medido desde que se suelta, da igual que arriba: Entrenar 80 contra 91, Progreso 65 contra 75–119 y Mensajes 66–91 contra 58–60 (el único que no gana).
+- Números crudos: `scratchpad/tx-fix4/inter-{m,n}-*.json` y `agg-mn.json`.
+
+Probado y descartado en esta ronda, con números en `scratchpad/tx-fix4/inter-*.json`:
+- Indicador en el click y la sección en el `requestAnimationFrame` siguiente, para pintar primero el indicador. El cuadro de espera dejaba Entrenar y Mensajes 5–18 ms detrás de `main` en la mediana.
+- Volver en `startTransition` en el mismo toque. Dibujaba en cortes y no sacó la tarea larga de la vuelta a Entrenar (54 ms en el recorrido E2E).
+- Volver en el mismo click y el indicador también en el click. El indicador esperaba al commit (39–82 ms): mostrar una sección viva igual vuelve a correr sus efectos y la maqueta. Con el indicador en el `pointerdown` ya no espera.
+- No fijar la sección que sale cuando las dos están arriba. En la celda cambiaba el alto de la fila del chat y Mensajes empeoraba.
+- Anticipar secciones ocultas con `<Activity>` (todas, o sólo Entrenar). En 4 tandas intercaladas, la primera visita a Progreso y a Mensajes quedó peor y Entrenar no mejoró de forma estable.
+- Datos de `useCached` en `startTransition`. Sin mejora medible y con riesgo para todas las pantallas.
+
+**Pruebas nuevas.** `motion-nav.spec.ts` › staff › «teléfono Gym (dueño)» (mobile, `reducedMotion: "no-preference"`) cubre:
+- Ejecutivo a 600 px → Avisos → Ejecutivo: el scroll se mantiene 800 ms.
+- La red de seguridad con un `scrollTo` inyectado al mostrarse.
+- Volver a tocar la pantalla actual: foco en el `h1`.
+- Cajón con teclado: Enter, Tab y Escape.
+- 8 toques seguidos con CPU ×4.
+
+`roles.spec.ts` espera en el teléfono el botón «Abrir menú» antes de abrirlo: mientras la app carga ese botón no existe, y el cajón cerrado no se expone desde la ronda 1. Antes pasaba por la carrera.
+
+**Corridas** (3104, `repi_e2e_tx`, demos; nunca vitest): `pnpm typecheck` ✓, `pnpm build` ✓. E2E:
+- Versión final (indicador en el `pointerdown`): `motion-nav`, `gym-member-page`, `member-workout` y `roles`, en teléfono y escritorio, 35 ✓ y 14 omitidas (son de otro proyecto).
+- El recorrido con CPU ×4 dio el indicador en el primer cuadro, 0 cuadros vacíos, layout-shift 0 y 0 tareas largas, también al volver.
+- 3 ✗ en `roles` de escritorio (sala, aislamiento y QR): no llegaron a correr, porque `repi_e2e_tx` también llegó al tope de 300 demos con las mediciones. No se purgó. Esas tres pasaron en la corrida anterior (`roles` 10 ✓, mismo código de staff).
+- Antes del ajuste de `roles`, dueño y sala fallaban en el teléfono por la carrera de arriba.

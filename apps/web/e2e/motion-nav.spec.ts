@@ -299,6 +299,104 @@ test.describe("entre documentos", () => {
 });
 
 test.describe("staff", () => {
+  // QA M06, ronda 2 (teléfono): Ejecutivo a 600 px → Avisos → Ejecutivo volvía a 500 (un efecto de la guía del dueño movía la
+  // página al mostrarse otra vez la pantalla viva); tocar en el cajón la pantalla que ya está a la vista dejaba el foco en
+  // body; el cajón no se manejaba con el teclado (Tab se iba detrás, Escape no cerraba). Y un toque en el cajón que no
+  // navegó una vez en 20: acá se repite el toque apenas termina de abrirse, con CPU ×4.
+  test("teléfono Gym (dueño): scroll recuperado, foco al volver a tocar la pantalla actual, cajón con teclado y toques seguidos", async ({ page }, info) => {
+    test.setTimeout(150_000);
+    test.skip(info.project.name !== "mobile", "el cajón es del teléfono");
+    const errors = watchErrors(page);
+    const href = await openDemo(page, "owner");
+    await page.goto(href);
+    await expect(page.getByRole("heading", { level: 1, name: "Ejecutivo" })).toBeVisible();
+    await page.waitForTimeout(800);
+    const menu = page.getByRole("button", { name: "Abrir menú" });
+    const item = (label: string) => page.locator(`.co-nav > button[title="${label}"]`);
+    const active = () => page.evaluate(() => document.querySelector<HTMLElement>(".sec-stage > .sec-pane[data-active]")?.dataset.sec ?? null);
+    const focused = () => page.evaluate(() => { const a = document.activeElement as HTMLElement | null; return { tag: a?.tagName ?? null, text: a?.textContent?.trim().slice(0, 40) ?? null, label: a?.getAttribute("aria-label") ?? null, inSide: !!a?.closest(".co-side") }; });
+    // Toque como el de una persona: en el centro del ítem tal como está al terminar de abrirse el cajón.
+    const viaDrawer = async (label: string, wait = 420) => {
+      await menu.tap();
+      await page.waitForTimeout(wait);
+      const b = (await item(label).boundingBox())!;
+      await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    };
+
+    // 1. Scroll por pantalla con la guía del dueño a la vista.
+    const tall = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+    const target = Math.min(600, Math.max(0, tall));
+    await page.evaluate((y) => window.scrollTo(0, y), target);
+    await page.waitForTimeout(300);
+    await viaDrawer("Avisos");
+    await expect.poll(active).toBe("notices");
+    await page.waitForTimeout(500);
+    await viaDrawer("Ejecutivo");
+    await expect.poll(active).toBe("exec");
+    const trail: number[] = [];
+    for (let i = 0; i < 8; i++) { trail.push(await page.evaluate(() => Math.round(scrollY))); await page.waitForTimeout(100); }
+
+    // 1b. Red de seguridad: algo que mueva la página justo después de mostrarse la pantalla (como hacía la guía) no gana.
+    await viaDrawer("Avisos");
+    await expect.poll(active).toBe("notices");
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      const mo = new MutationObserver(() => {
+        if (document.querySelector<HTMLElement>(".sec-stage > .sec-pane[data-active]")?.dataset.sec !== "exec") return;
+        mo.disconnect();
+        window.scrollTo(0, 120);
+      });
+      mo.observe(document.querySelector(".sec-stage")!, { attributes: true, subtree: true, attributeFilter: ["data-active"] });
+    });
+    await viaDrawer("Ejecutivo");
+    await expect.poll(active).toBe("exec");
+    const trailNet: number[] = [];
+    for (let i = 0; i < 6; i++) { trailNet.push(await page.evaluate(() => Math.round(scrollY))); await page.waitForTimeout(100); }
+
+    // 2. Volver a tocar la pantalla a la vista: el cajón se cierra y el foco queda en su título (no en body).
+    await viaDrawer("Ejecutivo");
+    await page.waitForTimeout(700);
+    const retap = await focused();
+    const retapDrawer = await page.locator(".co").first().getAttribute("data-drawer");
+
+    // 3. Teclado: abrir con Enter lleva el foco al ítem actual; Tab sigue dentro del cajón; Escape lo cierra y vuelve a «Abrir menú».
+    await menu.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+    const kbOpen = await focused();
+    await page.keyboard.press("Tab");
+    const kbTab = await focused();
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(150);
+    const kbEsc = { ...(await focused()), drawer: await page.locator(".co").first().getAttribute("data-drawer") };
+
+    // 4. Toques seguidos apenas se abre el cajón (CPU ×4): cada toque navega.
+    const cdp = await throttle(page, 4);
+    const lost: string[] = [];
+    const loop = ["Equipo y servicio", "Ejecutivo", "Reseñas", "Avisos", "Equipo y servicio", "Sedes", "Ejecutivo", "Equipo y servicio"];
+    const key: Record<string, string> = { "Ejecutivo": "exec", "Equipo y servicio": "pc", "Reseñas": "reviews", "Avisos": "notices", "Sedes": "locs" };
+    for (const l of loop) {
+      await viaDrawer(l);
+      const ok = await expect.poll(active, { timeout: 3000 }).toBe(key[l]).then(() => true, () => false);
+      if (!ok) lost.push(`${l} (quedó ${await active()}, cajón ${await page.locator(".co").first().getAttribute("data-drawer")})`);
+      await page.waitForTimeout(300);
+    }
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    await report(info, "gym-telefono", { scroll: { target, trail, trailNet }, retap: { ...retap, drawer: retapDrawer }, kbOpen, kbTab, kbEsc, lost });
+    expect(errors).toEqual([]);
+    expect(trail.every((y) => Math.abs(y - target) <= 2), `scroll al volver a Ejecutivo: ${trail.join(", ")} (esperado ${target})`).toBe(true);
+    expect(trailNet.every((y) => Math.abs(y - target) <= 2), `scroll con un efecto que mueve la página: ${trailNet.join(", ")} (esperado ${target})`).toBe(true);
+    expect(retapDrawer).toBe("0");
+    expect(retap.tag, "foco al volver a tocar la pantalla actual").toBe("H1");
+    expect(retap.text).toBe("Ejecutivo");
+    expect(kbOpen.inSide, "al abrir con Enter el foco va al cajón").toBe(true);
+    expect(kbOpen.text).toContain("Ejecutivo");
+    expect(kbTab.inSide, "Tab no se va detrás del cajón").toBe(true);
+    expect(kbEsc.drawer).toBe("0");
+    expect(kbEsc.label, "Escape devuelve el foco a «Abrir menú»").toBe("Abrir menú");
+    expect(lost, "toques en el cajón que no navegaron").toEqual([]);
+  });
+
   test("escritorio Gym: el lateral queda fijo, el h1 recibe el foco y cada pantalla recupera su scroll", async ({ page }, info) => {
     test.setTimeout(90_000);
     test.skip(info.project.name !== "desktop", "se mide en escritorio");

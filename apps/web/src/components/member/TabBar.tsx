@@ -3,7 +3,7 @@
 // (docs/MOTION_NAVEGACION.md §4): el indicador sale como un sprint en el mismo toque (estado urgente, antes de dibujar la
 // sección), el ícono destino arranca con rebote, al aparecer Gym los botones se reacomodan (FLIP) y tocar otra vez la
 // pestaña activa lleva el scroll arriba. Marcado y nombres accesibles iguales a los de antes (pruebas por rol y nombre).
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Ic } from "@/components/ui/Ic";
 import { prefetch } from "@/lib/cache";
@@ -24,7 +24,7 @@ export function TabBar<K extends string>({ tabs, active, onGo, badge }: {
   onGo: (k: K) => void;
   badge?: (k: K) => ReactNode;
 }) {
-  // El indicador, el color y aria-current siguen al toque (urgente); el contenido llega con startTransition (onGo).
+  // El indicador, el color y aria-current siguen al dedo (pointerdown) o al click; el contenido llega con onGo en el click.
   const [cur, setCur] = useState(active);
   const [seen, setSeen] = useState(active);
   if (seen !== active) { setSeen(active); setCur(active); }
@@ -77,16 +77,36 @@ export function TabBar<K extends string>({ tabs, active, onGo, badge }: {
     }
   }, [i]);
 
+  // El indicador sale al apoyar el dedo (pointerdown): en el teléfono el toque dura 50–120 ms, así que cuando llega el
+  // click su animación ya corre en el compositor y no la frena el dibujo de la sección, que va de un tirón en el mismo
+  // click (como en main). QA M06, ronda 2: con la sección en startTransition, o un cuadro después, el título llegaba
+  // legible 15–60 ms más tarde que en main con CPU ×4. Si el dedo se va del botón o el gesto se cancela, vuelve.
+  const pressed = useRef<K | null>(null);
+  const down = (k: K, e: ReactPointerEvent<HTMLButtonElement>) => {
+    PREFETCH[k]?.forEach(prefetch);
+    if (e.button !== 0 || (k === cur && k === active)) return;
+    pressed.current = k;
+    setCur(k);
+    const btn = e.currentTarget;
+    const end = (ev: PointerEvent) => {
+      window.removeEventListener("pointerup", end, true);
+      window.removeEventListener("pointercancel", end, true);
+      if (pressed.current !== k) return;
+      const over = ev.type === "pointerup" && btn.contains(document.elementFromPoint(ev.clientX, ev.clientY));
+      if (!over) { pressed.current = null; setCur(active); } // no habrá click: el indicador vuelve a la sección a la vista
+    };
+    window.addEventListener("pointerup", end, true);
+    window.addEventListener("pointercancel", end, true);
+  };
   const pick = (k: K) => {
+    pressed.current = null;
     if (k === cur && k === active) {
       // Convención de iOS: tocar la pestaña activa vuelve arriba (sin animar la sección).
       window.scrollTo({ top: 0, behavior: canAnimate() ? "smooth" : "instant" });
       return;
     }
-    setCur(k);
-    // El contenido arranca en el cuadro siguiente: el indicador se pinta primero y el render de la sección (en
-    // startTransition dentro de onGo) nunca demora su arranque.
-    requestAnimationFrame(() => onGo(k));
+    setCur(k); // con teclado (o si no hubo pointerdown), el indicador sale acá
+    onGo(k);
   };
 
   return (
@@ -94,7 +114,7 @@ export function TabBar<K extends string>({ tabs, active, onGo, badge }: {
       <i ref={ind} className="tab-ind" aria-hidden="true" data-off={i >= 0 ? undefined : "1"} />
       {tabs.map(([k, l, d]) => (
         <button key={k} data-k={k} type="button" aria-current={cur === k ? "page" : undefined} style={{ position: "relative" }}
-          onPointerDown={() => PREFETCH[k]?.forEach(prefetch)} onClick={() => pick(k)}>
+          onPointerDown={(e) => down(k, e)} onClick={() => pick(k)}>
           <Ic i={d} size={24} /><span className="tab-lbl">{l}</span>
           {badge?.(k)}
         </button>

@@ -7,7 +7,8 @@
 //   entra en el sentido del viaje (orden de la barra o del menú; fuera del orden = profundidad), con el corte de meta en su
 //   h1 y los primeros bloques en formación. Sólo transform, opacity y clip-path; un toque nuevo corta lo que esté en curso.
 // - Sin Web Animations o con movimiento reducido el cambio es inmediato.
-// - Cada sección recupera su scroll antes de pintar; el foco sigue la regla de §9 (sin h1, a la sección misma).
+// - Cada sección recupera su scroll antes de pintar (y lo sostiene ~160 ms frente a efectos que muevan la página); el foco
+//   sigue la regla de §9 (sin h1, a la sección misma).
 import { Activity, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { invalidate } from "@/lib/cache";
 import { EASE, M06, canAnimate } from "@/lib/motion";
@@ -23,6 +24,13 @@ export type SectionStageProps<K extends string> = {
   order: readonly K[];
   /** Dibuja la sección k (sólo claves visitadas). */
   render: (k: K) => ReactNode;
+  /**
+   * Todo lo que lee la sección k además de funciones de identidad estable (estado del padre, también el que leen los
+   * manejadores que recibe). Si al volver a k ninguno cambió (Object.is) desde la última vez que se dibujó, se reutiliza
+   * su último nodo: React no recorre la sección y el título se lee antes (QA M06, ronda 2: Progreso al volver pasaba de
+   * ~90 ms a ~45 ms hasta el commit con CPU ×4). Sin `deps`, la sección se vuelve a dibujar al volver, como siempre.
+   */
+  deps?: (k: K) => readonly unknown[];
   /** "auto": eje vertical desde 768 px (escritorio staff), horizontal por debajo. */
   axis?: "x" | "auto";
   /** Si cambia (relación del alumno, sede del gym): desmonta todo y vacía la caché. */
@@ -45,10 +53,40 @@ function direction<K extends string>(order: readonly K[], from: K, to: K) {
   return { dir: -1, depth: true };           // vuelve de ella
 }
 
+const sameDeps = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
+
+/**
+ * Red de seguridad del scroll recuperado (QA M06, ronda 2): al mostrar una sección viva, <Activity> vuelve a correr sus
+ * efectos después de la restauración, y uno que mueva la página (scrollIntoView, foco sin preventScroll) la pisaba. Durante
+ * `ms`, en cada cuadro (antes de pintar), si la página se movió sin que la persona la tocara, vuelve a `y`. Cualquier toque,
+ * rueda o tecla la suelta en el acto. Devuelve cómo soltarla antes.
+ */
+const INPUT = ["pointerdown", "touchstart", "wheel", "keydown"] as const;
+function holdScroll(y: number, still: () => boolean, ms = 160) {
+  const end = performance.now() + ms;
+  let raf = 0, done = false;
+  const stop = () => {
+    if (done) return;
+    done = true;
+    cancelAnimationFrame(raf);
+    for (const e of INPUT) window.removeEventListener(e, stop, true);
+  };
+  const tick = () => {
+    if (done) return;
+    if (!still()) { stop(); return; }
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    if (Math.abs(window.scrollY - y) > 1 && y <= max + 1) window.scrollTo({ top: y, left: 0, behavior: "instant" });
+    if (performance.now() < end) raf = requestAnimationFrame(tick); else stop();
+  };
+  for (const e of INPUT) window.addEventListener(e, stop, { capture: true, passive: true });
+  raf = requestAnimationFrame(tick);
+  return stop;
+}
+
 const PIN = ["position", "top", "left", "width", "margin", "z-index", "clip-path", "pointer-events", "opacity", "transform", "visibility"];
 const unpin = (el: HTMLElement | null) => { if (el) for (const p of PIN) el.style.removeProperty(p); };
 
-export function SectionStage<K extends string>({ active, order, render, axis = "x", resetKey = null, keep = 6, focus = "lost", paneClass = "sec-pane-plain", top, className }: SectionStageProps<K>) {
+export function SectionStage<K extends string>({ active, order, render, deps, axis = "x", resetKey = null, keep = 6, focus = "lost", paneClass = "sec-pane-plain", top, className }: SectionStageProps<K>) {
   const reset = String(resetKey ?? "");
   const [st, setSt] = useState<St<K>>(() => ({ active, leaving: null, visited: [active], used: { [active]: 0 }, reset, cycle: 0, dir: 0, depth: false, kind: "nav" }));
   let s = st;
@@ -75,14 +113,23 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
   // Sólo la sección activa se vuelve a dibujar con las props nuevas. La que sale y las ocultas conservan el último nodo que
   // se dibujó para ellas (mismo elemento: React no las recorre). Así la que sale no ve el estado de la pantalla nueva
   // durante su salida (p. ej. la selección de otra pantalla, QA M06) y las ocultas no se vuelven a dibujar en cada render
-  // del padre. Al volver a ser activa, la sección se dibuja con las props de ese momento.
-  const memo = useRef<{ reset: string; nodes: Map<K, { fn: unknown; node: ReactNode }> }>({ reset: s.reset, nodes: new Map() });
+  // del padre. Al volver a ser activa, la sección se dibuja con las props de ese momento, salvo que `deps` diga que no
+  // cambió nada de lo que lee: entonces se muestra su último nodo tal cual (mismo DOM, sin recorrerla). Dentro de una misma
+  // visita (`cycle`), cada render nuevo del padre la vuelve a dibujar como siempre.
+  type Memo = { fn: unknown; node: ReactNode; deps: readonly unknown[] | null; cycle: number };
+  const memo = useRef<{ reset: string; nodes: Map<K, Memo> }>({ reset: s.reset, nodes: new Map() });
   if (memo.current.reset !== s.reset) memo.current = { reset: s.reset, nodes: new Map() };
   const node = (k: K) => {
     const m = memo.current.nodes, e = m.get(k);
-    if (e && (k !== s.active || e.fn === render)) return e.node;
+    if (e && (k !== s.active || e.fn === render)) { if (k === s.active) e.cycle = s.cycle; return e.node; }
+    const dk = deps ? deps(k) : null;
+    if (e && dk && e.deps && e.cycle !== s.cycle && sameDeps(e.deps, dk)) {
+      // Vuelve a una sección sin cambios: su último nodo (los manejadores que guarda leen el mismo estado).
+      e.fn = render; e.cycle = s.cycle;
+      return e.node;
+    }
     const n = render(k);
-    m.set(k, { fn: render, node: n });
+    m.set(k, { fn: render, node: n, deps: dk, cycle: s.cycle });
     return n;
   };
   for (const k of [...memo.current.nodes.keys()]) if (!s.visited.includes(k)) memo.current.nodes.delete(k);
@@ -91,7 +138,7 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
   const shown = useRef<K>(active);
   const scrolls = useRef(new Map<K, number>());
   const handled = useRef(st.cycle);
-  const live = useRef<{ anims: Animation[]; pinned: HTMLElement | null; cut?: ReturnType<typeof setTimeout> }>({ anims: [], pinned: null });
+  const live = useRef<{ anims: Animation[]; pinned: HTMLElement | null; cut?: ReturnType<typeof setTimeout>; hold?: () => void }>({ anims: [], pinned: null });
   const pane = (k: K | null) => (k == null ? null : stage.current?.querySelector<HTMLElement>(`:scope > [data-sec="${CSS.escape(k)}"]`) ?? null);
 
   // Scroll por sección: se registra mientras se mira; se restaura antes de pintar.
@@ -108,6 +155,7 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
     shown.current = next;
     const L = live.current;
     clearTimeout(L.cut);
+    L.hold?.();
     stage.current?.querySelectorAll(".sec-cut").forEach((h) => h.classList.remove("sec-cut"));
     if (s.kind === "reset") { L.anims.forEach((a) => a.cancel()); L.anims = []; unpin(L.pinned); L.pinned = null; scrolls.current.clear(); return; }
     const out = s.leaving != null ? pane(s.leaving) : null;
@@ -124,8 +172,11 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
     if (L.pinned && L.pinned !== out) unpin(L.pinned);
     if (inn) unpin(inn);
     L.pinned = null;
-    // 2–3. La que sale queda fija donde estaba (recortada al viewport) para que el scroll nuevo no la mueva.
+    // 2–3. La que sale queda fija donde estaba (recortada al viewport) para que el scroll nuevo no la mueva. Siempre, aunque
+    //      las dos estén arriba: en su celda cambiaría el alto de la fila (p. ej. el chat de Mensajes, que la ocupa entera).
+    const y = top?.(next) ? 0 : scrolls.current.get(next) ?? 0;
     if (out) {
+      L.pinned = out;
       const r = out.getBoundingClientRect();
       const ct = Math.max(0, -r.top), cb = Math.max(0, r.bottom - window.innerHeight);
       out.style.setProperty("position", "fixed");
@@ -136,12 +187,11 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
       out.style.setProperty("z-index", "0");
       out.style.setProperty("clip-path", `inset(${ct}px 0 ${cb}px 0)`);
       out.style.setProperty("pointer-events", "none");
-      L.pinned = out;
     }
     // 4. Scroll de la sección nueva, con su contenido real (antes de pintar).
-    const y = top?.(next) ? 0 : scrolls.current.get(next) ?? 0;
     if (Math.abs(window.scrollY - y) > 1) window.scrollTo({ top: y, left: 0, behavior: "instant" });
     scrolls.current.set(next, y);
+    L.hold = holdScroll(y, () => shown.current === next);
     // 9. Foco (antes de animar, para que el lector anuncie el título nuevo).
     const ae = document.activeElement as HTMLElement | null;
     const prevPane = out ?? pane(prev);
@@ -157,12 +207,17 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
     const yAxis = axis === "auto" && window.matchMedia("(min-width: 768px)").matches;
     const d = s.dir;
     const tr = (px: number) => (yAxis ? `translateY(${px}px)` : `translateX(${px}px)`);
+    // Velocidad (QA M06, ronda 2): todo el cambio arranca en el tiempo del cuadro en curso, como el indicador de la barra, y
+    // no en el próximo cuadro pintado. El primer cuadro después del commit ya muestra la sección nueva a media entrada
+    // (opacidad ≈ .6) en vez de un cuadro entero en 0: el título se lee un cuadro antes y la salida se superpone menos.
+    const t0 = document.timeline?.currentTime ?? null;
+    const run = (a: Animation) => { try { if (t0 != null) a.startTime = t0; } catch { /* */ } L.anims.push(a); return a; };
     try {
       // 5. Salida: se aparta 12 px en 100 ms (--ease-in) y se apaga antes, en 70 ms (--ease-std): los dos títulos casi no
       //    se leen a la vez (QA: con la opacidad en --ease-in quedaban ~5 cuadros superpuestos). Al terminar se oculta en el
       //    acto (sin esperar a React) y después pasa a oculta (display:none).
-      const ex = out.animate([{ transform: tr(-(yAxis ? M06.yOut : M06.away) * d) }], { duration: M06.exit, easing: EASE.in, fill: "forwards" });
-      L.anims.push(ex, out.animate([{ opacity: 0 }], { duration: M06.fade, easing: EASE.std, fill: "forwards" }));
+      const ex = run(out.animate([{ transform: tr(-(yAxis ? M06.yOut : M06.away) * d) }], { duration: M06.exit, easing: EASE.in, fill: "forwards" }));
+      run(out.animate([{ opacity: 0 }], { duration: M06.fade, easing: EASE.std, fill: "forwards" }));
       const cycle = s.cycle;
       ex.finished.then(() => {
         if (live.current.pinned === out) { out.style.setProperty("visibility", "hidden"); out.removeAttribute("data-leaving"); }
@@ -170,11 +225,11 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
       }).catch(() => {});
       // 6. Entrada: 200 ms (220 en el eje vertical), --ease-out, sin retardo (se superpone con la salida).
       const dist = yAxis ? M06.yIn : s.depth ? M06.depth : M06.shift;
-      L.anims.push(inn.animate([{ opacity: fromOpacity, transform: tr(dist * d) }, { opacity: 1, transform: "none" }], { duration: yAxis ? M06.enterDesk : M06.enter, easing: EASE.out }));
+      run(inn.animate([{ opacity: fromOpacity, transform: tr(dist * d) }, { opacity: 1, transform: "none" }], { duration: yAxis ? M06.enterDesk : M06.enter, easing: EASE.out }));
       // 7. Corte de meta en el h1 visible: se revela en el sentido del viaje y una línea cian barre debajo.
       const title = h1 && !h1.classList.contains("sr-only") && h1.getClientRects().length ? h1 : null;
       if (title) {
-        L.anims.push(title.animate([
+        run(title.animate([
           { clipPath: d > 0 ? "inset(-8px 100% -8px -8px)" : "inset(-8px -8px -8px 100%)", transform: `translateX(${8 * d}px)` },
           { clipPath: "inset(-8px -8px -8px -8px)", transform: "none" },
         ], { duration: M06.title, easing: EASE.out }));
@@ -189,7 +244,7 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
         const r = el.getBoundingClientRect();
         return r.height > 0 && r.bottom > 0 && r.top < vh;
       }).slice(0, 4);
-      kids.forEach((el, i) => L.anims.push(el.animate([{ transform: tr(10 * (i + 1) * d) }, { transform: "none" }], { duration: M06.form, delay: i * M06.stagger, easing: EASE.out, fill: "backwards" })));
+      kids.forEach((el, i) => run(el.animate([{ transform: tr(10 * (i + 1) * d) }, { transform: "none" }], { duration: M06.form, delay: i * M06.stagger, easing: EASE.out, fill: "backwards" })));
     } catch { /* navegador sin soporte parcial: queda el estado final */ }
   });
 
@@ -212,7 +267,7 @@ export function SectionStage<K extends string>({ active, order, render, axis = "
       if (el && canAnimate()) live.current.anims.push(el.animate([{ opacity: 0, transform: `translateY(${M06.rise}px)` }, { opacity: 1, transform: "none" }], { duration: M06.enter, easing: EASE.out }));
     }
     const L = live.current;
-    return () => { lastUnmount = performance.now(); L.anims.forEach((a) => a.cancel()); clearTimeout(L.cut); };
+    return () => { lastUnmount = performance.now(); L.anims.forEach((a) => a.cancel()); clearTimeout(L.cut); L.hold?.(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

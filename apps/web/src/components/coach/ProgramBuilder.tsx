@@ -218,7 +218,10 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
           {loading ? <Skel w={240} h={12} style={{ margin: "2px 0" }} /> : <span className="co-kicker">{forTxt} {saveLabel(save)}</span>}
           {/* El h1 es siempre el mismo elemento (sólo se oculta a la vista cuando está el nombre editable): el foco que le da
               el escenario al entrar no se pierde cuando llega el programa (QA M06: quedaba en body). */}
-          <h1 tabIndex={-1} className={doc ? "sr-only" : undefined} style={doc ? undefined : { lineHeight: "31px" }}>Programas</h1>
+          {/* M06 (QA r2): mientras llega el programa que se va a abrir, el nombre en esqueleto (no «Programas» con el corte de
+              meta y, medio segundo después, el nombre del programa: se leía como un segundo cambio de pantalla). */}
+          <h1 tabIndex={-1} className={doc || loading ? "sr-only" : undefined} style={doc || loading ? undefined : { lineHeight: "31px" }}>Programas</h1>
+          {loading && <Skel w={220} h={24} r={8} style={{ margin: "3.5px 0" }} />}
           {doc && <input className="pname" value={doc.name} onChange={(e) => edit((d) => ({ ...d, name: e.target.value }))} aria-label="Nombre del programa" maxLength={120} />}
         </div>
         {loading && <div className="co-actions" aria-hidden="true"><Skel w={85} h={42} r={10} /><Skel w={85} h={42} r={10} /><Skel w={145} h={42} r={10} /></div>}

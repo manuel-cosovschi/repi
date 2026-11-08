@@ -20,6 +20,7 @@ import { Ic } from "@/components/ui/Ic";
 import { List } from "@phosphor-icons/react";
 import { FlashToast } from "@/components/ui/FlashToast";
 import { SectionStage } from "@/components/motion/SectionStage";
+import { useDrawer } from "@/components/motion/useDrawer";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
 import { Skel } from "@/components/motion/Skeleton";
 
@@ -78,9 +79,12 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
   }, []);
   const navKey = navSel && navSel !== screen ? navSel : screen;
   const stageKey = screen === "clients" && sel ? "contract" : screen;
+  // M06 (QA r2): foco y teclado del cajón (ítem actual al abrir, Escape, título al volver a tocar la pantalla a la vista).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { dismiss } = useDrawer(rootRef, drawer, setDrawer, !!navSel && navSel !== stageKey);
 
   return (
-    <div className="co" data-drawer={drawer ? "1" : "0"}>
+    <div ref={rootRef} className="co" data-drawer={drawer ? "1" : "0"}>
       <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
@@ -100,8 +104,8 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
         {/* D188: apariencia personal (no del gimnasio): la misma en todos los espacios. */}
         <div className="co-theme"><ThemePicker compact /></div>
       </aside>
-      <div className="co-scrim" data-open={drawer ? "1" : "0"} aria-hidden="true" onClick={() => setDrawer(false)} />
-      <main className="co-main">
+      <div className="co-scrim" data-open={drawer ? "1" : "0"} aria-hidden="true" onClick={dismiss} />
+      <main className="co-main" inert={drawer || undefined}>
         <div className="co-topbar ui-dark">
           <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="var(--ui-text)" /></button>
           <Wordmark width={50} /><span style={{ marginLeft: "auto", fontSize: 13, color: "var(--ui-muted)" }}>REPI Admin</span></div>

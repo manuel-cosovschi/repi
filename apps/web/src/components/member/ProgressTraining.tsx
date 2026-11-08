@@ -7,6 +7,7 @@ import { PROGRESS_RANGES, kgTo, volumeIn, type ProgressRange, type WeightUnit } 
 import { useCached } from "@/lib/cache";
 import { Loading, Skel } from "@/components/motion/Skeleton";
 import { RepiAsk } from "@/components/brain/RepiAsk";
+import { useBrain } from "@/components/brain/BrainProvider";
 import { ProgressChart, type ChartPoint } from "./ProgressChart";
 import { useUnit } from "./units";
 
@@ -62,6 +63,7 @@ function fmtFor(m: Metric, unit: WeightUnit) {
 
 export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" }: { onOpenSession: (id: string) => void; offline?: boolean; initialRange?: ProgressRange }) {
   const unit = useUnit();
+  const brainOn = useBrain().enabled;
   const [range, setRange] = useState<ProgressRange>(initialRange);
   const [q, setQ] = useState("");
   const [qq, setQq] = useState(""); // búsqueda con espera de 250 ms
@@ -78,6 +80,9 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
 
   // Ejercicio inicial: el más entrenado del período (primera de «tus marcas»); si no, el más reciente de la lista.
   useEffect(() => { if (!exId && sum && list?.length && !q) setExId(sum.marks[0]?.id ?? list[0].id); }, [exId, sum, list, q]);
+  // M06 (QA r2): mientras ese ejercicio inicial está por elegirse (la lista llegó antes que el período), la lista para elegir
+  // no se muestra: aparecía un instante debajo del esqueleto (la tarjeta medía 908 px y después 579) y lo de abajo saltaba.
+  const autoPick = !exId && !q && !err && !!list?.length;
   const E = useCached<ExProgress>(exId && !offline ? `/api/me/progress/exercises/${encodeURIComponent(exId)}?range=${range}` : null, { keep: true });
   const ex = E.data, exErr = E.err && (E.stale || !ex) ? E.err : null;
   useEffect(() => {
@@ -109,7 +114,9 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
   return (
     <>
       <section className="pp-card" aria-labelledby="pp-sum" aria-busy={S.stale || undefined} data-stale={S.stale || undefined}>
-        <div className="pp-head"><h2 id="pp-sum">Tu período</h2>{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
+        {/* M06 (QA r2): mientras carga, el lugar de «Preguntale a REPI» (36 px) reservado: al llegar el período el encabezado
+            crecía 14 px y corría la tarjeta. */}
+        <div className="pp-head"><h2 id="pp-sum">Tu período</h2>{!sum && !err && brainOn && <span className="linkbtn rp-ask" aria-hidden="true" style={{ visibility: "hidden" }}>Preguntale a REPI</span>}{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
         <RangePicker value={range} onChange={setRange} label="Período" />
         {err && <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={loadSum}>Reintentar</button></p>}
         {!sum && !err && <PeriodSkeleton unit={unit} />}
@@ -151,7 +158,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         <div className="pp-head"><h2 id="pp-ex">Evolución por ejercicio</h2>
           {!!list?.length && <button type="button" className="linkbtn" aria-expanded={pick} onClick={() => setPick((x) => !x)}>{pick ? "Cerrar" : "Cambiar ejercicio"}</button>}</div>
         {list && !list.length && !q && <span className="mb-muted" style={{ fontSize: 14 }}>Cuando registres series, acá vas a ver cómo evoluciona cada ejercicio.</span>}
-        {(pick || (list && !exId)) && !!(list?.length || q) && (
+        {(pick || (list && !exId && !autoPick)) && !!(list?.length || q) && (
           <>
             <label className="search"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
             <div className="pp-exlist" role="list">

@@ -54,6 +54,16 @@ export function invalidate(prefix?: string) {
 /** Escribe un valor conocido (después de una acción que devuelve el estado nuevo). */
 export function setCached(url: string, data: unknown) { put(url, data); }
 
+/**
+ * `prev` si `next` trae el mismo contenido (JSON), si no `next`. Una revalidación sin cambios conserva el mismo objeto: el
+ * estado no cambia, nada se vuelve a dibujar y las secciones vivas que lo leen siguen sin cambios (QA M06, ronda 2: tareas
+ * largas al volver por respuestas iguales a las que ya estaban a la vista).
+ */
+export function keepSame<T>(prev: T, next: T): T {
+  if (Object.is(prev, next) || prev == null || next == null || typeof prev !== "object" || typeof next !== "object") return next;
+  try { return JSON.stringify(prev) === JSON.stringify(next) ? prev : next; } catch { return next; }
+}
+
 type St<T> = { url: string | null; dataUrl: string | null; data: T | null; err: string | null };
 
 /**
@@ -77,7 +87,8 @@ export function useCached<T>(url: string | null, opts: { keep?: boolean; maxAgeM
     const my = ++seq.current;
     try {
       const d = await fetchCached<T>(url);
-      if (my === seq.current) setSt({ url, dataUrl: url, data: d, err: null });
+      // Sin cambios de contenido, el mismo estado (React no vuelve a dibujar).
+      if (my === seq.current) setSt((s) => { const data = s.dataUrl === url ? keepSame(s.data as T, d) : d; return s.url === url && s.dataUrl === url && s.err == null && data === s.data ? s : { url, dataUrl: url, data, err: null }; });
     } catch (e) { if (my === seq.current) setSt((s) => (s.url === url ? { ...s, err: (e as Error).message } : s)); }
   }, [url]);
   useEffect(() => { void load(); }, [load]);

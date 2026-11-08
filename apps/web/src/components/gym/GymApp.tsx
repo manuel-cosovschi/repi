@@ -32,6 +32,7 @@ import { RepiNews, useRepiNewsUnread } from "@/components/announcements/RepiNews
 import { ArrowsLeftRight, Barbell, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, VideoCamera, Megaphone, type Icon } from "@phosphor-icons/react";
 import { FlashToast } from "@/components/ui/FlashToast";
 import { SectionStage } from "@/components/motion/SectionStage";
+import { useDrawer } from "@/components/motion/useDrawer";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
 import { Skel } from "@/components/motion/Skeleton";
 
@@ -106,6 +107,9 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const [loc, setLoc] = useState<string | null>(initial.loc ?? null);
   const [toast, setToast] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
+  // M06 (QA r2): foco y teclado del cajón (ítem actual al abrir, Escape, título al volver a tocar la pantalla a la vista).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { dismiss } = useDrawer(rootRef, drawer, setDrawer, !!navSel && navSel !== screen);
   const [badges, setBadges] = useState<{ queue: number; msgs: number; validations: number; joins: number; notices: number; billing: number }>({ queue: 0, msgs: 0, validations: 0, joins: 0, notices: 0, billing: 0 });
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -233,7 +237,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const multi = ctx.locations.length > 1;
 
   return (
-    <div className="co" data-drawer={drawer ? "1" : "0"}>
+    <div ref={rootRef} className="co" data-drawer={drawer ? "1" : "0"}>
       <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand">
           <Wordmark width={58} />
@@ -277,8 +281,8 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         {/* D188: apariencia personal (no del gimnasio): la misma en todos los espacios. */}
         <div className="co-theme"><ThemePicker compact /></div>
       </aside>
-      <div className="co-scrim" data-open={drawer ? "1" : "0"} aria-hidden="true" onClick={() => setDrawer(false)} />
-      <main className="co-main">
+      <div className="co-scrim" data-open={drawer ? "1" : "0"} aria-hidden="true" onClick={dismiss} />
+      <main className="co-main" inert={drawer || undefined}>
         <div className="co-topbar ui-dark">
           <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="var(--ui-text)" /></button>
           <Wordmark width={50} />

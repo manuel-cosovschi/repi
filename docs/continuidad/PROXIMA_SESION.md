@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-transiciones`, con `main` `7f30a06` integrado, sin publicar; hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 08/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-transiciones`, con `main` `7f30a06` integrado y la QA ronda 2 corregida, sin publicar; hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
 ## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
@@ -122,7 +122,21 @@ Actualizado: 07/11/2026 (hasta D211 en rama: M06 «Carril» en `claude/app-trans
     - pasan `brain`, `brain-staff` (Pendientes, con `DATABASE_URL` de `repi_dev`), `gym-new-message`, `gym-editor-parity`, `motion-nav` y `gym-member-page`;
     - en `gym-new-message`, «Escribir desde la ficha» miraba la fila oculta de Socios (que sigue viva): ahora mira la fila visible;
     - prueba propia (fuera del repositorio): pestañas, `RepiCard` visible en Inicio, «Hablar con REPI», el panel se reabre con la conversación después de cambiar de pestaña (teléfono) o sigue abierto (escritorio ancho) y sobrevive al entrenamiento. Pedidos del cerebro sin duplicar: un `GET /api/me/brain` y una sola carga del hilo tras muchos cambios de pestaña.
-- **Próxima acción:** revisar con el titular (videos y su iPhone) y, con su aprobación, abrir el PR.
+- **QA independiente, ronda 2 (08/11) corregida** (detalle, números y lo descartado en `docs/MOTION_NAVEGACION.md` §20):
+  - **Velocidad.** Con CPU ×4 el título llegaba legible después que en `main` (Progreso al volver: 61–65 → 166–182 ms). Ahora el indicador sale al apoyar el dedo (`pointerdown` en `TabBar.tsx`; vuelve si el gesto se cancela). La sección se dibuja en el click, sin `startTransition` y de un tirón (`go` en `MemberApp.tsx`).
+  - `SectionStage` suma `deps(k)`: lo que lee cada sección. Al volver sin cambios se reutiliza su último nodo.
+  - `lib/cache.ts` suma `keepSame`: una revalidación con el mismo contenido conserva el mismo objeto. La entrada queda anclada al tiempo del cuadro.
+  - Medido intercalado con `main` en 3114, 10 corridas por lado: el título se lee antes en 9 de 10 cambios (Progreso al volver, 67 contra 62 ms, dentro del ruido). Con un toque de 80 ms, el indicador se mueve 12–28 ms después de apoyar el dedo; en `main`, 127–219.
+  - Descartado con números: el indicador en el click y la sección en el cuadro siguiente, la vuelta en `startTransition` y anticipar secciones ocultas.
+  - **Scroll de Ejecutivo** (600 → 500 al volver): `OwnerGuide.tsx` ya no mueve la ventana. Red de seguridad `holdScroll` en `SectionStage`.
+  - **Cajón del staff:** `components/motion/useDrawer.ts` en Coach, Gym y Admin. Volver a tocar la pantalla actual deja el foco en su título (antes, en `body`). Al abrir, foco al ítem actual y `main` inerte. Escape o el fondo cierran y el foco vuelve a «Abrir menú». A ≥ 768 px se cierra.
+  - **Progreso con latencia, debajo del pliegue:** sin la lista de ejercicios un instante, «Volumen por semana» en esqueleto de 120 px y el lugar de «Preguntale a REPI» reservado (`ProgressTraining.tsx`, `MemberApp.tsx`).
+  - **Coach Programas:** el nombre en esqueleto mientras carga el programa, sin el «PROGRAMAS» que cambiaba medio segundo después (`ProgramBuilder.tsx`).
+  - **Pruebas:** `motion-nav.spec.ts` › «teléfono Gym (dueño)» cubre scroll, red de seguridad, foco al volver a tocar, teclado y 8 toques con CPU ×4. `roles.spec.ts` espera el botón del menú en el teléfono.
+  - **Corridas:** `tsc` ✓, `pnpm build` ✓. E2E en 3104 contra `repi_e2e_tx`: `motion-nav`, `gym-member-page`, `member-workout` y `roles`, 35 ✓. Las 3 de `roles` en escritorio no corrieron por el tope de demos y habían pasado en la corrida anterior, con el mismo código de staff.
+  - **Demos:** `repi_dev` quedó en el tope de 300 demos; no se purgó. El orquestador creó `repi_e2e_tx` (migraciones hasta 0051) y `tx-env.sh` apunta ahí. Al final de la ronda `repi_e2e_tx` también quedó en 301, por las mediciones; tampoco se purgó.
+  - **Sin migraciones**, sin cambios de servidor ni de base.
+- **Próxima acción:** revisar con el titular (videos y su iPhone; ahora también la velocidad en su teléfono) y, con su aprobación, abrir el PR. Pendientes menores: «Tu nivel» crece 25 px al cargar (al final de Progreso); tareas largas del primer dibujo de Entrenar, Progreso y el editor de Programas, como en `main`.
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 
