@@ -325,7 +325,9 @@ describe("métricas desde eventos reales", () => {
       await gym.takeTask(w.t1, w.org, t.id);
       await gym.completeTask(w.t1, w.org, t.id);
     }
-    const pc = await mt.performanceCenter(w.manager, w.org, w.A, "7d");
+    // «Ahora» un segundo después: la ventana es [desde, ahora) y el último pedido puede completarse en el mismo milisegundo
+    // en que se mide (quedaba afuera y la prueba fallaba de vez en cuando en CI).
+    const pc = await mt.performanceCenter(w.manager, w.org, w.A, "7d", new Date(Date.now() + 1000));
     const a = pc.rows.find((r) => r.id === w.t1)!;
     expect(a.hours).toBe(2);
     expect(a.req).toBe(3);
