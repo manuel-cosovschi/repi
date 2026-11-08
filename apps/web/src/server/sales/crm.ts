@@ -6,6 +6,7 @@ import {
   missingOpportunityFields, normalizeEmail, type DupCandidate, type DupSignal, type Stage,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import type { Tx } from "../access/util";
 import { AccessError, NF, audit, clean, isDay, logActivity, notifyAdmins, notifyRep, requireRep, salesAdmin, today, type Rep } from "./core";
 
 const { salesProspect: P, salesOpportunity: O, salesActivity: A, salesRep, salesRequest, organization, clientContract, commercialLead, user } = schema;
@@ -57,9 +58,9 @@ function oppValues(p: Partial<OpportunityInput>) {
 
 // ── Duplicados ──────────────────────────────────────────────────────────────
 type Match = { type: "client" | "prospect" | "lead"; id: string; name: string; ownerRepId: string | null; signals: DupSignal[]; strong: boolean };
-export async function scanDuplicates(c: DupCandidate, excludeProspectId?: string): Promise<Match[]> {
+export async function scanDuplicates(c: DupCandidate, excludeProspectId?: string, q: Tx | typeof db = db): Promise<Match[]> {
   const out: Match[] = [];
-  const orgs = await db.select({ id: organization.id, name: organization.name, cuit: organization.cuit, isDemo: organization.isDemo, legal: clientContract.legalName, email: clientContract.responsibleEmail })
+  const orgs = await q.select({ id: organization.id, name: organization.name, cuit: organization.cuit, isDemo: organization.isDemo, legal: clientContract.legalName, email: clientContract.responsibleEmail })
     .from(organization).leftJoin(clientContract, eq(clientContract.orgId, organization.id));
   for (const o of orgs) {
     if (o.isDemo) continue;
@@ -68,7 +69,7 @@ export async function scanDuplicates(c: DupCandidate, excludeProspectId?: string
     const signals = [...new Set([...s.signals, ...s2.signals])];
     if (signals.length) out.push({ type: "client", id: o.id, name: o.name, ownerRepId: null, signals, strong: s.strong || s2.strong });
   }
-  const pros = await db.select().from(P).where(isNull(P.archivedAt));
+  const pros = await q.select().from(P).where(isNull(P.archivedAt));
   for (const p of pros) {
     if (p.id === excludeProspectId) continue;
     const s = duplicateSignals(c, { name: p.name, cuit: p.cuit, email: p.email, phone: p.phone, website: p.website, city: p.city });

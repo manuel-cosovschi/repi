@@ -140,7 +140,7 @@ export async function markResolvedSeen(userId: string, id: string) {
 }
 
 async function setItem(tx: Tx, userId: string, rel: { id: string; coachOrgId: string }, item: AccessItem, on: boolean) {
-  const restricted = await minorWithoutGuardian(userId);
+  const restricted = await minorWithoutGuardian(userId, tx);
   if (on && resolveGrants("coach_client", [item], { minorWithoutGuardian: restricted }).indexOf(item) < 0) {
     throw new AccessError("minor", "Este dato se comparte cuando tu adulto responsable lo autorice.", 403);
   }
