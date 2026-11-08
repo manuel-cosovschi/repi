@@ -1,8 +1,8 @@
 # REPI — Retomar acá
 
-Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la rama `claude/admin-timeout`, sin publicar**). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; en rama: transiciones M06 (D212, `claude/app-transiciones`) y clave de cron en Vault (#79, espera el paso del titular en Vercel)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## Incidente «Task timed out after 300 seconds» en /api/admin — 08/11/2026 · CORREGIDO EN RAMA, SIN PUBLICAR
+## Incidente «Task timed out after 300 seconds» en /api/admin — 08/11/2026 · PUBLICADO Y VERIFICADO (#80, `47fac4f`)
 
 - **Qué pasó:** 2 cortes de 300 s en REPI Admin (06/11 13:08 y 07/11 21:07 UTC) con la base sin nada raro. El pedido esperaba algo dentro del proceso.
 - **Causas confirmadas en local:**
@@ -30,10 +30,10 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
     - `alter role repi_app set statement_timeout = '60s'`.
     - Supavisor los aplica a las conexiones nuevas. Se verifica con `select current_setting('lock_timeout')`.
     - Revisar antes los scripts que entran como `repi_app` (`ops:retention`). Opcional: `log_lock_waits = on`.
-  - Revisión y merge.
+- **Publicado 08/11:** merge `47fac4f`, sin migraciones. En producción: `/api/version` = `47fac4f44cc3`; `/api/admin/summary` sin sesión → 401; el cron por minuto siguió en 200 (`net._http_response`); Vercel sin errores de ejecución en los 30 min siguientes. Los tiempos del rol `repi_app` siguen sin aplicar (decisión del titular).
 - **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
 
-## Ejercicios por tiempo (D211): cinta con duración, velocidad e inclinación — 08/11/2026 · LISTO EN RAMA, SIN PUBLICAR (migración 0052 sin aplicar)
+## Ejercicios por tiempo (D211): cinta con duración, velocidad e inclinación — 08/11/2026 · PUBLICADO Y VERIFICADO (#81, `b8f2c5c`; 0052 aplicada)
 
 - **Pedido del titular:** en «Cinta caminadora» el profe carga duración (min), velocidad (km/h) e inclinación (número, sin «%»). El alumno ve lo mismo y registra lo que hizo de verdad. La fuerza sigue con series/reps/carga/RIR y las demás actividades tienen campos propios. Spec y auditoría en `scratchpad/time-audit.md`, resumida en D211.
 - **Rama:** `claude/ejercicios-por-tiempo`, con main integrado.
@@ -68,14 +68,14 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
   - Typecheck y build OK.
   - Capturas de teléfono para el titular en `scratchpad/time-shots/owner/`.
 - **Local:** `repi_dev` llegó al tope de 300 demos. Las E2E corren contra `repi_e2e_time`/`repi_e2e_tx`, bases locales propias. No se purgó nada.
-- **Próximo:**
-  1. Aprobación del titular.
-  2. «Respaldo».
-  3. `hosted-0052.sql`.
-  4. Merge.
-  5. Verificación en producción con demo.
+- **Publicado 08/11 (aprobación del titular «Publica»):**
+  1. «Respaldo» por issue #83 → release `backup-20261108-033638` verificado.
+  2. `hosted-0052.sql` como postgres en una transacción: 53 migraciones, 2 columnas y 2 CHECK, 191/191 filas del catálogo con perfil (`Cinta (caminata)` = `treadmill`), 0 ejercicios propios tocados; la pertenencia de postgres a `repi_app` volvió a su estado (`set_option` falso).
+  3. Merge `b8f2c5c`; `/api/version` = `b8f2c5c95478`.
+  4. Verificación con demos en producción (iPhone 15): el alumno ve «10 min · 5 km/h · incl. 3» y sólo duración, velocidad e inclinación (sin peso); registró 12 min → `reps 720`, `rir null`, métricas `{speedKmh: 5, incline: 3}`. El coach agrega «Cinta caminadora» y ve sólo los tres campos (sin RIR). Sin errores ni 5xx.
+- **Pruebas que dependían de la hora, corregidas con #80/#81:** `brain-context` (días según Argentina), `brain-coach` caso 52 (sesiones al mediodía de Argentina) y `gym.test` métricas (medir un segundo después; con #82).
 
-## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · RONDA 3 LISTA EN RAMA, SIN PUBLICAR
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · PUBLICADO Y VERIFICADO (#82, `0c30322`)
 
 - **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
   y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
@@ -138,11 +138,8 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
   `aria-label` del logo (fallaba igual antes de esta pasada).
 - **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
   socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
-- **Próxima acción:** que el titular revise `/conoce` con la ronda 3 (videos en `cx-motion/owner/`). Antes del PR, volver a
-  correr la prueba e2e de la demo guiada con lugar para demos en la base local. Después, PR desde `claude/conoce-ajustes`. No hay
-  migraciones, así que el respaldo de `docs/RESPALDOS.md` sólo corre si el despliegue lo pide. Luego publicar y medir el
-  LCP de campo. Antes de levantar `next start` en 3103, cerrar el `next-server` anterior de `/home/user/repi-cx/apps/web`
-  (el `pkill` del `npm exec` no lo cierra y la página se sirve con la build vieja).
+- **Publicado 08/11** (aprobado por el titular tras ver los videos): merge `0c30322`, sin migraciones. En producción (Playwright, iPhone 15 y escritorio 1440): recorrido completo sin errores de consola ni respuestas 4xx/5xx; CLS 0 (teléfono) y 0,0009 (escritorio); logo real en todo el recorrido.
+- **Próxima acción:** revisar en Speed Insights el LCP de campo de `/conoce` (objetivo ≤ 2,5 s; en laboratorio 3,9 s) cuando junte visitas.
 
 ## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
