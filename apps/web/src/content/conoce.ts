@@ -2,7 +2,6 @@
 // mensajes de contacto. Regla: sólo capacidades presentes en el producto (docs/comercial/ESTADO_Y_LIMITES.md, FEATURE_FLAGS.md).
 // Nada de cifras, clientes, testimonios ni integraciones que no existan. Para sumar un video: completar `src` en VIDEOS.
 import type { Profile } from "@/lib/site-events";
-import FILM_DESCRIPTIONS from "./film-descriptions.json";
 
 export type DemoRole = "owner" | "floor" | "member" | "coach";
 
@@ -17,30 +16,40 @@ export type Video = {
   srcVertical?: string; posterVertical?: string;
   /** Con música. Sin esto, el video es sin audio (con textos en pantalla). */
   audio?: boolean;
-  /** Título de la pista de Kevin MacLeod (CC BY 4.0): la atribución se muestra en el reproductor. */
+  /** Título de la pista de Kevin MacLeod (CC BY 4.0): la atribución está en /creditos, enlazada desde el pie. */
   music?: string;
-  /** Descripción en texto, escena por escena (los films no tienen voz): el reproductor la ofrece y además carga la pista
-   *  WebVTT de descripciones. Generada desde los guiones con design/films/kit/tools/describe.py. */
-  description?: { at: string; text: string }[];
+  /** Qué muestra el video, en una o dos oraciones: es lo único que acompaña al reproductor. */
+  summary?: string;
+  /** Pista WebVTT de descripciones escena por escena (los films no tienen voz): la usan los lectores de pantalla, no se ve.
+   *  Generada desde los guiones con design/films/kit/tools/describe.py. */
   descriptionTrack?: string;
 };
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
-const film = (id: string, title: string, audience: string, duration: string, music: string, extra: Partial<Video> = {}): Video =>
-  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music,
-    description: (FILM_DESCRIPTIONS as Record<string, { at: string; text: string }[]>)[id], descriptionTrack: `/conoce/videos/${id}.descripcion.vtt`, ...extra });
+const film = (id: string, title: string, audience: string, duration: string, music: string, summary: string, extra: Partial<Video> = {}): Video =>
+  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music, summary,
+    descriptionTrack: `/conoce/videos/${id}.descripcion.vtt`, ...extra });
 export const VIDEOS: Record<string, Video> = {
-  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age"),
-  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies"),
-  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer"),
+  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age",
+    "El socio entrena con su programa en el teléfono y un objetivo para cada serie, el entrenador sabe a quién atender y el gimnasio ve lo que pasa en su sala."),
+  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies",
+    "Altas por QR con aprobación del equipo, el programa de cada socio en su teléfono, pedidos de ayuda en la sala y la vista del dueño por sede."),
+  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer",
+    "Tus alumnos, sus programas y su progreso en un solo lugar, con borradores de la IA para revisar y mensajes con el contexto a mano."),
   "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:40", "Volatile Reaction",
+    "Tu programa en el teléfono, un objetivo concreto para cada serie y tu progreso por ejercicio, armado con lo que registrás.",
     { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
-  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game"),
-  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:33", "Volatile Reaction"),
-  "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant"),
-  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:24", "Five Armies"),
-  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant"),
+  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game",
+    "Una plataforma B2B2C: gimnasios y entrenadores la contratan, sus alumnos la usan todos los días y un motor propio explica cada recomendación."),
+  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:33", "Volatile Reaction",
+    "Propone el peso y las repeticiones de cada serie según tu historial, con la razón a la vista, y se ajusta cuando registrás lo que hiciste."),
+  "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant",
+    "Cargas, repeticiones, volumen y récords de cada ejercicio, armados con las series que registrás."),
+  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:24", "Five Armies",
+    "El socio escanea el QR de su sede y pide acceso; el equipo confirma quién es socio con un toque."),
+  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant",
+    "El socio pide ayuda desde su serie y el entrenador de turno la recibe, la toma y le responde."),
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
 export const VIDEO_ORDER = ["film-marca", "f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados", "f-progreso", "f-altas", "f-sala"];
@@ -173,19 +182,19 @@ export const PROFILE_CONTENT: Record<Profile, ProfileContent> = {
   },
   aliados: {
     id: "aliados", label: "Soy empresa, inversor o aliado", short: "Aliados", kicker: "Para empresas, inversores y aliados",
-    headline: "Tecnología de entrenamiento que ya funciona en un gimnasio real.",
+    headline: "Tecnología de entrenamiento que ya funciona en gimnasios reales.",
     intro: "REPI es una plataforma B2B2C: gimnasios y entrenadores la contratan y sus alumnos la usan todos los días.",
     problem: "La mayoría de los gimnasios y entrenadores independientes gestionan el entrenamiento con papel, planillas y mensajería, sin datos de lo que pasa en la sala.",
     solution: ["Gimnasios y personal trainers como clientes; socios y alumnos como usuarios", "Suscripción por cliente según socios o alumnos acordados", "Motor propio de recomendaciones explicables (Training Intelligence) más IA generativa para borradores", "Web app instalable: funciona en cualquier teléfono, sin tiendas"],
     benefits: [
-      { title: "Producto en operación", text: "En funcionamiento en Smart Center Gym (Mar del Plata): socios que piden acceso por QR y entrenan con su rutina." },
+      { title: "Producto en operación", text: "En funcionamiento en varios gimnasios de Mar del Plata: socios que piden acceso por QR y entrenan con su rutina." },
       { title: "Diferencial técnico", text: "Recomendaciones deterministas con explicación, registro sin conexión y privacidad por permisos." },
       { title: "Modelo claro", text: "Un acuerdo por cliente con cantidad y precio unitario; no depende de descargas." },
       { title: "Abierto a alianzas", text: "Cadenas, equipamiento, salud y distribución: conversemos cómo sumar valor." },
     ],
     demo: "owner", video: "perfil-aliados", leadKind: "partner",
     whatsapp: "Hola, conocí REPI y me interesa conversar sobre una alianza o inversión. ¿Podemos coordinar una reunión?", cta: "Proponer una alianza",
-    meta: { title: "REPI · Empresa de tecnología para el entrenamiento", description: "Plataforma B2B2C para gimnasios, entrenadores y alumnos, en operación en Smart Center Gym. Alianzas e inversión." },
+    meta: { title: "REPI · Empresa de tecnología para el entrenamiento", description: "Plataforma B2B2C para gimnasios, entrenadores y alumnos, en operación en gimnasios de Mar del Plata. Alianzas e inversión." },
   },
 };
 

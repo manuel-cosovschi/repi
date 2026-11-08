@@ -1,5 +1,6 @@
 // Cambios de la persona durante la sesión activa (F-HX-21, D106): saltar un ejercicio, hacer otro en su lugar y anotar
 // una serie. Sólo afectan a esa sesión: el programa y la prescripción del coach no cambian.
+import { isActivityProfile, profileOf } from "./activity";
 
 export const EXERCISE_CHANGE_REASONS = {
   busy: "Máquina o lugar ocupado",
@@ -12,12 +13,22 @@ export type ExerciseChangeReason = keyof typeof EXERCISE_CHANGE_REASONS;
 export const isChangeReason = (x: unknown): x is ExerciseChangeReason => typeof x === "string" && x in EXERCISE_CHANGE_REASONS;
 
 export type ExerciseKind = "load_reps" | "bodyweight" | "time";
-/** Reemplazo compatible: otro ejercicio del mismo tipo de registro (cargas y reps, peso corporal o tiempo). */
-export const canSubstitute = (original: { id: string; kind: ExerciseKind }, candidate: { id: string; kind: ExerciseKind }) =>
-  original.id !== candidate.id && original.kind === candidate.kind;
+type SubCandidate = { id: string; kind: ExerciseKind; name?: string | null; muscleGroup?: string | null; group?: string | null; profile?: string | null };
+/**
+ * Reemplazo compatible: otro ejercicio del mismo tipo de registro (cargas y reps, peso corporal o tiempo). Ejercicios por tiempo
+ * (07/11/2026): una actividad (cinta, bici, remo, elíptico, escaladora, soga…) sólo se reemplaza por otra actividad, y nunca por
+ * un aguante en segundos (una plancha no reemplaza a la cinta). Una cinta propia creada «con peso» sigue siendo una actividad.
+ */
+export const canSubstitute = (original: SubCandidate, candidate: SubCandidate) => {
+  if (original.id === candidate.id) return false;
+  // Sin nombre ni perfil guardado, el perfil sale del tipo y el grupo («por tiempo» en Cardio es una actividad).
+  const a = isActivityProfile(profileOf(original)), b = isActivityProfile(profileOf(candidate));
+  if (a || b) return a && b;
+  return original.kind === candidate.kind;
+};
 
 /** Orden de alternativas: mismo grupo muscular primero, después alfabético. No implica cargas equivalentes. */
-export function rankAlternatives<T extends { id: string; name: string; muscleGroup: string; kind: ExerciseKind }>(original: { id: string; kind: ExerciseKind; muscleGroup: string }, all: T[]) {
+export function rankAlternatives<T extends { id: string; name: string; muscleGroup: string; kind: ExerciseKind }>(original: { id: string; kind: ExerciseKind; muscleGroup: string; name?: string | null; profile?: string | null }, all: T[]) {
   return all.filter((c) => canSubstitute(original, c))
     .sort((a, b) => Number(b.muscleGroup === original.muscleGroup) - Number(a.muscleGroup === original.muscleGroup) || a.name.localeCompare(b.name, "es"));
 }

@@ -14,9 +14,10 @@ import { aiJson, aiOn, type AiPart } from "../ai/openai";
 import { logError } from "../log";
 
 export type ImportInput = { fileName: string; kind: "text" | "image" | "pdf"; text?: string; dataUrl?: string; sheet?: boolean };
-export type LibRow = { id: string; name: string; group: string; kind: string };
+// `profile` (ejercicios por tiempo): perfil resuelto del ejercicio de la biblioteca (cinta, bici, remo… o fuerza), si quien llama lo trae.
+export type LibRow = { id: string; name: string; group: string; kind: string; profile?: string };
 export type PreviewExercise = ImportExercise & {
-  exerciseId: string | null; name: string | null; group_: string | null; kind: string | null;
+  exerciseId: string | null; name: string | null; group_: string | null; kind: string | null; profile: string | null;
   matchedBy: "library" | "ai" | null; alternatives: LibRow[]; method: ImportedMethod | null;
 };
 export type ImportPreview = {
@@ -203,7 +204,7 @@ export async function buildPreview(read: Awaited<ReturnType<typeof readImport>>,
     source: read.source, file: read.file, notes: read.parse.notes, unread: read.parse.unread,
     variants: read.parse.variants.map((v) => ({ name: v.name, days: v.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => {
       const m = matches[e.written];
-      return { ...e, exerciseId: m?.row?.id ?? null, name: m?.row?.name ?? null, group_: m?.row?.group ?? null, kind: m?.row?.kind ?? null, matchedBy: m?.by ?? null,
+      return { ...e, exerciseId: m?.row?.id ?? null, name: m?.row?.name ?? null, group_: m?.row?.group ?? null, kind: m?.row?.kind ?? null, profile: m?.row?.profile ?? null, matchedBy: m?.by ?? null,
         alternatives: m?.alternatives ?? [], method: importedMethod(e) };
     }) })) })),
   };

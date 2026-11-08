@@ -13,13 +13,28 @@ import { Hint } from "./Hint";
 type T = RowTarget & { id?: string };
 type Plan = { weightKg: number | null; reps: string; timed: boolean };
 type Suggest = { weightKg: number | null; reps: number; why: string } | null;
+/**
+ * Ejercicios por tiempo: una actividad (cinta, bici, remo…) se guía con lo que indicó el profe («10 min · 5 km/h · incl. 3»),
+ * la vez anterior y lo de hoy, con sus propios valores. Sin kilos, repeticiones, RIR ni «Usar»: REPI no calcula cargas en una
+ * actividad y los campos ya arrancan con lo indicado.
+ */
+type Act = { coach: string; prev: string | null; real: string | null };
 
-export function SetGuide({ t, plan, prevFallback, suggest, real, draft, unit, label, canUse, onUse }: {
+export function SetGuide({ t, plan, prevFallback, suggest, real, draft, unit, label, canUse, onUse, act }: {
   t: T | null; plan: Plan; prevFallback: { weightKg: number | null; reps: number | null } | null; suggest: Suggest;
   real: { w: number; r: number; rir: number | null } | null; draft: { w: number; r: number } | null;
-  unit: WeightUnit; label: string; canUse: boolean; onUse: (w: number | null, r: number | null) => void;
+  unit: WeightUnit; label: string; canUse: boolean; onUse: (w: number | null, r: number | null) => void; act?: Act | null;
 }) {
   const [why, setWhy] = useState(false);
+  if (act) return (
+    <section className="sg ti-card" aria-label={`Objetivo de ${label}`}>
+      <dl className="sg-rows">
+        <div className="sg-row is-coach"><dt>Tu profe indicó</dt><dd><b>{act.coach}</b></dd></div>
+        <div className="sg-row"><dt>Anterior</dt><dd>{act.prev ? <span>{act.prev}{t?.prev?.source === "import" && <small> · importado</small>}</span> : <span className="sg-none">Sin referencia</span>}</dd></div>
+        <div className="sg-row is-real"><dt>Real (hoy)</dt><dd>{act.real ? <b>{act.real}</b> : <span className="sg-none">Por registrar</span>}</dd></div>
+      </dl>
+    </section>
+  );
   // Tiempos legibles (05/11/2026): «20 min» o «1 min 30 s», no «1200 s».
   const n = (r: number | null | undefined) => (r == null ? "—" : plan.timed ? fmtSeconds(r) : String(r));
   const reps = plan.timed ? repsText(plan.reps) : plan.reps;

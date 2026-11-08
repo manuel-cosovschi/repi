@@ -4,7 +4,7 @@
 // D138: la persona puede responder («la máquina está ocupada», «no hay», «me molesta») y la IA rearma la rutina con esa
 // información, cambiando sólo por alternativas compatibles de la biblioteca (primero las aprobadas por su profe) o salteando.
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
-import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isChangeReason, localDate, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
+import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isActivityProfile, isChangeReason, localDate, prescriptionText, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
@@ -43,6 +43,7 @@ Reglas:
 - Tené en cuenta «loQueBusca» (objetivo, tiempo disponible, gustos y lo que prefiere evitar) para el enfoque, las reps y las notas; si tiene pocos minutos, sugerí menos series. No cambies el programa por eso.
 - «tendencia» la calculó REPI con reglas: no la contradigas ni inventes otra; usala sólo para explicar.
 - No des consejos médicos. Si hay señales de fatiga, sugerí descansar o bajar la intensidad en «caution».
+- Un ejercicio con «actividad» (cinta, bici, remo…) se hace por duración tal como lo indicó el profe: copiá series y reps tal cual, weightKg null. No le propongas kilos ni repeticiones.
 - headline: máximo 50 caracteres. summary: máximo 160 caracteres. note: máximo 60 caracteres.
 
 - Con «respuestaDeLaPersona»: es su respuesta a tu sugerencia anterior. Respetá lo que cuenta. Mantené el mismo día salvo que pida otro.
@@ -71,7 +72,9 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
   const { historyRows, outlookFor } = await import("./intelligence");
   const allEx = t.program.days.flatMap((d) => d.exercises);
   const hist = await historyRows(userId, allEx.map((e) => e.exerciseId), { now }).catch(() => new Map());
-  const trendOf = (e: (typeof allEx)[number]) => { try { return outlookFor({ sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null }, hist.get(e.exerciseId) ?? [], now, true)?.trend.text ?? null; } catch { return null; } };
+  const trendOf = (e: (typeof allEx)[number]) => { try { return outlookFor({ sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null, profile: e.profile }, hist.get(e.exerciseId) ?? [], now, true)?.trend.text ?? null; } catch { return null; } };
+  // Ejercicios por tiempo: una actividad (cinta, bici, remo…) se hace como la indicó el profe (duración, velocidad, inclinación).
+  const isAct = (e: (typeof allEx)[number]) => isActivityProfile(e.profile);
   const goals = goalsAll.filter((g) => g.progress != null || g.current != null).slice(0, 5);
   const next = t.program.days[t.program.nextDay];
   // Códigos cortos (d1, e3, opción 2) en lugar de IDs largos: el modelo los copia sin errores y responde más rápido.
@@ -80,7 +83,9 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
   const ctx = {
     hoy: today, relacion: t.relation?.kind === "gym" ? "programa del gimnasio" : "programa de su coach",
     programa: t.program.name, proximoDia: next ? { dayId: dKey.get(next.id), nombre: next.name } : null,
-    dias: t.program.days.map((d) => ({ dayId: dKey.get(d.id)!, nombre: d.name, ejercicios: d.exercises.map((e) => ({ programExerciseId: eKey.get(e.id), nombre: e.name, series: e.sets, reps: e.reps, rir: e.rir, ultimaMarca: e.prev, tendencia: trendOf(e) ?? undefined })) })),
+    dias: t.program.days.map((d) => ({ dayId: dKey.get(d.id)!, nombre: d.name, ejercicios: d.exercises.map((e) => (isAct(e)
+      ? { programExerciseId: eKey.get(e.id), nombre: e.name, series: e.sets, reps: e.reps, actividad: prescriptionText(e) }
+      : { programExerciseId: eKey.get(e.id), nombre: e.name, series: e.sets, reps: e.reps, rir: e.rir, ultimaMarca: e.prev, tendencia: trendOf(e) ?? undefined })) })),
     ultimosEntrenamientos: recent.map((r) => ({ dia: r.dayName, fecha: r.endedAt ? localDate(r.endedAt) : null, rpe: r.rpe, series: sets.filter((x) => x.s === r.id).length })),
     checkinHoy: ci ? { energia: ci.energy, sueno: ci.sleep, animo: ci.mood } : null,
     objetivos: goals.map((g) => ({ objetivo: g.title, actual: g.current, meta: g.target, progreso: g.progress })),
@@ -115,7 +120,9 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
   const exs = day.exercises.map((e) => {
     const a = out.exercises.find((x) => x.programExerciseId === eKey.get(e.id));
     const detail = e.detail as ExerciseDetail | null;
-    const check = !progressionApplies(detail) || coachSetLoads(detail)
+    // Una actividad nunca cambia de series ni de duración ni lleva peso: lo que indicó el profe (la nota y el cambio sí valen).
+    const act = isAct(e);
+    const check = act ? { weightKg: null, status: "ok" as const, reasons: [] as string[] } : !progressionApplies(detail) || coachSetLoads(detail)
       ? { weightKg: null, status: "rejected" as const, reasons: coachSetLoads(detail) ? ["Carga indicada por tu profe."] : ["Este ejercicio tiene series distintas: la carga de cada una sale del plan."] }
       : checkLoad({ proposedKg: a?.weightKg ?? null, source: "ai", referenceKg: refOf(e.exerciseId), rulesKg: e.suggest?.weightKg ?? null,
         blockIncrease: !!e.suggest?.guards?.length || !!ci && (ci.energy <= 2 || ci.sleep <= 2) });
@@ -126,10 +133,11 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
     const reason: ExerciseChangeReason = said ?? (isChangeReason(a?.reason) ? a.reason : "other");
     const skip = !opt && !!a?.skip && !!alts;
     // Otro ejercicio no lleva la carga del original: sin marca propia, sin peso sugerido (la nota dice empezar liviano).
-    const sw = opt ? (opt.prev?.weightKg != null && a?.weightKg != null ? checkLoad({ proposedKg: Math.min(a.weightKg, opt.prev.weightKg), source: "ai", referenceKg: opt.prev.weightKg, blockIncrease: true }).weightKg : null) : w;
-    return { id: e.id, name: e.name, sets: a && a.sets >= 1 && a.sets <= e.sets ? a.sets : e.sets, reps: (a?.reps || e.reps).slice(0, 20), weightKg: skip ? null : sw, note: (a?.note ?? "").slice(0, 120), prev: e.prev,
+    const sw = act ? null : opt ? (opt.prev?.weightKg != null && a?.weightKg != null ? checkLoad({ proposedKg: Math.min(a.weightKg, opt.prev.weightKg), source: "ai", referenceKg: opt.prev.weightKg, blockIncrease: true }).weightKg : null) : w;
+    return { id: e.id, name: e.name, sets: !act && a && a.sets >= 1 && a.sets <= e.sets ? a.sets : e.sets, reps: (!act && a?.reps ? a.reps : e.reps).slice(0, 20), weightKg: skip ? null : sw, note: (a?.note ?? "").slice(0, 120), prev: e.prev,
+      profile: e.profile, activity: e.activity, // para mostrar «10 min · 5 km/h · incl. 3» en lugar de series × reps
       checks: opt || check.status === "ok" ? [] : check.reasons,
-      swap: opt ? { exerciseId: opt.exerciseId, name: opt.name, approved: opt.approved, prev: opt.prev } : null, skip, reason: opt || skip ? reason : null };
+      swap: opt ? { exerciseId: opt.exerciseId, name: opt.name, profile: opt.profile, approved: opt.approved, prev: opt.prev } : null, skip, reason: opt || skip ? reason : null };
   });
   await audit(db, { actorUserId: userId, action: "adaptive.ai_advice", resourceType: "program_day", resourceId: day.id, meta: { model: aiFastModel(), usesAI: true, followUp: !!follow, changes: exs.filter((e) => e.swap || e.skip).length, loadChecks: exs.filter((e) => e.checks.length).length } });
   return { dayId: day.id, dayName: day.name, headline: out.headline.slice(0, 80), summary: out.summary.slice(0, 400), caution: out.caution?.slice(0, 200) ?? null, exercises: exs };

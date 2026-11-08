@@ -1,15 +1,25 @@
 // Catálogo base de ejercicios (D129). Global: lo ven todos los coaches y gimnasios. Cada organización suma los suyos
 // («ejercicio propio») cuando algo no está acá. Nombres en español rioplatense, sin marcas. Sin videos todavía.
 
+import type { MetricsProfile } from "./activity";
 import type { ExerciseKind } from "./session-changes";
 export const EXERCISE_KIND_LABEL: Record<ExerciseKind, string> = { load_reps: "Peso y repeticiones", bodyweight: "Peso corporal (repeticiones)", time: "Tiempo" };
 export const EXERCISE_GROUPS = ["Pecho", "Espalda", "Hombros", "Brazos", "Piernas", "Glúteos", "Core", "Cuerpo completo", "Cardio", "Movilidad"] as const;
 export type ExerciseGroup = (typeof EXERCISE_GROUPS)[number];
 
-type Row = [string, ExerciseGroup, ExerciseKind];
+// Cuarto valor (07/11/2026, ejercicios por tiempo): el perfil de métricas, es decir, qué se configura y qué registra la persona.
+// Se escribe sólo donde no sale del tipo de registro: las máquinas de cardio son actividades (cinta: duración, velocidad e
+// inclinación; bici, elíptico y escaladora: nivel; remo: distancia y ritmo) y la soga, los jumping jacks y el skierg son «sólo
+// duración». Lo demás se deduce del tipo: con peso → strength; peso corporal → bodyweight; por tiempo → hold (series de
+// segundos: plancha, sentadilla en pared, trineo, battle ropes, movilidad), como hasta ahora.
+// «Cinta caminadora» NO es otra fila: es un sinónimo de «Cinta (caminata)» (EXERCISE_SYNONYMS en exercise-guess.ts). Una fila
+// nueva duplicaría el mismo equipo en la biblioteca (historial, progreso y reemplazos repartidos entre dos ejercicios) y
+// `ensureExerciseCatalog` nunca une ni renombra filas existentes; la búsqueda y la importación la encuentran por el sinónimo.
+type RawRow = [string, ExerciseGroup, ExerciseKind] | [string, ExerciseGroup, ExerciseKind, MetricsProfile];
+export type CatalogRow = [name: string, group: ExerciseGroup, kind: ExerciseKind, profile: MetricsProfile];
 const L = "load_reps", B = "bodyweight", T = "time";
 
-export const EXERCISE_CATALOG: Row[] = [
+const RAW: RawRow[] = [
   // Pecho
   ["Press de banca", "Pecho", L], ["Press de banca con mancuernas", "Pecho", L], ["Press inclinado con barra", "Pecho", L], ["Press inclinado mancuernas", "Pecho", L],
   ["Press declinado con barra", "Pecho", L], ["Press declinado con mancuernas", "Pecho", L], ["Press en máquina", "Pecho", L], ["Press inclinado en máquina", "Pecho", L],
@@ -60,13 +70,18 @@ export const EXERCISE_CATALOG: Row[] = [
   ["Wall ball", "Cuerpo completo", L], ["Lanzamiento de balón medicinal", "Cuerpo completo", L], ["Empuje de trineo", "Cuerpo completo", T], ["Arrastre de trineo", "Cuerpo completo", T],
   ["Battle ropes", "Cuerpo completo", T], ["Salto de rana", "Cuerpo completo", B], ["Oso (bear crawl)", "Cuerpo completo", T],
   // Cardio
-  ["Cinta (caminata)", "Cardio", T], ["Cinta (trote)", "Cardio", T], ["Bicicleta fija", "Cardio", T], ["Bicicleta de aire", "Cardio", T], ["Remo ergómetro", "Cardio", T],
-  ["Elíptico", "Cardio", T], ["Escaladora", "Cardio", T], ["Soga (saltar la cuerda)", "Cardio", T], ["Jumping jacks", "Cardio", T], ["Skierg", "Cardio", T],
+  ["Cinta (caminata)", "Cardio", T, "treadmill"], ["Cinta (trote)", "Cardio", T, "treadmill"], ["Bicicleta fija", "Cardio", T, "bike"], ["Bicicleta de aire", "Cardio", T, "bike"],
+  ["Remo ergómetro", "Cardio", T, "rower"], ["Elíptico", "Cardio", T, "elliptical"], ["Escaladora", "Cardio", T, "stair"], ["Soga (saltar la cuerda)", "Cardio", T, "duration"],
+  ["Jumping jacks", "Cardio", T, "duration"], ["Skierg", "Cardio", T, "duration"],
   // Movilidad
   ["Movilidad de cadera 90/90", "Movilidad", T], ["Estiramiento de isquiotibiales", "Movilidad", T], ["Estiramiento de flexores de cadera", "Movilidad", T],
   ["Movilidad de tobillo", "Movilidad", T], ["Movilidad torácica", "Movilidad", T], ["Gato-vaca", "Movilidad", T], ["Postura del niño", "Movilidad", T],
   ["Dislocaciones de hombro con palo", "Movilidad", B], ["Rotaciones de cadera", "Movilidad", B], ["Foam roller", "Movilidad", T],
 ];
+
+/** Catálogo con el perfil de cada ejercicio siempre presente (`[nombre, grupo, tipo, perfil]`). */
+export const EXERCISE_CATALOG: CatalogRow[] = RAW.map(([name, group, kind, profile]) =>
+  [name, group, kind, profile ?? (kind === "load_reps" ? "strength" : kind === "bodyweight" ? "bodyweight" : "hold")]);
 
 /** Nombre de un ejercicio propio: espacios normalizados, 2 a 60 caracteres, primera letra en mayúscula. */
 export function cleanExerciseName(raw: string): string | null {

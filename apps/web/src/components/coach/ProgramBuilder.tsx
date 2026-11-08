@@ -2,7 +2,7 @@
 // Constructor de programas (F-CO-08). Autoguardado real: cada cambio se persiste; si la versión ya fue
 // asignada o usada en una sesión, el servidor crea una versión nueva y el historial no cambia.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatRest, parseRest } from "@repi/domain";
+import { activityOf, formatRest, isActivityProfile, parseRest, type MetricsProfile } from "@repi/domain";
 import { api } from "@/lib/api";
 import { ApprovedSubs, subsLabel, subsRow, useSubsPanel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
@@ -21,8 +21,11 @@ import { CoachDayCopy, DayMenu, readClip, writeClip, type DayClip } from "./DayC
 import { TemplateRollout } from "./TemplateRollout";
 import { ProgramImportModal } from "./ProgramImportModal";
 import { copyDayContent } from "@repi/domain";
+import { ActivityFields, ActivityLast, ConvertToActivity, editorProfile, libMatches, rowDefaults, toActivityRow } from "./ActivityFields";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
+/** Ejercicios por tiempo: la biblioteca trae el perfil resuelto de cada ejercicio (cinta, bici, remo… o musculación). */
+type Lib = LibEx & { profile?: string | null };
 
 export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, onAssigned }: {
   orgId: string; ov: Overview; pid: string | null; setPid: (id: string | null) => void; flash: (t: string) => void; onNewProgram: () => void; onAssigned: () => void;
@@ -37,7 +40,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const [day, setDay] = useState(0);
   // D201 (Urko): el panel de reemplazos es de este programa y este día; cambiar de programa o de día lo cierra.
   const subsPanel = useSubsPanel(`${orgId}|${prog?.id ?? ""}|${day}`);
-  const [lib, setLib] = useState<LibEx[]>([]);
+  const [lib, setLib] = useState<Lib[]>([]);
   const [libQ, setLibQ] = useState("");
   const [importing, setImporting] = useState(false);
   const [save, setSave] = useState<Save>({ s: "idle" });
@@ -59,7 +62,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
 
   const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); return r.programs; }), [orgId]);
   useEffect(() => { loadList().then((ps) => { if (!pid && ps[0]) setPid(ps[0].id); }).catch((e) => flash(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { api<{ exercises: LibEx[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
+  useEffect(() => { api<{ exercises: Lib[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
   useEffect(() => {
     if (!pid) { setProg(null); setDoc(null); return; }
     dirty.current = false; setSave({ s: "idle" }); setAssign(false);
@@ -159,12 +162,14 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     setDayDoc((x) => ({ ...x, exercises: ok ? sync.exs : next }));
   };
   const issues = cur ? circuitIssues(cur.exercises) : [];
-  const libq = libQ.trim().toLowerCase();
-  const addLib = (l: { id: string; name: string; kind: string }) => {
+  // Ejercicios por tiempo: cada ejercicio entra con los valores de su perfil (una cinta: 10 min a 5 km/h, inclinación 0, sin
+  // series ni RIR; un aguante: 3 × 40 s; la musculación, 3 × 8-12 con RIR 2 como siempre).
+  const addLib = (l: { id: string; name: string; kind: string; group?: string; profile?: string | null }) => {
     if (!cur) return;
-    setDayDoc((x) => ({ ...x, exercises: [...x.exercises, { exerciseId: l.id, name: l.name, sets: 3, reps: l.kind === "time" ? "40 s" : "8-12", rir: l.kind === "time" ? null : 2, restSec: 90 }] }));
+    setDayDoc((x) => ({ ...x, exercises: [...x.exercises, { exerciseId: l.id, name: l.name, ...rowDefaults(editorProfile({ name: l.name }, l)) }] }));
     flash(`${l.name} agregado a ${cur.name}.`);
   };
+  const libById = new Map(lib.map((l) => [l.id, l]));
 
   const duplicate = async () => {
     if (!prog) return;
@@ -297,7 +302,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             <div className="exhead" aria-hidden="true"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Descanso</span><span className="c-act" /></div>
             {(() => { const labels = groupLabels(cur.exercises); return cur.exercises.map((e, i) => (
               <div key={`${prog?.id}-${prog?.version}-${day}-${i}-${e.exerciseId}`}>
-                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsPanel.isOpen(subsRow(i, e.exerciseId))}
+                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} profile={editorProfile(e, libById.get(e.exerciseId))} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsPanel.isOpen(subsRow(i, e.exerciseId))}
                   onSubs={() => subsPanel.toggle(subsRow(i, e.exerciseId))}
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
                   onDetail={(p) => saveDetail(i, p)}
@@ -305,7 +310,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                   onSeparate={e.detail?.group ? () => setDayDoc((x) => ({ ...x, exercises: separateFromGroup(x.exercises, i) })) : undefined}
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
-                <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />
+                {activityOf(e.detail) ? <ActivityLast last={lastTimes[e.exerciseId]} />
+                  : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} profile={editorProfile(e, libById.get(e.exerciseId))} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />}
                 {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} onAdded={subsPanel.close} />}
               </div>
             )); })()}
@@ -328,8 +334,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
           <span className="lbl-up" style={{ padding: "6px 8px" }}>Biblioteca</span>
           <label className="search" style={{ height: 38 }}><input value={libQ} onChange={(e) => setLibQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
           <NewExercise url={`/api/coach/${orgId}/library`} query={libQ} known={lib} disabled={!cur} flash={flash}
-            onCreated={(e) => { setLib((xs) => xs.some((x) => x.id === e.id) ? xs : [...xs, { id: e.id, name: e.name, group: e.group, kind: e.kind, own: e.own }].sort((a, b) => a.name.localeCompare(b.name, "es"))); addLib(e); setLibQ(""); }} />
-          {lib.filter((l) => !libq || (l.name + l.group).toLowerCase().includes(libq)).map((l) => (
+            onCreated={(e) => { setLib((xs) => xs.some((x) => x.id === e.id) ? xs : [...xs, { id: e.id, name: e.name, group: e.group, kind: e.kind, own: e.own, profile: e.profile }].sort((a, b) => a.name.localeCompare(b.name, "es"))); addLib(e); setLibQ(""); }} />
+          {lib.filter((l) => libMatches(l, libQ)).map((l) => (
             <button type="button" key={l.id} className="librow" disabled={!cur} aria-label={`Agregar ${l.name}`} onClick={() => addLib(l)}>
               <span>{l.name}<small>{l.group}{l.own ? " · propio" : ""}</small></span><i aria-hidden="true">+</i>
             </button>
@@ -352,8 +358,8 @@ function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); }
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
 
-function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove, onCombine, onSeparate, nextName }: {
-  orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;
+function ExRow({ orgId, n, e, group, profile, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove, onCombine, onSeparate, nextName }: {
+  orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; profile: MetricsProfile; subs: string; subsOpen: boolean; onSubs: () => void;
   onCombine?: () => void; onSeparate?: () => void; nextName?: string;
   onChange: (p: Partial<EditableDoc["days"][number]["exercises"][number]>) => void; onMove: (d: 1 | -1) => void; onRemove: () => void;
   onDetail: (p: { detail: EditableDoc["days"][number]["exercises"][number]["detail"]; sets: number }) => void;
@@ -366,15 +372,20 @@ function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail,
   const sum = detailSummary(e, group);
   const custom = !!e.detail?.setPlan && !isStraightPlan(e.detail); // D173: series rectas con peso se editan en la fila
   const row = (p: { sets?: number; reps?: string; rir?: number | null }) => onChange(straightRow(e.detail, p));
+  // Ejercicios por tiempo: una actividad (cinta, bici, remo…) muestra sólo la duración y sus campos, sin series, RIR ni técnica.
+  // Una fila de actividad escrita como texto (programas anteriores) sigue como estaba y ofrece «Configurar por duración».
+  const act = activityOf(e.detail);
+  const convert = !act && isActivityProfile(profile) ? profile : null;
   return (
-    <div className="exrow">
+    <div className={act ? "exrow is-activity" : "exrow"}>
       <span className="c-name"><code>{group ?? String(n + 1).padStart(2, "0")}</code>{e.name}
-        <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
+        {!act && <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>}
         {onCombine && <button type="button" className="subs-btn" onClick={onCombine} aria-label={`Combinar ${e.name} con ${nextName ?? "el siguiente"}`}>Combinar con el siguiente</button>}
         {onSeparate && <button type="button" className="subs-btn" onClick={onSeparate} aria-label={`Separar ${e.name} de su grupo`}>Separar</button>}
         {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}
         {!noteOpen && !e.note && <NoteButton name={e.name} onOpen={() => setNoteOpen(true)} />}</span>
       {sum && <span className="ex-sum">{sum}</span>}
+      {act ? <ActivityFields e={e} profile={act.profile} onChange={onChange} /> : <>
       <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={custom ? mainSets(e.detail, e.sets) : e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && row({ sets: n })} /></span>
       <span className="c-r"><small className="c-lbl">Reps</small><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
         onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) row({ reps: ev.target.value }); }} /></span>
@@ -382,12 +393,14 @@ function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail,
       <span className="c-rest"><small className="c-lbl">Descanso</small><input value={rest} aria-label={`Descanso de ${e.name}`} aria-invalid={restBad || undefined} placeholder="m:ss"
         onChange={(ev) => { setRest(ev.target.value); const s = parseRest(ev.target.value); if (s != null && s <= 900) onChange({ restSec: s }); }}
         onBlur={() => setRest(formatRest(e.restSec))} /></span>
+      </>}
       <span className="c-act">
         <button type="button" className="ibtn" aria-label={`Subir ${e.name}`} disabled={n === 0} onClick={() => onMove(-1)}>↑</button>
         <button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={onRemove}>×</button>
       </span>
+      {convert && <ConvertToActivity name={e.name} reps={e.reps} profile={convert} onConvert={() => onChange(toActivityRow(e, convert))} />}
       {(noteOpen || !!e.note) && <NoteField name={e.name} value={e.note ?? ""} who="tu cliente" onChange={(v) => onChange({ note: v })} onEmpty={() => setNoteOpen(false)} />}
-      {detail && <ExerciseDetailEditor e={e} types={{ kind: "coach", orgId }} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
+      {detail && !act && <ExerciseDetailEditor e={e} types={{ kind: "coach", orgId }} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
     </div>
   );
 }

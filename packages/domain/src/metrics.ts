@@ -12,11 +12,12 @@
 //  · Repeticiones: Σ reps de las filas hechas, sin aproximación, sin series por tiempo y sin AMRAP contado en rondas.
 //  · Tonelaje (volumen de carga): Σ peso × reps de esas mismas filas (incluye etapas: son kilos levantados de verdad).
 //    En ejercicios unilaterales las reps son por lado y no se duplican.
-//  · Tiempo: segundos de las series por tiempo y la duración de los AMRAP por tiempo hechos. Nunca se multiplica por kilos.
+//  · Tiempo: segundos de las series por tiempo (incluidas las actividades: cinta, bici, remo…) y la duración de los AMRAP por
+//    tiempo hechos. Nunca se multiplica por kilos.
 //  · Rondas: las de los AMRAP por tiempo contados en rondas.
 import type { ExerciseDetail, SetKind } from "./prescription";
+import { isTimedRow } from "./activity";
 import { normalizePlan, planBlocks } from "./stages";
-import { parseReps } from "./training";
 
 export type RowFlags = { kind: SetKind; block: number; stage: number; timed: boolean; warmup: boolean; rounds: boolean; durationSec: number | null };
 type Ex = { sets: number; reps: string; detail?: ExerciseDetail | null };
@@ -28,7 +29,8 @@ export function rowFlags(e: Ex, i: number): RowFlags {
   const reps = r?.reps ?? e.reps;
   const kind: SetKind = r?.kind ?? "work";
   const durationSec = kind === "amrap" ? r?.durationSec ?? null : null;
-  const timed = !durationSec && parseReps(reps).kind === "time";
+  // Por tiempo: «40 s», «10 min» o una actividad configurada (cinta, bici, remo… aunque diga «500 m»): segundos, nunca kilos.
+  const timed = !durationSec && isTimedRow({ reps, detail: e.detail });
   const blocks = r ? null : planBlocks(e.detail, e.sets);
   return { kind, block: r?.block ?? blocks?.[i]?.index ?? i, stage: r?.stage ?? 0, timed, warmup: kind === "warmup", rounds: !!durationSec && (r?.countUnit ?? "rounds") === "rounds", durationSec };
 }

@@ -18,6 +18,8 @@ export function logErrorAt(scope: string, e: unknown, where: string) {
 /** D149: aviso por email al titular (si ALERT_EMAIL está cargada). Después de responder cuando se puede; nunca frena ni rompe. */
 function notify(summary: { scope: string; where: string; name: string; msg: string; pg: string | null }) {
   if (!process.env.ALERT_EMAIL) return;
-  const run = () => import("./alerts").then((m) => m.alertError(summary)).catch(() => {});
+  // Incidente 07/11: con tiempo máximo. Un aviso que no termina (base trabada, proveedor sin respuesta) mantenía viva la función
+  // después de responder, hasta el corte; ahora se abandona a los 20 s.
+  const run = () => import("./deadline").then((d) => d.withDeadline(import("./alerts").then((m) => m.alertError(summary)), d.AFTER_DEADLINE_MS, "alerta")).catch(() => {});
   import("next/server").then(({ after }) => { try { after(run); } catch { void run(); } }).catch(() => void run());
 }

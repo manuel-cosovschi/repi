@@ -2,17 +2,18 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
   activeSeconds, applySessionAction, bestE1rm, matchProgramExercises, sharedWishes, type TrainingWishes, type ExerciseDetail, clampClientTime, cleanSetNote, decideSetWrite, isChangeReason, rankAlternatives, withApproved, type ExerciseChangeReason, defaultRepsFor, detectPR, localDate, nextDayIndex, sameDoc, validateProgramDoc, volumeKg, weekOf,
-  weeklyAdherence, FEEL_ALERTS, isSetFeel, parseReps, type LoggedSet, type ProgramDoc, type SetFeel,
+  weeklyAdherence, FEEL_ALERTS, isSetFeel, isTimedRow, type LoggedSet, type ProgramDoc, type SetFeel,
   applyLoad, coachSetLoads, suggestNext, type LastSet, workoutAutoClose, WORKOUT_IDLE_CLOSE_MS,
   progressionApplies, kindAt, GENERAL_PAIN_DAYS, PAIN_LOOKBACK_DAYS, type SafetySignals, exerciseKey,
   rowFlags, rowRef, sessionMetrics, exerciseComplete, type SetKind, validateDetail, mainSets, circuitIssues, MAX_PLAN_ROWS,
   acceptInterval, decideSkip, interruptInterval, newerThan, toServerMs, type IntervalState,
-  loadIncrement, setTarget,
+  loadIncrement, setTarget, activityOf, cleanSetMetrics, profileOf, ACTIVITY_MAX_SEC, type ExerciseKind, type MetricsProfile, type SetMetrics,
+  alignActivities, canSubstitute, droppedActivity, isActivityProfile,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
 import { requireGymAction } from "../gym/access-control";
-import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "./library";
+import { createOwnExercise, ensureExerciseCatalog, exerciseProfiles, libraryCols, metricsProfileOf, rowProfile, visibleIn, withProfile } from "./library";
 import { todaysPick } from "../gym/floor-now";
 import { importedLastSets } from "./history-import";
 import { aiOn } from "../ai/openai";
@@ -24,8 +25,8 @@ const { user, organization, staffMembership, coachClient, consentGrant, invitati
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
 
 // ── Autorización ────────────────────────────────────────────────────────────
-export async function requireCoach(actorId: string, orgId: string) {
-  const [row] = await db.select({ org: organization }).from(staffMembership)
+export async function requireCoach(actorId: string, orgId: string, q: Tx | typeof db = db) {
+  const [row] = await q.select({ org: organization }).from(staffMembership)
     .innerJoin(organization, eq(organization.id, staffMembership.orgId))
     .where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, orgId), eq(staffMembership.role, "coach_owner"),
       eq(staffMembership.status, "active"), eq(organization.kind, "coach")));
@@ -49,12 +50,13 @@ export async function requireClientOf(orgId: string, coachClientId: string, tx: 
 export async function listLibrary(actorId: string, orgId: string) {
   await requireCoach(actorId, orgId);
   await ensureExerciseCatalog();
-  return db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, own: sql<boolean>`${exercise.orgId} is not null` })
+  const rows = await db.select({ ...libraryCols, own: sql<boolean>`${exercise.orgId} is not null` })
     .from(exercise).where(visibleIn(orgId)).orderBy(asc(exercise.name));
+  return rows.map(withProfile); // ejercicios por tiempo: con el perfil resuelto (cinta, bici, remo…)
 }
 
-/** Ejercicio propio del coach (D129): para lo que no está en el catálogo base. */
-export async function coachCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind: string }) {
+/** Ejercicio propio del coach (D129): para lo que no está en el catálogo base. Con `profile`, qué se configura (cinta, bici…). */
+export async function coachCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind?: string | null; profile?: string | null }) {
   await requireCoach(actorId, orgId);
   return createOwnExercise(actorId, orgId, p);
 }
@@ -131,7 +133,7 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
   await requireCoach(actorId, orgId);
   const v = validateProgramDoc(doc);
   if (!v.ok) throw new AccessError("invalid", v.error);
-  await assertLibrary(orgId, v.doc);
+  const saved = await assertLibrary(orgId, v.doc);
   if (imported && !/^[A-Za-z0-9_-]{8,64}$/.test(imported.opId)) throw new AccessError("invalid", "Falta el identificador de la importación.");
   return db.transaction(async (tx) => {
     if (imported) {
@@ -141,7 +143,7 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
       if (prior?.id) return prior.id;
     }
     const [p] = await tx.insert(program).values({ orgId, kind: "template", createdBy: actorId }).returning();
-    await newVersion(tx, p.id, 1, v.doc, actorId);
+    await newVersion(tx, p.id, 1, saved, actorId);
     await audit(tx, { actorUserId: actorId, orgId, action: "program.created", resourceType: "program", resourceId: p.id });
     if (imported) await audit(tx, { actorUserId: actorId, orgId, action: "program.imported", resourceType: "program", resourceId: p.id,
       meta: { opId: imported.opId, source: String(imported.source).slice(0, 10), file: String(imported.file).slice(0, 10), days: v.doc.days.length, exercises: v.doc.days.reduce((n, d) => n + d.exercises.length, 0) } });
@@ -149,11 +151,34 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
   });
 }
 
-export async function assertLibrary(orgId: string, doc: ProgramDoc) {
+/**
+ * Todos los ejercicios del documento están en la biblioteca de la organización. Ejercicios por tiempo: devuelve el documento con
+ * la actividad de cada fila en el perfil de su ejercicio (`alignActivities`): respaldo de lo que arma cada pantalla (una
+ * importación que guardaba «sólo duración» sobre una cinta, o una actividad sobre un ejercicio de musculación).
+ * Incidente 07/11: dentro de una transacción, pasar su `tx` (`q`) para no pedir otra conexión del pool.
+ */
+export async function assertLibrary(orgId: string, doc: ProgramDoc, q: Tx | typeof db = db): Promise<ProgramDoc> {
   const ids = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
-  if (!ids.length) return;
-  const ok = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
+  if (!ids.length) return doc;
+  const ok = await q.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
   if (ok.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
+  if (!doc.days.some((d) => d.exercises.some((e) => activityOf(e.detail)))) return doc;
+  const profiles = await exerciseProfiles(ids, q);
+  const days: ProgramDoc["days"] = [];
+  for (const d of doc.days) {
+    const r = alignActivities(d.exercises, profiles);
+    if (!r.ok) throw new AccessError("invalid", r.error);
+    days.push({ ...d, exercises: r.rows });
+  }
+  return { ...doc, days };
+}
+/**
+ * Una app anterior en caché no conoce la configuración por duración: si al guardar una fila perdió su actividad (velocidad,
+ * inclinación, nivel…) se rechaza con un pedido de actualizar, en lugar de borrarla sin aviso (`droppedActivity`).
+ */
+export function assertKeepsActivities(before: ProgramDoc, after: ProgramDoc) {
+  const lost = droppedActivity(before.days.flatMap((d) => d.exercises), after.days.flatMap((d) => d.exercises));
+  if (lost) throw new AccessError("outdated_app", `Actualizá REPI (recargá la página) para editar «${lost.name}»: esta versión no guarda su configuración por duración.`, 409);
 }
 
 export async function loadProgram(orgId: string, programId: string, tx: Tx | typeof db = db) {
@@ -199,12 +224,15 @@ export async function saveProgram(actorId: string, orgId: string, programId: str
   await requireCoach(actorId, orgId);
   const v = validateProgramDoc(input);
   if (!v.ok) throw new AccessError("invalid", v.error);
-  await assertLibrary(orgId, v.doc);
+  const doc = await assertLibrary(orgId, v.doc);
   return db.transaction(async (tx) => {
     const [p] = await tx.select().from(program).where(and(eq(program.id, programId), eq(program.orgId, orgId), isNull(program.archivedAt))).for("update");
     if (!p?.currentVersionId) throw NOT_FOUND();
     const cur = await readVersion(p.currentVersionId, tx);
-    return writeProgramDoc(tx, { actorId, orgId, programId: p.id, cur, doc: v.doc });
+    // Una app anterior en caché (lo que manda la pantalla) no borra la velocidad ni la inclinación sin aviso. Sólo acá: pegar un
+    // día arma el documento en el servidor con las filas tal cual están guardadas.
+    assertKeepsActivities(plain(cur.doc), doc);
+    return writeProgramDoc(tx, { actorId, orgId, programId: p.id, cur, doc });
   });
 }
 
@@ -385,7 +413,7 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
  * RIR y sensación), en el orden en que lo hizo. Lo ven su coach y el equipo de sala con quien compartió su entrenamiento.
  */
 export async function sessionLogs(sessionIds: string[]) {
-  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null; corrected?: boolean }[] }[]>();
+  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null; metrics?: SetMetrics | null; corrected?: boolean }[] }[]>();
   if (!sessionIds.length) return out;
   // D192: el nombre de la serie (Top set, Load Set, Drop 1…) sale de la versión congelada que se entrenó: renombrar después un
   // tipo propio no cambia lo que se muestra de sesiones anteriores.
@@ -402,7 +430,9 @@ export async function sessionLogs(sessionIds: string[]) {
     let ex = list.find((x) => (x as { key?: string }).key === key);
     if (!ex) { ex = Object.assign({ exercise: name, timed: timed.has(l.programExerciseId), sets: [] }, { key }); list.push(ex); }
     const label = pe?.detail ? setTarget({ sets: pe.sets, reps: pe.reps, rir: null, restSec: 0, detail: pe.detail as ExerciseDetail }, l.setIndex).label : null;
-    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label, ...(corrected.has(l.id) ? { corrected: true } : {}) });
+    // Ejercicios por tiempo: los valores reales de la actividad (velocidad, inclinación, nivel…), además de los segundos en `reps`.
+    // Sólo si los hay: el resto de las series queda como antes.
+    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label, ...(l.metrics ? { metrics: l.metrics } : {}), ...(corrected.has(l.id) ? { corrected: true } : {}) });
     out.set(l.sessionId, list);
   }
   for (const list of out.values()) for (const ex of list) { delete (ex as { key?: string }).key; ex.sets.sort((a, b) => a.n - b.n); }
@@ -491,7 +521,8 @@ export async function timedPeIds(peIds: Iterable<string>): Promise<PlanIndex> {
   if (!ids.length) return new Set();
   const rows = await db.select({ id: programExercise.id, reps: programExercise.reps, sets: programExercise.sets, detail: programExercise.detail }).from(programExercise).where(inArray(programExercise.id, ids));
   const byId = new Map(rows.map((r) => [r.id, { sets: r.sets, reps: r.reps, detail: r.detail as ExerciseDetail | null }]));
-  const out = new Set(rows.filter((r) => parseReps(r.reps).kind === "time").map((r) => r.id)) as Set<string> & { flags?: PlanIndex["flags"] };
+  // Por tiempo: «40 s», «10 min» o una actividad configurada (cinta, bici, remo…), con el predicado único del dominio.
+  const out = new Set(rows.filter((r) => isTimedRow({ reps: r.reps, detail: r.detail as ExerciseDetail | null })).map((r) => r.id)) as Set<string> & { flags?: PlanIndex["flags"] };
   out.flags = (peId, i) => { const e = byId.get(peId); return e ? rowFlags(e, i) : { kind: "work" as SetKind, block: i, stage: 0, timed: false, warmup: false, rounds: false, durationSec: null }; };
   return out;
 }
@@ -561,7 +592,8 @@ export async function trainingStamp(userId: string) {
  * D154: series de la última sesión terminada en que la persona hizo cada ejercicio (base de la progresión sugerida).
  * Con `excludeSessionId`, sin contar la sesión en curso.
  */
-export type LastTime = { at: Date; sets: LastSet[]; reps: string | null };
+// Ejercicios por tiempo: cada serie con las métricas de la actividad, si las tiene (la vez pasada: 12 min a 5,5 km/h, incl. 4).
+export type LastTime = { at: Date; sets: (LastSet & { metrics?: SetMetrics })[]; reps: string | null };
 export async function lastTimeByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string, scope?: { coachClientId?: string; gymMemberId?: string }) {
   const out = new Map<string, LastTime>();
   if (!exerciseIds.length) return out;
@@ -576,13 +608,13 @@ export async function lastTimeByExercise(userId: string, exerciseIds: string[], 
   if (!latest.length) return out;
   // D182: con la sensación de cada serie, su tipo según el plan de esa sesión (versión congelada) y las repeticiones indicadas.
   const rows = await db.select({ exerciseId: setLog.exerciseId, sessionId: setLog.sessionId, idx: setLog.setIndex, w: setLog.weightKg, r: setLog.reps, rir: setLog.rir, feel: setLog.feel,
-    peReps: programExercise.reps, detail: programExercise.detail, setKind: setLog.setKind })
+    metrics: setLog.metrics, peReps: programExercise.reps, detail: programExercise.detail, setKind: setLog.setKind })
     .from(setLog).innerJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(inArray(setLog.sessionId, [...new Set(latest.map((l) => l.sessionId))]), inArray(setLog.exerciseId, exerciseIds), isNull(setLog.voidedAt))).orderBy(asc(setLog.setIndex));
   for (const l of latest) {
     const mine = rows.filter((x) => x.sessionId === l.sessionId && x.exerciseId === l.exerciseId);
     out.set(l.exerciseId, { at: l.at, reps: mine[0]?.peReps ?? null, sets: mine.map((x) => ({ weightKg: x.w == null ? null : Number(x.w), reps: x.r, rir: x.rir, feel: x.feel,
-      kind: (x.setKind as SetKind | null) ?? kindAt(x.detail as ExerciseDetail | null, x.idx) })) }); // D183: el tipo guardado al registrar, o el de la versión
+      kind: (x.setKind as SetKind | null) ?? kindAt(x.detail as ExerciseDetail | null, x.idx), ...(x.metrics ? { metrics: x.metrics } : {}) })) }); // D183: el tipo guardado al registrar, o el de la versión
   }
   return out;
 }
@@ -609,10 +641,12 @@ export async function trainingSignals(userId: string, now = new Date()): Promise
 /**
  * Sugerencia de hoy para un ejercicio del programa: nada si el profe ya indicó la carga en el plan (manda el profe) ni si el
  * plan tiene series distintas (top set, back-off, drop, rest-pause, pirámide, AMRAP): una carga única sería incorrecta (D182).
+ * Ejercicios por tiempo: tampoco en una actividad (`profile`: cinta, bici, remo…), aunque la fila diga «3 × 10-12» como la
+ * dejaba el editor de sala: a una cinta nunca se le proponen kilos ni repeticiones.
  */
-const suggestionFor = (e: { name: string; reps: string; sets: number; detail?: unknown }, last: LastTime | undefined, sig?: Signals) => {
+const suggestionFor = (e: { name: string; reps: string; sets: number; detail?: unknown }, last: LastTime | undefined, sig?: Signals, profile?: MetricsProfile | null) => {
   const detail = e.detail as ExerciseDetail | null;
-  if (!last || coachSetLoads(detail) || !progressionApplies(detail)) return null;
+  if (!last || coachSetLoads(detail) || !progressionApplies(detail) || isActivityProfile(profile)) return null;
   const signals: SafetySignals | undefined = sig && {
     painExercise: sig.painNames.has(exerciseKey(e.name)), painOrInjury: sig.painOrInjury, lowReadiness: sig.lowReadiness,
     daysSinceLast: Math.floor((sig.now.getTime() - last.at.getTime()) / 86_400_000),
@@ -642,15 +676,16 @@ export async function coachProgramLastTimes(actorId: string, orgId: string, prog
   return Object.fromEntries(await lastTimeByExercise(rel.userId, exerciseIds.slice(0, 60), undefined, { coachClientId: p.coachClientId }));
 }
 
+/** Última serie de cada ejercicio. Ejercicios por tiempo: con las métricas de la actividad (la vez pasada: 12 min a 5,5 km/h…). */
 export async function lastSetByExercise(userId: string, exerciseIds: string[], excludeSessionId?: string) {
-  if (!exerciseIds.length) return new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
-  const rows = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, weightKg: setLog.weightKg, reps: setLog.reps, completedAt: setLog.completedAt })
+  if (!exerciseIds.length) return new Map<string, { weightKg: number | null; reps: number | null; at: Date; metrics?: SetMetrics | null }>();
+  const rows = await db.selectDistinctOn([setLog.exerciseId], { exerciseId: setLog.exerciseId, weightKg: setLog.weightKg, reps: setLog.reps, metrics: setLog.metrics, completedAt: setLog.completedAt })
     .from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
     .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), inArray(setLog.exerciseId, exerciseIds),
       excludeSessionId ? ne(workoutSession.id, excludeSessionId) : undefined))
     .orderBy(setLog.exerciseId, desc(setLog.completedAt));
-  const m = new Map<string, { weightKg: number | null; reps: number | null; at: Date }>();
-  for (const r of rows) m.set(r.exerciseId, { weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, at: r.completedAt });
+  const m = new Map<string, { weightKg: number | null; reps: number | null; at: Date; metrics?: SetMetrics | null }>();
+  for (const r of rows) m.set(r.exerciseId, { weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, at: r.completedAt, ...(r.metrics ? { metrics: r.metrics } : {}) });
   // D132: si todavía no lo registró en REPI, la última marca de su historial importado sugiere el peso inicial.
   const missing = exerciseIds.filter((id) => !m.has(id));
   if (missing.length) for (const [id, x] of await importedLastSets(userId, missing)) m.set(id, { weightKg: x.weightKg, reps: x.reps, at: new Date(`${x.day}T12:00:00-03:00`) });
@@ -690,7 +725,7 @@ export async function myTraining(userId: string, now = new Date()) {
   const [p] = await db.select().from(program).where(eq(program.id, act.assignment.programId));
   const { version, doc } = await readVersion(p.currentVersionId!);
   const exIds = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
-  const [prev, lastTime, sig] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds), trainingSignals(userId, now)]);
+  const [prev, lastTime, sig, profiles] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds), trainingSignals(userId, now), exerciseProfiles(exIds)]);
   const [lastDone] = await db.select({ dayId: workoutSession.dayId, dayName: workoutSession.dayName }).from(workoutSession)
     .where(and(eq(workoutSession.userId, userId), eq(workoutSession.assignmentId, act.assignment.id), eq(workoutSession.status, "completed")))
     .orderBy(desc(workoutSession.endedAt)).limit(1);
@@ -722,8 +757,10 @@ export async function myTraining(userId: string, now = new Date()) {
         id: d.id!, name: d.name,
         exercises: d.exercises.map((e) => {
           const pv = prev.get(e.exerciseId);
-          return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
-            suggest: suggestionFor(e, lastTime.get(e.exerciseId), sig) };
+          return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps, ...(pv.metrics ? { metrics: pv.metrics } : {}) } : null,
+            suggest: suggestionFor(e, lastTime.get(e.exerciseId), sig, rowProfile(e, e.exerciseId, profiles)),
+            // Ejercicios por tiempo: qué se configura y registra (cinta, bici…) y la actividad indicada (también sin conexión).
+            profile: rowProfile(e, e.exerciseId, profiles), activity: activityOf(e.detail) };
         }),
       })),
     },
@@ -828,7 +865,7 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
     await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, day.d.versionId));
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: act.assignment!.id, versionId: day.d.versionId, dayId: day.d.id, dayName: day.d.name,
-      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
+      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now, tx) : null,
     }).returning();
     return s;
   });
@@ -853,7 +890,7 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
   // D184: el mismo detalle (técnica, etapas conectadas, superserie o circuito) y el mismo validador que el programa del coach.
   const details = p.exercises.map((e) => {
     if (!e.reps?.trim() || e.reps.length > 20) throw new AccessError("invalid", "Revisá las repeticiones.");
-    const v = validateDetail(e.detail ?? null, e.sets);
+    const v = validateDetail(e.detail ?? null, e.sets, e.reps.trim()); // con las reps: la duración de una actividad (hasta 4 h)
     if (!v.ok) throw new AccessError("invalid", v.error);
     const main = mainSets(v.detail, v.sets);
     if (!Number.isInteger(v.sets) || v.sets < 1 || main < 1 || main > 10 || v.sets > MAX_PLAN_ROWS) throw new AccessError("invalid", "Cada ejercicio va con 1 a 10 series.");
@@ -882,18 +919,19 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
     const bad = circuitIssues(p.exercises.map((e, j) => ({ name: byId.get(e.exerciseId)!.name, sets: details[j].sets, reps: e.reps, detail: details[j].detail })))[0];
     if (bad) throw new AccessError("invalid", `El circuito ${bad.group} tiene ${bad.rounds} vueltas, pero ${bad.exercise} tiene ${bad.blocks} series.`);
     await tx.insert(programExercise).values(p.exercises.map((e, j) => ({ dayId: day.id, position: j, exerciseId: e.exerciseId, name: byId.get(e.exerciseId)!.name,
-      sets: details[j].sets, reps: e.reps.trim(), rir: null, restSec: e.restSec != null && e.restSec >= 0 && e.restSec <= 600 ? e.restSec : 90,
+      // Ejercicios por tiempo: una actividad (cinta, bici…) va sin descanso salvo que se indique.
+      sets: details[j].sets, reps: e.reps.trim(), rir: null, restSec: e.restSec != null && e.restSec >= 0 && e.restSec <= 600 ? e.restSec : details[j].detail?.activity ? 0 : 90,
       // Con método, el plan manda (las cargas que tenga, o por elegir con la última marca). Sin método, como siempre: el peso de
       // la rutina la primera vez (D158).
       detail: details[j].detail ? withFirstLoad(details[j].detail!, own && okKg(e.weightKg) && !prevMarks.get(e.exerciseId) ? Math.round(e.weightKg * 100) / 100 : null)
         : own && okKg(e.weightKg) && !prevMarks.get(e.exerciseId) ? applyLoad(null, details[j].sets, e.reps.trim(), Math.round(e.weightKg * 100) / 100) : null,
       // REPI: la carga sugerida va en la nota (el peso inicial de cada serie sale de su última marca, como siempre).
-      note: [!own && okKg(e.weightKg) ? `Sugerido: ${kgTxt(e.weightKg)}` : null, e.note?.trim().slice(0, 120) || null].filter(Boolean).join(". ") || null })));
+      note: [!own && okKg(e.weightKg) && !details[j].detail?.activity ? `Sugerido: ${kgTxt(e.weightKg)}` : null, e.note?.trim().slice(0, 120) || null].filter(Boolean).join(". ") || null })));
     // Asignación ya cerrada: la sesión necesita una, pero no es «el programa» de la persona.
     const [a] = await tx.insert(programAssignment).values({ ...rel, programId: pr.id, startsOn: localDate(now), status: "ended", assignedBy: userId, assignedAt: now, endedAt: now }).returning();
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: a.id, versionId: v.id, dayId: day.id, dayName,
-      startedAt: now, lastResumedAt: now, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now) : null,
+      startedAt: now, lastResumedAt: now, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now, tx) : null,
     }).returning();
     await audit(tx, { actorUserId: userId, action: own ? "own_routine.started" : "adaptive.solo_routine_started", resourceType: "workout_session", resourceId: s.id, meta: { exercises: p.exercises.length } });
     return s;
@@ -940,8 +978,9 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
   const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
   const doneIds = [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])];
-  const [prev, lastTime, sig, media] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id), trainingSignals(userId, now),
-    sessionOrg(s.versionId).then((orgId) => import("./exercise-media").then((m) => m.mediaFor(orgId, doneIds)))]); // D164: video de cómo se hace
+  const [prev, lastTime, sig, media, profiles] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id), trainingSignals(userId, now),
+    sessionOrg(s.versionId).then((orgId) => import("./exercise-media").then((m) => m.mediaFor(orgId, doneIds))), // D164: video de cómo se hace
+    exerciseProfiles(doneIds)]);
   // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
   const open = s.status === "in_progress" || s.status === "paused";
   // D193: también si el profe le reasignó el programa (otra asignación de la misma relación).
@@ -961,17 +1000,21 @@ export async function getSession(userId: string, sessionId: string, now = new Da
       const ch = changeOf.get(e.id);
       return {
         id: e.id, exerciseId: e.exerciseId, name: e.name, kept: !inDay.has(e.id) || undefined, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: (e.detail as ExerciseDetail | null) ?? null,
-        prev: pv ? { weightKg: pv.weightKg, reps: pv.reps } : null,
-        suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig), // D154, D182
+        // Ejercicios por tiempo: perfil de la fila indicada (la actividad del profe o el del ejercicio) y la actividad indicada
+        // (duración en `reps`; velocidad, inclinación, nivel… acá). Con reemplazo, el perfil del ejercicio que se hace viene en
+        // `change.substitute.profile`: así el teléfono resuelve igual con un reemplazo hecho o deshecho sin conexión.
+        profile: rowProfile(e, e.exerciseId, profiles), activity: activityOf(e.detail as ExerciseDetail | null),
+        prev: pv ? { weightKg: pv.weightKg, reps: pv.reps, ...(pv.metrics ? { metrics: pv.metrics } : {}) } : null, // con métricas en una actividad
+        suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig, rowProfile(e, doing(e), profiles)), // D154, D182
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         media: media.get(doing(e)) ?? null,
         // D191: objetivo de REPI por fila (serie o etapa) y tendencia del ejercicio. Separado del plan y de lo registrado.
         targets: intel?.targets.get(e.id) ?? [], outlook: intel?.outlook.get(e.id) ?? null,
         // D195: saltos y cargas disponibles con que REPI calculó (plan, sede o desconocido), para el ajuste en el teléfono.
         ladder: intel?.ladders.get(e.id) ?? null,
-        change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "" } : null } : null,
+        change: ch ? { kind: ch.c.kind, reason: ch.c.reason, substitute: ch.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, name: ch.name ?? "", profile: profiles.get(ch.c.substituteExerciseId) ?? null } : null } : null,
         logs: logs.filter((l) => l.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)
-          .map((l) => ({ id: l.id, setIndex: l.setIndex, exerciseId: l.exerciseId, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, completedAt: l.completedAt, revision: l.revision })),
+          .map((l) => ({ id: l.id, setIndex: l.setIndex, exerciseId: l.exerciseId, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, metrics: l.metrics ?? null, completedAt: l.completedAt, revision: l.revision })),
         // D184: cada omisión con su estado (también las deshechas, para resolver entre dispositivos). Un registro manda: una
         // etapa con resultado nunca se muestra omitida (ver `skippedRows`).
         skips: skips.filter((k) => k.programExerciseId === e.id).sort((a, b) => a.setIndex - b.setIndex)
@@ -982,9 +1025,21 @@ export async function getSession(userId: string, sessionId: string, now = new Da
 }
 
 const WEIGHT_RE = /^\d{1,4}(\.\d{1,2})?$/;
+// Ejercicios por tiempo: una actividad (cinta, bici, remo…) llega hasta 4 horas; cualquier otra serie por tiempo, 1 hora.
 const MAX_REPS = 200, MAX_TIMED_SEC = 3600;
-type SetInput = { id: string; programExerciseId: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; baseRevision?: number; at?: string };
-const setOut = (r: typeof setLog.$inferSelect) => ({ id: r.id, setIndex: r.setIndex, weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, note: r.note, revision: r.revision });
+/**
+ * `metrics` (ejercicios por tiempo): valores reales de una actividad (velocidad, inclinación, nivel…). Sin el campo (una app
+ * anterior), las métricas guardadas no se tocan; `null` las borra. Se validan con los rangos del perfil de la fila.
+ */
+type SetInput = { id: string; programExerciseId: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; metrics?: unknown; baseRevision?: number; at?: string };
+const setOut = (r: typeof setLog.$inferSelect) => ({ id: r.id, setIndex: r.setIndex, weightKg: r.weightKg == null ? null : Number(r.weightKg), reps: r.reps, rir: r.rir, feel: r.feel, note: r.note, metrics: r.metrics ?? null, revision: r.revision });
+/** Métricas de una serie: `undefined` si no se mandaron (no se tocan); si no, las del perfil de la fila, validadas (null si no es una actividad). */
+function setMetricsOf(raw: unknown, profile: ReturnType<typeof metricsProfileOf>): SetMetrics | null | undefined {
+  if (raw === undefined) return undefined;
+  const m = cleanSetMetrics(profile, raw);
+  if (!m.ok) throw new AccessError("invalid", m.error);
+  return m.metrics;
+}
 
 /**
  * Registra o edita una serie. Idempotente por clave (sesión, ejercicio, serie). Con `baseRevision` detecta ediciones
@@ -994,7 +1049,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
   if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de serie inválido.");
   if (p.weightKg != null && (!WEIGHT_RE.test(String(p.weightKg)) || p.weightKg > 1000)) throw new AccessError("invalid", "El peso no es válido.");
   // DATA-1 (QA 29/10): en series por tiempo `reps` son segundos (D148); el tope de 200 va para repeticiones (ver abajo).
-  if (p.reps != null && (!Number.isInteger(p.reps) || p.reps < 0 || p.reps > MAX_TIMED_SEC)) throw new AccessError("invalid", "Las repeticiones no son válidas.");
+  if (p.reps != null && (!Number.isInteger(p.reps) || p.reps < 0 || p.reps > ACTIVITY_MAX_SEC)) throw new AccessError("invalid", "Las repeticiones no son válidas.");
   if (p.rir != null && (!Number.isInteger(p.rir) || p.rir < 0 || p.rir > 5)) throw new AccessError("invalid", "El RIR va de 0 a 4+.");
   if (p.feel != null && !isSetFeel(p.feel)) throw new AccessError("invalid", "Elegí cómo se sintió la serie.");
   const feel = (p.feel ?? null) as SetFeel | null;
@@ -1016,18 +1071,28 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     if (!Number.isInteger(p.setIndex) || p.setIndex < 0 || p.setIndex >= pe.sets) throw new AccessError("invalid", "Esa serie no está prescripta.");
     // D183: la fila del plan dice si son segundos (serie por tiempo) o un total de un AMRAP por tiempo; si no, el tope es 200.
     const flags = rowFlags({ sets: pe.sets, reps: pe.reps, detail: pe.detail as ExerciseDetail | null }, p.setIndex);
-    if (p.reps != null && p.reps > MAX_REPS && !flags.timed && !flags.durationSec) throw new AccessError("invalid", "Las repeticiones no son válidas.");
     const ref = rowRef(pe.detail as ExerciseDetail | null, pe.sets, p.setIndex);
     const [ex] = await tx.select().from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, pe.id), eq(setLog.setIndex, p.setIndex))).for("update");
-    const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel, note: ex.note } : null;
+    // Ejercicios por tiempo: el perfil de la fila (el del ejercicio que se hace; sin reemplazo, la actividad del profe) decide qué
+    // métricas se guardan y el tope de la duración (4 h en una actividad, 1 h en otra serie por tiempo).
+    const [chg] = await tx.select({ sub: sessionExerciseChange.substituteExerciseId }).from(sessionExerciseChange)
+      .where(and(eq(sessionExerciseChange.sessionId, sessionId), eq(sessionExerciseChange.programExerciseId, pe.id)));
+    const doing = ex?.exerciseId ?? chg?.sub ?? pe.exerciseId;
+    const act = metricsProfileOf(rowProfile(pe, doing, await exerciseProfiles([doing, pe.exerciseId], tx)));
+    // La actividad sólo amplía el tope de tiempo (1 h → 4 h) en una fila por tiempo; una fila que cuenta repeticiones (una cinta
+    // vieja «3 × 10-12») sigue con el tope de 200 aunque el ejercicio sea una cinta.
+    if (p.reps != null && p.reps > MAX_REPS && !flags.timed && !flags.durationSec) throw new AccessError("invalid", "Las repeticiones no son válidas.");
+    if (p.reps != null && p.reps > MAX_TIMED_SEC && !(act && flags.timed)) throw new AccessError("invalid", "Los segundos no son válidos: hasta 1 hora por serie.");
+    const metrics = setMetricsOf(p.metrics, act);
+    const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel, note: ex.note, metrics: ex.metrics ?? null } : null;
     // Sin baseRevision (edición en línea inmediata) se asume la revisión vigente del mismo registro.
     const base = p.baseRevision ?? (ex && ex.id === p.id ? ex.revision : 0);
-    const d = decideSetWrite(server, { id: p.id, baseRevision: base, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, note });
+    const d = decideSetWrite(server, { id: p.id, baseRevision: base, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, note, metrics });
     const w = p.weightKg == null ? null : String(p.weightKg);
     if (d.kind === "noop") return { ...setOut(ex!), status: "ok" as const, raise: null };
     if (d.kind === "conflict") {
       const key = `${pe.id}:${p.setIndex}`;
-      const client = { id: p.id, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, note, baseRevision: base, at: at.toISOString() };
+      const client = { id: p.id, weightKg: p.weightKg, reps: p.reps, rir: p.rir, feel, note, ...(metrics !== undefined ? { metrics } : {}), baseRevision: base, at: at.toISOString() };
       const [c] = await tx.insert(syncConflict).values({ userId, sessionId, kind: "set", targetKey: key, serverPayload: server!, clientPayload: client })
         .onConflictDoUpdate({ target: [syncConflict.sessionId, syncConflict.targetKey], targetWhere: sql`status = 'open'`, set: { serverPayload: server!, clientPayload: client } })
         .returning();
@@ -1035,12 +1100,10 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
       return { ...setOut(ex!), status: "conflict" as const, conflictId: c.id, reason: d.reason, raise: null };
     }
     // Con reemplazo vigente, la serie nueva queda con el ejercicio realmente hecho (historial y récords correctos).
-    const [chg] = d.kind === "insert" ? await tx.select({ sub: sessionExerciseChange.substituteExerciseId }).from(sessionExerciseChange)
-      .where(and(eq(sessionExerciseChange.sessionId, sessionId), eq(sessionExerciseChange.programExerciseId, pe.id))) : [];
     const [row] = d.kind === "insert"
-      ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: chg?.sub ?? pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, note, completedAt: at,
+      ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: chg?.sub ?? pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, note, metrics: metrics ?? null, completedAt: at,
         specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null }).returning()
-      : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, note, revision: ex!.revision + 1, updatedAt: now }).where(eq(setLog.id, ex!.id)).returning();
+      : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, note, ...(metrics !== undefined ? { metrics } : {}), revision: ex!.revision + 1, updatedAt: now }).where(eq(setLog.id, ex!.id)).returning();
     await tx.update(workoutSession).set({ updatedAt: now }).where(eq(workoutSession.id, sessionId));
     // Sólo una sensación nueva que pide atención dispara aviso al piso (y sólo en el programa del gym).
     const raise = feel && FEEL_ALERTS.includes(feel) && feel !== (ex?.feel ?? null) && s.gymMemberId
@@ -1071,9 +1134,11 @@ export async function resolveConflict(userId: string, conflictId: string, keep: 
     if (c.status !== "open") return { status: c.status };
     if (keep === "local" && c.kind === "set") {
       const [peId, idx] = c.targetKey.split(":");
-      const cl = c.clientPayload as { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null };
+      // `metrics` (ejercicios por tiempo) ya validadas al registrar; sin el campo (app anterior), las guardadas no se tocan.
+      const cl = c.clientPayload as { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; metrics?: SetMetrics | null };
       const [ex] = await tx.select().from(setLog).where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, peId), eq(setLog.setIndex, Number(idx)))).for("update");
-      if (ex) await tx.update(setLog).set({ weightKg: cl.weightKg == null ? null : String(cl.weightKg), reps: cl.reps, rir: cl.rir, feel: cl.feel ?? null, note: cl.note ?? null, revision: ex.revision + 1, updatedAt: new Date() }).where(eq(setLog.id, ex.id));
+      if (ex) await tx.update(setLog).set({ weightKg: cl.weightKg == null ? null : String(cl.weightKg), reps: cl.reps, rir: cl.rir, feel: cl.feel ?? null, note: cl.note ?? null,
+        ...(cl.metrics !== undefined ? { metrics: cl.metrics } : {}), revision: ex.revision + 1, updatedAt: new Date() }).where(eq(setLog.id, ex.id));
     }
     const status = keep === "local" ? "kept_local" as const : "kept_server" as const;
     await tx.update(syncConflict).set({ status, resolvedAt: new Date() }).where(eq(syncConflict.id, c.id));
@@ -1086,16 +1151,16 @@ export async function resolveConflict(userId: string, conflictId: string, keep: 
 /** Alternativas compatibles para un ejercicio de la sesión: biblioteca global + la de la organización del programa. */
 export async function sessionAlternatives(userId: string, sessionId: string, programExerciseId: string) {
   const s = await mySession(userId, sessionId);
-  const [pe] = await db.select({ pe: programExercise, kind: exercise.kind, group: exercise.muscleGroup }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
+  const [pe] = await db.select({ pe: programExercise, kind: exercise.kind, group: exercise.muscleGroup, name: exercise.name, profile: exercise.metricsProfile }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
     .where(and(eq(programExercise.id, programExerciseId), eq(programExercise.dayId, s.dayId)));
   if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
   const orgId = await sessionOrg(s.versionId);
-  const lib = await db.select({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
-    .where(visibleIn(orgId, userId));
+  const lib = (await db.select({ ...libraryCols, muscleGroup: exercise.muscleGroup }).from(exercise).where(visibleIn(orgId, userId))).map(libAlt);
   // Reemplazos aprobados por el coach o el gimnasio (Adaptive Coach 1b): primero y marcados, sin habilitar incompatibles.
   const approved = await db.select({ id: exerciseSubstitution.substituteExerciseId, note: exerciseSubstitution.note }).from(exerciseSubstitution)
     .where(and(eq(exerciseSubstitution.orgId, orgId), eq(exerciseSubstitution.exerciseId, pe.pe.exerciseId))).orderBy(asc(exerciseSubstitution.createdAt));
-  const list = withApproved(rankAlternatives({ id: pe.pe.exerciseId, kind: pe.kind, muscleGroup: pe.group }, lib), approved).slice(0, 60);
+  // Ejercicios por tiempo: con nombre y perfil, una actividad (cinta, bici…) sólo se reemplaza por otra actividad, aunque sea propia.
+  const list = withApproved(rankAlternatives(altOriginal(pe.pe, pe), lib), approved).slice(0, 60);
   const prev = await lastSetByExercise(userId, list.map((x) => x.id), s.id);
   const [o] = await db.select({ kind: organization.kind }).from(organization).where(eq(organization.id, orgId));
   return { group: pe.group, approvedBy: o?.kind ?? null, alternatives: list.map((x) => ({ ...x, sameGroup: x.muscleGroup === pe.group, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })) };
@@ -1105,17 +1170,24 @@ export async function sessionAlternatives(userId: string, sessionId: string, pro
  * se puede). Mismo criterio que en la sesión: compatibles por tipo de registro, aprobados por el profe primero. Sin los que
  * ya están en el día.
  */
+// Ejercicios por tiempo: candidatos y original con nombre y perfil resuelto (cinta, bici, remo…), para que `canSubstitute`
+// reemplace una actividad sólo por otra actividad, también con ejercicios propios creados «con peso».
+const libAlt = (r: { id: string; name: string; group: string; kind: ExerciseKind; metricsProfile: string | null; muscleGroup: string }) =>
+  ({ id: r.id, name: r.name, muscleGroup: r.muscleGroup, kind: r.kind, profile: withProfile(r).profile });
+const altOriginal = (pe: { exerciseId: string; detail?: unknown }, ex: { kind: ExerciseKind; group: string; name: string; profile: string | null }) => ({
+  id: pe.exerciseId, kind: ex.kind, muscleGroup: ex.group, name: ex.name,
+  profile: activityOf(pe.detail as ExerciseDetail | null)?.profile ?? profileOf({ metricsProfile: ex.profile, name: ex.name, kind: ex.kind, muscleGroup: ex.group }),
+});
 // Palabras que no dicen qué movimiento es (equipamiento y conectores): no cuentan para el parecido.
 const STOP_WORDS = new Set(["con", "del", "las", "los", "una", "barra", "mancuerna", "mancuernas", "maquina", "polea", "banda", "elastica", "disco", "multipower", "smith", "kettlebell", "cable", "apoyo", "banco"]);
 export async function dayAlternatives(userId: string, dayId: string, perExercise = 5) {
-  const rows = await db.select({ peId: programExercise.id, exerciseId: programExercise.exerciseId, kind: exercise.kind, group: exercise.muscleGroup, versionId: programDay.versionId })
+  const rows = await db.select({ peId: programExercise.id, exerciseId: programExercise.exerciseId, detail: programExercise.detail, kind: exercise.kind, group: exercise.muscleGroup, name: exercise.name, profile: exercise.metricsProfile, versionId: programDay.versionId })
     .from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId)).innerJoin(programDay, eq(programDay.id, programExercise.dayId))
     .where(eq(programExercise.dayId, dayId));
-  const out = new Map<string, { exerciseId: string; name: string; approved: boolean; note: string | null; prev: { weightKg: number | null; reps: number | null } | null }[]>();
+  const out = new Map<string, { exerciseId: string; name: string; profile: MetricsProfile; approved: boolean; note: string | null; prev: { weightKg: number | null; reps: number | null } | null }[]>();
   if (!rows.length) return out;
   const orgId = await sessionOrg(rows[0].versionId);
-  const lib = await db.select({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup, kind: exercise.kind }).from(exercise)
-    .where(visibleIn(orgId, userId));
+  const lib = (await db.select({ ...libraryCols, muscleGroup: exercise.muscleGroup }).from(exercise).where(visibleIn(orgId, userId))).map(libAlt);
   const subs = await db.select({ ex: exerciseSubstitution.exerciseId, id: exerciseSubstitution.substituteExerciseId, note: exerciseSubstitution.note }).from(exerciseSubstitution)
     .where(and(eq(exerciseSubstitution.orgId, orgId), inArray(exerciseSubstitution.exerciseId, rows.map((r) => r.exerciseId)))).orderBy(asc(exerciseSubstitution.createdAt));
   const inDay = new Set(rows.map((r) => r.exerciseId));
@@ -1126,12 +1198,13 @@ export async function dayAlternatives(userId: string, dayId: string, perExercise
   const lists = rows.map((r) => {
     const own = words(nameOf.get(r.exerciseId) ?? "");
     const near = (x: { name: string }) => [...words(x.name)].filter((w) => own.has(w)).length;
-    const ranked = rankAlternatives({ id: r.exerciseId, kind: r.kind, muscleGroup: r.group }, lib.filter((x) => !inDay.has(x.id)))
+    const ranked = rankAlternatives(altOriginal(r, r), lib.filter((x) => !inDay.has(x.id)))
       .map((x, i) => ({ x, i, k: (x.muscleGroup === r.group ? 10 : 0) + near(x) })).sort((a, b) => b.k - a.k || a.i - b.i).map((y) => y.x);
     return { peId: r.peId, list: withApproved(ranked, subs.filter((x) => x.ex === r.exerciseId)).slice(0, perExercise) };
   });
   const prev = await lastSetByExercise(userId, [...new Set(lists.flatMap((l) => l.list.map((x) => x.id)))]);
-  for (const l of lists) out.set(l.peId, l.list.map((x) => ({ exerciseId: x.id, name: x.name, approved: x.approved, note: x.approvedNote, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })));
+  // `profile` (ejercicios por tiempo): qué se registra con el reemplazo (otra máquina de cardio: sus propios campos).
+  for (const l of lists) out.set(l.peId, l.list.map((x) => ({ exerciseId: x.id, name: x.name, profile: x.profile, approved: x.approved, note: x.approvedNote, prev: prev.get(x.id) ? { weightKg: prev.get(x.id)!.weightKg, reps: prev.get(x.id)!.reps } : null })));
   return out;
 }
 /** Organización del programa de la sesión. Dentro de una transacción, con su `tx`: otra conexión del pool mientras la transacción
@@ -1153,7 +1226,8 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
     await assertRelationActive(tx, s);
     if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, now, s.presenceCheckinId);
-    const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
+    const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind, name: exercise.name, group: exercise.muscleGroup, profile: exercise.metricsProfile })
+      .from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
       .where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     const where = and(eq(sessionExerciseChange.sessionId, s.id), eq(sessionExerciseChange.programExerciseId, pe.pe.id));
@@ -1166,11 +1240,17 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     let sub: { id: string; name: string } | null = null;
     if (p.change.kind === "substitute") {
       const orgId = await sessionOrg(s.versionId, tx);
-      const [x] = await tx.select({ id: exercise.id, name: exercise.name, kind: exercise.kind }).from(exercise)
+      const [x] = await tx.select({ ...libraryCols, muscleGroup: exercise.muscleGroup }).from(exercise)
         .where(and(eq(exercise.id, p.change.exerciseId ?? ""), visibleIn(orgId, userId)));
       if (!x) throw new AccessError("invalid", "Ese ejercicio no está en la biblioteca.");
-      if (x.id === pe.pe.exerciseId || x.kind !== pe.kind) throw new AccessError("invalid", "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");
-      sub = x;
+      // La misma regla que la lista de alternativas, los reemplazos aprobados y la IA (`canSubstitute`): una actividad (cinta,
+      // bici, remo…) sólo por otra actividad, también una propia creada «con peso»; nunca una plancha en lugar de la cinta.
+      const orig = altOriginal(pe.pe, pe);
+      if (!canSubstitute(orig, libAlt(x))) {
+        throw new AccessError("invalid", x.id === pe.pe.exerciseId ? "Elegí un ejercicio distinto." : isActivityProfile(orig.profile)
+          ? "Elegí otra actividad (cinta, bici, remo, elíptico o escaladora)." : "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");
+      }
+      sub = { id: x.id, name: x.name };
     } else if (p.change.kind !== "skip") throw new AccessError("invalid", "Cambio no válido.");
     const values = { kind: p.change.kind, reason: p.change.reason, substituteExerciseId: sub?.id ?? null, updatedAt: now };
     await tx.insert(sessionExerciseChange).values({ sessionId: s.id, programExerciseId: pe.pe.id, ...values })
@@ -1432,6 +1512,6 @@ export async function previousVersion(userId: string) {
   const { version, doc } = await readVersion(prev.id);
   return {
     number: version.number, name: doc.name, weeks: doc.weeks, createdAt: version.createdAt,
-    days: doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec })) })),
+    days: doc.days.map((d) => ({ name: d.name, exercises: d.exercises.map((e) => ({ name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null })) })),
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessExerciseGroup, guessExerciseKind, matchesExerciseQuery } from "./exercise-guess";
+import { exerciseSynonyms, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery } from "./exercise-guess";
 
 describe("D186 · ejercicio propio: sugerencias y búsqueda", () => {
   it("propone el grupo por el nombre y no inventa si no lo reconoce", () => {
@@ -25,5 +25,36 @@ describe("D186 · ejercicio propio: sugerencias y búsqueda", () => {
     expect(matchesExerciseQuery("Remo con barra", "remo smith")).toBe(false);
     expect(matchesExerciseQuery("Jalón al pecho", "jalon")).toBe(true);
     expect(matchesExerciseQuery("Cualquiera", "")).toBe(true);
+  });
+});
+
+describe("ejercicios por tiempo · deducción y búsqueda", () => {
+  it("«cinta caminadora» encuentra «Cinta (caminata)» (sinónimo) y no «Cinta (trote)»", () => {
+    expect(matchesExerciseQuery("Cinta (caminata)", "cinta caminadora")).toBe(true);
+    expect(matchesExerciseQuery("Cinta (caminata)", "Cinta Caminadora")).toBe(true);
+    expect(matchesExerciseQuery("Cinta (caminata)", "caminadora")).toBe(true);
+    expect(matchesExerciseQuery("Cinta (caminata)", "treadmill")).toBe(true);
+    expect(matchesExerciseQuery("Cinta (trote)", "cinta caminadora")).toBe(false);
+    expect(matchesExerciseQuery("Cinta (trote)", "cinta")).toBe(true);
+    expect(matchesExerciseQuery("Bicicleta fija", "spinning")).toBe(true);
+    expect(matchesExerciseQuery("Remo con barra", "remo indoor")).toBe(false);
+    expect(exerciseSynonyms("cinta (CAMINATA)")).toContain("Cinta caminadora");
+    expect(exerciseSynonyms("Press de banca")).toEqual([]);
+  });
+  it("cómo se registra: las actividades son por tiempo; la musculación parecida no", () => {
+    expect(guessExerciseKind("Cinta caminadora")).toBe("time");
+    expect(guessExerciseKind("Remo ergómetro")).toBe("time");
+    expect(guessExerciseKind("Elíptico")).toBe("time");
+    expect(guessExerciseKind("Soga")).toBe("time");
+    expect(guessExerciseKind("Extensión de tríceps con soga")).toBe("load_reps"); // antes «soga» la volvía «por tiempo»
+    expect(guessExerciseKind("Bicicleta abdominal")).toBe("bodyweight");
+    expect(guessExerciseKind("Remo con barra")).toBe("load_reps");
+  });
+  it("grupo muscular del cardio", () => {
+    expect(guessExerciseGroup("Cinta caminadora")).toBe("Cardio");
+    expect(guessExerciseGroup("Assault bike")).toBe("Cardio");
+    expect(guessExerciseGroup("Soga")).toBe("Cardio");
+    expect(guessExerciseGroup("Bicicleta abdominal")).toBe("Core");
+    expect(guessExerciseGroup("Extensión de tríceps con soga")).toBe("Brazos");
   });
 });

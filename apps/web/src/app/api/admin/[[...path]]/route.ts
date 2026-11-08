@@ -10,6 +10,11 @@ import * as an from "@/server/announcements/services";
 import * as se from "@/server/site/events";
 import * as ab from "@/server/brain/admin";
 import { salesGet, salesPost } from "@/server/sales/admin-routes";
+import { ADMIN_DEADLINE_MS } from "@/server/deadline";
+
+// Incidente 07/11 (corte a los 300 s): REPI Admin responde 503 a los 25 s si algo no termina, y la función se corta a los 60 s.
+export const maxDuration = 60;
+const admin = { deadlineMs: ADMIN_DEADLINE_MS };
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -34,7 +39,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     return cm.contractDetail(me, b, start && end && day.safeParse(start).success && day.safeParse(end).success ? { start, end } : undefined);
   }
   throw NF();
-});
+}, admin);
 
 export const POST = handle<Ctx>(async (req, { params }) => {
   const [a, b, c] = (await params).path ?? [];
@@ -97,7 +102,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "leads" && b) return cm.setLeadStatus(me, b, (await body(req, z.object({ status: z.enum(["contacted", "converted", "discarded"]) }))).status);
   if (a === "corrections" && b) return cm.answerCorrection(me, b, (await body(req, z.object({ answer: z.string().max(800) }))).answer);
   throw NF();
-});
+}, admin);
 
 // D210 · Coaching IA: límites de la IA del cerebro (global u organización). Validación estricta en el servicio.
 export const PUT = handle<Ctx>(async (req, { params }) => {
@@ -106,4 +111,4 @@ export const PUT = handle<Ctx>(async (req, { params }) => {
   await limit(`admin:${me}`, 60);
   if (a === "brain" && (!b || b === "policy")) return ab.updateBrainPolicy(me, await body(req, z.object({ scope: z.string().max(80), config: z.record(z.string(), z.unknown()) })));
   throw NF();
-});
+}, admin);

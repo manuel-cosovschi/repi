@@ -1,6 +1,148 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la rama `claude/admin-timeout`, sin publicar**). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+## Incidente «Task timed out after 300 seconds» en /api/admin — 08/11/2026 · CORREGIDO EN RAMA, SIN PUBLICAR
+
+- **Qué pasó:** 2 cortes de 300 s en REPI Admin (06/11 13:08 y 07/11 21:07 UTC) con la base sin nada raro. El pedido esperaba algo dentro del proceso.
+- **Causas confirmadas en local:**
+  1. **Pool trabado.** 13 transacciones usaban el `db` global dentro de `db.transaction`. En Vercel el pool tiene 3 conexiones, así que 3 pedidos así a la vez se trababan para siempre y colgaban la instancia. Reproducido con 3 aprobaciones simultáneas de una venta y triple clic en «Aprobar».
+  2. **Socket mudo.** postgres-js no pone tiempo máximo a las consultas, así que una consulta en un socket mudo esperaba unos 15 min.
+  - **Cuál fue en producción:** probablemente el 2. En producción hay 0 ventas cargadas (consulta del 08/11), así que el bloqueo por aprobaciones simultáneas (1) no pudo ser la causa. Es un defecto real pero latente. El socket mudo coincide con «1 caso aislado, base limpia» y con que nada quedara registrado. No hay registros de pedidos para confirmarlo (Hobby guarda 1 h).
+- **Corrección (sin migraciones):**
+  - **Transacciones:** pasan `tx` a todas las funciones que llaman (ventas, liquidaciones, inicio de entrenamiento, sala, agenda, privacidad, pegar día, plantillas, invitación del dueño). El push de «brief» se encola después del commit.
+  - **Pool:** `src/db/index.ts` agrega `idle_timeout` de 20 s, `max_lifetime` de 5 min y `connect_timeout` de 10 s.
+  - **Tiempos máximos:** `src/server/deadline.ts` define los tiempos. Con ellos:
+    - Admin responde 503 «timeout» a los 25 s y la función se corta a los 60 s.
+    - El cron comparte un presupuesto de 45 s y se corta a los 60 s.
+    - after() se abandona a los 20 s.
+    - web-push tiene un timeout de 10 s.
+    - El almacenamiento tiene timeouts de 15 y 60 s.
+  - **Interfaz:** «Aprobar», «Rechazar», «Pedir corrección» y «Generar borrador» se bloquean mientras corren. La clave idempotente de la liquidación se mantiene hasta que sale bien.
+- **Guardas y pruebas:**
+  - Guarda estática `tests/safety/transactions.check.ts` (en `test:guards`, corre en CI): falla si una transacción vuelve a pedir otra conexión.
+  - Regresión `tests/pool-deadlock.test.ts` con el pool real de 3 conexiones.
+  - `tests/deadline.test.ts`.
+- **Pendiente del titular (producción):**
+  - Tiempos en el rol `repi_app`, previo «Respaldo»:
+    - `alter role repi_app set idle_in_transaction_session_timeout = '30s'`;
+    - `alter role repi_app set lock_timeout = '15s'`;
+    - `alter role repi_app set statement_timeout = '60s'`.
+    - Supavisor los aplica a las conexiones nuevas. Se verifica con `select current_setting('lock_timeout')`.
+    - Revisar antes los scripts que entran como `repi_app` (`ops:retention`). Opcional: `log_lock_waits = on`.
+  - Revisión y merge.
+- **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
+
+## Ejercicios por tiempo (D211): cinta con duración, velocidad e inclinación — 08/11/2026 · LISTO EN RAMA, SIN PUBLICAR (migración 0052 sin aplicar)
+
+- **Pedido del titular:** en «Cinta caminadora» el profe carga duración (min), velocidad (km/h) e inclinación (número, sin «%»). El alumno ve lo mismo y registra lo que hizo de verdad. La fuerza sigue con series/reps/carga/RIR y las demás actividades tienen campos propios. Spec y auditoría en `scratchpad/time-audit.md`, resumida en D211.
+- **Rama:** `claude/ejercicios-por-tiempo`, con main integrado.
+- **Dominio** (`packages/domain/src/activity.ts`, nuevo):
+  - Perfiles: fuerza, peso corporal, isométrico, cinta, bici, remo, elíptico, escaladora y duración.
+  - Rangos y pasos, validación, texto de la prescripción («10 min · 5 km/h · incl. 3») y valores por defecto.
+  - «Cinta caminadora» es sinónimo de «Cinta (caminata)», no una fila nueva.
+  - Training Intelligence no sugiere kilos ni RIR para actividades.
+  - Los reemplazos sólo van entre actividades.
+  - La importación SI2 lee «vel/incl/km/h» sin confundirlos con carga.
+- **Migración 0052 (aditiva):**
+  - `exercise.metrics_profile` (text, CHECK) y `set_log.metrics` (jsonb objeto, CHECK).
+  - Perfil de las filas del catálogo de REPI por nombre y tipo.
+  - Scripts: `hosted-0052.sql` (una transacción), `verify-0052.sh` y rollback `0052_time_metrics.down.sql`.
+  - El código de producción actual es compatible con 0052 aplicada, así que se aplica ANTES de integrar, previo «Respaldo».
+- **Servidor:**
+  - `logSet`, conflictos, historial y corrección aceptan `metrics`.
+  - Las guardas rechazan un editor viejo que perdería la actividad: 409 «Actualizá REPI».
+  - Tope de 200 reps intacto en filas de reps.
+  - Las alertas y tareas de sala muestran «12 min · 5,5 km/h · incl. 4».
+  - La exportación personal incluye las métricas.
+- **Pantallas:**
+  - Editores de coach, sala y Mis rutinas con sólo los campos del perfil.
+  - Entrenamiento del alumno con cronómetro persistente y −/+ por campo.
+  - Historial con tiempo en lugar de «0 kg».
+  - Cola offline con métricas.
+- **Revisión:** 3 lentes independientes y 15 hallazgos, todos corregidos con prueba (`git log`).
+- **Pruebas:**
+  - Dominio: 54 archivos / 1063.
+  - apps/web vitest: 36 archivos, incluidos `time-exercises` y `brain*`. Falla sólo `brain-context` «daysSinceLast», previa y dependiente de la hora (00–03 UTC).
+  - E2E: `timed-exercises` 12/12; regresiones de entrenamiento, sala, offline e importación en verde. `gym-editor-parity` móvil falló una vez y pasó al repetir: es intermitente.
+  - Typecheck y build OK.
+  - Capturas de teléfono para el titular en `scratchpad/time-shots/owner/`.
+- **Local:** `repi_dev` llegó al tope de 300 demos. Las E2E corren contra `repi_e2e_time`/`repi_e2e_tx`, bases locales propias. No se purgó nada.
+- **Próximo:**
+  1. Aprobación del titular.
+  2. «Respaldo».
+  3. `hosted-0052.sql`.
+  4. Merge.
+  5. Verificación en producción con demo.
+
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · RONDA 3 LISTA EN RAMA, SIN PUBLICAR
+
+- **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
+  y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
+- **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (PR abierto el 08/11, sin publicar). Plan, decisiones y evidencia:
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2; §12: ronda 3).
+- **Hecho (un commit por paso, P0–P7 + verificación):**
+  - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
+    ≤ 2,4 y foco en blanco, director sin lecturas por cuadro, `Say`, `curves.ts`, `Roll` v2, sin desenfoques animados.
+  - P1 (02): los pedazos mandan trazos curvos al punto de la «ı», el punto se los traga, crece y el logo real se abre desde él;
+    corte de sala fría a viva y las tres pantallas reales (sala, socio, dueño).
+  - P2 (hero): el punto cae en arco sobre el rack de Valentina sin cruzar el texto y la luz se expande desde ahí; el 3D entra
+    después, en la misma cenital del SVG.
+  - P3 (03): la serie como subtítulo enorme con el motor real; teléfono con `TargetCard` real (ningún «53»); repeticiones 1→6.
+  - P4 (cierre): toda la sala vuelve al punto y el punto se acomoda en la «ı».
+  - P5–P7: módulos como tomas y «Que venga alguien → Voy» con el scroll; perspectivas al llegar y sin remontar; «PROBALO.»,
+    puertas sin reflujo, bordes curvos y pasos que se dibujan.
+- **Ronda 2 (revisión independiente, 07/11):** corregidos los 8 puntos (detalle y evidencia en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §11):
+  - cierre sin logo «raro»: no hay logo hasta que el punto llega a la «ı» y después nace entero desde el punto;
+  - el trazo «Voy» ya no queda suelto en el teléfono;
+  - ningún pedazo de 02 pisa el titular en iPhone 15 (nueva prueba e2e);
+  - 3D con equipos ≤ 58 px, personas cian sin luz y sin cuadro vacío en 03;
+  - recortes de 03 enteros, «62,5 kg × 8–10» en una línea y teléfono vertical en escritorio;
+  - el trazo de Gestión rodea el teléfono;
+  - Training Intelligence muestra la misma serie que 03 (`x3/EngineScreen.tsx`, compartido).
+  Más audacia: impacto del hero como evento de luz, 02 sin tiempos muertos y con golpe de cian en el corte, la sala que gira
+  en espiral alrededor del logo en el cierre y la sala que responde al mouse.
+  Pruebas: typecheck ✓; e2e `conoce` + `public` 65 ✓ + 1 omitida; Lighthouse móvil mediana 86 (TBT 98 ms, CLS 0, A11y 100);
+  CLS de recorrido 0,0011 / 0; axe 0 (20 pasadas); Impeccable 0; pausa sin cambios; SwiftShader en SVG.
+  Sin migraciones ni dependencias nuevas.
+- **Ronda 3 (segunda revisión independiente, 08/11).** La revisión encontró problemas sólo con el 3D, que se ve forzando
+  `?sala=high` en escritorio o `?sala=medium` en el teléfono. Todos corregidos; detalle y números en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §12.
+  - **02:** los pedazos ya no saltan cuando entra el 3D. Se ubican con `transform` y, con la escena a la vista, no se
+    reubican; lo hacen al salir de la pantalla. CLS esperando en 02: 0,1395 / 0,2089 → 0. CLS de recorrido con 3D:
+    escritorio ≤ 0,0012 y teléfono 0.
+  - **Hero:** fundido cruzado real del SVG al 3D (`data-svg="off"` recién al terminar), sin el cuadro sin sala.
+  - **Cierre en 3D:** el plano se encoge y se apaga del todo (`planFade`). Queda sólo el punto, sin la sala en miniatura.
+  - **Trazos de 02:** rodean el texto (`route`/`spline`). En el teléfono el párrafo se va antes de los trazos. Los pedazos
+    se apagan sobre el punto (≤ 9 px).
+  - **Teléfono:** sin anillos del impacto sobre el logo y el título. Cierre de 180svh a 230svh.
+  - **Pruebas:**
+    - typecheck ✓.
+    - Lighthouse móvil: 87 / 86 / 86, TBT 52 / 110 / 83 ms, CLS 0, A11y 100.
+    - CLS por defecto: 0,0005 en escritorio y 0 en el teléfono.
+    - Movimiento reducido y pausa: sin cambios.
+    - E2E `conoce` + `public`: 63 ✓, 1 omitida y 2 ✗. Las dos fallas son la misma prueba de demo, en mobile y desktop: la
+      API respondió 503 porque `repi_dev` tiene 301 entornos de demo de otras sesiones (tope 300, purga por cron). No
+      depende de esta ronda y no se tocó la base.
+  - **Videos para el titular:** regrabados en el scratchpad, `cx-motion/owner/`, con los mismos nombres.
+- **Archivos:** `apps/web/src/components/conoce/sala/{store,model,Stage,SalaSvg,SalaCanvas}.ts(x)`,
+  `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap,EngineScreen}.ts(x)`,
+  `apps/web/src/components/conoce/ConoceHub.tsx`, `apps/web/src/styles/conoce3.css`, `apps/web/e2e/conoce.spec.ts`.
+  `TargetCard.tsx` no se tocó (sólo se reutiliza).
+- **Pruebas:** typecheck ✓; e2e `conoce` + `public` 64/64 contra `next start` local; axe 0 (32 pasadas); Impeccable 0;
+  Lighthouse móvil mediana 86, TBT 117 ms, CLS 0; CLS de recorrido 0,0005 / 0; pausa sin cambios de píxeles; SwiftShader en
+  SVG. Vitest no se corrió en apps/web (base de pruebas compartida). Sin migraciones, sin dependencias nuevas.
+- **Decisiones:** 3 series en el ejemplo (con 4 el motor no sube la carga sobre un historial de 3); el subtítulo de 03 usa
+  `targetLine` de la tarjeta; los puntos de «escribiendo» pasaron a texto (Impeccable); la prueba e2e de la cabecera acepta el
+  `aria-label` del logo (fallaba igual antes de esta pasada).
+- **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
+  socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
+- **Próxima acción:** que el titular revise `/conoce` con la ronda 3 (videos en `cx-motion/owner/`). Antes del PR, volver a
+  correr la prueba e2e de la demo guiada con lugar para demos en la base local. Después, PR desde `claude/conoce-ajustes`. No hay
+  migraciones, así que el respaldo de `docs/RESPALDOS.md` sólo corre si el despliegue lo pide. Luego publicar y medir el
+  LCP de campo. Antes de levantar `next start` en 3103, cerrar el `next-server` anterior de `/home/user/repi-cx/apps/web`
+  (el `pkill` del `npm exec` no lo cierra y la página se sirve con la build vieja).
 
 ## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
@@ -49,7 +191,7 @@ Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y v
   - 0 push, 0 fallas, 0 llamadas de IA.
   - La corrida más larga tardó 738 ms.
   - Detalle en §10 del contrato.
-- **Aparte, en investigación:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base.
+- **Aparte:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base. Ver la entrada del incidente (08/11) arriba.
 - **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
   - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
   - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.

@@ -381,3 +381,49 @@ describe("session · revisión: comparar sólo lo comparable y proponer lo prude
     expect(b.text).not.toMatch(/3 series de 12/);
   });
 });
+
+describe("session · reemplazos de una actividad (ejercicios por tiempo)", () => {
+  const cinta = { exerciseId: "cinta", name: "Cinta (caminata)", muscleGroup: "Cardio", kind: "time" };
+  it("una actividad sólo por otra actividad, nunca por un aguante del mismo tipo de registro", () => {
+    const opts = [
+      { exerciseId: "plancha", name: "Plancha", muscleGroup: "Cardio", kind: "time" },
+      { exerciseId: "bici", name: "Bicicleta fija", muscleGroup: "Cardio", kind: "time" },
+      { exerciseId: "eliptico", name: "Elíptico", muscleGroup: "Cardio", kind: "time", approvedByCoach: true },
+    ];
+    expect(rankAlternatives(cinta, opts).map((x) => x.exerciseId)).toEqual(["eliptico", "bici"]);
+    expect(rankAlternatives({ exerciseId: "p", name: "Plancha", muscleGroup: "Core", kind: "time" }, [{ exerciseId: "bici", name: "Bicicleta fija", muscleGroup: "Core", kind: "time", approvedByCoach: true }])).toEqual([]);
+  });
+});
+
+describe("session · cierre de una actividad (ejercicios por tiempo)", () => {
+  const cinta = { id: "pe-cinta", name: "Cinta (caminata)", short: "" };
+  const T = (r: number) => ({ w: 0, r, timed: true });
+  it("12 min de cinta: «hiciste», sin «aguantaste» ni «tu mejor tiempo», y nunca «por debajo» si el profe la acortó", () => {
+    const before = { e1rm: null, maxLoadKg: null, repsAtLoad: [], bestReps: 660, bestSec: 660 };
+    const r = sessionReview({ at: NOW, exercises: [{ exercise: cinta, measure: "activity", plannedMain: 1, sets: [T(720)], previous: { at: daysAgo(3), sets: [T(660)] }, before }] });
+    expect(r.text).not.toMatch(/aguantaste|mejor tiempo/);
+    expect(r.marks).toEqual([]);
+    expect(r.exercises[0]).toMatchObject({ comparison: "not_comparable", delta: "hiciste 12 min (la vez anterior, 11 min)", mark: null });
+    const shorter = sessionReview({ at: NOW, exercises: [{ exercise: cinta, measure: "activity", plannedMain: 1, sets: [T(600)], previous: { at: daysAgo(3), sets: [T(900)] } }] });
+    expect(shorter.exercises[0].comparison).toBe("not_comparable");
+    expect(compareWithPrevious([T(720)], [T(660)], "activity").comparison).toBe("not_comparable");
+    expect(detectMarks([T(720)], before, "activity")).toEqual([]);
+    // Una plancha sigue con su «aguantaste … tu mejor tiempo».
+    expect(detectMarks([T(70)], { ...before, bestSec: 60 }, "time")[0].text).toBe("aguantaste 1 min 10 s, tu mejor tiempo");
+  });
+  it("durante la sesión, una actividad registrada no dispara «Aguantaste … superaste»", () => {
+    const ex: ExCtx = { sets: 1, reps: "10 min", rir: null, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "treadmill", speedKmh: 5, incline: 3 } } };
+    const m = interpretSet({ ex, targets: [{ setIndex: 0, weightKg: null, repsMin: null, repsMax: null, repsTarget: null, rir: null, source: "rules", prev: { w: 0, r: 600 } } as unknown as RowTarget], done: [{ index: 0, w: 0, r: 720 } as DoneRow], justDone: 0 });
+    expect(m.speak).toBe(false);
+    expect(m.text).toBe("");
+    // Por perfil (una cinta vieja «20 min» sin actividad configurada) también.
+    const legacy = interpretSet({ ex: { sets: 1, reps: "20 min", rir: null, restSec: 0, detail: null, profile: "treadmill" }, targets: [{ setIndex: 0, prev: { w: 0, r: 600 } } as unknown as RowTarget], done: [{ index: 0, w: 0, r: 1300 } as DoneRow], justDone: 0 });
+    expect(legacy.text).toBe("");
+  });
+  it("alternativas de REPI: una bici propia creada «con peso» reemplaza a la cinta, como en la lista de la sesión", () => {
+    const opts = [{ exerciseId: "casera", name: "Bici casera", muscleGroup: "Cardio", kind: "load_reps" }, { exerciseId: "press", name: "Press de banca", muscleGroup: "Pecho", kind: "load_reps" }];
+    expect(rankAlternatives({ exerciseId: "cinta", name: "Cinta (caminata)", muscleGroup: "Cardio", kind: "time" }, opts).map((x) => x.exerciseId)).toEqual(["casera"]);
+    // Fuera de las actividades, el tipo de registro sigue mandando.
+    expect(rankAlternatives({ exerciseId: "p", name: "Press inclinado", muscleGroup: "Pecho", kind: "load_reps" }, [{ exerciseId: "f", name: "Flexiones", muscleGroup: "Pecho", kind: "bodyweight" }])).toEqual([]);
+  });
+});

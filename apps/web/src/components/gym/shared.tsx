@@ -1,7 +1,7 @@
 "use client";
 // Piezas comunes del escritorio Gym (REPI Desktop Gym.dc.html): tipos, formato, carga y controles chicos.
 import { useCallback, useEffect, useState } from "react";
-import { TASK_CATEGORY, TASK_PRIORITY } from "@repi/domain";
+import { TASK_CATEGORY, TASK_PRIORITY, activityValuesText, fmtSeconds, type SetMetrics } from "@repi/domain";
 import { api } from "@/lib/api";
 import type { BriefViewData } from "@/components/shared/BriefBlock";
 
@@ -36,6 +36,19 @@ export const when = (iso: string | null | undefined) => {
   return same ? `Hoy ${hm}` : yest ? `Ayer ${hm}` : `${fmt(iso, { weekday: "short", day: "numeric", month: "short" })} ${hm}`;
 };
 export const nf = (n: number | null | undefined, digits = 0) => (n == null ? "—" : n.toLocaleString("es-AR", { maximumFractionDigits: digits, minimumFractionDigits: digits }));
+/**
+ * Una serie en las pantallas de sala («En sala ahora», tareas de Connect). Ejercicios por tiempo: en una fila por tiempo (cinta,
+ * bici, plancha…) `reps` son segundos: «12 min · 5,5 km/h · incl. 4», nunca «0 kg × 720»; con lastre, «10 kg × 40 s». Si no,
+ * como siempre: «60×10» (PC = peso corporal).
+ */
+export function floorSetText(x: { weightKg: number | string | null; reps: number | null; metrics?: SetMetrics | null }, timed?: boolean): string {
+  if (!timed && !x.metrics) return `${x.weightKg ?? "PC"}×${x.reps ?? "—"}`;
+  const amount = x.reps != null && x.reps > 0 ? fmtSeconds(x.reps) : "—";
+  const vals = activityValuesText(x.metrics);
+  if (vals) return `${amount} · ${vals}`;
+  const w = x.weightKg == null ? 0 : Number(x.weightKg);
+  return w > 0 ? `${w.toLocaleString("es-AR", { maximumFractionDigits: 2 })} kg × ${amount}` : amount;
+}
 export const dec = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 export const pct = (n: number | null | undefined) => (n == null ? "Sin datos" : `${n}%`);
 export const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);

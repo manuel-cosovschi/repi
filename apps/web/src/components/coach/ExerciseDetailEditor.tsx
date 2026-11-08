@@ -9,10 +9,13 @@
 // tabla con todas las series editables (tipo, repeticiones, peso, RIR, descanso) y una herramienta para distribuir cargas
 // (fijo o porcentaje, siempre a pedido y con vista previa); «Aplicar» lo confirma todo junto y «Deshacer» lo revierte. Los
 // tipos admiten un nombre propio (Load Set o los del profe) sin cambiar cómo funciona la serie.
+// Ejercicios por tiempo (07/11/2026): una actividad (cinta, bici, remo…) no tiene técnica, series serie por serie, tempo, saltos de
+// carga ni «unilateral»: los editores no abren este panel para ella. Si igual llega una, sólo quedan la combinación y el detalle
+// que conserva (variante y progresión), y al guardar se valida la duración con la actividad.
 import { useEffect, useMemo, useRef, useState, type InputHTMLAttributes } from "react";
 import { Modal } from "@/components/ui/Modal";
 import {
-  DEFAULT_STAGES, EQUIPMENT, GROUP_KIND_LABEL, loadIncrement, GROUP_LETTERS, MAX_BLOCKS, MAX_STAGES, TECHNIQUES, applyMethod, defaultSelection, emptyDetail, flatten,
+  DEFAULT_STAGES, EQUIPMENT, activityOf, GROUP_KIND_LABEL, loadIncrement, GROUP_LETTERS, MAX_BLOCKS, MAX_STAGES, TECHNIQUES, applyMethod, defaultSelection, emptyDetail, flatten,
   isStraightPlan, kgTo, localizeWeights, materialize, newSpecId, normalizePlan, presetPlan, rowKindName, setMainLoads, setTarget, setTargetText, structureText, toKg, uniformPlan, validateDetail,
   type Equipment, type ExerciseDetail, type GroupKind, type MethodOptions, type PlanRow, type SetKind, type Technique, type WeightUnit,
 } from "@repi/domain";
@@ -104,6 +107,7 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types
   const review = plan ? normalizePlan(plan).review : false;
   const dirty = JSON.stringify(d) !== JSON.stringify(initial);
   const inc = loadIncrement(d);
+  const act = activityOf(d); // actividad: sin método, series, tempo, equipo ni «unilateral»
 
   // Cada cambio queda en el historial para deshacerlo. D192: lo que se tipea seguido en un mismo campo («4», «47», «47,5») es
   // un solo paso de «Deshacer», no uno por tecla.
@@ -191,7 +195,7 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types
     change({ ...d, setPlan: flatten(out) });
   };
   const save = () => {
-    const r = validateDetail(d, e.sets);
+    const r = validateDetail(d, e.sets, e.reps);
     if (!r.ok) return setErr(r.error);
     onSave({ detail: r.detail, sets: r.sets });
   };
@@ -208,15 +212,15 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types
   const canCreate = !!types?.available && !member;
 
   return (
-    <Modal label={`Series y técnica · ${e.name}`} onClose={close} wide className={member ? "dx-host" : undefined}>
+    <Modal label={`${act ? "Combinar y detalle" : "Series y técnica"} · ${e.name}`} onClose={close} wide className={member ? "dx-host" : undefined}>
       <div className="dx">
-        <div className="mhead"><h2>{e.name} · series y técnica</h2>
-          <span className="dx-unit" role="group" aria-label="Unidad de peso">
+        <div className="mhead"><h2>{e.name} · {act ? "combinar y detalle" : "series y técnica"}</h2>
+          {!act && <span className="dx-unit" role="group" aria-label="Unidad de peso">
             {(["kg", "lb"] as WeightUnit[]).map((u) => <button key={u} type="button" className="pill" aria-pressed={unit === u} onClick={() => setUnit(u)}>{u}</button>)}
-          </span>
+          </span>}
           <button type="button" className="x" aria-label="Cerrar" onClick={close}>×</button></div>
 
-        <section className="dx-sec"><b>Método</b>
+        {!act && <section className="dx-sec"><b>Método</b>
           <div className="pills">{(Object.keys(TECHNIQUES) as Technique[]).map((t) => (
             <button key={t} type="button" className="pill" aria-pressed={pending ? pending.m === t : d.technique === t} title={TECHNIQUES[t].what} onClick={() => pick(t)}>{TECHNIQUES[t].label}</button>
           ))}</div>
@@ -268,9 +272,9 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types
           )}
           {d.technique === "straight" && !pending && <label className="field" style={{ maxWidth: 260 }}>Peso de referencia ({unit}, opcional)<NumInput inputMode="decimal" value={ref == null ? null : kgTo(ref, unit)} onChange={(n) => changeRef(n == null ? null : toKg(n, unit))} placeholder="Ej.: 100" />
             <small className="muted" style={{ fontWeight: 400 }}>Con series rectas, es el peso de todas las series.</small></label>}
-        </section>
+        </section>}
 
-        {!pending && <section className="dx-sec"><div className="dx-set-h"><b>Series</b>
+        {!pending && !act && <section className="dx-sec"><div className="dx-set-h"><b>Series</b>
           <small className="muted">{structureText(d, plan?.length ?? e.sets)}</small>
           <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button type="button" className="btn sm" aria-expanded={dist} onClick={() => setDist(!dist)}>Distribuir cargas</button>
@@ -320,16 +324,16 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types
 
         <section className="dx-sec"><b>Más detalle</b>
           <div className="dx-grid">
-            <label className="field">Tempo<input value={d.tempo ?? ""} maxLength={12} onChange={(ev) => change({ ...d, tempo: ev.target.value || null })} placeholder="3-1-1-0" />
-              <small className="muted" style={{ fontWeight: 400 }}>Bajada-pausa-subida-pausa en segundos. X = explosivo.</small></label>
+            {!act && <label className="field">Tempo<input value={d.tempo ?? ""} maxLength={12} onChange={(ev) => change({ ...d, tempo: ev.target.value || null })} placeholder="3-1-1-0" />
+              <small className="muted" style={{ fontWeight: 400 }}>Bajada-pausa-subida-pausa en segundos. X = explosivo.</small></label>}
             <label className="field">Variante<input value={d.variant ?? ""} maxLength={60} onChange={(ev) => change({ ...d, variant: ev.target.value || null })} placeholder="Agarre cerrado, con pausa, rango parcial" /></label>
-            <label className="field dx-note">Progresión<input value={d.progression ?? ""} maxLength={120} onChange={(ev) => change({ ...d, progression: ev.target.value || null })} placeholder="+2,5 kg por semana si completás todas las series" /></label>
+            <label className="field dx-note">Progresión<input value={d.progression ?? ""} maxLength={120} onChange={(ev) => change({ ...d, progression: ev.target.value || null })} placeholder={act ? "+1 minuto por semana" : "+2,5 kg por semana si completás todas las series"} /></label>
           </div>
-          <label className="crow" style={{ gap: 8 }}><input type="checkbox" checked={d.unilateral} onChange={(ev) => change({ ...d, unilateral: ev.target.checked })} />Unilateral (las repeticiones son por lado)</label>
+          {!act && <label className="crow" style={{ gap: 8 }}><input type="checkbox" checked={d.unilateral} onChange={(ev) => change({ ...d, unilateral: ev.target.checked })} />Unilateral (las repeticiones son por lado)</label>}
         </section>
 
         {/* D191: con el menor salto real del equipo, REPI propone cargas que se pueden armar; sin él, son una referencia a ajustar. */}
-        <section className="dx-sec" aria-label="Equipo y saltos de carga"><b>Equipo y saltos de carga</b>
+        {!act && <section className="dx-sec" aria-label="Equipo y saltos de carga"><b>Equipo y saltos de carga</b>
           <small className="muted">Opcional. El menor salto de carga con el que se arma este ejercicio (por ejemplo, mancuernas de 2 en 2 kg o discos de 1,25 kg por lado). REPI ajusta sus propuestas a ese salto; sin él, la carga propuesta es una referencia.</small>
           <div className="dx-grid">
             <label className="field">Equipo<select style={sel} value={d.load?.equipment ?? ""} onChange={(ev) => change({ ...d, load: ev.target.value ? { equipment: ev.target.value as Equipment, incrementKg: d.load?.incrementKg ?? (null as unknown as number), perSide: d.load?.perSide } : null })}>
@@ -338,7 +342,7 @@ export function ExerciseDetailEditor({ e, onSave, onClose, member = false, types
           </div>
           {d.load && (d.load.equipment === "barbell" || d.load.equipment === "plate_loaded") && <label className="crow" style={{ gap: 8 }}><input type="checkbox" checked={!!d.load.perSide} onChange={(ev) => change({ ...d, load: { ...d.load!, perSide: ev.target.checked } })} />El salto es por lado (se carga igual de los dos lados)</label>}
           {d.load && loadIncrement(d) != null && <small className="muted">Salto total: {loadIncrement(d)!.toLocaleString("es-AR")} kg.</small>}
-        </section>
+        </section>}
 
         {err && <p className="err-box" role="alert">{err}</p>}
         <div className="mfoot">

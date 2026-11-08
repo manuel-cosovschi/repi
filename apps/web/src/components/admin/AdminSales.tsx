@@ -1,7 +1,7 @@
 "use client";
 // REPI Admin › Ventas y Vendedores (D209). Toda acción llama a /api/admin/sales, que exige Admin con 2FA y audita.
 // Contratado, cobrado y comisiones van separados y con su definición. Nada de esto emite cobros ni transferencias.
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   BILLING_PERIODICITY, COMPONENT_LABEL, DEAL_STATUS, DUP_SIGNAL_LABEL, ENGAGEMENT, MATERIAL_KINDS, PAYOUT_FREQUENCY, REP_STATUS, STAGES, TARGET_METRICS, TRIGGER_LABEL, applyBps, bracketFor, describeComponent, localDate, parseMoney, validateRules,
   type CommissionComponent, type CommissionRules, type Currency, type MemberBracket, type RepStatus, type Stage,
@@ -322,6 +322,14 @@ function DealReview({ id, flash, opts, onClose }: { id: string; flash: Flash; op
   const [a, setA] = useState<Record<string, string | boolean>>({});
   const [note, setNote] = useState("");
   const [conflict, setConflict] = useState<string | null>(null);
+  // Incidente 07/11: un pedido a la vez por venta. Un doble o triple clic mandaba varios POST que se trababan entre sí.
+  const [busy, setBusy] = useState(false);
+  const inflight = useRef(false);
+  const once = async (run: () => Promise<unknown>) => {
+    if (inflight.current) return;
+    inflight.current = true; setBusy(true);
+    try { await run(); } finally { inflight.current = false; setBusy(false); }
+  };
   const v = d.data;
   useEffect(() => {
     if (!v) return;
@@ -332,8 +340,8 @@ function DealReview({ id, flash, opts, onClose }: { id: string; flash: Flash; op
   if (!v) return <Modal label="Venta" onClose={onClose} wide><p className="muted">{d.err ?? "Cargando…"}</p></Modal>;
   const x = v.deal;
   const s = (k: string) => (typeof a[k] === "string" ? (a[k] as string) : "");
-  const decide = (kind: "correction" | "reject") => { if (note.trim().length < 5) { flash("Escribí la nota para el vendedor."); return; } void go(() => api(`/api/admin/sales/deals/${id}/${kind}`, { body: { note, revision: x.revision } }), flash, kind === "reject" ? "Venta rechazada." : "Corrección pedida.", onClose); };
-  const approve = async (replace = false) => {
+  const decide = (kind: "correction" | "reject") => { if (note.trim().length < 5) { flash("Escribí la nota para el vendedor."); return; } void once(() => go(() => api(`/api/admin/sales/deals/${id}/${kind}`, { body: { note, revision: x.revision } }), flash, kind === "reject" ? "Venta rechazada." : "Corrección pedida.", onClose)); };
+  const approve = (replace = false) => once(async () => {
     const unit = parseMoney(s("price"), x.currency as Currency);
     if (!unit) { flash("Revisá el precio aprobado."); return; }
     const share2 = s("split2") ? Math.round(Number(s("share2").replace(",", ".")) * 100) : 0;
@@ -348,7 +356,7 @@ function DealReview({ id, flash, opts, onClose }: { id: string; flash: Flash; op
     } catch (e) {
       if (e instanceof ApiError && e.code === "attribution_conflict") setConflict(e.message); else flash((e as Error).message);
     }
-  };
+  });
   const open = x.status === "declared";
   return (
     <Modal label={`Venta ${x.businessName}`} onClose={onClose} wide>
@@ -385,9 +393,9 @@ function DealReview({ id, flash, opts, onClose }: { id: string; flash: Flash; op
         </div>
         {s("mode") === "existing" && <label className="sv-checks"><label><input type="checkbox" checked={!!a.applyTerms} onChange={(e) => setA({ ...a, applyTerms: e.target.checked })} /> Registrar cantidad y precio como nuevas versiones con esa fecha (no reescribe períodos cerrados)</label></label>}
         <p className="sv-note">Aprobar no registra la aceptación del contrato, no habilita al cliente ni registra cobros: eso sigue en Clientes. Los descuentos y cargos iniciales no se aplican solos; si corresponden, cargá el precio efectivo acordado.</p>
-        {conflict && <p className="gy-warn" style={{ margin: 0 }}>{conflict} <button type="button" className="btn sm" onClick={() => { setConflict(null); void approve(true); }}>Cambiar atribución y aprobar</button></p>}
+        {conflict && <p className="gy-warn" style={{ margin: 0 }}>{conflict} <button type="button" className="btn sm" disabled={busy} onClick={() => { setConflict(null); void approve(true); }}>Cambiar atribución y aprobar</button></p>}
         <label className="field">Nota (la ve el vendedor si pedís corrección o rechazás)<textarea rows={2} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} /></label>
-        <div className="mfoot"><button type="button" className="btn danger" onClick={() => decide("reject")}>Rechazar</button><button type="button" className="btn" onClick={() => decide("correction")}>Pedir corrección</button><button type="button" className="btn pri" onClick={() => approve(false)}>Aprobar</button></div>
+        <div className="mfoot" aria-busy={busy || undefined}><button type="button" className="btn danger" disabled={busy} onClick={() => decide("reject")}>Rechazar</button><button type="button" className="btn" disabled={busy} onClick={() => decide("correction")}>Pedir corrección</button><button type="button" className="btn pri" disabled={busy} onClick={() => void approve(false)}>{busy ? "Guardando…" : "Aprobar"}</button></div>
       </section>}
       {x.reviewNote && <p className="sv-note"><b>Última nota:</b> {x.reviewNote}</p>}
       <details className="card"><summary style={{ cursor: "pointer", fontWeight: 600 }}>Historial</summary><ul className="sv-timeline">{v.history.map((h, i) => <li key={i}>{h.summary}<small>{h.actor} · {when(h.at)}</small></li>)}</ul></details>
@@ -653,7 +661,21 @@ function PayoutsAdmin({ flash }: { flash: Flash }) {
   const bs = useLoad<BRow[]>(`/api/admin/sales/payouts${status ? `?status=${status}` : ""}`);
   const [open, setOpen] = useState<string | null>(null);
   const reload = () => { pv.reload(); bs.reload(); };
-  const gen = (r: PP["rows"][number], ignoreMinimum = false, untilToday = false) => go(() => api("/api/admin/sales/payouts", { body: { repId: r.repId, currency: r.currency, cutoffOn: untilToday ? today() : r.cutoff, idempotencyKey: newKey(), ignoreMinimum } }), flash, "Borrador de liquidación generado.", reload);
+  // Incidente 07/11: una generación a la vez y la misma clave idempotente para la misma fila hasta que salga bien (antes, una
+  // clave nueva por clic: un doble clic mandaba dos pedidos distintos). Tras generar, la clave se descarta.
+  const [busy, setBusy] = useState<string | null>(null);
+  const inflight = useRef(false);
+  const keys = useRef(new Map<string, string>());
+  const gen = async (r: PP["rows"][number], ignoreMinimum = false, untilToday = false) => {
+    if (inflight.current) return;
+    const k = `${r.repId}:${r.currency}:${untilToday ? "hoy" : r.cutoff}:${ignoreMinimum ? 1 : 0}`;
+    const idempotencyKey = keys.current.get(k) ?? newKey();
+    keys.current.set(k, idempotencyKey);
+    inflight.current = true; setBusy(`${r.repId}${r.currency}`);
+    try {
+      if (await go(() => api("/api/admin/sales/payouts", { body: { repId: r.repId, currency: r.currency, cutoffOn: untilToday ? today() : r.cutoff, idempotencyKey, ignoreMinimum } }), flash, "Borrador de liquidación generado.", reload)) keys.current.delete(k);
+    } finally { inflight.current = false; setBusy(null); }
+  };
   return (
     <>
       <section className="card"><h2>Para liquidar</h2>
@@ -661,8 +683,8 @@ function PayoutsAdmin({ flash }: { flash: Flash }) {
         {!pv.data ? <p className="muted">Cargando…</p> : !pv.data.rows.length ? <div className="empty">No hay comisiones disponibles.</div> : pv.data.rows.map((r) => (
           <div key={`${r.repId}${r.currency}`} className="sv-row"><span className="main"><b>{r.repName}{r.repStatus === "terminated" ? " (desvinculado)" : ""}</b><small>{r.frequencyLabel} · corte {r.cutoff} · {r.entries} comisiones{r.laterMinor ? ` · después del corte: ${money(r.laterMinor, r.currency)}` : ""}{r.minPayoutMinor ? ` · mínimo ${money(r.minPayoutMinor, r.currency)}` : ""}</small></span>
             <span className="sv-money">{money(r.totalMinor, r.currency)}</span>
-            {r.hasOpen ? <span className="chip info">Liquidación abierta</span> : r.due ? <button type="button" className="btn sm pri" onClick={() => gen(r)}>Generar borrador</button> : r.totalMinor > 0 ? <button type="button" className="btn sm" onClick={() => window.confirm("Está debajo del mínimo del plan. ¿Generar igual?") && gen(r, true)}>Generar (bajo mínimo)</button> : <span className="chip mute">Nada al corte</span>}
-            {!r.hasOpen && r.laterMinor > 0 && <button type="button" className="btn sm" onClick={() => window.confirm(`Liquidar también lo disponible después del corte (${money(r.laterMinor, r.currency)}), hasta hoy. Sólo entran comisiones ya disponibles. ¿Seguir?`) && gen(r, true, true)}>Liquidar disponible hasta hoy</button>}</div>
+            {r.hasOpen ? <span className="chip info">Liquidación abierta</span> : r.due ? <button type="button" className="btn sm pri" disabled={!!busy} aria-busy={busy === `${r.repId}${r.currency}` || undefined} onClick={() => void gen(r)}>Generar borrador</button> : r.totalMinor > 0 ? <button type="button" className="btn sm" disabled={!!busy} onClick={() => window.confirm("Está debajo del mínimo del plan. ¿Generar igual?") && void gen(r, true)}>Generar (bajo mínimo)</button> : <span className="chip mute">Nada al corte</span>}
+            {!r.hasOpen && r.laterMinor > 0 && <button type="button" className="btn sm" disabled={!!busy} onClick={() => window.confirm(`Liquidar también lo disponible después del corte (${money(r.laterMinor, r.currency)}), hasta hoy. Sólo entran comisiones ya disponibles. ¿Seguir?`) && void gen(r, true, true)}>Liquidar disponible hasta hoy</button>}</div>
         ))}
       </section>
       <section className="card"><h2>Liquidaciones</h2>

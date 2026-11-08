@@ -356,3 +356,54 @@ describe("AC3 · pirámides: cada fila compara con su par (defecto #1 de la audi
     expect(ts[0].refs).toHaveLength(3);
   });
 });
+
+describe("ejercicios por tiempo · una actividad nunca recibe kilos", () => {
+  const cinta = (reps = "10 min"): ExCtx => ({ sets: 1, reps, rir: null, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "treadmill", speedKmh: 5, incline: 3 } } });
+  it("con duración: la referencia es la última vez, sin kilos aunque la historia los tenga", () => {
+    const [t] = rec(cinta(), sess(3, [{ reps: "10 min", w: 60, r: 720, rir: null }]));
+    expect(t).toMatchObject({ status: "ready", action: "reference", weightKg: null, repsTarget: 720, text: "12 min", repsMin: null, repsMax: null, coach: null });
+    expect(t.prev).toMatchObject({ w: null, r: 720 });
+    expect(t.refs.every((r) => r.w == null)).toBe(true);
+    expect(t.why).toMatch(/no se calculan kilos/);
+    expect(t.reasons).toContain("activity");
+  });
+  it("sin historia: no inventa nada", () => {
+    const [t] = rec(cinta(), []);
+    expect(t).toMatchObject({ status: "no_data", weightKg: null, action: "none" });
+  });
+  it("cardio cargado con repeticiones («10-12», como dejaba el editor de sala): no aplica, nunca propone kilos", () => {
+    const ex: ExCtx = { ...straight(3, "10-12", 2), profile: "treadmill" };
+    const ts = rec(ex, sess(3, [{ reps: "10-12", w: 60, r: 12 }, { reps: "10-12", w: 60, r: 12 }, { reps: "10-12", w: 60, r: 12 }]));
+    expect(ts.every((t) => t.status === "not_applicable" && t.weightKg == null && t.repsMin == null && t.text === "")).toBe(true);
+    expect(ts[0].why).toMatch(/no calcula kilos/);
+    // Sin el perfil, el mismo programa sigue como musculación (compatibilidad): sube la carga como siempre.
+    expect(rec(straight(3, "10-12", 2), sess(3, [{ reps: "10-12", w: 60, r: 12 }, { reps: "10-12", w: 60, r: 12 }, { reps: "10-12", w: 60, r: 12 }]))[0].action).toBe("increase_load");
+  });
+  it("remo por distancia: no aplica (se registra lo hecho)", () => {
+    const ex: ExCtx = { sets: 1, reps: "500 m", rir: null, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "rower", distanceM: 500 } } };
+    expect(rec(ex, [])[0]).toMatchObject({ status: "not_applicable", weightKg: null });
+  });
+  it("la fila es «por tiempo» y no tiene carga ni RIR del plan; las tendencias no la toman como serie principal", () => {
+    const c = rowContext({ ...cinta(), rir: 2 }, 0);
+    expect(c).toMatchObject({ cls: "timed", activity: true, planKg: null, rir: null });
+    expect(exerciseRows(cinta()).some((r) => r.cls === "main" || r.cls === "top")).toBe(false);
+    expect(rowContext({ ...straight(1, "10-12"), profile: "bike" }, 0).cls).toBe("timed");
+    expect(rowContext(straight(3, "8-10"), 0).activity).toBe(false);
+  });
+  it("compara sólo con filas por tiempo (la historia de «10-12» no es referencia de la cinta por duración)", () => {
+    const c = rowContext(cinta(), 0);
+    expect(compareRows(c, sess(3, [{ reps: "10-12", w: 60, r: 12 }])[0]).level).toBe("none");
+    expect(compareRows(c, sess(3, [{ reps: "600 s", w: null, r: 600 }])[0]).level).not.toBe("none");
+    expect(compareRows(c, sess(3, [{ reps: "500 m", w: null, r: 130, activity: true }])[0]).level).not.toBe("none");
+  });
+  it("una plancha (aguante) sigue como antes: la referencia conserva la carga del chaleco", () => {
+    const [t] = rec(straight(3, "40 s"), sess(3, [{ reps: "40 s", w: 10, r: 45 }]));
+    expect(t).toMatchObject({ status: "ready", action: "reference", weightKg: 10, repsTarget: 45 });
+  });
+  it("durante la sesión no ajusta nada en una actividad", () => {
+    const ex: ExCtx = { ...cinta(), sets: 3 };
+    const targets = rec(ex, sess(3, [{ reps: "10 min", w: null, r: 600 }]));
+    const r = adjustAfterSet({ ex, targets, done: [{ index: 0, w: null, r: 300, rir: 0, feel: "limite" }], justDone: 0 });
+    expect(r).toEqual({ targets, event: null, changed: [] });
+  });
+});

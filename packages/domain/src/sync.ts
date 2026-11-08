@@ -2,13 +2,20 @@
 // envía la revisión que conocía (`baseRevision`, 0 = registro nuevo). Nunca se sobrescribe en silencio:
 // si el servidor cambió desde la base y los valores difieren, es conflicto y se conservan ambas versiones.
 
-export type SetValues = { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null };
+import { sameMetrics, type SetMetrics } from "./activity";
+
+/**
+ * `metrics` (ejercicios por tiempo): valores reales de una actividad (velocidad, inclinación, nivel…). `undefined` = el cliente no
+ * los manda (una app anterior): no cuenta como cambio y no los borra; `null` = sin métricas.
+ */
+export type SetValues = { weightKg: number | null; reps: number | null; rir: number | null; feel?: string | null; note?: string | null; metrics?: SetMetrics | null };
 export type ServerSet = SetValues & { id: string; revision: number };
 export type IncomingSet = SetValues & { id: string; baseRevision: number };
 
+/** Mismos valores registrados. Cambiar sólo la velocidad o la inclinación de una actividad también es un cambio. */
 export const sameSetValues = (a: SetValues, b: SetValues) =>
   (a.weightKg ?? null) === (b.weightKg ?? null) && (a.reps ?? null) === (b.reps ?? null) && (a.rir ?? null) === (b.rir ?? null) && (a.feel ?? null) === (b.feel ?? null)
-  && (a.note || null) === (b.note || null);
+  && (a.note || null) === (b.note || null) && (a.metrics === undefined || b.metrics === undefined || sameMetrics(a.metrics, b.metrics));
 
 export type SetDecision =
   | { kind: "insert" }
