@@ -35,7 +35,9 @@ export async function exportMyData(userId: string, now = new Date()) {
     sharing: await db.select({ scope: consentGrant.scope, item: consentGrant.item, status: consentGrant.status, grantedAt: consentGrant.grantedAt, revokedAt: consentGrant.revokedAt }).from(consentGrant).where(eq(consentGrant.userId, userId)),
     training: sessions.map((s) => ({
       day: s.dayName, status: s.status, startedAt: s.startedAt, endedAt: s.endedAt, activeMinutes: Math.round(s.activeMs / 60_000), rpe: s.rpe, note: s.note,
-      sets: (setsBySession.get(s.id) ?? []).sort((a, b) => a.setIndex - b.setIndex).map((x) => ({ set: x.setIndex + 1, weightKg: x.weightKg == null ? null : Number(x.weightKg), reps: x.reps, rir: x.rir, feel: x.feel, completedAt: x.completedAt })),
+      // Ejercicios por tiempo: `metrics` = valores reales de una actividad (velocidad en km/h, inclinación, nivel, distancia en m,
+      // ritmo cada 500 m en segundos, cadencia en rpm); en una actividad, `reps` son los segundos.
+      sets: (setsBySession.get(s.id) ?? []).sort((a, b) => a.setIndex - b.setIndex).map((x) => ({ set: x.setIndex + 1, weightKg: x.weightKg == null ? null : Number(x.weightKg), reps: x.reps, rir: x.rir, feel: x.feel, metrics: x.metrics ?? null, completedAt: x.completedAt })),
     })),
     checkins: await db.select({ date: checkin.date, energy: checkin.energy, sleep: checkin.sleep, mood: checkin.mood }).from(checkin).where(eq(checkin.userId, userId)),
     pains: await db.select({ zone: painReport.zone, level: painReport.level, context: painReport.context, exercise: painReport.exerciseName, note: painReport.note, createdAt: painReport.createdAt }).from(painReport).where(eq(painReport.userId, userId)),

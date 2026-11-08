@@ -2,8 +2,8 @@
 // levantaste entrarías 3°», «te superaron el récord», «quedan 2 días», «te faltan 3 récords para Fuerza · Plata». Nada se
 // publica por la persona: sumarse al ranking o subir un intento siempre lo decide ella con un toque. Un menor sin
 // consentimiento de su adulto responsable no recibe invitaciones a rankings ni desafíos (SEC-6).
-import { and, eq, gte, inArray, isNull, or } from "drizzle-orm";
-import { TIER_LABEL, TROPHIES, TROPHY_TIERS, bestByMember, fmtValue, isNewRecord, localDate, parseReps, trophyState, trophyUnit, type ChallengeUnit } from "@repi/domain";
+import { and, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { TIER_LABEL, TROPHIES, TROPHY_TIERS, bestByMember, fmtValue, isNewRecord, isTimedRow, localDate, trophyState, trophyUnit, type ChallengeUnit } from "@repi/domain";
 import { db, schema } from "@/db";
 import { featureOn } from "@/lib/features";
 import { minorWithoutGuardian } from "../access/services";
@@ -26,12 +26,13 @@ export const placeAmong = (others: number[], mine: number, lowerIsBetter = false
 /** Mejor marca propia de los últimos 90 días en cada ejercicio: peso máximo con al menos una repetición y repeticiones máximas. */
 async function myMarks(userId: string, exerciseIds: string[], now: Date) {
   if (!exerciseIds.length) return new Map<string, { kg: number; reps: number }>();
-  const rows = await db.select({ ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps }).from(setLog)
+  const rows = await db.select({ ex: setLog.exerciseId, w: setLog.weightKg, r: setLog.reps, target: programExercise.reps, act: sql<unknown>`${programExercise.detail}->'activity'` }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId)).leftJoin(programExercise, eq(programExercise.id, setLog.programExerciseId))
     .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt), inArray(setLog.exerciseId, exerciseIds), gte(setLog.completedAt, new Date(now.getTime() - 90 * dayMs))));
   const out = new Map<string, { kg: number; reps: number }>();
   for (const x of rows) {
-    if (x.r == null || x.r < 1 || (x.target != null && parseReps(x.target).kind === "time")) continue; // series por tiempo: reps son segundos
+    // Series por tiempo y actividades (cinta, bici…): reps son segundos.
+    if (x.r == null || x.r < 1 || (x.target != null && isTimedRow({ reps: x.target, detail: { activity: x.act } }))) continue;
     const cur = out.get(x.ex) ?? { kg: 0, reps: 0 };
     out.set(x.ex, { kg: Math.max(cur.kg, x.w == null ? 0 : Number(x.w)), reps: Math.max(cur.reps, x.r) });
   }

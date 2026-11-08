@@ -113,6 +113,9 @@
 .st-foot-brand a { text-decoration: none; }
 .st-foot-brand a:hover { color: var(--core-white); }
 .st-sovare { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--core-navy800); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+/* En el teléfono el pie va en columna: la firma de SOVARE y el © quedan alineados a la izquierda, como el resto del pie. */
+.st-foot .st-sovare { align-items: flex-start; }
+@media (min-width: 860px) { .st-foot .st-sovare { align-items: center; } }
 .st-sovare a { display: flex; align-items: center; gap: 12px; text-decoration: none; }
 .st-sovare img { height: 36px; width: auto; opacity: .9; filter: invert(1); }
 .st-sovare span { display: flex; flex-direction: column; line-height: 1.25; }

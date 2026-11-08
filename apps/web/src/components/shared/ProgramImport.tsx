@@ -8,18 +8,23 @@
 //    borra al guardar o descartar. El archivo original nunca se guarda.
 //  · `opId` identifica el guardado: un reintento no duplica.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { GROUP_LETTERS, circuitIssues, presetPlan, cleanDecimalDraft, detectGroupWord, emptyDetail, importedDetail, kgTo, methodDetail, parseWeightIn,
-  type ExerciseDetail, type GroupKind, type ImportField, type ImportIssue, type ImportedMethod, type ImportOriginExercise, type ImportSetValue, type ProgramDoc, type WeightUnit } from "@repi/domain";
+import { GROUP_LETTERS, circuitIssues, presetPlan, cleanDecimalDraft, detectGroupWord, emptyDetail, fitActivity, importedDetail, kgTo, methodDetail, parseWeightIn, prescriptionText, profileOf,
+  type ActivityDetail, type ExerciseDetail, type GroupKind, type ImportField, type ImportIssue, type ImportedMethod, type ImportOriginExercise, type ImportSetValue, type ProgramDoc, type WeightUnit } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { ApiError } from "@/lib/api";
 import { readImportFile, type ImportBody } from "@/lib/import-file";
 
-export type Lib = { id: string; name: string; group: string; kind: string };
+/** `profile` (ejercicios por tiempo): perfil resuelto del ejercicio (cinta, bici, remo… o fuerza), como lo manda la biblioteca. */
+export type Lib = { id: string; name: string; group: string; kind: string; profile?: string | null };
 type PEx = {
   written: string; source: string | null; section: string | null; sets: number | null; reps: string | null; weightKg: number | null; perSet: ImportSetValue[] | null;
   restSec: number | null; rir: number | null; rpe: number | null; tempo: string | null; note: string | null; technique: string | null;
   group: string | null; groupKind: GroupKind | null; rounds: number | null; unit: "kg" | "lb" | null; issues: ImportIssue[];
   exerciseId: string | null; name: string | null; group_: string | null; kind: string | null; matchedBy: "library" | "ai" | null; alternatives: Lib[]; method: ImportedMethod | null;
+  /** Ejercicios por tiempo: la actividad leída del documento (cinta 10 min · 5 km/h · incl. 3); la duración queda en `reps`. */
+  activity?: ActivityDetail | null;
+  /** Perfil del ejercicio emparejado (el servidor lo resuelve: guardado → catálogo → nombre → tipo). */
+  profile?: string | null;
 };
 export type Preview = {
   source: "sheet" | "text" | "ai"; file: "text" | "sheet" | "image" | "pdf"; notes: string[]; unread: string[];
@@ -34,6 +39,10 @@ export type REx = {
   method: ImportedMethod | null; mstate: "applied" | "ask" | "kept" | null; custom: { detail: ExerciseDetail | null; sets: number } | null;
   glabel: { letter: string; order: number } | null; gkind: GroupKind | null; rounds: number | null; gword: { kind: GroupKind; matched: string } | null;
   issues: ImportIssue[]; filled: ImportField[]; suggested: ImportField[]; open: boolean;
+  /** La actividad leída del documento tal cual; la que se guarda sale de `fitToExercise` (manda el ejercicio elegido). */
+  activity: ActivityDetail | null;
+  /** Perfil del ejercicio elegido (emparejado o cambiado en la revisión). Sin él (borrador anterior), se deduce del nombre y el tipo. */
+  profile?: string | null;
   orig: Omit<ImportOriginExercise, "exerciseId" | "completed" | "suggested">;
 };
 export type RDay = { k: string; name: string; exercises: REx[] };
@@ -54,8 +63,8 @@ function toREx(p: PEx, unit: WeightUnit): REx {
     method: p.method, mstate: p.method ? (p.method.confident ? "applied" : "ask") : null, custom: null,
     glabel: g ? { letter: g[1].toUpperCase(), order: Number(g[2]) } : null, gkind: p.groupKind, rounds: p.rounds,
     gword: !g && !p.method ? detectGroupWord(p.technique, p.note) : null,
-    issues: p.issues ?? [], filled: [], suggested: [], open: false,
-    orig: { written: p.written, sets: p.sets, reps: p.reps, weightKg: p.weightKg, perSet: p.perSet, restSec: p.restSec, rir: p.rir, rpe: p.rpe, tempo: p.tempo, technique: p.technique,
+    issues: p.issues ?? [], filled: [], suggested: [], open: false, activity: p.activity ?? null, profile: p.profile ?? null,
+    orig: { written: p.written, sets: p.sets, reps: p.reps, weightKg: p.weightKg, perSet: p.perSet, restSec: p.restSec, rir: p.rir, rpe: p.rpe, tempo: p.tempo, technique: p.technique, activity: p.activity ?? null,
       unknown: (p.issues ?? []).filter((i) => i.kind === "missing").map((i) => i.field) },
   };
   return r;
@@ -89,6 +98,21 @@ function groupMap(d: RDay) {
   return new Map(letters.map((l, i) => [l, GROUP_LETTERS[i]]));
 }
 
+/**
+ * Ejercicios por tiempo: la actividad que se guarda, adaptada al ejercicio elegido (`fitActivity`). Manda el ejercicio, no el
+ * texto: «Trote 20 min» emparejado con «Cinta (trote)» es una cinta (con velocidad e inclinación); una cinta que se cambia por un
+ * elíptico conserva la inclinación y la velocidad queda en la nota (`lost`); «Remo 2000 m» cambiado a «Remo con barra» no lleva
+ * actividad. Sale siempre de lo leído del documento (`orig`), así cambiar de ejercicio varias veces no pierde nada.
+ */
+export function fitToExercise(e: Pick<REx, "exerciseId" | "name" | "kind" | "muscle" | "reps" | "activity" | "orig"> & { profile?: string | null }): { activity: ActivityDetail | null; lost: string | null } {
+  const read = e.orig?.activity ?? e.activity ?? null;
+  if (!e.exerciseId) return { activity: read, lost: null };
+  const f = fitActivity(profileOf({ profile: e.profile, name: e.name, kind: e.kind, group: e.muscle }), read, e.reps.trim());
+  return { activity: f.activity, lost: f.dropped || null };
+}
+/** La nota que se guarda: la del documento y, si los hay, los valores que no son del ejercicio elegido (nada se pierde). */
+const noteOf = (e: REx) => { const lost = fitToExercise(e).lost; return lost ? [e.note, lost].filter(Boolean).join(" · ").slice(0, 120) : e.note; };
+
 /** Ejercicio revisado → series, repeticiones, carga y detalle (método, por serie, combinado) con las formas del constructor. */
 export function buildEx(e: REx, unit: WeightUnit, letter: string | null) {
   const weightKg = e.w.trim() ? parseWeightIn(e.w, unit) : null;
@@ -97,7 +121,8 @@ export function buildEx(e: REx, unit: WeightUnit, letter: string | null) {
   else {
     sets = e.sets ?? 0;
     const per = e.per && e.per.length === sets ? e.per.map((r) => ({ reps: r.reps.trim() || e.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null })) : null;
-    detail = importedDetail({ sets, reps: e.reps.trim(), weightKg, perSet: per, rir: e.rir, rpe: e.rpe, tempo: e.tempo });
+    // Ejercicios por tiempo: la actividad leída se guarda configurada (si lo revisado sigue siendo una duración o una distancia).
+    detail = importedDetail({ sets, reps: e.reps.trim(), weightKg, perSet: per, rir: e.rir, rpe: e.rpe, tempo: e.tempo, activity: fitToExercise(e).activity });
     if (e.method && e.mstate === "applied") { const r = methodDetail(e.method, { sets, reps: e.reps.trim(), weightKg }, detail); detail = r.detail; sets = r.detail.setPlan?.length ?? sets; }
   }
   if (letter) detail = { ...(detail ?? emptyDetail()), group: letter, groupKind: e.gkind ?? "superset", rounds: e.gkind === "circuit" ? e.rounds ?? null : null };
@@ -111,7 +136,7 @@ export function toRoutines(s: ReviewState, unit: WeightUnit) {
     const map = groupMap(d);
     return {
       name: d.name.trim(),
-      exercises: d.exercises.map((e) => { const b = buildEx(e, unit, letterOf(d, e, map)); return { exerciseId: e.exerciseId!, sets: b.sets, reps: b.reps, weightKg: b.weightKg, restSec: e.rest, note: e.note, detail: b.detail }; }),
+      exercises: d.exercises.map((e) => { const b = buildEx(e, unit, letterOf(d, e, map)); return { exerciseId: e.exerciseId!, sets: b.sets, reps: b.reps, weightKg: b.weightKg, restSec: e.rest, note: noteOf(e), detail: b.detail }; }),
       origin: d.exercises.map((e) => ({ ...e.orig, exerciseId: e.exerciseId!, completed: e.filled, suggested: e.suggested })),
     };
   });
@@ -124,7 +149,7 @@ export function toProgramDoc(s: ReviewState, unit: WeightUnit, name: string): Pr
       const b = buildEx(e, unit, letterOf(d, e, map));
       // En un programa la carga vive en el plan (D173: series rectas con peso = N series iguales con esa carga).
       const detail = b.weightKg != null && !b.detail?.setPlan ? { ...(b.detail ?? emptyDetail()), setPlan: presetPlan("straight", { sets: b.sets, reps: b.reps, weightKg: b.weightKg }) } : b.detail;
-      return { exerciseId: e.exerciseId!, name: e.name ?? e.written, sets: b.sets, reps: b.reps, rir: e.rir != null ? Math.round(e.rir) : null, restSec: e.rest ?? 0, note: e.note, detail };
+      return { exerciseId: e.exerciseId!, name: e.name ?? e.written, sets: b.sets, reps: b.reps, rir: e.rir != null ? Math.round(e.rir) : null, restSec: e.rest ?? 0, note: noteOf(e), detail };
     }) };
   }) };
 }
@@ -302,8 +327,9 @@ export function ImportReview({ state, setState, unit, mode, renderPicker, member
             {visible.map(({ e, ei }) => {
               const issues = openIssues(e, mode, unit);
               const nm = e.name ?? e.written;
+              const fit = fitToExercise(e); // la actividad del ejercicio elegido (y lo que no es de él)
               const sum = [e.custom ? detailSummary({ name: nm, sets: e.custom.sets, reps: e.reps, rir: e.rir, restSec: e.rest ?? 0, detail: e.custom.detail }) : null,
-                !e.custom && e.sets != null && e.reps ? `${e.sets} × ${e.reps}` : null, e.w ? `${e.w} ${unit}` : null, e.rest != null ? `${e.rest} s` : null].filter(Boolean).join(" · ");
+                !e.custom && e.sets != null && e.reps ? (fit.activity ? prescriptionText({ sets: e.sets, reps: e.reps, detail: { ...emptyDetail(), activity: fit.activity } }) : `${e.sets} × ${e.reps}`) : null, e.w ? `${e.w} ${unit}` : null, e.rest != null ? `${e.rest} s` : null].filter(Boolean).join(" · ");
               const showSection = e.section && e.section !== d.exercises[ei - 1]?.section;
               return (
                 <div key={e.k} className="pi-ex" data-state={issues.length ? "issue" : "ok"} id={`pi-${e.k}`}>
@@ -320,12 +346,13 @@ export function ImportReview({ state, setState, unit, mode, renderPicker, member
                     <div className="pi-ex-body">
                       {(e.name && e.name !== e.written) && <small className="pi-muted">Escrito «{e.written}»{e.matchedBy === "ai" ? " · REPI lo asoció: confirmá que sea el mismo" : ""}</small>}
                       {e.source && <small className="pi-evidence">Leído de: «{e.source}»</small>}
+                      {fit.lost && <small className="pi-muted">No es de {nm}: {fit.lost} (queda en la nota).</small>}
                       {issues.length > 0 && <ul className="pi-issues">{issues.map((i, k) => (
                         <li key={k} data-kind={i.kind}>{i.text}{i.kind === "unclear" && <button type="button" className="pi-link" onClick={() => setEx(di, ei, (x) => fill(x, i.field))}>Está bien</button>}</li>
                       ))}</ul>}
                       {!e.exerciseId && e.alternatives.length > 0 && (
                         <div className="pi-alts" role="group" aria-label={`Opciones para «${e.written}»`}>
-                          {e.alternatives.map((a) => <button key={a.id} type="button" className="pi-chip-btn" onClick={() => setEx(di, ei, { exerciseId: a.id, name: a.name, muscle: a.group, kind: a.kind })}>{a.name}</button>)}
+                          {e.alternatives.map((a) => <button key={a.id} type="button" className="pi-chip-btn" onClick={() => setEx(di, ei, { exerciseId: a.id, name: a.name, muscle: a.group, kind: a.kind, profile: a.profile ?? null })}>{a.name}</button>)}
                         </div>
                       )}
                       {!e.custom ? (
@@ -381,7 +408,7 @@ export function ImportReview({ state, setState, unit, mode, renderPicker, member
                         <button type="button" className="pi-link" onClick={() => setDays((ds) => ds.map((x, i) => (i !== di ? x : { ...x, exercises: x.exercises.filter((_, j) => j !== ei) })).filter((x) => x.exercises.length))}>Quitar</button>
                       </div>
                       {picking === e.k && renderPicker({ query: e.exerciseId ? "" : e.written, taken: new Set(d.exercises.map((x) => x.exerciseId ?? "")),
-                        onPick: (x) => { setEx(di, ei, (y) => ({ ...fill(y, "name"), exerciseId: x.id, name: x.name, muscle: x.group, kind: x.kind, matchedBy: "library" })); setPicking(null); },
+                        onPick: (x) => { setEx(di, ei, (y) => ({ ...fill(y, "name"), exerciseId: x.id, name: x.name, muscle: x.group, kind: x.kind, profile: x.profile ?? null, matchedBy: "library" })); setPicking(null); },
                         onCancel: () => setPicking(null) })}
                     </div>
                   )}

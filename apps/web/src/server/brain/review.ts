@@ -6,13 +6,14 @@
 // Excluye siempre las series anuladas, las aproximaciones y las etapas (drop, rest-pause, cluster) de las comparaciones y las
 // marcas. Al leer el cierre de una sesión terminada deja el resultado en la memoria (outcome), idempotente: no duplica.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { epley1rm, exerciseRows, rowContext, type ExCtx, type ExerciseDetail, type SetKind } from "@repi/domain";
+import { epley1rm, exerciseRows, isActivityProfile, rowContext, type ExCtx, type ExerciseDetail, type SetKind } from "@repi/domain";
 import { fmtArDate, sessionReview, type PriorMarks, type ReviewExercise, type ReviewSet, type SessionReview } from "@repi/domain/brain";
 import { db, schema } from "@/db";
 import { logError } from "../log";
 import { AccessError } from "../access/util";
 import { timedPeIds } from "../training/services";
 import { historyRows, outlookFor } from "../training/intelligence";
+import { exerciseProfiles, rowProfile } from "../training/library";
 import { getPrefs, requireAssistant } from "./prefs";
 import { recordOutcome } from "./events";
 
@@ -68,6 +69,8 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
   };
   const exIds = [...new Set([...all.map(doing), ...logs.map((l) => l.exerciseId)])];
   const start = s.startedAt.toISOString();
+  // Ejercicios por tiempo: perfil de cada fila (una cinta indicada «10-12» sigue siendo cardio: sin tendencia de kilos).
+  const profiles = await exerciseProfiles([...exIds, ...all.map((p) => p.exerciseId)]);
 
   const [prevRows, priorRows, hist] = exIds.length ? await Promise.all([
     // Sesión comparable anterior de cada ejercicio: la última terminada que empezó antes que esta.
@@ -99,7 +102,7 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
     const mine = logs.filter((l) => l.programExerciseId === pe.id);
     const isExtra = extra.includes(pe);
     if (isExtra && !mine.length) continue;
-    const ex: ExCtx & { detail: ExerciseDetail | null } = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null };
+    const ex: ExCtx & { detail: ExerciseDetail | null } = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null, profile: rowProfile(pe, doing(pe), profiles) };
     const plannedMain = isExtra ? 0 : exerciseRows(ex).filter((r) => r.stage === 0 && MAIN.includes(r.kind)).length;
     const isTimed = timed.has(pe.id);
     const sets: ReviewSet[] = mine.map((l) => {
@@ -126,7 +129,8 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
     const outlook = (hist.get(did)?.length ?? 0) ? outlookFor(ex, hist.get(did)!, now, coachOwned) : null;
     exercises.push({
       exercise: { id: pe.id, name: pe.name, short: "" },
-      measure: isTimed ? "time" : undefined,
+      // Ejercicios por tiempo: una actividad (cinta, bici…) se informa sin «aguantaste» ni «mejor tiempo».
+      measure: isTimed ? (isActivityProfile(ex.profile) ? "activity" : "time") : undefined,
       plannedMain,
       sets,
       skipped: ch?.c.kind === "skip",

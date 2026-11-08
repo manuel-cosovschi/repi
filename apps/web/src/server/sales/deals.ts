@@ -8,6 +8,7 @@ import {
   termAt, validateRules, validateSplit, type CommissionRules, type ContractStatus, type Currency, type DealKind, type Split, type Term,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import type { Tx } from "../access/util";
 import { addTermTx, createClientTx, publishTermNotice, type TermInput } from "../commercial/services";
 import { enabledAccesses } from "../join/services";
 import { AccessError, NF, audit, clean, isDay, logActivity, notifyAdmins, notifyRep, requireRep, salesAdmin, today, type Rep } from "./core";
@@ -154,8 +155,8 @@ export async function adminDeals(actorId: string, f: { status?: string | null; r
   return rows.map(({ d, rep, code }) => ({ ...dealView(d), repName: rep, repCode: code }));
 }
 
-async function currentTerms(contractId: string) {
-  return (await db.select().from(contractTerm).where(eq(contractTerm.contractId, contractId)).orderBy(asc(contractTerm.version)))
+async function currentTerms(contractId: string, q: Tx | typeof db = db) {
+  return (await q.select().from(contractTerm).where(eq(contractTerm.contractId, contractId)).orderBy(asc(contractTerm.version)))
     .map((t): Term => ({ id: t.id, kind: t.kind, version: t.version, value: t.value, currency: (t.currency as Currency) ?? null, effectiveFrom: t.effectiveFrom, createdAt: t.createdAt }));
 }
 
@@ -248,7 +249,7 @@ export async function approveDeal(actorId: string, dealId: string, p: ApproveInp
       const [v] = await tx.select().from(commissionPlanVersion).where(eq(commissionPlanVersion.id, p.planVersionId));
       if (!v || v.status !== "approved" || validateRules(v.rules as CommissionRules).length) throw new AccessError("invalid", "Elegí una versión de plan aprobada.");
       planVersionId = v.id;
-    } else planVersionId = (await planVersionAt(d.repId, d.closedOn))?.v.id ?? null;
+    } else planVersionId = (await planVersionAt(d.repId, d.closedOn, tx))?.v.id ?? null;
     const split: Split = p.split ?? [{ repId: d.repId, shareBps: 10000 }];
     const splitReps = await tx.select({ id: salesRep.id }).from(salesRep).where(inArray(salesRep.id, split.map((s) => s.repId)));
     if (splitReps.length !== split.length) throw new AccessError("invalid", "Un vendedor del reparto no existe.");
@@ -257,7 +258,7 @@ export async function approveDeal(actorId: string, dealId: string, p: ApproveInp
     if (p.link.mode === "create") {
       if (d.kind !== "new") throw new AccessError("invalid", "Una renovación o ampliación se vincula a un contrato existente.");
       if (!d.contactEmail) throw new AccessError("invalid", "Para crear el cliente hace falta el email del responsable: pedí la corrección.");
-      const strong = (await scanDuplicates({ name: d.businessName, cuit: d.cuit, email: d.contactEmail, phone: d.contactPhone, city: d.city })).filter((m) => m.type === "client" && m.strong);
+      const strong = (await scanDuplicates({ name: d.businessName, cuit: d.cuit, email: d.contactEmail, phone: d.contactPhone, city: d.city }, undefined, tx)).filter((m) => m.type === "client" && m.strong);
       if (strong.length) throw new AccessError("possible_duplicate", `Ya existe un cliente con señales coincidentes (${strong.map((m) => m.name).join(", ")}). Vinculá la venta a ese contrato.`, 409, { orgIds: strong.map((m) => m.id) });
       const created = await createClientTx(tx, actorId, { kind: d.clientKind, orgName: d.businessName, legalName: d.legalName, responsibleName: d.contactName, responsibleEmail: d.contactEmail, currency: d.currency, locations: d.locations ?? [] }, { salesDealId: d.id });
       if (d.cuit) await tx.update(organization).set({ cuit: d.cuit }).where(eq(organization.id, created.orgId));
@@ -271,7 +272,7 @@ export async function approveDeal(actorId: string, dealId: string, p: ApproveInp
       if (other && d.kind === "new") throw new AccessError("exists", "Ese contrato ya tiene una venta de alta aprobada. Si es otra operación, aprobala como renovación o ampliación.", 409);
       contract = c;
     }
-    const before = await currentTerms(contract.id);
+    const before = await currentTerms(contract.id, tx);
     const previousMembers = termAt(before, "quantity", p.effectiveFrom)?.value ?? 0;
     const termsAdded: { input: TermInput; t: Awaited<ReturnType<typeof addTermTx>> }[] = [];
     if (p.applyTerms || p.link.mode === "create") {

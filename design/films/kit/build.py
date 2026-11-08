@@ -464,7 +464,7 @@ FILMS.update({
             ("coach", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 3.0, 0, 3.0), ("perfil-entrenadores.mp4", 14.0, 3.0, 3.5)], "Para entrenadores *independientes.*", side="right")),
             ("owner", 6.5, lambda s, d: s_device(s, d, [("gym-owner.mp4", 0.0, 0, 3.0), ("gym-owner.mp4", 6.0, 3.0, 3.5)], "Y para gimnasios, *por* *sede.*")),
             ("tech", 5.0, lambda s, d: s_statement(s, d, "Funciona *sin* *señal.* Se instala *sin* *tiendas.*")),
-            ("proof", 6.0, lambda s, d: s_statement(s, d, "En operación en *Smart* *Center* *Gym.*", sub="Mar del Plata.", img="smart-center-gym.webp")),
+            ("proof", 6.0, lambda s, d: s_statement(s, d, "En operación en *gimnasios* *reales.*", sub="Mar del Plata, Argentina.")),
             ("network", 5.0, lambda s, d: s_network(s, d, "Gimnasios, entrenadores y alumnos. *Conectados.*")),
             ("end", 4.5, END("Proponé *una* *alianza.*", "repiclub.com/conoce/aliados")),
         ]),

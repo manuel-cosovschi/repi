@@ -9,8 +9,8 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
-import { addIso, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
-import { createOwnExercise, ensureExerciseCatalog, visibleIn } from "../training/library";
+import { addIso, assertKeepsActivities, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
+import { createOwnExercise, ensureExerciseCatalog, libraryCols, visibleIn, withProfile } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 import { recordDecision, relationIntelligence, type ProposalDecision } from "../training/intelligence";
 import { afterBriefSaved, parseBrief } from "../training/program-request";
@@ -102,8 +102,8 @@ export async function addEvent(tx: Tx | typeof db, t: { id: string; orgId: strin
   });
 }
 /** Personal de sala de una sede (para traspasos, reasignación y grilla). */
-export async function floorStaff(orgId: string, locationId: string) {
-  const rows = await db.selectDistinctOn([staffMembership.userId], { userId: staffMembership.userId, name: user.name, role: staffMembership.role, afterHoursAccess: staffMembership.afterHoursAccess })
+export async function floorStaff(orgId: string, locationId: string, q: Tx | typeof db = db) {
+  const rows = await q.selectDistinctOn([staffMembership.userId], { userId: staffMembership.userId, name: user.name, role: staffMembership.role, afterHoursAccess: staffMembership.afterHoursAccess })
     .from(staffMembership).innerJoin(user, eq(user.id, staffMembership.userId))
     .where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active"), inArray(staffMembership.role, [...FLOOR_ROLES]),
       or(eq(staffMembership.locationId, locationId), isNull(staffMembership.locationId))))
@@ -443,7 +443,7 @@ export async function reassignTask(actorId: string, orgId: string, taskId: strin
   return db.transaction(async (tx) => {
     const t = await lockTask(tx, ctx, taskId);
     if (t.status === "done" || t.status === "cancelled") throw new AccessError("closed", "Esta tarea ya está cerrada.", 409);
-    if (toUserId && !(await floorStaff(orgId, t.locationId)).some((s) => s.userId === toUserId)) throw new AccessError("invalid", "Esa persona no trabaja en la sala de esta sede.");
+    if (toUserId && !(await floorStaff(orgId, t.locationId, tx)).some((s) => s.userId === toUserId)) throw new AccessError("invalid", "Esa persona no trabaja en la sala de esta sede.");
     const status = t.status === "follow_up" ? "follow_up" : "open";
     await tx.update(gymTask).set({ assigneeUserId: toUserId, status, takenAt: toUserId ? t.takenAt ?? new Date() : t.takenAt }).where(eq(gymTask.id, t.id));
     await addEvent(tx, t, { actor: actorId, kind: "reassigned", from: t.status, to: status, toUserId });
@@ -697,7 +697,7 @@ export async function saveMemberProgram(actorId: string, orgId: string, gymMembe
   const v = validateProgramDoc(p.doc);
   if (!v.ok) throw new AccessError("invalid", v.error);
   if (!v.doc.days.some((d) => d.exercises.length)) throw new AccessError("invalid", "Agregá al menos un ejercicio.");
-  await assertLibrary(orgId, v.doc);
+  const doc = await assertLibrary(orgId, v.doc);
   return db.transaction(async (tx) => {
     const [m] = await tx.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId))).for("update");
     if (!m || !inScope(ctx, m.locationId)) throw NOT_FOUND();
@@ -708,13 +708,14 @@ export async function saveMemberProgram(actorId: string, orgId: string, gymMembe
     if (a) {
       const [pr] = await tx.select().from(program).where(eq(program.id, a.programId)).for("update");
       const cur = await readVersion(pr.currentVersionId!, tx);
-      if (JSON.stringify(plain(cur.doc)) === JSON.stringify(v.doc)) throw new AccessError("invalid", "No hay cambios para guardar.");
+      if (JSON.stringify(plain(cur.doc)) === JSON.stringify(doc)) throw new AccessError("invalid", "No hay cambios para guardar.");
+      assertKeepsActivities(plain(cur.doc), doc); // una app anterior no borra la velocidad ni la inclinación sin aviso
       number = cur.version.number + 1;
       await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, cur.version.id));
-      await newVersion(tx, pr.id, number, v.doc, actorId, reason.slice(0, 300));
+      await newVersion(tx, pr.id, number, doc, actorId, reason.slice(0, 300));
     } else {
       const [pr] = await tx.insert(program).values({ orgId, kind: "member_copy", gymMemberId: m.id, createdBy: actorId }).returning();
-      await newVersion(tx, pr.id, 1, v.doc, actorId, reason.slice(0, 300));
+      await newVersion(tx, pr.id, 1, doc, actorId, reason.slice(0, 300));
       await tx.insert(programAssignment).values({ gymMemberId: m.id, programId: pr.id, startsOn: localDate(new Date()), assignedBy: actorId, assignedAt: new Date() }); // ver F-CL-14
     }
     await audit(tx, { actorUserId: actorId, orgId, action: number === 1 ? "member_program.created" : "member_program.revised", resourceType: "gym_member", resourceId: m.id, meta: { revision: number, offShift } });
@@ -746,12 +747,13 @@ export async function gymLibrary(actorId: string, orgId: string) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
   await ensureExerciseCatalog();
-  return db.select({ id: schema.exercise.id, name: schema.exercise.name, group: schema.exercise.muscleGroup, kind: schema.exercise.kind, own: sql<boolean>`${schema.exercise.orgId} is not null` }).from(schema.exercise)
+  const rows = await db.select({ ...libraryCols, own: sql<boolean>`${schema.exercise.orgId} is not null` }).from(schema.exercise)
     .where(visibleIn(orgId)).orderBy(asc(schema.exercise.name));
+  return rows.map(withProfile); // ejercicios por tiempo: con el perfil resuelto (cinta, bici, remo…)
 }
 
-/** Ejercicio propio del gimnasio (D129): entrenadores de sala y gestión con permiso de armar programas. */
-export async function gymCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind: string }) {
+/** Ejercicio propio del gimnasio (D129): entrenadores de sala y gestión con permiso de armar programas. Con `profile`, qué se configura. */
+export async function gymCreateExercise(actorId: string, orgId: string, p: { name: string; group: string; kind?: string | null; profile?: string | null }) {
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "program.edit");
   return createOwnExercise(actorId, orgId, p);

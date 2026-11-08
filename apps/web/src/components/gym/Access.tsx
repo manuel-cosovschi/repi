@@ -4,11 +4,11 @@
 // La autorización real (turno efectivo, sede, rol) la resuelve el servidor en cada acción.
 import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
-import { localDate } from "@repi/domain";
+import { localDate, type SetMetrics } from "@repi/domain";
 import { api } from "@/lib/api";
 import { disablePush, enablePush, pushState, setPushPaused, type PushState } from "@/lib/push";
 import { Modal } from "@/components/ui/Modal";
-import { Head, can, fmt, when, useAct, useLoad, type Shell } from "./shared";
+import { Head, can, floorSetText, fmt, when, useAct, useLoad, type Shell } from "./shared";
 
 const KIND: Record<string, string> = { initial: "Alta", expansion: "Ampliación de sede", reactivation: "Reactivación" };
 const AS: Record<string, string> = { floor: "piso en turno", reception: "recepción", manager: "gerencia", owner: "dueño" };
@@ -279,7 +279,8 @@ export function JoinQrCard({ shell }: { shell: Shell }) {
 }
 
 // ── Alertas de sala en vivo (sensación por serie) ───────────────────────────
-type Alert = { id: string; member: string; exercise: string; feel: string; feelLabel: string; set: { n: number; weightKg: number | null; reps: number | null } | null; createdAt: string; ackBy: string | null; ackAt: string | null };
+// `timed`/`metrics` (ejercicios por tiempo): en una fila por tiempo `reps` son segundos; en una actividad, con lo que hizo.
+type Alert = { id: string; member: string; exercise: string; feel: string; feelLabel: string; set: { n: number; weightKg: number | null; reps: number | null; timed?: boolean; metrics?: SetMetrics | null } | null; createdAt: string; ackBy: string | null; ackAt: string | null };
 
 export function FloorAlertsCard({ shell, loc, highlight }: { shell: Shell; loc: string; highlight?: string | null }) {
   const d = useLoad<Alert[]>(`/api/gym/${shell.orgId}/alerts?loc=${loc}`);
@@ -294,7 +295,7 @@ export function FloorAlertsCard({ shell, loc, highlight }: { shell: Shell; loc: 
         <div key={a.id} className="gy-task" style={a.id === highlight ? { borderColor: "var(--ui-accent)" } : undefined}>
           <span style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 2 }}>
             <b>{a.member} · {a.exercise}</b>
-            <small className="muted">{a.set ? `Serie ${a.set.n}${a.set.weightKg != null ? ` · ${a.set.weightKg.toLocaleString("es-AR")} kg` : ""}${a.set.reps != null ? ` × ${a.set.reps}` : ""} · ` : ""}{when(a.createdAt)}</small>
+            <small className="muted">{a.set ? `Serie ${a.set.n}${a.set.timed || a.set.metrics ? ` · ${floorSetText(a.set, true)}` : `${a.set.weightKg != null ? ` · ${a.set.weightKg.toLocaleString("es-AR")} kg` : ""}${a.set.reps != null ? ` × ${a.set.reps}` : ""}`} · ` : ""}{when(a.createdAt)}</small>
           </span>
           <span className={`chip ${a.feel === "ayuda" || a.feel === "molestia" ? "warn" : "info"}`}>{a.feelLabel}</span>
           {a.ackBy ? <small className="muted">Va {a.ackBy}</small>

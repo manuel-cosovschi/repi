@@ -2,11 +2,13 @@
 // D178: lo que anotó cada alumno o socio en sus sesiones, serie por serie (peso × repeticiones o segundos, RIR, sensación y
 // nota), con la comparación contra la vez anterior que hizo ese ejercicio. Lo usan el coach (ficha del alumno) y el equipo
 // de sala (ficha del socio que compartió su entrenamiento).
+// Ejercicios por tiempo (07/11/2026): una serie por tiempo se lee en minutos y segundos («12 min», no «720 s») y, en una actividad,
+// con sus valores reales («12 min · 5,5 km/h · incl. 4»), nunca como «kg × s».
 import { useState, type ReactNode } from "react";
-import { SET_FEEL, formatClock, isSetFeel } from "@repi/domain";
+import { SET_FEEL, activityValuesText, fmtSeconds, formatClock, isSetFeel, type SetMetrics } from "@repi/domain";
 import { fmtDate, nf } from "./types";
 
-export type LoggedSet = { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label?: string | null; corrected?: boolean };
+export type LoggedSet = { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label?: string | null; corrected?: boolean; metrics?: SetMetrics | null };
 export type LoggedExercise = { exercise: string; timed: boolean; sets: LoggedSet[] };
 export type LoggedSession = { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; exercises: LoggedExercise[] };
 
@@ -23,7 +25,7 @@ function trend(sessions: LoggedSession[], i: number, e: LoggedExercise): { text:
   if (!a || !b) return null;
   if (e.timed) {
     const d = (a.reps ?? 0) - (b.reps ?? 0);
-    return d ? { text: `${d > 0 ? "+" : ""}${d} s vs. la vez anterior`, tone: d > 0 ? "ok" : "warn" } : { text: "Igual que la vez anterior", tone: "mute" };
+    return d ? { text: `${d > 0 ? "+" : "−"}${fmtSeconds(Math.abs(d))} vs. la vez anterior`, tone: d > 0 ? "ok" : "warn" } : { text: "Igual que la vez anterior", tone: "mute" };
   }
   const dw = (a.weightKg ?? 0) - (b.weightKg ?? 0), dr = (a.reps ?? 0) - (b.reps ?? 0);
   if (dw) return { text: `${dw > 0 ? "+" : ""}${nf(dw)} kg vs. la vez anterior`, tone: dw > 0 ? "ok" : "warn" };
@@ -32,8 +34,15 @@ function trend(sessions: LoggedSession[], i: number, e: LoggedExercise): { text:
 }
 
 export const setText = (s: LoggedSet, timed: boolean) => {
-  const amount = timed ? `${s.reps ?? "—"} s` : `${s.reps ?? "—"} rep.`;
-  return s.weightKg != null && s.weightKg > 0 ? `${nf(s.weightKg)} kg × ${amount}` : timed ? amount : `${amount} sin carga`;
+  if (timed) {
+    // Una actividad (cinta, bici…) no lleva carga: duración y valores. Una serie por tiempo con lastre sigue con su peso.
+    const vals = activityValuesText(s.metrics);
+    const amount = s.reps != null ? fmtSeconds(s.reps) : "—";
+    if (vals) return `${amount} · ${vals}`;
+    return s.weightKg != null && s.weightKg > 0 ? `${nf(s.weightKg)} kg × ${amount}` : amount;
+  }
+  const amount = `${s.reps ?? "—"} rep.`;
+  return s.weightKg != null && s.weightKg > 0 ? `${nf(s.weightKg)} kg × ${amount}` : `${amount} sin carga`;
 };
 
 /** Ejercicios y series de una sesión. */

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   activeSeconds, detectPR, epley1rm, fmtSeconds, nextDayIndex, parseReps, repsText, parseRest, restLeft, startOptions, stepWeight,
-  validateProgramDoc, volumeKg, bestE1rm, weekOf, weeklyAdherence, defaultRepsFor, formatClock, setControl,
+  validateProgramDoc, volumeKg, bestE1rm, weekOf, weeklyAdherence, defaultRepsFor, formatClock, setControl, sameDoc,
 } from "./training";
+import { emptyDetail } from "./prescription";
 
 describe("prescripción", () => {
   it("descanso m:ss o segundos", () => {
@@ -27,6 +28,9 @@ describe("prescripción", () => {
     expect(fmtSeconds(90)).toBe("1 min 30 s");
     expect(repsText("1200 s")).toBe("20 min");
     expect(repsText("8-10")).toBe("8-10");
+    // Una distancia escrita como texto no se lee como minutos («500 m» no es «500 min»); «20 m» sigue siendo 20 minutos.
+    expect(repsText("500 m")).toBe("500 m");
+    expect(repsText("20 m")).toBe("20 min");
     expect(parseReps("al fallo técnico")).toEqual({ kind: "free", text: "al fallo técnico" });
     expect(defaultRepsFor("8-10")).toBe(8);
     expect(defaultRepsFor("40 s")).toBeNull();
@@ -120,5 +124,29 @@ describe("setControl (D148)", () => {
     expect(setControl({ kind: "failure", reps: "8" })).toEqual({ mode: "amrap" });
     expect(setControl({ kind: "work", reps: "8-10" })).toBeNull();
     expect(setControl({ reps: "10" })).toBeNull();
+  });
+});
+
+describe("ejercicios por tiempo · documento de programa", () => {
+  const jj = { ...emptyDetail(), group: "A", groupKind: "circuit" as const, rounds: 3, activity: { profile: "duration" as const } };
+  it("una actividad en un circuito: una serie por vuelta, sin RIR, y la versión conserva la actividad", () => {
+    const doc = { name: "Circuito", weeks: 4, note: "", days: [{ name: "Día 1", exercises: [
+      { exerciseId: "j", name: "Jumping jacks", sets: 3, reps: "45 s", rir: 1, restSec: 0, detail: jj },
+      { exerciseId: "s", name: "Sentadilla", sets: 3, reps: "12", rir: 2, restSec: 60, detail: { ...emptyDetail(), group: "A", groupKind: "circuit" as const } },
+    ] }] };
+    const v = validateProgramDoc(doc);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.doc.days[0].exercises[0]).toMatchObject({ sets: 3, reps: "45 s", rir: null, detail: { group: "A", rounds: 3, activity: { profile: "duration" } } });
+    expect(v.doc.days[0].exercises[1].rir).toBe(2);
+    // Revalidar lo guardado da lo mismo (no crea versiones vacías).
+    const again = validateProgramDoc(v.doc);
+    expect(again.ok && sameDoc(again.doc, v.doc)).toBe(true);
+  });
+  it("la cinta prescripta sigue siendo «por tiempo» para todo lo que ya lo entendía", () => {
+    expect(parseReps("10 min")).toEqual({ kind: "time", seconds: 600 });
+    expect(setControl({ reps: "10 min" })).toEqual({ mode: "time", seconds: 600 });
+    expect(defaultRepsFor("10 min")).toBeNull();
+    expect(repsText("600 s")).toBe("10 min");
   });
 });

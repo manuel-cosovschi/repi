@@ -20,3 +20,13 @@ describe("catálogo de ejercicios", () => {
     expect(exerciseKey("Jalón al Pecho")).toBe(exerciseKey("jalon al pecho"));
   });
 });
+
+describe("catálogo · perfil de métricas (ejercicios por tiempo)", () => {
+  it("cada fila trae su perfil como cuarto valor y no hay filas nuevas duplicadas", () => {
+    expect(EXERCISE_CATALOG.every((r) => r.length === 4)).toBe(true);
+    expect(EXERCISE_CATALOG.find(([n]) => n === "Cinta (caminata)")?.[3]).toBe("treadmill");
+    expect(EXERCISE_CATALOG.find(([n]) => n === "Press de banca")?.[3]).toBe("strength");
+    expect(EXERCISE_CATALOG.find(([n]) => n === "Plancha")?.[3]).toBe("hold");
+    expect(EXERCISE_CATALOG.some(([n]) => exerciseKey(n) === exerciseKey("Cinta caminadora"))).toBe(false);
+  });
+});

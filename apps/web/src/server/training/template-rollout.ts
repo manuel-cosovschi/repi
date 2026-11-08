@@ -87,7 +87,7 @@ export async function applyTemplateRollout(actorId: string, orgId: string, templ
     const tv = await readVersion(t.currentVersionId!, tx);
     const template = norm(tv.doc as never);
     if (docFingerprint(template) !== p.template) throw new AccessError("conflict", "La plantilla cambió desde la vista previa. Revisá la comparación otra vez.", 409);
-    await assertLibrary(orgId, template);
+    await assertLibrary(orgId, template, tx);
     const ids = p.targets.map((x) => x.programId);
     // Bloqueo de los programas de destino en un orden fijo (dos actualizaciones a la vez no se cruzan).
     await tx.select({ id: program.id }).from(program).where(and(inArray(program.id, ids), eq(program.orgId, orgId))).orderBy(program.id).for("update");

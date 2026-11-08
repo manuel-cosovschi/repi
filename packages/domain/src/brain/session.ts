@@ -8,6 +8,7 @@ import { epley1rm, fmtSeconds, parseReps } from "../training";
 import { GUARD_TEXT, type GuardCode } from "../load-safety";
 import type { ExerciseDetail, SetKind } from "../prescription";
 import { normalizePlan } from "../stages";
+import { activityOf, isActivityProfile, profileOf } from "../activity";
 import { fmtArDate } from "./quiet";
 import { fmtKg, listEs, norm, numEs } from "./util";
 
@@ -143,6 +144,9 @@ export function interpretSet(p: {
       : out("stage_done", `Terminaste la serie con sus ${numEs(n, false)} etapas.`, 5, false);
   }
   if (c.cls === "amrap" || c.cls === "amrap_time" || c.cls === "timed") {
+    // Una actividad (cinta, bici, remo…) no es un aguante: más minutos no es «superar» la vez pasada (la velocidad o la
+    // inclinación pudieron cambiar, o el profe acortó la duración). REPI no dice nada.
+    if (c.cls === "timed" && (activityOf(p.ex.detail) || isActivityProfile(p.ex.profile))) return out("silent", "", 5, false);
     const ref = t?.repsTarget ?? t?.prev?.r ?? null;
     const sameLoad = c.cls !== "amrap" || t?.weightKg == null || d.w == null || d.w >= t.weightKg - 0.03;
     if (ref == null || !sameLoad) return out("silent", "", 5, false);
@@ -175,7 +179,8 @@ export function interpretSet(p: {
 export type ReviewSet = { w: number | null; r: number | null; rir?: number | null; feel?: string | null; kind?: SetKind | null; stage?: number | null; timed?: boolean; voided?: boolean };
 /** Mejores marcas anteriores a hoy (toda la historia válida, sin anuladas). */
 export type PriorMarks = { e1rm: number | null; maxLoadKg: number | null; repsAtLoad: { w: number; r: number }[]; bestReps: number | null; bestSec: number | null };
-export type Measure = "load" | "reps" | "time";
+/** `activity` (ejercicios por tiempo): una cinta, bici, remo… se informa con lo que se hizo, sin comparar ni marcar récords. */
+export type Measure = "load" | "reps" | "time" | "activity";
 export type Mark = { type: "load" | "reps_at_load" | "e1rm" | "reps" | "time"; value: number; previous: number; tie: boolean; text: string };
 export type ReviewExercise = {
   exercise: ExerciseRef;
@@ -213,6 +218,11 @@ export function compareWithPrevious(today: ReviewSet[], prev: ReviewSet[], measu
   const a = mainSets(today).slice(0, n), b = mainSets(prev).slice(0, n);
   if (!n) return { comparison: "not_comparable", delta: null };
   const dir = (x: number, y: number, tol = 0): ExerciseReview["comparison"] => (x > y + tol ? "more" : x < y - tol ? "fewer" : "same");
+  if (measure === "activity") {
+    // Neutral: los minutos de una cinta no son «aguantar» (la velocidad o la inclinación pudieron cambiar, o el profe la acortó).
+    const x = a.reduce((n, s) => n + s.r!, 0), y = b.reduce((n, s) => n + s.r!, 0);
+    return { comparison: "not_comparable", delta: `hiciste ${fmtSeconds(x)} (la vez anterior, ${fmtSeconds(y)})` };
+  }
   if (measure === "time") {
     const x = Math.max(...a.map((s) => s.r!)), y = Math.max(...b.map((s) => s.r!));
     const c = dir(x, y);
@@ -245,6 +255,7 @@ export function detectMarks(today: ReviewSet[], before: PriorMarks | null | unde
   const a = mainSets(today);
   if (!a.length) return [];
   const marks: Mark[] = [];
+  if (measure === "activity") return marks; // una actividad no tiene «mejor tiempo»: más minutos no es un récord
   if (measure === "time") {
     const x = Math.max(...a.map((s) => s.r!));
     if (before.bestSec != null && x > before.bestSec) marks.push({ type: "time", value: x, previous: before.bestSec, tie: false, text: `aguantaste ${fmtSeconds(x)}, tu mejor tiempo` });
@@ -460,7 +471,11 @@ export function rankAlternatives(current: AltCurrent, options: AltOption[], ctx:
   const sameEquipBlocked = ctx.reason === "busy" || ctx.reason === "no_equipment";
   const scored = options.map((o, i) => {
     if (o.exerciseId === current.exerciseId || exclude.has(o.exerciseId)) return null;
-    if (o.kind && current.kind && o.kind !== current.kind) return null;
+    // Ejercicios por tiempo: la misma regla que `canSubstitute` (lista de la sesión, reemplazos aprobados y guardado): una
+    // actividad (cinta, bici, remo…) sólo por otra actividad, aunque una propia se haya creado «con peso»; nunca por musculación.
+    const oa = isActivityProfile(profileOf(o)), ca = isActivityProfile(profileOf(current));
+    if (oa !== ca) return null;
+    if (!oa && o.kind && current.kind && o.kind !== current.kind) return null;
     if (matches(o, avoid) || matches(o, restricted)) return null;
     if (o.equipment && unavailable.has(norm(o.equipment))) return null;
     if (sameEquipBlocked && o.equipment && current.equipment && norm(o.equipment) === norm(current.equipment)) return null;

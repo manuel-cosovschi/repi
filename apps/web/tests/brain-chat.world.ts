@@ -109,7 +109,9 @@ export async function pastSession(user: string, at: Date, sets: Record<string, [
   await tr.sessionAction(user, sid, "finish", end, end.toISOString());
   return sid;
 }
-export const daysAgo = (d: number, hour = 18) => { const x = new Date(Date.now() - d * DAY); x.setUTCHours(hour + 3, 0, 0, 0); return x; };
+// Día calendario de Argentina (UTC−3): entre las 00 y las 03 UTC todavía es «ayer» en Argentina, y contar desde la fecha UTC
+// corría un día los «días desde la última» (la prueba fallaba sólo en esa franja).
+export const daysAgo = (d: number, hour = 18) => { const x = new Date(Date.now() - 3 * 3_600_000 - d * DAY); x.setUTCHours(hour + 3, 0, 0, 0); return x; };
 
 /** Un mensaje a REPI como lo manda la ruta. */
 export const send = (user: string, text: string, o: Omit<MessageInput, "text"> = {}) => handleMessage(user, { text, section: "workout", ...o });

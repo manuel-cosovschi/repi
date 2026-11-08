@@ -309,10 +309,10 @@ export async function pendingInvitations(userId: string) {
   }));
 }
 
-export async function minorWithoutGuardian(userId: string): Promise<boolean> {
-  const [u] = await db.select({ birthDate: user.birthDate }).from(user).where(eq(user.id, userId));
+export async function minorWithoutGuardian(userId: string, q: Tx | typeof db = db): Promise<boolean> {
+  const [u] = await q.select({ birthDate: user.birthDate }).from(user).where(eq(user.id, userId));
   if (!u?.birthDate || classifyAge(u.birthDate, todayIso()) !== "minor") return false;
-  const ok = await db.select({ id: guardianConsent.id }).from(guardianConsent)
+  const ok = await q.select({ id: guardianConsent.id }).from(guardianConsent)
     .where(and(eq(guardianConsent.minorUserId, userId), eq(guardianConsent.status, "approved")));
   return ok.length === 0;
 }

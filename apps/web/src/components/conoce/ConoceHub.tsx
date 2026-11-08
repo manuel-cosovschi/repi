@@ -2,14 +2,13 @@
 // arriba: un escenario fijo (3D o SVG según el equipo) y escenas que mueven la cámara. Conserva todo lo comercial de D205:
 // perfiles por URL, demos reales, simulador con el motor real, formulario a REPI Admin, WhatsApp, QR/UTM y medición propia.
 import Link from "next/link";
-import { ChatCircle, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ChatCircle, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
 import { Wordmark } from "@/components/access/Wordmark";
 import { SiteFooter } from "@/components/site/PublicSite";
 import { FAQ, type HeroVariant } from "@/content/conoce";
 import { CONTACT } from "@/lib/contact";
 import type { Profile } from "@/lib/site-events";
 import { ContactForm } from "./ContactForm";
-import { StickyCta } from "./StickyCta";
 import { Tracker } from "./Tracker";
 import { TrackLink } from "./TrackLink";
 import { Stage } from "./sala/Stage";
@@ -31,6 +30,8 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
   return (
     <div className="st cn x3">
       <Tracker profile={profile} />
+      {/* Sin JavaScript no hay encendido del hero: la sala se ve encendida desde el principio. */}
+      <noscript dangerouslySetInnerHTML={{ __html: "<style>.sala-svg{opacity:1!important}</style>" }} />
       <Stage />
       <FilmProvider>
         <a className="st-skip" href="#contenido">Saltar al contenido</a>
@@ -41,9 +42,8 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
               <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
             </nav>
             <div className="x3-head-cta">
-              <MotionToggle />
-              <Link className="x3-btn text sm x3-hide-sm" href="/acceso">Ingresar</Link>
-              <a className="x3-btn pri sm" href="#contacto">Pedir una demo</a>
+              <Link className="x3-head-link" href="/acceso">Ingresar</Link>
+              <a className="x3-btn pri sm" href="#contacto">Pedir demo<ArrowRight size={16} weight="bold" aria-hidden="true" /></a>
             </div>
           </div>
         </header>
@@ -80,8 +80,8 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
             </div>
           </section>
         </main>
-        <SiteFooter />
-        <StickyCta />
+        {/* La pausa de animaciones (WCAG 2.2.2) va en el pie, con su nombre escrito: arriba era un ícono que no se entendía. */}
+        <SiteFooter><MotionToggle /></SiteFooter>
       </FilmProvider>
     </div>
   );

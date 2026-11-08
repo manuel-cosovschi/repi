@@ -2,10 +2,10 @@
 // REPI Connect en Gym (D126): bandeja del profesor de sala (tomar, atender, registrar, seguimiento, transferir, resolver)
 // y tablero «Seguimiento de sala» para dueño, gerencia y coordinación con indicadores agregados.
 import { useEffect, useState } from "react";
-import { CONNECT_PRIORITY_RULE, TASK_PRIORITY, fmtMinutes, mentionsHealth } from "@repi/domain";
+import { CONNECT_PRIORITY_RULE, TASK_PRIORITY, fmtMinutes, mentionsHealth, type SetMetrics } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
-import { Bars, Head, HBar, LocSelect, PRI_CHIP, Seg, SOURCE, can, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
+import { Bars, Head, HBar, LocSelect, PRI_CHIP, Seg, SOURCE, can, floorSetText, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
 import { BriefBlock, type BriefViewData } from "@/components/shared/BriefBlock";
 import { MemberProgramModal } from "./Members";
 
@@ -22,8 +22,9 @@ type Board = {
   incoming: Card[]; mine: Card[]; pending: Card[]; followUps: Card[]; others: Card[]; closed: Card[];
 };
 type Detail = Card & {
-  context: { exercise: string | null; program: string | null; setIndex: number | null; fromSession: boolean; privateSession: boolean;
-    sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null }[]; recent: { at: string; weightKg: string | null; reps: number | null }[] } | null;
+  // `timed` (ejercicios por tiempo): la fila es por tiempo (cinta, bici, plancha…): `reps` son segundos y `metrics`, lo de la actividad.
+  context: { exercise: string | null; program: string | null; setIndex: number | null; fromSession: boolean; privateSession: boolean; timed?: boolean;
+    sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null; metrics?: SetMetrics | null }[]; recent: { at: string; weightKg: string | null; reps: number | null; metrics?: SetMetrics | null }[] } | null;
   program: string | null; feedback: string | null;
   events: { id: string; kind: string; at: string; by: string | null; to: string | null; note: string | null; memberNote: string | null; dueAt: string | null }[];
   previous: { id: string; ref: string; label: string; stateLabel: string; createdAt: string; completedBy: string | null }[];
@@ -174,8 +175,8 @@ function ConnectTaskModal({ shell, id, onClose }: { shell: Shell; id: string; on
             <section className="cx-box">
               <b>Ejercicio: {t.context.exercise ?? "—"}{t.context.setIndex != null ? ` · serie ${t.context.setIndex + 1}` : ""}</b>
               {t.context.privateSession && <small className="muted">El pedido salió de un entrenamiento de su coach privado: el gym no ve esas series.</small>}
-              {!!t.context.sets.length && <small>En esta sesión: {t.context.sets.map((x) => `S${x.setIndex + 1} ${x.weightKg ?? "PC"}×${x.reps ?? "—"}${x.rir != null ? ` RIR ${x.rir}` : ""}`).join(" · ")}</small>}
-              {!!t.context.recent.length && <small className="muted">Últimas series con el programa del gym: {t.context.recent.map((x) => `${x.weightKg ?? "PC"}×${x.reps ?? "—"}`).join(" · ")}</small>}
+              {!!t.context.sets.length && <small>En esta sesión: {t.context.sets.map((x) => `S${x.setIndex + 1} ${floorSetText(x, t.context!.timed)}${x.rir != null ? ` RIR ${x.rir}` : ""}`).join(" · ")}</small>}
+              {!!t.context.recent.length && <small className="muted">Últimas series con el programa del gym: {t.context.recent.map((x) => floorSetText(x, t.context!.timed)).join(" · ")}</small>}
             </section>
           )}
           <section>

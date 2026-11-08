@@ -2,6 +2,7 @@
 // tiendas, pagos, facturación ni funciones del roadmap, no publica precios (son por cliente) y no ofrece alta libre.
 // Visitantes sin sesión en «/»; con sesión o desde el ícono instalado se sigue yendo directo a la app.
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Barbell, Buildings, ChatCircle, Check, DeviceMobile, EnvelopeSimple, Lifebuoy, ShieldCheck, UserCircle, Wrench, Warning } from "@phosphor-icons/react/dist/ssr";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -163,7 +164,8 @@ export function PublicSite() {
   );
 }
 
-export function SiteFooter() {
+/** Pie de las páginas públicas. `children` suma controles propios de una página (p. ej. «Pausar animaciones» en /conoce). */
+export function SiteFooter({ children }: { children?: ReactNode } = {}) {
   return (
     <footer className="st-foot">
       <div className="st-wrap">
@@ -180,6 +182,8 @@ export function SiteFooter() {
           <Link href="/legal/terms">Términos</Link>
           <Link href="/legal/privacy">Privacidad</Link>
           <Link href="/legal/dpa">Acuerdo para organizaciones</Link>
+          <Link href="/creditos">Créditos</Link>
+          {children}
         </nav>
       </div>
       <div className="st-wrap st-sovare">

@@ -2,8 +2,6 @@
    secciones claras en el crema de la app (--ui-page). Barlow Condensed sólo en títulos destacados. Móvil primero (360–430 px),
    márgenes de 16 px, sin scroll horizontal, objetivos táctiles de 44 px, movimiento sólo si no se pidió reducirlo. */
 
-.cn { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-@media (min-width: 860px) { .cn { padding-bottom: 0; } }
 .cn-hide-sm { display: none !important; }
 @media (min-width: 520px) { .cn-hide-sm { display: inline-flex !important; } }
 .cn .st-head-cta .st-btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
@@ -232,17 +230,8 @@
 .cn-done h3 { margin: 0; font: 700 28px/1.05 var(--font-display); text-transform: uppercase; }
 .cn-done p { margin: 0; color: var(--light-ink-2); line-height: 1.5; }
 
-/* Barra inferior móvil */
-.cn-sticky { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-  background: rgba(11, 15, 20, .94); border-top: 1px solid var(--core-navy800); transform: translateY(110%); visibility: hidden; }
-.cn-sticky.on { transform: none; visibility: visible; }
-.cn-sticky .cn-btn { flex: 1; min-height: 46px; }
-@media (min-width: 860px) { .cn-sticky { display: none; } }
-
 @media (prefers-reduced-motion: no-preference) {
   .cn-btn, .cn-pick, .cn-chip-link, .cn-feel button { transition: background-color var(--dur-micro) var(--ease-std), border-color var(--dur-micro) var(--ease-std), color var(--dur-micro) var(--ease-std); }
-  .cn-sticky { transition: transform var(--dur-sheet) var(--ease-out), visibility 0s linear var(--dur-sheet); }
-  .cn-sticky.on { transition: transform var(--dur-sheet) var(--ease-out), visibility 0s; }
   .cn-panel { animation: cn-in var(--dur-contextual) var(--ease-out); }
   .cn-sim-row.changed { animation: cn-flash 900ms var(--ease-std); }
 }
