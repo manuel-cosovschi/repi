@@ -193,7 +193,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "accesses" && b && (c === "suspend" || c === "end" || c === "reactivate")) return join.setAccess(me, orgId, b, c);
   if (a === "accesses" && b && c === "report") return join.reportNotMember(me, orgId, b);
   if (a === "assistant") { await limit(`assistant:${me}`, 40, 3_600_000); return guide.askOwnerAssistant(me, orgId, (await body(req, z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2000) })).max(20) }))).messages); }
-  if (a === "library" && !b) return gym.gymCreateExercise(me, orgId, await body(req, z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20) })));
+  if (a === "library" && !b) return gym.gymCreateExercise(me, orgId, await body(req, z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20).optional(), profile: z.string().max(20).nullable().optional() })));
   if (a === "alerts" && b && c === "ack") return alerts.ackAlert(me, orgId, b);
   if (a === "access" && b === "policy") return ac.updatePolicy(me, orgId, await body(req, z.object({
     mode: z.enum(["open", "hybrid", "strict"]).optional(), strictActions: z.array(z.enum(["gym.assistance.request", "gym.challenge.attempt"])).max(4).optional(),

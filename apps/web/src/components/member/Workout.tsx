@@ -7,17 +7,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabels, setTarget, setTargetText, type ExerciseDetail, SET_FEEL, WEIGHT_STEPS, WEIGHT_STEPS_LB, activeSeconds, formatClock, kgTo, localizeWeights, parseReps, parseWeightIn, restLeft, setControl, stepReps, stepWeightIn, volumeIn, volumeKg, type SetFeel, type WeightUnit } from "@repi/domain";
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
 import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, fitTargetsToLoads, nearLoads, type RowTarget } from "@repi/domain";
+import { ACTIVITY_MAX_SEC, activityOf, activityValuesText, fmtSeconds, sameMetrics, type ActivityProfile, type SetMetrics } from "@repi/domain";
 import { SetGuide } from "./SetGuide";
 import { syncInk, syncView } from "./SyncBadge";
 import { Hint } from "./Hint";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, rowResolved, setKey, type ExChange, type LocalEx, type LocalInterval, type LocalSession } from "@/lib/offline/store";
+import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, rowResolved, setKey, activityDraft, type ExChange, type LocalEx, type LocalInterval, type LocalSession, type LocalSet } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
-import { kg, metaTxt, prevTxt, type Summary } from "./types";
+import { activityDoneTxt, activityLogTxt, activityProfileOf, activityTargetSec, kg, metaTxt, type Summary } from "./types";
+import { ActivityInputs } from "./ActivitySet";
 import { useUnit } from "./units";
 import { PainSheet } from "./FollowSheets";
 import { PlatesSheet } from "./PlatesSheet";
-import { SetControl } from "./SetControl";
+import { ActivityTimer, SetControl } from "./SetControl";
 import { ExerciseChangeSheet } from "./ExerciseChange";
 import { ConnectHelpSheet } from "./Connect";
 import { PresenceSheet } from "./Presence";
@@ -61,7 +63,8 @@ function localSummary(s: LocalSession, unit: WeightUnit): DoneData {
     volumeKg: m.tonnageKg,
     rows: s.exercises.map((e) => {
       const xs = Array.from({ length: e.sets }, (_, i) => s.sets[setKey(e.id, i)]).filter((x) => x?.done);
-      const sets = xs.length ? `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w, unit)))].join(" / ")}` : "";
+      // Ejercicios por tiempo: una actividad se resume con su duración y valores («12 min · 5,5 km/h · incl. 4»), no «1 × 0 kg».
+      const sets = !xs.length ? "" : activityProfileOf(e) ? activityDoneTxt(xs.map((x) => ({ r: x.r, m: x.m }))) : `${xs.length} × ${[...new Set(xs.map((x) => kg(x.w, unit)))].join(" / ")}`;
       if (e.change?.kind === "skip" && !full(e)) return { name: e.name, txt: sets ? `${sets} · ${skipTxt(e.change)}` : skipTxt(e.change) };
       return xs.length ? { name: doneName(e), txt: sets } : null;
     }).filter(Boolean) as { name: string; txt: string }[],
@@ -73,7 +76,7 @@ function serverSummary(x: Summary, unit: WeightUnit): DoneData {
     stagesDone: x.metrics?.stagesDone ?? 0, stagesSkipped: x.metrics?.stagesSkipped ?? 0,
     prs: x.prs, rpe: x.rpe, sessionNote: x.sessionNote, local: false,
     rows: x.exercises.filter((e) => e.logs.length || e.change?.kind === "skip").map((e) => {
-      const sets = e.logs.length ? `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}` : "";
+      const sets = !e.logs.length ? "" : activityProfileOf(e) ? activityDoneTxt(e.logs.map((l) => ({ r: l.reps, m: l.metrics }))) : `${e.logs.length} × ${[...new Set(e.logs.map((l) => kg(l.weightKg, unit)))].join(" / ")}`;
       if (e.change?.kind === "skip" && !exerciseComplete(e, (k) => e.logs.some((l) => l.setIndex === k))) return { name: e.name, txt: sets ? `${sets} · ${skipTxt(e.change)}` : skipTxt(e.change) };
       return { name: doneName(e), txt: sets };
     }),
@@ -161,7 +164,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       let kept = false;
       const sets = Object.fromEntries(Object.entries(fresh.sets).map(([k, v]) => {
         const mine = cur.sets[k];
-        if (mine && (!v.done || (mine.done && !v.done)) && (mine.w !== v.w || mine.r !== v.r || mine.done !== v.done)) { kept = true; return [k, mine]; }
+        if (mine && (!v.done || (mine.done && !v.done)) && (mine.w !== v.w || mine.r !== v.r || mine.done !== v.done || (mine.m !== v.m && !sameMetrics(mine.m, v.m)))) { kept = true; return [k, mine]; }
         return [k, v];
       }));
       // D185: el descanso es sólo de esta pantalla y la sincronización nunca lo cambia. Una copia leída antes de «Saltar
@@ -227,6 +230,18 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const curT = ex && cur >= 0 ? setTarget(ex, cur) : null;
   const rowName = (i: number) => { const t = ex ? setTarget(ex, i) : null; return t && t.stage > 0 ? `${t.label} de la serie ${t.block + 1}` : `serie ${blockOf(i) + 1}`; };
   const repsKind = ex ? parseReps(ex.reps).kind : "reps";
+  // Ejercicios por tiempo: actividad en curso (cinta, bici, remo…; con reemplazo, la del ejercicio que se hace), su duración
+  // objetivo y los valores indicados por el profe (sólo si se hace esa misma actividad). Sin actividad, todo sigue como siempre.
+  const actP: ActivityProfile | null = ex ? activityProfileOf(ex) : null;
+  const actTarget = ex && actP ? activityTargetSec(ex, actP) : null;
+  const actPlan = ex && actP ? (() => { const a = ex.activity ?? activityOf(ex.detail); return a && a.profile === actP ? a : null; })() : null;
+  // Un remo indicado por distancia («200 m») no tiene duración objetivo: lo que una versión anterior precargó leyendo esa
+  // distancia como minutos no es una duración y no se muestra (la persona marca el tiempo que hizo).
+  const actMisread = ex && actP && actTarget == null ? (() => { const t = parseReps(ex.reps); return t.kind === "time" ? t.seconds : null; })() : null;
+  /** Duración de la fila en segundos: la cargada o, si todavía no hay (o no es válida), la indicada. */
+  const actSec = (x: LocalSet | null | undefined) => (x?.done ? x.r : x && x.r > 0 && x.r <= ACTIVITY_MAX_SEC && x.r !== actMisread ? x.r : actTarget ?? 0);
+  /** Valores de la fila: los cargados o, si la fila no los tiene (versión anterior), los indicados por el profe. */
+  const actM = (x: LocalSet | null | undefined): SetMetrics | null => (x?.m !== undefined ? x.m ?? null : x?.done ? null : activityDraft(actPlan));
   // D148: cronómetro (series por tiempo) o contador (AMRAP, al fallo) para la serie en curso.
   const ctl = curT ? setControl(curT) : null;
   const elapsed = s ? activeSeconds(s.activeMs, s.status === "in_progress" ? s.lastResumedAt : null, new Date(now)) : 0;
@@ -282,7 +297,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   // entrenamiento empezó sin conexión): lo guarda la cola en la copia local (adoptServerIntel, sólo en el descanso de esa serie)
   // y llega acá con el refresco de siempre tras sincronizar. El de las reglas locales sigue siendo el que vale sin conexión.
 
-  const editCur = (p: Partial<{ w: number; r: number; rir: number | null; feel: string | null }>) => {
+  const editCur = (p: Partial<{ w: number; r: number; rir: number | null; feel: string | null; m: SetMetrics | null }>) => {
     if (!s || !ex || cur < 0) return;
     void commit({ ...s, sets: { ...s.sets, [setKey(ex.id, cur)]: { ...s.sets[setKey(ex.id, cur)], ...p, ...(p.w !== undefined ? { pend: false } : {}) } } });
   };
@@ -352,10 +367,14 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     if (curRow.pend && !wasDone) { flash("Elegí el peso de esta serie antes de completarla."); return; }
     // D184: 0 repeticiones (o 0 s) no es una serie hecha: un drop «al fallo» empieza en 0 y se completaba así, como si se
     // hubiera hecho. Si no se hizo, es «Terminar la serie acá» (queda omitida, no como resultado).
-    if (!wasDone && curRow.r <= 0) { flash(curT && curT.stage > 0 ? "Marcá cuántas repeticiones hiciste, o «Terminar la serie acá» si no la hiciste." : `Marcá ${repsKind === "time" ? "los segundos" : "las repeticiones"} que hiciste antes de completarla.`); return; }
+    // Ejercicios por tiempo: una actividad se completa con la duración y los valores que se ven (precargados con lo indicado),
+    // sin RIR ni peso. Las métricas viajan siempre (también null): la cola las manda y el servidor las valida con el perfil.
+    if (actP && actSec(curRow) <= 0) { flash("Marcá la duración que hiciste antes de completarla."); return; }
+    if (!actP && !wasDone && curRow.r <= 0) { flash(curT && curT.stage > 0 ? "Marcá cuántas repeticiones hiciste, o «Terminar la serie acá» si no la hiciste." : `Marcá ${repsKind === "time" ? "los segundos" : "las repeticiones"} que hiciste antes de completarla.`); return; }
     const f = wasDone ? curRow.feel ?? null : feel;
     const { skip: _sk, ...row } = curRow;
-    const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, done: true, at: curRow.at ?? new Date().toISOString() } };
+    const actVals = actP ? { r: actSec(curRow), m: actM(curRow), w: 0, rir: null } : null;
+    const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, ...actVals, done: true, at: curRow.at ?? new Date().toISOString() } };
     // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i), labelAt(ex.detail, cur), labelAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
     // D191: con el resultado guardado en el teléfono, las mismas reglas que el servidor ajustan los objetivos siguientes (sólo
@@ -504,6 +523,16 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const sets = { ...s.sets };
     // Otro ejercicio no tiene la misma carga: las series pendientes arrancan de su último registro (o de 0).
     if (c?.kind === "substitute") for (let i = 0; i < ex.sets; i++) { const k = setKey(ex.id, i); if (!sets[k].done && !isReducedKind(kindAt(ex.detail, i))) sets[k] = { ...sets[k], w: prev?.weightKg ?? 0 }; }
+    // Ejercicios por tiempo: con otra actividad (una bici en lugar de la cinta), los valores pendientes arrancan vacíos (son otros
+    // campos); con la misma o al volver al original, con lo indicado por el profe. Sin actividad, las series no llevan métricas.
+    const nap = activityProfileOf(nextEx);
+    const plan = ex.activity ?? activityOf(ex.detail);
+    for (let i = 0; i < ex.sets; i++) {
+      const k = setKey(ex.id, i);
+      if (sets[k].done) continue;
+      const { m: _m, ...rest } = sets[k];
+      sets[k] = nap ? { ...rest, m: plan && plan.profile === nap ? activityDraft(plan) : null } : rest;
+    }
     const exercises = s.exercises.map((e) => (e.id === ex.id ? nextEx : e));
     setSel(null); setRir(null); setFeel(null); setNoteDraft(null);
     await commit({ ...s, exercises, sets });
@@ -553,7 +582,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   // D191: objetivo de la fila en curso (no con un reemplazo hecho en el teléfono: el objetivo era del ejercicio original).
   const curTarget = !ex.change && cur >= 0 ? ex.targets?.find((t) => t.setIndex === cur) ?? null : null;
   // D210: briefing antes del ejercicio (sin series hechas todavía), con lo que ya está en el teléfono: anda sin conexión.
-  const brief = brain.enabled && !paused && !rows.some((r) => r?.done) ? workoutBrief(ex, brain.tone) : null;
+  // Ejercicios por tiempo: en una actividad no hay briefing de cargas (la guía ya muestra lo indicado y la vez anterior).
+  const brief = brain.enabled && !paused && !actP && !rows.some((r) => r?.done) ? workoutBrief(ex, brain.tone) : null;
   const askRepi = () => brain.open({ section: "workout", chips: WORKOUT_CHIPS, subject: sub ? sub.name : ex.name, offlinePending: sync.pending > 0,
     // Sólo identificadores que el servidor ya conoce (un entrenamiento empezado sin conexión todavía no está en la cuenta).
     ref: s.synced ? { sessionId: s.id, programExerciseId: ex.id, setIndex: cur >= 0 ? cur : null } : null });
@@ -600,16 +630,23 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         {conflicts.map(([k, x]) => {
           const [peId, idx] = k.split(":");
           const e = s.exercises.find((y) => y.id === peId);
+          // Ejercicios por tiempo: en una actividad, cada versión con su duración y valores («10 min · 5 km/h · incl. 3»).
+          const ea = e ? activityProfileOf(e) : null;
+          const o = x.conflict!.other;
+          const mine = ea ? activityLogTxt(x.r, x.m) : `${kg(x.w, unit)} × ${x.r}`;
+          const other = ea ? activityLogTxt(o.reps, o.metrics) : `${kg(o.weightKg, unit)} × ${o.reps}`;
           return (
             <div key={k} className="conflict" role="alert">
               <strong>Serie {Number(idx) + 1} de {e?.name}: hay dos versiones</strong>
-              <span>{x.conflict!.appliedIsMine ? "Guardada" : "Este dispositivo"}: {kg(x.w, unit)} × {x.r}. {x.conflict!.appliedIsMine ? "Desde otro dispositivo" : "Otro dispositivo"}: {kg(x.conflict!.other.weightKg, unit)} × {x.conflict!.other.reps}. No se pisó ninguna.</span>
-              <div><button type="button" className="cta sm" onClick={() => resolveSet(k, "mine")}>Usar {kg(x.w, unit)} × {x.r}</button><button type="button" className="ghost sm" onClick={() => resolveSet(k, "other")}>Usar {kg(x.conflict!.other.weightKg, unit)} × {x.conflict!.other.reps}</button></div>
+              <span>{x.conflict!.appliedIsMine ? "Guardada" : "Este dispositivo"}: {mine}. {x.conflict!.appliedIsMine ? "Desde otro dispositivo" : "Otro dispositivo"}: {other}. No se pisó ninguna.</span>
+              <div><button type="button" className="cta sm" onClick={() => resolveSet(k, "mine")}>Usar {mine}</button><button type="button" className="ghost sm" onClick={() => resolveSet(k, "other")}>Usar {other}</button></div>
             </div>
           );
         })}
         <div className="prog" aria-hidden="true">{s.exercises.map((e, i) => <i key={e.id} className={resolved(i) ? "done" : i === exIdx ? "cur" : ""} />)}</div>
-        {!anyDone && <Hint id="workout_nav" title="Cómo registrar" text="Ajustá peso y repeticiones con − y + (o tocá el número), y tocá «Registrar». Tocá una serie de la lista para corregirla. Con el ícono de lista ves todos los ejercicios; si salís, el entrenamiento queda guardado y volvés desde cualquier pestaña." />}
+        {!anyDone && <Hint id="workout_nav" title="Cómo registrar" text={actP
+          ? "Usá el cronómetro o ajustá la duración y los valores con − y + (o tocá el número), y tocá «Completar». Arrancan con lo que indicó tu profe: cambialos si hiciste otra cosa. Con el ícono de lista ves todos los ejercicios; si salís, el entrenamiento queda guardado."
+          : "Ajustá peso y repeticiones con − y + (o tocá el número), y tocá «Registrar». Tocá una serie de la lista para corregirla. Con el ícono de lista ves todos los ejercicios; si salís, el entrenamiento queda guardado y volvés desde cualquier pestaña."} />}
         <div className="excard">
           <div className="excard-top">
             <div><small>Ejercicio {exIdx + 1} de {s.exercises.length}</small><strong>{labels[exIdx] ? `${labels[exIdx]} · ` : ""}{sub ? sub.name : ex.name}</strong><small>{metaTxt(ex)}{ex.rir != null && !ex.detail?.setPlan ? ` · RIR ${ex.rir}` : ""}</small>
@@ -631,6 +668,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           {/* D195: guía de la serie en curso (Anterior / Profe / REPI / Real) adaptada a lo que hay, legible en 320 px. */}
           {cur >= 0 && curRow && curT && (
             <SetGuide t={curTarget} unit={unit} label={rowName(cur)} canUse={!paused && !curRow.done}
+              act={actP ? { coach: sub ? `${ex.name}: ${metaTxt(ex)}` : metaTxt(ex), prev: ex.prev ? activityLogTxt(ex.prev.reps, ex.prev.metrics) : null, real: curRow.done ? activityLogTxt(curRow.r, curRow.m) : null } : null}
               plan={{ weightKg: !ex.change ? ex.detail?.setPlan?.[cur]?.weightKg ?? null : null, reps: curT.reps, timed: repsKind === "time" }}
               prevFallback={ex.prev} suggest={!curTarget && !ex.change && ex.suggest && !ex.detail?.setPlan?.some((p) => p.weightKg != null) ? { weightKg: ex.suggest.weightKg, reps: ex.suggest.reps, why: ex.suggest.why } : null}
               real={curRow.done ? { w: curRow.w, r: curRow.r, rir: curRow.rir } : null} draft={curRow.done ? null : { w: curRow.w, r: curRow.r }}
@@ -638,8 +676,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               onUse={(w, r) => { const numeric = parseReps(curT.reps).kind === "reps"; editCur({ ...(w != null ? { w } : {}), ...(r != null && numeric ? { r } : {}) }); flash("Propuesta cargada: ajustala si hace falta antes de registrar."); }} />
           )}
           {brief && <p className="rp-brief"><span className="rp-origin" data-kind="rules">Calculado por REPI</span>{localizeWeights(brief.text, unit)}</p>}
-          <div className="sets" role="list" aria-label="Series">
-            <div className="sets-h" aria-hidden="true"><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></div>
+          <div className={`sets${actP ? " is-act" : ""}`} role="list" aria-label="Series">
+            <div className="sets-h" aria-hidden="true">{actP ? <><span>Serie</span><span>Valores</span><span>Duración</span><span /></>
+              : <><span>Serie</span><span>Peso ({unit})</span><span>{repsKind === "time" ? "Seg" : "Reps"}</span><span /></>}</div>
             {/* D183: cada serie principal con sus etapas conectadas debajo (drops, mini series, bloques de cluster). */}
             {blocks.map((b) => (
               <div key={b.main} className={`setblock${b.stages ? " has-stages" : ""}`} role="presentation">
@@ -649,6 +688,19 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                   const t = setTarget(ex, i);
                   const stage = t.stage > 0;
                   const state = r.done ? "completada" : r.skip ? "sin hacer" : i === cur ? "en curso" : "pendiente";
+                  // Ejercicios por tiempo: valores y duración de la actividad (lo hecho o, pendiente, lo que arranca precargado).
+                  if (actP) {
+                    const vals = activityValuesText(actM(r));
+                    const dur = actSec(r);
+                    return (
+                      <button type="button" role="listitem" key={i} className={`setrow act${r.skip && !r.done ? " skipped" : ""}`} aria-current={i === cur} onClick={() => { setSel(i); setRir(null); setNoteDraft(r.note ?? null); }}
+                        aria-label={`Serie ${b.index + 1}: ${dur > 0 ? fmtSeconds(dur) : "duración por marcar"}${vals ? `, ${vals}` : ""}, ${state}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
+                        <span>{b.index + 1}{r.note && <Ic i={NotePencil} size={11} color="var(--ui-muted)" style={{ marginLeft: 3 }} />}</span>
+                        <span className="set-vals">{vals || "—"}</span><span>{r.skip && !r.done ? "—" : dur > 0 ? fmtSeconds(dur) : "—"}</span>
+                        <span className={`ck${r.done ? " on" : ""}${r.conflict ? " bad" : ""}`}>{r.done && <Ic i={Check} size={12} color="var(--ui-on-primary)" />}</span>
+                      </button>
+                    );
+                  }
                   return (
                     <button type="button" role="listitem" key={i} className={`setrow${stage ? " stage" : ""}${r.skip && !r.done ? " skipped" : ""}`} aria-current={i === cur} onClick={() => { setSel(i); setRir(r.rir); setNoteDraft(r.note ?? null); }}
                       aria-label={`${stage ? `${t.label} de la serie ${b.index + 1}` : `Serie ${b.index + 1}${t.label ? `, ${t.label}` : ""}`}: ${r.pend && !r.done ? "peso por elegir" : kg(r.w, unit)}, ${r.r} ${repsKind === "time" ? "segundos" : t.countUnit === "rounds" ? "rondas" : "repeticiones"}, ${state}${r.note ? ", con nota" : ""}${r.conflict ? ", con conflicto" : ""}`}>
@@ -689,7 +741,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               </div>
             </div>
             {s.intel && <p className="ti-rest" role="status">{localizeWeights(s.intel.text, unit)}{s.intel.restPlusSec ? <> <button type="button" className="linkbtn" onClick={() => void addRest(s.intel!.restPlusSec!)}>Sumar {s.intel.restPlusSec} s</button></> : null}</p>}
-            <div className="rest-foot"><span>Próxima: {cur >= 0 ? rowName(cur) : "serie"} · {curRow?.pend ? "peso por elegir" : kg(curRow?.w ?? 0, unit)} × {curRow?.r}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
+            <div className="rest-foot"><span>Próxima: {cur >= 0 ? rowName(cur) : "serie"} · {actP ? activityLogTxt(actSec(curRow), actM(curRow)) : <>{curRow?.pend ? "peso por elegir" : kg(curRow?.w ?? 0, unit)} × {curRow?.r}</>}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
             {restAlert !== "unsupported" && (
               <div className="rest-alert">
                 {restAlert === "on" ? <>
@@ -738,8 +790,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 </div>
               );
             })()}
-            {!curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
-            {curRow.pend && !curRow.done && curTarget?.weightKg == null && (() => {
+            {/* Ejercicios por tiempo: cronómetro y valores reales de la actividad (duración en minutos y los campos de su perfil),
+                precargados con lo indicado. Sin peso, repeticiones, RIR ni discos; sensación y nota siguen igual. */}
+            {actP && !curRow.done && <ActivityTimer key={`act:${ex.id}:${cur}`} storeKey={`${sessionId}:${ex.id}:${cur}`} target={actTarget} onSet={(r) => editCur({ r })} />}
+            {actP && <ActivityInputs key={`actf:${ex.id}:${cur}`} profile={actP} sec={actSec(curRow)} m={actM(curRow)} flash={flash}
+              onChange={(p) => editCur({ ...(p.r !== undefined ? { r: p.r } : {}), ...(p.m !== undefined ? { m: p.m } : {}) })} />}
+            {!actP && !curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}
+            {!actP && curRow.pend && !curRow.done && curTarget?.weightKg == null && (() => {
               // D182: referencia del método para confirmar (back-off −15 % del top, drop −20 % de la anterior). Nunca se aplica sola.
               const hint = reducedLoadHint(ex.detail?.setPlan, cur, rows.map((x) => (x.pend && !x.done ? null : x.w)));
               return (
@@ -751,11 +808,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
                 </div>
               );
             })()}
-            <div className="steppers">
+            {!actP && <div className="steppers">
               <WeightStepper key={`${ex.id}:${cur}:${unit}`} exerciseId={ex.exerciseId} unit={unit} w={curRow.w} onChange={(w) => editCur({ w })} flash={flash} loads={!ex.change && ex.ladder?.loadsKg?.length ? ex.ladder.loadsKg : null} />
               <div className="stepper"><button type="button" aria-label="Menos repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, -1) })}>−</button><span><strong>{curRow.r}</strong><small>{repsKind === "time" ? "seg" : "reps"}</small></span><button type="button" aria-label="Más repeticiones" onClick={() => editCur({ r: stepReps(curRow.r, 1) })}>+</button></div>
-            </div>
-            <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />
+            </div>}
+            {!actP && <RirControl key={`${ex.id}:${cur}`} value={curRow.done ? curRow.rir : rir} onChange={(v) => (curRow.done ? editCur({ rir: v }) : setRir(v))} onPain={() => setPain(true)} />}
             <div className="feel" role="group" aria-label="¿Cómo se sintió la serie? (opcional)">
               {(Object.keys(SET_FEEL) as SetFeel[]).filter((k) => gym || k !== "ayuda").map((k) => {
                 const on = (curRow.done ? curRow.feel ?? null : feel) === k;
@@ -765,18 +822,19 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             </div>
             {gym && (curRow.done ? curRow.feel : feel) && FEEL_ALERTS.includes((curRow.done ? curRow.feel : feel) as SetFeel) && <span className="feel-note">Al completarla avisamos al equipo de sala en turno para que se acerque.</span>}
             {/* D195: la acción principal va antes que las herramientas: con el teclado o en 320 px no queda debajo de la barra. */}
-            <button type="button" className="cta" data-cta="" onClick={() => void complete()}>{curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
+            <button type="button" className="cta" data-cta="" onClick={() => void complete()}>{actP && ex.sets === 1 ? (curRow.done ? "Guardar actividad" : "Completar actividad") : curRow.done ? `Guardar ${rowName(cur)}` : `Completar ${rowName(cur)}`}</button>
             {noteDraft?.trim() && <span className="feel-note">Nota: {noteDraft.trim()}</span>}
             <div className="wo-tools">
-              {repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
+              {!actP && repsKind !== "time" && curRow.w > 0 && <button type="button" className="linkbtn" onClick={() => setPlates(true)}>Discos y entrada en calor</button>}
               <button type="button" className="linkbtn" onClick={() => setNoteOpen(true)}>{noteDraft?.trim() ? "Editar nota" : "Nota de la serie"}</button>
+              {actP && <button type="button" className="linkbtn" onClick={() => setPain(true)}>Reportar molestia</button>}
               {connectPlace && <button type="button" className="linkbtn" onClick={() => setAsking(true)}>Pedir ayuda a sala</button>}
               {brain.enabled && <button type="button" className="linkbtn" onClick={askRepi}>Preguntale a REPI</button>}
             </div>
           </>
         ) : (
           <>
-            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {blocks.length} {blocks.length === 1 ? "serie" : "series"}</span>
+            <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>{sub ? sub.name : ex.name} completo · {actP ? activityDoneTxt(rows.filter((x) => x?.done).map((x) => ({ r: x.r, m: x.m }))) : `${blocks.length} ${blocks.length === 1 ? "serie" : "series"}`}</span>
             {!ex.change && ex.outlook?.proposal && <p className="ti-outlook"><small>Para la próxima sesión</small>{localizeWeights(ex.outlook.proposal.text, unit)}{ex.outlook.proposal.requiresCoach ? " Lo decide tu profe." : ""}</p>}
             {nextEx >= 0 ? <button type="button" className="cta" onClick={() => { setExIdx(nextEx); setSel(null); }}>Siguiente: {s.exercises[nextEx].name}</button>
               : anyOpen ? <button type="button" className="cta" onClick={() => { setExIdx(s.exercises.findIndex((_, i) => !resolved(i))); setSel(null); }}>Ir a la serie pendiente</button>
@@ -900,7 +958,8 @@ function Done({ sum, coachFirst, onExit, flash, justFinished, onNudge }: { sum: 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 style={{ fontSize: 16 }}>Resumen</h2>
         {sum.rows.map((r) => <div key={r.name} className="sumrow"><span>{r.name}</span><span className="mb-muted">{r.txt}</span></div>)}
-        <div className="sumrow"><span>Volumen total</span><span className="mb-muted">{volumeIn(sum.volumeKg, unit).toLocaleString("es-AR")} {unit}</span></div>
+        {/* Sin kilos levantados (cardio, peso corporal) «Volumen total 0 kg» no dice nada: no se muestra. */}
+        {sum.volumeKg > 0 && <div className="sumrow"><span>Volumen total</span><span className="mb-muted">{volumeIn(sum.volumeKg, unit).toLocaleString("es-AR")} {unit}</span></div>}
       </div>
       <div className="fb">
         <h2 style={{ fontSize: 16 }}>¿Cómo te fue?</h2>

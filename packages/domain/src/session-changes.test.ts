@@ -60,3 +60,33 @@ describe("matchProgramExercises (D145)", () => {
     expect(matchProgramExercises([{ id: "x", exerciseId: "e" }], [{ id: "y", exerciseId: "e" }])).toEqual({ x: "y" });
   });
 });
+
+describe("ejercicios por tiempo · reemplazos cardio por cardio", () => {
+  const cinta = { id: "c", name: "Cinta (caminata)", muscleGroup: "Cardio", kind: "time" as const };
+  const bici = { id: "b", name: "Bicicleta fija", muscleGroup: "Cardio", kind: "time" as const };
+  const remo = { id: "r", name: "Remo ergómetro", muscleGroup: "Cardio", kind: "time" as const };
+  const plancha = { id: "p", name: "Plancha", muscleGroup: "Core", kind: "time" as const };
+  const banca = { id: "x", name: "Press de banca", muscleGroup: "Pecho", kind: "load_reps" as const };
+  const cintaPropia = { id: "cp", name: "Cinta caminadora", muscleGroup: "Cardio", kind: "load_reps" as const };
+  it("una actividad sólo por otra actividad; una plancha no reemplaza a la cinta", () => {
+    expect(canSubstitute(cinta, bici)).toBe(true);
+    expect(canSubstitute(cinta, remo)).toBe(true);
+    expect(canSubstitute(cinta, plancha)).toBe(false);
+    expect(canSubstitute(plancha, cinta)).toBe(false);
+    // Una cinta propia creada «con peso» sigue siendo cardio: reemplaza a la cinta y no a un press.
+    expect(canSubstitute(cinta, cintaPropia)).toBe(true);
+    expect(canSubstitute(banca, cintaPropia)).toBe(false);
+    // Sin nombre: «por tiempo» en Cardio es una actividad.
+    expect(canSubstitute({ id: "c", kind: "time", muscleGroup: "Cardio" }, plancha)).toBe(false);
+    expect(canSubstitute({ id: "c", kind: "time", muscleGroup: "Cardio" }, bici)).toBe(true);
+  });
+  it("la musculación sigue igual", () => {
+    expect(canSubstitute(banca, { id: "y", name: "Press inclinado con barra", muscleGroup: "Pecho", kind: "load_reps" })).toBe(true);
+    expect(canSubstitute(plancha, { id: "h", name: "Hollow hold", muscleGroup: "Core", kind: "time" })).toBe(true);
+    expect(canSubstitute({ id: "a", kind: "time" }, { id: "b", kind: "time" })).toBe(true);
+  });
+  it("las alternativas de la cinta son cardio", () => {
+    expect(rankAlternatives(cinta, [bici, remo, plancha, banca]).map((x) => x.id)).toEqual(["b", "r"]);
+    expect(rankAlternatives(plancha, [bici, remo, { id: "h", name: "Hollow hold", muscleGroup: "Core", kind: "time" as const }]).map((x) => x.id)).toEqual(["h"]);
+  });
+});

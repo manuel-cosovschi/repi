@@ -4,7 +4,7 @@
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
-import { applyMethod, briefSummary, cleanProgramBrief, localDate, rowRef, type ExerciseDetail } from "@repi/domain";
+import { activityOf, applyMethod, briefSummary, catalogProfile, cleanProgramBrief, localDate, parseReps, rowRef, type ActivityDetail, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { AccessError } from "../access/util";
@@ -30,7 +30,10 @@ const LIB: [string, string, "load_reps" | "bodyweight" | "time"][] = [
   ["Jalón al pecho", "Espalda", "load_reps"], ["Remo en polea", "Espalda", "load_reps"], ["Press militar", "Hombros", "load_reps"],
   ["Elevaciones laterales", "Hombros", "load_reps"], ["Sentadilla", "Piernas", "load_reps"], ["Peso muerto rumano", "Piernas", "load_reps"],
   ["Prensa", "Piernas", "load_reps"], ["Hip thrust", "Glúteos", "load_reps"], ["Fondos en paralelas", "Brazos", "bodyweight"],
+  ["Cinta (caminata)", "Cardio", "time"], // ejercicios por tiempo: entrada en calor de 10 min · 5 km/h · incl. 3
 ];
+/** Ejercicios por tiempo: la cinta de la demo, como la pidió el titular (duración, velocidad e inclinación, sin series × reps). */
+const CINTA: ActivityDetail = { profile: "treadmill", speedKmh: 5, incline: 3 };
 
 const day = (offset: number, now: Date) => localDate(new Date(now.getTime() + offset * 86_400_000));
 
@@ -55,7 +58,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     return { id: r.user.id, email };
   };
   try {
-    for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind }).onConflictDoNothing();
+    for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind, metricsProfile: catalogProfile(name) }).onConflictDoNothing();
     const lib = new Map((await db.select().from(schema.exercise).where(inArray(schema.exercise.name, LIB.map((l) => l[0])))).filter((e) => !e.orgId && !e.ownerUserId).map((e) => [e.name, e.id]));
     const ex = (name: string, sets: number, reps: string, rir: number, restSec: number) => ({ exerciseId: lib.get(name)!, name, sets, reps, rir, restSec });
     // D183: la última serie con dos drops conectados (muestra las etapas en la demo de coach y de alumno).
@@ -63,6 +66,8 @@ export async function startDemo(role: DemoRole, now = new Date()) {
       const detail = applyMethod(null, { sets, reps, rir }, "drop_set", [sets - 1], { stages: 2 }).detail;
       return { ...ex(name, sets, reps, rir, restSec), sets: detail.setPlan!.length, detail };
     };
+    // Ejercicios por tiempo: una actividad es un bloque de duración (en `reps`) con sus valores; sin RIR ni descanso.
+    const exAct = (name: string, reps: string, activity: ActivityDetail) => ({ exerciseId: lib.get(name)!, name, sets: 1, reps, rir: null, restSec: 0, detail: { activity } as ExerciseDetail });
 
     const owner = await person("martin.sosa", "Martín Sosa");
     const floor = await person("sofia.ramirez", "Sofía Ramírez");
@@ -105,7 +110,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     await staffCheckin(floor.id, gym.id, { gymMemberId: members[julian.id], locationId: palermo.id, note: "Validado en sala (demo)" }, new Date(now.getTime() - 20 * 60_000));
     // Valentina también tiene programa del gym: desde casa ve su rutina; para entrenarla en el gimnasio valida el ingreso.
     await saveMemberProgram(floor.id, gym.id, members[vale.id], { reason: "Programa de sala", doc: { name: "Sala · full body", weeks: 4, note: "Entrada en calor de 10 minutos.", days: [
-      { name: "Full body", exercises: [ex("Sentadilla", 3, "10", 2, 90), ex("Jalón al pecho", 3, "10", 2, 90), ex("Press inclinado mancuernas", 3, "10", 2, 90)] },
+      { name: "Full body", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 3, "10", 2, 90), ex("Jalón al pecho", 3, "10", 2, 90), ex("Press inclinado mancuernas", 3, "10", 2, 90)] },
     ] } });
     await accessHistory(gym.id, palermo.id, [members[vale.id], members[julian.id], members[martina.id]], [vale.id, julian.id, martina.id], floor.id, camila.id, now);
     const jt = await myTraining(julian.id, now);
@@ -174,7 +179,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     }
     const hip = await createTemplate(coach.id, coachOrg.id, { name: "Hipertrofia · 3 días", weeks: 6, note: "Semana de carga: RIR 2 en la última serie.", days: [
       { name: "Torso A", exercises: [ex("Press de banca", 4, "8-10", 2, 120), ex("Remo con barra", 4, "8-10", 2, 120), ex("Press militar", 3, "8-12", 2, 90), exDrop("Elevaciones laterales", 3, "12-15", 1, 60)] },
-      { name: "Piernas", exercises: [ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8-10", 2, 120), ex("Prensa", 3, "10-12", 2, 90), exDrop("Hip thrust", 3, "10", 2, 90)] },
+      { name: "Piernas", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8-10", 2, 120), ex("Prensa", 3, "10-12", 2, 90), exDrop("Hip thrust", 3, "10", 2, 90)] },
       { name: "Torso B", exercises: [ex("Jalón al pecho", 4, "10", 2, 120), ex("Press inclinado mancuernas", 3, "10", 2, 120), exDrop("Remo en polea", 3, "12", 2, 90), ex("Fondos en paralelas", 3, "8-10", 1, 90)] },
     ] });
     await createTemplate(coach.id, coachOrg.id, { name: "Fuerza base · 2 días", weeks: 8, note: "Subí 2,5 kg por semana si completás todas las series.", days: [
@@ -304,6 +309,17 @@ async function history(userId: string, relId: string, count: number, now: Date, 
       startedAt: start, lastResumedAt: null, activeMs: 52 * 60_000, endedAt: end, rpe: 7 + (i % 2), revision: 2, updatedAt: end,
     });
     for (const e of exs.filter((x) => x.dayId === d.id)) {
+      // Ejercicios por tiempo: la cinta se registra con lo que hizo (segundos en `reps`, velocidad e inclinación en `metrics`).
+      const act = activityOf(e.detail as ExerciseDetail | null);
+      if (act) {
+        const t = parseReps(e.reps);
+        const sec = (t.kind === "time" ? t.seconds : 600) + (i % 3) * 60;
+        const ref = rowRef(e.detail as ExerciseDetail | null, e.sets, 0);
+        await db.insert(schema.setLog).values({ id: randomUUID(), sessionId: sid, programExerciseId: e.id, exerciseId: e.exerciseId, setIndex: 0, weightKg: null, reps: sec, rir: null, feel: "bien",
+          metrics: { speedKmh: (act.speedKmh ?? 5) + (i % 2) * 0.5, incline: (act.incline ?? 0) + (i % 3) }, completedAt: new Date(start.getTime() + 11 * 60_000), revision: 1, updatedAt: end,
+          specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null });
+        continue;
+      }
       const w = base[e.name] == null ? null : Math.round(base[e.name] * strength * (1 + i * 0.02) * 2) / 2;
       for (let k = 0; k < e.sets; k++) {
         // D183: los drops con menos carga (−20 % por etapa) y con la referencia de su serie y etapa.

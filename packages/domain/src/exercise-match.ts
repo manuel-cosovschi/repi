@@ -4,6 +4,7 @@
 // Nunca confunde variantes: si lo escrito dice «inclinado», «Smith», «sentado» o «mancuernas», el candidato tiene que decir lo
 // mismo (`variantConflict`). Cuando hay varias opciones posibles, `rankExerciseCandidates` las ofrece para que la persona elija.
 import { exerciseKey } from "./exercise-catalog";
+import { EXERCISE_SYNONYMS } from "./exercise-guess";
 
 const STOP = new Set(["de", "del", "con", "en", "la", "el", "los", "las", "a", "al", "y", "un", "una", "for", "the", "with", "on"]);
 // Abreviaturas de cuaderno y planilla → palabra completa (sobre la clave sin tildes).
@@ -62,7 +63,9 @@ const ALIASES: [string[], string][] = [
   [["Seated calf raise", "Pantorrillas sentado"], "Gemelos sentado"], [["Crunch", "Crunches", "Abdominales"], "Abdominales (crunch)"],
   [["Plank"], "Plancha"], [["Face pulls"], "Face pull"], [["Arnold press"], "Press Arnold"], [["Upright row"], "Remo al mentón"],
 ];
-const aliases = new Map(ALIASES.flatMap(([written, name]) => written.map((s) => [stemKey(s), name] as const)));
+// Ejercicios por tiempo: los sinónimos del catálogo también nombran al ejercicio («Cinta caminadora» → «Cinta (caminata)»).
+const aliases = new Map([...ALIASES, ...Object.entries(EXERCISE_SYNONYMS).map(([name, xs]) => [[...xs], name] as [string[], string])]
+  .flatMap(([written, name]) => written.map((s) => [stemKey(s), name] as const)));
 
 // Familias de variantes: lo escrito y el candidato tienen que coincidir dentro de cada familia que lo escrito nombra.
 const FAMILIES: { name: string; tokens: Record<string, string>; implicit?: string }[] = [

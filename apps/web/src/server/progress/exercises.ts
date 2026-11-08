@@ -9,7 +9,7 @@
 // - Historial importado (D162) aparece como «importado», sin sesión de origen.
 // Sólo la persona dueña: todo filtra por user_id en el servidor; no hay parámetro de usuario.
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from "drizzle-orm";
-import { bestE1rm, localDate, rangeStart, volumeKg, IMPORT_MAX_SETS, type ProgressRange } from "@repi/domain";
+import { bestE1rm, localDate, profileOf, rangeStart, volumeKg, IMPORT_MAX_SETS, type ProgressRange } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
 import { timedPeIds, toLogged } from "../training/services";
@@ -85,7 +85,7 @@ export async function myProgressExercises(userId: string, o: { q?: string | null
 
 /** Evolución de un ejercicio en el período. Los récords se comparan contra TODO el historial anterior, no sólo el rango. */
 export async function myExerciseProgress(userId: string, exerciseId: string, range: ProgressRange, now = new Date()) {
-  const [ex] = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, orgId: exercise.orgId, ownerUserId: exercise.ownerUserId }).from(exercise).where(eq(exercise.id, exerciseId));
+  const [ex] = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, orgId: exercise.orgId, ownerUserId: exercise.ownerUserId, metricsProfile: exercise.metricsProfile }).from(exercise).where(eq(exercise.id, exerciseId));
   if (!ex || (ex.ownerUserId && ex.ownerUserId !== userId)) throw NOT_FOUND();
   const readSets = await db.select({ l: setLog, s: { id: workoutSession.id, endedAt: workoutSession.endedAt, dayName: workoutSession.dayName } }).from(setLog)
     .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
@@ -129,7 +129,8 @@ export async function myExerciseProgress(userId: string, exerciseId: string, ran
   const from = rangeStart(range, localDate(now));
   const points = from ? all.filter((p) => p.day >= from) : all;
   return {
-    exercise: { id: ex.id, name: ex.name, group: ex.group, kind: ex.kind }, metric, range, from,
+    // `profile` (ejercicios por tiempo): cinta, bici, remo… o fuerza; una actividad se sigue por duración (`metric: "time"`).
+    exercise: { id: ex.id, name: ex.name, group: ex.group, kind: ex.kind, profile: profileOf({ metricsProfile: ex.metricsProfile, name: ex.name, kind: ex.kind, muscleGroup: ex.group }) }, metric, range, from,
     points, records: points.filter((p) => p.record).length, truncated,
     totals: { sessions: points.length, sets: points.reduce((a, p) => a + p.sets, 0), volumeKg: r1(points.reduce((a, p) => a + p.volumeKg, 0)), firstDay: all[0]?.day ?? null },
     best: metric === "load" ? (() => { const b = points.filter((p) => p.e1rm != null).sort((a, c) => c.e1rm! - a.e1rm!)[0]; return b ? { day: b.day, e1rm: b.e1rm, set: b.best } : null; })() : null,

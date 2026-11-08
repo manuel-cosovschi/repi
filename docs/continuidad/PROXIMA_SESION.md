@@ -33,6 +33,48 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
   - Revisión y merge.
 - **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
 
+## Ejercicios por tiempo (D211): cinta con duración, velocidad e inclinación — 08/11/2026 · LISTO EN RAMA, SIN PUBLICAR (migración 0052 sin aplicar)
+
+- **Pedido del titular:** en «Cinta caminadora» el profe carga duración (min), velocidad (km/h) e inclinación (número, sin «%»). El alumno ve lo mismo y registra lo que hizo de verdad. La fuerza sigue con series/reps/carga/RIR y las demás actividades tienen campos propios. Spec y auditoría en `scratchpad/time-audit.md`, resumida en D211.
+- **Rama:** `claude/ejercicios-por-tiempo`, con main integrado.
+- **Dominio** (`packages/domain/src/activity.ts`, nuevo):
+  - Perfiles: fuerza, peso corporal, isométrico, cinta, bici, remo, elíptico, escaladora y duración.
+  - Rangos y pasos, validación, texto de la prescripción («10 min · 5 km/h · incl. 3») y valores por defecto.
+  - «Cinta caminadora» es sinónimo de «Cinta (caminata)», no una fila nueva.
+  - Training Intelligence no sugiere kilos ni RIR para actividades.
+  - Los reemplazos sólo van entre actividades.
+  - La importación SI2 lee «vel/incl/km/h» sin confundirlos con carga.
+- **Migración 0052 (aditiva):**
+  - `exercise.metrics_profile` (text, CHECK) y `set_log.metrics` (jsonb objeto, CHECK).
+  - Perfil de las filas del catálogo de REPI por nombre y tipo.
+  - Scripts: `hosted-0052.sql` (una transacción), `verify-0052.sh` y rollback `0052_time_metrics.down.sql`.
+  - El código de producción actual es compatible con 0052 aplicada, así que se aplica ANTES de integrar, previo «Respaldo».
+- **Servidor:**
+  - `logSet`, conflictos, historial y corrección aceptan `metrics`.
+  - Las guardas rechazan un editor viejo que perdería la actividad: 409 «Actualizá REPI».
+  - Tope de 200 reps intacto en filas de reps.
+  - Las alertas y tareas de sala muestran «12 min · 5,5 km/h · incl. 4».
+  - La exportación personal incluye las métricas.
+- **Pantallas:**
+  - Editores de coach, sala y Mis rutinas con sólo los campos del perfil.
+  - Entrenamiento del alumno con cronómetro persistente y −/+ por campo.
+  - Historial con tiempo en lugar de «0 kg».
+  - Cola offline con métricas.
+- **Revisión:** 3 lentes independientes y 15 hallazgos, todos corregidos con prueba (`git log`).
+- **Pruebas:**
+  - Dominio: 54 archivos / 1063.
+  - apps/web vitest: 36 archivos, incluidos `time-exercises` y `brain*`. Falla sólo `brain-context` «daysSinceLast», previa y dependiente de la hora (00–03 UTC).
+  - E2E: `timed-exercises` 12/12; regresiones de entrenamiento, sala, offline e importación en verde. `gym-editor-parity` móvil falló una vez y pasó al repetir: es intermitente.
+  - Typecheck y build OK.
+  - Capturas de teléfono para el titular en `scratchpad/time-shots/owner/`.
+- **Local:** `repi_dev` llegó al tope de 300 demos. Las E2E corren contra `repi_e2e_time`/`repi_e2e_tx`, bases locales propias. No se purgó nada.
+- **Próximo:**
+  1. Aprobación del titular.
+  2. «Respaldo».
+  3. `hosted-0052.sql`.
+  4. Merge.
+  5. Verificación en producción con demo.
+
 ## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · RONDA 3 LISTA EN RAMA, SIN PUBLICAR
 
 - **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»

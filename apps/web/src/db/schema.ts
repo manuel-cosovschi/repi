@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn, bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { ImportOrigin, ProgramRequestBrief } from "@repi/domain";
+import type { ImportOrigin, ProgramRequestBrief, SetMetrics } from "@repi/domain";
 import type { ActionProposal, BrainPrefs, Evidence, ReplyCard } from "@repi/domain/brain/types";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -339,8 +339,15 @@ export const exercise = pgTable("exercise", {
   kind: text("kind", { enum: ["load_reps", "bodyweight", "time"] }).notNull().default("load_reps"),
   // D163: ejercicio propio de un alumno (org null). Sólo lo ve esa persona; el catálogo es org y dueño null.
   ownerUserId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
+  // Ejercicios por tiempo (07/11/2026): perfil de métricas, es decir, qué se configura y qué registra la persona (cinta: duración,
+  // velocidad e inclinación; bici: nivel…). null = se deduce (catálogo → nombre → `kind`, ver `profileOf` en el dominio). El
+  // catálogo se completa por nombre en 0052; un ejercicio propio lo guarda al crearlo.
+  metricsProfile: text("metrics_profile"),
   createdAt: now("created_at"),
-}, (t) => [uniqueIndex("exercise_org_name_unique").on(sql`coalesce(${t.orgId}, '')`, sql`coalesce(${t.ownerUserId}, '')`, t.name), index("exercise_owner_idx").on(t.ownerUserId)]);
+}, (t) => [
+  uniqueIndex("exercise_org_name_unique").on(sql`coalesce(${t.orgId}, '')`, sql`coalesce(${t.ownerUserId}, '')`, t.name), index("exercise_owner_idx").on(t.ownerUserId),
+  check("exercise_metrics_profile_valid", sql`${t.metricsProfile} is null or ${t.metricsProfile} in ('strength', 'bodyweight', 'hold', 'treadmill', 'bike', 'rower', 'elliptical', 'stair', 'duration')`),
+]);
 
 // Programa: plantilla del coach o copia propia de un cliente (C04: nunca un objeto compartido).
 export const program = pgTable("program", {
@@ -491,9 +498,14 @@ export const setLog = pgTable("set_log", {
   voidedAt: ts("voided_at"),
   voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
   voidReason: text("void_reason"),
+  // Ejercicios por tiempo (07/11/2026): valores reales de una actividad (velocidad, inclinación, nivel, distancia, ritmo,
+  // cadencia), validados con `cleanSetMetrics`. La duración sigue en `reps` (segundos). null = no es una actividad o no se
+  // registraron (series anteriores y apps viejas).
+  metrics: jsonb("metrics").$type<SetMetrics>(),
 }, (t) => [
   uniqueIndex("set_log_unique").on(t.sessionId, t.programExerciseId, t.setIndex),
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
+  check("set_log_metrics_object", sql`${t.metrics} is null or jsonb_typeof(${t.metrics}) = 'object'`),
 ]);
 
 // D195: correcciones del historial, sólo agregar (append-only). Cada edición, anulación o restauración de una serie o de una

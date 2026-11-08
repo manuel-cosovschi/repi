@@ -3,7 +3,7 @@
 // busca entrenando, su check-in y sus marcas previas. Sin la IA (o si tarda o falla) se arma con reglas: cuerpo completo,
 // un ejercicio por grupo, más o menos según los minutos disponibles. No recibe datos de salud, nombre ni email.
 import { and, eq, isNull, or } from "drizzle-orm";
-import { TRAINING_WISH_GOALS, checkLoad, detectedLabel, hasWishes, localDate, methodDetail, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
+import { TRAINING_WISH_GOALS, checkLoad, detectedLabel, hasWishes, isActivityProfile, localDate, methodDetail, profileOf, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
@@ -69,7 +69,8 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
     mySettings(userId),
     db.select().from(checkin).where(and(eq(checkin.userId, userId), eq(checkin.date, localDate(now)))),
   ]);
-  const usable = lib.filter((e) => e.kind !== "time" && GROUPS.includes(e.muscleGroup));
+  // Sin series por tiempo ni actividades (una cinta propia creada «con peso» sigue siendo cardio: no lleva series × reps).
+  const usable = lib.filter((e) => e.kind !== "time" && !isActivityProfile(profileOf({ metricsProfile: e.metricsProfile, name: e.name, kind: e.kind, muscleGroup: e.muscleGroup })) && GROUPS.includes(e.muscleGroup));
   if (!usable.length) throw new AccessError("no_library", "Todavía no hay ejercicios en la biblioteca para armar tu rutina.", 409);
   const prev = await lastSetByExercise(userId, usable.map((e) => e.id));
   const w = wishes && hasWishes(wishes) ? wishes : null;

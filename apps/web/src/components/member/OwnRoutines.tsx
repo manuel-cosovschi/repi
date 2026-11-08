@@ -7,10 +7,17 @@
 // días de un programa y «Te toca hoy» marca la siguiente a la última que entrenó; en Inicio aparece igual.
 // D184: cada ejercicio puede llevar un método (drop set, rest-pause, myo-reps, cluster, top set + back-off, AMRAP, EMOM,
 // pirámide) y combinarse en superserie o circuito, con el mismo editor y las mismas reglas que el programa del coach.
+// Ejercicios por tiempo (07/11/2026): una actividad (cinta, bici, remo, elíptico, escaladora, sólo duración) se configura con los
+// mismos campos que en el constructor del coach (ActivityFields): una cinta, sólo duración en minutos, velocidad e inclinación.
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
-import { EXERCISE_GROUPS, guessExerciseGroup, guessExerciseKind, matchesExerciseQuery, cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, repsText, syncCircuit, circuitIssues, resizeBlocks, type ExerciseDetail, type WeightUnit } from "@repi/domain";
+import {
+  EXERCISE_GROUPS, METRICS_PROFILE_HINT, METRICS_PROFILE_LABEL, activityOf, guessExerciseGroup, guessExerciseKind, guessMetricsProfile, isActivityProfile, kindOfProfile, matchesExerciseQuery,
+  cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, prescriptionText, repsText, syncCircuit, circuitIssues, resizeBlocks,
+  type ExerciseDetail, type MetricsProfile, type WeightUnit,
+} from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
+import { ActivityFields, editorProfile, rowDefaults } from "@/components/coach/ActivityFields";
 import { api } from "@/lib/api";
 import { RepiAsk } from "@/components/brain/RepiAsk";
 import { Ic } from "@/components/ui/Ic";
@@ -20,29 +27,30 @@ import { Sheet } from "./Sheet";
 import { kg } from "./types";
 import { useUnit } from "./units";
 
-export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time"; mine?: boolean };
-const KIND_LABEL: [Lib["kind"], string][] = [["load_reps", "Con peso"], ["bodyweight", "Peso corporal"], ["time", "Por tiempo"]];
+/** `profile`: perfil resuelto por el servidor (guardado → catálogo → nombre → tipo); una app con la API anterior no lo trae. */
+export type Lib = { id: string; name: string; group: string; kind: "load_reps" | "bodyweight" | "time"; mine?: boolean; profile?: string | null };
+/** Qué se configura en un ejercicio nuevo (los tres primeros, como se decía antes; las actividades, con su nombre). */
+const PROFILE_CHIPS: [MetricsProfile, string][] = [
+  ["strength", "Con peso"], ["bodyweight", "Peso corporal"], ["hold", "Segundos"],
+  ["treadmill", METRICS_PROFILE_LABEL.treadmill], ["bike", METRICS_PROFILE_LABEL.bike], ["rower", METRICS_PROFILE_LABEL.rower],
+  ["elliptical", METRICS_PROFILE_LABEL.elliptical], ["stair", METRICS_PROFILE_LABEL.stair], ["duration", METRICS_PROFILE_LABEL.duration],
+];
 type Ex = { exerciseId: string; sets: number; reps: string; weightKg: number | null; restSec: number | null; note: string | null; detail?: ExerciseDetail | null };
 type Saved = { id: string; name: string; lastUsedAt: string | null; next?: boolean; imported?: boolean; exercises: (Ex & { name: string; group: string; kind: Lib["kind"]; prev: { weightKg: number | null; reps: number | null } | null })[] };
-type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w: string };
+type Row = Ex & { key: string; name: string; group: string; kind: Lib["kind"]; w: string; profile: MetricsProfile };
 
 const MAX_EX = 12;
 const defaultReps = (k: Lib["kind"]) => (k === "time" ? "30 s" : k === "bodyweight" ? "12" : "10");
-// 05/11/2026: el cardio (cinta, bici, elíptico…) es una actividad continua: una sola vez, sin series, y el tiempo en minutos.
-const isCardio = (r: { group: string; kind: Lib["kind"] }) => r.group === "Cardio" && r.kind === "time";
 const secsOf = (reps: string) => { const t = parseReps(reps); return t.kind === "time" ? t.seconds : 0; };
-/** Tiempo en minutos y segundos. Se guarda como «N s» (lo que ya entiende el entrenamiento); vacío o 0 = sin completar. */
-function TimeField({ name, reps, onChange }: { name: string; reps: string; onChange: (reps: string) => void }) {
-  const total = secsOf(reps), mm = Math.floor(total / 60), ss = total % 60;
-  const put = (m: number, s: number) => onChange(m * 60 + s > 0 ? `${m * 60 + s} s` : "");
-  return (
-    <span className="or-time">
-      <label>Min<IntInput value={reps.trim() ? mm : null} nullable min={0} max={60} onChange={(n) => put(n ?? 0, ss)} aria-label={`Minutos de ${name}`} /></label>
-      <label>Seg<IntInput value={reps.trim() ? ss : null} nullable min={0} max={59} onChange={(n) => put(mm, n ?? 0)} aria-label={`Segundos de ${name}`} /></label>
-    </span>
-  );
-}
+/** Perfil de una fila guardada: la actividad indicada; si no, el del ejercicio (catálogo, nombre, tipo y grupo). */
+const savedProfile = (e: { name: string; kind: string; group: string; detail?: ExerciseDetail | null }) => editorProfile(e, { kind: e.kind, group: e.group });
 const fmtDate = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(iso));
+/** Cómo se lee cada ejercicio en la tarjeta: «10 min · 5 km/h · incl. 3» (actividad), «20 min» (cardio anterior) o «3×10». */
+function cardText(e: Saved["exercises"][number]) {
+  if (activityOf(e.detail)) return prescriptionText({ ...e, rir: null });
+  const sets = mainSets(e.detail, e.sets);
+  return isActivityProfile(savedProfile(e)) && sets === 1 ? repsText(e.reps) : `${sets}×${repsText(e.reps)}`;
+}
 const wTxt = (w: number | null, unit: WeightUnit) => (w == null ? "" : String(kgTo(w, unit)).replace(".", ","));
 
 export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: boolean; flash: (m: string) => void; onStart: (id: string) => void; busyOpen: boolean }) {
@@ -75,8 +83,8 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
         <div key={r.id} className="or-card">
           <div className="or-title">{r.next && list.length > 1 && <span className="or-next">Te toca hoy</span>}<b>{r.name}</b><small className="mb-muted">{r.exercises.length} {r.exercises.length === 1 ? "ejercicio" : "ejercicios"}{r.imported ? " · importada" : ""}{r.lastUsedAt ? ` · última vez ${fmtDate(r.lastUsedAt)}` : ""}</small></div>
           <ul>{r.exercises.map((e, i) => (
-            <li key={i}><span>{e.name}{e.detail && <small className="mb-muted or-method">{detailSummary({ ...e, rir: null, restSec: e.restSec ?? 90 }, groupLabels(r.exercises)[i])}</small>}</span>
-              <span>{isCardio(e) && mainSets(e.detail, e.sets) === 1 ? repsText(e.reps) : `${mainSets(e.detail, e.sets)}×${repsText(e.reps)}`}{e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
+            <li key={i}><span>{e.name}{e.detail && detailSummary({ ...e, rir: null, restSec: e.restSec ?? 90 }, groupLabels(r.exercises)[i]) && <small className="mb-muted or-method">{detailSummary({ ...e, rir: null, restSec: e.restSec ?? 90 }, groupLabels(r.exercises)[i])}</small>}</span>
+              <span>{cardText(e)}{activityOf(e.detail) ? "" : e.prev?.weightKg ? ` · última vez ${kg(e.prev.weightKg, unit)}` : e.weightKg ? ` · ${kg(e.weightKg, unit)}` : ""}</span></li>
           ))}</ul>
           <div className="or-actions">
             <button type="button" className="cta sm" disabled={offline} onClick={() => onStart(r.id)}>
@@ -99,7 +107,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
 
 function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | null; unit: WeightUnit; flash: (m: string) => void; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [rows, setRows] = useState<Row[]>(() => (initial?.exercises ?? []).map((e, i) => ({ ...e, key: `${i}:${e.exerciseId}`, w: wTxt(e.weightKg, unit) })));
+  const [rows, setRows] = useState<Row[]>(() => (initial?.exercises ?? []).map((e, i) => ({ ...e, key: `${i}:${e.exerciseId}`, w: wTxt(e.weightKg, unit), profile: savedProfile(e) })));
   const [picking, setPicking] = useState(!initial);
   const [busy, setBusy] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
@@ -116,7 +124,14 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
   const labels = groupLabels(rows.map(asEx));
   const issue = circuitIssues(rows.map(asEx))[0];
   const move = (i: number, d: -1 | 1) => setRows((r) => { const n = [...r]; const j = i + d; if (j < 0 || j >= n.length) return r; [n[i], n[j]] = [n[j], n[i]]; return n; });
-  const rowOf = (e: Lib): Row => ({ key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, sets: isCardio(e) ? 1 : 3, reps: isCardio(e) ? "1200 s" : defaultReps(e.kind), weightKg: null, w: "", restSec: null, note: null });
+  // Ejercicios por tiempo: una actividad entra con los valores de su perfil (una cinta: 10 min a 5 km/h, inclinación 0, sin series).
+  const rowOf = (e: Lib): Row => {
+    const profile = editorProfile({ name: e.name }, e);
+    const base = { key: `${Date.now()}:${e.id}`, exerciseId: e.id, name: e.name, group: e.group, kind: e.kind, profile, weightKg: null, w: "", note: null };
+    if (!isActivityProfile(profile)) return { ...base, sets: 3, reps: defaultReps(e.kind), restSec: null };
+    const d = rowDefaults(profile);
+    return { ...base, sets: d.sets, reps: d.reps, restSec: d.restSec, detail: d.detail ?? null };
+  };
   const add = (e: Lib) => {
     if (rows.length >= MAX_EX) { flash(`Una rutina puede tener hasta ${MAX_EX} ejercicios.`); return; }
     setRows((r) => [...r, rowOf(e)]);
@@ -139,7 +154,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       setRows(list); setPicking(false); setHasPending(false);
     }
     const okNow = name.trim().length >= 2 && list.length > 0 && list.every((r) => r.reps.trim()) && badW < 0 && !issue;
-    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : issue ? `El circuito ${issue.group} tiene ${issue.rounds} vueltas, pero ${issue.exercise} tiene ${issue.blocks} series. Igualalas en «Series y técnica».` : (() => { const r = list.find((x) => !x.reps.trim()); return r ? `Completá ${r.kind === "time" ? "el tiempo" : "las repeticiones"} de ${r.name}.` : "Completá las repeticiones de cada ejercicio."; })()); return; }
+    if (!okNow) { setWarn(name.trim().length < 2 ? "Ponele un nombre a la rutina." : !rows.length ? "Agregá al menos un ejercicio." : badW >= 0 ? `Revisá el peso de ${rows[badW].name}.` : issue ? `El circuito ${issue.group} tiene ${issue.rounds} vueltas, pero ${issue.exercise} tiene ${issue.blocks} series. Igualalas en «Series y técnica».` : (() => { const r = list.find((x) => !x.reps.trim()); return r ? `Completá ${r.kind === "time" || isActivityProfile(r.profile) ? "el tiempo" : "las repeticiones"} de ${r.name}.` : "Completá las repeticiones de cada ejercicio."; })()); return; }
     setBusy(true); setWarn(null);
     try {
       await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: list.map((r) => ({
@@ -162,22 +177,27 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       {rows.map((r, i) => (
         <fieldset key={r.key} className="or-ex">
           <legend>{labels[i] ? `${labels[i]} · ` : `${i + 1}. `}{r.name} <small>{r.group}</small></legend>
+          {/* Ejercicios por tiempo: una actividad muestra sólo su duración (en minutos) y sus campos; sin series, peso ni método. Una
+              guardada antes como «1200 s» se ve igual y pasa a configurarse así al cambiar cualquier valor. */}
+          {isActivityProfile(r.profile) ? (
+            <ActivityFields variant="sheet" e={{ ...r, restSec: r.restSec ?? 0 }} profile={activityOf(r.detail)?.profile ?? r.profile}
+              onChange={(p) => set(i, { detail: p.detail, ...(p.sets != null ? { sets: p.sets } : {}), ...(p.reps != null ? { reps: p.reps } : {}), ...(p.restSec != null ? { restSec: p.restSec } : {}) })} />
+          ) : (
           <div className="or-ex-grid">
             {/* D184: con un plan serie por serie (método, etapas), las series salen del plan: se editan en «Series y técnica». */}
-            {isCardio(r) && r.sets === 1 && !r.detail
-              ? <span className="or-activity"><small className="mb-muted">Actividad continua</small><button type="button" className="linkbtn" onClick={() => set(i, { sets: 3 })}>Hacerlo en series</button></span>
-              : <label>Series<IntInput value={mainSets(r.detail, r.sets)} min={1} max={10} disabled={!!r.detail?.setPlan && !isStraightPlan(r.detail)} onChange={(n) => n != null && set(i, r.detail?.setPlan ? resizeBlocks(asEx(r), n) : { sets: n })} aria-label={`Series de ${r.name}`} /></label>}
+            <label>Series<IntInput value={mainSets(r.detail, r.sets)} min={1} max={10} disabled={!!r.detail?.setPlan && !isStraightPlan(r.detail)} onChange={(n) => n != null && set(i, r.detail?.setPlan ? resizeBlocks(asEx(r), n) : { sets: n })} aria-label={`Series de ${r.name}`} /></label>
             {r.kind === "time"
-              ? <TimeField name={r.name} reps={r.reps} onChange={(v) => set(i, { reps: v })} />
+              ? <label>Segundos<IntInput value={r.reps.trim() ? secsOf(r.reps) || null : null} nullable min={1} max={3600} onChange={(n) => set(i, { reps: n ? `${n} s` : "" })} aria-label={`Segundos de ${r.name}`} /></label>
               : <label>Repes<input value={r.reps} maxLength={20} onChange={(e) => set(i, { reps: e.target.value })} placeholder={defaultReps(r.kind)} aria-label={`Repeticiones de ${r.name}`} /></label>}
             {r.kind !== "time" && <label>Peso ({unit})<input inputMode="decimal" value={r.w} maxLength={7} aria-invalid={r.w.trim() !== "" && parseWeightIn(r.w, unit) == null || undefined}
               onChange={(e) => set(i, { w: cleanDecimalDraft(e.target.value) })} placeholder={r.kind === "bodyweight" ? "—" : "Opcional"} aria-label={`Peso de ${r.name} en ${unit}`} /></label>}
           </div>
+          )}
           <input className="or-note" value={r.note ?? ""} maxLength={120} onChange={(e) => set(i, { note: e.target.value })} placeholder="Nota (opcional): agarre, pausa, máquina…" aria-label={`Nota de ${r.name}`} />
-          <div className="or-tech">
+          {!isActivityProfile(r.profile) && <div className="or-tech">
             {r.detail && <small className="mb-muted">{detailSummary(asEx(r), labels[i])}</small>}
             <button type="button" className="ghost sm" onClick={() => setTech(i)} aria-label={`Series y técnica de ${r.name}`}>{r.detail ? "Cambiar método" : "Método y series"}</button>
-          </div>
+          </div>}
           <div className="or-ex-actions">
             <button type="button" className="linkbtn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Subir ${r.name}`}><Ic i={ArrowUp} size={16} /></button>
             <button type="button" className="linkbtn" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={`Bajar ${r.name}`}><Ic i={ArrowDown} size={16} /></button>
@@ -188,7 +208,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
       {picking ? <Picker onPick={add} onCancel={rows.length ? () => setPicking(false) : undefined} taken={new Set(rows.map((r) => r.exerciseId))} pending={pending} onPending={setHasPending} />
         : rows.length < MAX_EX && <button type="button" className="ghost" onClick={() => setPicking(true)}><Ic i={Plus} size={16} /> Agregar ejercicio</button>}
       {initial && <button type="button" className="linkbtn or-del" disabled={busy} onClick={() => void remove()}>Borrar rutina</button>}
-      {tech != null && rows[tech] && <ExerciseDetailEditor member e={asEx(rows[tech])} onClose={() => setTech(null)} onSave={(p) => { saveTech(tech, p); setTech(null); }} />}
+      {tech != null && rows[tech] && !isActivityProfile(rows[tech].profile) && <ExerciseDetailEditor member e={asEx(rows[tech])} onClose={() => setTech(null)} onSave={(p) => { saveTech(tech, p); setTech(null); }} />}
     </Sheet>
   );
 }
@@ -204,11 +224,13 @@ export function Picker({ onPick, onCancel, taken, initialQuery = "", pending, on
   const [group, setGroup] = useState<string | null>(null);
   // D163: lo que no está en la biblioteca, el alumno lo crea (sólo lo ve él).
   // D186: grupo y forma de registro sugeridos por el nombre (se ven marcados y se cambian con un toque); `mine` = los eligió la
-  // persona y ya no se pisan al seguir escribiendo.
-  const [creating, setCreating] = useState<{ name: string; group: string | null; kind: Lib["kind"]; mine: { group: boolean; kind: boolean } } | null>(null);
+  // persona y ya no se pisan al seguir escribiendo. Ejercicios por tiempo: en lugar del tipo de registro, qué se configura
+  // (con peso, peso corporal, segundos, cinta, bici, remo, elíptico, escaladora o sólo duración); «Cinta caminadora» → cinta.
+  const [creating, setCreating] = useState<{ name: string; group: string | null; profile: MetricsProfile; mine: { group: boolean; profile: boolean } } | null>(null);
   const [busy, setBusy] = useState(false);
-  const startCreate = (nm: string) => setCreating({ name: nm, group: group ?? guessExerciseGroup(nm), kind: guessExerciseKind(nm), mine: { group: !!group, kind: false } });
-  const typeName = (nm: string) => setCreating((c) => c && { ...c, name: nm, group: c.mine.group ? c.group : guessExerciseGroup(nm) ?? c.group, kind: c.mine.kind ? c.kind : guessExerciseKind(nm) });
+  const guessP = (nm: string) => guessMetricsProfile(nm, guessExerciseKind(nm));
+  const startCreate = (nm: string) => setCreating({ name: nm, group: group ?? guessExerciseGroup(nm), profile: guessP(nm), mine: { group: !!group, profile: false } });
+  const typeName = (nm: string) => setCreating((c) => c && { ...c, name: nm, group: c.mine.group ? c.group : guessExerciseGroup(nm) ?? c.group, profile: c.mine.profile ? c.profile : guessP(nm) });
   /** Crea el ejercicio. Con algo sin completar lo dice (antes el botón quedaba apagado sin explicar por qué). */
   const create = async (pick = true): Promise<Lib | null> => {
     if (!creating) return null;
@@ -216,7 +238,8 @@ export function Picker({ onPick, onCancel, taken, initialQuery = "", pending, on
     if (!creating.group) { setErr("Elegí el grupo muscular del ejercicio."); return null; }
     setBusy(true); setErr(null);
     try {
-      const e = await api<Lib>("/api/me/exercises", { body: { name: creating.name.trim(), group: creating.group, kind: creating.kind } });
+      // `kind` va igual (lo que entiende una versión anterior del servidor); con `profile`, el servidor lo deduce del perfil.
+      const e = await api<Lib>("/api/me/exercises", { body: { name: creating.name.trim(), group: creating.group, kind: kindOfProfile(creating.profile), profile: creating.profile } });
       setLib((l) => (l && !l.some((x) => x.id === e.id) ? [...l, e] : l));
       setCreating(null);
       if (pick) onPick(e);
@@ -269,10 +292,11 @@ export function Picker({ onPick, onCancel, taken, initialQuery = "", pending, on
           <div className="wish-goals" role="group" aria-label="Grupo muscular del ejercicio nuevo">
             {EXERCISE_GROUPS.map((g) => <button key={g} type="button" className="ai-chip" aria-pressed={creating.group === g} onClick={() => { setErr(null); setCreating({ ...creating, group: g, mine: { ...creating.mine, group: true } }); }}>{g}</button>)}
           </div>
-          <span className="sheet-sub">Cómo lo registrás</span>
+          <span className="sheet-sub">Qué cargás</span>
           <div className="wish-goals" role="group" aria-label="Cómo se registra">
-            {KIND_LABEL.map(([k, l]) => <button key={k} type="button" className="ai-chip" aria-pressed={creating.kind === k} onClick={() => setCreating({ ...creating, kind: k, mine: { ...creating.mine, kind: true } })}>{l}</button>)}
+            {PROFILE_CHIPS.map(([k, l]) => <button key={k} type="button" className="ai-chip" aria-pressed={creating.profile === k} onClick={() => setCreating({ ...creating, profile: k, mine: { ...creating.mine, profile: true } })}>{l}</button>)}
           </div>
+          <small className="mb-muted">{METRICS_PROFILE_HINT[creating.profile]}</small>
           {err && <p className="sheet-warn" role="alert">{err}</p>}
           <div className="or-actions">
             <button type="button" className="cta sm" aria-busy={busy || undefined} onClick={() => void create()}>Crear y agregar</button>

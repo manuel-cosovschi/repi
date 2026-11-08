@@ -2,7 +2,7 @@
 import { StudentPreview } from "./StudentPreview";
 import { SharedWishes, type SharedWishesView } from "./SharedWishes";
 import { useEffect, useMemo, useState } from "react";
-import { EXERCISE_CHANGE_REASONS, formatClock, formatRest, type ExerciseChangeReason, type ProgramDoc } from "@repi/domain";
+import { EXERCISE_CHANGE_REASONS, activityOf, formatClock, formatRest, prescriptionText, type ExerciseChangeReason, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { SensitiveTab } from "./CoachHealth";
 import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overview, type Screen } from "./types";
@@ -140,8 +140,10 @@ function Tab({ tab, det, row, orgId, flash, go }: { tab: string; det: Detail; ro
     <section className="card">
       <h2>{det.program.doc.name}</h2>
       <span className="muted">{det.program.doc.weeks} semanas · {det.program.doc.days.length} días · versión {det.program.version}{det.program.doc.note ? ` · ${det.program.doc.note}` : ""}</span>
+      {/* Ejercicios por tiempo: una actividad se lee como se indicó («Cinta (caminata) 10 min · 5 km/h · incl. 3»), sin series × reps. */}
       {det.program.doc.days.map((d) => (
-        <div key={d.name} className="trow" style={{ alignItems: "flex-start" }}><b style={{ flex: "0 0 140px" }}>{d.name}</b><span style={{ flex: 1 }}>{d.exercises.map((e) => `${e.name} ${e.sets}×${e.reps}${e.rir != null ? ` · RIR ${e.rir}` : ""} · ${formatRest(e.restSec)}`).join(" — ") || "Sin ejercicios"}</span></div>
+        <div key={d.name} className="trow" style={{ alignItems: "flex-start" }}><b style={{ flex: "0 0 140px" }}>{d.name}</b><span style={{ flex: 1 }}>
+          {d.exercises.map((e) => activityOf(e.detail) ? `${e.name} ${prescriptionText(e)}${e.restSec ? ` · ${formatRest(e.restSec)}` : ""}` : `${e.name} ${e.sets}×${e.reps}${e.rir != null ? ` · RIR ${e.rir}` : ""} · ${formatRest(e.restSec)}`).join(" — ") || "Sin ejercicios"}</span></div>
       ))}
     </section>
   ) : <div className="empty">Sin programa asignado.</div>;

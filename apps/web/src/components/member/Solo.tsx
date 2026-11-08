@@ -6,13 +6,17 @@
 // me molesta o un mensaje) y la IA rearma con alternativas compatibles; al empezar, los cambios quedan aplicados en la sesión.
 import { useEffect, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, mainSets, type ExerciseChangeReason, type ExerciseDetail, type SoloPlan, type SoloVariant, fmtWeight, localizeWeights } from "@repi/domain";
+import { activityOf, emptyDetail, prescriptionText, type ActivityDetail, type MetricsProfile } from "@repi/domain";
 import { useUnit } from "./units";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 
 type Prev = { weightKg: number | null; reps: number | null } | null;
+// Ejercicios por tiempo: `profile` y `activity` (cinta, bici…) para leer «10 min · 5 km/h · incl. 3» en lugar de series × reps;
+// el reemplazo trae su propio perfil (otra máquina de cardio), que queda en la sesión.
 export type AdviceEx = { id: string; name: string; sets: number; reps: string; weightKg: number | null; note: string; prev?: Prev; checks?: string[];
-  swap: { exerciseId: string; name: string; approved: boolean; prev: Prev } | null; skip: boolean; reason: ExerciseChangeReason | null };
+  profile?: MetricsProfile | null; activity?: ActivityDetail | null;
+  swap: { exerciseId: string; name: string; approved: boolean; prev: Prev; profile?: MetricsProfile | null } | null; skip: boolean; reason: ExerciseChangeReason | null };
 export type Advice = { dayId: string; dayName: string; headline: string; summary: string; caution: string | null; exercises: AdviceEx[] };
 type Turn = { role: "user" | "assistant"; text: string };
 /** D153: rutina de hoy sin programa asignado (ejercicios de la biblioteca). */
@@ -115,7 +119,7 @@ export function SoloSheet({ variant, onClose, onStart, onStartRoutine, onContinu
               <ul>{ai.exercises.map((e) => (
                 <li key={e.id} className={e.skip ? "ai-skip" : undefined}>
                   <span>{e.swap ? <>{e.swap.name} <small className="ai-swap">en lugar de {e.name}{e.swap.approved ? " · aprobado por tu profe" : ""}</small></> : e.name}</span>
-                  <span>{e.skip ? "Saltear hoy" : `${e.sets}×${e.reps}${e.weightKg != null ? ` · ${fmtWeight(e.weightKg, unit)}` : ""}`}</span>
+                  <span>{e.skip ? "Saltear hoy" : e.activity ? prescriptionText({ sets: e.sets, reps: e.reps, detail: { ...emptyDetail(), activity: e.activity } }) : `${e.sets}×${e.reps}${e.weightKg != null ? ` · ${fmtWeight(e.weightKg, unit)}` : ""}`}</span>
                   {e.note && <small>{e.note}</small>}
                   <span className="ai-issues" role="group" aria-label={`Problema con ${e.swap?.name ?? e.name}`}>
                     {ISSUES.map(([k, label]) => (
@@ -164,7 +168,7 @@ function RoutineCard({ onStart }: { onStart: (r: Routine) => void }) {
         <ul>{r.exercises.map((e) => (
           <li key={e.id}>
             <span>{e.name} <small className="ai-swap">{e.group}</small></span>
-            <span>{`${mainSets(e.detail, e.sets)}×${e.reps}${e.weightKg != null ? ` · ${fmtWeight(e.weightKg, unit)}` : ""}`}</span>
+            <span>{activityOf(e.detail) ? prescriptionText({ sets: e.sets, reps: e.reps, detail: e.detail }) : `${mainSets(e.detail, e.sets)}×${e.reps}${e.weightKg != null ? ` · ${fmtWeight(e.weightKg, unit)}` : ""}`}</span>
             {e.method && <small className="ai-swap">{e.method}</small>}
             {e.note && <small>{e.note}</small>}
           </li>

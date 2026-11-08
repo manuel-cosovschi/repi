@@ -69,3 +69,18 @@ describe("D183 · métricas con una sola definición", () => {
     expect(m.tonnageKg).toBe(volumeKg([L(0, 60, 10), L(1, 48, 8), L(2, 36, 6)].map((l) => ({ exerciseId: "x", weightKg: l.weightKg, reps: l.reps, completed: true }))));
   });
 });
+
+describe("ejercicios por tiempo · métricas", () => {
+  it("una actividad suma tiempo, nunca repeticiones ni tonelaje (aunque diga «500 m» o traiga un peso por error)", () => {
+    const remo = { sets: 1, reps: "500 m", detail: D(null, { activity: { profile: "rower", distanceM: 500 } }) };
+    const m = exerciseMetrics(remo, [{ setIndex: 0, weightKg: 20, reps: 130 }]);
+    expect(m).toMatchObject({ timeSec: 130, reps: 0, tonnageKg: 0, mainDone: 1, mainPlanned: 1 });
+    const cinta = { sets: 1, reps: "10 min", detail: D(null, { activity: { profile: "treadmill", speedKmh: 5, incline: 3 } }) };
+    expect(exerciseMetrics(cinta, [{ setIndex: 0, weightKg: null, reps: 720 }])).toMatchObject({ timeSec: 720, reps: 0, tonnageKg: 0 });
+    expect(exerciseComplete(cinta, (k) => k === 0)).toBe(true);
+  });
+  it("sin actividad, «10 min» sigue siendo por tiempo y «10-12», repeticiones (sin cambios)", () => {
+    expect(exerciseMetrics({ sets: 1, reps: "10 min" }, [{ setIndex: 0, weightKg: null, reps: 600 }])).toMatchObject({ timeSec: 600, reps: 0 });
+    expect(exerciseMetrics({ sets: 1, reps: "10-12" }, [{ setIndex: 0, weightKg: 50, reps: 10 }])).toMatchObject({ timeSec: 0, reps: 10, tonnageKg: 500 });
+  });
+});

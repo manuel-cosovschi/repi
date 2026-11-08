@@ -4,9 +4,10 @@
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TECHNIQUES, kindAt, labelAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
+import { activityOf, isTimedRow, prescriptionText, type ExerciseDetail } from "@repi/domain";
 import { api } from "@/lib/api";
 import { signOutSafely } from "@/lib/session-cleanup";
-import { allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
+import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
 import { ApiError } from "@/lib/api";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -21,7 +22,7 @@ import { Nudges, type Nudge } from "./Nudges";
 import { CommunityChallenges } from "./CommunityChallenges";
 import { BrandIntro } from "@/components/motion/BrandIntro";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
-import { kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
+import { activityProfileOf, activityTargetSec, kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet, type Advice, type Routine } from "./Solo";
@@ -187,7 +188,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(async (reg) => {
       await navigator.serviceWorker.ready;
-      const urls = [location.pathname, ...performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.startsWith(location.origin) && /\/_next\/static\/|\/brand\//.test(u))];
+      // El logo del encabezado es parte de la carcasa: se guarda siempre (puede cargarse antes de que el service worker controle
+      // la página y no figurar en lo ya cargado; sin él, recargar sin conexión mostraba el encabezado sin logo).
+      const urls = [location.pathname, "/brand/wm_full.png", ...performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.startsWith(location.origin) && /\/_next\/static\/|\/brand\//.test(u))];
       (reg.active ?? navigator.serviceWorker.controller)?.postMessage({ type: "cache", urls });
     }).catch(() => {});
   }, []);
@@ -281,6 +284,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       // D134: el plan serie por serie fija peso o repeticiones de esa serie (top set, back-off, drop).
       const plan = e.detail?.setPlan?.[i];
       const a = aiOf(e.id); // D138: sin plan por serie, el peso y las reps sugeridos por la IA para hoy (ya validados, D182)
+      // Ejercicios por tiempo: una actividad (cinta, bici…; con el reemplazo de la IA, la del reemplazo) arranca con su duración
+      // en segundos y los valores que indicó el profe (velocidad, inclinación, nivel…), como al traerla del servidor.
+      const ap = activityProfileOf({ reps: e.reps, profile: e.profile, detail: e.detail, change: a?.swap ? { kind: "substitute", substitute: { profile: a.swap.profile ?? null } } : null });
+      const actPlan = e.activity ?? activityOf(e.detail);
       // D154: sin plan del profe ni sugerencia del día, la progresión de REPI según la última vez en ese ejercicio.
       const sg = a?.swap || a?.skip ? null : e.suggest ?? null;
       const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? (sg ? String(sg.reps) : e.reps));
@@ -288,15 +295,18 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       const lb = labelAt(e.detail, i); // D192: Load Set y otras etiquetas: su carga, o la elige la persona (no hereda la del ejercicio)
       const st = startWeight({ kind: kindAt(e.detail, i), label: lb, planKg: plan?.weightKg, suggestKg: a?.swap || lb ? null : a?.weightKg ?? sg?.weightKg,
         carriedKg: lb ? null : a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg });
-      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}), r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
+      sets[setKey(e.id, i)] = ap
+        ? { id: crypto.randomUUID(), w: 0, r: activityTargetSec(e, ap) ?? 0, m: actPlan && actPlan.profile === ap ? activityDraft(actPlan) : null, rir: null, done: false, revision: 0, at: null }
+        : { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}), r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {
       id: crypto.randomUUID(), dayId: d.id, dayName: d.name, note: t.program!.note, startedAt: nowIso, status: "in_progress", activeMs: 0, lastResumedAt: nowIso,
       endedAt: null, rpe: null, sessionNote: null, revision: 1, synced: false, rest: null, updatedAt: nowIso, sets,
       exercises: d.exercises.map((e) => {
         const a = aiOf(e.id);
-        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null };
-        if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name } } };
+        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null,
+          profile: e.profile ?? null, activity: e.activity ?? activityOf(e.detail) }; // ejercicios por tiempo: qué se registra
+        if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name, profile: a.swap.profile ?? null } } };
         if (a?.skip) return { ...base, change: { kind: "skip" as const, reason: a.reason ?? "other", substitute: null } };
         // D182: con la sugerencia de hoy aceptada, la tarjeta muestra esa carga (ya validada contra la regla): nunca dos cargas distintas.
         if (a && a.weightKg != null) return { ...base, suggest: { action: "hold" as const, weightKg: a.weightKg, reps: Number(/^(\d+)/.exec(a.reps)?.[1] ?? e.suggest?.reps ?? 0), text: "",
@@ -755,9 +765,11 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
       <div className="exlist">
         {d.exercises.map((e, i) => (
           <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">{labels[i] ?? "foto"}</span>
-            <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit)}</em></span>
+            {/* Ejercicios por tiempo: una actividad se lee como la indicó el profe («10 min · 5 km/h · incl. 3») y su «anterior» con
+                duración y valores; sin descanso que mostrar si no lo lleva. */}
+            <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit, isTimedRow(e))}</em></span>
             {e.suggest && <small className="ex-suggest" aria-label={`REPI sugiere hoy ${e.suggest.text}`}>Hoy: {e.suggest.weightKg != null ? `${kg(e.suggest.weightKg, unit)} × ` : ""}{e.suggest.reps}</small>}
-            <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>
+            {activityOf(e.detail) && !e.restSec ? null : <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>}
           </div>
         ))}
         {!d.exercises.length && <span className="mb-muted">Este día no tiene ejercicios todavía.</span>}
@@ -1076,7 +1088,7 @@ function MyData({ flash }: { flash: (m: string) => void }) {
 
 // F-CL-14: aviso de programa nuevo o actualizado, con autor; la versión anterior queda consultable.
 // Visto por versión en este teléfono (no es un dato de salud ni privado de otra persona).
-type PrevVersion = { number: number; name: string; createdAt: string; days: { name: string; exercises: { name: string; sets: number; reps: string; rir: number | null; restSec: number }[] }[] };
+type PrevVersion = { number: number; name: string; createdAt: string; days: { name: string; exercises: { name: string; sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null }[] }[] };
 /** La versión anterior del programa, para consultar: la abren el aviso y la tarjeta de REPI que lo reemplaza. */
 function usePrevVersion(flash: (m: string) => void) {
   const [prev, setPrev] = useState<PrevVersion | null>(null);
@@ -1089,7 +1101,7 @@ function PrevVersionSheet({ prev, u, version, onClose }: { prev: PrevVersion; u:
       {prev.days.map((d) => (
         <div key={d.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <b style={{ fontSize: 15 }}>{d.name}</b>
-          {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {e.sets} × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""}</span>)}
+          {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {activityOf(e.detail) ? prescriptionText({ ...e, detail: e.detail ?? null }) : `${e.sets} × ${e.reps}${e.rir != null ? ` · RIR ${e.rir}` : ""}`}</span>)}
         </div>
       ))}
     </Sheet>
