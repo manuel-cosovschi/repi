@@ -122,8 +122,11 @@ describe("señales para el entrenador privado", () => {
     const relS = await relate(A, s);
     const coachAsMember = { id: A.coach, email: (await db.select().from(schema.user).where(eq(schema.user.id, A.coach)))[0].email };
     const relC = await relate(B, coachAsMember); // el coach de A entrena con B
-    await train(s.id, relS, new Date(Date.now() - 8 * D), 60);
-    await train(A.coach, relC, new Date(Date.now() - 9 * D), 60);
+    // Mediodía de Argentina de hace 8 y 9 días: con «ahora menos N días» exacto, entre las 23:20 y las 24 de Argentina la sesión
+    // (40 min) terminaba al día siguiente y el aviso decía un día menos.
+    const arNoon = (d: number) => { const x = new Date(Date.now() - 3 * 3_600_000 - d * D); x.setUTCHours(15, 0, 0, 0); return x; };
+    await train(s.id, relS, arNoon(8), 60);
+    await train(A.coach, relC, arNoon(9), 60);
     const mine = (await proactiveFor(A.coach)).emitted.map((i) => i.id);
     const student = (await proactiveFor(s.id)).emitted.map((i) => i.id);
     expect(mine.length).toBeGreaterThan(0);
