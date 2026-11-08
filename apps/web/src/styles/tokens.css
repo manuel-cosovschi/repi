@@ -70,6 +70,11 @@
   --dur-celebration: 1200ms;
   --dur-intro-first: 2670ms;
   --dur-intro-quick: 520ms;
+  --dur-section-exit: 100ms;
+  --dur-section-enter: 200ms;
+  --dur-stagger: 20ms;
+  --dur-press: 90ms;
+  --dur-exit: 160ms;
   --font-ui: var(--font-barlow), "Barlow", system-ui, sans-serif;
   --font-display: var(--font-barlow-condensed), "Barlow Condensed", var(--font-ui);
   --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;

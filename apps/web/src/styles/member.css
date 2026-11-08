@@ -291,8 +291,12 @@
 .mb-chat { display: flex; flex-direction: column; gap: 10px; min-height: 55dvh; }
 /* Chat abierto (pedido del titular, 29/10): ocupa todo el alto, con el campo para escribir justo arriba de la barra, y
    menos aire arriba (sigue fuera del difuminado de iOS 26, D122). */
-.mb-scroll:has(.mb-chat) { padding-top: max(16px, calc(var(--safe-top) + 4px)); padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
-.tab-pane:has(> .mb-chat) { flex: 1; gap: 12px; }
+/* M06: con las secciones vivas (SectionStage) sólo cuenta el chat de la sección a la vista ([data-active]); las ocultas siguen
+   en el DOM. El escenario ocupa el alto restante y la sección del chat se estira (grilla de una fila). */
+.mb-scroll:has(> .sec-stage > [data-active] > .mb-chat) { padding-top: max(16px, calc(var(--safe-top) + 4px)); padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+.mb-scroll > .sec-stage { flex: 1 0 auto; }
+.mb-scroll:has(> .sec-stage > [data-active] > .mb-chat) > .sec-stage { grid-template-rows: minmax(0, 1fr); }
+.tab-pane:has(> .mb-chat) { flex: 1; gap: 12px; align-self: stretch; }
 .tab-pane > .mb-chat { flex: 1; min-height: 0; }
 .mb-chat .chat-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .mb-chat .chat-msg { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }

@@ -19,6 +19,8 @@ import {
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { ActivityFields, editorProfile, rowDefaults } from "@/components/coach/ActivityFields";
 import { api } from "@/lib/api";
+import { useCached } from "@/lib/cache";
+import { Skel, SkelCard } from "@/components/motion/Skeleton";
 import { RepiAsk } from "@/components/brain/RepiAsk";
 import { Ic } from "@/components/ui/Ic";
 import { RoutineImportSheet } from "./RoutineImport";
@@ -54,12 +56,13 @@ function cardText(e: Saved["exercises"][number]) {
 const wTxt = (w: number | null, unit: WeightUnit) => (w == null ? "" : String(kgTo(w, unit)).replace(".", ","));
 
 export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: boolean; flash: (m: string) => void; onStart: (id: string) => void; busyOpen: boolean }) {
-  const [list, setList] = useState<Saved[] | null>(null);
+  // M06: /api/me/routines compartido con «Te toca hoy» por la caché en memoria (un solo pedido, al instante al volver).
+  const c = useCached<Saved[]>("/api/me/routines");
+  const list = c.data ?? (c.err ? [] : null);
   const [edit, setEdit] = useState<Saved | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const unit = useUnit();
-  const load = useCallback(() => api<Saved[]>("/api/me/routines").then(setList).catch(() => setList((l) => l ?? [])), []);
-  useEffect(() => { void load(); }, [load]);
+  const load = c.reload;
   const open = (r: Saved | "new") => { if (offline) { flash("Necesitás conexión para armar o editar tus rutinas."); return; } setEdit(r); };
   const upload = () => { if (offline) { flash("Necesitás conexión para subir tu rutina."); return; } setImporting(true); };
   return (
@@ -71,6 +74,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
           <button type="button" className="linkbtn" onClick={() => open("new")}><Ic i={Plus} size={16} /> Nueva</button>
         </span>}
       </div>
+      {!list && <SkelCard h={150} lines={3} />}
       {list && !list.length && (
         <div className="dashed-card">
           <strong>¿Tenés tu propia rutina?</strong>
@@ -315,10 +319,11 @@ export function Picker({ onPick, onCancel, taken, initialQuery = "", pending, on
  * propias muestra `fallback` (la tarjeta de siempre: pedir programa o cargar la propia).
  */
 export function NextOwnRoutine({ offline, busyOpen, onStart, fallback }: { offline: boolean; busyOpen: boolean; onStart: (id: string) => void; fallback: ReactNode }) {
-  const [list, setList] = useState<Saved[] | null>(null);
-  useEffect(() => { api<Saved[]>("/api/me/routines").then(setList).catch(() => setList([])); }, []);
+  const c = useCached<Saved[]>("/api/me/routines");
+  const list = c.data ?? (c.err ? [] : null);
   const r = list?.find((x) => x.next) ?? list?.[0];
-  if (!list) return null;
+  // M06: la tarjeta se reserva (esqueleto del mismo alto) hasta saber si hay rutina propia; nunca aparece de golpe.
+  if (!list) return <div className="or-card or-today" aria-hidden="true"><div className="or-title"><Skel w={86} h={12} /><Skel w="56%" h={18} /><Skel w="40%" h={12} /></div><div className="or-actions"><Skel w={104} h={40} r={20} /></div></div>;
   if (!r) return <>{fallback}</>;
   return (
     <div className="or-card or-today">

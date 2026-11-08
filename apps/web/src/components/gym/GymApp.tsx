@@ -1,7 +1,7 @@
 "use client";
 // REPI Gym desktop por rol (REPI Desktop Gym.dc.html). Cada persona ve la navegación de sus roles en esta organización;
 // la autorización real la resuelve el servidor por capacidad y sede.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { GYM_ROLE_LABEL, type GymRole } from "@repi/domain";
 import { api } from "@/lib/api";
@@ -30,6 +30,11 @@ import { Ic } from "@/components/ui/Ic";
 import { featureOn } from "@/lib/features";
 import { RepiNews, useRepiNewsUnread } from "@/components/announcements/RepiNews";
 import { ArrowsLeftRight, Barbell, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, VideoCamera, Megaphone, type Icon } from "@phosphor-icons/react";
+import { FlashToast } from "@/components/ui/FlashToast";
+import { SectionStage } from "@/components/motion/SectionStage";
+import { useDrawer } from "@/components/motion/useDrawer";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
+import { Skel } from "@/components/motion/Skeleton";
 
 const IC = {
   home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
@@ -82,32 +87,52 @@ function navFor(ctx: GymCtxView): NavItem[] {
   return out;
 }
 
-export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: string; sel?: string; loc?: string } }) {
+export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: string; sel?: string; loc?: string; from?: string } }) {
   const [ctx, setCtx] = useState<GymCtxView | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [screen, setScreen] = useState<GymScreen | null>(null);
   // Ficha del socio como página propia (pedido del titular, 07/11): se recuerda de qué pantalla vino para «Volver».
-  const [from, setFrom] = useState<GymScreen | null>(null);
-  const [sel, setSel] = useState<string | null>(initial.sel ?? null);
+  const [from, setFrom] = useState<GymScreen | null>((initial.from as GymScreen | undefined) ?? null);
+  const [memberName, setMemberName] = useState<string | null>(null);
+  // M06: el menú (aria-current e indicador) y el cajón responden en el toque; la pantalla llega con startTransition.
+  const [navSel, setNavSel] = useState<GymScreen | null>(null);
+  // Selección por pantalla (pedido de Sala, tarea, socio, conversación, profesor): cada pantalla viva ve sólo la suya. Con
+  // una selección compartida, abrir la ficha de un socio (sel = socio) hacía que Sala, todavía viva, abriera ese id como
+  // pedido (QA M06). `sels` se lee también desde los manejadores (ref al día, antes del commit).
+  const [sels, setSelsState] = useState<Partial<Record<GymScreen, string | null>>>(() => (initial.s && initial.sel ? { [initial.s as GymScreen]: initial.sel } : {}));
+  const selsRef = useRef(sels);
+  const setSels = useCallback((fn: (p: Partial<Record<GymScreen, string | null>>) => Partial<Record<GymScreen, string | null>>) => {
+    selsRef.current = fn(selsRef.current); setSelsState(selsRef.current);
+  }, []);
   const [loc, setLoc] = useState<string | null>(initial.loc ?? null);
   const [toast, setToast] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
+  // M06 (QA r2): foco y teclado del cajón (ítem actual al abrir, Escape, título al volver a tocar la pantalla a la vista).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { dismiss } = useDrawer(rootRef, drawer, setDrawer, !!navSel && navSel !== screen);
   const [badges, setBadges] = useState<{ queue: number; msgs: number; validations: number; joins: number; notices: number; billing: number }>({ queue: 0, msgs: 0, validations: 0, joins: 0, notices: 0, billing: 0 });
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mainRef = useRef<HTMLDivElement>(null);
   const flash = useCallback((t: string) => { clearTimeout(tt.current); setToast(t); tt.current = setTimeout(() => setToast(null), 3500); }, []);
   const [newsTick, setNewsTick] = useState(0);
-  const newsUnread = useRepiNewsUnread("gym", orgId, `${screen}:${newsTick}`);
+  // M06: avisos y novedades sin ráfaga de pedidos en cada toque: como máximo cada 30 s, al volver a la pestaña y después de
+  // cada acción (refreshBadges), como antes.
+  const [bucket, setBucket] = useState(0);
+  const newsUnread = useRepiNewsUnread("gym", orgId, `${bucket}:${newsTick}`);
 
   useEffect(() => {
     api<GymCtxView>(`/api/gym/${orgId}/context`).then((c) => {
       setCtx(c);
       const nav = navFor(c);
       const memberPage = initial.s === "member" && !!initial.sel && nav.some((n) => n[0] === "members");
-      setScreen(memberPage || nav.some((n) => n[0] === initial.s) ? (initial.s as GymScreen) : nav[0]?.[0] ?? "reception");
+      const first = memberPage || nav.some((n) => n[0] === initial.s) ? (initial.s as GymScreen) : nav[0]?.[0] ?? "reception";
+      setScreen(first);
+      if (first !== initial.s && initial.sel) setSels(() => ({ [first]: initial.sel })); // como antes: la selección de la URL va a la pantalla que abre
+      if (!memberPage || !nav.some((n) => n[0] === initial.from)) setFrom(null); // «Volver a …» sólo a una pantalla del rol
       if (!c.roles.includes("owner") && (!initial.loc || !c.locations.some((l) => l.id === initial.loc))) setLoc(c.locations[0]?.id ?? null);
     }).catch((e) => setErr(e.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sel = screen ? sels[screen] ?? null : null; // la de la pantalla a la vista (URL)
 
   const refreshBadges = useCallback(() => {
     if (ctx && navFor(ctx).some((n) => n[0] === "notices")) api<{ unread: number }>(`/api/gym/${orgId}/notices`).then((x) => setBadges((b) => ({ ...b, notices: x.unread }))).catch(() => {});
@@ -126,32 +151,93 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
     api<{ shared: number; incoming: number }>(`/api/gym/${orgId}/shift?loc=${l}`).then((s) => setBadges((b) => ({ ...b, queue: s.shared + s.incoming }))).catch(() => {});
     api<{ unread: number }[]>(`/api/gym/${orgId}/messages?loc=${l}`).then((t) => setBadges((b) => ({ ...b, msgs: t.filter((x) => x.unread > 0).length }))).catch(() => {});
   }, [ctx, loc, orgId]);
-  useEffect(() => { refreshBadges(); }, [refreshBadges, screen]);
+  const lastBadges = useRef(0);
+  const badgesIfStale = useCallback(() => {
+    if (document.visibilityState !== "visible" || Date.now() - lastBadges.current < 30_000) return;
+    lastBadges.current = Date.now(); refreshBadges(); setBucket((b) => b + 1);
+  }, [refreshBadges]);
+  useEffect(() => {
+    lastBadges.current = Date.now(); refreshBadges();
+    const id = setInterval(badgesIfStale, 30_000);
+    document.addEventListener("visibilitychange", badgesIfStale);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", badgesIfStale); };
+  }, [refreshBadges, badgesIfStale]);
+  useEffect(() => { badgesIfStale(); }, [screen, badgesIfStale]);
 
+  const urlOf = (sc: GymScreen, se: string | null, fr: GymScreen | null) => {
+    const q = new URLSearchParams({ s: sc });
+    if (se) q.set("sel", se);
+    if (sc === "member" && fr) q.set("from", fr);
+    if (loc) q.set("loc", loc);
+    return `?${q}`;
+  };
   useEffect(() => {
     if (!screen) return;
-    const q = new URLSearchParams({ s: screen });
-    if (sel) q.set("sel", sel);
-    if (loc) q.set("loc", loc);
-    window.history.replaceState(null, "", `?${q}`);
-  }, [screen, sel, loc]);
+    window.history.replaceState(window.history.state, "", urlOf(screen, sel, from));
+  }, [screen, sel, loc, from]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = (s: GymScreen, extra?: { sel?: string | null }) => {
-    setFrom(s === "member" ? (screen === "member" ? from : screen) : null);
-    setScreen(s); setDrawer(false); setSel(extra?.sel ?? null);
-    requestAnimationFrame(() => { mainRef.current?.querySelector("h1")?.focus(); window.scrollTo(0, 0); });
-  };
+  // go y openMember no cambian de identidad: una respuesta de avisos no vuelve a dibujar la pantalla visible. El foco y el
+  // scroll por pantalla los resuelve SectionStage después del commit (antes, un requestAnimationFrame enfocaba el título viejo).
+  const cur = useRef({ screen, from });
+  cur.current = { screen, from };
+  const pushed = useRef(false); // la ficha abierta sumó una entrada al historial: «Volver» y el «atrás» del sistema regresan
+  const go = useCallback((s: GymScreen, extra?: { sel?: string | null }) => {
+    const { screen: sc, from: fr } = cur.current;
+    setDrawer(false); setNavSel(s);
+    if (s !== "member") pushed.current = false;
+    startTransition(() => {
+      setFrom(s === "member" ? (sc === "member" ? fr : sc) : null);
+      setScreen(s); setSels((p) => ({ ...p, [s]: extra?.sel ?? null })); // ir a una pantalla fija su selección; las demás quedan
+    });
+  }, [setSels]);
+  const openMember = useCallback((id: string, opts?: { name?: string | null }) => {
+    const { screen: sc, from: fr } = cur.current;
+    const origin = sc === "member" ? fr : sc;
+    setMemberName(opts?.name ?? null);
+    if (sc !== "member") {
+      // La entrada del origen queda con su selección al momento de salir (el pedido que se cerró ya no figura): «Volver» y el
+      // «atrás» del sistema regresan a la pantalla tal como quedó.
+      if (sc) window.history.replaceState(window.history.state, "", urlOf(sc, selsRef.current[sc] ?? null, null));
+      window.history.pushState({ repiMember: true }, "", urlOf("member", id, origin)); pushed.current = true;
+    }
+    go("member", { sel: id });
+  }, [go]); // eslint-disable-line react-hooks/exhaustive-deps
+  const back = useCallback((to: GymScreen) => { if (pushed.current) window.history.back(); else go(to); }, [go]);
+  // «Atrás» del sistema (gesto de iOS en la PWA, botón de Android): vuelve a la pantalla de la URL anterior.
+  useEffect(() => {
+    const on = () => {
+      const q = new URLSearchParams(window.location.search);
+      const s = q.get("s") as GymScreen | null;
+      if (!s || s === cur.current.screen) return;
+      pushed.current = false;
+      go(s, { sel: q.get("sel") });
+    };
+    window.addEventListener("popstate", on);
+    return () => window.removeEventListener("popstate", on);
+  }, [go]);
+  // Un shell por pantalla, con su selección; misma identidad mientras no cambien la base ni las selecciones.
+  const setSelFor = useMemo(() => {
+    const m = new Map<GymScreen, (id: string | null) => void>();
+    return (k: GymScreen) => { let f = m.get(k); if (!f) { f = (id) => setSels((p) => (p[k] === id ? p : { ...p, [k]: id })); m.set(k, f); } return f; };
+  }, [setSels]);
+  const shellFor = useMemo(() => {
+    if (!ctx) return null;
+    const m = new Map<GymScreen, Shell>();
+    return (k: GymScreen) => { let x = m.get(k); if (!x) { x = { orgId, loc, ctx, flash, go, sel: sels[k] ?? null, setSel: setSelFor(k), refreshBadges, openMember }; m.set(k, x); } return x; };
+  }, [orgId, loc, ctx, flash, go, sels, setSelFor, refreshBadges, openMember]);
+  const shell = shellFor && screen ? shellFor(screen) : null;
   // QA 29/10 (UX-9): si la primera carga falla (red), se ofrece reintentar en vez de dejar la pantalla trabada.
   if (err) return <main className="co-content"><p role="alert" className="err-box">{err} <button type="button" className="btn sm" onClick={() => window.location.reload()}>Reintentar</button></p></main>;
-  if (!ctx || !screen) return <main className="co-content"><p className="muted">Cargando…</p></main>;
+  // M06: la primera carga ya dibuja el armazón (lateral navy y contenido en esqueleto): sin «Cargando…» suelto ni salto de color.
+  if (!ctx || !screen || !shell) return <GymSkeleton />;
   const nav = navFor(ctx);
-  const shell: Shell = { orgId, loc, ctx, flash, go, sel, setSel, refreshBadges };
+  const navKey = navSel === screen || !navSel ? screen : navSel;
   const roleTxt = ctx.roles.map((r) => GYM_ROLE_LABEL[r as GymRole] ?? r).join(" · ");
   const locName = ctx.roles.includes("owner") && !loc ? `${ctx.locations.length} sedes` : ctx.locations.find((l) => l.id === (loc ?? ctx.locations[0]?.id))?.name ?? "";
   const multi = ctx.locations.length > 1;
 
   return (
-    <div className="co" data-drawer={drawer ? "1" : "0"}>
+    <div ref={rootRef} className="co" data-drawer={drawer ? "1" : "0"}>
       <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand">
           <Wordmark width={58} />
@@ -166,15 +252,16 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         </a>
         {multi && (
           <label className="gy-locpick"><span>Sede</span>
-            <select value={loc ?? ""} onChange={(e) => { setLoc(e.target.value || null); setSel(null); }}>
+            <select value={loc ?? ""} onChange={(e) => { setLoc(e.target.value || null); setSels(() => ({})); }}>
               {ctx.roles.includes("owner") && <option value="">Todas</option>}
               {ctx.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </label>
         )}
         <nav className="co-nav" aria-label="Principal">
+          <SlideIndicator />
           {nav.map(([k, l, ic, soon]) => (
-            <button key={k} type="button" title={l} aria-current={screen === k || (screen === "member" && k === "members") ? "page" : undefined} onClick={() => go(k)}>
+            <button key={k} type="button" title={l} aria-current={navKey === k || (navKey === "member" && k === "members") ? "page" : undefined} onClick={() => go(k)}>
               <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "billing" && badges.billing > 0 && <span className="nbadge" aria-label={`${badges.billing} cambios de condiciones sin revisar`}>{badges.billing}</span>}
@@ -194,52 +281,56 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         {/* D188: apariencia personal (no del gimnasio): la misma en todos los espacios. */}
         <div className="co-theme"><ThemePicker compact /></div>
       </aside>
-      {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
-      <main className="co-main">
+      <div className="co-scrim" data-open={drawer ? "1" : "0"} aria-hidden="true" onClick={dismiss} />
+      <main className="co-main" inert={drawer || undefined}>
         <div className="co-topbar ui-dark">
           <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="var(--ui-text)" /></button>
           <Wordmark width={50} />
           <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--ui-muted)" }}>{ctx.org.name}</span>
         </div>
-        <div className="co-content" ref={mainRef} key={`${screen}-${loc}`} data-section={screen}>
-          {screen === "notices" && <NoticesScreen shell={shell} />}
-          {screen === "shift" && <><ShiftScreen shell={shell} />{shell.ctx.accessControl && can(shell.ctx, "members.validate") && !can(shell.ctx, "reception.desk") && <ManualCheckin shell={shell} loc={shell.loc ?? shell.ctx.locations[0]?.id ?? null} />}</>}
-          {screen === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
-          {screen === "connect" && <ConnectReportScreen shell={shell} />}
-          {screen === "presence" && <AccessControlScreen shell={shell} />}
-          {screen === "members" && <MembersScreen shell={shell} />}
-          {screen === "member" && <MemberPage shell={shell} back={from && from !== "members" ? { to: from, label: nav.find((n) => n[0] === from)?.[1] ?? "Atrás" } : null} />}
-          {screen === "handoff" && <HandoffScreen shell={shell} />}
-          {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido."
-            emptyText={can(ctx, "floor.work") ? "Todavía no hay conversaciones. Tocá «Nuevo mensaje» para escribirle a un socio, o esperá a que un socio te escriba." : "Todavía no hay conversaciones. Se abren cuando un socio escribe o el equipo le escribe desde su ficha."}
-            initial={sel} onSeen={refreshBadges} includeSelected action={can(ctx, "floor.work") ? (open) => <NewMessageButton shell={shell} onOpen={open} /> : undefined} />}
-          {screen === "perf" && <MyPerfScreen shell={shell} />}
-          {screen === "mdash" && <PanelScreen shell={shell} />}
-          {screen === "pc" && <PerfCenterScreen shell={shell} />}
-          {screen === "staff" && <TeamScreen shell={shell} />}
-          {screen === "tasks" && <TasksScreen shell={shell} />}
-          {screen === "reviews" && <ReviewsScreen shell={shell} />}
-          {screen === "shifts" && <ShiftsScreen shell={shell} />}
-          {screen === "engage" && <EngageScreen shell={shell} />}
-          {screen === "exec" && <ExecScreen shell={shell} />}
-          {screen === "locs" && <LocsScreen shell={shell} />}
-          {screen === "config" && <ConfigScreen shell={shell} />}
-          {screen === "guide" && <GymGuide shell={shell} />}
-          {screen === "reception" && <ReceptionScreen shell={shell} />}
-          {screen === "community" && <CommunityScreen shell={shell} />}
-          {screen === "validations" && <ValidationsScreen shell={shell} />}
-          {screen === "videos" && <ExerciseVideos orgId={orgId} flash={shell.flash} />}
-          {screen === "equipment" && <EquipmentScreen shell={shell} />}
-          {screen === "billing" && <ConditionsScreen orgId={orgId} flash={flash} unit="socios" onSeen={refreshBadges} />}
-          {screen === "joins" && <JoinsScreen shell={shell} />}
-          {screen === "accesses" && <AccessesScreen shell={shell} />}
-          {screen === "repinews" && <RepiNews area="gym" orgId={orgId} onSeen={() => setNewsTick((x) => x + 1)} onGo={(d) => go(d === "gym.equipment" && nav.some((n) => n[0] === "equipment") ? "equipment" : d === "gym.members" && nav.some((n) => n[0] === "members") ? "members" : nav[0][0])} />}
-          {(screen === "shift" || screen === "exec" || screen === "mdash" || screen === "reception" || screen === "queue") && <FloorNowCard shell={shell} />}
+        <div className="co-content" ref={mainRef}>
+          {/* M06: pantallas vivas (Activity) con cambio de carril; vertical desde 768 px (orden del menú), horizontal debajo.
+              La ficha del socio es profundidad (entra «adelante», vuelve «atrás»). Otra sede: todo se desmonta y se recarga. */}
+          <SectionStage active={screen} order={nav.map((n) => n[0])} axis="auto" focus="title" paneClass="co-pane" resetKey={loc} top={(k) => k === "member"} render={(k) => { const shell = shellFor!(k); return <>
+            {k === "notices" && <NoticesScreen shell={shell} />}
+            {k === "shift" && <><ShiftScreen shell={shell} />{shell.ctx.accessControl && can(shell.ctx, "members.validate") && !can(shell.ctx, "reception.desk") && <ManualCheckin shell={shell} loc={shell.loc ?? shell.ctx.locations[0]?.id ?? null} />}</>}
+            {k === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
+            {k === "connect" && <ConnectReportScreen shell={shell} />}
+            {k === "presence" && <AccessControlScreen shell={shell} />}
+            {k === "members" && <MembersScreen shell={shell} />}
+            {k === "member" && <MemberPage shell={shell} name={memberName} back={from && from !== "members" ? { to: from, label: nav.find((n) => n[0] === from)?.[1] ?? "Atrás", go: back } : null} />}
+            {k === "handoff" && <HandoffScreen shell={shell} />}
+            {k === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido."
+              emptyText={can(ctx, "floor.work") ? "Todavía no hay conversaciones. Tocá «Nuevo mensaje» para escribirle a un socio, o esperá a que un socio te escriba." : "Todavía no hay conversaciones. Se abren cuando un socio escribe o el equipo le escribe desde su ficha."}
+              initial={shell.sel} onSeen={refreshBadges} includeSelected action={can(ctx, "floor.work") ? (open) => <NewMessageButton shell={shell} onOpen={open} /> : undefined} />}
+            {k === "perf" && <MyPerfScreen shell={shell} />}
+            {k === "mdash" && <PanelScreen shell={shell} />}
+            {k === "pc" && <PerfCenterScreen shell={shell} />}
+            {k === "staff" && <TeamScreen shell={shell} />}
+            {k === "tasks" && <TasksScreen shell={shell} />}
+            {k === "reviews" && <ReviewsScreen shell={shell} />}
+            {k === "shifts" && <ShiftsScreen shell={shell} />}
+            {k === "engage" && <EngageScreen shell={shell} />}
+            {k === "exec" && <ExecScreen shell={shell} />}
+            {k === "locs" && <LocsScreen shell={shell} />}
+            {k === "config" && <ConfigScreen shell={shell} />}
+            {k === "guide" && <GymGuide shell={shell} />}
+            {k === "reception" && <ReceptionScreen shell={shell} />}
+            {k === "community" && <CommunityScreen shell={shell} />}
+            {k === "validations" && <ValidationsScreen shell={shell} />}
+            {k === "videos" && <ExerciseVideos orgId={orgId} flash={shell.flash} />}
+            {k === "equipment" && <EquipmentScreen shell={shell} />}
+            {k === "billing" && <ConditionsScreen orgId={orgId} flash={flash} unit="socios" onSeen={refreshBadges} />}
+            {k === "joins" && <JoinsScreen shell={shell} />}
+            {k === "accesses" && <AccessesScreen shell={shell} />}
+            {k === "repinews" && <RepiNews area="gym" orgId={orgId} onSeen={() => setNewsTick((x) => x + 1)} onGo={(d) => go(d === "gym.equipment" && nav.some((n) => n[0] === "equipment") ? "equipment" : d === "gym.members" && nav.some((n) => n[0] === "members") ? "members" : nav[0][0])} />}
+            {(k === "shift" || k === "exec" || k === "mdash" || k === "reception" || k === "queue") && <FloorNowCard shell={shell} />}
+          </>; }} />
         </div>
       </main>
       {can(shell.ctx, "floor.work") && <HoursPrompt shell={shell} />}
       <div aria-live="polite" className="sr-only">{toast}</div>
-      {toast && <div className="co-toast" aria-hidden="true">{toast}</div>}
+      {toast && <FlashToast text={toast} />}
     </div>
   );
 }
@@ -258,5 +349,26 @@ function ReceptionScreen({ shell }: { shell: Shell }) {
       <span className="muted">Recepción no ve fichas, programas, reseñas ni datos de salud.</span>
       {task && loc && <NewTaskModal shell={shell} loc={loc} onClose={() => setTask(false)} />}
     </>
+  );
+}
+
+/** M06: armazón de la primera carga (lateral navy con 6 filas y contenido en esqueleto), en lugar de un «Cargando…» suelto. */
+function GymSkeleton() {
+  return (
+    <div className="co" data-drawer="0" aria-busy="true">
+      <aside className="co-side ui-dark" aria-hidden="true">
+        <div className="co-brand"><Wordmark width={58} /><span className="tag">Gym</span></div>
+        <div className="co-nav">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} style={{ height: 40, display: "flex", alignItems: "center", gap: 12, padding: "0 11px" }}><Skel w={20} h={20} r={6} /><Skel w={`${50 + ((i * 17) % 35)}%`} h={12} className="lbl" /></div>)}</div>
+      </aside>
+      <main className="co-main">
+        <div className="co-topbar ui-dark" aria-hidden="true"><Wordmark width={50} /></div>
+        <div className="co-content">
+          <span role="status" className="sr-only">Cargando</span>
+          <div className="co-head" aria-hidden="true"><div style={{ display: "flex", flexDirection: "column", gap: 8 }}><Skel w={180} h={12} /><Skel w={240} h={30} r={8} /></div></div>
+          <div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>{[0, 1, 2].map((i) => <div key={i} className="skel-card" style={{ minHeight: 120 }}><Skel w="40%" h={14} /><Skel w="60%" h={26} /><Skel w="80%" h={12} /></div>)}</div>
+          <div className="skel-card" aria-hidden="true" style={{ minHeight: 240 }}><Skel w="30%" h={16} /><Skel h={12} /><Skel h={12} /><Skel w="70%" h={12} /></div>
+        </div>
+      </main>
+    </div>
   );
 }

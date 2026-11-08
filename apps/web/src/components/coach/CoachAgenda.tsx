@@ -39,7 +39,7 @@ export function TodayAgenda({ orgId, go }: { orgId: string; go: () => void }) {
 export function CoachAgenda({ orgId, ov, flash }: { orgId: string; ov: Overview; flash: (t: string) => void }) {
   const today = arParts(new Date()).date;
   const [from, setFrom] = useState(mondayOf(today));
-  const d = useLoad<Appt[]>(`/api/coach/${orgId}/agenda?from=${from}&days=7`);
+  const d = useLoad<Appt[]>(`/api/coach/${orgId}/agenda?from=${from}&days=7`, { keep: true });
   const [modal, setModal] = useState<{ edit?: Appt; date?: string } | null>(null);
   const act = async (a: Appt, body: Record<string, unknown>, msg: string) => {
     try { await api(`/api/coach/${orgId}/agenda/${a.id}`, { body }); flash(msg); d.reload(); } catch (e) { flash((e as Error).message); }

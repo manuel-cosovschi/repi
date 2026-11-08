@@ -2,10 +2,12 @@
 // PP1 (D199) · Progreso › Entrenamiento: resumen del período (útil desde la primera sesión) y evolución por ejercicio.
 // Todo se calcula en el servidor con las series válidas (anuladas fuera, corregidas con su valor vigente); el teléfono sólo
 // pide el resumen y el ejercicio elegido, nunca todo el historial. Unidades: se guardan kg y se muestran en la unidad elegida.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PROGRESS_RANGES, isActivityProfile, kgTo, volumeIn, type ProgressRange, type WeightUnit } from "@repi/domain";
-import { api } from "@/lib/api";
+import { useCached } from "@/lib/cache";
+import { Loading, Skel } from "@/components/motion/Skeleton";
 import { RepiAsk } from "@/components/brain/RepiAsk";
+import { useBrain } from "@/components/brain/BrainProvider";
 import { ProgressChart, type ChartPoint } from "./ProgressChart";
 import { useUnit } from "./units";
 
@@ -62,37 +64,32 @@ function fmtFor(m: Metric, unit: WeightUnit) {
 
 export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" }: { onOpenSession: (id: string) => void; offline?: boolean; initialRange?: ProgressRange }) {
   const unit = useUnit();
+  const brainOn = useBrain().enabled;
   const [range, setRange] = useState<ProgressRange>(initialRange);
-  const [sum, setSum] = useState<Summary | null>(null);
-  const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [list, setList] = useState<ExItem[] | null>(null);
+  const [qq, setQq] = useState(""); // búsqueda con espera de 250 ms
   const [exId, setExId] = useState<string | null>(null);
-  const [ex, setEx] = useState<ExProgress | null>(null);
-  const [exErr, setExErr] = useState<string | null>(null);
   const [metric, setMetric] = useState<Metric>("e1rm");
   const [pick, setPick] = useState(false);
+  // M06: caché en memoria por URL (stale-while-revalidate). Al volver se ve lo último cargado; al cambiar el período o el
+  // ejercicio queda lo anterior (atenuado) hasta que llega lo nuevo, sin vaciar la tarjeta.
+  const S = useCached<Summary>(offline ? null : `/api/me/progress/summary?range=${range}`, { keep: true });
+  const sum = S.data, err = S.err && (S.stale || !sum) ? S.err : null, loadSum = S.reload;
+  useEffect(() => { const t = setTimeout(() => setQq(q.trim()), q ? 250 : 0); return () => clearTimeout(t); }, [q]);
+  const L = useCached<{ exercises: ExItem[] }>(offline ? null : `/api/me/progress/exercises?q=${encodeURIComponent(qq)}`, { keep: true });
+  const list = L.data?.exercises ?? (L.err ? [] : null);
 
   // Ejercicio inicial: el más entrenado del período (primera de «tus marcas»); si no, el más reciente de la lista.
-  const loadSum = useCallback(() => { setErr(null); api<Summary>(`/api/me/progress/summary?range=${range}`).then(setSum).catch((e) => setErr((e as Error).message)); }, [range]);
-  useEffect(() => { if (!offline) loadSum(); }, [loadSum, offline]);
-  useEffect(() => {
-    if (offline) return;
-    const t = setTimeout(() => { api<{ exercises: ExItem[] }>(`/api/me/progress/exercises?q=${encodeURIComponent(q.trim())}`).then((r) => setList(r.exercises)).catch(() => setList([])); }, q ? 250 : 0);
-    return () => clearTimeout(t);
-  }, [q, offline]);
   useEffect(() => { if (!exId && sum && list?.length && !q) setExId(sum.marks[0]?.id ?? list[0].id); }, [exId, sum, list, q]);
+  // M06 (QA r2): mientras ese ejercicio inicial está por elegirse (la lista llegó antes que el período), la lista para elegir
+  // no se muestra: aparecía un instante debajo del esqueleto (la tarjeta medía 908 px y después 579) y lo de abajo saltaba.
+  const autoPick = !exId && !q && !err && !!list?.length;
+  const E = useCached<ExProgress>(exId && !offline ? `/api/me/progress/exercises/${encodeURIComponent(exId)}?range=${range}` : null, { keep: true });
+  const ex = E.data, exErr = E.err && (E.stale || !ex) ? E.err : null;
   useEffect(() => {
-    if (!exId || offline) return;
-    let off = false;
-    setExErr(null);
-    api<ExProgress>(`/api/me/progress/exercises/${encodeURIComponent(exId)}?range=${range}`).then((r) => {
-      if (off) return;
-      setEx(r);
-      setMetric((m) => (r.metric === "load" ? (["e1rm", "top", "reps", "volume"].includes(m) ? m : "e1rm") : r.metric === "reps" ? "bw" : "time"));
-    }).catch((e) => { if (!off) { setEx(null); setExErr((e as Error).message); } });
-    return () => { off = true; };
-  }, [exId, range, offline]);
+    if (!ex) return;
+    setMetric((m) => (ex.metric === "load" ? (["e1rm", "top", "reps", "volume"].includes(m) ? m : "e1rm") : ex.metric === "reps" ? "bw" : "time"));
+  }, [ex]);
 
   const metrics: Metric[] = ex?.metric === "load" ? ["e1rm", "top", "reps", "volume"] : ex?.metric === "reps" ? ["bw"] : ex ? ["time"] : [];
   // Ejercicios por tiempo: en una actividad, «Duración» (la más larga de cada sesión), no «Tiempo» de una serie.
@@ -121,11 +118,13 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
   const maxW = Math.max(1, ...(sum?.weeks ?? []).map((w) => w.sessions));
   return (
     <>
-      <section className="pp-card" aria-labelledby="pp-sum">
-        <div className="pp-head"><h2 id="pp-sum">Tu período</h2>{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
+      <section className="pp-card" aria-labelledby="pp-sum" aria-busy={S.stale || undefined} data-stale={S.stale || undefined}>
+        {/* M06 (QA r2): mientras carga, el lugar de «Preguntale a REPI» (36 px) reservado: al llegar el período el encabezado
+            crecía 14 px y corría la tarjeta. */}
+        <div className="pp-head"><h2 id="pp-sum">Tu período</h2>{!sum && !err && brainOn && <span className="linkbtn rp-ask" aria-hidden="true" style={{ visibility: "hidden" }}>Preguntale a REPI</span>}{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
         <RangePicker value={range} onChange={setRange} label="Período" />
         {err && <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={loadSum}>Reintentar</button></p>}
-        {!sum && !err && <span className="mb-muted">Cargando…</span>}
+        {!sum && !err && <PeriodSkeleton unit={unit} />}
         {t && t.sessions === 0 && <span className="mb-muted" style={{ fontSize: 14 }}>Sin entrenamientos registrados en este período.</span>}
         {t && t.sessions > 0 && (
           <>
@@ -160,11 +159,11 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         )}
       </section>
 
-      <section className="pp-card" aria-labelledby="pp-ex">
+      <section className="pp-card" aria-labelledby="pp-ex" aria-busy={E.stale || undefined} data-stale={E.stale || undefined}>
         <div className="pp-head"><h2 id="pp-ex">Evolución por ejercicio</h2>
           {!!list?.length && <button type="button" className="linkbtn" aria-expanded={pick} onClick={() => setPick((x) => !x)}>{pick ? "Cerrar" : "Cambiar ejercicio"}</button>}</div>
         {list && !list.length && !q && <span className="mb-muted" style={{ fontSize: 14 }}>Cuando registres series, acá vas a ver cómo evoluciona cada ejercicio.</span>}
-        {(pick || (list && !exId)) && !!(list?.length || q) && (
+        {(pick || (list && !exId && !autoPick)) && !!(list?.length || q) && (
           <>
             <label className="search"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
             <div className="pp-exlist" role="list">
@@ -178,6 +177,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
           </>
         )}
         {exErr && <p className="mb-err" role="alert">{exErr}</p>}
+        {!ex && !exErr && (list === null || !!list.length) && <><Loading what="la evolución por ejercicio" /><ExerciseSkeleton /></>}
         {ex ? (
           <>
             <div><b style={{ fontSize: 17 }}>{ex.exercise.name}</b><br /><small className="mb-muted">{ex.exercise.group} · desde {ex.totals.firstDay ? dayTxt(ex.totals.firstDay) : "—"}{ex.records ? ` · ${ex.records} ${ex.records === 1 ? "récord" : "récords"} en el período` : ""}</small></div>
@@ -207,8 +207,43 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
               </details>
             )}
           </>
-        ) : exId && !exErr ? <span className="mb-muted">Cargando…</span> : null}
+        ) : null}
       </section>
+    </>
+  );
+}
+
+/**
+ * M06: «Tu período» en esqueleto con la forma y el alto de la tarjeta real (QA: con latencia, la tarjeta real era ~165 px
+ * más alta y empujaba «Evolución por ejercicio»). Mismo marcado que lo real: indicadores con sus rótulos (los de dos
+ * renglones también), frecuencia de 80 px y las 8 marcas que muestra el servidor como máximo (filas de .pp-rows).
+ */
+function PeriodSkeleton({ unit }: { unit: WeightUnit }) {
+  return (
+    <>
+      <Loading what="tu período" />
+      <div className="pp-kpis" aria-hidden="true">
+        {["Sesiones", "Series", "Repeticiones", `Volumen (${unit})`, "Minutos activos"].map((l) => <div key={l}><Skel w="56%" h={20} style={{ margin: "3px 0" }} /><span>{l}</span></div>)}
+      </div>
+      <div aria-hidden="true"><Skel w="58%" h={13} style={{ margin: "2px 0 10px" }} /><Skel h={80} r={10} /></div>
+      <div aria-hidden="true">
+        <Skel w="52%" h={13} style={{ margin: "2px 0 6px" }} />
+        <ul className="pp-rows">{[62, 48, 40, 56, 44, 36, 52, 46].map((w, i) => <li key={i}><Skel w={`${w}%`} h={16} /><Skel w={64} h={12} /></li>)}</ul>
+      </div>
+    </>
+  );
+}
+
+/** M06: «Evolución por ejercicio» en esqueleto con el alto de la real (nombre, métricas, gráfico con leyenda y dato, notas). */
+function ExerciseSkeleton() {
+  return (
+    <>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 7 }}><Skel w="46%" h={17} style={{ margin: "2px 0 1px" }} /><Skel w="80%" h={12} /><Skel w="40%" h={12} /></div>
+      <div aria-hidden="true" style={{ display: "flex", gap: 4 }}>{[96, 104, 120, 72].map((w, i) => <Skel key={i} w={w} h={32} r={16} />)}</div>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 8 }}><Skel h={188} r={12} /><Skel w="70%" h={12} style={{ margin: "11px 0" }} /><Skel h={44} r={12} /></div>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w="92%" h={12} style={{ marginTop: 2 }} /><Skel w="60%" h={12} /></div>
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w="88%" h={12} style={{ marginTop: 2 }} /><Skel w="50%" h={12} /></div>
+      <Skel w="44%" h={14} style={{ margin: "2px 0 1px" }} />
     </>
   );
 }

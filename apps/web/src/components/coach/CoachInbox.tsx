@@ -18,7 +18,9 @@ export const ACCESS_ST: Record<string, [string, string]> = {
 };
 const when = (iso: string) => fmtDate(iso, { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; flash: (t: string) => void; go: (s: Screen, e?: { sel?: string }) => void; onChanged: () => void }) {
+export function CoachInbox({ orgId, flash, go, openClient, onChanged }: { orgId: string; flash: (t: string) => void; go: (s: Screen, e?: { sel?: string }) => void; openClient?: (relId: string) => void; onChanged: () => void }) {
+  // «Ver ficha» abre sólo la ficha de ese cliente (pedido del titular, 07/11/2026), con «Volver a Solicitudes».
+  const open = (relId: string) => (openClient ? openClient(relId) : go("clients", { sel: relId }));
   const [d, setD] = useState<Inbox | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const load = useCallback(() => api<Inbox>(`/api/coach/${orgId}/inbox`).then(setD).catch((e) => setErr(e.message)), [orgId]);
@@ -47,7 +49,7 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {r.status === "open" && <button type="button" className="btn sm" onClick={() => resolve(r.id)}>Marcar resuelto</button>}
                   {r.kind === "programa" && r.status === "open" && <button type="button" className="btn sm pri" onClick={() => go("builder")}>Asignar programa</button>}
-                  <button type="button" className="btn sm" onClick={() => go("clients", { sel: r.relId })}>Ver ficha</button>
+                  <button type="button" className="btn sm" onClick={() => open(r.relId)}>Ver ficha</button>
                 </div>
               </div>
             ))}
@@ -57,7 +59,7 @@ export function CoachInbox({ orgId, flash, go, onChanged }: { orgId: string; fla
             <section className="card">
               <h2>Molestias y check-ins recientes</h2>
               {d.pains.map((p) => (
-                <button key={p.id} type="button" className="trow" style={{ border: 0, borderBottom: "1px solid var(--ui-divider)", background: "none", textAlign: "left", cursor: "pointer", width: "100%", font: "inherit", color: "inherit" }} onClick={() => go("clients", { sel: p.relId })}>
+                <button key={p.id} type="button" className="trow" style={{ border: 0, borderBottom: "1px solid var(--ui-divider)", background: "none", textAlign: "left", cursor: "pointer", width: "100%", font: "inherit", color: "inherit" }} onClick={() => open(p.relId)}>
                   <span className="dot" style={{ background: p.level >= 4 ? "var(--ui-warning)" : "var(--ui-accent-2)" }} />
                   <span style={{ flex: 1 }}><b>{p.member} · {p.zone} {p.level}/10</b> · {p.exerciseName ?? PAIN_CONTEXT[p.context]}{p.note ? ` · “${p.note}”` : ""}{p.shared ? " · compartida sólo este reporte" : ""}{p.level >= PAIN_WARN_LEVEL ? " · intensidad alta" : ""}</span>
                   <span className="muted">{when(p.createdAt)}</span>

@@ -12,8 +12,9 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 const greet = () => { const h = Number(new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "numeric", hour12: false }).format(new Date())); return h < 13 ? "Buen día" : h < 20 ? "Buenas tardes" : "Buenas noches"; };
 
-export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
+export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go, openClient }: {
   orgId: string; ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null; tab?: "rend" }) => void;
+  openClient?: (relId: string, tab?: "rend") => void;
 }) {
   // D210: propuestas abiertas y pedidos del alumno desde REPI (sólo cantidades). Si no carga, «Pendientes» sigue como siempre.
   // Con el Asistente REPI apagado (flag `assistant`) no se pide ni se muestra nada.
@@ -28,9 +29,9 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
   ];
   const todos = [
     ...ov.clients.filter((c) => c.status === "active" && !c.program).map((c) => ({ t: `${c.name} no tiene programa`, d: "Asignale uno para que lo vea en su app", dot: "var(--ui-accent)", cta: "Asignar programa", go: () => go("builder") })),
-    ...ov.clients.filter((c) => c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => go("clients", { sel: c.id }) })),
+    ...ov.clients.filter((c) => c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => (openClient ? openClient(c.id) : go("clients", { sel: c.id })) })),
     ...(k.pendingInvites ? [{ t: `${k.pendingInvites} ${k.pendingInvites === 1 ? "invitación pendiente" : "invitaciones pendientes"}`, d: "Esperando que la persona acepte en su app", dot: "var(--ui-accent-2)", cta: "Invitar otra", go: onInvite }] : []),
-    ...repiTodos(repi, ov, go),
+    ...repiTodos(repi, ov, go, openClient),
   ];
   return (
     <>
@@ -68,14 +69,14 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
 }
 
 /** Líneas de «Pendientes» con señales de REPI: propuestas por revisar (y cuántas son pedidos del alumno). Abre su Rendimiento. */
-function repiTodos(repi: PendingSignals | null, ov: Overview, go: (s: Screen, e?: { sel?: string; tab?: "rend" }) => void) {
+function repiTodos(repi: PendingSignals | null, ov: Overview, go: (s: Screen, e?: { sel?: string; tab?: "rend" }) => void, openClient?: (relId: string, tab?: "rend") => void) {
   if (!repi?.clients.length) return [];
   const named = repi.clients.map((c) => ({ ...c, name: ov.clients.find((x) => x.id === c.relId)?.name })).filter((c) => c.name);
   const lines = named.slice(0, MAX_REPI_LINES).map((c) => ({
     t: `${c.name}: ${plural(c.pendingProposals, "propuesta para revisar", "propuestas para revisar")}`,
     d: `${!c.studentRequests ? "Señales de REPI" : c.studentRequests === c.pendingProposals ? `${c.studentRequests === 1 ? "Es un pedido suyo" : "Son pedidos suyos"} desde REPI`
       : `${plural(c.studentRequests, "es pedido suyo", "son pedidos suyos")} desde REPI`} · el programa no cambia solo`,
-    dot: "var(--ui-accent)", cta: "Revisar", go: () => go("clients", { sel: c.relId, tab: "rend" }),
+    dot: "var(--ui-accent)", cta: "Revisar", go: () => (openClient ? openClient(c.relId, "rend") : go("clients", { sel: c.relId, tab: "rend" })),
   }));
   const rest = named.slice(MAX_REPI_LINES);
   if (rest.length) {

@@ -10,6 +10,7 @@ import { PROGRESS_POSES, localDate, type ProgressPose } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
 import { AgeGate } from "./AgeGate";
+import { Loading, Skel, SkelCard } from "@/components/motion/Skeleton";
 
 type Photo = { id: string; day: string; pose: ProgressPose | null; width: number; height: number; createdAt: string };
 const src = (id: string) => `/api/me/photo-file/${encodeURIComponent(id)}`;
@@ -44,7 +45,7 @@ export function ProgressPhotos({ flash, offline }: { flash: (t: string) => void;
 
   if (offline) return <div className="pc-empty" role="status">Sin conexión: las fotos se ven y se suben con conexión, para que nunca figure como guardada una foto que todavía no llegó.</div>;
   if (err) return <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={() => void load()}>Reintentar</button></p>;
-  if (!list) return <span className="mb-muted">Cargando…</span>;
+  if (!list) return <div aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 12 }}><Loading what="tus fotos" /><SkelCard h={96} lines={2} /><div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>{[0, 1, 2].map((i) => <Skel key={i} h={120} r={12} />)}</div></div>;
   const photos = list.photos;
   const pair = sel.map((id) => photos.find((p) => p.id === id)!).filter(Boolean).sort((a, b) => a.day.localeCompare(b.day));
   return (

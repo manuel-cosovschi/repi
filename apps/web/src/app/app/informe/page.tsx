@@ -8,6 +8,7 @@ import { requireUser } from "@/server/access/guard";
 import { AccessError } from "@/server/access/util";
 import { myMonthlyReport } from "@/server/training/report";
 import "@/styles/report.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "Informe mensual · REPI" };
 type SP = Promise<Record<string, string | string[] | undefined>>;

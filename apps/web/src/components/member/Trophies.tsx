@@ -9,6 +9,8 @@ import { Barbell, CalendarCheck, PersonSimple, Shuffle, Stack, Trophy, type Icon
 import { CHALLENGE_DIFFICULTY, TIER_LABEL, XP, type TrophyTier } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
+import { useCached } from "@/lib/cache";
+import { Skel } from "@/components/motion/Skeleton";
 
 export type TrophyView = { key: string; name: string; tier: number; tierName: TrophyTier | null; value: number; goal: number | null; pct: number; next: string | null; since: string | null };
 export type Unlock = { id: string; key: string; tier: TrophyTier; title: string; detail: string };
@@ -42,14 +44,19 @@ export function Medal({ k, tier, size = 88, spin }: { k: string; tier: TrophyTie
 
 /** Nivel y vitrina. Sin `data` la carga sola (Progreso); en el gym llega con el inicio. */
 export function LevelPanel({ data, onReplay }: { data?: LevelData | null; onReplay?: (u: Unlock) => void }) {
-  const [own, setOwn] = useState<LevelData | null>(null);
-  const [failed, setFailed] = useState(false);
   const [how, setHow] = useState(false);
   const [replay, setReplay] = useState<Unlock | null>(null);
-  useEffect(() => { if (data === undefined) api<LevelData>("/api/me/level").then(setOwn).catch(() => setFailed(true)); }, [data]);
-  const d = data ?? own;
-  if (failed && !d) return <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu nivel (necesita conexión).</span>;
-  if (!d) return null;
+  // M06: caché en memoria (al volver se ve al instante) y, la primera vez, la tarjeta en esqueleto con su alto real.
+  const own = useCached<LevelData>(data === undefined ? "/api/me/level" : null);
+  const d = data ?? own.data;
+  if (own.err && !d) return <span className="mb-muted" style={{ fontSize: 14 }}>No pudimos cargar tu nivel (necesita conexión).</span>;
+  if (!d) return data === null ? null : (
+    <section className="lv" aria-hidden="true">
+      <div className="lv-card ui-dark"><div className="lv-top"><Skel w={74} h={52} r={10} /><Skel w={96} h={18} /></div><Skel h={8} r={4} /><Skel w="58%" h={12} /><Skel w={130} h={16} /></div>
+      <Skel w={92} h={22} style={{ marginTop: 6 }} />
+      <div className="tcase">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="tcase-it" style={{ minHeight: 150 }}><Skel w={72} h={72} r={36} /><Skel w="70%" h={13} /><Skel w="45%" h={11} /></div>)}</div>
+    </section>
+  );
   const play = (t: TrophyView) => {
     if (!t.tierName) return;
     const u = { id: `replay-${t.key}`, key: t.key, tier: t.tierName, title: `${t.name} · ${TIER_LABEL[t.tierName]}`, detail: t.goal == null ? "Escalón máximo" : `Próximo: ${t.next}` };

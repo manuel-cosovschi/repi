@@ -1,13 +1,13 @@
 "use client";
 import { StudentPreview } from "./StudentPreview";
 import { SharedWishes, type SharedWishesView } from "./SharedWishes";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { EXERCISE_CHANGE_REASONS, activityOf, formatClock, formatRest, prescriptionText, type ExerciseChangeReason, type ProgramDoc } from "@repi/domain";
 import { api } from "@/lib/api";
 import { SensitiveTab } from "./CoachHealth";
 import { fmtDate, fmtIsoDay, initials, nf, relTime, type ClientRow, type Overview, type Screen } from "./types";
 import { Ic } from "@/components/ui/Ic";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { ArrowLeft, MagnifyingGlass } from "@phosphor-icons/react";
 import { ClientPayTab } from "./CoachPayments";
 import { GoalsTab } from "./CoachGoals";
 import { ImportModal } from "./ImportModal";
@@ -17,6 +17,9 @@ import { SessionLog, type LoggedExercise } from "./SessionLog";
 import { IntelSection } from "./CoachIntelligence";
 import { stashTiDraft, type TiDraft } from "./ProposalDraft";
 import { RepiSignals } from "./RepiSignals";
+import { useCached } from "@/lib/cache";
+import { Skel } from "@/components/motion/Skeleton";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
 
 type Detail = {
   id: string; name: string; status: string; since: string; grants: string[];
@@ -31,18 +34,26 @@ const TABS: [string, string][] = ([["res", "Resumen"], ["rend", "Rendimiento"], 
 const FILTERS: [string, string][] = [["all", "Todos"], ["active", "Activos"], ["noprog", "Sin programa"], ["paused", "En pausa"]];
 const SORTS: [string, string][] = [["name", "Nombre"], ["adh", "Adherencia"], ["last", "Actividad"]];
 
-export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onImported, go, flash }: {
-  orgId: string; ov: Overview; sel: string | null; setSel: (id: string) => void; initialTab?: string | null; onInvite: () => void; onImported: () => void; flash: (t: string) => void;
+export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onImported, go, flash, solo, onOpen }: {
+  orgId: string; ov: Overview; sel: string | null; setSel: (id: string | null) => void; initialTab?: string | null; onInvite: () => void; onImported: () => void; flash: (t: string) => void;
   go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
+  /** Ficha sola (pedido del titular, 07/11/2026): sin la lista, con «Volver» a la pantalla de origen. */
+  solo?: { back: { label: string; go: () => void } | null };
+  /** Abrir la ficha como página cuando la lista y la ficha no entran lado a lado. */
+  onOpen?: (id: string, name: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("name");
   const [importing, setImporting] = useState(false);
-  const [tab, setTab] = useState(() => (initialTab && TABS.some(([k]) => k === initialTab) ? initialTab : "res"));
+  const okTab = (t?: string | null): t is string => !!t && TABS.some(([k]) => k === t);
+  const [tab, setTab] = useState(() => (okTab(initialTab) ? initialTab : "res"));
+  // M06: la pantalla queda viva entre visitas, así que un pedido nuevo de pestaña (D210: «Revisar» → Rendimiento) se aplica
+  // también sin volver a montar.
+  const [askedTab, setAskedTab] = useState(initialTab);
+  if (initialTab !== askedTab) { setAskedTab(initialTab); if (okTab(initialTab)) setTab(initialTab); }
   const [preview, setPreview] = useState(false); // D195: vista previa de sólo lectura
-  const [det, setDet] = useState<Detail | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+
   const list = useMemo(() => {
     const qq = q.trim().toLowerCase();
     let l = ov.clients.filter((c) => (!qq || c.name.toLowerCase().includes(qq)) &&
@@ -50,12 +61,16 @@ export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onI
     l = l.slice().sort((a, b) => sort === "adh" ? (a.adherence ?? -1) - (b.adherence ?? -1) : sort === "last" ? (b.lastSessionAt ?? "").localeCompare(a.lastSessionAt ?? "") : a.name.localeCompare(b.name));
     return l;
   }, [ov.clients, q, filter, sort]);
-  const current: ClientRow | undefined = ov.clients.find((c) => c.id === sel) ?? list[0];
-  useEffect(() => {
-    if (!current) { setDet(null); return; }
-    setDet(null); setErr(null);
-    api<Detail>(`/api/coach/${orgId}/clients/${current.id}`).then(setDet).catch((e) => setErr(e.message));
-  }, [orgId, current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const current: ClientRow | undefined = ov.clients.find((c) => c.id === sel) ?? (solo ? undefined : list[0]);
+  // M06: ficha cacheada por id (al volver, al instante; nunca la de otro cliente) y revalidada siempre.
+  const D = useCached<Detail>(current ? `/api/coach/${orgId}/clients/${current.id}` : null);
+  const det = D.data, err = det ? null : D.err;
+  const splitRef = useRef<HTMLDivElement>(null);
+  const pickRow = (c: ClientRow) => {
+    // Lista y ficha no entran lado a lado (836 px, ver .split): la ficha se abre como página, sin quedar debajo de la lista.
+    if (onOpen && (splitRef.current?.clientWidth ?? 9999) < 836) { onOpen(c.id, c.name); return; }
+    setSel(c.id); setTab("res");
+  };
 
   // Pausar, reactivar o terminar la relación (D115); terminar saca al alumno de esta lista.
   const relStatus = async (status: "active" | "paused" | "ended", ask?: string) => {
@@ -67,6 +82,38 @@ export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onI
     } catch (e) { flash((e as Error).message); }
   };
 
+  const detail = (
+    <div className="detail-pane">
+      {!solo && <button type="button" className="btn sm co-list-back" onClick={() => setSel(null)}><Ic i={ArrowLeft} size={16} /> Todos los clientes</button>}
+      {err && <p role="alert" className="err-box">{err}</p>}
+      {solo && !current && <div className="empty">Ese cliente ya no está en tu lista.</div>}
+      {current && (
+        <section className="card who" style={{ flexDirection: "row" }}>
+          <span className="av56">{initials(current.name)}</span>
+          <div style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 4 }}>{!solo && <span style={{ fontSize: 22, fontWeight: 600 }}>{current.name}</span>}<span className="muted" style={{ fontSize: 13 }}>Cliente desde {fmtDate(current.since, { month: "short", year: "numeric" })}{current.status === "paused" ? " · En pausa" : ""}</span></div>
+          <div className="co-actions">
+            {det?.program && <button type="button" className="btn" onClick={() => go("builder", { pid: null })}>Cambiar programa</button>}
+            {det?.program && <button type="button" className="btn" onClick={() => setPreview(true)}>Ver cómo lo verá {current.name.split(" ")[0]}</button>}
+            {det?.program ? <button type="button" className="btn pri" onClick={() => go("builder", { pid: det.program!.programId })}>Editar programa</button>
+              : <button type="button" className="btn pri" onClick={() => go("builder", { pid: null })}>Asignar programa</button>}
+            {current.status === "active" && <button type="button" className="btn" onClick={() => relStatus("paused", `¿Pausar a ${current.name.split(" ")[0]}? Deja de ver su programa hasta que lo reactives; el chat y su historial quedan.`)}>Pausar</button>}
+            {current.status === "paused" && <button type="button" className="btn" onClick={() => relStatus("active")}>Reactivar</button>}
+            <button type="button" className="btn danger" onClick={() => relStatus("ended", `¿Terminar la relación con ${current.name}? Se cierra su programa, deja de compartir sus datos con vos y el chat queda de sólo lectura. Su historial no se borra. Para volver, lo invitás de nuevo.`)}>Terminar</button>
+          </div>
+        </section>
+      )}
+      {current && <div className="tabs" role="tablist" aria-label="Ficha del cliente"><SlideIndicator variant="line" />{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>}
+      {current && (!det ? <ClientSkeleton /> : <Tab tab={tab} det={det} row={current} orgId={orgId} flash={flash} go={go} />)}
+    </div>
+  );
+  if (solo) return (
+    <>
+      {solo.back && <nav className="gy-back" aria-label="Volver"><button type="button" className="btn sm" onClick={solo.back.go}><Ic i={ArrowLeft} size={16} /> Volver a {solo.back.label}</button></nav>}
+      <div className="co-head"><div><span className="co-kicker">Ficha del cliente</span><h1 tabIndex={-1}>{current?.name ?? "Ficha del cliente"}</h1></div></div>
+      {detail}
+      {preview && det?.program && current && <StudentPreview doc={det.program.doc} version={det.program.version} who={current.name.split(" ")[0]} onClose={() => setPreview(false)} />}
+    </>
+  );
   return (
     <>
       <div className="co-head">
@@ -76,13 +123,13 @@ export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onI
       {!ov.clients.length ? (
         <div className="empty">Todavía no tenés clientes. Invitá al primero: recibe un enlace y acepta desde su app.</div>
       ) : (
-        <div className="split">
+        <div className="split co-clients" ref={splitRef} data-sel={sel ? "1" : "0"}>
           <div className="list-pane">
             <label className="search"><Ic i={MagnifyingGlass} size={16} color="var(--ui-muted)" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente" aria-label="Buscar cliente" /></label>
             <div className="pills">{FILTERS.map(([k, l]) => <button type="button" key={k} className="pill" aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}</div>
             <div className="sorts">Ordenar: {SORTS.map(([k, l]) => <button type="button" key={k} aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>)}</div>
             {list.map((c) => (
-              <button type="button" key={c.id} className="crow" aria-current={c.id === current?.id} onClick={() => { setSel(c.id); setTab("res"); }}>
+              <button type="button" key={c.id} className="crow" aria-current={c.id === current?.id} onClick={() => pickRow(c)}>
                 <span className="av36">{initials(c.name)}</span>
                 <span><b>{c.name}</b><small className="muted">{c.program?.name ?? "Sin programa"} · {relTime(c.lastSessionAt)}</small></span>
                 <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
@@ -94,26 +141,7 @@ export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onI
             ))}
             {!list.length && <span className="muted" style={{ padding: 20, textAlign: "center", fontSize: 14 }}>Sin resultados.</span>}
           </div>
-          <div className="detail-pane">
-            {err && <p role="alert" className="err-box">{err}</p>}
-            {current && (
-              <section className="card who" style={{ flexDirection: "row" }}>
-                <span className="av56">{initials(current.name)}</span>
-                <div style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 4 }}><span style={{ fontSize: 22, fontWeight: 600 }}>{current.name}</span><span className="muted" style={{ fontSize: 13 }}>Cliente desde {fmtDate(current.since, { month: "short", year: "numeric" })}{current.status === "paused" ? " · En pausa" : ""}</span></div>
-                <div className="co-actions">
-                  {det?.program && <button type="button" className="btn" onClick={() => go("builder", { pid: null })}>Cambiar programa</button>}
-                  {det?.program && <button type="button" className="btn" onClick={() => setPreview(true)}>Ver cómo lo verá {current.name.split(" ")[0]}</button>}
-                  {det?.program ? <button type="button" className="btn pri" onClick={() => go("builder", { pid: det.program!.programId })}>Editar programa</button>
-                    : <button type="button" className="btn pri" onClick={() => go("builder", { pid: null })}>Asignar programa</button>}
-                  {current.status === "active" && <button type="button" className="btn" onClick={() => relStatus("paused", `¿Pausar a ${current.name.split(" ")[0]}? Deja de ver su programa hasta que lo reactives; el chat y su historial quedan.`)}>Pausar</button>}
-                  {current.status === "paused" && <button type="button" className="btn" onClick={() => relStatus("active")}>Reactivar</button>}
-                  <button type="button" className="btn danger" onClick={() => relStatus("ended", `¿Terminar la relación con ${current.name}? Se cierra su programa, deja de compartir sus datos con vos y el chat queda de sólo lectura. Su historial no se borra. Para volver, lo invitás de nuevo.`)}>Terminar</button>
-                </div>
-              </section>
-            )}
-            <div className="tabs" role="tablist" aria-label="Ficha del cliente">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>
-            {!det ? <p className="muted">Cargando ficha…</p> : <Tab tab={tab} det={det} row={current!} orgId={orgId} flash={flash} go={go} />}
-          </div>
+          {detail}
         </div>
       )}
       {preview && det?.program && current && <StudentPreview doc={det.program.doc} version={det.program.version} who={current.name.split(" ")[0]} onClose={() => setPreview(false)} />}
@@ -220,6 +248,17 @@ function PerfTab({ orgId, relId, programId, go }: { orgId: string; relId: string
           ))}
         </div>
       </section>
+    </>
+  );
+}
+
+/** M06: ficha del cliente en esqueleto con su forma (indicadores y sesiones), en lugar de «Cargando ficha…». */
+function ClientSkeleton() {
+  return (
+    <>
+      <span role="status" className="sr-only">Cargando la ficha</span>
+      <div className="grid-kpi" aria-hidden="true">{[0, 1, 2, 3].map((i) => <div key={i} className="stat"><Skel w="50%" h={12} /><Skel w="40%" h={26} style={{ margin: "4px 0" }} /><Skel w="70%" h={11} /></div>)}</div>
+      <section className="card" aria-hidden="true" style={{ minHeight: 220, gap: 10 }}><Skel w="30%" h={16} /><Skel h={12} /><Skel h={12} /><Skel w="75%" h={12} /></section>
     </>
   );
 }

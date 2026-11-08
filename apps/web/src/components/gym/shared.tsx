@@ -1,9 +1,10 @@
 "use client";
 // Piezas comunes del escritorio Gym (REPI Desktop Gym.dc.html): tipos, formato, carga y controles chicos.
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { TASK_CATEGORY, TASK_PRIORITY, activityValuesText, fmtSeconds, type SetMetrics } from "@repi/domain";
-import { api } from "@/lib/api";
+import { useCached } from "@/lib/cache";
 import type { BriefViewData } from "@/components/shared/BriefBlock";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
 
 export type GymScreen =
   | "shift" | "queue" | "members" | "member" | "handoff" | "msgs" | "perf"
@@ -20,6 +21,8 @@ export type Task = {
 export type Shell = {
   orgId: string; loc: string | null; ctx: GymCtxView; flash: (t: string) => void; go: (s: GymScreen, extra?: { sel?: string | null }) => void;
   sel: string | null; setSel: (id: string | null) => void; refreshBadges: () => void;
+  /** Ficha del socio como página propia (pedido del titular, 07/11/2026): el nombre llega desde el botón (título en el primer cuadro). */
+  openMember: (id: string, opts?: { name?: string | null }) => void;
 };
 
 export const can = (ctx: GymCtxView, cap: string) => ctx.caps.includes(cap);
@@ -55,16 +58,14 @@ export const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 export const PRI_CHIP: Record<string, string> = { alta: "bad", media: "warn", baja: "mute" };
 export const SOURCE: Record<string, string> = { app: "Pedido desde la app", sala: "Pedido en sala", traspaso: "Traspaso", gerencia: "Creada por gerencia", recepcion: "Creada por recepción", entrenador: "Creada en sala" };
 
-/** Carga con recarga explícita; los errores se muestran en la pantalla (no se inventan datos). */
-export function useLoad<T>(url: string | null) {
-  const [data, setData] = useState<T | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    if (!url) return;
-    try { setErr(null); setData(await api<T>(url)); } catch (e) { setErr((e as Error).message); }
-  }, [url]);
-  useEffect(() => { setData(null); void load(); }, [load]);
-  return { data, err, reload: load, setData };
+/**
+ * Carga con recarga explícita; los errores se muestran en la pantalla (no se inventan datos).
+ * M06 (docs/MOTION_NAVEGACION.md §5): se apoya en la caché en memoria por URL exacta. Volver a una pantalla muestra lo
+ * último cargado en el primer cuadro y revalida; nunca se muestra el dato de otra URL (otro socio, otro contrato). Con
+ * `keep`, al cambiar la URL (búsqueda, período, sede, semana) queda lo anterior marcado `stale` hasta que llega lo nuevo.
+ */
+export function useLoad<T>(url: string | null, opts?: { keep?: boolean }) {
+  return useCached<T>(url, opts);
 }
 
 export function Head({ kicker, title, children }: { kicker?: string; title: string; children?: React.ReactNode }) {
@@ -79,6 +80,7 @@ export function Head({ kicker, title, children }: { kicker?: string; title: stri
 export function Seg<T extends string>({ value, options, onChange, label }: { value: T; options: [T, string][]; onChange: (v: T) => void; label: string }) {
   return (
     <div className="seg" role="tablist" aria-label={label}>
+      <SlideIndicator />
       {options.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={value === k} onClick={() => onChange(k)}>{l}</button>)}
     </div>
   );
