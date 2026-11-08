@@ -8,6 +8,7 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
 - **Causas confirmadas en local:**
   1. **Pool trabado.** 13 transacciones usaban el `db` global dentro de `db.transaction`. En Vercel el pool tiene 3 conexiones, así que 3 pedidos así a la vez se trababan para siempre y colgaban la instancia. Reproducido con 3 aprobaciones simultáneas de una venta y triple clic en «Aprobar».
   2. **Socket mudo.** postgres-js no pone tiempo máximo a las consultas, así que una consulta en un socket mudo esperaba unos 15 min.
+  - **Cuál fue en producción:** probablemente el 2. En producción hay 0 ventas cargadas (consulta del 08/11), así que el bloqueo por aprobaciones simultáneas (1) no pudo ser la causa. Es un defecto real pero latente. El socket mudo coincide con «1 caso aislado, base limpia» y con que nada quedara registrado. No hay registros de pedidos para confirmarlo (Hobby guarda 1 h).
 - **Corrección (sin migraciones):**
   - **Transacciones:** pasan `tx` a todas las funciones que llaman (ventas, liquidaciones, inicio de entrenamiento, sala, agenda, privacidad, pegar día, plantillas, invitación del dueño). El push de «brief» se encola después del commit.
   - **Pool:** `src/db/index.ts` agrega `idle_timeout` de 20 s, `max_lifetime` de 5 min y `connect_timeout` de 10 s.
@@ -23,7 +24,12 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
   - Regresión `tests/pool-deadlock.test.ts` con el pool real de 3 conexiones.
   - `tests/deadline.test.ts`.
 - **Pendiente del titular (producción):**
-  - Tiempos en el rol `repi_app`: `idle_in_transaction_session_timeout`, `lock_timeout` y `statement_timeout`. La propuesta está en el informe del incidente.
+  - Tiempos en el rol `repi_app`, previo «Respaldo»:
+    - `alter role repi_app set idle_in_transaction_session_timeout = '30s'`;
+    - `alter role repi_app set lock_timeout = '15s'`;
+    - `alter role repi_app set statement_timeout = '60s'`.
+    - Supavisor los aplica a las conexiones nuevas. Se verifica con `select current_setting('lock_timeout')`.
+    - Revisar antes los scripts que entran como `repi_app` (`ops:retention`). Opcional: `log_lock_waits = on`.
   - Revisión y merge.
 - **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
 
@@ -74,7 +80,7 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
   - 0 push, 0 fallas, 0 llamadas de IA.
   - La corrida más larga tardó 738 ms.
   - Detalle en §10 del contrato.
-- **Aparte, en investigación:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base.
+- **Aparte:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base. Ver la entrada del incidente (08/11) arriba.
 - **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
   - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
   - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
