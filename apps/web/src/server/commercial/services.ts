@@ -529,8 +529,8 @@ export async function changeResponsible(actorId: string, contractId: string, p: 
   return { ok: true };
 }
 
-async function ownerInviteByToken(token: string) {
-  const [r] = await db.select({ i: invitation, o: organization }).from(invitation).innerJoin(organization, eq(organization.id, invitation.orgId))
+async function ownerInviteByToken(token: string, q: Tx | typeof db = db) {
+  const [r] = await q.select({ i: invitation, o: organization }).from(invitation).innerJoin(organization, eq(organization.id, invitation.orgId))
     .where(and(eq(invitation.kind, "org_owner"), eq(invitation.tokenHash, sha256(token.trim()))));
   return r ?? null;
 }
@@ -546,7 +546,7 @@ export async function acceptOwnerInvitation(userId: string, token: string) {
   const [u] = await db.select().from(user).where(eq(user.id, userId));
   if (!u?.emailVerified) throw new AccessError("unverified", "Verificá tu email para continuar.", 403);
   return db.transaction(async (tx) => {
-    const r = await ownerInviteByToken(token);
+    const r = await ownerInviteByToken(token, tx);
     if (!r) throw new AccessError("invalid_link", "El enlace no es válido.", 404);
     const [i] = await tx.select().from(invitation).where(eq(invitation.id, r.i.id)).for("update");
     if (i.status !== "pending" || i.expiresAt < new Date()) throw new AccessError("invalid_link", i.status === "accepted" ? "Esta invitación ya se usó." : "La invitación venció o fue revocada. Pedí una nueva a REPI.", 409);

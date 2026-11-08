@@ -403,7 +403,7 @@ export async function staffAct(actorId: string, orgId: string, taskId: string, a
         break;
       }
       case "transfer": {
-        if (!p.toUserId || p.toUserId === actorId || !(await floorStaff(orgId, t.locationId)).some((s) => s.userId === p.toUserId)) throw new AccessError("invalid", "Elegí a quién transferir: tiene que trabajar en la sala de esta sede.");
+        if (!p.toUserId || p.toUserId === actorId || !(await floorStaff(orgId, t.locationId, tx)).some((s) => s.userId === p.toUserId)) throw new AccessError("invalid", "Elegí a quién transferir: tiene que trabajar en la sala de esta sede.");
         const text = [p.done && `Hecho: ${clip(p.done, 200)}`, p.pending && `Pendiente: ${clip(p.pending, 200)}`, p.next && `Próximo paso: ${clip(p.next, 200)}`, note].filter(Boolean).join(" · ");
         if (text.length < 3) throw new AccessError("invalid", "Dejá qué se hizo y qué queda para quien sigue.");
         const sh = await activeShift(actorId, tx);

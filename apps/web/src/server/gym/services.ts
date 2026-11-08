@@ -102,8 +102,8 @@ export async function addEvent(tx: Tx | typeof db, t: { id: string; orgId: strin
   });
 }
 /** Personal de sala de una sede (para traspasos, reasignación y grilla). */
-export async function floorStaff(orgId: string, locationId: string) {
-  const rows = await db.selectDistinctOn([staffMembership.userId], { userId: staffMembership.userId, name: user.name, role: staffMembership.role, afterHoursAccess: staffMembership.afterHoursAccess })
+export async function floorStaff(orgId: string, locationId: string, q: Tx | typeof db = db) {
+  const rows = await q.selectDistinctOn([staffMembership.userId], { userId: staffMembership.userId, name: user.name, role: staffMembership.role, afterHoursAccess: staffMembership.afterHoursAccess })
     .from(staffMembership).innerJoin(user, eq(user.id, staffMembership.userId))
     .where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active"), inArray(staffMembership.role, [...FLOOR_ROLES]),
       or(eq(staffMembership.locationId, locationId), isNull(staffMembership.locationId))))
@@ -443,7 +443,7 @@ export async function reassignTask(actorId: string, orgId: string, taskId: strin
   return db.transaction(async (tx) => {
     const t = await lockTask(tx, ctx, taskId);
     if (t.status === "done" || t.status === "cancelled") throw new AccessError("closed", "Esta tarea ya está cerrada.", 409);
-    if (toUserId && !(await floorStaff(orgId, t.locationId)).some((s) => s.userId === toUserId)) throw new AccessError("invalid", "Esa persona no trabaja en la sala de esta sede.");
+    if (toUserId && !(await floorStaff(orgId, t.locationId, tx)).some((s) => s.userId === toUserId)) throw new AccessError("invalid", "Esa persona no trabaja en la sala de esta sede.");
     const status = t.status === "follow_up" ? "follow_up" : "open";
     await tx.update(gymTask).set({ assigneeUserId: toUserId, status, takenAt: toUserId ? t.takenAt ?? new Date() : t.takenAt }).where(eq(gymTask.id, t.id));
     await addEvent(tx, t, { actor: actorId, kind: "reassigned", from: t.status, to: status, toUserId });

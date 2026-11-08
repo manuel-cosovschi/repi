@@ -4,7 +4,7 @@
 import { and, asc, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { APPT_DURATIONS, APPT_MODALITY, arParts, arToUtc, overlaps, type ApptModality } from "@repi/domain";
 import { db, schema } from "@/db";
-import { AccessError, audit } from "../access/util";
+import { AccessError, audit, type Tx } from "../access/util";
 import { requireCoach } from "./services";
 
 const { coachAppointment: appt, coachClient, user, organization } = schema;
@@ -25,8 +25,8 @@ function parseSlot(p: { date: string; time: string; durationMin: number }, now: 
 }
 
 /** Otro turno agendado del mismo coach que se pisa con este horario. */
-async function assertFree(orgId: string, startsAt: Date, durationMin: number, exceptId?: string) {
-  const near = await db.select().from(appt).where(and(eq(appt.coachOrgId, orgId), eq(appt.status, "scheduled"),
+async function assertFree(orgId: string, startsAt: Date, durationMin: number, exceptId?: string, q: Tx | typeof db = db) {
+  const near = await q.select().from(appt).where(and(eq(appt.coachOrgId, orgId), eq(appt.status, "scheduled"),
     gte(appt.startsAt, new Date(startsAt.getTime() - 4 * 3_600_000)), lt(appt.startsAt, new Date(startsAt.getTime() + durationMin * 60_000)),
     ...(exceptId ? [ne(appt.id, exceptId)] : [])));
   if (near.some((x) => overlaps(startsAt, durationMin, x.startsAt, x.durationMin))) throw new AccessError("busy", "Ya tenés una sesión en ese horario.", 409);
@@ -55,7 +55,7 @@ export async function createAppointment(actorId: string, orgId: string, p: {
   return db.transaction(async (tx) => {
     // Serializa altas del mismo coach para que dos pestañas no tomen el mismo horario.
     await tx.select({ id: organization.id }).from(organization).where(eq(organization.id, orgId)).for("update");
-    await assertFree(orgId, startsAt, p.durationMin);
+    await assertFree(orgId, startsAt, p.durationMin, undefined, tx);
     const [a] = await tx.insert(appt).values({
       coachOrgId: orgId, coachClientId: p.coachClientId, startsAt, durationMin: p.durationMin, modality: p.modality,
       place: p.place?.trim().slice(0, 160) || null, note: p.note?.trim().slice(0, 300) || null, createdBy: actorId, createdAt: now, updatedAt: now,

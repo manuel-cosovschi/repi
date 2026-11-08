@@ -4,7 +4,7 @@
 import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
-import { AccessError } from "../access/util";
+import { AccessError, type Tx } from "../access/util";
 import { NOT_FOUND, gymContext, scopedLocations } from "./services";
 
 const { shiftLog, user, gymLocation, gymMember, gymFloorPick, organization } = schema;
@@ -57,8 +57,8 @@ export async function pickFloorTrainer(userId: string, gymMemberId: string, trai
 }
 
 /** Profesor elegido hoy por este socio, si sigue en turno (para guardarlo en la sesión que inicia). */
-export async function todaysPick(gymMemberId: string, now = new Date()) {
-  const [p] = await db.select().from(gymFloorPick).where(and(eq(gymFloorPick.gymMemberId, gymMemberId), eq(gymFloorPick.day, localDate(now))));
+export async function todaysPick(gymMemberId: string, now = new Date(), q: Tx | typeof db = db) {
+  const [p] = await q.select().from(gymFloorPick).where(and(eq(gymFloorPick.gymMemberId, gymMemberId), eq(gymFloorPick.day, localDate(now))));
   return p?.trainerUserId ?? null;
 }
 

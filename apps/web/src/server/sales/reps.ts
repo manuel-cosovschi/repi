@@ -7,7 +7,7 @@ import {
   ENGAGEMENT, PAYOUT_FREQUENCY, REP_STATUS, isEmail, isPayoutFrequency, isRepStatus, normalizeEmail, repCodeFrom, type PayoutFrequency, type RepStatus,
 } from "@repi/domain";
 import { db, schema } from "@/db";
-import { addDays, newToken, sha256 } from "../access/util";
+import { addDays, newToken, sha256, type Tx } from "../access/util";
 import { MailError, deliverMail } from "../mailer";
 import { logError } from "../log";
 import { AccessError, NF, audit, clean, isDay, notifyAdmins, notifyRep, requireRep, salesAdmin, today, type Rep } from "./core";
@@ -220,8 +220,8 @@ export async function assignPlan(actorId: string, repId: string, p: { planVersio
   return { id: row.id };
 }
 /** Plan vigente de un vendedor en una fecha: la asignación con mayor vigencia ≤ fecha (empate: la más reciente). */
-export async function planVersionAt(repId: string, dateIso: string) {
-  const rows = await db.select({ a: salesRepPlan, v: commissionPlanVersion, p: commissionPlan }).from(salesRepPlan)
+export async function planVersionAt(repId: string, dateIso: string, q: Tx | typeof db = db) {
+  const rows = await q.select({ a: salesRepPlan, v: commissionPlanVersion, p: commissionPlan }).from(salesRepPlan)
     .innerJoin(commissionPlanVersion, eq(commissionPlanVersion.id, salesRepPlan.planVersionId)).innerJoin(commissionPlan, eq(commissionPlan.id, commissionPlanVersion.planId))
     .where(and(eq(salesRepPlan.repId, repId), sql`${salesRepPlan.effectiveFrom} <= ${dateIso}`)).orderBy(desc(salesRepPlan.effectiveFrom), desc(salesRepPlan.createdAt)).limit(1);
   return rows[0] ?? null;
