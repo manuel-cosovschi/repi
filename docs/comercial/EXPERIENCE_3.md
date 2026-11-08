@@ -166,6 +166,27 @@ Detalle con cifras en la PR. Resumen:
   publicar (Speed Insights).
 - **CLS al recorrer la página** (layout-shift con scroll continuo): 0 en teléfono y 0,036 en escritorio.
 
+## Motion 2 · «El punto que ordena» (07/11/2026, sin publicar)
+
+Segunda pasada de movimiento por el comentario del titular («decente… ir más allá» y el logo «raro» al final de 02). Plan,
+decisiones y verificación completos en `EXPERIENCE_3_MOTION_2.md`.
+
+**Sistema de movimiento:**
+
+- **Un hilo, el punto de la «ı»:** cae y se vuelve Valentina (hero), junta el caos y hace nacer el logo real (02), y toda la
+  sala vuelve a él y se acomoda en la «ı» (cierre). El punto es siempre el `<i>` del Wordmark o el impacto sobre la sala.
+- **Afirmaciones cinéticas** (`x3/Say.tsx`): palabra por palabra desde el servidor, la clave se enciende y se subraya.
+- **Sin `filter: blur` animado.** Sólo transform, opacidad, trazo y máscaras cortas (`clip-path`, la luz del hero).
+- **Velo frío** (`tone`) y personas en acero (`cold`) para la sala sin REPI; el paso a cian es un corte.
+- **Cortes de montaje** (barridos) en lugar del mismo fundido; números del motor a tamaño de pantalla (`Roll` v2).
+- **La sala:** zoom del SVG hasta 2,4, personas de tamaño constante, foco de zona en blanco, encuadre corrido hacia el lado
+  libre del texto, el 3D que entra en la misma cenital del SVG, y un director de tomas que no mide el diseño por cuadro.
+- **Veracidad:** el teléfono de 03 es interfaz real compuesta (recortes sin números + `TargetCard` con el motor); el pedido
+  de 05 usa los nombres de la demo (Julián, Sofía).
+
+**Verificación** (local): Lighthouse móvil mediana 86 (TBT 117 ms, A11y/BP/SEO 100, CLS 0); CLS de recorrido 0,0005
+(escritorio) y 0 (teléfono); axe 0 en 32 pasadas; Impeccable 0; e2e 64/64; phone-low ~60 fps en 02, 03 y 08.
+
 ## Criterios de aceptación
 
 Se cumplen los siete momentos WOW del máster con evidencia: capturas, grabación de escritorio y teléfono, Lighthouse móvil, axe, el detector de Impeccable, E2E de rutas, formularios y demos, y la revisión de cuadros de cada video.

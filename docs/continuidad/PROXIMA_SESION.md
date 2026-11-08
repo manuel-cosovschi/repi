@@ -75,6 +75,75 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
   4. Merge.
   5. Verificación en producción con demo.
 
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · RONDA 3 LISTA EN RAMA, SIN PUBLICAR
+
+- **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
+  y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
+- **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (PR abierto el 08/11, sin publicar). Plan, decisiones y evidencia:
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2; §12: ronda 3).
+- **Hecho (un commit por paso, P0–P7 + verificación):**
+  - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
+    ≤ 2,4 y foco en blanco, director sin lecturas por cuadro, `Say`, `curves.ts`, `Roll` v2, sin desenfoques animados.
+  - P1 (02): los pedazos mandan trazos curvos al punto de la «ı», el punto se los traga, crece y el logo real se abre desde él;
+    corte de sala fría a viva y las tres pantallas reales (sala, socio, dueño).
+  - P2 (hero): el punto cae en arco sobre el rack de Valentina sin cruzar el texto y la luz se expande desde ahí; el 3D entra
+    después, en la misma cenital del SVG.
+  - P3 (03): la serie como subtítulo enorme con el motor real; teléfono con `TargetCard` real (ningún «53»); repeticiones 1→6.
+  - P4 (cierre): toda la sala vuelve al punto y el punto se acomoda en la «ı».
+  - P5–P7: módulos como tomas y «Que venga alguien → Voy» con el scroll; perspectivas al llegar y sin remontar; «PROBALO.»,
+    puertas sin reflujo, bordes curvos y pasos que se dibujan.
+- **Ronda 2 (revisión independiente, 07/11):** corregidos los 8 puntos (detalle y evidencia en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §11):
+  - cierre sin logo «raro»: no hay logo hasta que el punto llega a la «ı» y después nace entero desde el punto;
+  - el trazo «Voy» ya no queda suelto en el teléfono;
+  - ningún pedazo de 02 pisa el titular en iPhone 15 (nueva prueba e2e);
+  - 3D con equipos ≤ 58 px, personas cian sin luz y sin cuadro vacío en 03;
+  - recortes de 03 enteros, «62,5 kg × 8–10» en una línea y teléfono vertical en escritorio;
+  - el trazo de Gestión rodea el teléfono;
+  - Training Intelligence muestra la misma serie que 03 (`x3/EngineScreen.tsx`, compartido).
+  Más audacia: impacto del hero como evento de luz, 02 sin tiempos muertos y con golpe de cian en el corte, la sala que gira
+  en espiral alrededor del logo en el cierre y la sala que responde al mouse.
+  Pruebas: typecheck ✓; e2e `conoce` + `public` 65 ✓ + 1 omitida; Lighthouse móvil mediana 86 (TBT 98 ms, CLS 0, A11y 100);
+  CLS de recorrido 0,0011 / 0; axe 0 (20 pasadas); Impeccable 0; pausa sin cambios; SwiftShader en SVG.
+  Sin migraciones ni dependencias nuevas.
+- **Ronda 3 (segunda revisión independiente, 08/11).** La revisión encontró problemas sólo con el 3D, que se ve forzando
+  `?sala=high` en escritorio o `?sala=medium` en el teléfono. Todos corregidos; detalle y números en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §12.
+  - **02:** los pedazos ya no saltan cuando entra el 3D. Se ubican con `transform` y, con la escena a la vista, no se
+    reubican; lo hacen al salir de la pantalla. CLS esperando en 02: 0,1395 / 0,2089 → 0. CLS de recorrido con 3D:
+    escritorio ≤ 0,0012 y teléfono 0.
+  - **Hero:** fundido cruzado real del SVG al 3D (`data-svg="off"` recién al terminar), sin el cuadro sin sala.
+  - **Cierre en 3D:** el plano se encoge y se apaga del todo (`planFade`). Queda sólo el punto, sin la sala en miniatura.
+  - **Trazos de 02:** rodean el texto (`route`/`spline`). En el teléfono el párrafo se va antes de los trazos. Los pedazos
+    se apagan sobre el punto (≤ 9 px).
+  - **Teléfono:** sin anillos del impacto sobre el logo y el título. Cierre de 180svh a 230svh.
+  - **Pruebas:**
+    - typecheck ✓.
+    - Lighthouse móvil: 87 / 86 / 86, TBT 52 / 110 / 83 ms, CLS 0, A11y 100.
+    - CLS por defecto: 0,0005 en escritorio y 0 en el teléfono.
+    - Movimiento reducido y pausa: sin cambios.
+    - E2E `conoce` + `public`: 63 ✓, 1 omitida y 2 ✗. Las dos fallas son la misma prueba de demo, en mobile y desktop: la
+      API respondió 503 porque `repi_dev` tiene 301 entornos de demo de otras sesiones (tope 300, purga por cron). No
+      depende de esta ronda y no se tocó la base.
+  - **Videos para el titular:** regrabados en el scratchpad, `cx-motion/owner/`, con los mismos nombres.
+- **Archivos:** `apps/web/src/components/conoce/sala/{store,model,Stage,SalaSvg,SalaCanvas}.ts(x)`,
+  `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap,EngineScreen}.ts(x)`,
+  `apps/web/src/components/conoce/ConoceHub.tsx`, `apps/web/src/styles/conoce3.css`, `apps/web/e2e/conoce.spec.ts`.
+  `TargetCard.tsx` no se tocó (sólo se reutiliza).
+- **Pruebas:** typecheck ✓; e2e `conoce` + `public` 64/64 contra `next start` local; axe 0 (32 pasadas); Impeccable 0;
+  Lighthouse móvil mediana 86, TBT 117 ms, CLS 0; CLS de recorrido 0,0005 / 0; pausa sin cambios de píxeles; SwiftShader en
+  SVG. Vitest no se corrió en apps/web (base de pruebas compartida). Sin migraciones, sin dependencias nuevas.
+- **Decisiones:** 3 series en el ejemplo (con 4 el motor no sube la carga sobre un historial de 3); el subtítulo de 03 usa
+  `targetLine` de la tarjeta; los puntos de «escribiendo» pasaron a texto (Impeccable); la prueba e2e de la cabecera acepta el
+  `aria-label` del logo (fallaba igual antes de esta pasada).
+- **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
+  socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
+- **Próxima acción:** que el titular revise `/conoce` con la ronda 3 (videos en `cx-motion/owner/`). Antes del PR, volver a
+  correr la prueba e2e de la demo guiada con lugar para demos en la base local. Después, PR desde `claude/conoce-ajustes`. No hay
+  migraciones, así que el respaldo de `docs/RESPALDOS.md` sólo corre si el despliegue lo pide. Luego publicar y medir el
+  LCP de campo. Antes de levantar `next start` en 3103, cerrar el `next-server` anterior de `/home/user/repi-cx/apps/web`
+  (el `pkill` del `npm exec` no lo cierra y la página se sirve con la build vieja).
+
 ## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 
 - **Pedido:** máster del titular, guardado en `docs/adaptive/AC3_MASTER_PROMPT.md`.

@@ -1,9 +1,9 @@
 """Descripción en texto de cada film (alternativa para quien no ve la imagen; los films no tienen voz).
 Lee los guiones de build.py sin renderizar nada: reemplaza las funciones de escena por otras que anotan qué se ve y qué
-texto aparece. Escribe, por film, una pista WebVTT de descripciones (<id>.descripcion.vtt, junto al video web) y el JSON
-que muestra el reproductor de /conoce (apps/web/src/content/film-descriptions.json).
+texto aparece. Escribe, por film, una pista WebVTT de descripciones (<id>.descripcion.vtt, junto al video web) para lectores
+de pantalla. El reproductor de /conoce muestra sólo el resumen de cada film (content/conoce.ts), pedido del titular 07/11.
 Uso: python3 tools/describe.py   (desde design/films/kit; no necesita los medios)"""
-import importlib.util, json, os, re
+import importlib.util, os, re
 
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 spec = importlib.util.spec_from_file_location("build", os.path.join(KIT, "build.py"))
@@ -45,6 +45,5 @@ for name, web in WEB.items():
     vtt = "WEBVTT\n\n" + "\n\n".join(f"{ts(a)} --> {ts(e)}\n{text}" for a, e, text in cues) + "\n"
     open(os.path.join(REPO, "apps/web/public/conoce/videos", f"{web}.descripcion.vtt"), "w").write(vtt)
     out[web] = [{"at": f"{int(a // 60)}:{int(a % 60):02d}", "text": text} for a, e, text in cues]
-path = os.path.join(REPO, "apps/web/src/content/film-descriptions.json")
-open(path, "w").write(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
+path = "pistas .descripcion.vtt"
 print("ok", len(out), "films →", path)
