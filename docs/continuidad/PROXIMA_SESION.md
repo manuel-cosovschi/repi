@@ -1,8 +1,8 @@
 # REPI — Retomar acá
 
-Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; en rama: transiciones M06 (D212, `claude/app-transiciones`, QA ronda 3 lista para publicar) y clave de cron en Vault (#79, espera el paso del titular en Vercel)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, espera el paso del titular en Vercel)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 08/11/2026 · QA RONDA 3: SE PUEDE PUBLICAR · PR ABIERTO, ESPERA APROBACIÓN DEL TITULAR (D212)
+## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 08/11/2026 · PUBLICADO Y VERIFICADO (#85, `ec54444`, D212)
 
 - **Pedidos del titular:** 06/11 (grabación del iPhone, PWA del alumno): «muy rígido, nada fluido, hasta trabado… es rápido y quiero mantenerlo, pero más fluidez, alguna animación interesante» (todas las apps). 07/11: «Abrir ficha socio» desde Sala debe abrir sólo la ficha, no el listado.
 - **Rama:** `claude/app-transiciones` (worktree `/home/user/repi-tx`, sobre `main` `218cd53`, que ya traía la pantalla «member» de #70). **Sin push, sin PR, sin despliegue.** Plan, decisiones, riesgos y mediciones: `docs/MOTION_NAVEGACION.md`; especificación: `motion.md` §13; contrato: `docs/DESIGN_CONTRACT.md`.
@@ -52,7 +52,11 @@ Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte 
   - **Sin migraciones**, sin cambios de servidor ni de base.
 - **Próxima acción:** revisar con el titular (videos y su iPhone; ahora también la velocidad en su teléfono) y, con su aprobación, abrir el PR. Pendientes menores: «Tu nivel» crece 25 px al cargar (al final de Progreso); tareas largas del primer dibujo de Entrenar, Progreso y el editor de Programas, como en `main`.
 - **08/11, ronda 3:** QA independiente → se puede publicar (más rápida que main en los 10 cambios de pestaña; axe 0; E2E 40 ✓). Corregidos además: el lugar reservado de «Preparar consulta con REPI» en Mensajes, el indicador que vuelve si el dedo desplaza y el toque largo sin click. Detalle en `docs/MOTION_NAVEGACION.md` §21. Videos para el titular en `scratchpad/tx-qa/owner/`.
-- **Próximo:** aprobación del titular, merge (sin migraciones) y verificación en producción con demos.
+- **Publicado 08/11** (aprobación del titular «Publica todo»): merge `ec54444`, sin migraciones; `/api/version` = `ec54444f1959`. En producción, con demos (iPhone 15):
+  - **Alumno:** recorrió todas las pestañas dos veces; el indicador y el título coinciden en cada toque, CLS 0 y sin errores.
+  - **Sala:** «Abrir ficha del socio» abre la ficha sola (h1 «Martina…») y «Volver a Sala» regresa a Pendientes.
+  - **Coach:** desde el cajón fue a Programas con el foco en el h1, y Escape devuelve el foco a «Abrir menú».
+  - **Queda por probar en el iPhone del titular:** el toque largo sobre una pestaña.
 
 ## Incidente «Task timed out after 300 seconds» en /api/admin — 08/11/2026 · PUBLICADO Y VERIFICADO (#80, `47fac4f`)
 
@@ -244,11 +248,11 @@ Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte 
 - **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
   - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
   - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
-  - **Arreglo preparado** en `claude/cron-secret-vault` (08/11), probado en una base local que imita Supabase:
-    - `scripts/operations/cron-secret-vault.sql` guarda en Vault una clave nueva generada por la base, y crea `repi_private.cron_bearer()`, que sólo ejecuta `repi_app` (`anon` no puede leerla);
-    - `schedule-cron.ts` programa el job llamando a esa función, ya no recibe la clave y se niega si queda un bearer escrito.
-    - Pasos en `docs/DESPLIEGUE.md` § «Clave de los jobs». Hay un paso del titular: copiar la clave de Vault a `CRON_SECRET` en Vercel y hacer Redeploy.
-  - Toca producción y la configuración de Vercel: requiere aprobación. La clave no se copia en ningún documento.
+  - **Arreglo (#79), aprobado por el titular el 08/11:**
+    - `scripts/operations/cron-secret-vault.sql` ya está aplicado en producción como postgres: Vault tiene la clave nueva generada por la base, y la función `repi_private.cron_bearer()` sólo la ejecuta `repi_app` (`anon`, `authenticated` y `service_role` no tienen acceso).
+    - El job todavía usa la clave vieja, que es la que tiene Vercel, así que funciona igual que antes.
+  - **Falta (paso del titular):** Supabase → Integrations → Vault → revelar `repi_cron_secret` → Vercel → `CRON_SECRET` (Production) → guardar → Redeploy.
+  - **Después:** reprogramar `repi-notifications` llamando a la función, como `repi_app` (DESPLIEGUE.md, paso 3), y verificar 200 y que ningún job tenga un bearer escrito. La clave vieja quedó en los registros: deja de servir en cuanto Vercel tenga la nueva.
 - **Queda por ver en producción:**
   - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
   - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
