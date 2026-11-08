@@ -106,17 +106,44 @@ function AmrapSet({ onSet }: { onSet: (r: number) => void }) {
   );
 }
 
+/** Cronómetro de una actividad guardado en este teléfono: tiempo acumulado, desde cuándo corre (hora del dispositivo) y cuándo cambió. */
+type TimerState = { acc: number; since: number | null; at: number };
+const TIMER_PREFIX = "repi_acttimer:"; // «repi_»: se borra con los datos locales al cambiar de cuenta (wipeLocal)
+const TIMER_TTL = 12 * 3600_000;
+function readTimer(key: string | undefined): TimerState | null {
+  if (!key) return null;
+  try {
+    // Limpieza de cronómetros viejos (otra sesión, un día anterior).
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith(TIMER_PREFIX) || k === TIMER_PREFIX + key) continue;
+      const t = JSON.parse(localStorage.getItem(k) ?? "null") as TimerState | null;
+      if (!t || Date.now() - t.at > TIMER_TTL) localStorage.removeItem(k);
+    }
+    const t = JSON.parse(localStorage.getItem(TIMER_PREFIX + key) ?? "null") as TimerState | null;
+    return t && Date.now() - t.at < TIMER_TTL && Number.isFinite(t.acc) ? t : null;
+  } catch { return null; }
+}
+function writeTimer(key: string | undefined, t: TimerState | null) {
+  if (!key) return;
+  try { if (t && (t.acc > 0 || t.since != null)) localStorage.setItem(TIMER_PREFIX + key, JSON.stringify(t)); else localStorage.removeItem(TIMER_PREFIX + key); } catch { /* sin almacenamiento */ }
+}
+
 /**
  * Ejercicios por tiempo: cronómetro de una actividad. Cuenta desde 0 con el objetivo a la vista («de 10:00»), avisa al llegar
  * (vibración y pitido) y sigue contando si la persona sigue. Por hora del dispositivo, como el de las series por tiempo.
  * Sin objetivo (un remo indicado por distancia) es un cronómetro común. Nunca registra solo: «Listo» carga la duración.
+ * `storeKey` (sesión, ejercicio y serie): el cronómetro se guarda en el teléfono y sigue corriendo aunque la persona vaya a ver
+ * otro ejercicio, toque otra serie, pause o recargue la app (antes volvía a 00:00 y se perdían los minutos de cinta).
  */
-export function ActivityTimer({ target, onSet }: { target: number | null; onSet: (sec: number) => void }) {
-  const [acc, setAcc] = useState(0);
-  const [since, setSince] = useState<number | null>(null);
+export function ActivityTimer({ target, onSet, storeKey }: { target: number | null; onSet: (sec: number) => void; storeKey?: string }) {
+  const [saved] = useState(() => readTimer(storeKey));
+  const [acc, setAccState] = useState(saved?.acc ?? 0);
+  const [since, setSinceState] = useState<number | null>(saved?.since ?? null);
   const [, tick] = useState(0);
-  const warned = useRef(false);
   const elapsed = acc + (since ? (Date.now() - since) / 1000 : 0);
+  const warned = useRef(!!target && elapsed >= target); // si ya se había cumplido, no vuelve a sonar al volver
+  const setAcc = (v: number) => { setAccState(v); writeTimer(storeKey, { acc: v, since: null, at: Date.now() }); };
+  const setSince = (v: number | null) => { setSinceState(v); writeTimer(storeKey, { acc, since: v, at: Date.now() }); };
   useEffect(() => {
     if (since == null) return;
     const t = setInterval(() => tick((x) => x + 1), 250);
@@ -126,8 +153,8 @@ export function ActivityTimer({ target, onSet }: { target: number | null; onSet:
     if (target && since != null && !warned.current && elapsed >= target) { warned.current = true; navigator.vibrate?.([200, 100, 200]); beep(); }
   });
   const sec = Math.floor(elapsed);
-  const stop = () => { setAcc(elapsed); setSince(null); };
-  const reset = () => { setAcc(0); setSince(null); warned.current = false; };
+  const stop = () => { setSinceState(null); setAcc(elapsed); };
+  const reset = () => { setSinceState(null); setAcc(0); warned.current = false; };
   return (
     <div className="act-timer" role="group" aria-label="Cronómetro de la actividad">
       <div className="act-timer-row">

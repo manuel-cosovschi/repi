@@ -23,6 +23,10 @@ import { aiSoloAdvice } from "@/server/training/ai-coach";
 import { programImportPreview } from "@/server/training/program-import";
 import { DetailZ } from "@/server/training/detail-schema";
 import { AccessError, resetRateLimits } from "@/server/access/util";
+import * as alerts from "@/server/gym/alerts";
+import * as cn from "@/server/gym/connect";
+import { floorSetText } from "@/components/gym/shared";
+import { reviewFrom, toProgramDoc, type Preview, type ReviewState } from "@/components/shared/ProgramImport";
 
 let n = 0;
 async function verified(name = "Persona Tiempo") {
@@ -403,5 +407,182 @@ describe("reemplazos y «No vino el profe»", () => {
       expect(seen[0]).toMatchObject({ actividad: "10 min · 5 km/h · incl. 3" });
       expect(seen[0].rir).toBeUndefined();
     } finally { vi.unstubAllGlobals(); if (key) process.env.OPENAI_API_KEY = key; else delete process.env.OPENAI_API_KEY; }
+  });
+});
+
+// Revisión independiente (07/11/2026): hallazgos verificados y corregidos.
+describe("revisión · ejercicios por tiempo", () => {
+  const legacyRow = (): Row => ({ exerciseId: X["Cinta (trote)"], name: "Cinta (trote)", sets: 3, reps: "10-12", rir: 2, restSec: 60, note: null });
+
+  it("una cinta vieja «3 × 10-12» no recibe la sugerencia de kilos de REPI (Hoy: … kg) ni en el programa ni en la sesión", async () => {
+    const w = await world([legacyRow(), { ...bench, exerciseId: X["Press de banca"] }]);
+    const { sid, s } = await started(w.user);
+    // La persona escribió la velocidad en el peso (10 «kg» × 12): antes REPI proponía «11 kg × 10» para la cinta.
+    for (let i = 0; i < 3; i++) await tr.logSet(w.user, sid, set(s.exercises[0].id, i, { weightKg: 10, reps: 12 }));
+    for (let i = 0; i < 3; i++) await tr.logSet(w.user, sid, set(s.exercises[1].id, i, { weightKg: 60, reps: 10 }));
+    await tr.sessionAction(w.user, sid, "finish");
+    const t = await tr.myTraining(w.user);
+    if (t.state !== "ready") throw new Error(t.state);
+    expect(t.program.days[0].exercises[0]).toMatchObject({ profile: "treadmill", suggest: null });
+    expect(t.program.days[0].exercises[1].suggest).not.toBeNull(); // la musculación sigue con su sugerencia
+    const next = await started(w.user);
+    expect(next.s.exercises[0].suggest).toBeNull();
+    expect(next.s.exercises[1].suggest).not.toBeNull();
+  });
+
+  it("en una fila que cuenta repeticiones, la cinta sigue con el tope de 200 (registro y corrección)", async () => {
+    const w = await world([legacyRow()]);
+    const { sid, s } = await started(w.user);
+    const pe = s.exercises[0].id;
+    expect((await err(tr.logSet(w.user, sid, set(pe, 0, { weightKg: 50, reps: 9000 }))))?.message).toBe("Las repeticiones no son válidas.");
+    const ok = await tr.logSet(w.user, sid, set(pe, 0, { weightKg: 50, reps: 12 }));
+    await tr.sessionAction(w.user, sid, "finish");
+    const e = await err(h.correctSet(w.user, sid, ok.id, { requestId: randomUUID(), baseRevision: 1, values: { reps: 5000 }, confirm: true }));
+    expect(e?.message).toBe("Las repeticiones van de 0 a 200.");
+    // Una cinta configurada por duración sigue llegando a 4 horas.
+    const c = await world();
+    const st = await started(c.user);
+    expect(await tr.logSet(c.user, st.sid, set(st.s.exercises[0].id, 0, { reps: 4 * 3600 }))).toMatchObject({ reps: 14400 });
+  });
+
+  it("cambiar la cinta por una bici propia creada «con peso» se acepta (la misma regla que la lista) y la plancha no", async () => {
+    const w = await world();
+    const casera = await tr.coachCreateExercise(w.coach, w.org, { name: `Bici casera ${n}`, group: "Cardio", kind: "load_reps" });
+    expect(casera.profile).toBe("bike");
+    const { sid, s } = await started(w.user);
+    const pe = s.exercises[0].id;
+    const alts = await tr.sessionAlternatives(w.user, sid, pe);
+    expect(alts.alternatives.some((a) => a.id === casera.id)).toBe(true);
+    // Antes la lista la ofrecía y el guardado la rechazaba («Elegí un ejercicio distinto que se registre igual»).
+    const r = await tr.setExerciseChange(w.user, sid, { programExerciseId: pe, change: { kind: "substitute", reason: "busy", exerciseId: casera.id } });
+    expect(r.change?.substitute?.exerciseId).toBe(casera.id);
+    expect(await tr.logSet(w.user, sid, set(pe, 0, { reps: 600, metrics: { level: 8 } }))).toMatchObject({ metrics: { level: 8 } });
+    const [row] = await db.select().from(schema.setLog).where(and(eq(schema.setLog.sessionId, sid), eq(schema.setLog.programExerciseId, pe)));
+    expect(row.exerciseId).toBe(casera.id);
+    // Por la API, la plancha (también «por tiempo») no reemplaza a la cinta; un abdominal tampoco a la bici.
+    const e = await err(tr.setExerciseChange(w.user, sid, { programExerciseId: s.exercises[4].id, change: { kind: "substitute", reason: "busy", exerciseId: X["Plancha"] } }));
+    expect(e?.message).toMatch(/otra actividad/);
+    // La musculación sigue igual: mismo tipo de registro.
+    expect((await err(tr.setExerciseChange(w.user, sid, { programExerciseId: s.exercises[1].id, change: { kind: "substitute", reason: "busy", exerciseId: X["Plancha"] } })))?.message).toMatch(/se registre igual/);
+  });
+
+  it("al guardar, la actividad queda con el perfil de su ejercicio: «sólo duración» sobre una cinta se adapta; sobre fuerza, error", async () => {
+    const w = await world([bench]);
+    const tpl = await tr.createTemplate(w.coach, w.org, doc([{ exerciseId: X["Cinta (trote)"], name: "Cinta (trote)", sets: 1, reps: "20 min", rir: null, restSec: 0, note: null, detail: { activity: { profile: "duration" } } as ExerciseDetail }]));
+    expect((await tr.getProgram(w.coach, w.org, tpl)).doc.days[0].exercises[0].detail?.activity).toEqual({ profile: "treadmill" });
+    const el = await tr.createTemplate(w.coach, w.org, doc([{ exerciseId: X["Elíptico"], name: "Elíptico", sets: 1, reps: "10 min", rir: null, restSec: 0, note: null, detail: { activity: CINTA } as ExerciseDetail }]));
+    expect((await tr.getProgram(w.coach, w.org, el)).doc.days[0].exercises[0].detail?.activity).toEqual({ profile: "elliptical", incline: 3 });
+    const bad = await err(tr.createTemplate(w.coach, w.org, doc([{ ...bench, reps: "2000 m", detail: { activity: { profile: "rower", distanceM: 2000 } } as ExerciseDetail }])));
+    expect(bad?.message).toMatch(/Press de banca.*no se configura por duración/);
+    // Mis rutinas e importación de rutinas: el mismo respaldo.
+    const r = await own.saveOwnRoutine(w.user, { name: "Trote", exercises: [{ exerciseId: X["Cinta (trote)"], sets: 1, reps: "20 min", weightKg: null, restSec: 0, note: null, detail: { activity: { profile: "duration" } } as ExerciseDetail }] });
+    expect((await own.listOwnRoutines(w.user)).find((x) => x.id === r.id)!.exercises[0].detail?.activity).toEqual({ profile: "treadmill" });
+    expect((await err(own.saveOwnRoutine(w.user, { name: "Mal", exercises: [{ exerciseId: X["Press de banca"], sets: 1, reps: "10 min", weightKg: null, restSec: 0, note: null, detail: { activity: CINTA } as ExerciseDetail }] })))?.message).toMatch(/no se configura por duración/);
+  });
+
+  it("una app anterior que pierde la actividad al guardar recibe «Actualizá REPI» (coach, sala y Mis rutinas); lo demás se guarda", async () => {
+    const w = await world([cinta(), bench]);
+    const p = await tr.getProgram(w.coach, w.org, w.tpl);
+    const old = tr.plain(p.doc);
+    // «Series y técnica» de la versión anterior: reconstruye el detalle sin `activity` y deja «1 × 10 min».
+    const stripped: ProgramDoc = { ...old, days: old.days.map((d) => ({ ...d, exercises: d.exercises.map((e, i) => (i === 0 ? { ...e, detail: null } : e)) })) };
+    const e = await err(tr.saveProgram(w.coach, w.org, w.tpl, stripped));
+    expect(e).toMatchObject({ code: "outdated_app", status: 409 });
+    expect(e?.message).toMatch(/Actualizá REPI.*Cinta \(caminata\)/);
+    expect((await tr.getProgram(w.coach, w.org, w.tpl)).doc.days[0].exercises[0].detail?.activity).toEqual(CINTA);
+    // Cambiar la cinta a «3 × 10-12», borrarla o editar otra fila no es una pérdida.
+    await tr.saveProgram(w.coach, w.org, w.tpl, { ...old, name: "Otro nombre" });
+    await tr.saveProgram(w.coach, w.org, w.tpl, { ...old, days: old.days.map((d) => ({ ...d, exercises: d.exercises.map((e, i) => (i === 0 ? { ...e, sets: 3, reps: "10-12", detail: null } : e)) })) });
+    await tr.saveProgram(w.coach, w.org, w.tpl, { ...old, days: old.days.map((d) => ({ ...d, exercises: d.exercises.slice(1) })) });
+    // Mis rutinas.
+    const r = await own.saveOwnRoutine(w.user, { name: "Cardio", exercises: [{ exerciseId: X["Cinta (caminata)"], sets: 1, reps: "10 min", weightKg: null, restSec: 0, note: null, detail: { activity: CINTA } as ExerciseDetail }] });
+    const oe = await err(own.saveOwnRoutine(w.user, { id: r.id, name: "Cardio", exercises: [{ exerciseId: X["Cinta (caminata)"], sets: 1, reps: "10 min", weightKg: null, restSec: 0, note: null, detail: null }] }));
+    expect(oe).toMatchObject({ code: "outdated_app", status: 409 });
+    // Sala.
+    const owner = await verified("Dueño Sala Guarda");
+    const g = await acc.createGymOrganization(owner.id, { name: `Gym Guarda ${Date.now()}` });
+    const [loc] = await db.insert(schema.gymLocation).values({ orgId: g.id, name: "Centro" }).returning();
+    const floor = await verified("Profe Sala Guarda");
+    await db.insert(schema.staffMembership).values({ userId: floor.id, orgId: g.id, locationId: loc.id, role: "floor_trainer" });
+    const u = await verified("Socia Guarda");
+    const [m] = await db.insert(schema.gymMember).values({ orgId: g.id, locationId: loc.id, userId: u.id, status: "active" }).returning();
+    await db.insert(schema.consentGrant).values({ userId: u.id, scope: "gym_member", relationId: m.id, granteeOrgId: g.id, item: "attendance_training", termsVersion: "test" });
+    await gym.startShift(floor.id, g.id, loc.id);
+    await gym.saveMemberProgram(floor.id, g.id, m.id, { reason: "Programa de sala", doc: doc([cinta(), bench]) });
+    const ge = await err(gym.saveMemberProgram(floor.id, g.id, m.id, { reason: "Cambio con app vieja", doc: doc([cinta({ detail: null }), { ...bench, reps: "10" }]) }));
+    expect(ge).toMatchObject({ code: "outdated_app", status: 409 });
+  });
+
+  it("historial: una sesión sólo de cinta trae el tiempo (la pantalla no muestra «0 Repeticiones» ni «0 Volumen»)", async () => {
+    const w = await world([cinta()]);
+    const { sid, s } = await started(w.user);
+    await tr.logSet(w.user, sid, set(s.exercises[0].id, 0, { reps: 720, metrics: { speedKmh: 5.5, incline: 4 } }));
+    await tr.sessionAction(w.user, sid, "finish");
+    const hs = await h.historySession(w.user, sid);
+    expect(hs.metrics).toMatchObject({ sets: 1, reps: 0, volumeKg: 0, timeSec: 720 });
+  });
+});
+
+describe("revisión · sala e importación", () => {
+  it("«En sala ahora» y el pedido de ayuda leen la cinta como «12 min · 5,5 km/h · incl. 4», nunca «0 kg × 720»", async () => {
+    const owner = await verified("Dueño Sala Alerta");
+    const g = await acc.createGymOrganization(owner.id, { name: `Gym Alerta ${Date.now()}` });
+    await db.update(schema.organization).set({ connectEnabled: true }).where(eq(schema.organization.id, g.id));
+    const [loc] = await db.insert(schema.gymLocation).values({ orgId: g.id, name: "Centro" }).returning();
+    const floor = await verified("Profe Sala Alerta");
+    await db.insert(schema.staffMembership).values({ userId: floor.id, orgId: g.id, locationId: loc.id, role: "floor_trainer" });
+    const u = await verified("Socia Alerta");
+    const [m] = await db.insert(schema.gymMember).values({ orgId: g.id, locationId: loc.id, userId: u.id, status: "active" }).returning();
+    await db.insert(schema.consentGrant).values({ userId: u.id, scope: "gym_member", relationId: m.id, granteeOrgId: g.id, item: "attendance_training", termsVersion: "test" });
+    await gym.startShift(floor.id, g.id, loc.id);
+    await gym.saveMemberProgram(floor.id, g.id, m.id, { reason: "Programa de sala", doc: doc([cinta(), { ...bench, exerciseId: X["Press de banca"] }]) });
+    const { sid, s } = await started(u.id);
+    // Como lo manda el teléfono: peso 0, la duración en segundos y lo que hizo en métricas, con «Pedir ayuda».
+    const r = await tr.logSet(u.id, sid, set(s.exercises[0].id, 0, { weightKg: 0, reps: 720, metrics: { speedKmh: 5.5, incline: 4 }, feel: "ayuda" }));
+    expect(r.alert?.notified).toBe(1);
+    const [a] = await alerts.listAlerts(floor.id, g.id, loc.id);
+    expect(a.set).toMatchObject({ n: 1, reps: 720, timed: true, metrics: { speedKmh: 5.5, incline: 4 } });
+    expect(floorSetText(a.set!, a.set!.timed)).toBe("12 min · 5,5 km/h · incl. 4");
+    // Pedido de ayuda desde la cinta: la tarea de Connect sabe que la fila es por tiempo.
+    const req = await cn.memberCreate(u.id, { reason: "ejercicio", clientKey: randomUUID(), context: { sessionId: sid, programExerciseId: s.exercises[0].id, setIndex: 0 } });
+    const det = await cn.staffTask(floor.id, g.id, req.id);
+    expect(det.context).toMatchObject({ exercise: "Cinta (caminata)", timed: true });
+    expect(det.context!.sets.map((x) => floorSetText(x, det.context!.timed))).toEqual(["12 min · 5,5 km/h · incl. 4"]);
+    // La fuerza sigue como siempre; una plancha con lastre muestra el peso y los segundos.
+    await tr.logSet(u.id, sid, set(s.exercises[1].id, 0, { weightKg: 60, reps: 10, rir: 2, feel: "ayuda" }));
+    const strength = (await alerts.listAlerts(floor.id, g.id, loc.id)).find((x) => x.exercise === "Press de banca")!;
+    expect(strength.set).toEqual({ n: 1, weightKg: 60, reps: 10 });
+    expect(floorSetText({ weightKg: "60", reps: 10 })).toBe("60×10");
+    expect(floorSetText({ weightKg: "10", reps: 40, metrics: null }, true)).toBe("10 kg × 40 s");
+  });
+
+  it("importar: la actividad sigue al ejercicio emparejado o elegido en la revisión (cinta, elíptico, musculación)", async () => {
+    const w = await world([bench]);
+    const lib = await tr.listLibrary(w.coach, w.org);
+    const k = process.env.OPENAI_API_KEY; delete process.env.OPENAI_API_KEY;
+    let pv: Awaited<ReturnType<typeof programImportPreview>>;
+    try {
+      pv = await programImportPreview(w.coach, w.org, lib, { fileName: "t", kind: "text", text: "Día A\nTrote 20 min\nCinta caminadora 10 min vel 5 incl 3\nRemo ergómetro 2000 m" }, async () => {});
+    } finally { if (k) process.env.OPENAI_API_KEY = k; }
+    const [trote, ci, remo] = pv.variants[0].days[0].exercises;
+    // «Trote 20 min» se lee como «sólo duración» y se empareja con la cinta de trote: se guarda como cinta.
+    expect(trote).toMatchObject({ exerciseId: X["Cinta (trote)"], profile: "treadmill", activity: { profile: "duration" } });
+    expect(ci).toMatchObject({ exerciseId: X["Cinta (caminata)"], activity: CINTA });
+    expect(remo.activity).toMatchObject({ profile: "rower", distanceM: 2000 });
+    let st: ReviewState = reviewFrom(pv as unknown as Preview, 0, "kg");
+    // En la revisión: la cinta se cambia por el elíptico (el gym no tiene cinta) y el remo por «Press de banca» (como en los chips).
+    const pick = (name: string) => { const a = lib.find((x) => x.name === name)!; return { exerciseId: a.id, name: a.name, muscle: a.group, kind: a.kind, profile: a.profile ?? null }; };
+    st = { ...st, days: st.days.map((d) => ({ ...d, exercises: d.exercises.map((e, i) => (i === 1 ? { ...e, ...pick("Elíptico") } : i === 2 ? { ...e, ...pick("Press de banca") } : e)) })) };
+    const out = toProgramDoc(st, "kg", "Importado").days[0].exercises;
+    expect(out[0]).toMatchObject({ reps: "20 min", detail: { activity: { profile: "treadmill" } } });
+    expect(out[1]).toMatchObject({ name: "Elíptico", reps: "10 min", detail: { activity: { profile: "elliptical", incline: 3 } } });
+    expect(out[1].note).toMatch(/5 km\/h/); // la velocidad no es del elíptico: queda a la vista en la nota
+    expect(out[2].detail?.activity ?? null).toBeNull();
+    // Un borrador anterior (sin el perfil elegido) resuelve igual por el nombre del ejercicio.
+    const old = { ...st, days: st.days.map((d) => ({ ...d, exercises: d.exercises.map((e) => ({ ...e, profile: undefined })) })) };
+    expect(toProgramDoc(old, "kg", "Importado").days[0].exercises[1].detail?.activity).toEqual({ profile: "elliptical", incline: 3 });
+    // Lo armado se guarda tal cual (sin la fila de musculación con «2000 m»).
+    const saved = await tr.createTemplate(w.coach, w.org, { name: "Importado", weeks: 4, note: "", days: [{ name: "Día A", exercises: out.slice(0, 2) }] });
+    expect((await tr.getProgram(w.coach, w.org, saved)).doc.days[0].exercises.map((e) => e.detail?.activity)).toEqual([{ profile: "treadmill" }, { profile: "elliptical", incline: 3 }]);
   });
 });

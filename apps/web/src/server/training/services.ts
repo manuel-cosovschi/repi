@@ -8,6 +8,7 @@ import {
   rowFlags, rowRef, sessionMetrics, exerciseComplete, type SetKind, validateDetail, mainSets, circuitIssues, MAX_PLAN_ROWS,
   acceptInterval, decideSkip, interruptInterval, newerThan, toServerMs, type IntervalState,
   loadIncrement, setTarget, activityOf, cleanSetMetrics, profileOf, ACTIVITY_MAX_SEC, type ExerciseKind, type MetricsProfile, type SetMetrics,
+  alignActivities, canSubstitute, droppedActivity, isActivityProfile,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit, type Tx } from "../access/util";
@@ -132,7 +133,7 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
   await requireCoach(actorId, orgId);
   const v = validateProgramDoc(doc);
   if (!v.ok) throw new AccessError("invalid", v.error);
-  await assertLibrary(orgId, v.doc);
+  const saved = await assertLibrary(orgId, v.doc);
   if (imported && !/^[A-Za-z0-9_-]{8,64}$/.test(imported.opId)) throw new AccessError("invalid", "Falta el identificador de la importación.");
   return db.transaction(async (tx) => {
     if (imported) {
@@ -142,7 +143,7 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
       if (prior?.id) return prior.id;
     }
     const [p] = await tx.insert(program).values({ orgId, kind: "template", createdBy: actorId }).returning();
-    await newVersion(tx, p.id, 1, v.doc, actorId);
+    await newVersion(tx, p.id, 1, saved, actorId);
     await audit(tx, { actorUserId: actorId, orgId, action: "program.created", resourceType: "program", resourceId: p.id });
     if (imported) await audit(tx, { actorUserId: actorId, orgId, action: "program.imported", resourceType: "program", resourceId: p.id,
       meta: { opId: imported.opId, source: String(imported.source).slice(0, 10), file: String(imported.file).slice(0, 10), days: v.doc.days.length, exercises: v.doc.days.reduce((n, d) => n + d.exercises.length, 0) } });
@@ -150,11 +151,33 @@ export async function createTemplate(actorId: string, orgId: string, doc: Progra
   });
 }
 
-export async function assertLibrary(orgId: string, doc: ProgramDoc) {
+/**
+ * Todos los ejercicios del documento están en la biblioteca de la organización. Ejercicios por tiempo: devuelve el documento con
+ * la actividad de cada fila en el perfil de su ejercicio (`alignActivities`): respaldo de lo que arma cada pantalla (una
+ * importación que guardaba «sólo duración» sobre una cinta, o una actividad sobre un ejercicio de musculación).
+ */
+export async function assertLibrary(orgId: string, doc: ProgramDoc): Promise<ProgramDoc> {
   const ids = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
-  if (!ids.length) return;
+  if (!ids.length) return doc;
   const ok = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
   if (ok.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
+  if (!doc.days.some((d) => d.exercises.some((e) => activityOf(e.detail)))) return doc;
+  const profiles = await exerciseProfiles(ids);
+  const days: ProgramDoc["days"] = [];
+  for (const d of doc.days) {
+    const r = alignActivities(d.exercises, profiles);
+    if (!r.ok) throw new AccessError("invalid", r.error);
+    days.push({ ...d, exercises: r.rows });
+  }
+  return { ...doc, days };
+}
+/**
+ * Una app anterior en caché no conoce la configuración por duración: si al guardar una fila perdió su actividad (velocidad,
+ * inclinación, nivel…) se rechaza con un pedido de actualizar, en lugar de borrarla sin aviso (`droppedActivity`).
+ */
+export function assertKeepsActivities(before: ProgramDoc, after: ProgramDoc) {
+  const lost = droppedActivity(before.days.flatMap((d) => d.exercises), after.days.flatMap((d) => d.exercises));
+  if (lost) throw new AccessError("outdated_app", `Actualizá REPI (recargá la página) para editar «${lost.name}»: esta versión no guarda su configuración por duración.`, 409);
 }
 
 export async function loadProgram(orgId: string, programId: string, tx: Tx | typeof db = db) {
@@ -200,12 +223,15 @@ export async function saveProgram(actorId: string, orgId: string, programId: str
   await requireCoach(actorId, orgId);
   const v = validateProgramDoc(input);
   if (!v.ok) throw new AccessError("invalid", v.error);
-  await assertLibrary(orgId, v.doc);
+  const doc = await assertLibrary(orgId, v.doc);
   return db.transaction(async (tx) => {
     const [p] = await tx.select().from(program).where(and(eq(program.id, programId), eq(program.orgId, orgId), isNull(program.archivedAt))).for("update");
     if (!p?.currentVersionId) throw NOT_FOUND();
     const cur = await readVersion(p.currentVersionId, tx);
-    return writeProgramDoc(tx, { actorId, orgId, programId: p.id, cur, doc: v.doc });
+    // Una app anterior en caché (lo que manda la pantalla) no borra la velocidad ni la inclinación sin aviso. Sólo acá: pegar un
+    // día arma el documento en el servidor con las filas tal cual están guardadas.
+    assertKeepsActivities(plain(cur.doc), doc);
+    return writeProgramDoc(tx, { actorId, orgId, programId: p.id, cur, doc });
   });
 }
 
@@ -614,10 +640,12 @@ export async function trainingSignals(userId: string, now = new Date()): Promise
 /**
  * Sugerencia de hoy para un ejercicio del programa: nada si el profe ya indicó la carga en el plan (manda el profe) ni si el
  * plan tiene series distintas (top set, back-off, drop, rest-pause, pirámide, AMRAP): una carga única sería incorrecta (D182).
+ * Ejercicios por tiempo: tampoco en una actividad (`profile`: cinta, bici, remo…), aunque la fila diga «3 × 10-12» como la
+ * dejaba el editor de sala: a una cinta nunca se le proponen kilos ni repeticiones.
  */
-const suggestionFor = (e: { name: string; reps: string; sets: number; detail?: unknown }, last: LastTime | undefined, sig?: Signals) => {
+const suggestionFor = (e: { name: string; reps: string; sets: number; detail?: unknown }, last: LastTime | undefined, sig?: Signals, profile?: MetricsProfile | null) => {
   const detail = e.detail as ExerciseDetail | null;
-  if (!last || coachSetLoads(detail) || !progressionApplies(detail)) return null;
+  if (!last || coachSetLoads(detail) || !progressionApplies(detail) || isActivityProfile(profile)) return null;
   const signals: SafetySignals | undefined = sig && {
     painExercise: sig.painNames.has(exerciseKey(e.name)), painOrInjury: sig.painOrInjury, lowReadiness: sig.lowReadiness,
     daysSinceLast: Math.floor((sig.now.getTime() - last.at.getTime()) / 86_400_000),
@@ -729,7 +757,7 @@ export async function myTraining(userId: string, now = new Date()) {
         exercises: d.exercises.map((e) => {
           const pv = prev.get(e.exerciseId);
           return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps, ...(pv.metrics ? { metrics: pv.metrics } : {}) } : null,
-            suggest: suggestionFor(e, lastTime.get(e.exerciseId), sig),
+            suggest: suggestionFor(e, lastTime.get(e.exerciseId), sig, rowProfile(e, e.exerciseId, profiles)),
             // Ejercicios por tiempo: qué se configura y registra (cinta, bici…) y la actividad indicada (también sin conexión).
             profile: rowProfile(e, e.exerciseId, profiles), activity: activityOf(e.detail) };
         }),
@@ -976,7 +1004,7 @@ export async function getSession(userId: string, sessionId: string, now = new Da
         // `change.substitute.profile`: así el teléfono resuelve igual con un reemplazo hecho o deshecho sin conexión.
         profile: rowProfile(e, e.exerciseId, profiles), activity: activityOf(e.detail as ExerciseDetail | null),
         prev: pv ? { weightKg: pv.weightKg, reps: pv.reps, ...(pv.metrics ? { metrics: pv.metrics } : {}) } : null, // con métricas en una actividad
-        suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig), // D154, D182
+        suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig, rowProfile(e, doing(e), profiles)), // D154, D182
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         media: media.get(doing(e)) ?? null,
         // D191: objetivo de REPI por fila (serie o etapa) y tendencia del ejercicio. Separado del plan y de lo registrado.
@@ -1050,8 +1078,10 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
       .where(and(eq(sessionExerciseChange.sessionId, sessionId), eq(sessionExerciseChange.programExerciseId, pe.id)));
     const doing = ex?.exerciseId ?? chg?.sub ?? pe.exerciseId;
     const act = metricsProfileOf(rowProfile(pe, doing, await exerciseProfiles([doing, pe.exerciseId], tx)));
-    if (p.reps != null && p.reps > MAX_REPS && !flags.timed && !flags.durationSec && !act) throw new AccessError("invalid", "Las repeticiones no son válidas.");
-    if (p.reps != null && p.reps > MAX_TIMED_SEC && !act) throw new AccessError("invalid", "Los segundos no son válidos: hasta 1 hora por serie.");
+    // La actividad sólo amplía el tope de tiempo (1 h → 4 h) en una fila por tiempo; una fila que cuenta repeticiones (una cinta
+    // vieja «3 × 10-12») sigue con el tope de 200 aunque el ejercicio sea una cinta.
+    if (p.reps != null && p.reps > MAX_REPS && !flags.timed && !flags.durationSec) throw new AccessError("invalid", "Las repeticiones no son válidas.");
+    if (p.reps != null && p.reps > MAX_TIMED_SEC && !(act && flags.timed)) throw new AccessError("invalid", "Los segundos no son válidos: hasta 1 hora por serie.");
     const metrics = setMetricsOf(p.metrics, act);
     const server = ex ? { id: ex.id, revision: ex.revision, weightKg: ex.weightKg == null ? null : Number(ex.weightKg), reps: ex.reps, rir: ex.rir, feel: ex.feel, note: ex.note, metrics: ex.metrics ?? null } : null;
     // Sin baseRevision (edición en línea inmediata) se asume la revisión vigente del mismo registro.
@@ -1195,7 +1225,8 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     if (s.status !== "in_progress" && s.status !== "paused") throw new AccessError("closed", "Este entrenamiento ya terminó.", 409);
     await assertRelationActive(tx, s);
     if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, now, s.presenceCheckinId);
-    const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind }).from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
+    const [pe] = await tx.select({ pe: programExercise, kind: exercise.kind, name: exercise.name, group: exercise.muscleGroup, profile: exercise.metricsProfile })
+      .from(programExercise).innerJoin(exercise, eq(exercise.id, programExercise.exerciseId))
       .where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de esta sesión.");
     const where = and(eq(sessionExerciseChange.sessionId, s.id), eq(sessionExerciseChange.programExerciseId, pe.pe.id));
@@ -1208,11 +1239,17 @@ export async function setExerciseChange(userId: string, sessionId: string, p: {
     let sub: { id: string; name: string } | null = null;
     if (p.change.kind === "substitute") {
       const orgId = await sessionOrg(s.versionId, tx);
-      const [x] = await tx.select({ id: exercise.id, name: exercise.name, kind: exercise.kind }).from(exercise)
+      const [x] = await tx.select({ ...libraryCols, muscleGroup: exercise.muscleGroup }).from(exercise)
         .where(and(eq(exercise.id, p.change.exerciseId ?? ""), visibleIn(orgId, userId)));
       if (!x) throw new AccessError("invalid", "Ese ejercicio no está en la biblioteca.");
-      if (x.id === pe.pe.exerciseId || x.kind !== pe.kind) throw new AccessError("invalid", "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");
-      sub = x;
+      // La misma regla que la lista de alternativas, los reemplazos aprobados y la IA (`canSubstitute`): una actividad (cinta,
+      // bici, remo…) sólo por otra actividad, también una propia creada «con peso»; nunca una plancha en lugar de la cinta.
+      const orig = altOriginal(pe.pe, pe);
+      if (!canSubstitute(orig, libAlt(x))) {
+        throw new AccessError("invalid", x.id === pe.pe.exerciseId ? "Elegí un ejercicio distinto." : isActivityProfile(orig.profile)
+          ? "Elegí otra actividad (cinta, bici, remo, elíptico o escaladora)." : "Elegí un ejercicio distinto que se registre igual (cargas, peso corporal o tiempo).");
+      }
+      sub = { id: x.id, name: x.name };
     } else if (p.change.kind !== "skip") throw new AccessError("invalid", "Cambio no válido.");
     const values = { kind: p.change.kind, reason: p.change.reason, substituteExerciseId: sub?.id ?? null, updatedAt: now };
     await tx.insert(sessionExerciseChange).values({ sessionId: s.id, programExerciseId: pe.pe.id, ...values })

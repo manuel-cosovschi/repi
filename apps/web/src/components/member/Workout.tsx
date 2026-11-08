@@ -792,7 +792,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             })()}
             {/* Ejercicios por tiempo: cronómetro y valores reales de la actividad (duración en minutos y los campos de su perfil),
                 precargados con lo indicado. Sin peso, repeticiones, RIR ni discos; sensación y nota siguen igual. */}
-            {actP && !curRow.done && <ActivityTimer key={`act:${ex.id}:${cur}`} target={actTarget} onSet={(r) => editCur({ r })} />}
+            {actP && !curRow.done && <ActivityTimer key={`act:${ex.id}:${cur}`} storeKey={`${sessionId}:${ex.id}:${cur}`} target={actTarget} onSet={(r) => editCur({ r })} />}
             {actP && <ActivityInputs key={`actf:${ex.id}:${cur}`} profile={actP} sec={actSec(curRow)} m={actM(curRow)} flash={flash}
               onChange={(p) => editCur({ ...(p.r !== undefined ? { r: p.r } : {}), ...(p.m !== undefined ? { m: p.m } : {}) })} />}
             {!actP && !curRow.done && ctl && <SetControl key={`ctl:${ex.id}:${cur}`} ctl={ctl} onSet={(r) => editCur({ r })} />}

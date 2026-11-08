@@ -157,7 +157,8 @@ export async function historySession(userId: string, sessionId: string) {
   return {
     id: s.id, dayName: s.dayName, status: s.status as "completed" | "voided", startedAt: s.startedAt, endedAt: s.endedAt, durationSec: Math.floor(s.activeMs / 1000), rpe: s.rpe, note: s.note,
     revision: s.revision, voidedAt: s.voidedAt, voidReason: s.voidReason, actions: historyActions(s.status),
-    metrics: { sets: metrics.mainDone + metrics.warmupDone, stages: metrics.stagesDone, reps: metrics.reps, volumeKg: metrics.tonnageKg },
+    // `timeSec` (ejercicios por tiempo): minutos de cinta, bici, plancha…; la pantalla los muestra en lugar de «0 Repeticiones».
+    metrics: { sets: metrics.mainDone + metrics.warmupDone, stages: metrics.stagesDone, reps: metrics.reps, volumeKg: metrics.tonnageKg, timeSec: metrics.timeSec },
     prs: summary?.prs ?? [],
     exercises: outExs,
     previous: prevS ? { id: prevS.id, endedAt: prevS.endedAt } : null,

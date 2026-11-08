@@ -59,18 +59,21 @@ export function catalogProfile(name: string | null | undefined): MetricsProfile 
 
 export type ProfileSource = { profile?: string | null; metricsProfile?: string | null; name?: string | null; kind?: string | null; muscleGroup?: string | null; group?: string | null };
 /**
- * Perfil de métricas de un ejercicio: el guardado en el ejercicio → el del catálogo → el que se deduce del nombre (una «Cinta
- * caminadora» propia creada como «peso y repeticiones» se configura igual como cinta) → el tipo de registro. El aguante por nombre
- * («Plancha con peso») sólo se usa si el ejercicio se registra por tiempo.
+ * Perfil de métricas de un ejercicio: el guardado en el ejercicio → el del catálogo → el que se deduce del nombre → el tipo de
+ * registro. El nombre nunca contradice el tipo que eligió la persona: sólo decide si el ejercicio se registra por tiempo (o no se
+ * sabe cómo), o si es una actividad del grupo Cardio (una «Cinta caminadora» propia creada como «peso y repeticiones», que era
+ * donde arrancaba el editor, se configura igual como cinta). Un «Abdominales bicicleta» con peso corporal sigue siendo peso
+ * corporal, y una «Plancha con chaleco» con peso sigue siendo con peso.
  */
 export function profileOf(ex: ProfileSource): MetricsProfile {
   const stored = ex.profile ?? ex.metricsProfile;
   if (isMetricsProfile(stored)) return stored;
   const cat = catalogProfile(ex.name);
   if (cat) return cat;
+  const group = ex.muscleGroup ?? ex.group;
   const g = ex.name ? guessProfile(ex.name) : null;
-  if (g && (isActivityProfile(g) || ex.kind == null || ex.kind === "time")) return g;
-  return profileFromKind(ex.kind, ex.muscleGroup ?? ex.group);
+  if (g && (ex.kind == null || ex.kind === "time" || (isActivityProfile(g) && group === "Cardio"))) return g;
+  return profileFromKind(ex.kind, group);
 }
 /** Perfil sugerido al crear un ejercicio propio, sólo por el nombre (la persona lo cambia con un toque). */
 export function guessMetricsProfile(name: string, kind?: ExerciseKind | null): MetricsProfile {
@@ -192,6 +195,69 @@ export const activityOf = (d: { activity?: unknown } | null | undefined): Activi
 export function isTimedRow(e: { reps?: string | null; detail?: { activity?: unknown } | null }): boolean {
   if (activityOf(e.detail)) return true;
   return !!e.reps && parseReps(e.reps).kind === "time";
+}
+
+/**
+ * La actividad leída de un texto importado (o la de una fila) adaptada al ejercicio en que se guarda. Manda el perfil del
+ * ejercicio: «Trote 20 min» emparejado con «Cinta (trote)» es una cinta (con velocidad e inclinación), no «sólo duración», y una
+ * cinta que se cambia por un elíptico conserva la inclinación pero no la velocidad. Si el ejercicio no es una actividad («Remo
+ * 2000 m» reasignado a «Remo con barra»), no lleva actividad. Sin actividad leída, una actividad sólo se arma si lo indicado ya
+ * es una duración (o una distancia en el remo): «Caminata 30 min» emparejada con la cinta. Nunca inventa valores. `dropped` es
+ * el texto de lo que no entra en el ejercicio elegido («5 km/h»), para dejarlo a la vista en la nota.
+ */
+export function fitActivity(target: MetricsProfile | null | undefined, a: (ActivityValues & { profile?: string | null }) | null | undefined, reps?: string | null): { activity: ActivityDetail | null; dropped: string } {
+  const lostText = (kept: ActivityValues) => activityValuesText(Object.fromEntries(ACTIVITY_FIELDS.filter((f) => a?.[f] != null && kept[f] == null).map((f) => [f, a![f]])) as ActivityValues);
+  if (!isActivityProfile(target)) return { activity: null, dropped: a ? lostText({}) : "" };
+  if (!a) return { activity: reps != null && validateActivity({ profile: target }, { reps }).ok ? { profile: target } : null, dropped: "" };
+  const kept: ActivityValues = {};
+  for (const f of PROFILE_FIELDS[target]) {
+    const r = cleanActivityValues(target, { [f]: a[f] });
+    if (r.ok && r.values[f] != null) kept[f] = r.values[f];
+  }
+  return { activity: { profile: target, ...kept }, dropped: lostText(kept) };
+}
+
+// ── Guardas al guardar una rutina (programa del coach, de sala o rutina propia) ─────────────────────────────────────────
+type GuardRow = { exerciseId: string; name?: string | null; reps: string; detail?: { activity?: unknown } | null };
+/**
+ * Una app anterior en caché (o una PWA sin actualizar) no conoce `detail.activity`: al guardar «Series y técnica» reconstruye el
+ * detalle sin la actividad y la cinta volvería a «1 × 10 min» sin velocidad ni inclinación, sin aviso. Devuelve la fila que
+ * perdió su actividad, o null. Cuenta por ejercicio en todo el documento (los días y el orden pueden cambiar): hay pérdida si
+ * quedan menos filas con actividad y más filas «por tiempo» sin actividad que antes. Convertir una fila vieja («20 min») a
+ * actividad, borrar un día o pasar una cinta a «3 × 10-12» no cuentan.
+ */
+export function droppedActivity(before: GuardRow[], after: GuardRow[]): GuardRow | null {
+  const count = (rows: GuardRow[], id: string) => {
+    let act = 0, plain = 0;
+    for (const r of rows) {
+      if (r.exerciseId !== id) continue;
+      if (activityOf(r.detail)) act++;
+      else if (parseReps(r.reps).kind === "time" || parseDistance(r.reps) != null) plain++;
+    }
+    return { act, plain };
+  };
+  for (const id of new Set(before.filter((r) => activityOf(r.detail)).map((r) => r.exerciseId))) {
+    const b = count(before, id), a = count(after, id);
+    if (a.act < b.act && a.plain > b.plain) return after.find((r) => r.exerciseId === id && !activityOf(r.detail)) ?? null;
+  }
+  return null;
+}
+
+/**
+ * La actividad de cada fila con el perfil de su ejercicio (`profiles`: el resuelto en el servidor). Una actividad de otro perfil
+ * se adapta (`fitActivity`: una cinta guardada sobre un elíptico conserva la inclinación); una actividad sobre un ejercicio que
+ * no es una actividad («Remo con barra» con 2000 m de remo) es un error. Respaldo del servidor para lo que arma cada pantalla.
+ */
+export function alignActivities<T extends GuardRow>(rows: T[], profiles: Map<string, MetricsProfile>): { ok: true; rows: T[] } | { ok: false; error: string } {
+  const out: T[] = [];
+  for (const r of rows) {
+    const a = activityOf(r.detail);
+    const target = profiles.get(r.exerciseId);
+    if (!a || !target || a.profile === target) { out.push(r); continue; }
+    if (!isActivityProfile(target)) return { ok: false, error: `«${r.name ?? "Este ejercicio"}» no se configura por duración: indicá series y repeticiones o elegí una actividad (cinta, bici, remo…).` };
+    out.push({ ...r, detail: { ...r.detail, activity: fitActivity(target, a).activity } });
+  }
+  return { ok: true, rows: out };
 }
 
 // ── Valores por defecto al agregar un ejercicio ────────────────────────────────────────────────────────────────────────

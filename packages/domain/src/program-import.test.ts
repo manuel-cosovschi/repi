@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { deterministicEnough, fromAiExercise, type AiExercise, importedDetail, importIssueCount, parseExerciseLine, parseRoutineSheet, parseRoutineText, type ImportExercise } from "./program-import";
 import { makeExerciseMatcher, rankExerciseCandidates, variantConflict } from "./exercise-match";
 import { EXERCISE_CATALOG } from "./exercise-catalog";
+import { fitActivity } from "./activity";
 
 const ex = (line: string, hint = {}) => parseExerciseLine(line, hint)!;
 const days = (text: string) => parseRoutineText(text).variants[0].days;
@@ -330,6 +331,43 @@ describe("SI2 · cardio: ejercicios por tiempo", () => {
     expect(importedDetail({ ...b, reps: "10 min", activity: { profile: "treadmill", speedKmh: 5, incline: 3 } })).toEqual({ technique: "straight", setPlan: null, group: null, groupKind: null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null, activity: { profile: "treadmill", speedKmh: 5, incline: 3 } });
     expect(importedDetail({ ...b, reps: "500 m", activity: { profile: "rower" } })?.activity).toEqual({ profile: "rower", distanceM: 500 });
     expect(importedDetail({ ...b, reps: "10-12", activity: { profile: "treadmill", speedKmh: 5 } })).toBeNull();
+  });
+  it("frases comunes de la cinta: «vel»/«incl» sin máquina en el nombre, rótulos «Duración:» y comas", () => {
+    const one = (t: string) => parseRoutineText(`Día 1\n${t}`).variants[0]?.days[0]?.exercises[0];
+    const tm = { profile: "treadmill", speedKmh: 5, incline: 6 };
+    // «vel 5» ya no es una carga de 5 kg, ni «incl 6» queda en una nota.
+    const c = one("Caminata 30 min vel 5 incl 6")!;
+    expect([c.written, c.sets, c.reps, c.weightKg, c.activity, c.note]).toEqual(["Caminata", 1, "30 min", null, tm, null]);
+    // El formato del pedido del titular no es una nota general: es el ejercicio, con sus tres valores.
+    const p = parseRoutineText("Día 1\nCinta caminadora · Duración: 10 minutos · Velocidad: 5 km/h · Inclinación: 3");
+    expect(p.notes).toEqual([]);
+    const o = p.variants[0].days[0].exercises[0];
+    expect([o.written, o.sets, o.reps, o.weightKg, o.activity, o.note]).toEqual(["Cinta caminadora", 1, "10 min", null, { profile: "treadmill", speedKmh: 5, incline: 3 }, null]);
+    // «10 minutos,» con coma sigue siendo la duración.
+    const k = one("Cinta caminadora 10 minutos, velocidad 5 km/h, inclinación 3")!;
+    expect([k.sets, k.reps, k.activity, k.note, k.issues.filter((i) => i.kind !== "info")]).toEqual([1, "10 min", { profile: "treadmill", speedKmh: 5, incline: 3 }, null, []]);
+    // En musculación, «vel 2» queda en la nota (no es una carga) y una frase larga con «cinta» sigue siendo una indicación.
+    const s = one("Sentadilla 4x10 vel 2")!;
+    expect([s.sets, s.reps, s.weightKg, s.activity ?? null, s.note]).toEqual([4, "10", null, null, "vel 2"]);
+    expect(parseRoutineText("Día 1\nHacé 10 min de cinta antes de empezar y después estirá bien todo el cuerpo").notes).toHaveLength(1);
+    expect(one("Press banca 4x10 60")!.weightKg).toBe(60);
+  });
+  it("«Abdominales bicicleta 3x20» es musculación: sin actividad ni dudas", () => {
+    const e = parseExerciseLine("Abdominales bicicleta 3x20")!;
+    expect([e.sets, e.reps, e.activity ?? null, e.issues]).toEqual([3, "20", null, []]);
+  });
+  it("la actividad se adapta al ejercicio elegido (fitActivity)", () => {
+    // «Trote 20 min» (sólo duración) emparejado con «Cinta (trote)»: es una cinta.
+    expect(fitActivity("treadmill", { profile: "duration" }, "20 min")).toEqual({ activity: { profile: "treadmill" }, dropped: "" });
+    // Cinta reasignada a elíptico: conserva la inclinación; la velocidad queda a la vista.
+    expect(fitActivity("elliptical", { profile: "treadmill", speedKmh: 5, incline: 3 }, "10 min")).toEqual({ activity: { profile: "elliptical", incline: 3 }, dropped: "5 km/h" });
+    // A un ejercicio que no es una actividad: sin actividad.
+    expect(fitActivity("strength", { profile: "rower", distanceM: 2000 }, "2000 m")).toEqual({ activity: null, dropped: "2000 m" });
+    expect(fitActivity("hold", { profile: "treadmill" }, "20 min")).toEqual({ activity: null, dropped: "" });
+    // Sin actividad leída: sólo si lo indicado ya es una duración; nunca inventa valores.
+    expect(fitActivity("treadmill", null, "30 min")).toEqual({ activity: { profile: "treadmill" }, dropped: "" });
+    expect(fitActivity("treadmill", null, "10-12")).toEqual({ activity: null, dropped: "" });
+    expect(fitActivity("strength", null, "10")).toEqual({ activity: null, dropped: "" });
   });
   it("la búsqueda por nombre reconoce los sinónimos del catálogo", () => {
     const lib = EXERCISE_CATALOG.map(([n], i) => ({ id: `e${i}`, name: n }));

@@ -1224,5 +1224,10 @@ body:has(.rp-panel:not([data-place="top"])) .dt-pill { display: none; }
   .act-clock strong { font-size: 24px; }
   .act-row { min-height: 44px; padding: 0 0 0 12px; }
 }
-/* Muy bajas (320 × 568): sin cronómetro (la duración ya arranca con la indicada y se ajusta con − y +), así se ve el ejercicio. */
-@media (max-height: 600px) { .act-timer { display: none; } }
+/* Muy bajas (320 × 568, un teléfono apaisado): el cronómetro en una sola línea (reloj y botones, sin el objetivo escrito ni
+   «Reiniciar»), así se ve el ejercicio y el tiempo sigue a mano. */
+@media (max-height: 600px) {
+  .act-clock strong { font-size: 20px; }
+  .act-clock small, .act-reset { display: none; }
+  .act-timer .cta.sm, .act-timer .ghost.sm { padding: 0 10px; }
+}

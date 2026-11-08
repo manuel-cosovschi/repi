@@ -9,7 +9,7 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
-import { addIso, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
+import { addIso, assertKeepsActivities, assertLibrary, lastTimeByExercise, newVersion, sessionLogs, plain, readVersion } from "../training/services";
 import { createOwnExercise, ensureExerciseCatalog, libraryCols, visibleIn, withProfile } from "../training/library";
 import { cleanBrief, draftProgram, reviseOf, type ProgramBrief } from "../training/program-ai";
 import { recordDecision, relationIntelligence, type ProposalDecision } from "../training/intelligence";
@@ -697,7 +697,7 @@ export async function saveMemberProgram(actorId: string, orgId: string, gymMembe
   const v = validateProgramDoc(p.doc);
   if (!v.ok) throw new AccessError("invalid", v.error);
   if (!v.doc.days.some((d) => d.exercises.length)) throw new AccessError("invalid", "Agregá al menos un ejercicio.");
-  await assertLibrary(orgId, v.doc);
+  const doc = await assertLibrary(orgId, v.doc);
   return db.transaction(async (tx) => {
     const [m] = await tx.select().from(gymMember).where(and(eq(gymMember.id, gymMemberId), eq(gymMember.orgId, orgId))).for("update");
     if (!m || !inScope(ctx, m.locationId)) throw NOT_FOUND();
@@ -708,13 +708,14 @@ export async function saveMemberProgram(actorId: string, orgId: string, gymMembe
     if (a) {
       const [pr] = await tx.select().from(program).where(eq(program.id, a.programId)).for("update");
       const cur = await readVersion(pr.currentVersionId!, tx);
-      if (JSON.stringify(plain(cur.doc)) === JSON.stringify(v.doc)) throw new AccessError("invalid", "No hay cambios para guardar.");
+      if (JSON.stringify(plain(cur.doc)) === JSON.stringify(doc)) throw new AccessError("invalid", "No hay cambios para guardar.");
+      assertKeepsActivities(plain(cur.doc), doc); // una app anterior no borra la velocidad ni la inclinación sin aviso
       number = cur.version.number + 1;
       await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, cur.version.id));
-      await newVersion(tx, pr.id, number, v.doc, actorId, reason.slice(0, 300));
+      await newVersion(tx, pr.id, number, doc, actorId, reason.slice(0, 300));
     } else {
       const [pr] = await tx.insert(program).values({ orgId, kind: "member_copy", gymMemberId: m.id, createdBy: actorId }).returning();
-      await newVersion(tx, pr.id, 1, v.doc, actorId, reason.slice(0, 300));
+      await newVersion(tx, pr.id, 1, doc, actorId, reason.slice(0, 300));
       await tx.insert(programAssignment).values({ gymMemberId: m.id, programId: pr.id, startsOn: localDate(new Date()), assignedBy: actorId, assignedAt: new Date() }); // ver F-CL-14
     }
     await audit(tx, { actorUserId: actorId, orgId, action: number === 1 ? "member_program.created" : "member_program.revised", resourceType: "gym_member", resourceId: m.id, meta: { revision: number, offShift } });

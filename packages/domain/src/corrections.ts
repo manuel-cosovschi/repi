@@ -33,11 +33,13 @@ export function validateCorrection(v: CorrectableValues, o: { timed: boolean; re
   if (v.weightKg != null && (!Number.isFinite(v.weightKg) || v.weightKg < 0 || !WEIGHT_RE.test(String(v.weightKg)) || v.weightKg > 1000))
     out.push({ field: "weightKg", message: "El peso no es válido: hasta 2 decimales, entre 0 y 1000 kg." });
   const activity = isActivityProfile(o.profile);
-  const maxReps = o.timed || activity ? maxTimedSec(activity) : MAX_REPS;
+  // La actividad sólo amplía el tope de tiempo (1 h → 4 h): una fila que cuenta repeticiones (una cinta vieja «3 × 10-12») sigue
+  // con el tope de 200, aunque el ejercicio sea una cinta.
+  const maxReps = o.timed ? maxTimedSec(activity) : MAX_REPS;
   if (v.reps != null && (!Number.isInteger(v.reps) || v.reps < 0 || v.reps > maxReps))
-    out.push({ field: "reps", message: activity ? "La duración va hasta 4 horas." : o.timed ? "Los segundos no son válidos." : `Las repeticiones van de 0 a ${MAX_REPS}.` });
+    out.push({ field: "reps", message: o.timed ? (activity ? "La duración va hasta 4 horas." : "Los segundos no son válidos.") : `Las repeticiones van de 0 a ${MAX_REPS}.` });
   // Una serie corregida a 0 repeticiones no es un resultado: para eso está «Anular serie».
-  if (v.reps === 0) out.push({ field: "reps", message: o.timed || activity ? "0 segundos no es una serie hecha: si no la hiciste, anulala." : "0 repeticiones no es una serie hecha: si no la hiciste, anulala." });
+  if (v.reps === 0) out.push({ field: "reps", message: o.timed ? "0 segundos no es una serie hecha: si no la hiciste, anulala." : "0 repeticiones no es una serie hecha: si no la hiciste, anulala." });
   if (v.metrics != null) {
     const m = cleanSetMetrics(o.profile, v.metrics);
     if (!m.ok) out.push({ field: "metrics", message: m.error });

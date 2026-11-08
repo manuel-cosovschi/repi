@@ -112,6 +112,9 @@ export function activityGuess(name: string | null | undefined): ActivityProfile 
   return isActivityProfile(g) ? g : null;
 }
 const SPEED_UNIT = /(?:\ba\s+)?(\d{1,2}(?:[.,]\d+)?)\s*(?:km\s*\/\s*h|kmh|kph|km\s+por\s+hora)(?![\p{L}])/iu;
+/** Una duración escrita («30 min», «10 minutos», «45 s», «20'»): con «vel» o «incl», es una caminata o un trote en cinta. */
+const DURATION_HINT = /\b\d+(?:[.,]\d+)?\s*(?:min(?:utos)?|seg(?:undos)?|s)\b|\b\d+\s*'/i;
+const SETS_X_REPS = /\d\s*[x×]\s*\d/i;
 const SPEED_WORD = /\b(?:vel(?:ocidad)?|speed)\.?\s*[:=]?\s*(\d{1,2}(?:[.,]\d+)?)(?:\s*(?:km\s*\/\s*h|kmh|kph))?/i;
 const FIELD_RE: [Exclude<keyof ActivityValues, "speedKmh" | "distanceM">, RegExp][] = [
   ["incline", /\b(?:incl(?:inaci[oó]n)?|inclinada|pendiente|incline)\.?\s*[:=]?\s*(-?\d{1,2}(?:[.,]\d+)?)\s*%?/i],
@@ -129,10 +132,14 @@ export function readActivityText(text: string, named: ActivityProfile | null): {
   const take = (re: RegExp) => { const m = re.exec(rest); if (m) rest = rest.slice(0, m.index) + " " + rest.slice(m.index + m[0].length); return m; };
   let profile = named;
   const values: ActivityValues = {};
-  const sp = take(SPEED_UNIT) ?? (profile ? take(SPEED_WORD) : null);
+  // Sin máquina en el nombre («Caminata 30 min vel 5 incl 6»), «vel» o «incl» junto a una duración (y sin series × repeticiones)
+  // también dicen que es en cinta: su número es la velocidad o la inclinación, nunca una carga.
+  const cardio = !profile && DURATION_HINT.test(text) && !SETS_X_REPS.test(text);
+  // «Velocidad: 5 km/h» completo primero (si no, «Velocidad» quedaba suelto en la nota).
+  const sp = (profile || cardio ? take(SPEED_WORD) : null) ?? take(SPEED_UNIT);
   if (sp) values.speedKmh = toNum(sp[1]);
   if (sp && (!profile || profile === "duration")) profile = "treadmill";
-  if (profile === "duration" && FIELD_RE[0][1].test(rest)) profile = "treadmill"; // «Trote 20 min incl 2»: en cinta
+  if ((profile === "duration" || (!profile && cardio)) && FIELD_RE[0][1].test(rest)) profile = "treadmill"; // «Trote 20 min incl 2»: en cinta
   if (profile) {
     for (const [f, re] of FIELD_RE) {
       if (!PROFILE_FIELDS[profile].includes(f)) continue;
@@ -187,6 +194,7 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
   let prof = act.profile;
   let rest = act.rest;
   const take = (re: RegExp) => { const m = re.exec(rest); if (m) rest = rest.slice(0, m.index) + " " + rest.slice(m.index + m[0].length); return m; };
+  if (prof) take(/\b(?:duraci[oó]n|tiempo)\s*[:=]?\s*(?=\d)/i); // «Duración: 10 minutos»: el rótulo no es una nota
   // Descanso, tempo, RIR y RPE primero: sus números no son series ni cargas.
   const r = take(new RegExp(String.raw`(?:desc(?:anso)?|rest|pausa|recup(?:eraci[oó]n)?|recuperar)\.?\s*(?:de|entre series)?\s*[:=]?\s*(${NUM})\s*(min(?:utos)?|m\b|'|s\b|seg(?:undos)?|sec|"|'')?(?:(?<=')(\d{2})(?:"|''|s\b)?)?(?::\d{2})?`, "i"));
   if (r) e.restSec = restSeconds(r);
@@ -224,7 +232,7 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
     const rl = take(new RegExp(String.raw`(?:^|\s)(\d{1,3}(?:\s*[/;]\s*\d{1,3}){1,9}|\d{1,3}(?:\s*[-–]\s*\d{1,3}){2,9})(?=\s|$|\()`, "i"));
     if (rl) repsRaw = rl[1];
     else {
-      const ro = take(new RegExp(String.raw`(?:^|\s)(${REPS})\s*(?:repeticiones|repes|reps?)\b`, "i")) ?? take(new RegExp(String.raw`(?:^|\s)(${FAIL}|${TIME}|${DIST})(?=\s|$)`, "i"));
+      const ro = take(new RegExp(String.raw`(?:^|\s)(${REPS})\s*(?:repeticiones|repes|reps?)\b`, "i")) ?? take(new RegExp(String.raw`(?:^|\s)(${FAIL}|${TIME}|${DIST})(?=\s|$|[,;·.])`, "i"));
       if (ro) repsRaw = ro[1];
     }
   }
@@ -233,6 +241,9 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
 
   const other = take(OTHER_LOAD);
   if (other) e.note = [e.note, other[0].trim()].filter(Boolean).join(" · ");
+  // «vel 2» o «incl 3» en algo que no es una actividad quedan en la nota: su número nunca es una carga.
+  const vw = prof ? null : take(/\b(?:vel(?:ocidad)?|incl(?:inaci[oó]n)?|pendiente)\.?\s*[:=]?\s*-?\d+(?:[.,]\d+)?\s*%?/i);
+  if (vw) e.note = [e.note, vw[0].trim()].filter(Boolean).join(" · ");
   // Carga sin unidad: «@ 60» o un número suelto que queda después de «4x10» («Press banca 4x10 60»). Nunca en una actividad.
   if (!weights && !prof) {
     const at = take(new RegExp(String.raw`@\s*(${NUM}(?:\s*[/;\-–]\s*${NUM})*)(?!\s*%)`, "i"));
@@ -299,7 +310,8 @@ export function readPrescription(text: string, e: Draft, hint: { lb?: boolean } 
 const METHOD_IN_NAME = /\s(?=(?:emom|amrap|drop ?sets?|dropsets?|rest[- ]?pause|myo[- ]?reps?|cluster|top ?set|back[- ]?offs?|superserie|biserie|triserie|pir[aá]mide|al fallo|hasta el fallo)\b)/i;
 const NAME_STOP = new RegExp(String.raw`(\s|^)(?=\d|@|\(\s*\d|[-–—:|]\s*\d|(?:desc(?:anso)?|rest|rir|rpe|tempo)\b)`, "i");
 // «Cinta incl 3 vel 5 10 min»: en cardio, «vel», «incl», «nivel», «ritmo» o «cadencia» con un número cortan el nombre.
-const ACT_STOP = /\s(?=(?:vel(?:ocidad)?|incl(?:inaci[oó]n)?|nivel|niv|ritmo|cadencia|resistencia)\.?\s*[:=]?\s*-?\d)/i;
+// «Cinta caminadora · Duración: 10 minutos · Velocidad: 5 km/h»: también «duración» o «tiempo» con su número.
+const ACT_STOP = /\s(?=(?:vel(?:ocidad)?|incl(?:inaci[oó]n)?|nivel|niv|ritmo|cadencia|resistencia|duraci[oó]n|tiempo)\.?\s*[:=]?\s*-?\d)/i;
 /** «A1. Press banca — 4 × 10 — 60 kg» → ejercicio con nombre, combinado y prescripción. */
 export function parseExerciseLine(line: string, hint: { lb?: boolean } = {}): Draft | null {
   const src = cleanLine(line);
@@ -314,7 +326,7 @@ export function parseExerciseLine(line: string, hint: { lb?: boolean } = {}): Dr
   let at = cut ? cut.index : body.length;
   const ac = ACT_STOP.exec(body);
   if (ac && ac.index > 0 && ac.index < at && activityGuess(body.slice(0, ac.index))) at = ac.index;
-  let name = body.slice(0, at).replace(/[\s\-–—:|,.;(]+$/g, "").trim();
+  let name = body.slice(0, at).replace(/[\s\-–—:|,.;(·•]+$/g, "").trim();
   let tail = body.slice(at);
   // Un método escrito pegado al nombre («Burpees AMRAP 8 min», «Remo drop set») va a la prescripción.
   const mm = METHOD_IN_NAME.exec(name);
@@ -342,6 +354,15 @@ const PROGRAM_HEAD = /^(?:programa|plan|mesociclo|rutina\s+de\s+\p{L}+|rutina\s+
 const SECTION_HEAD = /^(calentamiento|entrada\s+en\s+calor|warm[\s-]?up|activaci[oó]n|movilidad|core|cardio|vuelta\s+a\s+la\s+calma|enfriamiento|estiramientos?|parte\s+principal|bloque\s+\w+|finisher|accesorios|fuerza|potencia|(?:circuito|superserie|super\s+serie|biserie|triserie|serie\s+gigante|giant\s+set)\b.*)\s*:?$/i;
 const CHAT = /^(?:hola|buen[oa]s?|buen d[ií]a|te paso|te mando|ac[aá] (?:te|va|est[aá])|gracias|ok\b|dale|genial|saludos|abrazo|cualquier (?:duda|cosa)|acordate|record[aá]|mañana|hoy|esta semana|la semana|che\b|perfecto|listo\b|ah[ií] va|para vos|vamos)/i;
 const NOTE_LINE = /^(?:nota|notas|obs(?:ervaciones?)?|importante|aclaraci[oó]n|recordá|recorda|ojo|tip)\b|^[*>]/i;
+
+/**
+ * Un renglón largo que es una actividad escrita con sus campos («Cinta caminadora · Duración: 10 minutos · Velocidad: 5 km/h ·
+ * Inclinación: 3»): empieza con el nombre de la actividad y dice una duración. No es una indicación general.
+ */
+function cardioLine(line: string): boolean {
+  const head = line.split(/\s+[·•|,\-–—]\s+|:|\s(?=\d)/)[0] ?? "";
+  return DURATION_HINT.test(line) && !!activityGuess(head);
+}
 
 function groupBlock(text: string): { kind: GroupKind; rounds: number | null } | null {
   const t = fold(text);
@@ -387,7 +408,7 @@ export function parseRoutineText(text: string): ImportParse {
       else { section = line.replace(/[:\s]+$/, "").slice(0, 40); block = null; }
       continue;
     }
-    if (NOTE_LINE.test(line) || (line.split(" ").length > 9 && !/\d\s*(x|×)\s*\d/.test(line))) { notes.push(line.slice(0, 300)); continue; }
+    if (NOTE_LINE.test(line) || (line.split(" ").length > 9 && !/\d\s*(x|×)\s*\d/.test(line) && !cardioLine(line))) { notes.push(line.slice(0, 300)); continue; }
     // «Descanso 90 s» solo: es del ejercicio anterior (o una indicación general si no hay).
     const prev: ImportExercise | undefined = (day as V["days"][number] | null)?.exercises.at(-1);
     if (/^(?:desc(?:anso)?|rest|pausa|recuperaci[oó]n)\b/i.test(line)) {

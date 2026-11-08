@@ -5,7 +5,9 @@ import {
   isActivityProfile, isTimedRow, kindOfProfile, parseDistance, prescriptionText, profileFromKind, profileOf, sameMetrics, validateActivity,
 } from "./activity";
 import { EXERCISE_CATALOG, EXERCISE_GROUPS, exerciseKey } from "./exercise-catalog";
-import { guessProfile } from "./exercise-guess";
+import { guessExerciseGroup, guessExerciseKind, guessProfile } from "./exercise-guess";
+import { canSubstitute } from "./session-changes";
+import { parseExerciseLine } from "./program-import";
 import { emptyDetail, type ExerciseDetail } from "./prescription";
 import { validateProgramDoc, type ProgramDoc } from "./training";
 
@@ -83,7 +85,7 @@ describe("perfil de un ejercicio (profileOf)", () => {
     expect(profileOf({ name: "Bicicleta abdominal", kind: "bodyweight" })).toBe("bodyweight");
     // Una «Cinta caminadora» propia que se creó como «peso y repeticiones» (el editor arrancaba ahí) se configura como cinta.
     expect(profileOf({ name: "Cinta caminadora", kind: "load_reps", muscleGroup: "Cardio" })).toBe("treadmill");
-    expect(profileOf({ name: "Bici de spinning", kind: "load_reps" })).toBe("bike");
+    expect(profileOf({ name: "Bici de spinning", kind: "load_reps", muscleGroup: "Cardio" })).toBe("bike");
     // El aguante por nombre sólo si se registra por tiempo: «Plancha con chaleco» con peso sigue siendo con peso.
     expect(profileOf({ name: "Plancha con chaleco", kind: "load_reps" })).toBe("strength");
     expect(profileOf({ name: "Plancha con chaleco", kind: "time" })).toBe("hold");
@@ -91,6 +93,30 @@ describe("perfil de un ejercicio (profileOf)", () => {
     expect(profileOf({ name: "Máquina 7 del gym", kind: "time", muscleGroup: "Core" })).toBe("hold");
     expect(profileOf({ name: "Remo con barra", kind: "load_reps" })).toBe("strength");
     expect(profileOf({ kind: "time", group: "Cardio" })).toBe("duration");
+  });
+  it("el nombre no contradice el tipo elegido: «Abdominales bicicleta» o «Abducción con cinta elástica» no se vuelven cardio", () => {
+    // Ejercicios propios anteriores a 0052 (sin perfil guardado): la persona eligió «Peso corporal» o «Con peso».
+    expect(profileOf({ name: "Abdominales bicicleta", kind: "bodyweight", muscleGroup: "Core" })).toBe("bodyweight");
+    expect(profileOf({ name: "Crunch bicicleta", kind: "bodyweight", muscleGroup: "Core" })).toBe("bodyweight");
+    expect(profileOf({ name: "Bike crunch", kind: "bodyweight", muscleGroup: "Core" })).toBe("bodyweight");
+    expect(profileOf({ name: "Abducción con cinta elástica", kind: "load_reps", muscleGroup: "Glúteos" })).toBe("strength");
+    // Aunque el nombre diga «bici», fuera de Cardio un ejercicio con peso sigue con peso.
+    expect(profileOf({ name: "Bici de spinning", kind: "load_reps", muscleGroup: "Piernas" })).toBe("strength");
+    // Sin tipo (no se sabe cómo se registra) o «por tiempo», el nombre decide.
+    expect(profileOf({ name: "Bici de spinning" })).toBe("bike");
+    expect(profileOf({ name: "Bici de spinning", kind: "time", muscleGroup: "Piernas" })).toBe("bike");
+    // Los reemplazos siguen al tipo: «Abdominales bicicleta» se cambia por otro abdominal, no por la cinta.
+    const orig = { id: "a", name: "Abdominales bicicleta", kind: "bodyweight" as const, muscleGroup: "Core" };
+    expect(canSubstitute(orig, { id: "b", name: "Abdominales (crunch)", kind: "bodyweight", muscleGroup: "Core" })).toBe(true);
+    expect(canSubstitute(orig, { id: "c", name: "Cinta (caminata)", kind: "time", muscleGroup: "Cardio" })).toBe(false);
+  });
+  it("sugerencias del alta y del importador para la musculación con nombre de máquina", () => {
+    expect(guessExerciseGroup("Abdominales bicicleta")).toBe("Core");
+    expect(guessExerciseGroup("Abducción con cinta elástica")).toBe("Glúteos");
+    expect(guessExerciseKind("Abdominales bicicleta")).toBe("bodyweight");
+    expect(guessExerciseKind("Abducción con cinta elástica")).toBe("load_reps");
+    // Antes del arreglo, el importador marcaba las repeticiones como dudosas (lo tomaba por una bici).
+    expect(parseExerciseLine("Abdominales bicicleta 3x20")?.issues).toEqual([]);
   });
   it("sugerencia al crear un ejercicio propio", () => {
     expect(guessMetricsProfile("Cinta caminadora")).toBe("treadmill");
@@ -115,8 +141,14 @@ describe("deducción por nombre (guessProfile)", () => {
     for (const [n, p] of cases) expect(guessProfile(n), n).toBe(p);
   });
   it("no confunde la musculación con nombre parecido", () => {
-    for (const n of ["Remo con barra", "Remo en máquina", "Remo", "Bicicleta abdominal", "Extensión de tríceps con soga", "Remo con soga en polea", "Caminata lateral con banda", "Step up al cajón", "Curl de bíceps", "Press de banca"])
+    for (const n of ["Remo con barra", "Remo en máquina", "Remo", "Bicicleta abdominal", "Extensión de tríceps con soga", "Remo con soga en polea", "Caminata lateral con banda", "Step up al cajón", "Curl de bíceps", "Press de banca",
+      "Abdominales bicicleta", "Crunch bicicleta", "Bike crunch", "Bicycle crunch", "Abducción con cinta elástica", "Sentadilla con cinta", "Remo con banda elástica"])
       expect(guessProfile(n), n).toBeNull();
+    expect(guessProfile("Plancha con banda")).toBe("hold"); // el aguante no es cardio: sigue valiendo
+    expect(guessProfile("Salto con soga")).toBe("duration");
+    // «Banda caminadora» es la cinta, no una banda elástica.
+    expect(guessProfile("Banda caminadora")).toBe("treadmill");
+    expect(guessExerciseGroup("Banda caminadora")).toBe("Cardio");
   });
 });
 

@@ -117,6 +117,8 @@ test("coach: «Cinta caminadora» se configura sólo con duración, velocidad e 
   for (const n of ["Series de", "Repeticiones de", "RIR de", "Descanso de"]) await expect(page.getByRole("textbox", { name: `${n} ${CINTA}` })).toHaveCount(0);
   await expect(page.getByRole("button", { name: `Series y técnica de ${CINTA}` })).toHaveCount(0);
   await expect(row).not.toContainText("%");
+  // La inclinación admite un número negativo también en el iPhone (su teclado decimal no tiene «-»).
+  await expect(incl).toHaveAttribute("inputmode", "text");
   // Un valor fuera de rango no se guarda y explica por qué.
   await incl.fill("45");
   await incl.blur();
@@ -170,6 +172,17 @@ test("alumno: ve exactamente lo indicado, registra lo que hizo sin peso ni RIR y
   await expect(page.locator(".excard")).not.toContainText("%");
   await shot(page, "member-workout-card");
   if (test.info().project.name === "mobile") await expectNoHorizontalOverflow(page, "tarjeta de la cinta");
+  // El cronómetro sigue corriendo aunque la persona vaya a ver el ejercicio siguiente y vuelva (antes volvía a 00:00).
+  const timer = page.getByRole("group", { name: "Cronómetro de la actividad" });
+  await timer.getByRole("button", { name: "Empezar" }).click();
+  await expect(timer.locator(".act-clock strong")).not.toHaveText("00:00", { timeout: 5_000 });
+  await page.getByRole("button", { name: "Ejercicio siguiente" }).click();
+  await expect(page.locator(".excard-top")).not.toContainText(CINTA);
+  await page.getByRole("button", { name: "Ejercicio anterior" }).click();
+  await expect(timer.getByRole("button", { name: "Pausar" })).toBeVisible();
+  await expect(timer.locator(".act-clock strong")).not.toHaveText("00:00");
+  await timer.getByRole("button", { name: "Pausar" }).click();
+  await timer.getByRole("button", { name: "Reiniciar cronómetro" }).click();
 
   // Lo que hizo de verdad: 12 min a 5,5 km/h con inclinación 4.
   await typeValue(page, "Duración (min)", "12");
@@ -199,7 +212,16 @@ test("alumno: ve exactamente lo indicado, registra lo que hizo sin peso ni RIR y
   await page.goto("/app?tab=prog");
   await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: /Progreso/ }).click();
   await page.getByRole("tab", { name: "Historial" }).click();
-  await page.getByRole("button", { name: /Abrir detalle$/ }).first().click();
+  // Sólo la cinta: «1 serie», sin «0 kg»; en el detalle, el tiempo en lugar de «0 Repeticiones» y «0 Volumen».
+  const item = page.getByRole("button", { name: /Abrir detalle$/ }).first();
+  await expect(item).toContainText("1 serie");
+  await expect(item).not.toContainText("kg");
+  await item.click();
+  const tiles = page.locator(".stats3").first();
+  await expect(tiles).toContainText("12 min");
+  await expect(tiles).toContainText("Tiempo");
+  await expect(tiles).not.toContainText("Volumen");
+  await expect(tiles).not.toContainText("Repeticiones");
   const sets = page.getByRole("list", { name: `Series de ${CINTA}` });
   await expect(sets).toContainText("12 min · 5,5 km/h · incl. 4");
   await expect(sets).not.toContainText("720 s");

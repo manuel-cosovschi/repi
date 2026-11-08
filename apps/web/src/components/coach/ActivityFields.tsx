@@ -76,9 +76,10 @@ function num(s: string): number | null | undefined {
 type Key = "dur" | "dist" | "sets" | ActivityField;
 type Parsed = { t: "ok"; patch: Omit<ActivityPatch, "rir" | "detail"> & { activity?: Partial<ActivityDetail> } } | { t: "partial" } | { t: "bad"; error: string };
 
-const FIELD_UI: Record<ActivityField, { label: string; aria: string; mode: InputHTMLAttributes<HTMLInputElement>["inputMode"]; ph?: string }> = {
+export const FIELD_UI: Record<ActivityField, { label: string; aria: string; mode: InputHTMLAttributes<HTMLInputElement>["inputMode"]; ph?: string }> = {
   speedKmh: { label: "Velocidad (km/h)", aria: "Velocidad en km/h", mode: "decimal" },
-  incline: { label: "Inclinación", aria: "Inclinación", mode: "decimal" },
+  // «text» y no «decimal»: el teclado decimal del iPhone no tiene «-» y una inclinación negativa (-2) no se podía escribir.
+  incline: { label: "Inclinación", aria: "Inclinación", mode: "text" },
   level: { label: "Nivel", aria: "Nivel", mode: "numeric" },
   distanceM: { label: "Distancia (m)", aria: "Distancia en metros", mode: "numeric" },
   pace500Sec: { label: "Ritmo /500 m", aria: "Ritmo cada 500 metros", mode: undefined, ph: "2:05" },

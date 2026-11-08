@@ -396,7 +396,7 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
           {convert && <ConvertToActivity name={e.name} reps={e.reps} profile={convert} onConvert={() => setEx(i, toActivityRow(e, convert))} />}
           {(!!e.note || noteOpen === `${day}:${i}`) && <NoteField name={e.name} value={e.note ?? ""} who="el socio" onChange={(v) => setEx(i, { note: v })} onEmpty={() => setNoteOpen(null)} />}
         </div>
-        {act ? <ActivityLast last={lastTimes[e.exerciseId]} /> : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setEx(i, { detail })} />}
+        {act ? <ActivityLast last={lastTimes[e.exerciseId]} /> : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} profile={prof} onApply={(detail) => setEx(i, { detail })} />}
         {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={shell.orgId} ex={e} lib={lib.data ?? []} subs={subs} setSubs={setSubs} flash={shell.flash} onAdded={subsPanel.close} />}
         </Fragment>
         );

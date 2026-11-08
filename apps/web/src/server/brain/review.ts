@@ -6,7 +6,7 @@
 // Excluye siempre las series anuladas, las aproximaciones y las etapas (drop, rest-pause, cluster) de las comparaciones y las
 // marcas. Al leer el cierre de una sesión terminada deja el resultado en la memoria (outcome), idempotente: no duplica.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { epley1rm, exerciseRows, rowContext, type ExCtx, type ExerciseDetail, type SetKind } from "@repi/domain";
+import { epley1rm, exerciseRows, isActivityProfile, rowContext, type ExCtx, type ExerciseDetail, type SetKind } from "@repi/domain";
 import { fmtArDate, sessionReview, type PriorMarks, type ReviewExercise, type ReviewSet, type SessionReview } from "@repi/domain/brain";
 import { db, schema } from "@/db";
 import { logError } from "../log";
@@ -129,7 +129,8 @@ export async function sessionReviewFor(userId: string, sessionId: string, now = 
     const outlook = (hist.get(did)?.length ?? 0) ? outlookFor(ex, hist.get(did)!, now, coachOwned) : null;
     exercises.push({
       exercise: { id: pe.id, name: pe.name, short: "" },
-      measure: isTimed ? "time" : undefined,
+      // Ejercicios por tiempo: una actividad (cinta, bici…) se informa sin «aguantaste» ni «mejor tiempo».
+      measure: isTimed ? (isActivityProfile(ex.profile) ? "activity" : "time") : undefined,
       plannedMain,
       sets,
       skipped: ch?.c.kind === "skip",

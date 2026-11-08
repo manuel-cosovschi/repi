@@ -2,7 +2,7 @@
 // el entrenador de piso en turno en su sede recibe un push con texto mínimo y lo ve en «Mi turno».
 // La alerta guardada es la fuente de verdad: el push es un atajo, no garantiza entrega.
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
-import { FLOOR_ALERT_COOLDOWN_MIN, FLOOR_ALERT_MAX_AGE_MIN, PUSH_FLOOR, SET_FEEL, type SetFeel } from "@repi/domain";
+import { FLOOR_ALERT_COOLDOWN_MIN, FLOOR_ALERT_MAX_AGE_MIN, PUSH_FLOOR, SET_FEEL, isTimedRow, type ExerciseDetail, type SetFeel } from "@repi/domain";
 import { db, schema } from "@/db";
 import { audit } from "../access/util";
 import { enqueue } from "../push/services";
@@ -57,17 +57,20 @@ export async function listAlerts(actorId: string, orgId: string, locationId: str
   const ctx = await gymContext(actorId, orgId);
   need(ctx, "floor.work");
   if (!inScope(ctx, locationId)) throw NOT_FOUND();
-  const rows = await db.select({ a: floorAlert, name: user.name, w: setLog.weightKg, reps: setLog.reps, setIndex: setLog.setIndex, metrics: setLog.metrics }).from(floorAlert)
+  const rows = await db.select({ a: floorAlert, name: user.name, w: setLog.weightKg, reps: setLog.reps, setIndex: setLog.setIndex, metrics: setLog.metrics, peReps: schema.programExercise.reps, peDetail: schema.programExercise.detail }).from(floorAlert)
     .innerJoin(gymMember, eq(gymMember.id, floorAlert.gymMemberId)).innerJoin(user, eq(user.id, gymMember.userId))
     .leftJoin(setLog, eq(setLog.id, floorAlert.setLogId))
+    .leftJoin(schema.programExercise, eq(schema.programExercise.id, setLog.programExerciseId))
     .where(and(eq(floorAlert.orgId, orgId), eq(floorAlert.locationId, locationId), gte(floorAlert.createdAt, new Date(now.getTime() - 60 * 60_000))))
     .orderBy(desc(floorAlert.createdAt)).limit(30);
   const ackIds = [...new Set(rows.map((r) => r.a.ackBy).filter((x): x is string => !!x))];
   const ackNames = new Map((ackIds.length ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ackIds)) : []).map((u) => [u.id, u.name]));
   return rows.map((r) => ({
     id: r.a.id, member: r.name, exercise: r.a.exerciseName, feel: r.a.feel, feelLabel: SET_FEEL[r.a.feel as SetFeel] ?? r.a.feel,
-    // Ejercicios por tiempo: en una actividad (cinta, bici…) `reps` son segundos y `metrics`, lo que hizo (velocidad, nivel…).
-    set: r.setIndex == null ? null : { n: r.setIndex + 1, weightKg: r.w == null ? null : Number(r.w), reps: r.reps, ...(r.metrics ? { metrics: r.metrics } : {}) },
+    // Ejercicios por tiempo: en una fila por tiempo (cinta, bici, plancha…) `reps` son segundos (`timed`) y `metrics`, lo que hizo
+    // en una actividad (velocidad, nivel…): la pantalla muestra «12 min · 5,5 km/h», nunca «0 kg × 720».
+    set: r.setIndex == null ? null : { n: r.setIndex + 1, weightKg: r.w == null ? null : Number(r.w), reps: r.reps, ...(r.metrics ? { metrics: r.metrics } : {}),
+      ...(r.peReps != null && isTimedRow({ reps: r.peReps, detail: r.peDetail as ExerciseDetail | null }) ? { timed: true } : {}) },
     createdAt: r.a.createdAt, ackBy: r.a.ackBy ? ackNames.get(r.a.ackBy) ?? "Alguien del equipo" : null, ackAt: r.a.ackAt,
   }));
 }

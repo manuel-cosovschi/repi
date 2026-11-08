@@ -4,7 +4,7 @@
 // suyo). Puro: no toca la base ni IndexedDB.
 import { describe, expect, it } from "vitest";
 import { fromServer, localProfile, activityDraft, type LocalSet } from "@/lib/offline/store";
-import { setChangedSince, setRequest } from "@/lib/offline/queue";
+import { acceptedSet, setChangedSince, setRequest } from "@/lib/offline/queue";
 
 const CINTA = { profile: "treadmill" as const, speedKmh: 5, incline: 3 };
 const srvEx = (p: Record<string, unknown>) => ({
@@ -69,5 +69,25 @@ describe("cola: cuerpo enviado y cambios mientras viaja", () => {
     const old = setRequest("pe", 0, base).sent;
     expect(setChangedSince(base, old)).toBe(false);
     expect(setChangedSince(undefined, old)).toBe(false);
+  });
+});
+
+describe("cola: lo que guardó el servidor", () => {
+  const base: LocalSet = { id: "l1", w: 0, r: 600, rir: null, feel: null, note: null, done: true, revision: 1, at: "2026-11-07T14:12:00.000Z" };
+  it("deshecho el reemplazo, la serie hecha en la bici muestra lo que quedó guardado (nivel 8), no «6 km/h» que el servidor descartó", () => {
+    // La serie se registró en la bici (nivel 8); deshecho el reemplazo el teléfono la edita como cinta y suma 6 km/h. El servidor
+    // valida con el perfil del ejercicio con que se registró (la bici) y guarda sólo el nivel.
+    const local: LocalSet = { ...base, m: { level: 8, speedKmh: 6 } };
+    const out = acceptedSet(local, { status: "ok", id: "srv-1", revision: 2, reps: 600, metrics: { level: 8 } }, false);
+    expect(out).toMatchObject({ id: "srv-1", revision: 2, m: { level: 8 }, r: 600 });
+    expect(out.conflict).toBeUndefined();
+    // Si la persona cambió la serie mientras viajaba el pedido, manda lo suyo (se vuelve a enviar).
+    expect(acceptedSet(local, { status: "ok", id: "srv-1", revision: 2, metrics: { level: 8 } }, true).m).toEqual({ level: 8, speedKmh: 6 });
+    // Fuerza o una sesión de una versión anterior (sin `m`): nada cambia, ni aparece el campo.
+    const strength = acceptedSet(base, { status: "ok", id: "srv-2", revision: 3, metrics: null }, false);
+    expect("m" in strength).toBe(false);
+    expect(strength).toMatchObject({ id: "srv-2", revision: 3 });
+    // Una respuesta sin métricas (servidor anterior) no borra las del teléfono.
+    expect(acceptedSet(local, { status: "ok", id: "srv-1", revision: 2 }, false).m).toEqual({ level: 8, speedKmh: 6 });
   });
 });

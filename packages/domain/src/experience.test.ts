@@ -128,6 +128,12 @@ describe("ejercicios por tiempo · correcciones de una actividad", () => {
     expect(validateCorrection({ ...cinta, reps: 3601, metrics: null }, { timed: true })[0].field).toBe("reps");
     expect(validateCorrection({ ...cinta, reps: 0 }, { timed: true, profile: "treadmill" })[0].message).toMatch(/anulala/);
   });
+  it("una cinta vieja que cuenta repeticiones («3 × 10-12») sigue con el tope de 200", () => {
+    // Antes la actividad ampliaba también el tope de repeticiones: 5000 «repeticiones» pasaban y sumaban volumen.
+    expect(validateCorrection({ weightKg: 20, reps: 5000, rir: null, feel: null, note: null }, { timed: false, profile: "treadmill" })[0]).toEqual({ field: "reps", message: "Las repeticiones van de 0 a 200." });
+    expect(validateCorrection({ weightKg: 20, reps: 12, rir: null, feel: null, note: null }, { timed: false, profile: "treadmill" })).toEqual([]);
+    expect(validateCorrection({ weightKg: 20, reps: 0, rir: null, feel: null, note: null }, { timed: false, profile: "treadmill" })[0].message).toMatch(/0 repeticiones/);
+  });
   it("las métricas se validan con los rangos del perfil", () => {
     expect(validateCorrection({ ...cinta, metrics: { speedKmh: 30 } }, { timed: true, profile: "treadmill" })).toEqual([{ field: "metrics", message: "La velocidad va de 0,5 a 25 km/h." }]);
     expect(validateCorrection({ ...cinta, metrics: { speedKmh: 6, incline: 4 } }, { timed: true, profile: "treadmill" })).toEqual([]);

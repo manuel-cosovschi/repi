@@ -311,7 +311,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
                 {activityOf(e.detail) ? <ActivityLast last={lastTimes[e.exerciseId]} />
-                  : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />}
+                  : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} profile={editorProfile(e, libById.get(e.exerciseId))} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />}
                 {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} onAdded={subsPanel.close} />}
               </div>
             )); })()}

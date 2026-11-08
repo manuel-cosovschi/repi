@@ -24,17 +24,24 @@ const GROUP_RULES: [RegExp, Group][] = [
   [/\b(curl|biceps|triceps|martillo|frances|patada de triceps|antebrazo|press cerrado)/, "Brazos"],
 ];
 
+/**
+ * Musculación con nombre de máquina de cardio: «Abdominales bicicleta», «Crunch bicicleta», «Bike crunch», «Abducción con cinta
+ * elástica», «Sentadilla con banda», «Tríceps con soga», «Remo con soga». Nunca son una actividad (cinta, bici, soga…) ni van a Cardio.
+ * «Banda caminadora» (o «banda sin fin») sí es la cinta.
+ */
+const CARDIO_LOOKALIKE = /\b(abdominal|crunch|elastic|banda(?!\s+(?:caminadora|sin\s?fin|para correr|de correr))|con cinta)|\b(triceps|polea|curl|jalon|face pull|extension|remo)\b.*\bsoga\b/;
+
 /** Grupo muscular probable por el nombre, o null si no lo reconoce. */
 export function guessExerciseGroup(name: string): Group | null {
   const t = fold(name);
-  for (const [re, g] of GROUP_RULES) if (re.test(t)) return g;
+  const lookalike = CARDIO_LOOKALIKE.test(t);
+  for (const [re, g] of GROUP_RULES) if (!(g === "Cardio" && lookalike) && re.test(t)) return g;
   return null;
 }
 
 // Orden importa: lo más específico primero. «Remo» a secas, «Remo en máquina», «Bicicleta abdominal», «Tríceps con soga»,
-// «Caminata lateral con banda» o «Step up» NO son actividades.
+// «Caminata lateral con banda» o «Step up» NO son actividades (ver también `CARDIO_LOOKALIKE`).
 const PROFILE_RULES: [RegExp, MetricsProfile][] = [
-  [/\bbicicleta abdominal|\b(triceps|polea|curl|jalon|face pull|extension)\b.*\bsoga\b|\bcon soga\b/, "strength"],
   [/\b(cinta|caminadora|treadmill|trotadora)\b/, "treadmill"],
   [/\b(ciclo ?ergometro|bici|bicicleta|bike|airbike|assault|spinning|cycle)/, "bike"],
   [/\b(remo ?ergometro|ergometro de remo|remo indoor|maquina de remo|rower|rowing|concept ?2)/, "rower"],
@@ -50,7 +57,8 @@ const PROFILE_RULES: [RegExp, MetricsProfile][] = [
  */
 export function guessProfile(name: string): MetricsProfile | null {
   const t = fold(name).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-  for (const [re, p] of PROFILE_RULES) if (re.test(t)) return p === "strength" ? null : p;
+  const lookalike = CARDIO_LOOKALIKE.test(t); // «Abdominales bicicleta» no es una bici; «Plancha con banda» sigue siendo aguante
+  for (const [re, p] of PROFILE_RULES) if (!(lookalike && p !== "hold") && re.test(t)) return p;
   return null;
 }
 

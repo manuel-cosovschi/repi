@@ -3,10 +3,10 @@
 // como la de D153: registra pesos, repeticiones, RIR, sensación y notas por serie, y el esfuerzo y la nota de la sesión.
 // Las rutinas son sólo del alumno; lo que entrena queda en su historial como cualquier sesión.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { circuitIssues, mainSets, validateActivity, validateDetail, IMPORT_FILES, IMPORT_SOURCES, type ExerciseDetail, type ImportField, type ImportOrigin, type ImportOriginExercise } from "@repi/domain";
+import { activityOf, alignActivities, circuitIssues, droppedActivity, mainSets, validateActivity, validateDetail, IMPORT_FILES, IMPORT_SOURCES, type ExerciseDetail, type ImportField, type ImportOrigin, type ImportOriginExercise } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
-import { createMemberExercise, ensureExerciseCatalog, libraryCols, visibleIn, withProfile } from "./library";
+import { createMemberExercise, ensureExerciseCatalog, exerciseProfiles, libraryCols, visibleIn, withProfile } from "./library";
 import { buildPreview, readImport, splitLongDays, type ImportInput } from "./program-import";
 import { lastSetByExercise, myActive, startSoloRoutine } from "./services";
 
@@ -72,6 +72,17 @@ export function ownDetail(e: { sets: number; reps?: string | null; detail?: Exer
   return { detail: v.detail, sets: v.sets };
 }
 
+/**
+ * Ejercicios por tiempo: la actividad de cada ejercicio en el perfil de su ejercicio (respaldo de lo que arma la pantalla o la
+ * importación: una cinta nunca queda como «sólo duración», ni un ejercicio de musculación con una actividad).
+ */
+async function alignOwn(exs: OwnRoutineEx[], names: Map<string, string>): Promise<OwnRoutineEx[]> {
+  if (!exs.some((e) => activityOf(e.detail))) return exs;
+  const r = alignActivities(exs.map((e) => ({ ...e, name: names.get(e.exerciseId) ?? null })), await exerciseProfiles(exs.map((e) => e.exerciseId)));
+  if (!r.ok) throw new AccessError("invalid", r.error);
+  return r.rows.map(({ name: _n, ...e }) => e as OwnRoutineEx);
+}
+
 /** D184: en una superserie o circuito las vueltas gobiernan: cada ejercicio con una serie por vuelta (como en el programa). */
 function assertCircuits(exs: { name: string; sets: number; reps: string; detail?: ExerciseDetail | null }[]) {
   const bad = circuitIssues(exs)[0];
@@ -110,8 +121,14 @@ export async function saveOwnRoutine(userId: string, p: Input) {
   const lib = await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId, userId)));
   if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
   assertCircuits(c.exercises.map((e) => ({ ...e, name: lib.find((x) => x.id === e.exerciseId)!.name })));
+  const names = new Map(lib.map((x) => [x.id, x.name]));
+  c.exercises = await alignOwn(c.exercises, names);
   const now = new Date();
   if (c.id) {
+    // Una app anterior en caché no borra la velocidad ni la inclinación sin aviso: pide actualizar.
+    const [old] = await db.select({ exercises: ownRoutine.exercises }).from(ownRoutine).where(and(eq(ownRoutine.id, c.id), eq(ownRoutine.userId, userId)));
+    const lost = old ? droppedActivity(old.exercises as OwnRoutineEx[], c.exercises) : null;
+    if (lost) throw new AccessError("outdated_app", `Actualizá REPI (recargá la página) para editar «${names.get(lost.exerciseId) ?? "este ejercicio"}»: esta versión no guarda su configuración por duración.`, 409);
     const [r] = await db.update(ownRoutine).set({ name: c.name, exercises: c.exercises, updatedAt: now })
       .where(and(eq(ownRoutine.id, c.id), eq(ownRoutine.userId, userId))).returning();
     if (!r) throw NOT_FOUND();
@@ -198,6 +215,8 @@ export async function saveImportedRoutines(userId: string, p: ImportSave) {
   const lib = await db.select({ id: exercise.id, name: exercise.name }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId, userId)));
   if (lib.length !== ids.length) throw new AccessError("invalid", "Hay ejercicios que no están en tu biblioteca.");
   cleaned.forEach((c) => assertCircuits(c.exercises.map((e) => ({ ...e, name: lib.find((x) => x.id === e.exerciseId)!.name }))));
+  const names = new Map(lib.map((x) => [x.id, x.name]));
+  for (const c of cleaned) c.exercises = await alignOwn(c.exercises, names);
   const source = (IMPORT_SOURCES as readonly string[]).includes(p.source) ? p.source : "text";
   const file = (IMPORT_FILES as readonly string[]).includes(p.file) ? p.file : "text";
   return db.transaction(async (tx) => {

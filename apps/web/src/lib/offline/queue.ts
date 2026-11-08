@@ -59,6 +59,18 @@ export function setRequest(peId: string, idx: number, x: LocalSet): { body: Reco
 export const setChangedSince = (x: LocalSet | undefined, sent: SentSet) => !!x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel
   || (x.note ?? null) !== sent.note || (x.m !== sent.m && !sameMetrics(x.m, sent.m)));
 
+/**
+ * La serie local después de que el servidor la aceptó: adopta su id y revisión y, si la serie no cambió mientras viajaba el
+ * pedido, también las métricas que guardó el servidor. Ejercicios por tiempo: el servidor valida las métricas con el perfil del
+ * ejercicio con que se registró la serie (deshecho un reemplazo, una serie hecha en la bici sigue siendo de la bici) y descarta lo
+ * que no es de ese perfil; así el teléfono muestra lo que quedó guardado, no un valor que el servidor no tiene.
+ */
+export function acceptedSet(x: LocalSet, data: Record<string, unknown>, changedMeanwhile: boolean): LocalSet {
+  const out: LocalSet = { ...x, id: (data.id as string) ?? x.id, revision: data.revision as number, conflict: undefined };
+  if (!changedMeanwhile && x.m !== undefined && "metrics" in data) out.m = (data.metrics as SetMetrics | null) ?? null;
+  return out;
+}
+
 async function build(it: Item, s: LocalSession): Promise<Built> {
   const base = `/api/me/sessions`;
   if (it.kind === "start") return { url: base, body: { id: s.id, dayId: s.dayId, startedAt: s.startedAt, closeOther: s.closeOther || undefined } };
@@ -168,8 +180,8 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
     if (data.status === "conflict") {
       s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null, metrics: (data.metrics as SetMetrics | null | undefined) ?? null }, appliedIsMine: false } };
     } else {
-      // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras.
-      s.sets[k] = { ...x, id: (data.id as string) ?? x.id, revision: data.revision as number, conflict: undefined };
+      // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras (y sus métricas).
+      s.sets[k] = acceptedSet(x, data, changedMeanwhile);
       // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
       const alert = data.alert as { notified: number } | null | undefined;
       if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));

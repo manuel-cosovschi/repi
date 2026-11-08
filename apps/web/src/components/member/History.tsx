@@ -31,7 +31,7 @@ type Ex = { id: string; name: string; doneName: string; sets: number; reps: stri
 type Detail = {
   id: string; dayName: string; status: "completed" | "voided"; startedAt: string; endedAt: string; durationSec: number; rpe: number | null; note: string | null; revision: number;
   voidedAt: string | null; voidReason: string | null; actions: { edit: boolean; voidSession: boolean; restoreSession: boolean };
-  metrics: { sets: number; stages: number; reps: number; volumeKg: number };
+  metrics: { sets: number; stages: number; reps: number; volumeKg: number; timeSec?: number };
   prs: { exercise: string; current: { weightKg: number; reps: number }; previous: { weightKg: number; reps: number } }[];
   exercises: Ex[]; previous: { id: string; endedAt: string } | null;
   corrections: { id: string; action: string; setLogId: string | null; before: Record<string, unknown>; after: Record<string, unknown>; reason: string | null; at: string; byOwner: boolean }[];
@@ -59,7 +59,8 @@ export function HistoryList({ items, onOpen }: { items: HistoryItem[]; onOpen: (
           aria-label={`${s.dayName}, ${dateTxt(s.endedAt)}${s.status === "voided" ? ", anulado" : ""}. ${s.sets} series. Abrir detalle`}>
           <span><b>{s.dayName}</b>{s.status === "voided" && <span className="hx-chip bad">Anulado</span>}{s.corrected && s.status !== "voided" && <span className="hx-chip">Corregido</span>}<br />
             <small className="mb-muted">{dateTxt(s.endedAt)} · {formatClock(s.durationSec)}{s.rpe ? ` · RPE ${s.rpe}` : ""}</small></span>
-          <span className="mb-muted">{s.status === "voided" ? "No cuenta" : `${s.sets} series · ${volumeIn(s.volumeKg, unit).toLocaleString("es-AR")} ${unit}`}</span>
+          {/* Sin carga (sólo cinta, bici, plancha o peso corporal) no se muestra «0 kg», igual que al terminar. */}
+          <span className="mb-muted">{s.status === "voided" ? "No cuenta" : `${s.sets} ${s.sets === 1 ? "serie" : "series"}${s.volumeKg > 0 ? ` · ${volumeIn(s.volumeKg, unit).toLocaleString("es-AR")} ${unit}` : ""}`}</span>
         </button></li>
       ))}
     </ul>
@@ -97,17 +98,20 @@ export function HistorySession({ id, flash, onClose, onChanged, offline, onRegis
               <div><button type="button" className="cta sm" aria-busy={busy || undefined} disabled={busy || offline} onClick={() => void restore()}>Restaurar entrenamiento</button></div>
             </div>
           )}
+          {/* Ejercicios por tiempo: sin repeticiones ni carga (sólo una cinta) no se muestran «0 Repeticiones» ni «0 Volumen»; el
+              tiempo de las actividades y series por tiempo, sí. Una sesión de musculación sigue con sus tres datos. */}
           <div className="stats3">
-            <div><strong>{d.metrics.sets}</strong><span>Series</span></div>
-            <div><strong>{d.metrics.reps}</strong><span>Repeticiones</span></div>
-            <div><strong>{volumeIn(d.metrics.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>
+            <div><strong>{d.metrics.sets}</strong><span>{d.metrics.sets === 1 ? "Serie" : "Series"}</span></div>
+            {(d.metrics.reps > 0 || !d.metrics.timeSec) && <div><strong>{d.metrics.reps}</strong><span>Repeticiones</span></div>}
+            {!!d.metrics.timeSec && <div><strong>{fmtSeconds(d.metrics.timeSec)}</strong><span>Tiempo</span></div>}
+            {(d.metrics.volumeKg > 0 || !d.metrics.timeSec) && <div><strong>{volumeIn(d.metrics.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>}
           </div>
           {/* D210: preguntar por esta sesión (se cierra la hoja para que el panel no quede debajo). */}
           {d.status === "completed" && !offline && <RepiAsk section="history" refs={{ sessionId: d.id }} subject={d.dayName} label="Preguntale a REPI por esta sesión" before={onClose}
             chips={[{ label: "¿Cómo me fue?", text: "¿Cómo me fue respecto de la anterior?" }, { label: "¿Qué hago la próxima?", text: "¿Qué hago la próxima?" }]} />}
           {d.status === "completed" && !offline && <SessionCalories sessionId={d.id} refresh={d.revision} onRegisterWeight={onRegisterWeight} />}
           {d.prs.length > 0 && <p className="hx-pr" role="note">Récord: {d.prs.map((p) => `${p.exercise} ${kg(p.current.weightKg, unit)} × ${p.current.reps}`).join(" · ")}</p>}
-          {d.actions.edit && <Hint id="history_edit" text="Tocá una serie para corregir peso, repeticiones o RIR, o anularla si la marcaste por error. Tus récords y recomendaciones se recalculan con lo corregido." />}
+          {d.actions.edit && <Hint id="history_edit" text="Tocá una serie para corregir lo que registraste (peso, repeticiones, RIR o los valores de una actividad), o anularla si la marcaste por error. Tus récords y recomendaciones se recalculan con lo corregido." />}
           {d.exercises.map((e) => (
             <section key={e.id} className="hx-ex" aria-label={e.doneName}>
               <div className="hx-ex-head"><b>{e.change?.kind === "substitute" && e.change.substitute ? `${e.change.substitute} (en lugar de ${e.name})` : e.name}</b>

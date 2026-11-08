@@ -8,7 +8,7 @@ import {
   CONNECT_ACTIVE, CONNECT_AVAILABILITY, CONNECT_COMMENT_MAX, CONNECT_DUE_SOON_HOURS, CONNECT_FOLLOWUP_DEFAULT_DAYS, CONNECT_NOTE_MAX, CONNECT_REASONS,
   CONNECT_STATE_LABEL, CONNECT_WAIT_ALERT_MIN, TASK_CATEGORY, connectMetrics, connectNext, connectPriority, connectSort, connectState, gymCan, isConnectReason,
   localDate, type ConnectAction, type ConnectAvailability, type ConnectReason, type ConnectStatus, type TaskPriority,
-  briefSummary, briefView, type SetMetrics,
+  briefSummary, briefView, isTimedRow, type ExerciseDetail, type SetMetrics,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { afterBriefSaved, parseBrief } from "../training/program-request";
@@ -318,7 +318,11 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   let sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null; metrics: SetMetrics | null }[] = [];
   let recent: { at: Date; weightKg: string | null; reps: number | null; metrics: SetMetrics | null }[] = [];
   let privateSession = false;
+  let timed = false;
   if (c?.sessionId && c.programExerciseId) {
+    // Ejercicios por tiempo: si la fila es por tiempo (cinta, bici, plancha…), `reps` son segundos (la pantalla no dice «0×720»).
+    const [pe] = await db.select({ reps: schema.programExercise.reps, detail: schema.programExercise.detail }).from(schema.programExercise).where(eq(schema.programExercise.id, c.programExerciseId));
+    timed = !!pe && isTimedRow({ reps: pe.reps, detail: pe.detail as ExerciseDetail | null });
     sets = await db.select({ setIndex: setLog.setIndex, weightKg: setLog.weightKg, reps: setLog.reps, rir: setLog.rir, feel: setLog.feel, metrics: setLog.metrics }).from(setLog)
       .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
       .where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, c.programExerciseId), eq(workoutSession.gymMemberId, t.gymMemberId ?? "-"), isNull(setLog.voidedAt))).orderBy(asc(setLog.setIndex));
@@ -336,7 +340,7 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   const can = (a: ConnectAction) => connectNext(t, a, actorId).ok;
   return {
     ...card,
-    context: c && (c.exerciseId || c.exerciseName) ? { exercise: c.exerciseName ?? null, program: c.programName ?? null, setIndex: c.setIndex ?? null, fromSession: !!c.fromSession, sets, recent, privateSession } : null,
+    context: c && (c.exerciseId || c.exerciseName) ? { exercise: c.exerciseName ?? null, program: c.programName ?? null, setIndex: c.setIndex ?? null, fromSession: !!c.fromSession, timed, sets, recent, privateSession } : null,
     program: prog[0] ? `${prog[0].name} · v${prog[0].n}` : null,
     events: ev.map(({ e, actor, to }) => ({ id: e.id, kind: e.kind, at: e.createdAt, by: actor, to, note: e.note, memberNote: e.memberNote, dueAt: e.dueAt, from: e.fromStatus, toStatus: e.toStatus })),
     previous: prev.map((p) => ({ id: p.id, ref: p.ref, label: p.label, stateLabel: p.stateLabel, createdAt: p.createdAt, completedBy: p.completedBy })),
