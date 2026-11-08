@@ -350,3 +350,23 @@ describe("H–J · desvinculación, aislamiento y reintentos", () => {
     expect(n).toBeGreaterThan(0);
   });
 });
+
+describe("K · comisión del primer mes según socios", () => {
+  it("toma el % del tramo del gimnasio sobre el primer cobro y no repite con los siguientes", async () => {
+    const a = await admin();
+    const { userId, repId } = await onboardRep(a);
+    await planFor(a, repId, RULES({ components: [{ type: "first_month_by_members", brackets: [{ minMembers: 50, bps: 3500 }, { minMembers: 300, bps: 5000 }, { minMembers: 400, bps: 6500 }] }], afterTermination: "continue" }));
+    const d = await deals.declareDeal(userId, dealInput({ members: 450, unitPriceMinor: 200_00 }));
+    const est = (await com.myCommissions(userId)).estimates.find((e) => e.dealId === d.id);
+    expect(est?.estimate?.lines[0]).toMatchObject({ amountMinor: 58500_00 }); // 450 × $200 = $90.000 → 65 %
+    const rev = (await deals.dealReview(a, d.id)).deal.revision;
+    const c = await deals.approveDeal(a, d.id, { revision: rev, link: { mode: "create" }, quantity: 450, unitPriceMinor: 200_00, effectiveFrom: "2026-10-01", applyTerms: true });
+    await cm.recordAcceptance(a, c.contractId, { method: "external", ref: "Contrato firmado", acceptedAt: "2026-10-02", termsVersion: "v1" });
+    await cm.enableClient(a, c.contractId, {});
+    expect((await com.myCommissions(userId)).entries).toHaveLength(0); // nada hasta el primer cobro
+    await bp.recordPayment(a, c.contractId, { amountMinor: 90000_00, receivedOn: "2026-10-05", method: "transferencia", reference: "OP-1" });
+    await bp.recordPayment(a, c.contractId, { amountMinor: 90000_00, receivedOn: "2026-11-03", method: "transferencia", reference: "OP-2" });
+    const mine = await com.myCommissions(userId);
+    expect(mine.entries.map((e) => [e.component, e.amountMinor])).toEqual([["first_month_by_members", 58500_00]]);
+  });
+});

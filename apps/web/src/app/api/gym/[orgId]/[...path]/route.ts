@@ -86,7 +86,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "attributions": return rv.myAttributions(me, orgId);
     case "cases": return b ? rv.caseDetail(me, orgId, b) : rv.listCases(me, orgId, loc(u));
     case "access-history": return rv.accessHistory(me, orgId);
-    case "messages": return msg.floorThreads(me, orgId, loc(u) ?? "");
+    case "messages": return msg.floorThreads(me, orgId, loc(u) ?? "", u.searchParams.get("with"));
     case "community": return cm.staffCommunity(me, orgId);
     case "validations": return cm.listValidations(me, orgId);
     case "proposals": return cm.listProposals(me, orgId); // D172

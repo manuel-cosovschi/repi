@@ -3,7 +3,7 @@
 // Cada ítem guarda sólo QUÉ sincronizar; el cuerpo se arma al enviar con el estado local vigente, así una edición
 // hecha mientras otra viajaba no se pierde ni genera un conflicto falso. Reintentos idempotentes (IDs estables).
 import { idbAll, idbDel, idbPut } from "./idb";
-import { getLocal, putLocal, setKey, type LocalSession } from "./store";
+import { adoptServerIntel, getLocal, putLocal, setKey, type LocalSession } from "./store";
 
 export type Item =
   | { seq?: number; key: string; kind: "start"; sid: string }
@@ -143,7 +143,7 @@ export async function flush(): Promise<void> {
 }
 
 async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string, unknown>) {
-  const s = await getLocal(it.sid);
+  let s = await getLocal(it.sid);
   if (!s) { await idbDel("queue", it.seq!); return; }
   if (it.kind === "start") { await putLocal({ ...s, synced: true, closeOther: false, conflict: undefined }); await idbDel("queue", it.seq!); return; }
   if (it.kind === "set") {
@@ -159,6 +159,11 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
       // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
       const alert = data.alert as { notified: number } | null | undefined;
       if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
+      // D210: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono) entra en ESTA escritura, si el
+      // teléfono no tenía uno y sigue el descanso de esa serie (ver adoptServerIntel). Antes se avisaba a la pantalla antes de
+      // escribir y esta copia, leída antes, lo borraba. La pantalla lo toma al refrescarse tras sincronizar; nunca demora la cola.
+      const intel = data.intel as { event?: { code: string; text: string; restPlusSec: number | null } | null } | null | undefined;
+      if (intel?.event) s = adoptServerIntel(s, { peId: it.peId, idx: it.idx, event: intel.event }) ?? s;
     }
     await putLocal(s);
     if (!changedMeanwhile || data.status === "conflict") await idbDel("queue", it.seq!);

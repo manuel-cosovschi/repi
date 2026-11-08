@@ -79,3 +79,14 @@ button.gy-person:hover b { text-decoration: underline; }
 .og-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .og-form { display: flex; gap: 8px; }
 .og-form input { flex: 1; min-width: 0; height: 42px; border-radius: 10px; border: 1px solid var(--ui-control-border); padding: 0 12px; font: 400 14px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
+/* Ficha del socio como página (07/11/2026): «Volver a Sala» arriba y, en «Socios», la ficha no queda debajo de toda la lista. */
+.gy-back { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: -4px; }
+.gy-back .btn { display: inline-flex; align-items: center; gap: 6px; }
+/* Lista y ficha van lado a lado desde 836 px (300 + 520 + 16, ver .split en coach.css). Más angosto, la ficha quedaba debajo de
+   toda la lista: ahí se ve una cosa por vez (la lista, o la ficha elegida con «Todos los socios» para volver). */
+.gy-members { container-type: inline-size; }
+.gy-members .gy-list-back { display: none; align-self: flex-start; align-items: center; gap: 6px; }
+@container (max-width: 835px) {
+  .gy-members[data-sel="0"] > .detail-pane, .gy-members[data-sel="1"] > .list-pane { display: none; }
+  .gy-members .gy-list-back { display: inline-flex; }
+}

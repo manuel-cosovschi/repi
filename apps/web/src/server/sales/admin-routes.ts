@@ -25,6 +25,7 @@ const component = z.discriminatedUnion("type", [
   z.object({ type: z.literal("recurring_pct"), bps: z.number().int(), months: z.number().int() }),
   z.object({ type: z.literal("per_member"), amountMinor: z.number().int(), trigger: z.enum(["deal_approved", "contract_enabled", "first_payment"]), maxMembers: z.number().int().nullable().optional() }),
   z.object({ type: z.literal("tier_bonus"), metric: z.enum(["approved_deals", "agreed_members"]), tiers: z.array(z.object({ min: z.number().int(), amountMinor: z.number().int() })).max(10) }),
+  z.object({ type: z.literal("first_month_by_members"), brackets: z.array(z.object({ minMembers: z.number().int(), bps: z.number().int() })).min(1).max(10) }),
 ]);
 const rules = z.object({
   currency: z.enum(["ARS", "USD"]), components: z.array(component).min(1).max(8), holdDays: z.number().int(), minPayoutMinor: z.number().int(), capPerDealMinor: z.number().int().nullable(),

@@ -2,12 +2,22 @@
 import { Hint } from "@/components/member/Hint";
 import { fmtDate, type Overview, type Screen } from "./types";
 import { TodayAgenda } from "./CoachAgenda";
+import { useLoad } from "@/components/gym/shared";
+import type { PendingSignals } from "@/server/brain/coach";
+import { featureOn } from "@/lib/features";
+
+/** D210: como mucho tres alumnos con propuestas de REPI por revisar; el resto se resume en una línea. */
+const MAX_REPI_LINES = 3;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const greet = () => { const h = Number(new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "numeric", hour12: false }).format(new Date())); return h < 13 ? "Buen día" : h < 20 ? "Buenas tardes" : "Buenas noches"; };
 
 export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
-  orgId: string; ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null }) => void;
+  orgId: string; ov: Overview; first: string; onInvite: () => void; onNewProgram: () => void; go: (s: Screen, e?: { sel?: string; pid?: string | null; tab?: "rend" }) => void;
 }) {
+  // D210: propuestas abiertas y pedidos del alumno desde REPI (sólo cantidades). Si no carga, «Pendientes» sigue como siempre.
+  // Con el Asistente REPI apagado (flag `assistant`) no se pide ni se muestra nada.
+  const repi = useLoad<PendingSignals>(featureOn("assistant") ? `/api/coach/${orgId}/brain` : null).data;
   const today = new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const k = ov.kpis;
   const kpis: [string, string, string, () => void][] = [
@@ -20,6 +30,7 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
     ...ov.clients.filter((c) => c.status === "active" && !c.program).map((c) => ({ t: `${c.name} no tiene programa`, d: "Asignale uno para que lo vea en su app", dot: "var(--ui-accent)", cta: "Asignar programa", go: () => go("builder") })),
     ...ov.clients.filter((c) => c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => go("clients", { sel: c.id }) })),
     ...(k.pendingInvites ? [{ t: `${k.pendingInvites} ${k.pendingInvites === 1 ? "invitación pendiente" : "invitaciones pendientes"}`, d: "Esperando que la persona acepte en su app", dot: "var(--ui-accent-2)", cta: "Invitar otra", go: onInvite }] : []),
+    ...repiTodos(repi, ov, go),
   ];
   return (
     <>
@@ -54,4 +65,25 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go }: {
       </div>
     </>
   );
+}
+
+/** Líneas de «Pendientes» con señales de REPI: propuestas por revisar (y cuántas son pedidos del alumno). Abre su Rendimiento. */
+function repiTodos(repi: PendingSignals | null, ov: Overview, go: (s: Screen, e?: { sel?: string; tab?: "rend" }) => void) {
+  if (!repi?.clients.length) return [];
+  const named = repi.clients.map((c) => ({ ...c, name: ov.clients.find((x) => x.id === c.relId)?.name })).filter((c) => c.name);
+  const lines = named.slice(0, MAX_REPI_LINES).map((c) => ({
+    t: `${c.name}: ${plural(c.pendingProposals, "propuesta para revisar", "propuestas para revisar")}`,
+    d: `${!c.studentRequests ? "Señales de REPI" : c.studentRequests === c.pendingProposals ? `${c.studentRequests === 1 ? "Es un pedido suyo" : "Son pedidos suyos"} desde REPI`
+      : `${plural(c.studentRequests, "es pedido suyo", "son pedidos suyos")} desde REPI`} · el programa no cambia solo`,
+    dot: "var(--ui-accent)", cta: "Revisar", go: () => go("clients", { sel: c.relId, tab: "rend" }),
+  }));
+  const rest = named.slice(MAX_REPI_LINES);
+  if (rest.length) {
+    lines.push({
+      t: `${plural(rest.length, "alumno más", "alumnos más")} con propuestas para revisar`,
+      d: `${plural(rest.reduce((s, c) => s + c.pendingProposals, 0), "propuesta", "propuestas")} · Señales de REPI en la pestaña Rendimiento`,
+      dot: "var(--ui-accent)", cta: "Ver clientes", go: () => go("clients", { sel: rest[0].relId, tab: "rend" }),
+    });
+  }
+  return lines;
 }

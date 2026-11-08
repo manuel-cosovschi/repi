@@ -9,8 +9,9 @@ import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
 import { ChatPane } from "@/components/messages/ChatPane";
+import { NewMessageButton } from "./NewMessage";
 import { HandoffScreen, NewTaskModal, QueueScreen, ShiftScreen } from "./Floor";
-import { MembersScreen } from "./Members";
+import { MemberPage, MembersScreen } from "./Members";
 import { MyPerfScreen, PerfCenterScreen } from "./Perf";
 import { EngageScreen, PanelScreen, ShiftsScreen, TasksScreen, TeamScreen } from "./Manage";
 import { ConfigScreen, ExecScreen, LocsScreen, ReviewsScreen } from "./Owner";
@@ -85,6 +86,8 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   const [ctx, setCtx] = useState<GymCtxView | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [screen, setScreen] = useState<GymScreen | null>(null);
+  // Ficha del socio como página propia (pedido del titular, 07/11): se recuerda de qué pantalla vino para «Volver».
+  const [from, setFrom] = useState<GymScreen | null>(null);
   const [sel, setSel] = useState<string | null>(initial.sel ?? null);
   const [loc, setLoc] = useState<string | null>(initial.loc ?? null);
   const [toast, setToast] = useState<string | null>(null);
@@ -100,7 +103,8 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
     api<GymCtxView>(`/api/gym/${orgId}/context`).then((c) => {
       setCtx(c);
       const nav = navFor(c);
-      setScreen(nav.some((n) => n[0] === initial.s) ? (initial.s as GymScreen) : nav[0]?.[0] ?? "reception");
+      const memberPage = initial.s === "member" && !!initial.sel && nav.some((n) => n[0] === "members");
+      setScreen(memberPage || nav.some((n) => n[0] === initial.s) ? (initial.s as GymScreen) : nav[0]?.[0] ?? "reception");
       if (!c.roles.includes("owner") && (!initial.loc || !c.locations.some((l) => l.id === initial.loc))) setLoc(c.locations[0]?.id ?? null);
     }).catch((e) => setErr(e.message));
   }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,6 +137,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
   }, [screen, sel, loc]);
 
   const go = (s: GymScreen, extra?: { sel?: string | null }) => {
+    setFrom(s === "member" ? (screen === "member" ? from : screen) : null);
     setScreen(s); setDrawer(false); setSel(extra?.sel ?? null);
     requestAnimationFrame(() => { mainRef.current?.querySelector("h1")?.focus(); window.scrollTo(0, 0); });
   };
@@ -169,7 +174,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
         )}
         <nav className="co-nav" aria-label="Principal">
           {nav.map(([k, l, ic, soon]) => (
-            <button key={k} type="button" title={l} aria-current={screen === k ? "page" : undefined} onClick={() => go(k)}>
+            <button key={k} type="button" title={l} aria-current={screen === k || (screen === "member" && k === "members") ? "page" : undefined} onClick={() => go(k)}>
               <Ic i={ic} size={20} />
               <span className="lbl">{l}</span>{soon && <span className="soon">{soon}</span>}
               {k === "billing" && badges.billing > 0 && <span className="nbadge" aria-label={`${badges.billing} cambios de condiciones sin revisar`}>{badges.billing}</span>}
@@ -203,8 +208,11 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
           {screen === "connect" && <ConnectReportScreen shell={shell} />}
           {screen === "presence" && <AccessControlScreen shell={shell} />}
           {screen === "members" && <MembersScreen shell={shell} />}
+          {screen === "member" && <MemberPage shell={shell} back={from && from !== "members" ? { to: from, label: nav.find((n) => n[0] === from)?.[1] ?? "Atrás" } : null} />}
           {screen === "handoff" && <HandoffScreen shell={shell} />}
-          {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido." emptyText="Todavía no hay conversaciones. Se abren cuando un socio escribe o desde su ficha con «Escribir»." initial={sel} onSeen={refreshBadges} />}
+          {screen === "msgs" && <ChatPane listUrl={`/api/gym/${orgId}/messages?loc=${loc ?? ctx.locations[0]?.id}`} kicker="Conversaciones del equipo de sala con socios de la sede. La gerencia no ve su contenido."
+            emptyText={can(ctx, "floor.work") ? "Todavía no hay conversaciones. Tocá «Nuevo mensaje» para escribirle a un socio, o esperá a que un socio te escriba." : "Todavía no hay conversaciones. Se abren cuando un socio escribe o el equipo le escribe desde su ficha."}
+            initial={sel} onSeen={refreshBadges} includeSelected action={can(ctx, "floor.work") ? (open) => <NewMessageButton shell={shell} onOpen={open} /> : undefined} />}
           {screen === "perf" && <MyPerfScreen shell={shell} />}
           {screen === "mdash" && <PanelScreen shell={shell} />}
           {screen === "pc" && <PerfCenterScreen shell={shell} />}

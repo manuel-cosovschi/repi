@@ -7,6 +7,7 @@ import {
   bodyGoalText, bodyWeightIn, fmtBodyWeight, fmtWeightDelta, localDate, parseBodyWeight, type BodyGoalProgress, type ProgressRange,
 } from "@repi/domain";
 import { api } from "@/lib/api";
+import { RepiAsk } from "@/components/brain/RepiAsk";
 import { ProgressChart, type ChartPoint } from "./ProgressChart";
 import { RangePicker } from "./ProgressTraining";
 import { Sheet } from "./Sheet";
@@ -91,6 +92,8 @@ export function BodyWeight({ flash, offline }: { flash: (t: string) => void; off
           </>
         )}
         {!b.goal && <span className="mb-muted" style={{ fontSize: 14 }}>Definí un objetivo si querés ver tu recorrido. Es opcional.</span>}
+        {/* D210: sólo con el seguimiento disponible (adulto confirmado); sin fotos ni juicios sobre el cuerpo. */}
+        {b.entries.length > 0 && <RepiAsk section="body" label="Preguntale a REPI por tu objetivo" />}
       </section>
 
       <section className="pp-card" aria-labelledby="bw-chart">

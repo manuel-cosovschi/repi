@@ -309,3 +309,50 @@ describe("Caso 8 · porcentajes con fórmula", () => {
     expect(progressToGoal({ metric: "load", baseline: 60, target: 80, current: null, unit: "kg" })).toMatchObject({ pct: null, status: "insufficient" });
   });
 });
+
+describe("AC3 · pirámides: cada fila compara con su par (defecto #1 de la auditoría)", () => {
+  // Pirámide 12/10/8 y la última vez 50×12, 55×10, 60×8. Antes, la fila de 12 recibía 55 kg etiquetado «reduce_load»
+  // (una suba de 5 kg) porque mezclaba la historia de las tres filas.
+  const pyr = (ids?: string[]) => withPlan(["12", "10", "8"].map((r, i) => S("work", r, ids ? { id: ids[i] } : {})), { technique: "pyramid" });
+  const pastPyr = (ago: number, ids?: string[]) => sess(ago, [{ w: 50, r: 12, reps: "12" }, { w: 55, r: 10, reps: "10" }, { w: 60, r: 8, reps: "8" }].map((x, i) => ({ ...x, ...(ids ? { specId: ids[i] } : {}) })));
+  it("regresión: la fila de 12 no recibe 55 kg «bajar carga»; cada fila progresa sobre su propia marca", () => {
+    const ts = rec(pyr(), pastPyr(3));
+    expect(ts[0]).toMatchObject({ action: "increase_load", weightKg: 52.5, prev: { w: 50, r: 12 } });
+    expect(ts[1]).toMatchObject({ action: "increase_load", weightKg: 57.5, prev: { w: 55, r: 10 } });
+    expect(ts[2]).toMatchObject({ action: "increase_load", weightKg: 62.5, prev: { w: 60, r: 8 } });
+    expect(ts.every((t) => !t.guards.includes("range_change"))).toBe(true);
+    expect(ts[0].refs).toHaveLength(1);
+  });
+  it("con identidad estable de fila: la misma respuesta por coincidencia exacta", () => {
+    const ids = ["sP12", "sP10", "sP08"];
+    const ts = rec(pyr(ids), pastPyr(3, ids));
+    expect(ts.map((t) => t.weightKg)).toEqual([52.5, 57.5, 62.5]);
+    expect(ts.map((t) => t.prev?.level)).toEqual(["exact", "exact", "exact"]);
+  });
+  it("con el salto del equipo: la suba parte de la carga de esa fila, no de la más pesada de la sesión", () => {
+    const ex = { ...pyr(), detail: { ...pyr().detail!, load: { equipment: "barbell" as const, incrementKg: 1.25, perSide: true } } };
+    expect(rec(ex, pastPyr(3))[0]).toMatchObject({ action: "increase_load", weightKg: 52.5 });
+  });
+  it("una fila que no llegó a su rango se sostiene sin tocar las otras", () => {
+    const h = sess(3, [{ w: 50, r: 12, reps: "12" }, { w: 55, r: 9, reps: "10" }, { w: 60, r: 8, reps: "8" }]);
+    const ts = rec(pyr(), h);
+    expect(ts[1]).toMatchObject({ action: "hold", weightKg: 55 });
+    expect(ts[0].weightKg).toBe(52.5);
+  });
+  it("la vez pasada fue pirámide y hoy son series rectas: compara con las filas del mismo rango", () => {
+    expect(rec(straight(3, "10"), pastPyr(3))[0]).toMatchObject({ weightKg: 55, prev: { w: 55, r: 10 } });
+  });
+  it("pirámide nueva con un rango que no estaba: estimación prudente desde la fila más parecida, nunca por encima", () => {
+    const ex = withPlan(["15", "12", "10"].map((r) => S("work", r)), { technique: "pyramid" });
+    const ts = rec(ex, pastPyr(3));
+    expect(ts[0].guards).toContain("range_change");
+    expect(ts[0].weightKg!).toBeLessThanOrEqual(50);
+    expect(ts[1]).toMatchObject({ weightKg: 52.5, prev: { w: 50, r: 12 } });
+    expect(ts[2]).toMatchObject({ weightKg: 57.5, prev: { w: 55, r: 10 } });
+  });
+  it("series rectas: el comportamiento no cambia (todas las filas, el mismo objetivo)", () => {
+    const ts = rec(straight(3, "8-10"), sess(3, [{}, {}, {}]));
+    expect(ts.map((t) => [t.action, t.weightKg])).toEqual([["increase_load", 62.5], ["increase_load", 62.5], ["increase_load", 62.5]]);
+    expect(ts[0].refs).toHaveLength(3);
+  });
+});

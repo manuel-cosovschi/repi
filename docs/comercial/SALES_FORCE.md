@@ -4,8 +4,16 @@ Módulo comercial nativo dentro de REPI: vendedores, CRM, cierres declarados, at
 
 ## Estado
 
-- **Técnico:** integrado y verificado localmente (dominio, integración sobre `repi_test`, build y recorrido en navegador sobre `repi_dev`). **No publicado.** Migración 0050 **no aplicada** en producción.
+- **Técnico:** publicado el 07/11/2026 (#63, `2b5e69f`). Migración 0050 aplicada en producción con `hosted-0050.sql` tras el respaldo `backup-20261107-130358-42375065427`. Verificado localmente (dominio, integración sobre `repi_test`, build y recorrido en navegador sobre `repi_dev`) y en CI.
 - **Producto:** pedido del titular (master prompt 07/11/2026). Las reglas económicas reales (planes, porcentajes, mínimos) **no están cargadas**: las define Admin.
+
+## Comisión del primer mes según socios (07/11/2026, pedido del titular)
+
+- Componente `first_month_by_members`: un porcentaje **sólo del primer mes cobrado**, elegido por los socios acordados del gimnasio. Los tramos son «desde N socios» y se editan por plan. Los valores iniciales que propuso el titular son 50+ → 35 %, 300+ → 50 % y 400+ → 65 %; quedan como sugerencia editable, no como regla fija.
+- Se devenga con el primer `billing_payment` registrado y no anulado. Si se anula, pasa al siguiente cobro válido. Si el cobro es trimestral, semestral o anual, se toma la parte de un mes (cobro ÷ meses del período). Por debajo del primer tramo no comisiona, y el motivo queda explicado.
+- **Admin › Vendedores › ficha:** si no hay planes, la sección «Plan de comisiones» muestra el alta rápida. Ahí se ponen el nombre y los tramos, con un ejemplo de cálculo, y «Crear y asignar» crea el plan, aprueba la versión 1 y la asigna. Con planes existentes se elige uno, o se toca «Crear plan nuevo».
+- **Ventas › Comisiones:** «Crear plan» abre el editor, que ya trae este modelo cargado, y ofrece «Guardar y aprobar». Los planes archivados quedan ocultos detrás de «Ver archivados».
+- No requiere migración: las reglas son JSON versionado en `commission_plan_version.rules`.
 
 ## Arquitectura
 
