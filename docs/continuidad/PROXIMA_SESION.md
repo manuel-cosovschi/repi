@@ -53,10 +53,10 @@ Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y v
 - **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
   - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
   - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
-  - **Propuesta:**
-    1. guardar el token en Supabase Vault y que el job lo lea de `vault.decrypted_secrets`;
-    2. rotar `CRON_SECRET` en Vercel y en Vault;
-    3. ajustar `schedule-cron.ts`.
+  - **Arreglo preparado** en `claude/cron-secret-vault` (08/11), probado en una base local que imita Supabase:
+    - `scripts/operations/cron-secret-vault.sql` guarda en Vault una clave nueva generada por la base, y crea `repi_private.cron_bearer()`, que sólo ejecuta `repi_app` (`anon` no puede leerla);
+    - `schedule-cron.ts` programa el job llamando a esa función, ya no recibe la clave y se niega si queda un bearer escrito.
+    - Pasos en `docs/DESPLIEGUE.md` § «Clave de los jobs». Hay un paso del titular: copiar la clave de Vault a `CRON_SECRET` en Vercel y hacer Redeploy.
   - Toca producción y la configuración de Vercel: requiere aprobación. La clave no se copia en ningún documento.
 - **Queda por ver en producción:**
   - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
