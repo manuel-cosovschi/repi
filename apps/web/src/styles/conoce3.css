@@ -22,26 +22,56 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 
 /* ── Escenario: la sala ─────────────────────────────────────────────── */
 .sala { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--x-navy); }
-.sala-svg { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity .6s var(--x-ease); }
+.sala-world { position: absolute; inset: 0; }
+/* Encendido del hero (Motion 2): la luz se expande desde donde cae el punto; fuera del radio la sala queda apagada (.25). */
+.sala-world[data-reveal] { -webkit-mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 var(--r), rgba(0, 0, 0, .25) calc(var(--r) + 140px));
+  mask-image: radial-gradient(circle at var(--ox) var(--oy), #000 var(--r), rgba(0, 0, 0, .25) calc(var(--r) + 140px)); }
+/* El encuadre corrido (lente) mueve el <svg> entero: el piso sigue más allá del plano para que nunca se vea un borde. */
+.sala-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transition: opacity .6s var(--x-ease), translate 1.1s var(--x-ease); }
+/* Primer pintado con movimiento: la sala llega apagada desde el servidor, el mismo valor que pone la hidratación (sin el ciclo
+   brillante → oscuro → brillante). Sin JavaScript, <noscript> la enciende. */
+@media (prefers-reduced-motion: no-preference) { .sala-svg { opacity: .25; } }
+@media (min-width: 760px) { .sala-svg { translate: 20vw 0; } }
+@media (max-width: 759px) { .sala-svg { translate: 0 -20vh; } }
 .sala-view { transform-origin: 0 0; transition: transform 1.1s var(--x-ease); will-change: transform; }
-.sala-view.still { transition: none; }
+.sala-view.still, .sala-view.snap, .sala-svg.snap { transition: none; }
+.sala-plan { transform-origin: 0 0; }
 .sala-floor { fill: #0F1620; }
 .sala-grid line { stroke: #1F2B3B; stroke-width: 1; }
 .sala-zone { fill: rgba(26, 36, 51, .7); stroke: #4A5D78; stroke-width: 1.5; transition: stroke .5s, fill .5s; }
-.sala-zone[data-on="1"] { stroke: var(--x-cyan); fill: rgba(0, 209, 255, .06); }
-.sala-gear { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1; }
+/* La zona en foco se marca en blanco (el cian queda para lo vivo); la que está bajo el puntero, más suave. */
+.sala-zone[data-on="1"] { stroke: var(--x-white); fill: rgba(248, 250, 252, .07); }
+.sala-zone[data-on="pre"] { stroke: rgba(248, 250, 252, .55); fill: rgba(248, 250, 252, .03); }
+.sala-gear { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1; transition: stroke .35s; }
+/* El frente de luz del encendido del hero cruza el equipo. */
+.sala-gear[data-lit="1"] { stroke: rgba(248, 250, 252, .8); transition: stroke .08s; }
 .sala-qr { fill: none; stroke: var(--x-cyan); stroke-width: 2; }
 .sala-member { fill: var(--x-cyan); }
 .sala-staff { fill: var(--x-teal); }
+/* Sala sin REPI (escena 02): nadie está «vivo», las personas en acero. El paso a cian es un corte. */
+.sala-svg[data-cold="1"] .sala-member, .sala-svg[data-cold="1"] .sala-staff { fill: #4A5D78; }
+/* Valentina: un anillo que respira (se detiene con «Pausar animaciones» y con movimiento reducido). */
+.sala-ring { fill: none; stroke: var(--x-cyan); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: sala-breathe 2.8s ease-in-out infinite; transition: opacity .4s; }
+@keyframes sala-breathe { 0%, 100% { transform: scale(.82); stroke-opacity: .9; } 50% { transform: scale(1.12); stroke-opacity: .35; } }
+/* Pedido «Que venga alguien» sobre el piso: va en cian y vuelve «Voy» en turquesa. */
+.sala-req { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; }
+.sala-req[data-back="1"] { stroke: var(--x-teal); }
+/* El 3D (opaco) aparece encima del SVG con un fundido; el SVG sigue dibujándose debajo hasta que el fundido termina y recién
+   ahí se oculta (data-svg="off"): un fundido cruzado real, sin un cuadro sin sala. */
 .sala-3d { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s var(--x-ease); }
 .sala[data-3d="1"] .sala-3d { opacity: 1; }
-.sala[data-3d="1"] .sala-svg { opacity: 0 !important; }
+.sala[data-svg="off"] .sala-svg { visibility: hidden; }
 .sala-canvas { width: 100% !important; height: 100% !important; }
+/* Velo frío: la sala «sin REPI» (02) y la toma abierta del entrenamiento (03). Sólo opacidad. */
+.sala-tone { position: absolute; inset: 0; background: #131B26; opacity: 0; }
+/* Golpe de color del corte de 02: la sala se tiñe de cian un instante cuando se enciende (la persona, viva). Sólo opacidad. */
+.sala-wash { position: absolute; inset: 0; background: var(--x-cyan); opacity: 0; }
 /* Viñeta funcional: asegura contraste del texto sobre la sala (no es decoración). */
 .sala-vignette { position: absolute; inset: 0; background:
   linear-gradient(90deg, rgba(11, 15, 20, .86) 0%, rgba(11, 15, 20, .55) 42%, rgba(11, 15, 20, .1) 75%),
   linear-gradient(0deg, rgba(11, 15, 20, .7) 0%, transparent 35%, transparent 80%, rgba(11, 15, 20, .55) 100%); }
-@media (max-width: 759px) { .sala-vignette { background: linear-gradient(0deg, rgba(11, 15, 20, .92) 0%, rgba(11, 15, 20, .55) 50%, rgba(11, 15, 20, .45) 100%); } }
+/* Teléfono: el texto va abajo (.92 para el contraste) y arriba la sala se ve (.35). */
+@media (max-width: 759px) { .sala-vignette { background: linear-gradient(0deg, rgba(11, 15, 20, .92) 0%, rgba(11, 15, 20, .55) 50%, rgba(11, 15, 20, .35) 100%); } }
 
 /* ── Tipografía ─────────────────────────────────────────────────────── */
 .x3-h2 { margin: 0 0 clamp(20px, 3vw, 36px); font: 700 clamp(2.4rem, 6.2vw, 5.4rem)/.92 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); text-wrap: balance; max-width: 18ch; }
@@ -55,21 +85,33 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-fine { font-size: 13px; line-height: 1.5; color: var(--x-dim); }
 .x3-fine.center { text-align: center; margin: 28px auto 0; max-width: 56ch; }
 
+/* ── Afirmaciones cinéticas (<Say>) ─────────────────────────────────── */
+/* Cada palabra en su máscara: el relleno amplía la caja que recorta (tildes y comas) sin cambiar el diseño. */
+.x3-say-v { display: inline; }
+.x3-w { display: inline-block; vertical-align: top; overflow: clip; padding: .04em 0 .12em; margin: -.04em 0 -.12em; }
+.x3-wi { display: inline-block; position: relative; will-change: transform; }
+.x3-say .k { color: var(--x-white); }
+.x3-say .k .x3-wi { white-space: nowrap; } /* la frase clave es una sola pieza con su subrayado de corrido */
+.x3-u { position: absolute; left: 0; right: 0; bottom: .01em; height: max(2px, .05em); background: currentColor; transform-origin: 0 50%; }
+
 /* ── Botones ────────────────────────────────────────────────────────── */
-.x3-btn { --b: var(--x-white); display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 999px;
-  font: 600 16px var(--font-ui); letter-spacing: .005em; text-decoration: none; cursor: pointer; border: 1px solid transparent; color: var(--b); background: transparent;
-  transition: transform .25s var(--x-ease), background-color .25s, border-color .25s, color .25s, box-shadow .25s; -webkit-tap-highlight-color: transparent; }
-.x3-btn svg { transition: transform .3s var(--x-ease); }
-.x3-btn:active { transform: scale(.97); }
-.x3-btn.pri { background: var(--x-cyan); color: var(--x-navy); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6); }
-.x3-btn.pri:hover { background: #33DBFF; }
-.x3-btn.pri:hover svg { transform: translateX(3px); }
-.x3-btn.ghost { border-color: rgba(248, 250, 252, .32); }
-.x3-btn.ghost:hover { border-color: var(--x-white); background: rgba(248, 250, 252, .06); }
+/* Pedido del titular (07/11): nada de píldoras cian enormes con sombra. Botones rectos y precisos (G · Atlética): esquina de
+   8 px, alto justo, el principal en blanco sobre navy y el cian reservado para lo vivo (la ley de la sala). La flecha marca el
+   paso siguiente y se adelanta al pasar el puntero. */
+.x3-btn { --b: var(--x-white); display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 20px; border-radius: 8px;
+  font: 600 15px var(--font-ui); letter-spacing: .01em; text-decoration: none; cursor: pointer; border: 1px solid transparent; color: var(--b); background: transparent;
+  transition: transform .2s var(--x-ease), background-color .2s, border-color .2s, color .2s; -webkit-tap-highlight-color: transparent; }
+.x3-btn svg { transition: transform .3s var(--x-ease); flex: none; }
+.x3-btn:active { transform: scale(.98); }
+.x3-btn.pri { background: var(--x-white); color: var(--x-navy); }
+.x3-btn.pri:hover { background: #fff; }
+.x3-btn:hover svg:last-child:not(:first-child) { transform: translateX(3px); }
+.x3-btn.ghost { border-color: rgba(248, 250, 252, .24); }
+.x3-btn.ghost:hover { border-color: rgba(248, 250, 252, .7); }
 .x3-btn.text { padding: 0 6px; min-height: 44px; color: var(--x-muted); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(154, 168, 186, .5); }
 .x3-btn.text:hover { color: var(--x-white); }
-.x3-btn.sm { min-height: 42px; padding: 0 16px; font-size: 14px; }
-.x3-btn.lg { min-height: 58px; padding: 0 30px; font-size: 18px; }
+.x3-btn.sm { min-height: 38px; padding: 0 14px; font-size: 14px; }
+.x3-btn.lg { min-height: 54px; padding: 0 26px; font-size: 17px; }
 .x3-btn[disabled], .x3-btn[aria-busy="true"] { opacity: .6; cursor: progress; }
 .x3 .cn-demo-act { display: contents; }
 /* Errores sobre fondo oscuro (botones de demo). Los del formulario, que es una tarjeta clara, conservan su color de error. */
@@ -85,9 +127,12 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .x3-head-cta { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 /* «Saltar al contenido» por encima del encabezado fijo cuando recibe el foco. */
 .x3 .st-skip { z-index: 30; }
-.x3-motion { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--x-line); background: none; color: var(--x-muted); display: grid; place-items: center; cursor: pointer; transition: color .3s, border-color .3s; }
-.x3-motion:hover { color: var(--x-white); border-color: var(--x-edge); }
-.x3-motion[aria-pressed="true"] { color: var(--x-cyan); border-color: var(--x-cyan); }
+.x3-head-link { color: var(--x-muted); text-decoration: none; font-size: 14px; font-weight: 600; min-height: 38px; padding: 0 10px; display: inline-flex; align-items: center; transition: color .2s; }
+.x3-head-link:hover { color: var(--x-white); }
+/* «Pausar animaciones» en el pie, como un enlace más (con su nombre escrito). */
+.x3-motion { min-height: 32px; padding: 0; border: 0; background: none; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.x3-motion:hover { color: var(--x-white); }
+.x3-motion[aria-pressed="true"] { color: var(--x-cyan); }
 /* Animaciones pausadas por la persona: las CSS en bucle se detienen. */
 html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html[data-motion="paused"] .x3 *::after { animation-play-state: paused !important; }
 @media (max-width: 899px) { .x3-nav { display: none; } }
@@ -109,10 +154,14 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-hero { min-height: calc(100svh - 64px); display: flex; align-items: flex-end; padding: clamp(32px, 8vh, 96px) 0 clamp(40px, 9vh, 110px); position: relative; }
 .x3-hero-in { display: flex; flex-direction: column; align-items: flex-start; }
 .x3-hero-wm { width: clamp(118px, 16vw, 200px); margin-bottom: clamp(22px, 4vh, 40px); }
-.x3-drop { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--x-cyan); opacity: 0; pointer-events: none; }
+.x3-drop { position: absolute; left: 88.92%; top: 1.58%; width: 10.12%; aspect-ratio: 1; border-radius: 50%; background: var(--x-cyan); opacity: 0; pointer-events: none; z-index: 2; will-change: transform; }
+/* Los dos anillos del impacto del punto sobre la sala (fijos a la pantalla, como la sala). */
+.x3-hero-ring { position: fixed; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: 0; pointer-events: none; z-index: 2; }
+.x3-hero-front { position: fixed; inset: 0; width: 100%; height: 100%; overflow: visible; opacity: 0; pointer-events: none; z-index: -1; } /* sobre la sala, debajo del texto */
+.x3-hero-front circle { fill: none; stroke: var(--x-cyan); stroke-width: 1.5; }
 .x3-hero-h1 { margin: 0; font: 700 clamp(3.1rem, 10vw, 6rem)/.86 var(--font-display); text-transform: uppercase; letter-spacing: -.025em; }
-.x3-hero-h1 .ln { display: block; overflow: hidden; padding-bottom: .06em; }
-.x3-hero-h1 .ln > span { display: block; }
+.x3-hero-h1 .ln { display: block; padding-bottom: .06em; }
+.x3-hero-h1 .ln > span { display: inline-block; }
 .x3-hero-h1 .ln:last-child { color: var(--x-white); }
 .x3-hero-h1 .ln:first-child { color: var(--x-muted); }
 .x3-hero-sub { margin: 22px 0 0; font: 600 clamp(1.15rem, 2.2vw, 1.55rem)/1.25 var(--font-ui); max-width: 30ch; }
@@ -124,102 +173,184 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 @keyframes x3-nudge { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(6px); } }
 @media (max-width: 759px) { .x3-scroll { display: none; } }
 
-/* ── 02 · Del caos al orden ─────────────────────────────────────────── */
+/* ── 02 · «El caos se ordena en REPI» (Motion 2 P1) ───────────────────── */
 .x3-prob-pin { position: relative; height: 100svh; overflow: hidden; }
 /* Escenas fijadas (02 y 03): sticky dentro de una sección más alta; el scroll extra es el recorrido del scrub. Sólo con
    movimiento y alto suficiente (igual que PIN_MQ en x3/gsap.ts); si no, se apilan. */
 @media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
-  .x3-prob { height: 360svh; }
+  .x3-prob { height: 300svh; }
   .x3-prob-pin { position: sticky; top: 0; }
-  .x3-train-track { height: 440svh; }
+  .x3-train-track { height: 380svh; }
   .x3-train-pin { position: sticky; top: 0; }
 }
-@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-prob { height: 300svh; } }
-.x3-prob-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.x3-prob-lines line { stroke: var(--x-cyan); stroke-width: 1.5; stroke-linecap: round; opacity: .8; }
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-prob { height: 260svh; } .x3-train-track { height: 340svh; } }
+.x3-prob-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.x3-prob-lines path { fill: none; stroke-linecap: round; }
+.x3-prob-lines .tr { stroke: var(--x-cyan); stroke-width: 2; stroke-opacity: .34; opacity: 0; }
+.x3-prob-lines .cm { stroke: var(--x-cyan); stroke-width: 5; opacity: 0; }
 .x3-frags { position: absolute; inset: 0; }
-.x3-frag { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; min-width: 150px; max-width: 220px; border-radius: 12px; font-size: 14px; line-height: 1.3;
-  background: var(--x-surface); border: 1px solid var(--x-steel); color: var(--x-white); box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .8); animation: x3-drift 6s ease-in-out infinite alternate; }
+.x3-frag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; min-width: 176px; max-width: 250px; border-radius: 12px; font-size: 16px; line-height: 1.3;
+  background: #223047; border: 1px solid #3D4E66; color: var(--x-white); box-shadow: 0 18px 40px -22px rgba(0, 0, 0, .9); will-change: transform, opacity; animation: x3-drift 6s ease-in-out infinite alternate; }
+/* Sin lugar libre en esta pantalla (no entra sin pisar el texto): no se muestra. */
+.x3-frag[data-drop] { visibility: hidden; }
 .x3-frag:nth-child(2n) { animation-duration: 7.5s; animation-delay: -2s; }
 .x3-frag:nth-child(3n) { animation-duration: 5.2s; animation-delay: -1s; }
-@keyframes x3-drift { from { translate: 0 0; } to { translate: 6px -10px; } }
-.x3-frag b { font-weight: 700; font-size: 13px; color: var(--x-muted); }
-.x3-frag small { color: var(--x-dim); font-size: 12px; }
+@keyframes x3-drift { from { translate: 0 0; } to { translate: 5px -8px; } }
+.x3-frag b { font-weight: 700; font-size: 14px; color: #B4C0CF; }
+.x3-frag small { color: #B4C0CF; font-size: 13px; }
 .x3-frag.paper { background: var(--x-cream); color: var(--x-ink); border-color: #DCD5C6; font-style: italic; }
 .x3-frag.paper b { color: var(--x-ink-2); font-style: normal; }
 .x3-frag.paper .smudge { color: #706657; text-decoration: line-through; }
 .x3-frag.sheet .cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
 .x3-frag.sheet .cells i { height: 10px; background: var(--x-steel); border-radius: 2px; }
-.x3-frag.chat { border-radius: 14px 14px 14px 4px; background: #1F2D3F; }
+.x3-frag.chat { border-radius: 14px 14px 14px 4px; background: #26364D; }
 .x3-frag.chat.alt { border-radius: 14px 14px 4px 14px; }
-.x3-frag.prog .flat { color: var(--x-dim); }
-.x3-frag.call b { color: #FFB4A8; }
-.x3-prob-copy { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(860px, 100% - 2 * var(--x-gutter)); text-align: center; }
-.x3-prob-before h2 { margin: 0; font: 700 clamp(2.4rem, 6vw, 5rem)/.92 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); text-wrap: balance; }
-.x3-prob-before h2 em { font-style: normal; color: var(--x-white); }
-.x3-prob-before p { margin: 18px auto 0; max-width: 46ch; color: var(--x-muted); font-size: clamp(1rem, 1.6vw, 1.15rem); line-height: 1.55; }
-.x3-prob-before { background: radial-gradient(closest-side, rgba(11, 15, 20, .82), transparent); padding: 40px 10px; }
-.x3-prob-core { position: absolute; left: 50%; top: 14%; translate: -50% 0; display: flex; align-items: center; gap: 10px; font: 700 28px var(--font-ui); opacity: 0; }
-.x3-prob-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--x-cyan); }
-.x3-prob-after { opacity: 0; }
-.x3-prob-big { margin: 0 auto; color: var(--x-white); font: 700 clamp(2.2rem, 5.6vw, 4.6rem)/.94 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; max-width: 16ch; text-wrap: balance; }
-.x3-prob-roles { list-style: none; margin: 26px auto 0; padding: 0; display: grid; gap: 10px; max-width: 520px; text-align: left; }
-.x3-prob-roles li { display: flex; gap: 10px; font-size: clamp(1rem, 1.6vw, 1.15rem); color: var(--x-muted); padding: 12px 0; border-top: 1px solid var(--x-line); }
-.x3-prob-roles b { color: var(--x-white); min-width: 7.5em; }
+.x3-frag .typing { font-style: italic; }
+.x3-frag.prog .flat { color: #B4C0CF; }
+/* El pedido que nadie vio parpadea en acero: sin REPI no llega a nadie (por eso no es cian). */
+.x3-frag.call { border-color: #4A5D78; animation: x3-drift 6s ease-in-out infinite alternate, x3-unseen 1.6s steps(1, end) infinite; }
+.x3-frag.call b { color: var(--x-muted); }
+@keyframes x3-unseen { 0%, 100% { border-color: #4A5D78; } 50% { border-color: #2D3B4F; } }
+/* El logo nace del punto: arriba y al centro. El punto de la «ı» es el <i> real del componente. */
+.x3-prob-wm { position: absolute; left: 50%; top: 26%; translate: -50% -50%; width: clamp(132px, 14vw, 200px); }
+.x3-prob-wm .wm { width: 100% !important; }
+.x3-prob-wm .wm i { will-change: transform; }
+.x3-prob-ring { position: absolute; left: 93.98%; top: 11.93%; width: 162%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: 0; pointer-events: none; }
+.x3-prob-copy { position: absolute; left: 50%; top: calc(26% + clamp(46px, 5.2vw, 66px)); translate: -50% 0; width: min(900px, 100% - 2 * var(--x-gutter)); text-align: center; }
+.x3-prob-h, .x3-prob-now { margin: 0 auto; font: 700 clamp(2.2rem, 5.4vw, 4.6rem)/.94 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); text-wrap: balance; max-width: 16ch; }
+.x3-prob-h em, .x3-prob-now em { font-style: normal; color: var(--x-white); }
+.x3-prob-now em { text-decoration: underline; text-decoration-thickness: .05em; text-underline-offset: .12em; }
+.x3-prob-vis { margin: 0 auto; font: 700 clamp(2.2rem, 5vw, 4.3rem)/.94 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); max-width: 20ch; display: none; }
+.x3-prob-vis .l1 { display: block; }
+.x3-prob-vis .slot { display: inline-grid; vertical-align: top; }
+.x3-prob-vis .slot > .x3-w { grid-area: 1 / 1; justify-self: end; }
+.x3-prob-vis .rest { display: grid; }
+.x3-prob-vis .r { grid-area: 1 / 1; display: block; text-wrap: balance; }
+.x3-prob-vis .k .x3-wi { color: var(--x-white); white-space: nowrap; }
+.x3-prob-p { margin: 18px auto 0; max-width: 46ch; color: var(--x-muted); font-size: clamp(1rem, 1.6vw, 1.15rem); line-height: 1.55; }
+.x3-prob-screens { --pw: clamp(150px, min(17vw, 30svh), 260px); --col: max(var(--pw), 230px); position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.x3-prob-roles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, var(--col)); gap: 0 clamp(16px, 4vw, 56px); text-align: center; }
+.x3-prob-roles li { font-size: 15px; line-height: 1.35; color: var(--x-muted); }
+.x3-prob-roles b { display: block; color: var(--x-white); font-weight: 600; }
+.x3-prob-phones { display: grid; grid-template-columns: repeat(3, var(--col)); gap: 0 clamp(16px, 4vw, 56px); height: calc(var(--pw) * 1.08); }
+.x3-prob-roles [data-s="floor"], .x3-prob-phones [data-s="floor"] { order: -1; }
+.x3-prob-scr { justify-self: center; width: var(--pw); will-change: transform; }
+.x3-prob-scr img { display: block; width: 100%; height: auto; border-radius: 26px; border: 1px solid var(--x-steel); background: var(--x-cream); }
+.x3-prob-scr.push { display: none; }
 @media (max-width: 759px) {
-  .x3-frag { min-width: 0; max-width: 46vw; font-size: 12px; padding: 9px 10px; }
-  .x3-frag:nth-child(n+6) { display: none; }
-  .x3-prob-roles b { min-width: 6.6em; }
+  .x3-frag { min-width: 0; max-width: 46vw; font-size: 13px; padding: 10px 12px; }
+  .x3-frag b { font-size: 12px; } .x3-frag small { font-size: 11.5px; }
+  .x3-frag[data-wide] { display: none; }
+  .x3-prob-screens { --pw: min(46vw, 25svh); gap: 10px; }
+  .x3-prob-roles { display: block; position: relative; width: 100%; height: 2.8em; overflow: clip; }
+  .x3-prob-roles li { position: absolute; inset: 0; padding: 0 var(--x-gutter); }
+  .x3-prob-phones { display: block; height: calc(var(--pw) * 1.08); }
+  .x3-prob-scr { display: none; }
+  .x3-prob-scr.push { display: block; }
+  .x3-prob-push { position: relative; aspect-ratio: 390 / 844; overflow: clip; border-radius: 24px; border: 1px solid var(--x-steel); background: var(--x-cream); }
+  .x3-prob-push img { position: absolute; inset: 0; border: 0; border-radius: 0; will-change: transform; }
+  .x3-prob-push img + img { transform: translateX(100%); }
+  .x3-prob-push img + img + img { transform: translateX(200%); }
+}
+/* Fijada (con movimiento): el titular real va para los lectores de pantalla y se ve la copia que rueda. Estado inicial = el
+   mismo que pinta el primer cuadro del scrub (sin saltos al hidratar). */
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x3-prob-h, .x3-prob-now { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .x3-prob-vis { display: block; }
+  .x3-prob-vis .slot .b, .x3-prob-vis .r.b .x3-wi { transform: translateY(112%); }
+  .x3-prob-vis .r.b .k .x3-wi { opacity: .42; }
+  .x3-prob-vis .x3-u { transform: scaleX(0); }
+  .x3-prob-wm .wm img { clip-path: circle(0 at 94% 12%); }
+  .x3-prob-wm .wm i { transform: scale(0); }
+  .x3-prob-scr { transform: translateY(100%); }
+  .x3-prob-roles li { opacity: 0; }
 }
 
-/* ── 03 · El entrenamiento cobra vida ───────────────────────────────── */
-.x3-train-pin { min-height: 100svh; display: flex; align-items: center; padding: 80px 0; }
-.x3-train-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
-.x3-train-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-width: 520px; }
-.x3-train-steps li { display: flex; flex-direction: column; gap: 4px; padding: 14px 0 14px 18px; border-left: 2px solid var(--x-steel); color: var(--x-dim); transition: color .4s, border-color .4s; }
-.x3-train-steps li b { font: 600 clamp(1.05rem, 1.7vw, 1.25rem) var(--font-ui); }
-.x3-train-steps li span { font-size: 15px; line-height: 1.5; max-height: 0; overflow: hidden; opacity: 0; transition: max-height .5s var(--x-ease), opacity .4s; }
-.x3-train-steps li span i { font-style: normal; color: var(--x-white); }
-.x3-train-steps li[data-on="done"] { color: var(--x-muted); border-color: var(--x-teal); }
-.x3-train-steps li[data-on="1"] { color: var(--x-white); border-color: var(--x-cyan); }
-.x3-train-steps li[data-on="1"] span { max-height: 160px; opacity: 1; color: var(--x-muted); }
+/* ── 03 · «La serie, en grande y con datos reales» (Motion 2 P3) ─────── */
+.x3-train { padding-top: clamp(80px, 12vh, 140px); }
+.x3-train > .x3-wrap > .x3-h2 { margin-bottom: 0; }
+.x3-train-pin { min-height: 100svh; display: flex; align-items: center; padding: 72px 0 32px; }
+.x3-train-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
+/* El subtítulo: etiqueta, valor enorme del motor y una línea que explica. Alturas reservadas: cambiar de paso no mueve nada. */
+.x3-train-k { margin: 0; font: 600 clamp(1.05rem, 1.8vw, 1.5rem)/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--x-muted); white-space: nowrap; }
+.x3-train-v { margin: 10px 0 0; font: 700 clamp(3rem, 6.6vw, 6.4rem)/.9 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-white); white-space: nowrap; min-height: .9em; }
+.x3-train-v[data-tone="rec"] { color: var(--x-cyan); }
+.x3-train-v[data-tone="next"] { color: var(--x-teal); }
+.x3-train-d { margin: 18px 0 0; max-width: 46ch; min-height: 4.65em; font-size: clamp(1rem, 1.4vw, 1.12rem); line-height: 1.55; color: var(--x-muted); animation: x3-type .9s steps(28, end) both; }
+@keyframes x3-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.x3-train-marks { list-style: none; margin: 22px 0 0; padding: 0; display: flex; gap: 6px; }
+.x3-train-marks li { width: 28px; height: 3px; border-radius: 2px; background: var(--x-steel); transition: background-color .3s; }
+.x3-train-marks li[data-on="done"] { background: var(--x-teal); }
+.x3-train-marks li[data-on="1"] { background: var(--x-white); }
+/* El teléfono: interfaz real compuesta (recortes de la captura sin números + TargetCard de la app con el motor). */
 .x3-phone-stage { perspective: 1400px; display: flex; justify-content: center; }
-.x3-phone { position: relative; margin: 0; width: min(320px, 72vw); transform-style: preserve-3d; will-change: transform; }
-.x3-phone-screen { border-radius: 40px; padding: 10px; background: #05080C; border: 1px solid var(--x-steel); box-shadow: 0 50px 90px -40px rgba(0, 0, 0, .9), 0 0 0 6px #10161F; overflow: hidden; }
-.x3-phone-screen img { display: block; width: 100%; height: auto; border-radius: 30px; }
-.x3-set { position: absolute; left: -12%; right: -12%; bottom: 12%; transform: translateZ(60px); padding: 14px 16px; border-radius: 18px; background: rgba(11, 15, 20, .94); border: 1px solid var(--x-steel); box-shadow: 0 24px 50px -20px rgba(0, 0, 0, .9); display: flex; flex-direction: column; gap: 10px; }
-.x3-set-ex { font-size: 13px; color: var(--x-muted); }
-.x3-set-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.x3-set-cols > span { display: flex; flex-direction: column; gap: 4px; opacity: .8; transition: opacity .4s; }
-.x3-set-cols > span[data-on] { opacity: 1; }
-.x3-set-cols small { font-size: 12px; color: var(--x-muted); letter-spacing: .02em; }
-.x3-set-cols .x3-roll { font: 700 clamp(1rem, 1.8vw, 1.3rem) var(--font-display); }
-.x3-set-cols .rec[data-on] .x3-roll { color: var(--x-cyan); }
-.x3-set-next { font-size: 13px; color: var(--x-muted); padding-top: 8px; border-top: 1px solid var(--x-line); opacity: .8; transition: opacity .4s; }
-.x3-set-next[data-on] { opacity: 1; color: var(--x-muted); }
-.x3-set-next[data-on] .x3-roll { color: var(--x-teal); font-weight: 700; }
+.x3-phone { position: relative; margin: 0; width: min(380px, 30vw); transform-style: preserve-3d; will-change: transform; }
+.x3-phone-float { animation: x3-float 5s ease-in-out infinite alternate; transform-origin: 50% 60%; }
+@keyframes x3-float { from { translate: 0 -6px; } to { translate: 0 6px; } }
+.x3-phone-screen { --ui-surface: #FFFFFF; --ui-text: #0E1726; --ui-text-2: #334155; --ui-muted: #5A6372; --ui-link: #006F8E; --ui-accent-tint: rgba(0, 137, 176, .10); --ui-accent-line: rgba(0, 137, 176, .40); --ui-warning-text: #8A5300;
+  display: flex; flex-direction: column; gap: 10px; padding: 22px 14px 16px; border-radius: 34px 34px 22px 22px; background: #F4F1EA; border: 1px solid var(--x-steel); outline: 6px solid #10161F; color: var(--ui-text); font-family: var(--font-ui); overflow: clip; }
+.x3-crop { display: block; flex: none; background-image: url(/conoce/shots/training.webp); background-repeat: no-repeat; }
+.x3-phone-foot { display: flex; flex-direction: column; gap: 10px; }
+.x3-crop.links { align-self: center; }
+/* Escritorio: un teléfono de verdad (proporción vertical) con el pie real de la pantalla de la sesión abajo; en el teléfono
+   angosto entra sólo la tarjeta y las sensaciones (el subtítulo va debajo). */
+@media (min-width: 900px) {
+  .x3-phone { width: clamp(300px, 26vw, 340px); }
+  .x3-phone .x3-phone-screen { height: min(calc(clamp(300px, 26vw, 340px) * 1.6), calc(100svh - 150px)); }
+  .x3-phone .x3-phone-foot { margin-top: auto; }
+}
+@media (max-width: 899px) { .x3-train .x3-crop.cta, .x3-train .x3-crop.links, .x3-train .x3-crop.how { display: none; } }
+.x3-phone-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; background: var(--ui-surface); overflow: clip; }
+.x3-phone-sets { display: flex; gap: 16px; transition: transform .55s var(--x-ease); }
+.x3-phone-sets[data-next] { transform: translateX(calc(-100% - 16px)); }
+.x3-phone-set { flex: 0 0 100%; display: flex; flex-direction: column; gap: 6px; }
+.x3-phone-lbl { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ui-muted); }
+/* Reglas de la tarjeta real (member.css) copiadas sólo para este teléfono: no se importa toda la hoja de la app. */
+.x3-phone-screen .ti-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--ui-accent-tint); border: 1px solid var(--ui-accent-line); }
+.x3-phone-screen .ti-cols { display: grid; grid-template-columns: .95fr 1.5fr .85fr; gap: 8px; align-items: start; }
+.x3-phone-screen .ti-cols > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; transition: opacity .35s; }
+.x3-phone-screen .ti-cols small { font-size: 10px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--ui-muted); }
+.x3-phone-screen .ti-cols b { font-size: 13px; line-height: 1.25; color: var(--ui-text); overflow-wrap: anywhere; }
+.x3-phone-screen .ti-cols .ti-main small { color: var(--ui-link); }
+.x3-phone-screen .ti-cols .ti-main b { font-size: 15px; white-space: nowrap; overflow-wrap: normal; } /* «62,5 kg × 8–10» en una línea */
+.x3-phone-screen .ti-cols .ti-rir { text-transform: none; letter-spacing: 0; color: var(--ui-text-2); font-weight: 500; }
+.x3-phone-screen .ti-quality { display: none; } /* recorte: la nota de discos no entra en esta pantalla */
+.x3-phone-screen .ti-why, .x3-phone-screen .ti-review { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ui-text-2); transition: opacity .35s; }
+/* La tarjeta enciende la columna del paso actual (Anterior → REPI → Real) con un marco; la razón aparece con la recomendación.
+   Sin atenuar las demás: todo el texto de la pantalla conserva su contraste. */
+.x3-phone-screen .ti-cols > div { border-radius: 8px; padding: 4px 5px; margin: -4px -5px; box-shadow: 0 0 0 0 transparent; transition: box-shadow .35s, background-color .35s; }
+.x3-phone-screen[data-step="1"] .x3-phone-set:first-child .ti-cols > div:first-child,
+.x3-phone-screen[data-step="2"] .x3-phone-set:first-child .ti-cols > .ti-main,
+.x3-phone-screen[data-step="3"] .x3-phone-set:first-child .ti-cols > div:last-child { background: #FFFFFF; box-shadow: 0 0 0 1.5px var(--ui-link); }
+.x3-phone-screen[data-step="0"] .ti-why, .x3-phone-screen[data-step="1"] .ti-why { visibility: hidden; }
+/* La serie que no se ve (fuera de la pantalla) no existe para nadie; la que entra se ve durante todo el deslizamiento. */
+.x3-phone-set { transition: visibility 0s linear 0s; }
+.x3-phone-sets[data-next] .x3-phone-set:first-child, .x3-phone-sets:not([data-next]) .x3-phone-set:last-child { visibility: hidden; transition-delay: .55s; }
+.x3-train-table { display: none; }
 .x3-train-try { padding: 40px 0 clamp(80px, 12vh, 140px); }
 .x3-train-try h3 { margin: 0 0 18px; font: 700 clamp(1.5rem, 3vw, 2.2rem)/1 var(--font-display); text-transform: uppercase; }
 .x3 .cn-sim { background: var(--x-surface); border: 1px solid var(--x-steel); border-radius: 22px; }
 .x3 .cn-sim-table { border: 0; border-radius: 0; border-top: 1px solid var(--x-line); } /* sin tarjeta dentro de tarjeta */
+/* Teléfono angosto: todo entra en una pantalla; el teléfono en la parte de arriba (44svh) y el subtítulo abajo. */
 @media (max-width: 899px) {
-  .x3-train-grid { grid-template-columns: 1fr; }
-  .x3-phone-stage { order: -1; }
-  .x3-phone { width: min(230px, 56vw); }
-  .x3-set { left: -26%; right: -26%; bottom: 6%; }
-  .x3-train-pin { padding: 70px 0 40px; align-items: flex-start; }
-  /* Sólo se ve el paso activo, pero los demás siguen disponibles para lectores de pantalla. */
-  .x3-train-steps li:not([data-on="1"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .x3-train-pin { padding: 78px 0 16px; align-items: stretch; }
+  .x3-train-grid { grid-template-columns: 1fr; grid-template-rows: 44svh auto; gap: 14px; align-content: space-between; height: calc(100svh - 94px); }
+  .x3-phone-stage { order: -1; align-items: flex-start; overflow: visible; }
+  .x3-phone { width: min(320px, 82vw, 46svh); }
+  .x3-phone-screen { padding: 18px 10px 12px; }
+  .x3-phone-screen .ti-cols .ti-main b { font-size: 14px; }
+  .x3-train-v { font-size: clamp(2.6rem, 13vw, 8.5rem); }
+  .x3-train-d { min-height: 6.2em; font-size: 15px; }
 }
 
-/* ── Roll: dígitos con profundidad ──────────────────────────────────── */
+/* ── Roll v2: cada dígito rueda en su máscara (sólo translateY y opacidad) ── */
 .x3-roll-digits { display: inline-flex; font-variant-numeric: tabular-nums; }
-.x3-roll-d { position: relative; display: inline-block; overflow: hidden; }
+.x3-roll-d { position: relative; display: inline-block; overflow: clip; padding: .08em 0; margin: -.08em 0; }
 .x3-roll-new, .x3-roll-old { display: inline-block; white-space: pre; }
-.x3-roll-d[data-change] .x3-roll-new { animation: x3-in .5s var(--x-ease) both; }
-.x3-roll-old { position: absolute; left: 0; top: 0; animation: x3-out .5s var(--x-ease) both; }
-@keyframes x3-in { from { transform: translateY(70%) scale(.9); opacity: 0; filter: blur(3px); } }
-@keyframes x3-out { to { transform: translateY(-70%) scale(.9); opacity: 0; filter: blur(3px); } }
+.x3-roll-d[data-change] .x3-roll-new { animation: x3-in .42s var(--x-ease) both; }
+.x3-roll-old { position: absolute; left: 0; top: .08em; animation: x3-out .42s var(--x-ease) both; }
+@keyframes x3-in { from { transform: translateY(100%); opacity: 0; } }
+@keyframes x3-out { to { transform: translateY(-100%); opacity: 0; } }
 
 /* ── 04 · Perspectivas ──────────────────────────────────────────────── */
 .x3-pv { padding: clamp(90px, 14vh, 160px) 0; }
@@ -253,7 +384,14 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 }
 
 /* ── 05 · Producto ──────────────────────────────────────────────────── */
-.x3-sc { padding: clamp(80px, 12vh, 140px) 0; background: linear-gradient(180deg, transparent, rgba(11, 15, 20, .86) 12%, rgba(11, 15, 20, .86) 88%, transparent); }
+.x3-sc { position: relative; padding: clamp(80px, 12vh, 140px) 0; background: linear-gradient(180deg, transparent, rgba(11, 15, 20, .86) 12%, rgba(11, 15, 20, .86) 88%, transparent); }
+/* Escritorio (Motion 2): el velo queda sólo detrás de la columna de texto; a la derecha la sala vuelve a verse. */
+@media (min-width: 960px) {
+  .x3-sc { background: none; }
+  .x3-sc::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 58%; pointer-events: none;
+    background: linear-gradient(90deg, rgba(11, 15, 20, .94) 0%, rgba(11, 15, 20, .9) 62%, rgba(11, 15, 20, 0) 100%); }
+  .x3-sc > .x3-wrap { position: relative; }
+}
 .x3-sc-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 80px); }
 .x3-sc-mod { min-height: 74vh; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 20px 0; opacity: .76; transition: opacity .5s var(--x-ease); }
 .x3-sc-mod[data-on] { opacity: 1; }
@@ -265,11 +403,14 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-sc-status { margin: 4px 0 0; font-size: 13px; color: var(--x-teal); }
 .x3-sc-status[data-s="stage"] { color: #FFD48A; }
 .x3-sc-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-.x3-sc-stage { position: sticky; top: 64px; height: calc(100svh - 64px); display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.x3-sc-stage { position: sticky; top: 64px; height: calc(100svh - 64px); display: flex; flex-direction: column; justify-content: flex-start; padding-top: clamp(24px, 7vh, 72px); gap: 22px; }
 .x3-sc-index { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--x-dim); }
 .x3-sc-index li[data-on] { color: var(--x-white); }
-.x3-sc-visual { animation: x3-swap .6s var(--x-ease) both; }
-@keyframes x3-swap { from { opacity: 0; transform: translateY(16px) scale(.98); filter: blur(4px); } }
+.x3-sc-visual { animation: x3-wipe .45s var(--x-ease) both; }
+/* Corte de montaje entre módulos: un barrido (sin fundido ni desenfoque). */
+@keyframes x3-wipe { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+.x3-chart-now { margin: 10px 0 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.x3-chart-now b { font: 700 clamp(1.6rem, 2.6vw, 2.2rem) var(--font-display); color: var(--x-cyan); font-variant-numeric: tabular-nums; }
 .x3-layers { position: relative; height: min(64vh, 560px); }
 .x3-layers img { position: absolute; height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); box-shadow: 0 40px 70px -35px rgba(0, 0, 0, .9); }
 .x3-layers img:first-child { left: 0; top: 0; }
@@ -284,7 +425,7 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-chart-line { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .x3-chart-dot { fill: var(--x-steel); }
 .x3-chart-last { fill: var(--x-cyan); }
-.x3-chart small { color: var(--x-dim); font-size: 12px; }
+.x3-chart small { color: var(--x-muted); font-size: 12px; }
 .x3-rest { position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
 .x3-rest img { height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); }
 .x3-rest-ring { --p: 1; position: absolute; right: 8%; bottom: 10%; width: 132px; height: 132px; border-radius: 50%; display: grid; place-content: center; text-align: center;
@@ -294,15 +435,23 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-rest-ring > * { position: relative; }
 .x3-rest-ring b { font: 700 30px var(--font-display); }
 .x3-rest-ring small { font-size: 11px; color: var(--x-muted); }
-.x3-req { position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
-.x3-req img { height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); opacity: .8; }
-.x3-req-a, .x3-req-b { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 16px; background: var(--x-surface); border: 1px solid var(--x-cyan); box-shadow: 0 20px 40px -18px rgba(0, 0, 0, .9); }
-.x3-req-a { left: 0; top: 14%; }
-.x3-req-b { right: 0; bottom: 22%; border-color: var(--x-teal); }
+.x3-req { --rq: 1; position: relative; height: min(64vh, 560px); display: flex; justify-content: center; }
+@media (prefers-reduced-motion: no-preference) { .x3-sc { --rq: 0; } .x3-req { --rq: inherit; } }
+.x3-req img { position: relative; z-index: 1; height: 100%; width: auto; border-radius: 28px; border: 1px solid var(--x-steel); } /* opaca: los trazos pasan por detrás */
+.x3-req-a, .x3-req-b { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 16px; background: var(--x-surface); border: 1px solid var(--x-cyan); }
+/* Lo mueve el scroll del módulo (--rq de 0 a 1): el pedido, el trazo y la respuesta, en ese orden. */
+.x3-req-a { left: 0; top: 14%; opacity: clamp(0, calc((var(--rq) - .04) * 8), 1); translate: 0 calc(clamp(0, calc(1 - (var(--rq) - .04) * 8), 1) * 12px); }
+.x3-req-b { right: 0; bottom: 22%; border-color: var(--x-teal); opacity: clamp(0, calc((var(--rq) - .58) * 8), 1); translate: 0 calc(clamp(0, calc(1 - (var(--rq) - .58) * 8), 1) * 12px); }
 .x3-req-a small, .x3-req-b small { font-size: 12px; color: var(--x-muted); }
 .x3-req-a b, .x3-req-b b { font: 700 22px var(--font-display); text-transform: uppercase; }
-.x3-req svg { position: absolute; z-index: 1; left: 12%; right: 12%; top: 30%; width: 76%; }
-.x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 2.5; stroke-dasharray: 300; stroke-dashoffset: 300; stroke-linecap: round; }
+/* El trazo va detrás del teléfono (z 0) y lo rodea por debajo: del pedido (arriba a la izquierda) al «Voy» (abajo a la derecha). */
+.x3-req svg { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.x3-req-path { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - clamp(0, calc((var(--rq) - .18) / .4), 1)); stroke-linecap: round; }
+/* Training Intelligence: la serie de 03 con el TargetCard real, en un teléfono. */
+.x3-sc-phone { height: min(64vh, 560px); display: flex; justify-content: center; }
+.x3-sc-phone > div { height: 100%; width: min(100%, 340px); }
+.x3-sc-phone .x3-phone-screen { height: 100%; }
+.x3-sc-phone .x3-phone-foot { margin-top: auto; }
 @media (min-width: 960px) { .x3-sc-inline { display: none; } }
 @media (max-width: 959px) {
   .x3-sc-grid { grid-template-columns: 1fr; }
@@ -310,59 +459,95 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-sc-mod { min-height: 0; opacity: 1; padding: 36px 0; border-top: 1px solid var(--x-line); }
   .x3-sc-inline { margin-top: 16px; min-height: 440px; }
   .x3-sc-inline[data-v="chart"] { min-height: 0; aspect-ratio: 400 / 266; }
-  .x3-sc-inline .x3-layers, .x3-sc-inline .x3-rest, .x3-sc-inline .x3-req { height: 440px; }
+  .x3-sc-inline .x3-layers, .x3-sc-inline .x3-rest, .x3-sc-inline .x3-req, .x3-sc-inline .x3-sc-phone { height: 440px; }
   .x3-sc-inline .x3-layers img:nth-child(2) { display: none; }
 }
 
 /* ── 06 · Demos ─────────────────────────────────────────────────────── */
 .x3-dm { padding: clamp(90px, 14vh, 160px) 0; }
-.x3-doors { display: flex; gap: 10px; height: 560px; }
-.x3-door { position: relative; flex: 1; min-width: 0; border-radius: 26px; background: var(--x-surface); border: 1px solid var(--x-steel); overflow: hidden; transition: flex .7s var(--x-ease), border-color .4s; }
-.x3-door[data-open] { flex: 3.4; border-color: var(--x-cyan); }
+.x3-doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; height: 620px; }
+/* Puertas de tamaño fijo (Motion 2): abrir una no empuja a las vecinas. El cuerpo se revela con un barrido y la captura sube. */
+.x3-door { position: relative; min-width: 0; border-radius: 26px; background: var(--x-surface); border: 1px solid var(--x-steel); overflow: hidden; transition: border-color .4s, transform .25s var(--x-ease); }
+.x3-door[data-open] { border-color: var(--x-white); }
 .x3-door-tab { position: absolute; inset: 0 auto auto 0; z-index: 2; width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px; border: 0; background: none; color: var(--x-white); text-align: left; cursor: pointer; }
 .x3-door-tab span { font: 700 clamp(1.3rem, 2vw, 1.7rem)/1 var(--font-display); text-transform: uppercase; max-width: 12ch; }
 .x3-door-tab small { color: var(--x-muted); font-size: 13px; }
-.x3-door-body { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); gap: 22px; padding: 100px 26px 26px; opacity: 0; visibility: hidden; transition: opacity .4s, visibility .4s; }
-.x3-door[data-open] .x3-door-body { opacity: 1; visibility: visible; transition-delay: .25s; }
-.x3-door-body img { width: 100%; height: auto; max-height: 420px; object-fit: cover; object-position: top; border-radius: 22px; border: 1px solid var(--x-steel); }
-.x3-door-body ul { list-style: none; margin: 10px 0 14px; padding: 0; display: grid; gap: 8px; }
-.x3-door-body li { display: flex; gap: 8px; color: var(--x-muted); line-height: 1.4; font-size: 15px; }
+.x3-door-body { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; padding: 112px 20px 20px; clip-path: inset(0 0 100% 0); visibility: hidden; transition: clip-path .55s var(--x-ease), visibility 0s linear .55s; }
+.x3-door[data-open] .x3-door-body { clip-path: inset(0 0 0 0); visibility: visible; transition: clip-path .55s var(--x-ease) .05s, visibility 0s; }
+.x3-door-body img { width: 100%; height: auto; max-height: 200px; object-fit: cover; object-position: top; border-radius: 18px; border: 1px solid var(--x-steel); translate: 0 12px; transition: translate .6s var(--x-ease) .1s; }
+.x3-door[data-open] .x3-door-body img { translate: 0 0; }
+.x3-door-body ul { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 7px; }
+.x3-door-body li { display: flex; gap: 8px; color: var(--x-muted); line-height: 1.35; font-size: 14px; }
 .x3-door-body li svg { flex: none; color: var(--x-teal); margin-top: 2px; }
 .x3-door-who { margin: 0; font-weight: 600; }
+.x3-door .x3-btn.pri { transition: transform .12s var(--x-ease), background-color .2s; }
+.x3-door .x3-btn.pri:active { transform: scale(.97); }
+@media (max-width: 1199px) and (min-width: 900px) { .x3-door-body ul li:nth-child(n+4) { display: none; } }
 @media (max-width: 899px) {
-  .x3-doors { flex-direction: column; height: auto; }
+  .x3-doors { display: flex; flex-direction: column; height: auto; }
   .x3-door { flex: none; }
   .x3-door-tab { position: relative; min-height: 88px; }
-  .x3-door-body { position: relative; inset: auto; display: none; grid-template-columns: 1fr; padding: 0 20px 22px; }
-  .x3-door[data-open] .x3-door-body { display: grid; }
-  .x3-door-body img { max-height: 260px; }
+  .x3-door-body { position: relative; inset: auto; display: none; padding: 0 20px 22px; clip-path: none; visibility: visible; }
+  .x3-door[data-open] .x3-door-body { display: flex; }
+  .x3-door-body img { max-height: 260px; translate: none; }
 }
 
 /* ── 07 · Caso real (momento calmo, claro) ──────────────────────────── */
 .x3-proof { background: var(--x-cream); color: var(--x-ink); padding: clamp(90px, 14vh, 150px) 0 clamp(70px, 10vh, 110px); position: relative; }
 .x3-proof-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 80px); align-items: end; margin-bottom: clamp(60px, 9vh, 100px); }
-.x3-proof-logo img { display: block; width: min(300px, 70vw); height: auto; }
-.x3-proof-place { margin: 12px 0 0; color: var(--x-ink-2); font-weight: 600; }
+/* Caso de éxito: panel navy para que el logo de Smart Center (blanco y verde) se vea sobre el crema. */
+.x3-case { margin: 0; background: var(--x-navy); color: var(--x-white); border-radius: 12px; padding: clamp(22px, 3vw, 32px); display: flex; flex-direction: column; gap: 16px; }
+.x3-case-k { font: 600 12px var(--font-ui); text-transform: uppercase; letter-spacing: .14em; color: var(--x-muted); }
+.x3-case img { display: block; width: min(240px, 62vw); height: auto; }
+.x3-case p { margin: 0; color: #C9D3DF; font-size: 15px; line-height: 1.55; max-width: 46ch; }
 .x3-proof-text p { margin: 0 0 14px; font-size: clamp(1.05rem, 1.6vw, 1.22rem); line-height: 1.6; max-width: 56ch; }
-.x3-proof .x3-fine { color: #5B6675; }
-.x3-steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--x-ink); }
+.x3-steps-wrap { position: relative; }
+/* La línea de los pasos se dibuja con el scroll (horizontal; vertical en el teléfono). */
+.x3-steps-line { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--x-ink); transform-origin: 0 50%; }
+.x3-steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
 .x3-steps li { counter-increment: s; position: relative; padding: 22px 18px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 1.45; color: var(--x-ink-2); }
-.x3-steps li::before { content: ""; position: absolute; top: -7px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--x-ink); }
+.x3-steps li::before { content: ""; position: absolute; top: -5px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--x-ink); }
 .x3-steps li:last-child::before { background: #0A9BC0; }
+.x3-steps li:last-child[data-lit]::before { animation: x3-beat .9s var(--x-ease) 1; }
+@keyframes x3-beat { 0% { transform: scale(1); } 35% { transform: scale(1.7); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: no-preference) { .x3-steps-line { transform: scaleX(0); } }
+/* Bordes curvos navy ↔ crema: fuera del flujo (no mueven nada). */
+.x3-curve { position: absolute; left: 0; width: 100%; height: clamp(26px, 4vw, 56px); fill: var(--x-cream); pointer-events: none; }
+.x3-curve.up { bottom: calc(100% - 1px); }
+.x3-curve.down { top: calc(100% - 1px); }
 .x3-steps b { color: var(--x-ink); font: 700 1.25rem var(--font-display); text-transform: uppercase; }
-@media (max-width: 899px) { .x3-proof-grid { grid-template-columns: 1fr; } .x3-steps { grid-template-columns: 1fr; border-top: 0; border-left: 2px solid var(--x-ink); } .x3-steps li { padding: 0 0 22px 22px; } .x3-steps li::before { top: 4px; left: -7px; } }
+@media (max-width: 899px) { .x3-proof-grid { grid-template-columns: 1fr; } .x3-steps { grid-template-columns: 1fr; } .x3-steps li { padding: 0 0 22px 22px; } .x3-steps li::before { top: 4px; left: -5px; }
+  .x3-steps-line { right: auto; bottom: 0; width: 2px; height: auto; transform-origin: 50% 0; } }
+@media (prefers-reduced-motion: no-preference) and (max-width: 899px) { .x3-steps-line { transform: scaleY(0); } }
 
-/* ── 08 · Cierre ────────────────────────────────────────────────────── */
-.x3-fin { min-height: 100svh; display: flex; align-items: center; padding: 100px 0; text-align: center; }
+/* ── 08 · Cierre: «Vuelta al punto» (Motion 2 P4) ───────────────────── */
+.x3-fin { min-height: 100svh; text-align: center; }
+.x3-fin-pin { min-height: 100svh; display: flex; align-items: center; padding: 100px 0; }
 .x3-fin-in { display: flex; flex-direction: column; align-items: center; }
 .x3-fin-wm { width: clamp(140px, 20vw, 240px); margin-bottom: 34px; }
+.x3-fin-wm > i { will-change: transform; }
+.x3-fin-ring { position: absolute; left: 93.98%; top: 11.93%; width: 170%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: 0; pointer-events: none; }
 .x3-fin-h { margin: 0; font: 700 clamp(3.2rem, 11vw, 6rem)/.86 var(--font-display); text-transform: uppercase; letter-spacing: -.025em; }
-.x3-fin-h .ln { display: block; overflow: hidden; padding-bottom: .06em; }
+.x3-fin-h .ln { display: block; overflow: clip; padding: .1em 0 .06em; margin-top: -.1em; }
 .x3-fin-h .ln > span { display: block; }
 .x3-fin-h .ln:first-child { color: var(--x-muted); }
 .x3-fin-act { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-top: 40px; }
-.x3-fin-act .x3-btn.pri { flex-basis: 100%; max-width: 420px; }
+.x3-fin-act .x3-btn.pri { flex-basis: 100%; max-width: 420px; position: relative; }
+/* El trazo que subraya la acción principal (la acción es de las pocas cosas en cian). */
+.x3-fin-under { position: absolute; left: 0; right: 0; bottom: -7px; height: 2px; border-radius: 2px; background: var(--x-cyan); transform-origin: 0 50%; }
 @media (min-width: 760px) { .x3-fin-act .x3-btn.pri { flex-basis: auto; } }
+/* Fijada con movimiento: la sala vuelve al punto mientras el escenario queda quieto. Estado inicial = primer cuadro del scrub. */
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x3-fin { height: 180svh; }
+  .x3-fin-pin { position: sticky; top: 0; height: 100svh; min-height: 0; padding: 64px 0 0; }
+  .x3-fin-wm img { clip-path: circle(0 at 94% 12%); } /* sin logo a medias: nace del punto cuando llega a la «ı» */
+  .x3-fin-wm > i { opacity: 0; }
+  .x3-fin-h .ln > span { transform: translateY(135%); }
+  .x3-fin-act > :not(.cn-demo-act), .x3-fin-act > .cn-demo-act > * { opacity: 0; }
+  .x3-fin-under { transform: scaleX(0); }
+}
+/* Teléfono: más recorrido para la firma de cierre (la vuelta al punto, el punto que sube y el logo que nace no se apuran). */
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-fin { height: 230svh; } }
 
 /* ── Contacto y preguntas ───────────────────────────────────────────── */
 .x3-contact { background: var(--x-navy); padding: clamp(90px, 13vh, 140px) 0 80px; border-top: 1px solid var(--x-line); }
@@ -387,16 +572,9 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-film-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .x3-film-x { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--x-line); background: var(--x-surface); color: var(--x-white); display: grid; place-items: center; cursor: pointer; }
 .x3-film video { width: 100%; max-height: 80vh; border-radius: 18px; background: #000; }
-.x3-film small { color: var(--x-muted); }
-.x3-film-credit { font-size: 13px; }
-.x3-film-credit a { color: var(--x-white); text-decoration: underline; text-underline-offset: 3px; }
-.x3-film-desc { font-size: 14px; color: var(--x-muted); }
-.x3-film-desc summary { min-height: 32px; display: inline-flex; align-items: center; color: var(--x-white); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.x3-film-desc ol { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 8px; line-height: 1.45; max-width: 75ch; }
-.x3-film-desc li span { font-variant-numeric: tabular-nums; color: var(--x-dim); margin-right: 6px; }
+.x3-film-sum { margin: 2px 0 0; max-width: 70ch; font-size: 15px; line-height: 1.5; color: var(--x-muted); }
 
 /* ── Teléfono: barra inferior que no tapa contenido ─────────────────── */
-.x3 .cn-sticky { z-index: 18; }
 
 /* ── Movimiento reducido: estados finales, sin cámara ni scrub ─────── */
 @media (prefers-reduced-motion: reduce) {
@@ -404,16 +582,41 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 }
 /* Movimiento reducido o pantalla baja (zoom fuerte, teléfono acostado): escenas apiladas, nada recortado. */
 @media (prefers-reduced-motion: reduce), (max-height: 559px) {
-  .x3-prob-pin { height: auto; overflow: visible; padding: 90px 0; display: flex; flex-direction: column; gap: 40px; }
-  .x3-frags, .x3-prob-lines, .x3-prob-core { display: none; }
-  .x3-prob-copy { position: static; translate: none; margin: 0 auto; }
-  .x3-prob-after { opacity: 1; }
-  .x3-train-steps li span { max-height: none; opacity: 1; }
-  .x3-train-steps li:not([data-on="1"]) { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; display: flex; }
+  .x3-prob-pin { height: auto; overflow: visible; padding: 90px 0; display: flex; flex-direction: column; align-items: center; gap: 36px; }
+  .x3-frags, .x3-prob-lines, .x3-prob-ring { display: none; }
+  .x3-prob-wm, .x3-prob-copy, .x3-prob-screens { position: static; translate: none; }
+  .x3-prob-copy { display: contents; } /* «Antes…», el logo, «Ahora…» y las pantallas, en ese orden */
+  .x3-prob-h, .x3-prob-p, .x3-prob-now { text-align: center; padding: 0 var(--x-gutter); }
+  .x3-prob-p { margin-top: -18px; }
+  .x3-prob-wm { order: 1; }
+  .x3-prob-now { order: 2; margin-top: 36px; color: var(--x-muted); }
+  .x3-prob-screens { order: 3; }
+  .x3-prob-phones { display: grid; height: auto; }
+  .x3-prob-scr, .x3-prob-scr.push { display: none; }
+  .x3-prob-scr:not(.push) { display: block; overflow: hidden; aspect-ratio: 390 / 460; border-radius: 22px; }
+  .x3-prob-roles { display: grid; height: auto; }
+  .x3-prob-roles li { position: static; }
+  /* 03: tabla quieta con los valores y la pantalla compuesta en su estado final; sin el subtítulo que cambia. */
+  .x3-train-say { display: none; }
+  .x3-train-grid { grid-template-columns: 1fr; grid-template-rows: none; height: auto; }
+  .x3-train-pin { min-height: 0; padding: 40px 0 0; }
+  .x3-phone-float { animation: none; }
+  .x3-train-table { display: block; padding-top: 32px; }
+  .x3-train-table dl { margin: 0 0 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 28px; }
+  .x3-train-table dt { font: 600 1rem var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--x-muted); }
+  .x3-train-table dd { margin: 4px 0 0; font: 700 clamp(2rem, 6vw, 3.4rem)/1 var(--font-display); text-transform: uppercase; }
+  .x3-train-table .rec dd { color: var(--x-cyan); }
+  .x3-train-table .next dd { color: var(--x-teal); }
+  .x3-train-table p { margin: 0 0 10px; max-width: 70ch; color: var(--x-muted); line-height: 1.55; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 759px), (max-height: 559px) and (max-width: 759px) {
+  .x3-prob-screens { --pw: 28vw; --col: 28vw; }
+  .x3-prob-roles, .x3-prob-phones { grid-template-columns: repeat(3, var(--col)); gap: 0 8px; }
+  .x3-prob-roles li { font-size: 13px; }
 }
 
 /* Simulador (IntelSim) dentro de la escena oscura: mismos componentes, tokens en oscuro. */
 .x3 .cn-sim { --ui-surface: #1A2433; --ui-surface-2: #223047; --ui-text: #F8FAFC; --ui-text-2: #B4C0CF; --ui-muted: #9AA8BA; --ui-border: #2D3B4F; --ui-border-strong: #3D4E66;
   --ui-divider: #2D3B4F; --ui-link: #00D1FF; --ui-warning-tint: rgba(255, 196, 92, .12); --ui-warning-text: #FFD48A; --ui-selection-bg: rgba(0, 209, 255, .16); --ui-accent: #00D1FF;
   --ui-accent-tint: rgba(93, 230, 216, .12); --ui-error-tint: rgba(255, 120, 100, .14); box-shadow: none; }
-.x3 .cn-sim .cn-btn.pri { background: var(--x-cyan); color: var(--x-navy); border-radius: 999px; min-height: 48px; border: 0; font: 600 16px var(--font-ui); }
+.x3 .cn-sim .cn-btn.pri { background: var(--x-white); color: var(--x-navy); border-radius: 8px; min-height: 46px; border: 0; font: 600 15px var(--font-ui); }

@@ -53,7 +53,7 @@ test("el QR permanente lleva a /conoce con las UTM y la visita queda atribuida a
   await expect.poll(async () => (await events()).find((e) => e.name === "profile_select")).toMatchObject({ source: "qr", utmSource: "qr", profile: "entrenadores" });
 });
 
-test("el film de marca se abre con un toque, tiene la atribución de la música y se cierra con Escape", async ({ page }, info) => {
+test("el film de marca se abre con un toque, muestra sólo qué hace REPI y se cierra con Escape", async ({ page }, info) => {
   const events = await collectEvents(page);
   await page.goto("/conoce?sala=low");
   await page.getByRole("button", { name: /Mirá REPI en acción/ }).click();
@@ -62,13 +62,11 @@ test("el film de marca se abre con un toque, tiene la atribución de la música 
   const src = await dialog.locator("video source").getAttribute("src");
   expect(src).toBe("/conoce/videos/film-marca.mp4");
   expect((await page.request.get(src!)).status()).toBe(200);
-  await expect(dialog).toContainText("Kevin MacLeod");
-  await expect(dialog.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute("href", /creativecommons\.org\/licenses\/by\/4\.0/);
-  await expect(dialog).toContainText("Fragmento editado y sincronizado con la imagen"); // CC BY 4.0 §3(a)(1)(B)
-  // Sin voz: descripción en texto escena por escena y pista WebVTT de descripciones.
-  await dialog.getByText("Descripción del video en texto").click();
-  await expect(dialog.locator(".x3-film-desc li").first()).toContainText("0:00");
-  await expect(dialog.locator(".x3-film-desc")).toContainText("«Cada repetición cuenta.»");
+  // Pedido del titular (07/11): debajo del video, una línea con lo que muestra; nada de licencias ni descripciones largas.
+  await expect(dialog.locator(".x3-film-sum")).toContainText("objetivo para cada serie");
+  await expect(dialog).not.toContainText("Kevin MacLeod");
+  await expect(dialog).not.toContainText("Descripción del video en texto");
+  // Sin voz: la pista WebVTT de descripciones sigue para los lectores de pantalla.
   const vtt = await dialog.locator("track[kind=descriptions]").getAttribute("src");
   expect(vtt).toBe("/conoce/videos/film-marca.descripcion.vtt");
   expect(await (await page.request.get(vtt!)).text()).toMatch(/^WEBVTT/);
@@ -168,6 +166,44 @@ test("«Pausar animaciones» detiene lo que se mueve solo y se recuerda", async 
   await expect(page.locator("html")).not.toHaveAttribute("data-motion", "paused");
 });
 
+test("la música de los films tiene su atribución CC BY 4.0 en /creditos, enlazada desde el pie", async ({ page }) => {
+  await page.goto("/conoce?sala=low");
+  await page.locator("footer.st-foot").getByRole("link", { name: "Créditos" }).click();
+  await expect(page).toHaveURL(/\/creditos$/);
+  const main = page.locator("main");
+  await expect(main).toContainText("Kevin MacLeod");
+  await expect(main.getByRole("link", { name: "Creative Commons Atribución 4.0" })).toHaveAttribute("href", /creativecommons\.org\/licenses\/by\/4\.0/);
+  await expect(main).toContainText("fragmento editado"); // CC BY 4.0 §3(a)(1)(B): se indica la modificación
+  await expect(main).toContainText("«Heroic Age»");
+});
+
+test("Smart Center aparece una sola vez, como caso de éxito, y no al entrar", async ({ page }) => {
+  await page.goto("/conoce?sala=low");
+  await expect(page.locator("#cn-hero")).not.toContainText("Smart");
+  const mentions = await page.locator("main").evaluate((m) => (m.textContent ?? "").split("Smart Center").length - 1);
+  expect(mentions).toBe(1);
+  await expect(page.locator("#caso .x3-case")).toContainText("Caso de éxito");
+  await expect(page.locator("#caso .x3-case img")).toHaveAttribute("alt", "Smart Center Gym");
+});
+
+test("arriba no hay íconos sin nombre y abajo no queda una barra fija tapando la página", async ({ page }) => {
+  await page.goto("/conoce?sala=low");
+  const head = page.locator("header.x3-head");
+  // El nombre que se lee: el texto visible o, en el logo (una imagen), su aria-label. Un ícono suelto no tiene ninguno de los dos.
+  for (const b of await head.locator("a, button").all()) expect(((await b.innerText()).trim() || (await b.getAttribute("aria-label")) || "").length, await b.evaluate((e) => e.outerHTML.slice(0, 80))).toBeGreaterThan(0);
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight / 2));
+  await page.waitForTimeout(300);
+  expect(await page.locator(".cn-sticky").count()).toBe(0);
+});
+
+test("en el pie, la firma de SOVARE va alineada a la izquierda", async ({ page }) => {
+  await page.goto("/conoce?sala=low");
+  const foot = page.locator("footer.st-foot");
+  await foot.scrollIntoViewIfNeeded();
+  const [brand, sovare] = await Promise.all([foot.locator(".st-foot-brand").boundingBox(), foot.locator(".st-sovare a").boundingBox()]);
+  expect(Math.abs(brand!.x - sovare!.x)).toBeLessThan(2);
+});
+
 test("los errores del formulario se leen sobre la tarjeta clara", async ({ page }) => {
   await page.goto("/conoce?sala=low#contacto");
   const form = page.getByRole("form", { name: "Solicitar una demo de REPI" });
@@ -175,4 +211,32 @@ test("los errores del formulario se leen sobre la tarjeta clara", async ({ page 
   const err = page.locator(".cn-form .cn-err").first();
   await expect(err).toBeVisible();
   expect(await err.evaluate((el) => getComputedStyle(el).color)).not.toBe("rgb(255, 180, 168)");
+});
+
+// Motion 2 · ronda 2: en un teléfono bajo (iPhone 15, 393 × 659) no hay lugar para todos los pedazos de 02 alrededor del
+// titular. Los que no entran no se muestran: ninguno puede quedar encima del texto.
+test.describe("con movimiento, en un teléfono bajo", () => {
+  test.use({ reducedMotion: "no-preference", viewport: { width: 393, height: 659 } });
+  test("02: ningún pedazo pisa el titular ni el párrafo", async ({ page }, info) => {
+    test.skip(info.project.name !== "mobile", "una sola vez (el tamaño de pantalla es el mismo en los dos proyectos)");
+    await page.goto("/conoce?sala=low");
+    const top = await page.locator("#problema").evaluate((s) => s.getBoundingClientRect().top + window.scrollY);
+    await page.evaluate((z) => new Promise<void>((res) => {
+      let y = 0, last = performance.now();
+      const st = (n: number) => { y += (400 * Math.min(100, n - last)) / 1000; last = n; window.scrollTo(0, Math.min(y, z)); if (y >= z) return res(); requestAnimationFrame(st); };
+      requestAnimationFrame(st);
+    }), top + 60);
+    await expect(page.locator(".x3-frag").first()).toHaveAttribute("style", /translate3d/);
+    await page.waitForTimeout(1200);
+    const over = await page.evaluate(() => {
+      type B = { x: number; y: number; w: number; h: number };
+      const R = (e: Element): B => { const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+      const hit = (a: B, b: B) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      const texts = [...document.querySelectorAll(".x3-prob-vis .l1, .x3-prob-vis .r.a, .x3-prob-p")].map(R);
+      return [...document.querySelectorAll<HTMLElement>(".x3-frag")]
+        .filter((f) => f.offsetParent && getComputedStyle(f).visibility !== "hidden" && +getComputedStyle(f).opacity > 0.05)
+        .filter((f) => texts.some((t) => hit(R(f), t))).map((f) => f.className);
+    });
+    expect(over).toEqual([]);
+  });
 });
