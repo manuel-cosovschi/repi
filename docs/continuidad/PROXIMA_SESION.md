@@ -1,6 +1,31 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la rama `claude/admin-timeout`, sin publicar**). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+## Incidente «Task timed out after 300 seconds» en /api/admin — 08/11/2026 · CORREGIDO EN RAMA, SIN PUBLICAR
+
+- **Qué pasó:** 2 cortes de 300 s en REPI Admin (06/11 13:08 y 07/11 21:07 UTC) con la base sin nada raro. El pedido esperaba algo dentro del proceso.
+- **Causas confirmadas en local:**
+  1. **Pool trabado.** 13 transacciones usaban el `db` global dentro de `db.transaction`. En Vercel el pool tiene 3 conexiones, así que 3 pedidos así a la vez se trababan para siempre y colgaban la instancia. Reproducido con 3 aprobaciones simultáneas de una venta y triple clic en «Aprobar».
+  2. **Socket mudo.** postgres-js no pone tiempo máximo a las consultas, así que una consulta en un socket mudo esperaba unos 15 min.
+- **Corrección (sin migraciones):**
+  - **Transacciones:** pasan `tx` a todas las funciones que llaman (ventas, liquidaciones, inicio de entrenamiento, sala, agenda, privacidad, pegar día, plantillas, invitación del dueño). El push de «brief» se encola después del commit.
+  - **Pool:** `src/db/index.ts` agrega `idle_timeout` de 20 s, `max_lifetime` de 5 min y `connect_timeout` de 10 s.
+  - **Tiempos máximos:** `src/server/deadline.ts` define los tiempos. Con ellos:
+    - Admin responde 503 «timeout» a los 25 s y la función se corta a los 60 s.
+    - El cron comparte un presupuesto de 45 s y se corta a los 60 s.
+    - after() se abandona a los 20 s.
+    - web-push tiene un timeout de 10 s.
+    - El almacenamiento tiene timeouts de 15 y 60 s.
+  - **Interfaz:** «Aprobar», «Rechazar», «Pedir corrección» y «Generar borrador» se bloquean mientras corren. La clave idempotente de la liquidación se mantiene hasta que sale bien.
+- **Guardas y pruebas:**
+  - Guarda estática `tests/safety/transactions.check.ts` (en `test:guards`, corre en CI): falla si una transacción vuelve a pedir otra conexión.
+  - Regresión `tests/pool-deadlock.test.ts` con el pool real de 3 conexiones.
+  - `tests/deadline.test.ts`.
+- **Pendiente del titular (producción):**
+  - Tiempos en el rol `repi_app`: `idle_in_transaction_session_timeout`, `lock_timeout` y `statement_timeout`. La propuesta está en el informe del incidente.
+  - Revisión y merge.
+- **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
 
 ## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
 

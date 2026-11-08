@@ -12,9 +12,12 @@ import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
 import { assistantOn, getPrefs, updatePrefs } from "../brain/prefs";
 import { bodyEligibility } from "../progress/body";
+import { AFTER_DEADLINE_MS, withDeadline } from "../deadline";
 
 const { pushSubscription, notificationOutbox, notifyPref, brainPref, brainIntervention, user } = schema;
 const MAX_ATTEMPTS = 5;
+/** Tiempo máximo de cada envío a un servicio de push (ms). */
+const PUSH_TIMEOUT_MS = 10_000;
 
 function configured() {
   const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY, subj = process.env.VAPID_SUBJECT;
@@ -75,7 +78,10 @@ export async function enqueue(userIds: string[], n: { kind: (typeof notification
 
 /** En serverless el trabajo posterior a la respuesta se registra con after(); fuera de una petición (scripts, tests) corre suelto. */
 function runAfterResponse(job: () => Promise<unknown>) {
-  try { after(() => job().catch(() => {})); } catch { void job().catch(() => {}); }
+  // Incidente 07/11: con tiempo máximo, para que un envío trabado no mantenga viva la función hasta el corte. Lo que quede
+  // pendiente en la cola lo retoma el cron.
+  const bounded = () => withDeadline(job(), AFTER_DEADLINE_MS, "push.after").catch(() => {});
+  try { after(bounded); } catch { void bounded(); }
 }
 
 // ── Push de REPI (D210) ─────────────────────────────────────────────────────
@@ -161,7 +167,8 @@ export async function processOutbox(limit = 50, now = new Date()) {
     let anyOk = false, lastErr = "";
     for (const s of mine) {
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ title: n.title, body: n.body, url: n.url, tag: n.kind }), { TTL: 600, urgency: "high" });
+        // timeout: web-push no pone ninguno por defecto; un servicio de push que acepta la conexión y no contesta colgaba la cola.
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ title: n.title, body: n.body, url: n.url, tag: n.kind }), { TTL: 600, urgency: "high", timeout: PUSH_TIMEOUT_MS });
         anyOk = true;
         await db.update(pushSubscription).set({ lastOkAt: new Date(), failCount: 0 }).where(eq(pushSubscription.id, s.id));
       } catch (e) {
