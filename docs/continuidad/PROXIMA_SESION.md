@@ -68,8 +68,22 @@ Actualizado: 08/11/2026 (**corte de 300 s en /api/admin: corrección lista en la
 - **Pruebas (local):**
   - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
   - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
+- **Primera franja proactiva (18 h, 07/11), verificada:**
+  - 60 llamadas del proceso programado, todas con respuesta 200.
+  - 10 personas reales evaluadas y 6 tarjetas dentro de la app.
+  - 0 push, 0 fallas, 0 llamadas de IA.
+  - La corrida más larga tardó 738 ms.
+  - Detalle en §10 del contrato.
+- **Aparte, en investigación:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base.
+- **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
+  - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
+  - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
+  - **Propuesta:**
+    1. guardar el token en Supabase Vault y que el job lo lea de `vault.decrypted_secrets`;
+    2. rotar `CRON_SECRET` en Vercel y en Vault;
+    3. ajustar `schedule-cron.ts`.
+  - Toca producción y la configuración de Vercel: requiere aprobación. La clave no se copia en ningún documento.
 - **Queda por ver en producción:**
-  - **Primera franja proactiva**, hoy a las 18 h de Argentina. Fuera de franja, el paso responde `brain: null`.
   - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
   - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
 - **Próximo:** ejercicios por tiempo (cinta: duración, velocidad e inclinación), en `claude/ejercicios-por-tiempo`. Lleva la migración 0052 aditiva, que requiere respaldo antes de aplicarse.
