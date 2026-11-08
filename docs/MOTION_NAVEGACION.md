@@ -1,7 +1,7 @@
 # Navegación fluida en las apps · M06 «Carril»
 
 > Rama `claude/app-transiciones` (worktree `/home/user/repi-tx`, base `main` en `218cd53`). Estado: **implementado en la rama, sin publicar** (S0–S9; S10 documentación y verificación en esta misma rama, sin PR ni despliegue). QA independiente del 07/11 corregida (§18).
-> Fuentes: pedido del titular del 06/11/2026 (grabación del iPhone, PWA instalada, app del alumno) y pedido del 07/11/2026 sobre «Abrir ficha del socio» desde Sala. Especificación de movimiento: `motion.md` §13. Decisión: `docs/DECISIONS.md` D211.
+> Fuentes: pedido del titular del 06/11/2026 (grabación del iPhone, PWA instalada, app del alumno) y pedido del 07/11/2026 sobre «Abrir ficha del socio» desde Sala. Especificación de movimiento: `motion.md` §13. Decisión: `docs/DECISIONS.md` D212.
 
 ## 0. Pedidos y reglas que no cambian
 
@@ -185,7 +185,7 @@ En `MemberApp.tsx`: caché y esqueleto en `MyGoals`, `NextAppointment`, `MyCharg
 
 ## 15. Documentación al cerrar
 
-`motion.md` §13 «M06 · Carril» y nota en §12; `docs/DESIGN_CONTRACT.md` (filas «Cambio de sección» y «Ficha del socio»); `docs/DECISIONS.md` D211; este documento; `docs/continuidad/PROXIMA_SESION.md`. `docs/PRODUCT_INVENTORY.md` es generado: no se marcó «probado» a mano.
+`motion.md` §13 «M06 · Carril» y nota en §12; `docs/DESIGN_CONTRACT.md` (filas «Cambio de sección» y «Ficha del socio»); `docs/DECISIONS.md` D212; este documento; `docs/continuidad/PROXIMA_SESION.md`. `docs/PRODUCT_INVENTORY.md` es generado: no se marcó «probado» a mano.
 
 ## 16. Pendiente
 

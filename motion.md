@@ -339,7 +339,7 @@ El objetivo actualizado del lote incluye estas cinco interacciones y la selecci�
 
 ## 13. M06 · Carril (07/11/2026)
 
-**Pedido.** Titular, 06/11/2026, con una grabación del iPhone (PWA instalada, app del alumno): el paso entre secciones es «muy rígido, nada fluido, hasta trabado»; mantener la velocidad y sumar fluidez. Vale para alumno, Coach, Gym y Admin. Plan completo, decisiones técnicas, riesgos y mediciones antes/después: `docs/MOTION_NAVEGACION.md`. Decisión: D211.
+**Pedido.** Titular, 06/11/2026, con una grabación del iPhone (PWA instalada, app del alumno): el paso entre secciones es «muy rígido, nada fluido, hasta trabado»; mantener la velocidad y sumar fluidez. Vale para alumno, Coach, Gym y Admin. Plan completo, decisiones técnicas, riesgos y mediciones antes/después: `docs/MOTION_NAVEGACION.md`. Decisión: D212.
 
 **Idea.** Cambiar de sección es cambiar de carril en la pista. El indicador sale como un sprint, lo viejo se aparta y lo nuevo entra en el sentido del viaje, y el título se revela como un corte de meta con una línea cian de 2 px (el punto del logo). Todo arranca en el toque y termina en ≤ 240 ms; sólo `transform`, `opacity` y `clip-path`; lo que entra es interactivo desde el primer cuadro; un toque nuevo corta lo que esté en curso.
 
