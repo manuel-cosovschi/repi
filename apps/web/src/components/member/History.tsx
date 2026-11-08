@@ -99,13 +99,16 @@ export function HistorySession({ id, flash, onClose, onChanged, offline, onRegis
             </div>
           )}
           {/* Ejercicios por tiempo: sin repeticiones ni carga (sólo una cinta) no se muestran «0 Repeticiones» ni «0 Volumen»; el
-              tiempo de las actividades y series por tiempo, sí. Una sesión de musculación sigue con sus tres datos. */}
-          <div className="stats3">
-            <div><strong>{d.metrics.sets}</strong><span>{d.metrics.sets === 1 ? "Serie" : "Series"}</span></div>
-            {(d.metrics.reps > 0 || !d.metrics.timeSec) && <div><strong>{d.metrics.reps}</strong><span>Repeticiones</span></div>}
-            {!!d.metrics.timeSec && <div><strong>{fmtSeconds(d.metrics.timeSec)}</strong><span>Tiempo</span></div>}
-            {(d.metrics.volumeKg > 0 || !d.metrics.timeSec) && <div><strong>{volumeIn(d.metrics.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>}
-          </div>
+              tiempo de las actividades y series por tiempo, sí. Una sesión de musculación sigue con sus tres datos; con cinta y
+              fuerza son cuatro, en dos filas de dos (no tres arriba y una sola abajo). */}
+          {(() => {
+            const m = d.metrics;
+            const tiles = [<div key="s"><strong>{m.sets}</strong><span>{m.sets === 1 ? "Serie" : "Series"}</span></div>,
+              (m.reps > 0 || !m.timeSec) && <div key="r"><strong>{m.reps}</strong><span>Repeticiones</span></div>,
+              !!m.timeSec && <div key="t"><strong>{fmtSeconds(m.timeSec)}</strong><span>Tiempo</span></div>,
+              (m.volumeKg > 0 || !m.timeSec) && <div key="v"><strong>{volumeIn(m.volumeKg, unit).toLocaleString("es-AR")}</strong><span>Volumen ({unit})</span></div>].filter(Boolean);
+            return <div className="stats3" style={tiles.length === 3 ? undefined : { gridTemplateColumns: `repeat(${tiles.length === 4 ? 2 : tiles.length}, minmax(0, 1fr))` }}>{tiles}</div>;
+          })()}
           {/* D210: preguntar por esta sesión (se cierra la hoja para que el panel no quede debajo). */}
           {d.status === "completed" && !offline && <RepiAsk section="history" refs={{ sessionId: d.id }} subject={d.dayName} label="Preguntale a REPI por esta sesión" before={onClose}
             chips={[{ label: "¿Cómo me fue?", text: "¿Cómo me fue respecto de la anterior?" }, { label: "¿Qué hago la próxima?", text: "¿Qué hago la próxima?" }]} />}
