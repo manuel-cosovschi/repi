@@ -279,6 +279,60 @@ Resumen en `ac3-auditoria/evidencia.md`. Lo que aplican las reglas del cerebro:
   «suena bien».
 - Las pruebas que podrían llamar a OpenAI usan un doble: sin clave, ninguna prueba gasta.
 
-## 10. Estado
+## 10. Estado — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`)
 
-Se completa al cerrar el bloque: qué quedó activo, qué quedó con interruptor y qué quedó pendiente, con evidencia.
+**Publicación** (en este orden):
+1. CI en verde sobre `f76a19c`.
+2. Respaldo `backup-20261107-165801-42393734774` en verde (issue #76).
+3. `hosted-0051.sql` aplicado en producción y verificado:
+   - 52 migraciones registradas, con el hash de la 0051;
+   - las nueve tablas tienen dueño `repi_app` y RLS activo;
+   - ningún permiso público.
+4. Squash merge `ef22c73`.
+5. `/api/version` = `ef22c73adb15` desde las 17:26 UTC.
+
+**Verificación en producción** (Playwright contra repiclub.com con cuentas demo ficticias, sin datos reales):
+
+| Qué | Resultado |
+| --- | --- |
+| Alumno (teléfono): tarjeta de REPI en Inicio | «Hoy te toca Torso A, con cuatro ejercicios.», rotulada «Calculado por REPI» |
+| «¿Qué me toca hoy?» | Respuesta por reglas con el día del programa vigente y el atajo «Empezar Torso A» (no cambia la rutina) |
+| «me duele mucho el pecho» | Respuesta fija de seguridad: «Pará ahora…», 107 / 911, sin diagnóstico |
+| «me duele la rodilla» | Propone «Registrar la molestia» como dato de salud privado, con intensidad y confirmación; no registra nada sola |
+| Coach (escritorio): ficha → Rendimiento | «Señales de REPI» con «Análisis de REPI», la aclaración de privacidad y «Qué no incluye» |
+| Errores | Ninguno en el navegador, ninguna respuesta 5xx, ningún error de ejecución en Vercel |
+| Base | Sólo un hilo, de la cuenta demo (dominio `.invalid`, se purga con el sandbox); 0 llamadas de IA y costo 0 |
+
+**Activo en producción:**
+- El módulo `assistant` está encendido por defecto; no hay override en Vercel.
+- El asistente del socio completo: tarjeta, conversación, briefing y lectura de series, cierre y preferencias.
+- Las respuestas de seguridad por reglas.
+- Las acciones del catálogo, con confirmación y una sola ejecución.
+- «Señales de REPI» para coach y sala.
+- La conversación libre con IA: la clave de OpenAI ya existía en producción y aplica los topes de `DEFAULT_POLICY` (30
+  mensajes por persona por día, US$2 por día en total, US$20 por mes por organización, concurrencia 4). Las cuentas demo
+  también pueden usarla, dentro de esos mismos topes.
+- La proactividad corre en el proceso programado de cada minuto (pg_cron → `/api/cron/notifications`), sólo en las franjas
+  de las 9 y las 18 h de Argentina. Las organizaciones demo quedan excluidas. Push de coaching sólo para adultos con
+  opt-in.
+
+**Primera franja proactiva en producción** (18 h de Argentina, 21:00–21:59 UTC del 07/11; evidencia: `net._http_response`
+del proceso programado y `audit_event` `brain.proactive_run`, sin leer contenido):
+- **Proceso programado:** 60 llamadas a `/api/cron/notifications`, las 60 con respuesta 200 y ninguna demorada; ningún
+  paso del cerebro falló.
+- **Evaluaciones:** 10 corridas con personas evaluaron a 10 personas reales y emitieron 6 tarjetas dentro de la app.
+  - 0 suprimidas, 0 push y 0 fallas.
+  - La corrida más larga tardó 738 ms; no se llegó al tope de tiempo.
+- **Tarjetas en la base al cierre:** 6, todas de personas reales (ninguna demo) y pendientes de ver: 2 de marca personal, 2
+  de inactividad, 1 de programa actualizado y 1 de cierre de sesión.
+- **IA:** 0 llamadas y costo 0.
+- **Vercel:** sin errores del proceso programado ni del cerebro. Hubo un corte por tiempo (300 s) en
+  `/api/admin/[[...path]]` a las 21:07 UTC; ya había pasado el 06/11, antes de AC3, y se investiga aparte. En la base
+  ninguna consulta superó los 5 s.
+
+**Sin verificar todavía en producción, con evidencia sólo local:**
+- **Una respuesta generada por IA:** las tres preguntas de la verificación se resolvieron por reglas, como corresponde.
+  No se forzó una llamada paga para probar.
+- **REPI Admin → Coaching IA:** requiere una cuenta de administración real, y no hay demo de Admin.
+
+**Pendiente:** nada bloqueante. Mejoras futuras en `docs/POST_LAUNCH_ROADMAP.md`.
