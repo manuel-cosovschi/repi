@@ -86,15 +86,28 @@ export function TabBar<K extends string>({ tabs, active, onGo, badge }: {
     PREFETCH[k]?.forEach(prefetch);
     if (e.button !== 0 || (k === cur && k === active)) return;
     pressed.current = k;
+    const btn = e.currentTarget, x0 = e.clientX, y0 = e.clientY;
     setCur(k);
-    const btn = e.currentTarget;
-    const end = (ev: PointerEvent) => {
+    // QA M06 ronda 3: si el dedo se desplaza más de 8 px (un scroll que empieza sobre la barra), el indicador vuelve en ese
+    // momento, sin esperar al pointercancel del navegador (llegaba a los 60–160 ms y el indicador iba y volvía). Se probó
+    // esperar 60 ms quieto antes de moverlo: el estado llegaba recién a los ~105 ms (detrás de las lecturas anticipadas) y
+    // se perdía casi toda la ventaja sobre main.
+    const back = () => { if (pressed.current === k) { pressed.current = null; setCur(active); } };
+    const stop = () => {
+      window.removeEventListener("pointermove", move, true);
       window.removeEventListener("pointerup", end, true);
       window.removeEventListener("pointercancel", end, true);
+    };
+    const move = (ev: PointerEvent) => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) { stop(); back(); } };
+    const end = (ev: PointerEvent) => {
+      stop();
       if (pressed.current !== k) return;
       const over = ev.type === "pointerup" && btn.contains(document.elementFromPoint(ev.clientX, ev.clientY));
-      if (!over) { pressed.current = null; setCur(active); } // no habrá click: el indicador vuelve a la sección a la vista
+      if (!over) { back(); return; } // no habrá click: el indicador vuelve a la sección a la vista
+      // Toque largo: si el navegador no manda el click al soltar, el indicador no queda en una pestaña que no se abrió.
+      window.setTimeout(back, 350);
     };
+    window.addEventListener("pointermove", move, true);
     window.addEventListener("pointerup", end, true);
     window.addEventListener("pointercancel", end, true);
   };

@@ -332,3 +332,24 @@ Probado y descartado en esta ronda, con números en `scratchpad/tx-fix4/inter-*.
 - El recorrido con CPU ×4 dio el indicador en el primer cuadro, 0 cuadros vacíos, layout-shift 0 y 0 tareas largas, también al volver.
 - 3 ✗ en `roles` de escritorio (sala, aislamiento y QR): no llegaron a correr, porque `repi_e2e_tx` también llegó al tope de 300 demos con las mediciones. No se purgó. Esas tres pasaron en la corrida anterior (`roles` 10 ✓, mismo código de staff).
 - Antes del ajuste de `roles`, dueño y sala fallaban en el teléfono por la carrera de arriba.
+
+## 21. QA independiente, ronda 3 (08/11): se puede publicar
+
+Revisión independiente sobre `5b93ab7` (con main integrado: #80, #81 y #82). Evidencia en `scratchpad/tx-qa/r3/`.
+
+- **Veredicto:** se puede publicar. No hay problemas altos ni medios. De los 8 de la ronda 2, quedan 6 corregidos, 1 corregido en parte (tareas largas al volver con red lenta) y 1 que no se volvió a ver (toque perdido en el cajón: 0 de 28).
+- **Velocidad con CPU ×4** (main `5141260` en 3114 y la rama en 3104, intercaladas, 10 corridas): la rama es más rápida en los 10 cambios. Título legible, mediana en ms, main → rama:
+  - Entrenar 87 → 75; Progreso 78 → 67; Mensajes 54 → 43; Tu gym 66 → 25; Inicio 74 → 45.
+  - Al volver: Entrenar 61 → 39; Progreso 67 → 56; Mensajes 45 → 38; Tu gym 52 → 23; Inicio 69 → 45.
+  - Totalmente opaco: rama 85–102 ms; main 126–171 ms.
+- **Resto:** axe 0 en las cinco apps probadas; movimiento reducido sin animaciones; E2E 40 ✓ (falla sólo la conocida de `mobile-layout`).
+- **Corregido después de la ronda 3:**
+  - **Mensajes:** el lugar de «Preparar consulta con REPI» queda reservado mientras carga (antes la nota bajaba 65 px con red lenta).
+  - **Barra, scroll:** si el dedo se desplaza más de 8 px (un scroll que empieza sobre la barra), el indicador vuelve en ese momento, sin esperar al `pointercancel` del navegador.
+  - **Barra, toque largo:** si después de soltar no llega el click en 350 ms, el indicador vuelve a la sección abierta. Queda por probar en el iPhone del titular.
+  - **Descartado:** esperar 60 ms quieto antes de mover el indicador. El estado llegaba a los ~105 ms, detrás de las lecturas anticipadas, y se perdía la ventaja.
+  - **Medido después:** el indicador se mueve 12–31 ms después de apoyar el dedo (main: 128–194). Los gestos de scroll, deslizamiento, cancelación y toque largo terminan coherentes. E2E `motion-nav`, `brain`, `roles` y `member-workout`: 21 ✓.
+- **Quedan, de severidad baja:**
+  - si el dedo arranca quieto antes de desplazarse, el indicador alcanza a ir y volver;
+  - «Tu nivel» crece 25 px al final de Progreso;
+  - tareas largas de 60–110 ms al volver con 450 ms de latencia.

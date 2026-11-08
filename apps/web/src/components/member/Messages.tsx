@@ -5,6 +5,7 @@ import { ChatSkeleton, Conversation, usePoll } from "@/components/messages/ChatP
 import { useCached } from "@/lib/cache";
 import { Loading, Skel } from "@/components/motion/Skeleton";
 import { RepiAsk } from "@/components/brain/RepiAsk";
+import { useBrain } from "@/components/brain/BrainProvider";
 
 // M06: la primera visita muestra el esqueleto del diseño que va a quedar (lista, o chat si la última respuesta de esta
 // sesión fue una sola conversación), sin pasar por un diseño intermedio.
@@ -18,6 +19,7 @@ const prepare = { section: "messages" as const, send: "Preparar una consulta par
 
 export function MemberMessages({ offline, onSeen, draft, onDraftUsed }: { offline: boolean; onSeen: () => void; draft?: { text: string; to: "coach" | "gym" | null; n: number } | null; onDraftUsed?: () => void }) {
   const list = useCached<ThreadRow[]>(offline ? null : "/api/messages");
+  const brainOn = useBrain().enabled;
   const threads = list.data;
   const err = threads ? null : list.err;
   const load = list.reload;
@@ -73,6 +75,8 @@ export function MemberMessages({ offline, onSeen, draft, onDraftUsed }: { offlin
         </div>
       )}
       {!!threads?.length && <RepiAsk {...prepare} />}
+      {/* QA M06 ronda 3: mientras cargan las conversaciones, el lugar de «Preparar consulta con REPI» queda reservado (la nota de abajo no baja 44 px al llegar). */}
+      {!threads && !err && brainOn && <span className={prepare.className} aria-hidden="true" style={{ visibility: "hidden" }}>{prepare.label}</span>}
       <span className="mb-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>Tu coach y el equipo de sala del gym son conversaciones separadas: uno no ve lo que le escribís al otro.</span>
     </>
   );
