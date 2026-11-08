@@ -6,6 +6,7 @@ import { MESSAGE_MAX } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
 import { PaperPlaneRight } from "@phosphor-icons/react";
+import { Skel } from "@/components/motion/Skeleton";
 
 export type ThreadRow = { id: string; relId?: string; name: string; active: boolean; unread: number; last: { body: string; at: string; mine: boolean } | null };
 type Msg = { id: string; body: string; at: string; mine: boolean; sender: string | null; state: string | null; stateLabel: string | null; pending?: boolean; failed?: boolean };
@@ -33,6 +34,8 @@ export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile,
 }) {
   const [threads, setThreads] = useState<ThreadRow[] | null>(null);
   const [sel, setSel] = useState<string | null>(initial ?? null);
+  // M06: la pantalla queda viva entre visitas; abrir Mensajes con una conversación elegida (desde una ficha) la selecciona.
+  useEffect(() => { if (initial) setSel(initial); }, [initial]);
   const [err, setErr] = useState<string | null>(null);
   const url = includeSelected && sel ? `${listUrl}${listUrl.includes("?") ? "&" : "?"}with=${encodeURIComponent(sel)}` : listUrl;
   const loadList = useCallback(() => api<ThreadRow[]>(url).then((t) => { setThreads(t); setErr(null); }).catch((e) => setErr(e.message)), [url]);
@@ -54,7 +57,7 @@ export function ChatPane({ listUrl, kicker, emptyText, initial, onSeen, profile,
                 {t.unread > 0 && <span className="nbadge" aria-label={`${t.unread} sin leer`}>{t.unread}</span>}
               </button>
             ))}
-            {!threads && <p className="muted">Cargando…</p>}
+            {!threads && <><span role="status" className="sr-only">Cargando las conversaciones</span>{[0, 1, 2].map((i) => <div key={i} className="crow" aria-hidden="true" style={{ cursor: "default" }}><Skel w={36} h={36} r={18} /><span style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}><Skel w="45%" h={13} /><Skel w="75%" h={11} /></span></div>)}</>}
           </div>
           {current && row && <Conversation key={current} id={current} title={row.name} extra={profile?.(row)} onChanged={() => { void loadList(); onSeen?.(); }} />}
         </div>
@@ -104,6 +107,7 @@ export function Conversation({ id, title, extra, onChanged, dark, seed, onSeedUs
           </div>
         ))}
         {t && !t.messages.length && <p className={dark ? "mb-muted" : "muted"} style={{ textAlign: "center" }}>Todavía no hay mensajes. Escribí el primero.</p>}
+        {!t && !err && <ChatSkeleton />}
       </div>
       {t?.readOnly ? <p className={dark ? "mb-muted" : "muted"}>Esta relación terminó: la conversación quedó en sólo lectura.</p> : (
         <form className="chat-compose" onSubmit={(e) => { e.preventDefault(); if (online && !over) void send(draft); }}>
@@ -115,4 +119,9 @@ export function Conversation({ id, title, extra, onChanged, dark, seed, onSeedUs
       {over && <small className="err-box">Hasta {MESSAGE_MAX} caracteres.</small>}
     </section>
   );
+}
+
+/** M06: burbujas en esqueleto mientras carga la conversación (el registro nunca arranca vacío). */
+export function ChatSkeleton() {
+  return <>{([["62%", false], ["48%", true], ["70%", false]] as const).map(([w, mine], i) => <div key={i} className={`chat-msg${mine ? " mine" : ""}`} aria-hidden="true"><Skel w={w} h={40} r={16} /></div>)}</>;
 }

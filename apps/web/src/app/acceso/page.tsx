@@ -3,6 +3,7 @@ import { AccessFlow } from "@/components/access/AccessFlow";
 import { AccessShell } from "@/components/access/AccessShell";
 import { socialAvailable } from "@/server/env";
 import "@/styles/access.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "Ingresá · REPI" };
 

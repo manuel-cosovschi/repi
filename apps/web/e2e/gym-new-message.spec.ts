@@ -20,7 +20,7 @@ test("sala: «Nuevo mensaje» → elegir socio → escribir el primer mensaje; q
   await chat.getByRole("button", { name: "Enviar" }).click();
   await expect(chat.getByText("Hola, ¿cómo venís con la rutina?")).toBeVisible();
   await page.reload();
-  await expect(page.locator(".crow", { hasText: /Valentina/ }).first()).toBeVisible();
+  await expect(page.locator(".crow", { hasText: /Valentina/ }).filter({ visible: true }).first()).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -31,7 +31,8 @@ test("sala: «Escribir» desde la ficha abre la conversación aunque no tenga me
   await page.getByRole("button", { name: /Martina/ }).first().click();
   await page.getByRole("button", { name: "Escribir" }).click();
   await expect(page).toHaveURL(/[?&]s=msgs/);
-  await expect(page.locator(".crow", { hasText: /Martina/ }).first()).toBeVisible();
+  // M06: Socios queda viva y oculta detrás de Mensajes (su fila de Martina sigue en el DOM): se mira la fila visible.
+  await expect(page.locator(".crow", { hasText: /Martina/ }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByRole("region", { name: /Conversación con Martina/ }).getByLabel("Mensaje", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

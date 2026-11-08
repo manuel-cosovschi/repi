@@ -142,7 +142,7 @@ export function PerfCenterScreen({ shell }: { shell: Shell }) {
   const [sel, setSel] = useState<string[]>([]);
   const [defs, setDefs] = useState(false);
   const [cmp, setCmp] = useState(false);
-  const pc = useLoad<Pc>(`/api/gym/${shell.orgId}/perf?period=${period}${loc ? `&loc=${loc}` : ""}`);
+  const pc = useLoad<Pc>(`/api/gym/${shell.orgId}/perf?period=${period}${loc ? `&loc=${loc}` : ""}`, { keep: true });
   const toggle = (id: string) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : s.length >= 3 ? s : [...s, id]);
   const out = pc.data?.outcomes;
   return (

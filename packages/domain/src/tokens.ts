@@ -245,7 +245,12 @@ export const tokens = {
       "contextual": 480,
       "celebration": 1200,
       "intro_first": 2670,
-      "intro_quick": 520
+      "intro_quick": 520,
+      "section_exit": 100,
+      "section_enter": 200,
+      "stagger": 20,
+      "press": 90,
+      "exit": 160
     }
   },
   "focus": "2px solid #00D1FF, offset 2px (focus-visible)"

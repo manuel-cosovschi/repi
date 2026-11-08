@@ -1,7 +1,8 @@
 "use client";
 // Asistente REPI (Adaptive Coaching 3.0, D210) · estado compartido de la familia de componentes. Se monta sobre el árbol de
 // MemberApp (por encima de la rama del entrenamiento), así la conversación, el panel y la tarjeta de Inicio sobreviven a un
-// entrenamiento abierto y al cambio de pestaña (`.tab-pane` se vuelve a montar). Todo sale del servidor (/api/me/brain/**):
+// entrenamiento abierto y al cambio de pestaña (M06: las secciones viven en `<Activity>`, pero se desmontan con el entrenamiento,
+// al cambiar de relación o al salir del LRU; el panel y los pedidos de REPI viven acá, una sola vez). Todo sale del servidor (/api/me/brain/**):
 // acá no se decide ni se calcula nada. Sin conexión no se pide nada y se dice «REPI responde cuando vuelva la conexión»; el
 // entrenamiento nunca espera a REPI.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";

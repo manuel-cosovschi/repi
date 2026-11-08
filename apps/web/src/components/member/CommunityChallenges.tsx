@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Lightbulb, Trophy } from "@phosphor-icons/react";
 import { CHALLENGE_DIFFICULTY, CHALLENGE_UNITS, MAX_PENDING_PROPOSALS, type ChallengeUnit } from "@repi/domain";
 import { api } from "@/lib/api";
+import { useCached } from "@/lib/cache";
+import { Reveal } from "@/components/motion/Skeleton";
 import { Ic } from "@/components/ui/Ic";
 import { Sheet } from "./Sheet";
 import type { Nudge } from "./Nudges";
@@ -20,11 +22,15 @@ export function DifficultyChip({ d }: { d: { level: number; label: string; xp: n
 
 /** Sección de Inicio: desafíos de la comunidad y «Proponer un desafío». */
 export function CommunityChallenges({ go, flash }: { go: (n: Nudge) => void; flash: (t: string) => void }) {
-  const [d, setD] = useState<Data | null>(null);
+  // M06: caché en memoria y entrada con alto 0 → real cuando llega (bloque opcional: nunca aparece de golpe).
+  const c = useCached<Data>("/api/me/gym/community-challenges");
+  const d = c.err ? null : c.data;
+  const load = c.reload;
   const [propose, setPropose] = useState(false);
-  const load = useCallback(() => api<Data>("/api/me/gym/community-challenges").then(setD).catch(() => setD(null)), []);
-  useEffect(() => { void load(); }, [load]);
-  if (!d?.orgId) return null;
+  return <Reveal on={!!d?.orgId}>{d?.orgId ? <Body d={d} go={go} flash={flash} load={load} propose={propose} setPropose={setPropose} /> : null}</Reveal>;
+}
+
+function Body({ d, go, flash, load, propose, setPropose }: { d: Data; go: (n: Nudge) => void; flash: (t: string) => void; load: () => Promise<unknown>; propose: boolean; setPropose: (v: boolean) => void }) {
   const open = (c: Item) => go({ id: `community:${c.id}`, title: c.title, body: "", cta: "", action: "challenge", challengeId: c.id });
   return (
     <section className="cch" aria-label="Desafíos de la comunidad">
@@ -55,7 +61,7 @@ export function CommunityChallenges({ go, flash }: { go: (n: Nudge) => void; fla
         </div>
       )}
       {d.pending > 0 && <small className="mb-muted">Tenés {d.pending} propuesta{d.pending === 1 ? "" : "s"} esperando que un profe la{d.pending === 1 ? "" : "s"} revise.</small>}
-      {propose && <ProposeSheet orgId={d.orgId} pending={d.pending} flash={flash} onClose={(sent) => { setPropose(false); if (sent) void load(); }} />}
+      {propose && <ProposeSheet orgId={d.orgId!} pending={d.pending} flash={flash} onClose={(sent) => { setPropose(false); if (sent) void load(); }} />}
     </section>
   );
 }

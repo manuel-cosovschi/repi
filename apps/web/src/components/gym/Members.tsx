@@ -25,6 +25,7 @@ import { SessionLog, type LoggedSession } from "@/components/coach/SessionLog";
 import { IntelSection } from "@/components/coach/CoachIntelligence";
 import { RepiSignals } from "@/components/coach/RepiSignals";
 import { ProposalBanner, clearTiDraft, readTiDraft, stashTiDraft, type TiDraft } from "@/components/coach/ProposalDraft";
+import { Skel } from "@/components/motion/Skeleton";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -41,7 +42,7 @@ export function MembersScreen({ shell }: { shell: Shell }) {
   const [q, setQ] = useState("");
   const [qq, setQq] = useState("");
   useEffect(() => { const t = setTimeout(() => setQq(q), 250); return () => clearTimeout(t); }, [q]);
-  const list = useLoad<{ location: { name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`);
+  const list = useLoad<{ location: { name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`, { keep: true });
   const current = shell.sel ?? list.data?.members[0]?.id ?? null;
   return (
     <>
@@ -71,21 +72,21 @@ export function MembersScreen({ shell }: { shell: Shell }) {
 }
 
 /** Ficha de un socio como página propia: desde Sala, Mi turno o la lista en el teléfono (pedido del titular, 07/11/2026). */
-export function MemberPage({ shell, back }: { shell: Shell; back: { to: GymScreen; label: string } | null }) {
+export function MemberPage({ shell, back, name }: { shell: Shell; back: { to: GymScreen; label: string; go?: (to: GymScreen) => void } | null; name?: string | null }) {
   const loc = shell.loc ?? shell.ctx.locations[0]?.id;
   const id = shell.sel;
   return (
     <>
       <nav className="gy-back" aria-label="Volver">
-        {back && <button type="button" className="btn sm" onClick={() => shell.go(back.to)}><Ic i={ArrowLeft} size={16} /> Volver a {back.label}</button>}
+        {back && <button type="button" className="btn sm" onClick={() => (back.go ?? shell.go)(back.to)}><Ic i={ArrowLeft} size={16} /> Volver a {back.label}</button>}
         <button type="button" className={back ? "btn sm gy-ghost" : "btn sm"} onClick={() => shell.go("members")}>{back ? "Todos los socios" : <><Ic i={ArrowLeft} size={16} /> Todos los socios</>}</button>
       </nav>
-      {id && loc ? <MemberDetail key={id} shell={shell} id={id} loc={loc} onChanged={() => {}} page /> : <><Head title="Ficha del socio" /><div className="empty">Elegí un socio desde «Socios».</div></>}
+      {id && loc ? <MemberDetail key={id} shell={shell} id={id} loc={loc} onChanged={() => {}} page name={name} /> : <><Head title="Ficha del socio" /><div className="empty">Elegí un socio desde «Socios».</div></>}
     </>
   );
 }
 
-function MemberDetail({ shell, id, loc, onChanged, page = false }: { shell: Shell; id: string; loc: string; onChanged: () => void; page?: boolean }) {
+function MemberDetail({ shell, id, loc, onChanged, page = false, name }: { shell: Shell; id: string; loc: string; onChanged: () => void; page?: boolean; name?: string | null }) {
   const d = useLoad<Detail>(`/api/gym/${shell.orgId}/members/${id}`);
   const [noteKind, setNoteKind] = useState<"institutional" | "personal">("institutional");
   const [draft, setDraft] = useState("");
@@ -97,8 +98,9 @@ function MemberDetail({ shell, id, loc, onChanged, page = false }: { shell: Shel
   const { busy, run } = useAct(shell.flash);
   // Como página, el nombre es el título (h1): GymApp le pasa el foco al navegar.
   const head = (title: string) => page && <Head kicker={`${shell.ctx.org.name} · Ficha del socio`} title={title} />;
-  if (d.err) return <>{head("Ficha del socio")}<p role="alert" className="err-box">{d.err}</p></>;
-  if (!d.data) return <>{head("Ficha del socio")}<p className="muted">Cargando ficha…</p></>;
+  // El nombre llega desde el botón que abrió la ficha: el título existe desde el primer cuadro y no cambia al cargar.
+  if (d.err && !d.data) return <>{head(name ?? "Ficha del socio")}<p role="alert" className="err-box">{d.err}</p></>;
+  if (!d.data) return <>{head(name ?? "Ficha del socio")}<MemberSkeleton /></>;
   const m = d.data;
   const notes = m.notes.filter((n) => n.kind === noteKind);
   const saveNote = () => run("note", () => api(`/api/gym/${shell.orgId}/members/${id}/notes`, { body: { kind: noteKind, text: draft } }),
@@ -445,6 +447,17 @@ function EditProgramModal({ shell, member, onClose }: { shell: Shell; member: De
         <button type="button" className="btn pri" aria-busy={busy === "save" || undefined} aria-disabled={reason.trim().length < 3} onClick={() => reason.trim().length >= 3 ? save() : shell.flash("Contá el motivo del cambio: lo ve el equipo.")}>Guardar revisión</button>
       </div>
     </Modal>
+  );
+}
+
+/** M06: ficha en esqueleto con su forma (encabezado y tarjetas), en lugar de «Cargando ficha…». */
+function MemberSkeleton() {
+  return (
+    <>
+      <span role="status" className="sr-only">Cargando la ficha</span>
+      <section className="card who" aria-hidden="true" style={{ flexDirection: "row" }}><Skel w={56} h={56} r={28} /><div style={{ flex: "1 1 220px", display: "flex", flexDirection: "column", gap: 8 }}><Skel w="40%" h={18} /><Skel w="75%" h={12} /></div></section>
+      {[180, 140, 220].map((h, i) => <section key={i} className="card" aria-hidden="true" style={{ minHeight: h, gap: 10 }}><Skel w="35%" h={16} /><Skel h={12} /><Skel w="80%" h={12} /></section>)}
+    </>
   );
 }
 

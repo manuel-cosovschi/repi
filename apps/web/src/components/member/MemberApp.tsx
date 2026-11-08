@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { TECHNIQUES, kindAt, labelAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { activityOf, isTimedRow, prescriptionText, type ExerciseDetail } from "@repi/domain";
 import { api } from "@/lib/api";
+import { keepSame } from "@/lib/cache";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
@@ -43,6 +44,10 @@ import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
 import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
+import { SectionStage } from "@/components/motion/SectionStage";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
+import { Loading, Skel } from "@/components/motion/Skeleton";
+import { TabBar } from "./TabBar";
 import { BrainProvider, useBrain } from "@/components/brain/BrainProvider";
 import { RepiCard, repiCardVisible } from "@/components/brain/RepiCard";
 import { RepiPrefs } from "@/components/brain/RepiPrefs";
@@ -96,7 +101,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [connectTick, setConnectTick] = useState(0); // REPI Connect (D126): recarga la tarjeta de pedidos
   // Control de acceso del gimnasio (D127): estado de la validación de ingreso por gimnasio, siempre desde el servidor.
   const [presence, setPresence] = useState<{ gyms: GymPresence[]; demo: boolean } | null>(null);
-  const loadPresence = useCallback(() => api<{ gyms: GymPresence[]; demo: boolean }>("/api/me/gym/presence").then((x) => { setPresence(x); return x; }).catch(() => null), []);
+  const loadPresence = useCallback(() => api<{ gyms: GymPresence[]; demo: boolean }>("/api/me/gym/presence").then((x) => { setPresence((p) => keepSame(p, x)); return x; }).catch(() => null), []);
   // Aviso push de un pedido resuelto → /app?pedido=<id> abre su detalle.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("pedido");
@@ -105,14 +110,14 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     const g = new URLSearchParams(window.location.search).get("gym");
     if (g === "ch" || g === "club") { setTab("gym"); setGymTab(g); window.history.replaceState(null, "", window.location.pathname); }
   }, []);
-  const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then(setInbox).catch(() => setInbox(null)), []);
+  const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then((x) => setInbox((p) => keepSame(p, x))).catch(() => setInbox(null)), []);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [gymTab, setGymTab] = useState<GymTab | undefined>(undefined);
   const [openCh, setOpenCh] = useState<string | null>(null); // D168: desafío a abrir desde una invitación
   // D210: borrador que REPI dejó para Mensajes (nunca se envía solo: queda en el campo para revisarlo).
   const [msgDraft, setMsgDraft] = useState<{ text: string; to: Draft["to"]; n: number } | null>(null);
-  const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then(setFeed).catch(() => {}), []);
+  const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then((x) => setFeed((p) => keepSame(p, x))).catch(() => {}), []);
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
   // Online primero; si no hay red, el programa guardado en el teléfono. Antes de mostrar nada se verifica el dueño.
   const load = useCallback(async () => {
@@ -122,7 +127,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       srvOpen = x.openSession;
       await ensureOwner(x.userId).catch(() => {});
       await saveTraining(x).catch(() => {});
-      setT(x); setErr(null); setOfflineAt(null);
+      setT((p) => keepSame(p, x)); setErr(null); setOfflineAt(null); // M06: sin cambios, el mismo objeto (secciones vivas)
       void loadInbox(); void loadFeed(); void loadPresence(); checkTrophies();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404)) { await wipeLocal().catch(() => {}); setErr(e.message); return null; }
@@ -140,7 +145,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         if (f.status !== "in_progress" && f.status !== "paused") lo = null;
       } catch { /* sin conexión: queda como estaba */ }
     }
-    setLocalOpen(lo);
+    setLocalOpen((p) => keepSame(p, lo));
     // Minimización: sesiones terminadas y ya sincronizadas no se guardan en el teléfono más de un día.
     for (const ls of await allLocal().catch(() => [])) {
       if ((ls.status === "completed" || ls.status === "abandoned") && Date.now() - new Date(ls.updatedAt).getTime() > 86_400_000 && !(await pendingFor(ls.id))) await delLocal(ls.id);
@@ -181,7 +186,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     return () => { stop = true; clearInterval(id); document.removeEventListener("visibilitychange", vis); };
   }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
   const [histErr, setHistErr] = useState(false);
-  const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist(r.sessions)).catch(() => { setHist(null); setHistErr(true); }); }, []);
+  const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist((p) => keepSame(p, r.sessions))).catch(() => { setHist(null); setHistErr(true); }); }, []);
   useEffect(() => { if (tab === "prog") loadHist(); }, [tab, loadHist]);
   // Service worker sólo en producción (en desarrollo interfiere con la recarga en caliente).
   useEffect(() => {
@@ -197,8 +202,21 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // Cambio de sección (G · Atlética): la barra queda fija, el contenido entra con un fundido de 160 ms (CSS .tab-pane)
   // y cada sección recupera su scroll. Lo no sincronizado vive en IndexedDB y no depende de la pestaña montada.
   const scrolls = useRef<Record<string, number>>({});
-  useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [tab, workout]);
+  useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [workout]); // eslint-disable-line react-hooks/exhaustive-deps -- M06: entre secciones lo restaura SectionStage
 
+  // M06 (QA r2): lo que lee cada sección, también a través de start, begin, startOwn, go, openNotifs y goNudge (tab y workout
+  // no cambian mientras una sección está a la vista; las funciones de carga y los set* son estables). Si nada de su lista
+  // cambió, volver a la sección no la recorre (SectionStage reutiliza su último nodo): el historial que llega al abrir
+  // Progreso, por ejemplo, ya no vuelve a dibujar Inicio ni Entrenar a la vuelta (tareas de ~50 ms con CPU ×4).
+  const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick]
+    : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day]
+    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg]
+    : k === "msgs" ? [offlineAt, msgDraft]
+    : k === "gym" ? [offlineAt, gymTab, openCh]
+    : [t, offlineAt, inbox, privKey];
+  const relKey = t?.relation?.orgId ?? t?.relation?.kind ?? "none"; // el resetKey del escenario: otra relación, todo de nuevo
+  // M06 (QA r2): estado normal en el mismo toque, como en main: la sección se dibuja de un tirón (sin startTransition). Desde
+  // la barra, el indicador ya salió al apoyar el dedo (TabBar).
   const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); setOpenCh(null); };
   const notifs = withProgramNotice(feed, t);
   const openNotifs = () => {
@@ -359,34 +377,29 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
           </button>
         )}
         {!t ? <p className="mb-muted">Cargando…</p> : (
-          <div key={tab} className="tab-pane">
-            {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
+          <SectionStage active={tab} order={["home", "train", "prog", "msgs", "gym"]} resetKey={relKey} paneClass="tab-pane" focus="lost"
+            deps={depsFor} render={(k) => <>
+            {k === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge}
               onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
-            {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
+            {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
               own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
-            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
-            {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
-            {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
-            {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
-          </div>
+            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
+            {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
+            {k === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
+            {k === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
+          </>} />
         )}
       </main>
       {/* Barra Cristal flotante: cápsula con indicador interior; los rótulos quedan para lectores de pantalla. */}
       <div className="tabfade" aria-hidden="true" />
-      <nav className="tabbar" aria-label="Principal" style={{ ["--n" as string]: tabs.length, ["--i" as string]: tabs.findIndex((x) => x[0] === tab) }}>
-        <i className="tab-ind" aria-hidden="true" data-off={tabs.some((x) => x[0] === tab) ? undefined : "1"} />
-        {tabs.map(([k, l, d]) => (
-          <button key={k} type="button" aria-current={tab === k ? "page" : undefined} onClick={() => go(k)} style={{ position: "relative" }}>
-            <Ic i={d} size={24} /><span className="tab-lbl">{l}</span>
+      <TabBar tabs={tabs} active={tab} onGo={go} badge={(k) => <>
             {k === "msgs" && !!inbox?.unreadThreads && <span className="tab-badge" aria-label={`${inbox.unreadThreads} conversaciones sin leer`}>{inbox.unreadThreads}</span>}
             {k === "gym" && !!inbox?.gymUnseen && <span className="tab-dot" aria-label={`${inbox.gymUnseen} ${inbox.gymUnseen === 1 ? "aviso" : "avisos"} del gym`} />}
-          </button>
-        ))}
-      </nav>
+      </>} />
       {sheet?.type === "checkin" && <CheckinSheet flash={flash} standalone={!sheet.dayId}
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
@@ -807,6 +820,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Progreso</h1>
       <div className="gtabs" role="tablist" aria-label="Secciones de Progreso">
+        <SlideIndicator />
         {segs.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={cur === k} onClick={() => setSeg(k)}>{l}
             {k === "body" && <NewTag id="new_progress_body" open={cur === "body"} />}{k === "photos" && <NewTag id="new_progress_photos" open={cur === "photos"} />}</button>
@@ -817,7 +831,10 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
           {featureOn("progress") && <ProgressTraining key={trainingRevision} initialRange={trainingRevision > 0 ? "all" : "90d"} onOpenSession={setOpen} offline={offline} />}
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <h2>Volumen por semana</h2>
-            {entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
+            {/* M06 (QA r2): mientras llega el historial, el gráfico en esqueleto con su alto (antes el aviso de datos insuficientes,
+                94 px, y después el gráfico, 180: lo de abajo saltaba). */}
+            {!hist && !err ? <><Loading what="el volumen por semana" /><Skel h={120} r={10} /></>
+              : entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
               <div className="volbars" role="img" aria-label={`Volumen semanal: ${entries.map(([k, v]) => `${k} ${volumeIn(v, unit).toLocaleString("es-AR")} ${unit}`).join(", ")}`}>
                 {entries.map(([k, v]) => <div key={k}><i style={{ height: `${(v / max) * 100}%` }} /><span>{k}</span></div>)}
               </div>

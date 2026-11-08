@@ -4,6 +4,7 @@ import { requireOrgMember } from "@/server/access/guard";
 import "@/styles/coach.css";
 import "@/styles/method-editor.css";
 import "@/styles/gym.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "REPI Coach" };
 
@@ -14,5 +15,5 @@ export default async function CoachHome({ params, searchParams }: { params: Prom
   const { orgId } = await params;
   const sp = await searchParams;
   const { user } = await requireOrgMember(orgId, "coach", `/coach/${orgId}`);
-  return <CoachApp orgId={orgId} me={{ name: user.name }} initial={{ s: one(sp.s), c: one(sp.c), p: one(sp.p) }} />;
+  return <CoachApp orgId={orgId} me={{ name: user.name }} initial={{ s: one(sp.s), c: one(sp.c), p: one(sp.p), from: one(sp.from) }} />;
 }

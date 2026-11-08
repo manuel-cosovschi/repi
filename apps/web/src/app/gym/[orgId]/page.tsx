@@ -5,6 +5,7 @@ import "@/styles/coach.css";
 import "@/styles/method-editor.css";
 import "@/styles/gym.css";
 import "@/styles/gym-access.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "REPI Gym" };
 
@@ -15,5 +16,5 @@ export default async function GymHome({ params, searchParams }: { params: Promis
   const { orgId } = await params;
   const sp = await searchParams;
   await requireOrgMember(orgId, "gym", `/gym/${orgId}`);
-  return <GymApp orgId={orgId} initial={{ s: one(sp.s), sel: one(sp.sel), loc: one(sp.loc) }} />;
+  return <GymApp orgId={orgId} initial={{ s: one(sp.s), sel: one(sp.sel), loc: one(sp.loc), from: one(sp.from) }} />;
 }

@@ -6,7 +6,7 @@ import { AdminAnnouncements } from "./AdminAnnouncements";
 import { AdminSite } from "./AdminSite";
 import { AdminCoaching } from "./AdminCoaching";
 import { AdminSales } from "./AdminSales";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
@@ -18,6 +18,11 @@ import { AdminGuide } from "./AdminGuide";
 import { Head, fmt, initials, useLoad } from "@/components/gym/shared";
 import { Ic } from "@/components/ui/Ic";
 import { List } from "@phosphor-icons/react";
+import { FlashToast } from "@/components/ui/FlashToast";
+import { SectionStage } from "@/components/motion/SectionStage";
+import { useDrawer } from "@/components/motion/useDrawer";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
+import { Skel } from "@/components/motion/Skeleton";
 
 type Client = {
   orgId: string; name: string; kind: "gym" | "coach"; demo: boolean; commercialStatus: string; contractId: string | null; stage: string | null; stageLabel: string;
@@ -48,6 +53,7 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
 type Screen = "summary" | "clients" | "leads" | "sales" | "reps" | "site" | "coaching" | "support" | "ideas" | "privacy" | "announcements" | "guide";
+const NAV: readonly (readonly [Screen, string])[] = [["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["sales", "Ventas"], ["reps", "Vendedores"], ["site", "Sitio y QR"], ["coaching", "Coaching IA"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]];
 
 export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?: string; tab?: string; deal?: string; rep?: string } }) {
   // D209: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
@@ -64,14 +70,27 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
   const sum = useLoad<Sum>("/api/admin/summary");
   const openSupport = sum.data?.supportOpen ?? 0;
   const newIdeas = sum.data?.ideasNew ?? 0;
+  // M06: go() con el menú y el cajón urgentes y la pantalla en startTransition; foco al h1 y scroll por pantalla en
+  // SectionStage. El contrato de un cliente es profundidad (entra «adelante», «← Clientes» vuelve «atrás»).
+  const [navSel, setNavSel] = useState<Screen | null>(null);
+  const go = useCallback((k: Screen, opts?: { sel?: string | null }) => {
+    setDrawer(false); setNavSel(k);
+    startTransition(() => { setScreen(k); setSel(opts?.sel ?? null); });
+  }, []);
+  const navKey = navSel && navSel !== screen ? navSel : screen;
+  const stageKey = screen === "clients" && sel ? "contract" : screen;
+  // M06 (QA r2): foco y teclado del cajón (ítem actual al abrir, Escape, título al volver a tocar la pantalla a la vista).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { dismiss } = useDrawer(rootRef, drawer, setDrawer, !!navSel && navSel !== stageKey);
 
   return (
-    <div className="co" data-drawer={drawer ? "1" : "0"}>
+    <div ref={rootRef} className="co" data-drawer={drawer ? "1" : "0"}>
       <aside className="co-side ui-dark" aria-label="Navegación">
         <div className="co-brand"><Wordmark width={58} /><span className="tag">Admin</span></div>
         <nav className="co-nav" aria-label="Principal">
-          {([["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["sales", "Ventas"], ["reps", "Vendedores"], ["site", "Sitio y QR"], ["coaching", "Coaching IA"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]] as const).map(([k, l]) => (
-            <button key={k} type="button" aria-current={screen === k ? "page" : undefined} onClick={() => { setScreen(k); setSel(null); setDrawer(false); if (k === "summary") void sum.reload(); }}>
+          <SlideIndicator />
+          {NAV.map(([k, l]) => (
+            <button key={k} type="button" aria-current={navKey === k ? "page" : undefined} onClick={() => { go(k); if (k === "summary") void sum.reload(); }}>
               <span className="lbl">{l}</span>{k === "leads" && newLeads > 0 && <span className="nbadge" aria-label={`${newLeads} contactos nuevos`}>{newLeads}</span>}
               {k === "support" && openSupport > 0 && <span className="nbadge" aria-label={`${openSupport} consultas abiertas`}>{openSupport}</span>}
               {k === "ideas" && newIdeas > 0 && <span className="nbadge" aria-label={`${newIdeas} sugerencias nuevas`}>{newIdeas}</span>}
@@ -85,45 +104,47 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
         {/* D188: apariencia personal (no del gimnasio): la misma en todos los espacios. */}
         <div className="co-theme"><ThemePicker compact /></div>
       </aside>
-      {drawer && <div className="co-scrim" onClick={() => setDrawer(false)} />}
-      <main className="co-main">
+      <div className="co-scrim" data-open={drawer ? "1" : "0"} aria-hidden="true" onClick={dismiss} />
+      <main className="co-main" inert={drawer || undefined}>
         <div className="co-topbar ui-dark">
           <button type="button" aria-label="Abrir menú" aria-expanded={drawer} onClick={() => setDrawer(true)}><Ic i={List} size={22} color="var(--ui-text)" /></button>
           <Wordmark width={50} /><span style={{ marginLeft: "auto", fontSize: 13, color: "var(--ui-muted)" }}>REPI Admin</span></div>
-        <div className="co-content" key={`${screen}-${sel ?? ""}`} data-section={screen}>
+        <div className="co-content">
           {list.err && <p role="alert" className="err-box">{list.err}</p>}
-          {screen === "clients" && !sel && (
-            <>
-              <Head kicker="Alta comercial, condiciones por cliente y habilitación. Sin cobros reales: el cierre es simulado." title="Clientes">
-                <button type="button" className="btn pri" onClick={() => setCreate(true)}>Nuevo cliente</button>
-              </Head>
-              {!list.data ? <p className="muted">Cargando…</p> : <>
-                <ClientTable rows={list.data.clients} onOpen={(c) => c.contractId ? setSel(c.contractId) : setRegularize(c)} empty="Todavía no hay clientes." />
-                {list.data.demo.length > 0 && <>
-                  <h2 style={{ margin: "8px 0 0", fontSize: 16 }}>Datos de demostración <span className="chip mute">No facturables</span></h2>
-                  <ClientTable rows={list.data.demo} onOpen={(c) => c.contractId ? setSel(c.contractId) : setRegularize(c)} empty="" />
+          <SectionStage active={stageKey} order={NAV.map((n) => n[0])} axis="auto" focus="title" paneClass="co-pane" top={(k) => k === "contract"} render={(k) => <>
+            {k === "clients" && (
+              <>
+                <Head kicker="Alta comercial, condiciones por cliente y habilitación. Sin cobros reales: el cierre es simulado." title="Clientes">
+                  <button type="button" className="btn pri" onClick={() => setCreate(true)}>Nuevo cliente</button>
+                </Head>
+                {!list.data ? <p className="muted">Cargando…</p> : <>
+                  <ClientTable rows={list.data.clients} onOpen={(c) => c.contractId ? go("clients", { sel: c.contractId }) : setRegularize(c)} empty="Todavía no hay clientes." />
+                  {list.data.demo.length > 0 && <>
+                    <h2 style={{ margin: "8px 0 0", fontSize: 16 }}>Datos de demostración <span className="chip mute">No facturables</span></h2>
+                    <ClientTable rows={list.data.demo} onOpen={(c) => c.contractId ? go("clients", { sel: c.contractId }) : setRegularize(c)} empty="" />
+                  </>}
                 </>}
-              </>}
-            </>
-          )}
-          {screen === "clients" && sel && <ContractView id={sel} flash={flash} back={() => { setSel(null); list.reload(); }} />}
-          {screen === "summary" && <Summary d={sum} go={(k) => { setScreen(k); setSel(null); }} />}
-          {screen === "support" && <SupportDesk flash={flash} onChange={sum.reload} />}
-          {screen === "ideas" && <SupportDesk ideas flash={flash} onChange={sum.reload} />}
-          {screen === "privacy" && <PrivacyRequests flash={flash} />}
-          {screen === "announcements" && <AdminAnnouncements flash={flash} />}
-          {screen === "guide" && <AdminGuide />}
-          {screen === "site" && <AdminSite />}
-          {/* D210: métricas agregadas del asistente REPI y límites de la IA (sin datos de alumnos). */}
-          {screen === "coaching" && <AdminCoaching flash={flash} orgs={(list.data?.clients ?? []).map((c) => ({ id: c.orgId, name: c.name }))} />}
-          {(screen === "sales" || screen === "reps") && <AdminSales section={screen} flash={flash} initial={initial} />}
-          {screen === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { setScreen("clients"); setCreate(true); }} />}
+              </>
+            )}
+            {k === "contract" && sel && <ContractView key={sel} id={sel} flash={flash} back={() => { go("clients"); list.reload(); }} />}
+            {k === "summary" && <Summary d={sum} go={(x) => go(x)} />}
+            {k === "support" && <SupportDesk flash={flash} onChange={sum.reload} />}
+            {k === "ideas" && <SupportDesk ideas flash={flash} onChange={sum.reload} />}
+            {k === "privacy" && <PrivacyRequests flash={flash} />}
+            {k === "announcements" && <AdminAnnouncements flash={flash} />}
+            {k === "guide" && <AdminGuide />}
+            {k === "site" && <AdminSite />}
+            {/* D210: métricas agregadas del asistente REPI y límites de la IA (sin datos de alumnos). */}
+            {k === "coaching" && <AdminCoaching flash={flash} orgs={(list.data?.clients ?? []).map((c) => ({ id: c.orgId, name: c.name }))} />}
+            {(k === "sales" || k === "reps") && <AdminSales section={k} flash={flash} initial={initial} />}
+            {k === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { go("clients"); setCreate(true); }} />}
+          </>} />
         </div>
       </main>
-      {create && <ClientModal flash={flash} onClose={(id) => { setCreate(false); list.reload(); if (id) { setScreen("clients"); setSel(id); } }} />}
-      {regularize && <ClientModal flash={flash} regularize={regularize} onClose={(id) => { setRegularize(null); list.reload(); if (id) setSel(id); }} />}
+      {create && <ClientModal flash={flash} onClose={(id) => { setCreate(false); list.reload(); if (id) go("clients", { sel: id }); }} />}
+      {regularize && <ClientModal flash={flash} regularize={regularize} onClose={(id) => { setRegularize(null); list.reload(); if (id) go("clients", { sel: id }); }} />}
       <div aria-live="polite" className="sr-only">{toast}</div>
-      {toast && <div className="co-toast" aria-hidden="true">{toast}</div>}
+      {toast && <FlashToast text={toast} />}
     </div>
   );
 }
@@ -487,8 +508,15 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
     try { const r = await api(url, { body }); flash(typeof ok === "string" ? ok : ok(r)); d.reload(); } catch (e) { flash((e as Error).message); d.reload(); } finally { setBusy(null); }
   };
   const v = d.data;
-  if (d.err) return <p role="alert" className="err-box">{d.err}</p>;
-  if (!v) return <p className="muted">Cargando…</p>;
+  if (d.err && !v) return <><button type="button" className="gy-link" onClick={back}>← Clientes</button><p role="alert" className="err-box">{d.err}</p></>;
+  // M06: «← Clientes» y el título en esqueleto desde el primer cuadro (no un «Cargando…» suelto).
+  if (!v) return (
+    <>
+      <button type="button" className="gy-link" onClick={back}>← Clientes</button>
+      <div className="co-head"><div style={{ display: "flex", flexDirection: "column", gap: 8 }}><Skel w={280} h={12} /><h1 tabIndex={-1} aria-busy="true"><span className="sr-only">Cargando el contrato</span><Skel w={220} h={30} r={8} /></h1></div></div>
+      <section className="card" aria-hidden="true" style={{ minHeight: 240, gap: 10 }}><Skel w="30%" h={16} /><Skel h={12} /><Skel h={12} /><Skel w="70%" h={12} /></section>
+    </>
+  );
   const c = v.contract;
   const base = `/api/admin/contracts/${c.id}`;
   const unit = c.kind === "gym" ? "socios" : "alumnos";

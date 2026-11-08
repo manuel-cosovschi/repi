@@ -17,9 +17,17 @@ export function OwnerGuide({ shell }: { shell: Shell }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
-  const end = useRef<HTMLDivElement>(null);
+  const chat = useRef<HTMLDivElement>(null);
+  const seen = useRef(0);
   useEffect(() => { try { const v = localStorage.getItem(KEY); setOpen(v == null ? null : v === "1"); } catch { setOpen(null); } }, []);
-  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [msgs]);
+  // Sólo cuando llega un mensaje nuevo, y sólo dentro de la conversación (su propio scroll): scrollIntoView movía también la
+  // página, y como los efectos vuelven a correr al volver a Ejecutivo (sección viva), pisaba el scroll recuperado (QA M06, r2).
+  useEffect(() => {
+    if (msgs.length === seen.current) return;
+    seen.current = msgs.length;
+    const c = chat.current;
+    if (c) c.scrollTop = c.scrollHeight;
+  }, [msgs]);
   if (!s.data) return null;
   const all = s.data.done === s.data.steps.length;
   const shown = open ?? !all; // abierta mientras falten pasos; después, a pedido
@@ -49,7 +57,7 @@ export function OwnerGuide({ shell }: { shell: Shell }) {
             {!st.done && <button type="button" className="btn sm" onClick={() => shell.go(st.screen)}>Ir</button>}
           </li>
         ))}</ol>
-        <div className="og-chat" aria-live="polite">
+        <div ref={chat} className="og-chat" aria-live="polite">
           {!msgs.length && <small className="muted">Preguntale a la guía cómo usar REPI o cómo manejar a tus socios y tu equipo. REPI responde con su guía y los números de tu gimnasio, sin datos de personas (lo procesa OpenAI).</small>}
           {msgs.map((m, i) => (
             <div key={i} className={`og-msg ${m.role}`}>
@@ -58,7 +66,6 @@ export function OwnerGuide({ shell }: { shell: Shell }) {
             </div>
           ))}
           {busy && <div className="og-msg assistant"><p className="muted">Pensando…</p></div>}
-          <div ref={end} />
         </div>
         {!msgs.length && <div className="pills">{SUGGEST.map((x) => <button key={x} type="button" className="pill" disabled={busy} onClick={() => void ask(x)}>{x}</button>)}</div>}
         <form className="og-form" onSubmit={(e) => { e.preventDefault(); void ask(q); }}>

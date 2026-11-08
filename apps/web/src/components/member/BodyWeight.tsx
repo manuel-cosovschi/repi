@@ -13,6 +13,7 @@ import { RangePicker } from "./ProgressTraining";
 import { Sheet } from "./Sheet";
 import { useUnit } from "./units";
 import { AgeGate } from "./AgeGate";
+import { Loading, SkelCard } from "@/components/motion/Skeleton";
 
 type Entry = { id: string; day: string; weightG: number; source: string; createdAt: string; updatedAt: string; edited: boolean };
 type Body =
@@ -58,7 +59,7 @@ export function BodyWeight({ flash, offline }: { flash: (t: string) => void; off
 
   if (offline) return <div className="pc-empty" role="status">Sin conexión: tu peso se muestra y se guarda con conexión, para no marcar como guardado algo que todavía no llegó.</div>;
   if (err) return <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={() => void load()}>Reintentar</button></p>;
-  if (!b) return <span className="mb-muted">Cargando…</span>;
+  if (!b) return <div aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 12 }}><Loading what="tu peso" /><SkelCard h={120} lines={2} /><SkelCard h={240} lines={0} title /></div>;
   if (!b.available) return b.reason === "age_unknown" ? <AgeGate what="El seguimiento del peso corporal" onDone={() => void load()} />
     : <div className="pc-empty" role="note">El seguimiento del peso corporal no está disponible para menores de 18 años.</div>;
   const pct = b.progress && "pct" in b.progress ? b.progress.pct : null;

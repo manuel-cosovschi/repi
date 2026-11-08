@@ -11,6 +11,8 @@ import { useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { Ic } from "@/components/ui/Ic";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
+import { Loading, Skel } from "@/components/motion/Skeleton";
+import { fetchCached, useCached } from "@/lib/cache";
 import { Carousel } from "@/components/motion/Carousel";
 import { uploadVideo } from "@/lib/upload";
 import { Camera, Check, ImageSquare, Lightbulb, QrCode, VideoCamera, X } from "@phosphor-icons/react";
@@ -18,6 +20,7 @@ import { uploadImage } from "@/lib/image";
 import { featureOn } from "@/lib/features";
 import { LevelPanel, type LevelData } from "./Trophies";
 import { useScrollLock } from "@/components/ui/scrollLock";
+import { SlideIndicator, useEnter } from "@/components/motion/SlideIndicator";
 
 type Home = {
   org: { id: string; name: string }; location: { id: string; name: string; receptionHours: string | null }; safety: string; minorRestricted: boolean; onFloor: string[];
@@ -35,17 +38,21 @@ const dayEs = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); r
 const ars = (n: number) => `ARS ${n.toLocaleString("es-AR")}`;
 
 export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }: { offline: boolean; flash: (t: string) => void; onSeen: () => void; initialTab?: GymTab; openChallenge?: string | null }) {
-  const [h, setH] = useState<Home | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  // M06: lo último cargado se muestra al instante (caché en memoria, se revalida siempre); la primera visita ya trae el
+  // encabezado, el carnet y las pestañas en su lugar (esqueleto) y el ambiente M03 sólo en el área de contenido.
+  const g = useCached<Home>(offline ? null : "/api/me/gym/home");
+  const h = g.data;
+  const err = h ? null : g.err;
+  const load = g.reload;
   const [tab, setTab] = useState<GymTab>(initialTab ?? "news");
   const [up, setUp] = useState<Home["challenges"][number] | null>(null);
   const [rank, setRank] = useState<Home["challenges"][number] | null>(null);
   const [card, setCard] = useState(false);
   const [award, setAward] = useState<Home["notices"][number] | null>(null);
   const [propose, setPropose] = useState(false);
-  const load = useCallback(() => api<Home>("/api/me/gym/home").then((x) => { setH(x); setErr(null); return x; }).catch((e) => { setErr(e.message); return null; }), []);
   const rv = useReveal(!!h || !!err || offline);
-  useEffect(() => { if (offline) return; void load().then((x) => {
+  const enter = useEnter(tab, ["news", "ch", "shop", "logros", "club"]);
+  useEffect(() => { if (offline) return; void fetchCached<Home>("/api/me/gym/home").catch(() => null).then((x) => {
     // D168: desde una invitación de REPI se abre directo el intento del desafío.
     const ch = openChallenge ? x?.challenges.find((c) => c.id === openChallenge && c.status === "active") : null;
     if (ch) setUp(ch);
@@ -54,22 +61,36 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
     if (n) setAward(n);
     else if (x?.notices.some((y) => y.unseen)) { const r = x.notices.find((y) => y.unseen)!; flash(r.title); }
     if (x?.notices.some((y) => y.unseen) || x?.achievements.some((y) => y.unseen)) void api("/api/me/gym/notices/seen", { body: {} }).then(onSeen).catch(() => {});
-  }); }, [load, offline]); // eslint-disable-line react-hooks/exhaustive-deps
+  }); }, [offline]); // eslint-disable-line react-hooks/exhaustive-deps
   if (offline) return <><h1 tabIndex={-1} style={{ marginTop: 6 }}>Tu gym</h1><div className="dashed-card"><span>Sin conexión. La comunidad del gym necesita conexión.</span></div></>;
   if (err) return <><p className="mb-err" role="alert">{err}</p><button type="button" className="ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => void load()}>Reintentar</button></>;
-  if (!h) return rv.ambient ? <Ambient label="Cargando tu gym" /> : null;
+  const tabs = ([["news", "Novedades"], ["ch", "Desafíos"], ["shop", "Recepción"], ["logros", "Logros"], ...(featureOn("club") ? [["club", "Club"]] as const : [])] as const);
+  const kicker = { fontSize: 13, color: "var(--ui-accent-2)", fontWeight: 600, minHeight: 16 } as const;
+  if (!h) return (
+    <div aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={{ ...kicker, display: "flex", alignItems: "center" }}><Skel w="52%" h={11} /></span><h1 tabIndex={-1}>Tu gym</h1></div>
+      <div className="hbanner" aria-hidden="true" style={{ cursor: "default" }}><Skel w={28} h={28} r={8} /><span><Skel w="30%" h={14} style={{ margin: "2px 0" }} /><Skel w="68%" h={12} style={{ margin: "2px 0" }} /></span></div>
+      <div className="gtabs" aria-hidden="true" inert>{tabs.map(([k, l], i) => <button key={k} type="button" role="tab" tabIndex={-1} aria-selected={i === 0}>{l}</button>)}</div>
+      {rv.ambient ? <Ambient label="Cargando tu gym" /> : <div style={{ minHeight: 220 }} />}
+      {/* Al final: los bloques quedan en la misma posición que los reales (React reutiliza los nodos y no cuenta un salto). */}
+      <Loading what="tu gym" />
+    </div>
+  );
   return (
-    <div className={rv.leaving ? "m03-in" : undefined} style={{ display: "flex", flexDirection: "column", gap: 22, position: "relative" }}>
-      {rv.leaving && <Ambient label="Cargando tu gym" leaving />}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={{ fontSize: 13, color: "var(--ui-accent-2)", fontWeight: 600 }}>{h.org.name} · {h.location.name}</span><h1 tabIndex={-1}>Tu gym</h1></div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22, position: "relative" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}><span style={kicker}>{h.org.name} · {h.location.name}</span><h1 tabIndex={-1}>Tu gym</h1></div>
       <button type="button" className="hbanner" onClick={() => setCard(true)}>
         <Ic i={QrCode} size={28} color="var(--ui-accent)" />
         <span><b style={{ fontSize: 15 }}>Mi carnet</b><small>{h.readyPrizes ? "Tenés premios para retirar" : "QR para recepción, premios y descuentos"}</small></span>
         {h.readyPrizes > 0 && <span className="pill-cyan">{h.readyPrizes} premio{h.readyPrizes === 1 ? "" : "s"}</span>}
       </button>
       <div className="gtabs" role="tablist" aria-label="Secciones del gym">
-        {([["news", "Novedades"], ["ch", "Desafíos"], ["shop", "Recepción"], ["logros", "Logros"], ...(featureOn("club") ? [["club", "Club"]] as const : [])] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+        <SlideIndicator />
+        {tabs.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}
       </div>
+      {/* El ambiente M03 sale sólo sobre el contenido (encabezado, carnet y pestañas ya estaban en su lugar). */}
+      <div ref={enter} className={rv.leaving ? "m03-in" : undefined} style={{ display: "flex", flexDirection: "column", gap: 22, position: "relative" }}>
+      {rv.leaving && <Ambient label="Cargando tu gym" leaving />}
       {tab === "news" && (
         <>
           {h.onFloor.length > 0 && (
@@ -156,6 +177,7 @@ export function GymTabView({ offline, flash, onSeen, initialTab, openChallenge }
       )}
       {tab === "logros" && <Logros h={h} />}
       {tab === "club" && <Club orgId={h.org.id} achievements={h.achievements} flash={flash} />}
+      </div>
       {up && <AttemptSheet c={up} orgId={h.org.id} flash={flash} onClose={(sent) => { setUp(null); if (sent) void load(); }} />}
       {rank && <RankSheet c={rank} onClose={() => setRank(null)} />}
       {card && <CardSheet onClose={() => setCard(false)} />}
@@ -383,7 +405,7 @@ function Club({ orgId, achievements, flash }: { orgId: string; achievements: Hom
   );
   return (
     <>
-      <div className="gtabs" role="tablist" aria-label="Repi Club">
+      <div className="gtabs" role="tablist" aria-label="Repi Club"><SlideIndicator />
         <button type="button" role="tab" aria-selected={view === "feed"} onClick={() => setView("feed")}>Publicaciones</button>
         <button type="button" role="tab" aria-selected={view === "rank"} onClick={() => setView("rank")}>Ranking del mes</button>
         <button type="button" role="tab" aria-selected={view === "lifts"} onClick={() => setView("lifts")}>Por ejercicio</button>

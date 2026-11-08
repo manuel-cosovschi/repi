@@ -54,10 +54,14 @@ const TOURS: Record<DemoRole, { who: string; steps: Step[] }> = {
   ] },
 };
 
+// M06: las secciones visitadas quedan vivas y ocultas (Activity); se elige el objetivo visible.
+const shownEl = (el: HTMLElement) => (typeof el.checkVisibility === "function" ? el.checkVisibility() : el.getClientRects().length > 0);
 function findTarget(label: string): HTMLElement | null {
-  const byAttr = document.querySelector<HTMLElement>(`button[title="${label}"], [aria-label="${label}"]`);
-  if (byAttr) return byAttr;
-  return [...document.querySelectorAll<HTMLElement>("nav button, button")].find((b) => b.textContent?.trim().startsWith(label)) ?? null;
+  const byAttr = [...document.querySelectorAll<HTMLElement>(`button[title="${label}"], [aria-label="${label}"]`)];
+  const attr = byAttr.find(shownEl) ?? byAttr[0];
+  if (attr) return attr;
+  const byText = [...document.querySelectorAll<HTMLElement>("nav button, button")].filter((b) => b.textContent?.trim().startsWith(label));
+  return byText.find(shownEl) ?? byText[0] ?? null;
 }
 const APP_PATHS = ["/app", "/coach", "/gym"];
 const tourShowsOn = (path: string | null) => !!path && APP_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
