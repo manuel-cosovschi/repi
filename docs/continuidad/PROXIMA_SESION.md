@@ -2,12 +2,12 @@
 
 Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## /conoce · Experience 3 Motion 2 «El punto que ordena» — 07/11/2026 · RONDA 2 LISTA EN RAMA, SIN PUBLICAR
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · RONDA 3 LISTA EN RAMA, SIN PUBLICAR
 
 - **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
   y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
 - **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (sin push). Plan, decisiones y evidencia:
-  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2).
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2; §12: ronda 3).
 - **Hecho (un commit por paso, P0–P7 + verificación):**
   - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
     ≤ 2,4 y foco en blanco, director sin lecturas por cuadro, `Say`, `curves.ts`, `Roll` v2, sin desenfoques animados.
@@ -33,6 +33,26 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   Pruebas: typecheck ✓; e2e `conoce` + `public` 65 ✓ + 1 omitida; Lighthouse móvil mediana 86 (TBT 98 ms, CLS 0, A11y 100);
   CLS de recorrido 0,0011 / 0; axe 0 (20 pasadas); Impeccable 0; pausa sin cambios; SwiftShader en SVG.
   Sin migraciones ni dependencias nuevas.
+- **Ronda 3 (segunda revisión independiente, 08/11).** La revisión encontró problemas sólo con el 3D, que se ve forzando
+  `?sala=high` en escritorio o `?sala=medium` en el teléfono. Todos corregidos; detalle y números en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §12.
+  - **02:** los pedazos ya no saltan cuando entra el 3D. Se ubican con `transform` y, con la escena a la vista, no se
+    reubican; lo hacen al salir de la pantalla. CLS esperando en 02: 0,1395 / 0,2089 → 0. CLS de recorrido con 3D:
+    escritorio ≤ 0,0012 y teléfono 0.
+  - **Hero:** fundido cruzado real del SVG al 3D (`data-svg="off"` recién al terminar), sin el cuadro sin sala.
+  - **Cierre en 3D:** el plano se encoge y se apaga del todo (`planFade`). Queda sólo el punto, sin la sala en miniatura.
+  - **Trazos de 02:** rodean el texto (`route`/`spline`). En el teléfono el párrafo se va antes de los trazos. Los pedazos
+    se apagan sobre el punto (≤ 9 px).
+  - **Teléfono:** sin anillos del impacto sobre el logo y el título. Cierre de 180svh a 230svh.
+  - **Pruebas:**
+    - typecheck ✓.
+    - Lighthouse móvil: 87 / 86 / 86, TBT 52 / 110 / 83 ms, CLS 0, A11y 100.
+    - CLS por defecto: 0,0005 en escritorio y 0 en el teléfono.
+    - Movimiento reducido y pausa: sin cambios.
+    - E2E `conoce` + `public`: 63 ✓, 1 omitida y 2 ✗. Las dos fallas son la misma prueba de demo, en mobile y desktop: la
+      API respondió 503 porque `repi_dev` tiene 301 entornos de demo de otras sesiones (tope 300, purga por cron). No
+      depende de esta ronda y no se tocó la base.
+  - **Videos para el titular:** regrabados en el scratchpad, `cx-motion/owner/`, con los mismos nombres.
 - **Archivos:** `apps/web/src/components/conoce/sala/{store,model,Stage,SalaSvg,SalaCanvas}.ts(x)`,
   `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap,EngineScreen}.ts(x)`,
   `apps/web/src/components/conoce/ConoceHub.tsx`, `apps/web/src/styles/conoce3.css`, `apps/web/e2e/conoce.spec.ts`.
@@ -45,7 +65,8 @@ Actualizado: 07/11/2026 (hasta D208; **Experience 3.0 (#64) y «Crear programa»
   `aria-label` del logo (fallaba igual antes de esta pasada).
 - **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
   socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
-- **Próxima acción:** que el titular revise `/conoce` con la ronda 2. Después, PR desde `claude/conoce-ajustes`. No hay
+- **Próxima acción:** que el titular revise `/conoce` con la ronda 3 (videos en `cx-motion/owner/`). Antes del PR, volver a
+  correr la prueba e2e de la demo guiada con lugar para demos en la base local. Después, PR desde `claude/conoce-ajustes`. No hay
   migraciones, así que el respaldo de `docs/RESPALDOS.md` sólo corre si el despliegue lo pide. Luego publicar y medir el
   LCP de campo. Antes de levantar `next start` en 3103, cerrar el `next-server` anterior de `/home/user/repi-cx/apps/web`
   (el `pkill` del `npm exec` no lo cierra y la página se sirve con la build vieja).

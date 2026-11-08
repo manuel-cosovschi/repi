@@ -30,6 +30,16 @@ function Clock() {
   return null;
 }
 
+/** Cuánto se ve el plano (piso, zonas, equipos y QR) durante la vuelta al punto: 1 → 0, igual que el SVG (se encoge hacia el
+ *  origen y se apaga del todo; al final queda sólo el punto). */
+function planFade(gather: number) { const x = Math.min(1, Math.max(0, gather / 0.9)); return 1 - x * x * (3 - 2 * x); }
+/** Apagar un material opaco sobre el fondo navy (sin pasarlo a transparente, que cambia el orden de dibujo y compila otro
+ *  programa): su color va hacia el del fondo. */
+const cBase = new THREE.Color(), cBg = new THREE.Color();
+function fadeToBg(m: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial | null, base: string, f: number) {
+  if (m) m.color.copy(cBase.set(base)).lerp(cBg.set(C.navy), 1 - f);
+}
+
 function lineGeometry(points: number[]) {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
@@ -50,6 +60,9 @@ function Floor() {
   }), []);
   const gridMat = useRef<THREE.LineBasicMaterial>(null);
   const zoneMats = useRef<(THREE.LineBasicMaterial | null)[]>([]);
+  const floorMat = useRef<THREE.MeshBasicMaterial>(null), wallMat = useRef<THREE.LineBasicMaterial>(null);
+  const surfMats = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const lastFade = useRef(1);
   const camera = useThree((st) => st.camera);
   const size = useThree((st) => st.size);
   const ray = useMemo(() => ({ r: new THREE.Raycaster(), ndc: new THREE.Vector2(), hit: new THREE.Vector3(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) }), []);
@@ -59,8 +72,15 @@ function Floor() {
   }, []);
   useFrame(() => {
     const s = stage.get();
-    const lv = 0.25 + 0.75 * s.lit; // como el SVG: apagada se ve a .25
+    const f = planFade(s.gather);
+    const lv = (0.25 + 0.75 * s.lit) * f; // como el SVG: apagada se ve a .25 (y en la vuelta al punto se apaga del todo)
     if (gridMat.current) gridMat.current.opacity = 0.55 * lv;
+    if (f !== lastFade.current) {
+      lastFade.current = f;
+      fadeToBg(floorMat.current, C.floor, f);
+      if (wallMat.current) wallMat.current.opacity = 0.9 * f;
+      surfMats.current.forEach((m) => { if (m) m.opacity = 0.7 * f; });
+    }
     // Zona bajo el puntero: el rayo de la cámara (con su lente) contra el piso.
     let near: ZoneId | null = null;
     if (pointer.on && s.gather === 0) {
@@ -80,13 +100,13 @@ function Floor() {
     <group>
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[FLOOR.w + 30, FLOOR.d + 30]} />
-        <meshBasicMaterial color={C.floor} />
+        <meshBasicMaterial ref={floorMat} color={C.floor} />
       </mesh>
-      {ZONES.map((z) => (
-        <mesh key={`f-${z.id}`} rotation-x={-Math.PI / 2} position={[z.x, 0.012, z.z]}><planeGeometry args={[z.w, z.d]} /><meshBasicMaterial color={C.surface} transparent opacity={0.7} /></mesh>
+      {ZONES.map((z, i) => (
+        <mesh key={`f-${z.id}`} rotation-x={-Math.PI / 2} position={[z.x, 0.012, z.z]}><planeGeometry args={[z.w, z.d]} /><meshBasicMaterial ref={(m) => { surfMats.current[i] = m; }} color={C.surface} transparent opacity={0.7} /></mesh>
       ))}
       <lineSegments geometry={grid}><lineBasicMaterial ref={gridMat} color={C.steel} transparent opacity={0} /></lineSegments>
-      <lineSegments geometry={wall}><lineBasicMaterial color={C.line} transparent opacity={0.9} /></lineSegments>
+      <lineSegments geometry={wall}><lineBasicMaterial ref={wallMat} color={C.line} transparent opacity={0.9} /></lineSegments>
       {zones.map((z, i) => (
         <lineSegments key={z.id} geometry={z.geo}><lineBasicMaterial ref={(m) => { zoneMats.current[i] = m; }} color={C.steel} transparent opacity={0} /></lineSegments>
       ))}
@@ -112,23 +132,27 @@ function Gear() {
   }, []);
   const planMat = useRef<THREE.LineBasicMaterial>(null);
   const mats = useRef<(THREE.LineBasicMaterial | null)[]>([]);
+  const boxMats = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
+  const lastFade = useRef(1);
   useFrame(() => {
     const s = stage.get();
+    const f = planFade(s.gather), lv = (0.25 + 0.75 * s.lit) * f;
     items.forEach((it, i) => {
       const m = mats.current[i];
       if (!m) return;
       const on = s.focus != null && it.zone === s.focus;
       m.color.set(on ? C.white : C.edge);
-      m.opacity = 0.25 + 0.75 * s.lit;
+      m.opacity = lv;
     });
-    if (planMat.current) planMat.current.opacity = 0.7 * (0.25 + 0.75 * s.lit);
+    if (planMat.current) planMat.current.opacity = 0.7 * lv;
+    if (f !== lastFade.current) { lastFade.current = f; boxMats.current.forEach((m) => fadeToBg(m, C.gear, f)); }
   });
   return (
     <group>
       <lineSegments geometry={plan}><lineBasicMaterial ref={planMat} color={C.edge} transparent opacity={0} /></lineSegments>
       {items.map((it, i) => (
         <group key={i} position={[it.x, it.h / 2, it.z]}>
-          <mesh geometry={it.box} castShadow><meshStandardMaterial color={C.gear} roughness={0.6} metalness={0.25} /></mesh>
+          <mesh geometry={it.box} castShadow><meshStandardMaterial ref={(m) => { boxMats.current[i] = m; }} color={C.gear} roughness={0.6} metalness={0.25} /></mesh>
           <lineSegments geometry={it.edges}><lineBasicMaterial ref={(m) => { mats.current[i] = m; }} color={C.steel} transparent opacity={0} /></lineSegments>
         </group>
       ))}
@@ -234,7 +258,7 @@ function Signals() {
         (pulse.current.material as THREE.MeshBasicMaterial).color.set(s.request! < 0.5 ? C.cyan : C.teal);
       }
     }
-    if (qr.current) (qr.current.material as THREE.MeshBasicMaterial).opacity = s.lit * (0.55 + 0.45 * Math.abs(Math.sin(sceneTime.t * 1.6)));
+    if (qr.current) (qr.current.material as THREE.MeshBasicMaterial).opacity = s.lit * planFade(s.gather) * (0.55 + 0.45 * Math.abs(Math.sin(sceneTime.t * 1.6)));
   });
   return (
     <group>
@@ -339,14 +363,15 @@ function Rig({ parallax }: { parallax: boolean }) {
   return null;
 }
 
-/** Vuelta al punto (cierre): el plano entero (piso, zonas, equipos) se encoge hacia el origen. */
+/** Vuelta al punto (cierre): el plano entero (piso, zonas, equipos) se encoge hacia el origen y se apaga (planFade, en cada
+ *  material); apagado del todo, no se dibuja: queda sólo el punto, como en el SVG. */
 function Gather({ children }: { children: ReactNode }) {
   const g = useRef<THREE.Group>(null);
   useFrame(() => {
     const s = stage.get(), el = g.current; if (!el) return;
-    const x = Math.min(1, Math.max(0, s.gather / 0.9)), e = x * x * (3 - 2 * x), sc = Math.max(0.0001, 1 - 0.98 * e);
+    const f = planFade(s.gather), sc = Math.max(0.0001, 1 - 0.98 * (1 - f));
     el.scale.setScalar(sc); el.position.set(s.origin[0] * (1 - sc), 0, s.origin[1] * (1 - sc));
-    el.visible = sc > 0.01;
+    el.visible = f > 0.004;
   });
   return <group ref={g}>{children}</group>;
 }

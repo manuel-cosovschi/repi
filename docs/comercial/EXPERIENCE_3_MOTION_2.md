@@ -680,3 +680,34 @@ Build de producción local y `next start` en 3103. La evidencia está en el scra
 | Pausa | Con «Pausar animaciones», ninguna escena cambia en escritorio con 3D, escritorio por defecto ni teléfono. |
 | SwiftShader | Queda en `data-sala="low"` (SVG). |
 | Movimiento reducido | Todas las escenas en su estado final: logo entero en 02 y en el cierre, y el teléfono de 03 y de Training Intelligence en su estado final. |
+
+## 12. Ronda 3: lo que encontró la segunda revisión (08/11/2026)
+
+La segunda revisión independiente sólo encontró problemas con el 3D, que el Chromium sin pantalla muestra únicamente si se
+fuerza (`?sala=high` en escritorio, `?sala=medium` en el teléfono). Se reprodujo cada uno con esos niveles, se corrigió y se
+volvió a medir con el mismo método. La evidencia está en el scratchpad, carpeta `cx-fix/out`.
+
+| # | Problema | Arreglo | Antes → después |
+|---|---|---|---|
+| 1 | 02: cuando el 3D reemplaza al SVG con la escena a la vista, el refresh de ScrollTrigger reubicaba los pedazos con `left`/`top` y saltaban delante de la persona («Progreso» de abajo hacia arriba en el teléfono). | Los pedazos se ubican con `transform`, así que ya no hay corrimiento de diseño. Si el refresh llega con 02 en pantalla y sólo cambió la proyección de la sala, los pedazos quedan donde están (se compara una clave del diseño). Se reubican con la proyección 3D cuando la escena sale de la pantalla (IntersectionObserver). | CLS esperando en 02 a que aparezca el 3D: escritorio 0,1395 → 0 / 0 / 0, teléfono 0,2089 → 0 / 0 / 0. Movimiento de los pedazos en ese cambio: ≤ 7 px, que es la deriva de su animación CSS. Al salir y volver, quedan a ≤ 6 px de donde los pone una carga con el 3D desde el principio. CLS de recorrido completo con 3D: escritorio 0,0979 / 0,0559 / 0,0181 → 0,0007 / 0,0005 / 0,0012; teléfono 0 / 0 / 0. |
+| 2 | Hero: la sala parpadeaba cuando entraba el 3D. El SVG se ocultaba de golpe (`opacity: 0 !important`) mientras el 3D recién empezaba su fundido de 1,4 s. | Fundido cruzado real. El 3D (opaco) aparece encima y el SVG sigue vivo debajo hasta que termina el fundido. A los 1,6 s, `data-svg="off"` oculta el SVG y deja de animarlo. Si el 3D falla, el SVG vuelve al instante. | Luminancia de la sala (recorte de 600 × 640, 25 cuadros/s), comparada contra la regla anterior inyectada sobre la misma build: antes 25,6 → 21,9, por debajo del SVG y del 3D asentado (23,5). Después 25,6 → 23,5–23,7, el nivel propio del 3D, sin bajar nunca de él. Salto máximo entre cuadros: 1,9 → 1,1. Activar y desactivar `data-svg` debajo del 3D cambia la media en 0,08 (el SVG queda tapado). |
+| 3 | Cierre en 3D: quedaba una sala en miniatura gris (≈ 22 × 14 px) en el centro después de que salía el punto, y detrás de «REPETICIÓN» en reposo. | `planFade` (1 → 0 con `gather`), igual que el SVG. Las líneas, las zonas, la pared y el QR bajan su opacidad. El piso y los equipos, que son opacos, llevan su color al navy del fondo (así no cambia el orden de dibujo ni se compila otro programa). Cuando todo está apagado, el grupo no se dibuja. | Capturas sólo de la sala (texto oculto) en f .58, .66, .74, .90 y 1,0: 0 píxeles distintos del fondo en el 70 % central, en escritorio `high` y teléfono `medium`. En .50 se ve únicamente el punto cian (15 × 16 px; 11 px en el teléfono). |
+| 4a | Teléfono: los trazos cian cruzaban el párrafo y el titular, y los pedazos pasaban sobre el texto en vuelo. | `route()` prueba el trazo orgánico de siempre y uno que rodea el texto por el costado (`spline`, Catmull-Rom). Puntúa los trazos y los pedazos en vuelo contra las palabras del titular y, en pantallas anchas, contra el párrafo, y elige el que no pisa nada. En el teléfono el párrafo se va antes de que salga el primer trazo (`TL_NARROW`). Además, el pedazo se achica rápido al salir. | Sonda de 02 (61 pasos de .00 a .60): pasos con un pedazo sobre el texto visible y puntos de trazo sobre el texto → 0 / 0 en teléfono por defecto, teléfono `medium`, escritorio por defecto y escritorio `high`. La revisión anterior contaba 13 en el teléfono y 2 en escritorio. |
+| 4b | Los pedazos empezaban a apagarse al 64 % del recorrido: desaparecían lejos del punto. | El pedazo viaja hasta el punto en el 75 % de su tramo y el resto se lo traga ahí mismo: se achica y se apaga sobre el punto. | Distancia al punto en el último paso visible de cada pedazo: ≤ 9 px en las cuatro configuraciones (el criterio pide ≤ 24 px). |
+| 4c | Teléfono: los anillos del impacto del hero cruzaban el logo y el título. | El radio final de los anillos queda 6 px antes del texto más cercano. En el teléfono el punto cae en el hueco de 26 px entre el logo y el título: no hay anillos, y el impacto es el aplaste y el frente de luz, que va debajo del texto. En escritorio no cambia. | Cuadros con un anillo cruzando el texto en el teléfono: 81 de 84 → 0. Escritorio: 54 cuadros, 0 cruces, radio máximo 229 px (igual que antes). |
+| 4d | Teléfono: la firma de cierre se veía entera en ≈ 527 px de scroll. | La sección del cierre en el teléfono pasa de 180svh a 230svh. | Recorrido: 80svh → 130svh (≈ 857 px en iPhone 15). |
+
+**Sin regresiones en el camino por defecto (SVG):**
+
+| Medida | Resultado |
+|---|---|
+| CLS de recorrido completo | 0,0005 en escritorio y 0 en el teléfono. |
+| Lighthouse móvil (3 corridas) | Rendimiento 87, 86 y 86. TBT 52, 110 y 83 ms. CLS 0. LCP ≈ 3,9 s. Accesibilidad, buenas prácticas y SEO 100. |
+| Movimiento reducido | El mismo informe que la ronda 2: sólo estados finales. |
+| Pausa | Ninguna escena cambia en 5 s en escritorio con 3D, en escritorio por defecto ni en el teléfono. |
+| Grabación del teléfono | 02 a 60 cuadros/s, sin cuadros largos. La ronda 2 daba 45,9 cuadros/s y 10 cuadros largos. |
+| Typecheck | Verde. |
+| E2E de `conoce` y `public` | 63 pasaron, 1 se omitió y 2 fallaron: «una demo guiada arranca desde las puertas de /conoce», en mobile y en desktop. La API respondió 503 «Hay muchas demos abiertas». La base local `repi_dev` tiene 301 entornos de demo, creados por otras sesiones desde las 21:41; el tope es 300 y la purga la hace el cron, que no corre en local. No depende de esta ronda: no se tocaron `Demos` ni `DemoButton`, y la prueba pasó en la ronda 2. La base no se tocó. |
+
+Los tres videos para el titular se volvieron a grabar con esta versión: en `cx-motion/owner/`, con los mismos nombres. El de
+escritorio usa la sala en SVG.

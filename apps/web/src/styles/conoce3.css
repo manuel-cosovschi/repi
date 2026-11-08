@@ -56,9 +56,11 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 /* Pedido «Que venga alguien» sobre el piso: va en cian y vuelve «Voy» en turquesa. */
 .sala-req { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; }
 .sala-req[data-back="1"] { stroke: var(--x-teal); }
+/* El 3D (opaco) aparece encima del SVG con un fundido; el SVG sigue dibujándose debajo hasta que el fundido termina y recién
+   ahí se oculta (data-svg="off"): un fundido cruzado real, sin un cuadro sin sala. */
 .sala-3d { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s var(--x-ease); }
 .sala[data-3d="1"] .sala-3d { opacity: 1; }
-.sala[data-3d="1"] .sala-svg { opacity: 0 !important; }
+.sala[data-svg="off"] .sala-svg { visibility: hidden; }
 .sala-canvas { width: 100% !important; height: 100% !important; }
 /* Velo frío: la sala «sin REPI» (02) y la toma abierta del entrenamiento (03). Sólo opacidad. */
 .sala-tone { position: absolute; inset: 0; background: #131B26; opacity: 0; }
@@ -544,6 +546,8 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-fin-act > :not(.cn-demo-act), .x3-fin-act > .cn-demo-act > * { opacity: 0; }
   .x3-fin-under { transform: scaleX(0); }
 }
+/* Teléfono: más recorrido para la firma de cierre (la vuelta al punto, el punto que sube y el logo que nace no se apuran). */
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-fin { height: 230svh; } }
 
 /* ── Contacto y preguntas ───────────────────────────────────────────── */
 .x3-contact { background: var(--x-navy); padding: clamp(90px, 13vh, 140px) 0 80px; border-top: 1px solid var(--x-line); }

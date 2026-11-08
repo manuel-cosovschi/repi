@@ -111,6 +111,8 @@ export function Stage() {
   /** mount: se monta el 3D (navegador libre). shown: el 3D ya dibujó su primer cuadro y reemplaza al SVG. */
   const [mount3d, setMount3d] = useState(false);
   const [shown3d, setShown3d] = useState(false);
+  /** Terminó el fundido del 3D sobre el SVG: recién ahí el SVG deja de animarse y se oculta (si el 3D falla, vuelve al toque). */
+  const [faded, setFaded] = useState(false);
   const world = useRef<HTMLDivElement>(null), tone = useRef<HTMLDivElement>(null), wash = useRef<HTMLDivElement>(null);
   useShotDirector();
   useLayers(world, tone, wash);
@@ -142,13 +144,20 @@ export function Stage() {
     const id = window.setTimeout(() => ScrollTrigger.refresh(), 60);
     return () => clearTimeout(id);
   }, [shown3d]);
+  // Fundido cruzado: el 3D aparece encima (1,4 s, conoce3.css) y el SVG sigue vivo debajo hasta que termina.
+  useEffect(() => {
+    if (!shown3d) return;
+    const id = window.setTimeout(() => setFaded(true), 1600);
+    return () => clearTimeout(id);
+  }, [shown3d]);
+  const svgOff = shown3d && faded;
   const ready = useCallback(() => setShown3d(true), []);
   const fail = useCallback(() => { setShown3d(false); setMount3d(false); }, []);
   const on3d = mount3d && quality !== null && quality !== "low";
   return (
-    <div className="sala" aria-hidden="true" data-3d={shown3d ? "1" : "0"}>
+    <div className="sala" aria-hidden="true" data-3d={shown3d ? "1" : "0"} data-svg={svgOff ? "off" : undefined}>
       <div ref={world} className="sala-world">
-        <SalaSvg animate={quality !== null && quality !== "low" && !shown3d} still={still} />
+        <SalaSvg animate={quality !== null && quality !== "low" && !svgOff} still={still} />
         {on3d && <div className="sala-3d"><Quiet onError={fail}><SalaCanvas quality={quality} onReady={ready} onLost={fail} /></Quiet></div>}
       </div>
       <div ref={wash} className="sala-wash" />

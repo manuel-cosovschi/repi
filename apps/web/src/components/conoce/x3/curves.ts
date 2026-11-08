@@ -38,6 +38,23 @@ export function cubic(a: Pt, c1: Pt, c2: Pt, b: Pt): Curve {
   return build(pts, `M${f1(a[0])},${f1(a[1])} C${f1(c1[0])},${f1(c1[1])} ${f1(c2[0])},${f1(c2[1])} ${f1(b[0])},${f1(b[1])}`);
 }
 
+/** Curva suave que pasa por todos los puntos (Catmull-Rom convertida a cúbicas): para rodear un obstáculo (el titular de
+ *  02) sin quiebres. Se muestrea igual que las otras (N tramos por cúbica). */
+export function spline(p: Pt[]): Curve {
+  const pts: Pt[] = [p[0]];
+  let d = `M${f1(p[0][0])},${f1(p[0][1])}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[Math.max(0, i - 1)], p1 = p[i], p2 = p[i + 1], p3 = p[Math.min(p.length - 1, i + 2)];
+    const c1: Pt = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2: Pt = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    for (let k = 1; k <= N; k++) {
+      const t = k / N, m = 1 - t, k0 = m * m * m, k1 = 3 * m * m * t, k2 = 3 * m * t * t, k3 = t * t * t;
+      pts.push([k0 * p1[0] + k1 * c1[0] + k2 * c2[0] + k3 * p2[0], k0 * p1[1] + k1 * c1[1] + k2 * c2[1] + k3 * p2[1]]);
+    }
+    d += ` C${f1(c1[0])},${f1(c1[1])} ${f1(c2[0])},${f1(c2[1])} ${f1(p2[0])},${f1(p2[1])}`;
+  }
+  return build(pts, d);
+}
+
 /** Trazo orgánico de a hacia b: una cúbica con los controles corridos hacia un costado (no una línea radial recta). `bend`
  *  es la fracción del largo que se abre la curva; el signo elige el lado. */
 export function organic(a: Pt, b: Pt, bend = 0.28): Curve {

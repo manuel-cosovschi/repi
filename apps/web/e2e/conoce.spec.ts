@@ -226,7 +226,7 @@ test.describe("con movimiento, en un teléfono bajo", () => {
       const st = (n: number) => { y += (400 * Math.min(100, n - last)) / 1000; last = n; window.scrollTo(0, Math.min(y, z)); if (y >= z) return res(); requestAnimationFrame(st); };
       requestAnimationFrame(st);
     }), top + 60);
-    await expect(page.locator(".x3-frag").first()).toHaveAttribute("style", /left/);
+    await expect(page.locator(".x3-frag").first()).toHaveAttribute("style", /translate3d/);
     await page.waitForTimeout(1200);
     const over = await page.evaluate(() => {
       type B = { x: number; y: number; w: number; h: number };
