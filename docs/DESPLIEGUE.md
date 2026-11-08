@@ -64,7 +64,7 @@ Pasos (una vez; los pasos 2 y 3 seguidos, porque entre ambos los avisos esperan 
    2. En Vercel → Settings → Environment Variables, poner ese valor en `CRON_SECRET` de Production (sensitive).
    3. Hacer Redeploy de producción.
    4. Con esto la clave vieja deja de servir también para `/api/cron/mail-test`, `alert-test` y `mail-domain`.
-3. **Reprogramar** con el rol `repi_app` (el comando de arriba, sin `CRON_SECRET`). El script:
+3. **Reprogramar** con el rol `repi_app`: el comando de arriba, sin `CRON_SECRET`; o, desde el SQL editor como postgres, `cron.schedule` dentro de una transacción con `set local role repi_app`, con el mismo manejo de roles que `hosted-0052.sql`. El script:
    - se niega si los jobs son de otro rol, para no dejar el job viejo corriendo;
    - comprueba la función sin mostrar la clave;
    - falla si algún job `repi-*` todavía lleva un bearer escrito.
