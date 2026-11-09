@@ -213,6 +213,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
           if (initial.step === "twofaSetup") { await loadMe(); setStep("twofaSetup"); return; }
           await afterAuth(null);
         } else if (initial.step === "rec1") { setHist(["login"]); setStep("rec1"); } // desde Ayuda: «Olvidé mi contraseña»
+        // FSA1: el enlace por email de una cuenta con 2FA llega acá sin sesión; falta el código de la app de autenticación.
+        else if (initial.step === "twofa") { setHist(["login"]); setStep("twofa"); }
       } catch (e) { fail(e instanceof Error ? e.message : "No pudimos cargar tu sesión."); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
