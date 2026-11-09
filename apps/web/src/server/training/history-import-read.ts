@@ -2,6 +2,7 @@
 import { parseHistoryCsv, parseHistoryNotes, partitionHistoryNotes, splitHistoryText, type HistoryTextChunk, type ImportSet } from "@repi/domain";
 import { aiJson, aiOn, type AiPart } from "../ai/openai";
 import { AccessError } from "../access/util";
+import { logError } from "../log";
 import type { ImportFile } from "./history-import";
 import type { HistoryImportProgress } from "@/lib/history-import-stream";
 
@@ -41,13 +42,19 @@ Hoy es ${today}. Reglas:
 - Nombres de ejercicios en español, como los escribió la persona (corregí sólo errores evidentes de tipeo).
 - No inventes nada. Si algo no se lee o es ambiguo, omitilo y explicalo brevemente en notes (en español). Sin fecha legible, no se incluye.`;
 
-async function readPart(f: ImportFile, today: string, context = "", timeoutMs = 60_000): Promise<{ sets: ImportSet[]; notes: string[] }> {
+/** Tiempo máximo de un pedido a la IA. Si un bloque denso no termina, se divide y se relee por partes (ver readTextChunk). */
+export const AI_ATTEMPT_MS = 90_000;
+/** Bloques de texto que se leen de una vez: más chicos responden antes y en paralelo (antes 12 000; un historial denso no
+ *  terminaba en el plazo). */
+export const AI_CHUNK_CHARS = 4_000;
+
+async function readPart(f: ImportFile, today: string, context = "", timeoutMs = AI_ATTEMPT_MS): Promise<{ sets: ImportSet[]; notes: string[] }> {
   const parts: AiPart[] = [{ type: "text", text: `Archivo: ${f.fileName.slice(0, 120)}. Transcribí el historial de entrenamiento.` }];
   if (context) parts.push({ type: "text", text: `Contexto del historial (sólo referencia para fechas, año y ejercicio; NO transcribir sus series):\n${context}` });
   if (f.kind === "text") parts.push({ type: "text", text: `Parte a transcribir completa (incluí todas sus series, hasta la última línea):\n${f.text ?? ""}` });
   else if (f.kind === "image") parts.push({ type: "image_url", image_url: { url: f.dataUrl!, detail: "high" } });
   else parts.push({ type: "file", file: { filename: f.fileName.slice(0, 120) || "historial.pdf", file_data: f.dataUrl! } });
-  const out = await aiJson<AiOut>({ name: "historial_entrenamiento", system: SYSTEM(today), parts, schema: AI_SCHEMA, maxTokens: 8000, fast: f.kind === "text", requireComplete: true, timeoutMs });
+  const out = await aiJson<AiOut>({ name: "historial_entrenamiento", system: SYSTEM(today), parts, schema: AI_SCHEMA, maxTokens: 8000, fast: f.kind === "text", requireComplete: true, timeoutMs, splitOnTimeout: f.kind === "text" });
   const sets: ImportSet[] = [];
   for (const s of out.sessions ?? []) for (const e of s.exercises ?? []) for (const x of e.sets ?? []) {
     if (!Array.isArray(x.reps) || !Array.isArray(x.seconds) || (x.reps.length && x.seconds.length && x.reps.length !== x.seconds.length)) {
@@ -69,11 +76,18 @@ async function readTextChunk(f: ImportFile, today: string, chunk: HistoryTextChu
   const remaining = deadline - Date.now();
   if (remaining <= 0) throw new AccessError("ai_incomplete", "No pudimos leer todo el historial a tiempo. No se cargó ninguna parte. Probá dividirlo en archivos más chicos.", 422);
   try {
-    return await readPart({ ...f, text: chunk.text }, today, chunk.context, Math.min(60_000, remaining));
+    return await readPart({ ...f, text: chunk.text }, today, chunk.context, Math.min(AI_ATTEMPT_MS, remaining));
   } catch (e) {
-    // Muchas series compactas pueden agotar la salida aunque el texto de entrada sea corto.
+    // Muchas series compactas pueden agotar la salida (o el tiempo) aunque el texto de entrada sea corto.
     // Se relee TODO ese bloque en partes menores: nunca se conserva una respuesta truncada.
-    if (!(e instanceof AccessError) || !["ai_incomplete", "ai_bad_output"].includes(e.code) || chunk.text.length <= 375) throw e;
+    const retry = e instanceof AccessError && ["ai_incomplete", "ai_bad_output", "ai_timeout"].includes(e.code);
+    if (!retry || chunk.text.length <= 375 || deadline - Date.now() < 15_000) {
+      if (e instanceof AccessError && e.code === "ai_timeout") {
+        logError("ai.request.historial_entrenamiento", new Error(`timeout sin margen para dividir (${chunk.text.length} caracteres)`));
+        throw new AccessError("ai_incomplete", "Una parte del historial tardó demasiado en leerse. No se cargó nada; tocá «Continuar» para reintentar desde lo ya leído.", 422);
+      }
+      throw e;
+    }
     const parts = splitHistoryText(chunk.text, Math.max(256, Math.floor(chunk.text.length / 2)));
     const results = [];
     for (const part of parts) results.push(await readTextChunk(f, today, { text: part.text, context: [chunk.context, part.context].filter(Boolean).join("\n") }, deadline));
@@ -82,14 +96,14 @@ async function readTextChunk(f: ImportFile, today: string, chunk: HistoryTextChu
 }
 
 /** Si falla una parte no se devuelve una lectura parcial ni se crea la vista previa. */
-export async function readHistoryWithAi(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 120_000): Promise<{ sets: ImportSet[]; notes: string[] }> {
+export async function readHistoryWithAi(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 240_000): Promise<{ sets: ImportSet[]; notes: string[] }> {
   if (f.kind !== "text") {
     onProgress?.({ stage: "reading", completed: 0, total: 1 });
-    const result = await readPart(f, today, "", Math.min(60_000, Math.max(1, deadline - Date.now())));
+    const result = await readPart(f, today, "", Math.min(AI_ATTEMPT_MS, Math.max(1, deadline - Date.now())));
     onProgress?.({ stage: "reading", completed: 1, total: 1 });
     return result;
   }
-  const chunks = splitHistoryText(f.text ?? "", 12_000).map((chunk) => ({ ...chunk, context: [context, chunk.context].filter(Boolean).join("\n") }));
+  const chunks = splitHistoryText(f.text ?? "", AI_CHUNK_CHARS).map((chunk) => ({ ...chunk, context: [context, chunk.context].filter(Boolean).join("\n") }));
   onProgress?.({ stage: "reading", completed: 0, total: chunks.length });
   const results: Awaited<ReturnType<typeof readPart>>[] = new Array(chunks.length);
   let next = 0;
@@ -109,7 +123,7 @@ export async function readHistoryWithAi(f: ImportFile, today: string, onProgress
 }
 
 /** Formatos claros se estructuran en el servidor; sólo las sesiones desconocidas requieren transcripción. */
-export async function readHistoryInput(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 120_000) {
+export async function readHistoryInput(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 240_000) {
   onProgress?.({ stage: "reading" });
   if (f.kind === "text" && !context) {
     const csv = parseHistoryCsv(f.text ?? "");
@@ -124,7 +138,7 @@ export async function readHistoryInput(f: ImportFile, today: string, onProgress?
         if (block.parsed) segments.push({ text: "", days: new Set([block.day]), requiredDays: new Set([block.day]), count: 1, result: block.parsed });
         else {
           const last = segments.at(-1);
-          if (last && !last.result && last.text.length + block.text.length + 1 <= 12_000) {
+          if (last && !last.result && last.text.length + block.text.length + 1 <= AI_CHUNK_CHARS) {
             last.text += `\n${block.text}`; last.days.add(block.day); for (const day of numericDatedDays(block.text)) last.requiredDays.add(day); last.count++;
           } else segments.push({ text: block.text, days: new Set([block.day]), requiredDays: new Set(numericDatedDays(block.text)), count: 1 });
         }
