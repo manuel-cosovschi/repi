@@ -121,6 +121,7 @@ Reutiliza lo existente. No hay un segundo historial, ni otro motor de récords, 
 **Récords**
 - Sólo si hay historia previa del mismo ejercicio y se supera la mejor marca de **todo** el historial anterior, no sólo la del rango.
 - La primera sesión es «primera marca», no un récord.
+- FSA1 (09/11/2026): con carga, 1RM estimado contra 1RM estimado y carga máxima contra carga máxima; una sesión sólo con series de más de 12 repeticiones se compara por su carga (nunca una carga contra un 1RM).
 - En el gráfico el récord es un rombo; no se distingue sólo por el color.
 
 **Integridad**
@@ -295,7 +296,7 @@ Peso corporal, objetivo, fotos de progreso y calorías son **sólo para adultos 
    - Dimensiones entre 200 y 6000 px por lado.
 3. **Quitar metadatos**
    - `stripImageMetadata` quita EXIF con GPS, XMP, IPTC y comentarios.
-   - JPEG: APP1–APP15 salvo ICC, y COM. PNG: tEXt, zTXt, iTXt, eXIf y tIME. WebP: EXIF y XMP, más sus marcas.
+   - JPEG: APP1–APP15 salvo ICC, y COM. También entre cuadros progresivos; lo anexado después del fin de la imagen (imágenes secundarias MPF, anexos del fabricante) se descarta (FSA1). PNG: tEXt, zTXt, iTXt, eXIf y tIME. WebP: EXIF y XMP, más sus marcas.
    - No toca los píxeles. Se vuelve a validar después.
 4. **Guardado**
    - Se guarda en el bucket privado y se **verifica** el tamaño escrito.
