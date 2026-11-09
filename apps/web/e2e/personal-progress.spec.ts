@@ -125,7 +125,8 @@ test("fotos: subir, comparar con deslizador por teclado y borrar; el coach y sin
   expect((await op.request.delete(`/api/me/progress/photos/${list.photos[0].id}`)).status()).toBe(404);
   await other.close();
   const anon = await browser.newContext();
-  expect((await anon.request.get(`http://localhost:3000/api/me/photo-file/${list.photos[0].id}`)).status()).toBe(401);
+  // El mismo servidor que la prueba (antes estaba fijo en :3000 y fallaba con otro puerto).
+  expect((await anon.request.get(`${new URL(page.url()).origin}/api/me/photo-file/${list.photos[0].id}`)).status()).toBe(401);
   await anon.close();
 
   await tiles.nth(1).click(); // queda una elegida

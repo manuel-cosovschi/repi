@@ -14,10 +14,12 @@ import { assertLocalTarget, expectNoHorizontalOverflow, openDemo, watchErrors } 
 test.beforeAll(({ baseURL }) => assertLocalTarget(baseURL));
 
 function devDb() {
-  const env = Object.fromEntries(readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
-  const url = new URL(env.DATABASE_URL);
+  // Como las demás pruebas que siembran: primero DATABASE_URL del entorno, si no .env.local.
+  let raw = process.env.DATABASE_URL ?? "";
+  if (!raw) raw = Object.fromEntries(readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)])).DATABASE_URL;
+  const url = new URL(raw);
   if (!["localhost", "127.0.0.1"].includes(url.hostname) || !/^\/repi_(dev|e2e_[a-z0-9_]+)$/.test(url.pathname)) throw new Error("La siembra de E2E sólo corre contra repi_dev o repi_e2e_* locales.");
-  return postgres(env.DATABASE_URL, { max: 1, onnotice: () => {} });
+  return postgres(raw, { max: 1, onnotice: () => {} });
 }
 /** Cuatro sesiones del primer día con el rango completo y la carga en subida (sólo en una organización demo). */
 async function seedProgress(relId: string) {
