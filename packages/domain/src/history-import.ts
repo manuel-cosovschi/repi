@@ -144,6 +144,13 @@ export function normalizeImport(sets: ImportSet[], today: string): { sets: Norma
     ok.push({ day: day!, exercise: exercise[0].toLocaleUpperCase("es-AR") + exercise.slice(1), weightKg: w, reps, seconds: sec });
   }
   ok.sort((a, b) => a.day.localeCompare(b.day));
+  // Incidente 09/11: «Pull over» y «Pullover», o «Jalón» y «Jalon», eran ejercicios distintos en el progreso. Los nombres que sólo
+  // difieren en espacios, tildes o mayúsculas se unifican con la forma más usada (nunca se juntan ejercicios con otras palabras).
+  const compact = (x: string) => x.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9ñ]+/g, "");
+  const spellings = new Map<string, Map<string, number>>();
+  for (const x of ok) { const k = compact(x.exercise); const m = spellings.get(k) ?? new Map<string, number>(); m.set(x.exercise, (m.get(x.exercise) ?? 0) + 1); spellings.set(k, m); }
+  const canonical = new Map([...spellings].map(([k, m]) => [k, [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))[0][0]]));
+  for (const x of ok) x.exercise = canonical.get(compact(x.exercise)) ?? x.exercise;
   const capped = ok.length > IMPORT_MAX_SETS;
   const kept = ok.slice(0, IMPORT_MAX_SETS);
   const idx = new Map<string, number>();

@@ -16,6 +16,8 @@ export const GET = handle<Ctx>(async () => hi.myHistoryImports(await sessionUser
 const File = z.object({
   fileName: z.string().max(200), kind: z.enum(["text", "image", "pdf"]),
   text: z.string().max(IMPORT_MAX_TEXT_LENGTH, "El historial supera 1.000.000 de caracteres. No se cargó ningún dato.").optional(), dataUrl: z.string().max(4_200_000).optional(),
+  // 09/11: historial sin fechas al que la persona le dio fechas aproximadas (último entrenamiento y frecuencia).
+  approx: z.object({ sessions: z.number().int().min(1).max(20_000), from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).optional(),
 }).superRefine((file, ctx) => {
   if (file.kind === "text" && !file.text?.trim()) ctx.addIssue({ code: "custom", path: ["text"], message: "El archivo está vacío." });
   if (file.kind !== "text" && !/^data:(image\/(jpeg|png|webp|gif)|application\/pdf);base64,/.test(file.dataUrl ?? "")) ctx.addIssue({ code: "custom", path: ["dataUrl"], message: "Subí una foto, un PDF o una planilla." });
