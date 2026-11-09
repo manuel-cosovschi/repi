@@ -87,6 +87,9 @@ export function openIssues(e: REx, mode: Mode, unit: WeightUnit = "kg"): { field
   if (e.w.trim() && parseWeightIn(e.w, unit) == null) out.push({ field: "weight", kind: "missing", text: "La carga va en números (por ejemplo 12,5)." });
   if (e.per?.some((r) => r.w.trim() && parseWeightIn(r.w, unit) == null)) out.push({ field: "weight", kind: "missing", text: "Revisá las cargas por serie: van en números." });
   for (const i of e.issues) if (i.kind === "unclear" && !e.filled.includes(i.field) && !out.some((o) => o.field === i.field)) out.push({ field: i.field, kind: "unclear", text: i.text });
+  // FSA1: un método escrito que no está claro («pirámide») espera la respuesta de la persona. Antes la fila figuraba «Listo»
+  // y plegada, y la pregunta quedaba escondida; ahora cuenta para revisar y la fila se abre (D184: lo ambiguo se pregunta).
+  if (e.method && e.mstate === "ask" && !e.custom && !out.some((o) => o.field === "method")) out.push({ field: "method", kind: "unclear", text: `Dice «${e.method.matched}»: confirmá si es ${e.method.label} o dejalo como nota.` });
   return out;
 }
 
