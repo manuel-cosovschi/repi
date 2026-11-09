@@ -3,8 +3,9 @@
 export function logError(scope: string, e: unknown, req?: Request) {
   logErrorAt(scope, e, req ? `${req.method} ${new URL(req.url).pathname}` : "");
 }
-/** SEC-11 (QA 29/10): rutas que llevan un secreto en el camino (activación, tutor, ingreso por QR) se registran sin él. */
-export const maskPath = (path: string) => path.replace(/^(\/api\/(?:activate|access\/tutor|join|access\/invitations)\/)[^/]+/, "$1…");
+/** SEC-11 (QA 29/10): rutas que llevan un secreto en el camino (activación, tutor, ingreso por QR) se registran sin él.
+ *  FSA1: también la invitación de vendedor (/api/ventas/activar/<token>), que quedaba entera en la auditoría de accesos denegados. */
+export const maskPath = (path: string) => path.replace(/^(\/api\/(?:activate|access\/tutor|join|access\/invitations|ventas\/activar)\/)[^/]+/, "$1…");
 /** Igual que logError cuando no hay un Request a mano (errores que captura Next en instrumentation.ts). */
 export function logErrorAt(scope: string, e: unknown, where: string) {
   const err = e instanceof Error ? e : new Error(String(e));

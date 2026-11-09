@@ -126,6 +126,18 @@ describe("invitación de alumno por coach", () => {
     const alumno = await verified(destino);
     await svc.acceptInvitation(alumno, nueva.code);
   });
+  it("FSA1: una cuenta no puede probar códigos sin tope (enumeración de invitaciones y pistas de email)", async () => {
+    const { uid, org } = await coachWithOrg();
+    const inv = await svc.inviteCoachClient(uid, org.id, { email: mail() });
+    const intruso = await verified(mail());
+    for (let i = 0; i < 9; i++) await expectErr(svc.acceptInvitation(intruso, `ZZZZZ${i}`), "invalid_code");
+    await expectErr(svc.acceptInvitation(intruso, inv.code), "email_mismatch"); // 10.º intento: todavía responde
+    await expectErr(svc.acceptInvitation(intruso, inv.code), "rate_limited"); // 11.º: cortado, sin pista del email
+    // Otra persona no queda afectada por el tope del intruso.
+    const destino = mail();
+    const otra = await svc.inviteCoachClient(uid, org.id, { email: destino });
+    await svc.acceptInvitation(await verified(destino), otra.code);
+  });
 });
 
 describe("anexo PWA: retomar invitaciones al abrir desde inicio", () => {
