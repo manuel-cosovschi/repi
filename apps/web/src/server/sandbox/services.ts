@@ -3,12 +3,13 @@
 // series, avisos al piso, cobros). Nada se comparte entre visitantes ni toca clientes reales; todo es is_demo y se borra
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { activityOf, applyMethod, briefSummary, catalogProfile, cleanProgramBrief, localDate, parseReps, rowRef, type ActivityDetail, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { AccessError } from "../access/util";
 import { logError } from "../log";
+import { deleteObject } from "../storage";
 import { assignProgram, createTemplate, logSet, startSession, myTraining, getSession } from "../training/services";
 import { saveMemberProgram, startShift } from "../gym/services";
 import { memberCreate, setAvailability, staffAct } from "../gym/connect";
@@ -338,9 +339,19 @@ export async function purgeSandboxes(now = new Date()) {
   let purged = 0;
   for (const b of old) {
     const orgs = (b.orgIds as string[]) ?? [], users = (b.userIds as string[]) ?? [];
+    // Auditoría FSA1 (09/11): los archivos que subió la demo (fotos de progreso, videos, imágenes del Club) se borran del
+    // almacenamiento. Sus filas (media_object, upload_intent) caen en cascada con la persona y, sin fila, purgeMedia ya no
+    // los ve: quedaban huérfanos para siempre. Las claves se listan dentro de la transacción y los archivos se borran recién
+    // después del commit: si el borrado de filas fallara, nunca queda una fila apuntando a un archivo inexistente.
+    let keys: string[] = [];
     try {
       await db.transaction(async (tx) => {
         if (users.length) {
+          const media = await tx.select({ k: schema.mediaObject.storageKey }).from(schema.mediaObject)
+            .where(and(inArray(schema.mediaObject.ownerUserId, users), isNull(schema.mediaObject.deletedAt)));
+          const intents = await tx.select({ k: schema.uploadIntent.storageKey }).from(schema.uploadIntent)
+            .where(inArray(schema.uploadIntent.ownerUserId, users));
+          keys = [...new Set([...media, ...intents].map((r) => r.k))];
           await tx.delete(schema.workoutSession).where(inArray(schema.workoutSession.userId, users));
           await tx.delete(schema.auditEvent).where(inArray(schema.auditEvent.actorUserId, users));
         }
@@ -359,6 +370,8 @@ export async function purgeSandboxes(now = new Date()) {
         await tx.delete(schema.demoSandbox).where(eq(schema.demoSandbox.id, b.id));
       });
       purged++;
+      // Un archivo que no se pudo borrar no frena la purga: queda registrado (sin la clave) para revisarlo a mano.
+      for (const k of keys) await deleteObject(k).catch((e) => logError("sandbox.purge.media", e));
     } catch (e) {
       // Una demo que no se puede borrar no frena a las demás ni al resto del job de cada minuto.
       logError("sandbox.purge", e);
