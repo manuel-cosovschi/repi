@@ -6,7 +6,7 @@ import { ArrowRight, ChatCircle, EnvelopeSimple } from "@phosphor-icons/react/di
 import { Wordmark } from "@/components/access/Wordmark";
 import { SiteFooter } from "@/components/site/PublicSite";
 import { FAQ, type HeroVariant } from "@/content/conoce";
-import { CONTACT } from "@/lib/contact";
+import { CONTACT, waLink as wa } from "@/lib/contact";
 import type { Profile } from "@/lib/site-events";
 import { ContactForm } from "./ContactForm";
 import { Tracker } from "./Tracker";
@@ -17,6 +17,7 @@ import { Hero } from "./x3/Hero";
 import { Problem } from "./x3/Problem";
 import { Training } from "./x3/Training";
 import { Perspectives } from "./x3/Perspectives";
+import { Modes } from "./x3/Modes";
 import { Showcase } from "./x3/Showcase";
 import { Demos } from "./x3/Demos";
 import { Proof } from "./x3/Proof";
@@ -24,7 +25,6 @@ import { Finale } from "./x3/Finale";
 import { SceneIndex } from "./x3/SceneIndex";
 import { MotionToggle } from "./x3/motion";
 
-const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 
 export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null; variant?: HeroVariant }) {
   return (
@@ -39,7 +39,7 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
           <div className="x3-wrap x3-head-in">
             <Link href="/conoce" aria-label="REPI, presentación"><Wordmark width={64} /></Link>
             <nav className="x3-nav" aria-label="Secciones">
-              <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
+              <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#modos">Modalidades</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
             </nav>
             <div className="x3-head-cta">
               <Link className="x3-head-link" href="/acceso">Ingresar</Link>
@@ -53,6 +53,7 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
           <Problem />
           <Training />
           <Perspectives initial={profile} />
+          <Modes />
           <Showcase />
           <Demos />
           <Proof />

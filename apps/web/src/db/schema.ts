@@ -90,9 +90,15 @@ export const organization = pgTable("organization", {
   reviewResponses: boolean("review_responses").notNull().default(true),
   // D126: REPI Connect (seguimiento de sala) se activa por gimnasio desde REPI Admin. Apagado no toca rutinas, sesiones ni cuentas.
   connectEnabled: boolean("connect_enabled").notNull().default(false),
+  // REPI Control (D213): «open» = funcionamiento de siempre; «supervised» = sólo el personal con program.edit programa y, en el
+  // contexto de este gimnasio, el socio no crea, importa, edita ni ejecuta rutinas propias ni pide rutinas generadas por IA.
+  // La enciende REPI Admin, gimnasio por gimnasio; apagada no toca rutinas, sesiones ni historial.
+  routinePolicy: text("routine_policy", { enum: ["open", "supervised"] }).notNull().default("open"),
+  // D213: pantalla de consulta de rutinas (kiosco). REPI Admin la habilita; el gimnasio registra y revoca cada pantalla.
+  kioskEnabled: boolean("kiosk_enabled").notNull().default(false),
   createdBy: text("created_by").references(() => user.id),
   createdAt: now("created_at"),
-});
+}, (t) => [check("organization_routine_policy_valid", sql`${t.routinePolicy} in ('open', 'supervised')`)]);
 
 export const gymLocation = pgTable("gym_location", {
   id: id(),
@@ -152,6 +158,9 @@ export const staffMembership = pgTable("staff_membership", {
   status: text("status", { enum: ["active", "revoked"] }).notNull().default("active"),
   afterHoursAccess: boolean("after_hours_access").notNull().default(false), // D08: trabajo autorizado fuera de turno
   createdAt: now("created_at"),
+  // STF-09 (D214): quién y cuándo quitó el acceso. La fila queda (historial y atribución de tareas pasadas).
+  revokedAt: ts("revoked_at"),
+  revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
 }, (t) => [
   index("staff_membership_user_idx").on(t.userId),
   uniqueIndex("staff_membership_unique").on(t.userId, t.orgId, t.role, sql`coalesce(${t.locationId}, '')`),
@@ -780,7 +789,7 @@ export const exerciseMedia = pgTable("exercise_media", {
 export const demoSandbox = pgTable("demo_sandbox", {
   id: id(),
   tag: text("tag").notNull().unique(),
-  role: text("role", { enum: ["owner", "floor", "member", "coach"] }).notNull(),
+  role: text("role", { enum: ["owner", "floor", "member", "coach", "control"] }).notNull(),
   userIds: jsonb("user_ids").notNull().default(sql`'[]'::jsonb`),
   orgIds: jsonb("org_ids").notNull().default(sql`'[]'::jsonb`),
   createdAt: now("created_at"),
@@ -1426,6 +1435,8 @@ export const commercialLead = pgTable("commercial_lead", {
   interest: text("interest"),
   // D209: código del vendedor si llegó por su enlace personal (/conoce?ref=V-XXXXXX). Indica origen, no atribuye una venta.
   referralCode: text("referral_code"),
+  // D215: modalidad que le interesa al gimnasio («completo», «control» o «undecided»). Texto libre en la base, como `interest`.
+  productMode: text("product_mode"),
   createdAt: now("created_at"),
 });
 
@@ -1640,6 +1651,56 @@ export const gymAccessPolicy = pgTable("gym_access_policy", {
 });
 
 // Pantalla autorizada que muestra el QR de ingreso de una sede (tablet de recepción). Sólo se guarda el hash del secreto.
+// ── REPI Control: pantalla de consulta de rutinas (D213) ─────────────────────
+// Una tablet o monitor del gimnasio, autorizado por el personal. El secreto del equipo (sólo su hash) no sirve para el QR de
+// ingreso ni para el ranking: es otra tabla y otro encabezado. Revocar corta la pantalla en el pedido siguiente.
+export const gymKiosk = pgTable("gym_kiosk", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  secretHash: text("secret_hash").notNull().unique(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  lastSeenAt: ts("last_seen_at"),
+  revokedAt: ts("revoked_at"),
+  revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [index("gym_kiosk_org_idx").on(t.orgId)]);
+
+// Credencial del socio para la pantalla: código de socio (6 dígitos, al azar, único vigente por gimnasio; no es DNI, teléfono ni
+// nombre) y PIN propio guardado con scrypt y una clave del servidor. Intentos fallidos con bloqueo; 10 seguidos la anulan hasta
+// que el personal emita otra. Revocar no borra nada del socio.
+export const kioskCredential = pgTable("kiosk_credential", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  gymMemberId: text("gym_member_id").notNull().references(() => gymMember.id, { onDelete: "cascade" }),
+  memberCode: text("member_code").notNull(),
+  pinHash: text("pin_hash").notNull(),
+  failedCount: integer("failed_count").notNull().default(0),
+  lockedUntil: ts("locked_until"),
+  issuedBy: text("issued_by").references(() => user.id, { onDelete: "set null" }),
+  issuedAt: now("issued_at"),
+  lastUsedAt: ts("last_used_at"),
+  revokedAt: ts("revoked_at"),
+  revokedReason: text("revoked_reason"),
+}, (t) => [
+  uniqueIndex("kiosk_credential_code_unique").on(t.orgId, t.memberCode).where(sql`revoked_at is null`),
+  uniqueIndex("kiosk_credential_member_unique").on(t.gymMemberId).where(sql`revoked_at is null`),
+  check("kiosk_credential_code_format", sql`${t.memberCode} ~ '^[0-9]{6}$'`),
+]);
+
+// Consulta en curso en una pantalla: una persona por vez, vida corta. El token vive sólo en la memoria de la pantalla.
+export const kioskSession = pgTable("kiosk_session", {
+  id: id(),
+  kioskId: text("kiosk_id").notNull().references(() => gymKiosk.id, { onDelete: "cascade" }),
+  credentialId: text("credential_id").notNull().references(() => kioskCredential.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: now("created_at"),
+  expiresAt: ts("expires_at").notNull(),
+  endedAt: ts("ended_at"),
+  endReason: text("end_reason"),
+}, (t) => [index("kiosk_session_kiosk_idx").on(t.kioskId)]);
+
 export const gymAccessDisplay = pgTable("gym_access_display", {
   id: id(),
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),

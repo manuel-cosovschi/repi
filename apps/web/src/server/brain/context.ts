@@ -15,6 +15,7 @@ import { AccessError } from "../access/util";
 import { myActive, readVersion } from "../training/services";
 import { listMemory } from "./memory";
 import { getPrefs } from "./prefs";
+import { relationSupervised } from "../gym/routine-policy";
 
 const { user, userPref, program, programDay, programExercise, workoutSession, setLog, sessionExerciseChange, exercise, checkin, painReport, injury,
   bodyGoal, ownRoutine } = schema;
@@ -48,6 +49,8 @@ export type ServerContext = {
   session: { id: string; versionId: string; dayId: string; status: string; startedAt: Date; coachClientId: string | null; gymMemberId: string | null; programKind: string | null; exercises: SessionExercise[] } | null;
   /** Dueño de lo que se modificaría HOY: el programa de la sesión abierta (una rutina propia es «own») o el vigente. */
   execOwner: "coach" | "gym" | "own" | null;
+  /** REPI Control (D213): la relación activa es un gimnasio que supervisa la planificación. */
+  supervised: boolean;
   /** Ejercicios que la persona puede nombrar (sesión, programa, historial reciente), en ese orden, sin repetir. */
   exercises: ExerciseRef[];
   meta: Map<string, ExMeta>;
@@ -295,7 +298,7 @@ export async function loadContext(userId: string, opts: { section?: Section; ref
   ctx.version = contextVersion(ctx);
 
   return {
-    ctx, userId, now, prefs, relation, program: programCtx, execOwner,
+    ctx, userId, now, prefs, relation, program: programCtx, execOwner, supervised: await relationSupervised(relation),
     session: sess ? { id: sess.id, versionId: open!.versionId, dayId: open!.dayId, status: open!.status, startedAt: open!.startedAt, coachClientId: open!.coachClientId, gymMemberId: open!.gymMemberId, programKind: sess.programKind, exercises: sx } : null,
     exercises, meta,
     confirmFirst: memory.some((m) => m.kind === "preference" && m.key === "confirm_before_change" && m.value !== false),

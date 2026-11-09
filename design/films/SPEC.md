@@ -46,6 +46,19 @@ QA:      snapshot de cada beat; tira de cortes; lectura a 360 px; audio medido (
 | `progreso` | `f-progreso` | 22,5 s | Clash Defiant | 150,0 → 172,5 s |
 | `altas` | `f-altas` | 23,5 s | Five Armies | 120,0 → 143,5 s |
 | `sala` | `f-sala` | 23,5 s | Clash Defiant | 0,0 → 23,5 s |
+| `modo-completo` / `modo-completo-vertical` | `modo-completo` / `-vertical` (1080×1920) | 56,0 s | Volatile Reaction | 64,0 → 120,0 s |
+| `modo-control` / `modo-control-vertical` | `modo-control` / `-vertical` (1080×1920) | 59,5 s | Clash Defiant | 203,0 → 262,5 s |
+
+**Modos (D213).** `modo-completo` cuenta el circuito completo (el coach diseña y asigna, el socio recibe, registra y recibe la
+recomendación, su progreso, el coach ve su evolución y el gimnasio sigue su sala). `modo-control` cuenta REPI Control: el
+problema de la rutina en papel (objeto hoja crema), el profesor de sala que crea y asigna el programa, el socio que llega, la
+pantalla de rutinas real (`/rutinas`, tablet 1280×800) con código y PIN, «Terminar», el QR opcional (no es el de ingreso) y la
+revisión 2 con autor y motivo. Escenas nuevas del kit: `s_tablet` (la pantalla de rutinas en una tablet apaisada, con
+acercamiento de cámara opcional dentro de la pantalla y sonido de tecla en cada número), `s_arrive` (el socio entra por recepción
+y llega a la pantalla, diagrama) y `s_end(kicker=…)` (nombre del modo bajo el wordmark). En vertical, la red de la sala se
+reemplaza por un enunciado (no entra en 1080 de ancho). Grabaciones: `tools/rec-raw.mjs` (`ctl-kiosk`, `ctl-staff`, `cmp-coach`,
+`cmp-owner`, con `REPI_BASE=<demo local>`), que dejan a la vista la píldora «Demo» del producto. Capturas de `/conoce`:
+`tools/shots-control.mjs` → `apps/web/public/conoce/shots/control-*.webp`.
 
 ## Producción
 

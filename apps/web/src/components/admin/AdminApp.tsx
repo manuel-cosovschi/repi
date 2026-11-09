@@ -10,6 +10,7 @@ import { Fragment, startTransition, useCallback, useEffect, useRef, useState } f
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
+import { PRODUCT_MODE_LABEL } from "@/content/conoce";
 import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -28,13 +29,13 @@ type Client = {
   orgId: string; name: string; kind: "gym" | "coach"; demo: boolean; commercialStatus: string; contractId: string | null; stage: string | null; stageLabel: string;
   agreed: number | null; unitPrice: string | null; enabledAccesses: number; overAgreed: boolean;
 };
-type Lead = { id: string; kind: "gym" | "coach" | "partner"; orgName: string; contactName: string; email: string | null; phone: string | null; message: string | null; status: string; createdAt: string; source?: string | null; campaign?: string | null; referralCode?: string | null };
+type Lead = { id: string; kind: "gym" | "coach" | "partner"; orgName: string; contactName: string; email: string | null; phone: string | null; message: string | null; status: string; createdAt: string; source?: string | null; campaign?: string | null; referralCode?: string | null; productMode?: string | null };
 type Clients = { clients: Client[]; demo: Client[]; leads: Lead[] };
 type Term = { id: string; kind: "quantity" | "unit_price"; version: number; value: number; currency: string | null; effectiveFrom: string; reason: string; evidence: string | null; author: string; display: string; createdAt: string };
 type Detail = {
   contract: { id: string; orgId: string; kind: "gym" | "coach"; legalName: string | null; responsibleName: string; responsibleEmail: string; currency: Currency; scope: string; scopeNote: string | null; quantityDefinition: string | null;
     status: "draft" | "accepted" | "enabled" | "suspended" | "ended"; termsVersion: string | null; acceptedRef: string | null; acceptedAt: string | null; enabledAt: string | null; trialUntil: string | null };
-  org: { name: string; commercialStatus: string; connectEnabled?: boolean }; accessControl?: { enabled: boolean; mode: string | null }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
+  org: { name: string; commercialStatus: string; connectEnabled?: boolean; routinePolicy?: "open" | "supervised"; kioskEnabled?: boolean }; accessControl?: { enabled: boolean; mode: string | null }; enabledAccesses: number; overAgreed: boolean; quantityAgeDays: number | null; terms: Term[];
   preview: { ok: boolean; reason?: string; subtotalTxt?: string; note?: string | null; period: { start: string; end: string }; changes: { kind: string; version: number; effectiveFrom: string }[];
     lines?: { concept: string; quantity: number; unitMinor: number; totalMinor: number }[]; currency?: Currency };
   invitations: { id: string; email: string | null; status: string; delivery: "pending" | "submitted" | "local_only" | "failed" | null; expiresAt: string; createdAt: string }[];
@@ -183,6 +184,7 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
             {l.message && <small>{l.message}</small>}
             {l.referralCode && <small>Llegó con el enlace del vendedor {l.referralCode} (origen, no venta atribuida)</small>}
           </span>
+          {l.kind === "gym" && l.productMode && PRODUCT_MODE_LABEL[l.productMode] && <span className="chip">{l.productMode === "undecided" ? "Modalidad: todavía no sabe" : `Interés: ${PRODUCT_MODE_LABEL[l.productMode]}`}</span>}
           <span className={`chip ${l.status === "new" ? "warn" : l.status === "converted" ? "ok" : "mute"}`}>{{ new: "Nuevo", contacted: "Contactado", converted: "Convertido", discarded: "Descartado" }[l.status] ?? l.status}</span>
           {l.status === "new" && <button type="button" className="btn sm" onClick={() => set(l.id, "contacted")}>Marcar contactado</button>}
           {l.kind !== "partner" && l.status !== "converted" && l.status !== "discarded" && <button type="button" className="btn sm" onClick={() => { void set(l.id, "converted"); onCreate(); }}>Dar de alta</button>}
@@ -648,6 +650,31 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
               {v.org.connectEnabled ? "Desactivar" : "Activar piloto"}</button>
           </div>
           <small className="muted">Activa «Pedir ayuda» con motivos y «Mis pedidos» en la app de los socios, la bandeja «Sala» del equipo y «Seguimiento de sala» para el dueño. Desactivarlo no borra pedidos ni toca rutinas, sesiones o cuentas: vuelve la cola de asistencia de siempre.</small>
+        </section>
+      )}
+
+      {c.kind === "gym" && (
+        <section className="card" aria-label="REPI Control">
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>REPI Control · planificación supervisada</h2>
+            <span className={`chip ${v.org.routinePolicy === "supervised" ? "ok" : "mute"}`}>{v.org.routinePolicy === "supervised" ? "Supervisado" : "Normal"}</span>
+            <button type="button" className="btn" style={{ marginLeft: "auto" }} aria-busy={busy === "control" || undefined}
+              onClick={() => {
+                const sup = v.org.routinePolicy !== "supervised";
+                if (sup && !confirm(`¿Pasar «${v.org.name}» a planificación supervisada? Sus socios dejan de crear, importar y entrenar rutinas propias, y de pedir rutinas o ajustes a la IA dentro de este gimnasio. No se borra nada.`)) return;
+                act("control", `${base}/control`, { routinePolicy: sup ? "supervised" : "open" }, sup ? "Planificación supervisada activada." : "Volvió al modo normal. Las rutinas propias guardadas vuelven a estar disponibles.");
+              }}>
+              {v.org.routinePolicy === "supervised" ? "Volver a normal" : "Activar supervisado"}</button>
+          </div>
+          <small className="muted">Sólo el personal con permiso de programas (coordinación y sala) crea, modifica y asigna rutinas. El socio registra lo que hizo sobre su programa, sin cambiar lo prescrito. Vale sólo dentro de este gimnasio: si la persona también entrena con un coach personal, ahí conserva sus rutinas.</small>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
+            <strong>Pantalla de consulta de rutinas</strong>
+            <span className={`chip ${v.org.kioskEnabled ? "ok" : "mute"}`}>{v.org.kioskEnabled ? "Habilitada" : "Deshabilitada"}</span>
+            <button type="button" className="btn" style={{ marginLeft: "auto" }} aria-busy={busy === "control" || undefined}
+              onClick={() => act("control", `${base}/control`, { kioskEnabled: !v.org.kioskEnabled }, v.org.kioskEnabled ? "Pantalla de consulta deshabilitada. Las consultas abiertas se cerraron." : "Pantalla de consulta habilitada. El gimnasio registra cada pantalla y emite los códigos.")}>
+              {v.org.kioskEnabled ? "Deshabilitar" : "Habilitar"}</button>
+          </div>
+          <small className="muted">El gimnasio registra y revoca cada tablet o monitor en «Pantalla de rutinas» y entrega a cada socio un código y un PIN. La tablet la pone el gimnasio.</small>
         </section>
       )}
 

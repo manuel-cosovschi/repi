@@ -97,6 +97,28 @@ describe("demo guiada", () => {
     for (const k of Object.values(keys)) expect(await probeObject(k), k).toBeNull();
   });
 
+  it("REPI Control (D213): demo aislada con gimnasio supervisado, pantalla autorizada, tres socios y limpieza completa", async () => {
+    const d = await startDemo("control");
+    expect(d.href).toMatch(/^\/rutinas#k=[A-Za-z0-9_-]{40,}&d=/);
+    const [box] = await db.select().from(schema.demoSandbox).where(eq(schema.demoSandbox.tag, d.tag));
+    const [org] = await db.select().from(schema.organization).where(inArray(schema.organization.id, box.orgIds as string[]));
+    expect(org).toMatchObject({ name: "Gimnasio Atlas", isDemo: true, routinePolicy: "supervised", kioskEnabled: true });
+    const staff = await db.select().from(schema.staffMembership).where(eq(schema.staffMembership.orgId, org.id));
+    expect(staff.map((s) => s.role).sort()).toEqual(["coordinator", "floor_trainer", "owner"]);
+    const creds = await db.select().from(schema.kioskCredential).where(eq(schema.kioskCredential.orgId, org.id));
+    expect(creds).toHaveLength(3);
+    const people = JSON.parse(decodeURIComponent(Buffer.from(decodeURIComponent(d.href.split("&d=")[1]), "base64").toString())) as { code: string; pin: string }[];
+    expect(people.map((p) => p.code).sort()).toEqual(creds.map((c) => c.memberCode).sort());
+    const assigned = await db.select().from(schema.programAssignment).innerJoin(schema.gymMember, eq(schema.gymMember.id, schema.programAssignment.gymMemberId)).where(eq(schema.gymMember.orgId, org.id));
+    expect(assigned).toHaveLength(2); // Ana y Martín; Sofía sin programa
+    expect(await db.select().from(schema.gymKiosk).where(eq(schema.gymKiosk.orgId, org.id))).toHaveLength(1);
+    await db.update(schema.demoSandbox).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.demoSandbox.id, box.id));
+    expect(await purgeSandboxes()).toBeGreaterThanOrEqual(1);
+    expect(await db.select().from(schema.organization).where(eq(schema.organization.id, org.id))).toHaveLength(0);
+    expect(await db.select().from(schema.kioskCredential).where(eq(schema.kioskCredential.orgId, org.id))).toHaveLength(0);
+    expect(await db.select().from(schema.gymKiosk).where(eq(schema.gymKiosk.orgId, org.id))).toHaveLength(0);
+  });
+
   it("D197: las sedes de una demo no aparecen en la búsqueda pública de gimnasios", async () => {
     const d = await startDemo("owner");
     const [o] = await db.select().from(schema.organization).where(and(eq(schema.organization.isDemo, true), eq(schema.organization.kind, "gym"))).limit(1);

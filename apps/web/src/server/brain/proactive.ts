@@ -28,6 +28,7 @@ import { historyRows, outlookFor } from "../training/intelligence";
 import { exerciseProfiles, rowProfile } from "../training/library";
 import { assistantOn, getPrefs } from "./prefs";
 import { activeInterventions, arDayStart, cancelObsoleteInterventions, upsertIntervention, type InterventionView } from "./store";
+import { relationSupervised } from "../gym/routine-policy";
 
 const { user, userPref, workoutSession, setLog, exercise, program, programVersion, programExercise, ownRoutine, checkin, brainIntervention, notificationOutbox } = schema;
 const DAY = 86_400_000;
@@ -162,6 +163,8 @@ async function programSignal(userId: string, now: Date) {
 
 /** Rutinas importadas hace poco y sin tocar, con indicaciones que el documento no traía (procedencia de Smart Import). */
 async function importSignals(userId: string, now: Date) {
+  // REPI Control (D213): en un gimnasio supervisado las rutinas propias no se usan; no se invita a completarlas.
+  if (await relationSupervised(await myActive(userId))) return [];
   const rows = await db.select({ id: ownRoutine.id, name: ownRoutine.name, origin: ownRoutine.origin, createdAt: ownRoutine.createdAt, updatedAt: ownRoutine.updatedAt }).from(ownRoutine)
     .where(and(eq(ownRoutine.userId, userId), isNotNull(ownRoutine.origin), gte(ownRoutine.createdAt, new Date(now.getTime() - IMPORT_FRESH_DAYS * DAY))))
     .orderBy(desc(ownRoutine.createdAt)).limit(3);

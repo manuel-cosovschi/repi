@@ -578,6 +578,15 @@
 .wish-goals { display: flex; flex-wrap: wrap; gap: 6px; }
 .wish-goals .ai-chip[aria-checked="true"] { background: var(--ui-primary); border-color: var(--ui-accent); color: var(--ui-on-primary); }
 .wish-row { display: flex; gap: 10px; }
+/* REPI Control (D213): código de la pantalla de rutinas del gimnasio y cambio de PIN (Perfil). */
+.kiosk-me-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; border: 1px solid var(--ui-divider); background: var(--ui-surface-2); }
+.kiosk-me-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.kiosk-me-top > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kiosk-me-top small { font-size: 12px; }
+.kiosk-me-code { font: 600 26px/1.1 var(--font-mono); letter-spacing: .06em; color: var(--ui-text); }
+.kiosk-me-form { display: flex; flex-direction: column; gap: 10px; }
+.kiosk-me-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.sv-note .ghost.sm { align-self: flex-start; }
 /* D144: ranking por ejercicio en vivo */
 .lift-ex { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .lift-ex .ai-chip { flex: none; }

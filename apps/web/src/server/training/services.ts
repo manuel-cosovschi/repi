@@ -17,6 +17,7 @@ import { createOwnExercise, ensureExerciseCatalog, exerciseProfiles, libraryCols
 import { todaysPick } from "../gym/floor-now";
 import { importedLastSets } from "./history-import";
 import { aiOn } from "../ai/openai";
+import { assertMemberAuthoring, relationSupervised } from "../gym/routine-policy";
 
 const { user, organization, staffMembership, coachClient, consentGrant, invitation, exercise, program, programVersion,
   programDay, programExercise, programAssignment, workoutSession, setLog, setSkip, syncConflict, gymMember, gymLocation, userPref, sessionExerciseChange, exerciseSubstitution, studentRequest,
@@ -710,6 +711,9 @@ export async function myTraining(userId: string, now = new Date()) {
     // D184: si la sugerencia de REPI está configurada en este servidor. Sin ella el teléfono no la pide por adelantado (antes
     // cada apertura de Entrenar terminaba en un 503 esperado) y «No vino el profe» usa las reglas, como siempre.
     ai: aiOn(),
+    // REPI Control (D213): el gimnasio de la relación activa planifica todo. La app oculta rutinas propias, importación y las
+    // rutinas o ajustes de REPI; el servidor igual los rechaza.
+    supervised: await relationSupervised(act),
   };
   const open = await db.select().from(workoutSession).where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"])));
   const completed = await db.select({ endedAt: workoutSession.endedAt, dayId: workoutSession.dayId, id: workoutSession.id }).from(workoutSession)
@@ -891,6 +895,8 @@ export async function startSoloRoutine(userId: string, p: { id: string; dayName:
   if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de sesión inválido.");
   const act = await myActive(userId);
   if (!act) throw new AccessError("no_relation", "Para entrenar con REPI necesitás estar con un coach o un gimnasio.", 409);
+  // REPI Control (D213): en un gimnasio supervisado no se entrena una rutina que no sea la asignada (propia o armada por REPI).
+  await assertMemberAuthoring(userId, act, "own_routine_start");
   if (!p.exercises.length || p.exercises.length > 12) throw new AccessError("invalid", "La rutina tiene que tener entre 1 y 12 ejercicios.");
   // D184: el mismo detalle (técnica, etapas conectadas, superserie o circuito) y el mismo validador que el programa del coach.
   const details = p.exercises.map((e) => {

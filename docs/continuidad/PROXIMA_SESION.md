@@ -1,6 +1,53 @@
 # REPI — Retomar acá
 
-Actualizado: 09/11/2026 (**auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 09/11/2026 (**REPI Control 1.0 y /conoce con dos modalidades: rama `claude/repi-control`, migración 0053**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+## REPI Control 1.0 + /conoce con dos modalidades — 09/11/2026 · rama `claude/repi-control` (D213–D215, migración 0053)
+
+- **Máster:** «REPI Controlled Gym Mode & Kiosk 1.0» y su ampliación «REPI Control + REPI Completo en /conoce». Documentación:
+  `docs/repi-control/` (README, ACTIVACION, SEGURIDAD, ARQUITECTURA, LIMITACIONES_Y_COSTOS).
+- **Modalidad supervisada por gimnasio:** `organization.routine_policy` («open»/«supervised») y `kiosk_enabled`, que encienden
+  sólo REPI Admin (Clientes › REPI Control). Las dos quedan **apagadas para todas las organizaciones reales**.
+  - **Bloqueos en el servidor (403 `supervised`, auditados):** en el contexto del gimnasio supervisado, rutinas propias (crear,
+    duplicar, importar, entrenar), ejercicios propios, rutinas y ajustes de IA («No vino el profe», «por mi cuenta») y las
+    acciones del cerebro que cambian lo prescrito.
+  - **Lo que sigue permitido:** el socio registra su programa asignado y, con un coach personal, conserva sus rutinas.
+  - **App:** las oculta y muestra «Tu gimnasio planifica tus rutinas».
+- **Pantalla de rutinas `/rutinas` (kiosco):**
+  - El gimnasio registra y revoca cada pantalla. El secreto propio sólo se guarda como hash.
+  - Credencial: código de 6 dígitos al azar + PIN propio (scrypt con clave del servidor). Con 5 fallos se pausa 15 min y con 10
+    se anula hasta que recepción emita otro. La pantalla se pausa ante muchos fallos.
+  - Consulta de una persona por vez, de 5 min como máximo, que se cierra a los 60 s sin uso. Respuestas no-store; sin datos privados.
+  - QR opcional de la app, distinto del QR de ingreso.
+  - Recepción emite y revoca códigos desde la ficha del socio, desde Recepción o desde «Pantalla de rutinas». El socio ve su
+    código y elige su PIN en Perfil.
+- **STF-09 resuelto (D214):** en Equipo › Gestionar acceso, el dueño y la gerencia quitan a alguien del equipo o le cambian
+  rol o sede. El servidor lo aplica en el pedido siguiente, las tareas vuelven a la cola y queda en `staff.revoked` o
+  `staff.role_changed`.
+- **Demo «control»:** Gimnasio Atlas ficticio (`/api/demo {role:"control"}` → `/rutinas`, con los códigos y PIN ficticios en
+  pantalla). Está en /conoce#modos y en /demo.
+- **/conoce (D215):**
+  - Escena «Un mismo REPI. Dos formas de entrenar.» con selector, «Qué cambia y qué no», films `modo-completo` y
+    `modo-control` (16:9 y 9:16; Kevin MacLeod, CC BY 4.0) y capturas reales.
+  - Deep links `?modo=` y `#modos`.
+  - Formulario con modalidad (`commercial_lead.product_mode`, visible en REPI Admin) y WhatsApp con la modalidad.
+  - **Sin precios.**
+- **Dossier:** `marketing/dossier/repi-control/` (HTML editable → PDF de 2 páginas). Precio en el bloque «DATOS EDITABLES»:
+  escenario ilustrativo, no contractual.
+- **Migración 0053 (aditiva):** `hosted-0053.sql`, `verify-0053.sh` (ensayada: huella intacta, todas «open», reintento falla,
+  reversión negada con uso real) y `rollback/0053`.
+- **Pruebas:**
+  - `tests/repi-control.test.ts` 22 ✓ y `sandbox.test.ts` (demo control).
+  - `experience-hub.test.ts` 13 ✓.
+  - Regresión web 812/814: las 2 fallas eran por `STORAGE_DIR` local; sin esa variable pasan.
+  - Dominio 1068 ✓, guardas 26 ✓, typecheck y build ✓.
+  - E2E completa en build integrada (`repi_e2e_int2`): 327 ✓, 0 ✗, 49 omitidas. Después, /conoce con films: 62 ✓.
+- **Para el titular:**
+  - Revisar la frase «por socio activo» del dossier (CLAUDE.md: tarifa por cliente y total acordado).
+  - Probar la pantalla en la tablet real del primer gimnasio.
+  - Autorizar gimnasio por gimnasio antes de activar.
+  - El profesor de los films y la captura del equipo vienen de la demo «floor» (Gym Norte).
+- **Próxima acción:** PR → CI → respaldo → 0053 en producción → merge → verificación con demos.
 
 ## Auditoría integral FSA1 (REPI Full System Audit 1.0) — 09/11/2026 · PUBLICADO Y VERIFICADO (#88, `210bf9e`, sin migraciones)
 

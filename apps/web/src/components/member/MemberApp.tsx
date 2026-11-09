@@ -10,7 +10,7 @@ import { keepSame } from "@/lib/cache";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, putServerCopy, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
-import { ApiError } from "@/lib/api";
+import { ApiError, SUPERVISED_EVENT } from "@/lib/api";
 import { Wordmark } from "@/components/access/Wordmark";
 import { prefersReducedMotion } from "@/lib/motion";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
@@ -43,6 +43,7 @@ import { ThemePicker } from "@/components/theme/ThemePicker";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
+import { KioskAccess, SupervisedNote } from "./KioskAccess";
 import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
 import { SectionStage } from "@/components/motion/SectionStage";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
@@ -199,6 +200,13 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       (reg.active ?? navigator.serviceWorker.controller)?.postMessage({ type: "cache", urls });
     }).catch(() => {});
   }, []);
+  // REPI Control (D213): si el servidor rechaza algo porque el gimnasio pasó a planificar todo (pantalla vieja), se relee el
+  // entrenamiento para que Inicio y Entrenar dejen de ofrecerlo. El mensaje lo muestra quien hizo el pedido.
+  useEffect(() => {
+    const on = () => { void load(); };
+    window.addEventListener(SUPERVISED_EVENT, on);
+    return () => window.removeEventListener(SUPERVISED_EVENT, on);
+  }, [load]);
   // Cambio de sección (G · Atlética): la barra queda fija, el contenido entra con un fundido de 160 ms (CSS .tab-pane)
   // y cada sección recupera su scroll. Lo no sincronizado vive en IndexedDB y no depende de la pestaña montada.
   const scrolls = useRef<Record<string, number>>({});
@@ -386,7 +394,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
             {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
-              own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
+              own={t.relation ? (t.supervised ? <SupervisedNote offline={!!offlineAt} onAsk={() => setSheet({ type: "help", kind: "rutina", to: "gym" })} /> : <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} />) : null} /></>}
             {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
             {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
             {k === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
@@ -404,7 +412,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
-      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onStartRoutine={(r) => void startRoutine(r)} onContinue={() => openId && setWorkout(openId)}
+      {solo && !t?.supervised && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onStartRoutine={(r) => void startRoutine(r)} onContinue={() => openId && setWorkout(openId)}
         onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
       {sheet?.type === "help" && (inbox?.gym?.connect && (sheet.to ?? (t?.relation?.kind === "gym" || !inbox.coach ? "gym" : "coach")) === "gym"
         ? <ConnectHelpSheet place={inbox.gym.place} coachName={inbox.coach?.name ?? null} onCoach={() => setSheet({ type: "help", kind: sheet.kind, to: "coach" })} flash={flash}
@@ -579,11 +587,13 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         <div className="dashed-card"><strong>Tu programa empieza el {formatDayEs(t.startsOn!)}</strong><span>{cap(coachFirst)} ya te lo asignó. Ese día lo vas a ver acá.</span></div>
       ) : (
         // D162: con rutinas propias, Inicio muestra la que toca hoy; sin ellas, la tarjeta para pedir programa o cargar la propia.
-        <NextOwnRoutine offline={offline} busyOpen={!!t.openSession} onStart={onOwn} fallback={
+        // REPI Control (D213): en un gimnasio supervisado no hay rutinas propias: sólo pedir el programa al equipo.
+        <NextOwnRoutine offline={offline} busyOpen={!!t.openSession} onStart={onOwn} skip={!!t.supervised} fallback={
         <div className="dashed-card"><strong>Todavía no tenés programa</strong>
           <span>{t.relation ? (pendingProgram ? `Ya se lo pediste ${gymRel ? "al equipo de sala" : `a ${coachFirst}`}. Te avisamos cuando lo asigne.` : `${cap(coachFirst)} todavía no te asignó un programa. Podés pedírselo.`) : "Todavía no tenés coach ni gym en REPI."}</span>
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
-          {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
+          {t.relation && !t.supervised && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
+          {t.supervised && <span>Tu gimnasio planifica tus rutinas. Si necesitás un cambio, pedíselo al equipo de sala.</span>}
         </div>} />
       )}
       {/* D210: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
@@ -677,7 +687,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
         <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />Continuar entrenamiento en curso</button>
       )}
       {own}
-      {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
+      {t.relation && !t.supervised && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
       <div className="restday"><span style={{ fontSize: 22, fontWeight: 600 }}>{t.state === "scheduled" ? `Empieza el ${formatDayEs(t.startsOn!)}` : "Sin programa asignado"}</span><span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>Cuando {coachFirst} te asigne un programa, sus días aparecen acá.</span></div>
     </>
   );
@@ -685,7 +695,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
-      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
+      {!t.supervised && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (
@@ -843,7 +853,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
           </section>
           {!offline && <LevelPanel />}
           <MyGoals />
-          <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} />
+          <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} supervised={!!t.supervised} />
           <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
         </>
       )}
@@ -966,6 +976,8 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       <Wishes offline={offline} flash={flash} />
       {/* D210: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
       <RepiPrefs offline={offline} flash={flash} />
+      {/* REPI Control (D213): código para consultar la rutina en la pantalla del gimnasio y cambio de PIN. */}
+      <KioskAccess offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>

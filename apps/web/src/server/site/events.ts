@@ -47,7 +47,7 @@ export async function purgeSiteEvents(now = new Date()) {
   return r.length;
 }
 
-const FUNNEL: SiteEventName[] = ["landing_view", "profile_select", "video_play", "demo_click", "demo_start", "intel_try", "whatsapp_click", "email_click", "contact_click", "form_submit", "meeting_request"];
+const FUNNEL: SiteEventName[] = ["landing_view", "profile_select", "mode_select", "video_play", "demo_click", "demo_start", "intel_try", "whatsapp_click", "email_click", "contact_click", "form_submit", "meeting_request"];
 
 /**
  * Resumen para REPI Admin (sólo Admin con 2FA). Últimos `days` días: visitas únicas, escaneos del QR por campaña, el embudo
@@ -69,8 +69,8 @@ export async function siteSummary(actorId: string, days = 30) {
       .from(siteEvent).where(and(w, sql`${siteEvent.name} = 'landing_view'`)).groupBy(siteEvent.utmSource, siteEvent.utmMedium, siteEvent.utmCampaign).orderBy(desc(sql`4`)).limit(20),
     db.select({ day: sql<string>`to_char(${siteEvent.at} at time zone 'America/Argentina/Buenos_Aires', 'YYYY-MM-DD')`, qr: fromQr, n: sql<number>`count(distinct ${siteEvent.visit})::int` })
       .from(siteEvent).where(and(w, sql`${siteEvent.name} = 'landing_view'`)).groupBy(sql`1`, fromQr).orderBy(sql`1`),
-    db.select({ source: commercialLead.source, campaign: commercialLead.campaign, kind: commercialLead.kind, n: sql<number>`count(*)::int` })
-      .from(commercialLead).where(gte(commercialLead.createdAt, since)).groupBy(commercialLead.source, commercialLead.campaign, commercialLead.kind),
+    db.select({ source: commercialLead.source, campaign: commercialLead.campaign, kind: commercialLead.kind, productMode: commercialLead.productMode, n: sql<number>`count(*)::int` })
+      .from(commercialLead).where(gte(commercialLead.createdAt, since)).groupBy(commercialLead.source, commercialLead.campaign, commercialLead.kind, commercialLead.productMode),
   ]);
   const funnel = FUNNEL.map((name) => {
     const rows = byEvent.filter((r) => r.name === name);

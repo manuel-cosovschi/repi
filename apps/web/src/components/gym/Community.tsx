@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { shrinkImage } from "@/lib/image";
 import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
+import { MemberKioskCard } from "./Kiosk";
 
 type Post = { id: string; type: "novedad" | "descuento"; title: string; text: string; badge: string | null; imageId: string | null; validUntil: string | null; sede: string; expired: boolean; createdAt: string };
 type Ch = { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; sede: string; record: string; holder: string | null; participants: number; pending: number; exercise: string | null };
@@ -407,6 +408,8 @@ export function DeskCard({ shell }: { shell: Shell }) {
               <button type="button" className="btn sm pri" onClick={() => run(p.id, () => api(`/api/gym/${shell.orgId}/desk/prizes/${p.id}`, { body: {} }), "Premio entregado. El socio recibe el aviso.").then(() => setCard({ ...card, prizes: card.prizes.filter((x) => x.id !== p.id) }))}>Entregar</button></div>
           ))}
           {!card.prizes.length && <span className="muted">Sin premios para retirar.</span>}
+          {/* REPI Control (D213): recepción entrega el código y el PIN de la pantalla de rutinas al verificar el carnet. */}
+          {card.active && shell.ctx.kiosk && <MemberKioskCard key={card.gymMemberId} shell={shell} memberId={card.gymMemberId} name={card.name} inline />}
         </div>
       )}
     </section>

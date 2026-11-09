@@ -8,6 +8,8 @@ const S = z.object({
   kind: z.enum(["gym", "coach", "partner"]), orgName: z.string().max(120).nullable().optional(), contactName: z.string().max(80),
   email: z.string().max(200).nullable().optional(), phone: z.string().max(40).nullable().optional(), message: z.string().max(600).nullable().optional(),
   source: z.string().max(20).nullable().optional(), campaign: z.string().max(80).nullable().optional(), interest: z.string().max(20).nullable().optional(), referralCode: z.string().max(12).nullable().optional(),
+  // D215: modalidad que le interesa a un gimnasio. Un valor desconocido no frena el contacto: se guarda sin modalidad.
+  productMode: z.enum(["completo", "control", "undecided"]).nullable().optional().catch(null),
   // Antispam (D205): campo trampa invisible y tiempo desde que se mostró el formulario. Quien lo completa o tarda menos de
   // 2 s recibe la misma respuesta, pero no se guarda nada.
   website: z.string().max(200).optional(), elapsedMs: z.number().int().min(0).max(86_400_000).optional(),

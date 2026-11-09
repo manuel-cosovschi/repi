@@ -129,7 +129,7 @@ export type ActionDetails = { level?: number | null; zone?: string | null };
 
 // ── Contextos de validación y ejecución ─────────────────────────────────────
 export const execCtx = (sc: ServerContext): ExecContext => ({
-  age: sc.ctx.person.age.value, sessionOpen: sc.ctx.session.open, programOwner: sc.execOwner, allowAuto: AUTO_ALLOWED, confirmFirst: sc.confirmFirst,
+  age: sc.ctx.person.age.value, sessionOpen: sc.ctx.session.open, programOwner: sc.execOwner, allowAuto: AUTO_ALLOWED, confirmFirst: sc.confirmFirst, supervised: sc.supervised,
 });
 
 /**

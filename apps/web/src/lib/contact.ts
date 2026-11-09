@@ -9,6 +9,9 @@ export const CONTACT = {
   whatsapp: "https://wa.me/5492235383082",
 } as const;
 
+/** Enlace a WhatsApp con el mensaje ya escrito (sitio comercial y /conoce). */
+export const waLink = (text: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(text)}`;
+
 export const SUPPORT = {
   urgentHours: 24,
   customFee: "$ 30.000",

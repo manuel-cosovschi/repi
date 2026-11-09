@@ -7,6 +7,7 @@ import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isActivityProfile, isChangeReason, localDate, prescriptionText, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
+import { assertMemberAuthoring } from "../gym/routine-policy";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
 import { dayAlternatives, lastTimeByExercise, myTraining } from "./services";
 import { myGoals } from "./goals";
@@ -54,6 +55,7 @@ Reglas:
 export async function aiSoloAdvice(userId: string, now = new Date(), follow?: AiFollowUp) {
   if (!aiOn()) throw new AccessError("ai_unavailable", "La sugerencia de REPI no está disponible en este momento.", 503);
   const t = await myTraining(userId, now);
+  if (t.relation) await assertMemberAuthoring(userId, t.relation, "ai_adjust"); // D213: el gimnasio supervisado no delega ajustes en la IA
   if (t.state !== "ready" || !t.program) throw new AccessError("no_program", "Todavía no tenés un programa asignado: pedíselo a tu coach o al equipo de sala.", 409);
   const today = localDate(now);
   // Consultas en paralelo: la respuesta tiene que llegar en pocos segundos.

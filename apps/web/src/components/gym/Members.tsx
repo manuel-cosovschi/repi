@@ -26,6 +26,7 @@ import { IntelSection } from "@/components/coach/CoachIntelligence";
 import { RepiSignals } from "@/components/coach/RepiSignals";
 import { ProposalBanner, clearTiDraft, readTiDraft, stashTiDraft, type TiDraft } from "@/components/coach/ProposalDraft";
 import { Skel } from "@/components/motion/Skeleton";
+import { MemberKioskCard } from "./Kiosk";
 
 type Row = { id: string; name: string; since: string; lastSessionAt: string | null; visits30: number; program: { name: string; revision: number } | null; status: { label: string; tone: string } };
 type Detail = {
@@ -174,6 +175,8 @@ function MemberDetail({ shell, id, loc, onChanged, page = false, name }: { shell
           {!m.community.attempts.length && <span className="muted">Sin intentos en desafíos.</span>}
         </section>
       )}
+      {/* REPI Control (D213): código y PIN para la pantalla de rutinas (dueño, gerencia y recepción, si REPI la habilitó). */}
+      {shell.ctx.kiosk && shell.ctx.caps.includes("reception.desk") && <MemberKioskCard shell={shell} memberId={m.id} name={m.name} />}
       <section className="card">
         <h2>Tareas abiertas</h2>
         {!m.tasks.length && <span className="muted" style={{ fontSize: 14 }}>Sin tareas abiertas para este socio.</span>}

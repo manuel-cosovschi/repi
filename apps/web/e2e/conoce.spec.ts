@@ -240,3 +240,161 @@ test.describe("con movimiento, en un teléfono bajo", () => {
     expect(over).toEqual([]);
   });
 });
+
+// D215 · «Un mismo REPI. Dos formas de entrenar.»: REPI Completo y REPI Control (modalidades, no perfiles).
+test.describe("modalidades: REPI Completo y REPI Control", () => {
+  const panel = (page: Page, id: "completo" | "control") => page.locator(`#md-panel-${id}`);
+
+  test("el selector cambia la escena con clic y con el teclado, deja la URL compartible y mide mode_select", async ({ page }, info) => {
+    const events = await collectEvents(page);
+    await page.goto("/conoce?sala=low&utm_source=prueba");
+    const completo = page.getByRole("tab", { name: /REPI Completo/ }), control = page.getByRole("tab", { name: /REPI Control/ });
+    await expect(completo).toHaveAttribute("aria-selected", "true");
+    await expect(panel(page, "completo")).toBeVisible();
+    await expect(panel(page, "completo").getByRole("heading", { level: 3 })).toHaveText(/Toda la experiencia de entrenamiento inteligente/);
+    await expect(panel(page, "control")).toBeHidden();
+    await control.click();
+    await expect(control).toHaveAttribute("aria-selected", "true");
+    await expect(panel(page, "control")).toBeVisible();
+    await expect(panel(page, "control").getByRole("heading", { level: 3 })).toHaveText(/Tu equipo planifica\. Tus socios consultan\./);
+    await expect(panel(page, "control")).toContainText("código de socio y un PIN personal");
+    await expect(panel(page, "completo")).toBeHidden();
+    await expect(page).toHaveURL(/[?&]modo=control/);
+    await expect(page).toHaveURL(/utm_source=prueba/);
+    await expect.poll(async () => (await events()).find((e) => e.name === "mode_select")).toMatchObject({ target: "modo-control", profile: "gimnasios" });
+    // Teclado: flechas, Inicio y Fin; el foco sigue a la pestaña elegida.
+    await control.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(completo).toBeFocused();
+    await expect(completo).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await expect(control).toBeFocused();
+    await expect(control).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Home");
+    await expect(completo).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowRight");
+    await expect(control).toHaveAttribute("aria-selected", "true");
+    await expectAccessible(page, info, "conoce_modos_control");
+  });
+
+  test("«Qué cambia y qué no» se ve, distingue lo que cambia de lo que es igual y no hay precios", async ({ page }) => {
+    await page.goto("/conoce?sala=low#modos");
+    const table = page.locator("#modos table");
+    await expect(table).toBeVisible();
+    for (const row of ["Quién crea las rutinas", "Quién puede modificarlas", "Cómo accede el socio", "Consulta en pantalla compartida", "Consulta en la app", "Registro de entrenamientos", "Seguimiento del progreso", "Herramientas para profesores", "IA asistiendo al profesor", "Herramientas de gestión", "Permisos institucionales"]) {
+      await expect(table.getByRole("rowheader", { name: row })).toHaveCount(1);
+    }
+    await expect(table).toContainText("Cambia según la política del gimnasio");
+    await expect(table).toContainText("En las dos modalidades");
+    await expect(table).toContainText("no cambia lo prescrito");
+    const text = (await page.locator("#modos").textContent()) ?? "";
+    expect(text).not.toMatch(/\$\s?\d|ARS|USD|por mes|mensual|más barat|más car/i);
+    await expect(page.locator("#modos")).toContainText("Pedí una propuesta personalizada");
+    // Cada modalidad abre su film (16:9; en un teléfono vertical, la versión 9:16) y los archivos existen.
+    for (const id of ["completo", "control"] as const) {
+      await page.getByRole("tab", { name: new RegExp(`REPI ${id === "completo" ? "Completo" : "Control"}`) }).click();
+      await panel(page, id).getByRole("button", { name: /Ver el video/ }).click();
+      const video = page.locator("dialog.x3-film video source");
+      await expect(video).toHaveAttribute("src", new RegExp(`/conoce/videos/modo-${id}(-vertical)?\\.mp4$`));
+      for (const f of [`modo-${id}.mp4`, `modo-${id}.webp`, `modo-${id}.descripcion.vtt`, `modo-${id}-vertical.mp4`, `modo-${id}-vertical.webp`])
+        expect((await page.request.head(`/conoce/videos/${f}`)).status(), f).toBe(200);
+      await page.keyboard.press("Escape");
+      await expect(page.locator("dialog.x3-film[open]")).toHaveCount(0);
+    }
+  });
+
+  test("?modo=control preselecciona la modalidad, lleva a la escena y prepara el formulario", async ({ page }) => {
+    await page.goto("/conoce/gimnasios?sala=low&modo=control");
+    await expect(page.getByRole("tab", { name: /REPI Control/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#modos h2")).toBeInViewport();
+    const form = page.getByRole("form", { name: "Solicitar una demo de REPI" });
+    await expect(form.getByRole("radio", { name: "REPI Control" })).toBeChecked();
+    // El perfil sigue preseleccionado por la ruta.
+    await expect(page.getByRole("tab", { name: /Gimnasios/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("el botón de la modalidad prepara el formulario y el envío lleva productMode", async ({ page }) => {
+    let sent: Record<string, unknown> | null = null;
+    await page.route("**/api/access/lead", async (r) => { sent = r.request().postDataJSON(); await r.fulfill({ json: { ok: true } }); });
+    await page.goto("/conoce?sala=low#modos");
+    await page.getByRole("tab", { name: /REPI Control/ }).click();
+    await panel(page, "control").getByRole("link", { name: /Quiero REPI Control/ }).click();
+    const form = page.getByRole("form", { name: "Solicitar una demo de REPI" });
+    await expect(form.getByRole("radio", { name: "REPI Control" })).toBeChecked();
+    await form.getByLabel("Tu nombre").fill("Prueba E2E Modalidad");
+    await form.getByLabel(/Nombre del gimnasio/).fill("Gimnasio de prueba");
+    await form.getByLabel("WhatsApp").fill("223 000-0000");
+    await page.waitForTimeout(2200);
+    await form.getByRole("button", { name: /Solicitar una demo/ }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Recibimos/ })).toBeVisible();
+    expect(sent).toMatchObject({ kind: "gym", productMode: "control" });
+  });
+
+  test("la modalidad sólo se pregunta a gimnasios y un coach la manda vacía", async ({ page }) => {
+    let sent: Record<string, unknown> | null = null;
+    await page.route("**/api/access/lead", async (r) => { sent = r.request().postDataJSON(); await r.fulfill({ json: { ok: true } }); });
+    await page.goto("/conoce?sala=low&modo=completo#contacto");
+    const form = page.getByRole("form", { name: "Solicitar una demo de REPI" });
+    await expect(form.getByRole("group", { name: "¿Qué modalidad te interesa?" })).toBeVisible();
+    await form.getByRole("radio", { name: "Soy entrenador" }).check();
+    await expect(form.getByRole("group", { name: "¿Qué modalidad te interesa?" })).toHaveCount(0);
+    await form.getByLabel("Tu nombre").fill("Coach E2E");
+    await form.getByLabel("Nombre comercial o tu marca").fill("Marca E2E");
+    await form.getByLabel("Email").fill("coach-e2e@test.repi.local");
+    await page.waitForTimeout(2200);
+    await form.getByRole("button", { name: /Solicitar una demo/ }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Recibimos/ })).toBeVisible();
+    expect(sent).toMatchObject({ kind: "coach", productMode: null });
+  });
+
+  test("WhatsApp de cada modalidad nombra la modalidad", async ({ page }) => {
+    await page.goto("/conoce?sala=low");
+    for (const [id, name] of [["completo", "REPI Completo"], ["control", "REPI Control"]] as const) {
+      const href = await panel(page, id).getByRole("link", { name: /Consultar por WhatsApp/, includeHidden: true }).getAttribute("href");
+      expect(new URL(href!).searchParams.get("text")).toBe(`Hola, quiero conocer ${name} para mi gimnasio.`);
+    }
+  });
+
+  test("con movimiento reducido el cambio es instantáneo y la pantalla queda en su paso final", async ({ page }) => {
+    await page.goto("/conoce?sala=low#modos");
+    await page.getByRole("tab", { name: /REPI Control/ }).click();
+    const h3 = panel(page, "control").getByRole("heading", { level: 3 });
+    expect(await h3.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    await expect(panel(page, "control").getByRole("button", { name: /Su rutina/ })).toHaveAttribute("aria-pressed", "true");
+    expect(await panel(page, "control").evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length)).toBe(0);
+    // Las pantallas se recorren a mano.
+    await panel(page, "control").getByRole("button", { name: /Código y PIN/ }).click();
+    await expect(panel(page, "control").locator(".x3-md-glass img[data-on]")).toHaveAttribute("src", "/conoce/shots/control-identificar.webp");
+  });
+
+  test("la demo de REPI Control (pantalla de consulta) arranca desde la escena", async ({ page }) => {
+    await page.goto("/conoce?sala=low&modo=control");
+    await panel(page, "control").getByRole("button", { name: "Probar la pantalla de consulta" }).click();
+    await page.waitForURL((u) => !u.pathname.startsWith("/conoce"), { timeout: 20_000 });
+  });
+});
+
+test.describe("modalidades con movimiento", () => {
+  test.use({ reducedMotion: "no-preference" });
+  test("al elegir Control, la pantalla recorre bienvenida → código → rutina una sola vez", async ({ page }) => {
+    await page.goto("/conoce?sala=low#modos");
+    await page.getByRole("tab", { name: /REPI Control/ }).click();
+    const p = page.locator("#md-panel-control");
+    await expect(p.getByRole("button", { name: /Bienvenida/ })).toHaveAttribute("aria-pressed", "true", { timeout: 1000 });
+    await expect(p.getByRole("button", { name: /Código y PIN/ })).toHaveAttribute("aria-pressed", "true", { timeout: 2500 });
+    await expect(p.getByRole("button", { name: /Su rutina/ })).toHaveAttribute("aria-pressed", "true", { timeout: 2500 });
+    await page.waitForTimeout(1500);
+    await expect(p.getByRole("button", { name: /Su rutina/ })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+test.describe("modalidades en un teléfono de 390 px", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test("ninguna de las dos modalidades genera scroll lateral", async ({ page }, info) => {
+    test.skip(info.project.name !== "mobile", "una sola vez");
+    await page.goto("/conoce?sala=low#modos");
+    await expectNoHorizontalOverflow(page, "modos completo");
+    await page.getByRole("tab", { name: /REPI Control/ }).click();
+    await expectNoHorizontalOverflow(page, "modos control");
+  });
+});

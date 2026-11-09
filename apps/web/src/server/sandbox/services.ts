@@ -14,13 +14,14 @@ import { assignProgram, createTemplate, logSet, startSession, myTraining, getSes
 import { saveMemberProgram, startShift } from "../gym/services";
 import { memberCreate, setAvailability, staffAct } from "../gym/connect";
 import { issueQrToken, policyOf, staffCheckin } from "../gym/access-control";
+import { createKiosk, issueCredential } from "../gym/kiosk";
 import { regenerateJoinLink, requestAccess } from "../join/services";
 import { createRequest } from "../followup/services";
 import { myThreads, sendMessage } from "../messages/services";
 import { createCharge, registerPayment } from "../coachpay/services";
 
-export type DemoRole = "owner" | "floor" | "member" | "coach";
-export const DEMO_ROLES: DemoRole[] = ["owner", "floor", "member", "coach"];
+export type DemoRole = "owner" | "floor" | "member" | "coach" | "control";
+export const DEMO_ROLES: DemoRole[] = ["owner", "floor", "member", "coach", "control"];
 export const SANDBOX_TTL_HOURS = 6;
 const MAX_ACTIVE = 300;
 /** Dominio reservado (.invalid, RFC 2606): nunca resuelve ni recibe correo. Uno por demo: demo-<tag>.invalid. */
@@ -44,7 +45,8 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   const active = await db.select({ id: schema.demoSandbox.id }).from(schema.demoSandbox).limit(MAX_ACTIVE + 1);
   if (active.length > MAX_ACTIVE) throw new AccessError("busy", "Hay muchas demos abiertas en este momento. Probá de nuevo en unos minutos.", 503);
   const tag = randomBytes(5).toString("hex");
-  const who = { owner: "martin.sosa", floor: "sofia.ramirez", member: "valentina.gomez", coach: "agustin.perez" }[role];
+  const who = { owner: "martin.sosa", floor: "sofia.ramirez", member: "valentina.gomez", coach: "agustin.perez", control: "laura.mendez" }[role];
+  let controlHref = "";
   const pw = randomBytes(24).toString("base64url"); // sólo para abrir la sesión ahora; nunca se muestra
   const userIds: string[] = [], orgIds: string[] = [], extraOrgs: string[] = [];
   const [box] = await db.insert(schema.demoSandbox).values({ tag, role, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000), userIds, orgIds }).returning();
@@ -69,6 +71,57 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     };
     // Ejercicios por tiempo: una actividad es un bloque de duración (en `reps`) con sus valores; sin RIR ni descanso.
     const exAct = (name: string, reps: string, activity: ActivityDetail) => ({ exerciseId: lib.get(name)!, name, sets: 1, reps, rir: null, restSec: 0, detail: { activity } as ExerciseDetail });
+
+    // ── REPI Control (D213): gimnasio ficticio con planificación supervisada y una pantalla de rutinas autorizada ──
+    if (role === "control") {
+      const laura = await person("laura.mendez", "Laura Méndez");
+      const diego = await person("diego.ruiz", "Diego Ruiz");
+      const carla = await person("carla.sosa", "Carla Sosa");
+      const ana = await person("ana.perez", "Ana Pérez");
+      const martin = await person("martin.gomez", "Martín Gómez");
+      const sofia = await person("sofia.diaz", "Sofía Díaz");
+      const [atlas] = await db.insert(schema.organization).values({ kind: "gym", name: "Gimnasio Atlas", isDemo: true, status: "active", commercialStatus: "enabled", routinePolicy: "supervised", kioskEnabled: true, createdBy: laura.id }).returning();
+      orgIds.push(atlas.id);
+      const [centro] = await db.insert(schema.gymLocation).values({ orgId: atlas.id, name: "Centro", address: "Av. Colón 1200", receptionHours: "Lun a vie 7 a 23 · sáb 9 a 14" }).returning();
+      await db.insert(schema.staffMembership).values([
+        { userId: laura.id, orgId: atlas.id, role: "owner" },
+        { userId: diego.id, orgId: atlas.id, locationId: centro.id, role: "coordinator" },
+        { userId: carla.id, orgId: atlas.id, locationId: centro.id, role: "floor_trainer" },
+      ]);
+      const mm: Record<string, string> = {};
+      for (const u of [ana, martin, sofia]) {
+        const [m] = await db.insert(schema.gymMember).values({ orgId: atlas.id, locationId: centro.id, userId: u.id, status: "active" }).returning();
+        await db.insert(schema.consentGrant).values({ userId: u.id, scope: "gym_member", relationId: m.id, granteeOrgId: atlas.id, item: "attendance_training", termsVersion: "demo" });
+        mm[u.id] = m.id;
+      }
+      await startShift(diego.id, atlas.id, centro.id, now);
+      await startShift(carla.id, atlas.id, centro.id, now);
+      await saveMemberProgram(diego.id, atlas.id, mm[ana.id], { reason: "Programa inicial", doc: { name: "Fuerza base · 3 días", weeks: 8, note: "Entrada en calor de 10 minutos en cinta antes de cada día.", days: [
+        { name: "Día 1 · Piernas", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8", 2, 120), ex("Prensa", 3, "10-12", 2, 90)] },
+        { name: "Día 2 · Empuje", exercises: [ex("Press de banca", 4, "6-8", 2, 150), ex("Press militar", 3, "8", 2, 120), ex("Fondos en paralelas", 3, "8-10", 2, 90)] },
+        { name: "Día 3 · Tirón", exercises: [ex("Remo con barra", 4, "8", 2, 120), ex("Jalón al pecho", 3, "10", 2, 90), ex("Remo en polea", 3, "12", 1, 75)] },
+      ] } });
+      // Segunda versión de Carla: la pantalla muestra siempre la vigente y el historial queda.
+      await saveMemberProgram(carla.id, atlas.id, mm[ana.id], { reason: "Ajuste de cargas después de la evaluación", doc: { name: "Fuerza base · 3 días", weeks: 8, note: "Entrada en calor de 10 minutos en cinta antes de cada día.", days: [
+        { name: "Día 1 · Piernas", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 4, "5-6", 2, 180), ex("Peso muerto rumano", 3, "8", 2, 120), ex("Hip thrust", 3, "10", 2, 90)] },
+        { name: "Día 2 · Empuje", exercises: [ex("Press de banca", 4, "5-6", 2, 180), ex("Press militar", 3, "8", 2, 120), ex("Fondos en paralelas", 3, "8-10", 2, 90)] },
+        { name: "Día 3 · Tirón", exercises: [ex("Remo con barra", 4, "8", 2, 120), ex("Jalón al pecho", 3, "10", 2, 90), ex("Remo en polea", 3, "12", 1, 75)] },
+      ] } });
+      await saveMemberProgram(carla.id, atlas.id, mm[martin.id], { reason: "Programa inicial", doc: { name: "Hipertrofia · torso y piernas", weeks: 6, note: "Controlá la bajada en cada repetición.", days: [
+        { name: "Torso", exercises: [exDrop("Press inclinado mancuernas", 3, "10-12", 1, 90), ex("Jalón al pecho", 3, "10-12", 1, 90), ex("Elevaciones laterales", 3, "12-15", 1, 60)] },
+        { name: "Piernas", exercises: [ex("Sentadilla", 3, "10", 2, 120), ex("Prensa", 3, "12", 1, 90), ex("Hip thrust", 3, "12", 1, 90)] },
+      ] } });
+      const dev = await createKiosk(laura.id, atlas.id, centro.id, "Tablet sala de musculación");
+      const secret = dev.link.split("#k=")[1];
+      const people: { name: string; code: string; pin: string; note: string }[] = [];
+      for (const [u, name, note] of [[ana, "Ana P.", "Con programa vigente (versión 2)"], [martin, "Martín G.", "Otro programa, otro profesor"], [sofia, "Sofía D.", "Sin programa todavía"]] as const) {
+        const c = await issueCredential(laura.id, atlas.id, mm[u.id]);
+        people.push({ name, code: c.code, pin: c.pin, note });
+      }
+      await regenerateJoinLink(laura.id, atlas.id, centro.id).catch(() => null); // QR de alta opcional de la sede
+      controlHref = `/rutinas#k=${secret}&d=${encodeURIComponent(Buffer.from(encodeURIComponent(JSON.stringify(people))).toString("base64"))}`;
+      return finishDemo();
+    }
 
     const owner = await person("martin.sosa", "Martín Sosa");
     const floor = await person("sofia.ramirez", "Sofía Ramírez");
@@ -206,9 +259,13 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   } finally {
     await db.update(schema.demoSandbox).set({ userIds, orgIds: [...orgIds, ...extraOrgs] }).where(eq(schema.demoSandbox.id, box.id));
   }
-  await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.email, `${who}@${sandboxDomain(tag)}`));
-  const href = role === "owner" ? `/gym/${orgIds[0]}?s=exec` : role === "floor" ? `/gym/${orgIds[0]}?s=shift` : role === "coach" ? `/coach/${orgIds[1]}?s=dash` : "/app";
-  return { href, role, tag, signIn: { email: `${who}@${sandboxDomain(tag)}`, password: pw }, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000).toISOString() };
+  return finishDemo();
+  async function finishDemo() {
+    await db.update(schema.demoSandbox).set({ userIds, orgIds: [...orgIds, ...extraOrgs] }).where(eq(schema.demoSandbox.id, box.id));
+    await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.email, `${who}@${sandboxDomain(tag)}`));
+    const href = role === "control" ? controlHref : role === "owner" ? `/gym/${orgIds[0]}?s=exec` : role === "floor" ? `/gym/${orgIds[0]}?s=shift` : role === "coach" ? `/coach/${orgIds[1]}?s=dash` : "/app";
+    return { href, role, tag, signIn: { email: `${who}@${sandboxDomain(tag)}`, password: pw }, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000).toISOString() };
+  }
 }
 
 /** Ingresos de la última semana (datos sintéticos de la demo) para el panel «Acceso y presencia». */

@@ -5,13 +5,16 @@ import { TASK_CATEGORY, TASK_PRIORITY, activityValuesText, fmtSeconds, type SetM
 import { useCached } from "@/lib/cache";
 import type { BriefViewData } from "@/components/shared/BriefBlock";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
+import { Modal } from "@/components/ui/Modal";
 
 export type GymScreen =
   | "shift" | "queue" | "members" | "member" | "handoff" | "msgs" | "perf"
   | "mdash" | "pc" | "staff" | "tasks" | "reviews" | "shifts" | "engage" | "community" | "validations"
-  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence" | "videos" | "equipment" | "repinews";
+  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence" | "videos" | "equipment" | "repinews" | "kiosk";
 
-export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean };
+export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean;
+  /** REPI Control (D213): quién soy, pantalla de rutinas habilitada por REPI y planificación supervisada. */
+  userId?: string; kiosk?: boolean; supervised?: boolean };
 export type Task = {
   id: string; ref: string; member: string | null; gymMemberId: string | null; category: keyof typeof TASK_CATEGORY; priority: keyof typeof TASK_PRIORITY;
   status: "open" | "pending_acceptance" | "in_progress" | "follow_up" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null; brief?: BriefViewData;
@@ -135,4 +138,24 @@ export function useAct(flash: (t: string) => void) {
     finally { setBusy(null); }
   };
   return { busy, run };
+}
+
+/**
+ * Confirmación en un diálogo (REPI Control / STF-09): título, qué pasa y dos botones. Con `busy` los botones quedan quietos y el
+ * error del servidor se muestra adentro. Reemplaza al `confirm()` del navegador cuando la consecuencia necesita explicarse.
+ */
+export function ConfirmDialog({ title, children, confirmLabel, danger, busy, err, onConfirm, onClose }: {
+  title: string; children?: React.ReactNode; confirmLabel: string; danger?: boolean; busy?: boolean; err?: string | null; onConfirm: () => void; onClose: () => void;
+}) {
+  return (
+    <Modal label={title} onClose={() => { if (!busy) onClose(); }}>
+      <div className="mhead"><h2>{title}</h2><button type="button" className="x" aria-label="Cerrar" disabled={busy} onClick={onClose}>×</button></div>
+      {children}
+      {err && <p role="alert" className="err-box" style={{ margin: 0 }}>{err}</p>}
+      <div className="mfoot gy-confirm-foot">
+        <button type="button" className="btn" disabled={busy} onClick={onClose}>Cancelar</button>
+        <button type="button" className={danger ? "btn danger gy-strong" : "btn pri"} disabled={busy} aria-busy={busy || undefined} onClick={onConfirm}>{busy ? "Un momento…" : confirmLabel}</button>
+      </div>
+    </Modal>
+  );
 }

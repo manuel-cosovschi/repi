@@ -9,8 +9,9 @@ import { QR_CAMPAIGNS, QR_DESTINATIONS, resolveQr } from "@/lib/qr";
 import { cleanPath, cleanTag } from "@/lib/site-events";
 import { cleanSiteEvent, purgeSiteEvents, recordSiteEvent, siteSummary } from "@/server/site/events";
 import { qrRedirect } from "@/server/site/qr";
-import { createLead } from "@/server/commercial/services";
+import { createLead, listClients } from "@/server/commercial/services";
 import { resetRateLimits } from "@/server/access/util";
+import { leadToProspect } from "@/server/sales/crm";
 import { POST as leadRoute } from "@/app/api/access/lead/route";
 import { POST as eventRoute } from "@/app/api/site/event/route";
 
@@ -120,6 +121,52 @@ describe("contacto comercial desde /conoce", () => {
     // Sitio y Acceso (sin los campos nuevos): se guarda como siempre.
     expect((await leadRoute(post("/api/access/lead", { ...base, phone: null, message: null }), {})).status).toBe(200);
     expect((await db.select().from(schema.commercialLead).where(eq(schema.commercialLead.contactName, name))).length).toBe(1);
+  });
+});
+
+describe("modalidad que le interesa al gimnasio (D215: REPI Completo / REPI Control)", () => {
+  const byName = async (n: string) => (await db.select().from(schema.commercialLead).where(eq(schema.commercialLead.contactName, n)))[0];
+  it("se guarda sólo para gimnasios y con un valor conocido; coach y aliados quedan sin modalidad", async () => {
+    const t = `Modo ${randomUUID().slice(0, 6)}`;
+    for (const m of ["completo", "control", "undecided"]) await createLead({ kind: "gym", orgName: "Gym Modo", contactName: `${t} ${m}`, phone: "223 555-0110", productMode: m });
+    for (const m of ["completo", "control", "undecided"]) expect((await byName(`${t} ${m}`)).productMode).toBe(m);
+    await createLead({ kind: "coach", orgName: "Coach Modo", contactName: `${t} coach`, email: "coach-modo@test.repi.local", productMode: "control" });
+    await createLead({ kind: "partner", contactName: `${t} aliado`, email: "aliado-modo@test.repi.local", productMode: "completo" });
+    await createLead({ kind: "gym", orgName: "Gym Modo", contactName: `${t} raro`, phone: "223 555-0111", productMode: "premium" });
+    await createLead({ kind: "gym", orgName: "Gym Modo", contactName: `${t} sin`, phone: "223 555-0112" });
+    for (const s of ["coach", "aliado", "raro", "sin"]) expect((await byName(`${t} ${s}`)).productMode).toBeNull();
+  });
+
+  it("la ruta del formulario lo recibe; un valor desconocido no frena el contacto y se guarda sin modalidad", async () => {
+    const t = `Ruta ${randomUUID().slice(0, 6)}`;
+    const base = { kind: "gym", orgName: "Gym Ruta", phone: "223 555-0120", source: "qr", campaign: "aticma-2026", interest: "gimnasios", elapsedMs: 5000 };
+    expect((await leadRoute(post("/api/access/lead", { ...base, contactName: `${t} a`, productMode: "control" }), {})).status).toBe(200);
+    expect((await leadRoute(post("/api/access/lead", { ...base, contactName: `${t} b`, productMode: "hack" }), {})).status).toBe(200);
+    expect((await leadRoute(post("/api/access/lead", { ...base, contactName: `${t} c`, productMode: null }), {})).status).toBe(200);
+    expect((await leadRoute(post("/api/access/lead", { ...base, kind: "coach", contactName: `${t} d`, productMode: "control" }), {})).status).toBe(200);
+    expect(await byName(`${t} a`)).toMatchObject({ productMode: "control", source: "qr", campaign: "aticma-2026", interest: "gimnasios" });
+    for (const s of ["b", "c", "d"]) expect((await byName(`${t} ${s}`)).productMode).toBeNull();
+    // Antispam igual que siempre, con o sin modalidad.
+    expect((await leadRoute(post("/api/access/lead", { ...base, contactName: `${t} bot`, productMode: "control", website: "x" }), {})).status).toBe(200);
+    expect(await byName(`${t} bot`)).toBeUndefined();
+  });
+
+  it("REPI Admin la ve en Contactos y en Sitio y QR; mode_select es un evento válido", async () => {
+    const admin = randomUUID();
+    await db.insert(schema.user).values({ id: admin, name: "Admin modo", email: `${admin}@test.repi.local`, emailVerified: true, platformRole: "admin", twoFactorEnabled: true });
+    const t = `Admin ${randomUUID().slice(0, 6)}`;
+    await createLead({ kind: "gym", orgName: "Gym Admin", contactName: t, email: "admin-modo@test.repi.local", productMode: "control" });
+    const { leads } = await listClients(admin);
+    const lead = leads.find((l) => l.contactName === t)!;
+    expect(lead).toMatchObject({ kind: "gym", productMode: "control" });
+    // Al pasar a ventas, la modalidad viaja en las notas del prospecto.
+    const { id: prospectId } = await leadToProspect(admin, lead.id, {});
+    const [pr] = await db.select().from(schema.salesProspect).where(eq(schema.salesProspect.id, prospectId));
+    expect(pr.notes).toContain("Modalidad de interés: REPI Control.");
+    const s = await siteSummary(admin);
+    expect(s.leads.filter((x) => x.kind === "gym" && x.productMode === "control").reduce((a, x) => a + x.n, 0)).toBeGreaterThanOrEqual(1);
+    expect(s.funnel.map((r) => r.name)).toContain("mode_select");
+    expect(cleanSiteEvent({ name: "mode_select", profile: "gimnasios", target: "modo-control" })).toMatchObject({ name: "mode_select", target: "modo-control" });
   });
 });
 
