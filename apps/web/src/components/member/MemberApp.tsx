@@ -625,7 +625,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           <span><b>¿Cómo te atendió {i.trainer.split(" ")[0]}?</b><small>Opcional · por {i.kind.toLowerCase()}</small></span>
           <span style={{ display: "flex", gap: 6 }}>
             <button type="button" className="cta sm" style={{ height: 36 }} onClick={() => onSheet({ type: "review", invite: i })}>Opinar</button>
-            <button type="button" className="ghost sm" style={{ height: 36 }} onClick={async () => { await api(`/api/me/gym/reviews/${i.id}/dismiss`, { body: {} }).catch(() => {}); flash("Listo, no te volveremos a preguntar por esta atención."); reloadInbox(); }}>Ahora no</button>
+            <button type="button" className="ghost sm" style={{ height: 36 }} onClick={async () => { try { await api(`/api/me/gym/reviews/${i.id}/dismiss`, { body: {} }); flash("Listo, no te volveremos a preguntar por esta atención."); reloadInbox(); } catch (e) { flash((e as Error).message); } }}>Ahora no</button>
           </span>
         </div>
       ))}
