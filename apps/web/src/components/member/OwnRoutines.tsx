@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
 import {
   EXERCISE_GROUPS, METRICS_PROFILE_HINT, METRICS_PROFILE_LABEL, activityOf, guessExerciseGroup, guessExerciseKind, guessMetricsProfile, isActivityProfile, kindOfProfile, matchesExerciseQuery,
-  cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, prescriptionText, repsText, syncCircuit, circuitIssues, resizeBlocks,
+  cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, parseWeightKeeping, prescriptionText, repsText, syncCircuit, circuitIssues, resizeBlocks,
   type ExerciseDetail, type MetricsProfile, type WeightUnit,
 } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
@@ -162,7 +162,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
     setBusy(true); setWarn(null);
     try {
       await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: list.map((r) => ({
-        exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null, restSec: r.restSec, note: r.note?.trim() || null, detail: r.detail ?? null,
+        exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightKeeping(r.w, unit, r.weightKg) : null, restSec: r.restSec, note: r.note?.trim() || null, detail: r.detail ?? null,
       })) } });
       flash(initial ? "Rutina actualizada." : "Rutina guardada. Ya la podés empezar.");
       onSaved();

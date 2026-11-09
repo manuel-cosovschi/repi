@@ -8,7 +8,7 @@
 //    borra al guardar o descartar. El archivo original nunca se guarda.
 //  · `opId` identifica el guardado: un reintento no duplica.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { GROUP_LETTERS, circuitIssues, presetPlan, cleanDecimalDraft, detectGroupWord, emptyDetail, fitActivity, importedDetail, kgTo, methodDetail, parseWeightIn, prescriptionText, profileOf,
+import { GROUP_LETTERS, circuitIssues, presetPlan, cleanDecimalDraft, detectGroupWord, emptyDetail, fitActivity, importedDetail, kgTo, methodDetail, parseWeightIn, parseWeightKeeping, prescriptionText, profileOf,
   type ActivityDetail, type ExerciseDetail, type GroupKind, type ImportField, type ImportIssue, type ImportedMethod, type ImportOriginExercise, type ImportSetValue, type ProgramDoc, type WeightUnit } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { ApiError } from "@/lib/api";
@@ -115,12 +115,13 @@ const noteOf = (e: REx) => { const lost = fitToExercise(e).lost; return lost ? [
 
 /** Ejercicio revisado → series, repeticiones, carga y detalle (método, por serie, combinado) con las formas del constructor. */
 export function buildEx(e: REx, unit: WeightUnit, letter: string | null) {
-  const weightKg = e.w.trim() ? parseWeightIn(e.w, unit) : null;
+  // FSA1: un valor leído que no se tocó vuelve igual (en lb, 60 kg se ve 132,3 y volvería como 60,01 kg).
+  const weightKg = e.w.trim() ? parseWeightKeeping(e.w, unit, e.orig?.weightKg) : null;
   let detail: ExerciseDetail | null, sets: number;
   if (e.custom) { detail = e.custom.detail; sets = e.custom.sets; }
   else {
     sets = e.sets ?? 0;
-    const per = e.per && e.per.length === sets ? e.per.map((r) => ({ reps: r.reps.trim() || e.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null })) : null;
+    const per = e.per && e.per.length === sets ? e.per.map((r, i) => ({ reps: r.reps.trim() || e.reps.trim(), weightKg: r.w.trim() ? parseWeightKeeping(r.w, unit, e.orig?.perSet?.[i]?.weightKg) : null })) : null;
     // Ejercicios por tiempo: la actividad leída se guarda configurada (si lo revisado sigue siendo una duración o una distancia).
     detail = importedDetail({ sets, reps: e.reps.trim(), weightKg, perSet: per, rir: e.rir, rpe: e.rpe, tempo: e.tempo, activity: fitToExercise(e).activity });
     if (e.method && e.mstate === "applied") { const r = methodDetail(e.method, { sets, reps: e.reps.trim(), weightKg }, detail); detail = r.detail; sets = r.detail.setPlan?.length ?? sets; }

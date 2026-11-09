@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanDecimalDraft, fmtWeight, kgTo, localizeWeights, parseWeightIn, stepWeightIn, toKg, volumeIn } from "./units";
+import { cleanDecimalDraft, fmtWeight, kgTo, localizeWeights, parseWeightIn, parseWeightKeeping, stepWeightIn, toKg, volumeIn } from "./units";
 
 describe("unidad de peso (F-HX-23)", () => {
   it("kg queda igual; lb redondea a 0,1 y vuelve al mismo valor mostrado", () => {
@@ -69,5 +69,28 @@ describe("D191 · explicaciones en la unidad elegida", () => {
   });
   it("cargas chicas de mancuernas con dos decimales", () => {
     expect(localizeWeights("Probá 1,25 kg más", "lb")).toBe("Probá 2,8 lb más");
+  });
+});
+
+describe("FSA1 · un peso precargado que no se toca no cambia al guardar", () => {
+  it("en lb, 60 kg se ven 132,3 y vuelven 60 (no 60,01); si se cambia, se convierte como siempre", () => {
+    expect(parseWeightIn("132,3", "lb")).toBe(60.01); // el redondeo que corría la carga
+    expect(parseWeightKeeping("132,3", "lb", 60)).toBe(60);
+    expect(parseWeightKeeping("132.3", "lb", 60)).toBe(60);
+    expect(parseWeightKeeping("135", "lb", 60)).toBe(61.23);
+    expect(parseWeightKeeping("60", "kg", 60)).toBe(60);
+    expect(parseWeightKeeping("132,3", "lb", null)).toBe(60.01);
+    expect(parseWeightKeeping("", "lb", 60)).toBeNull();
+  });
+});
+
+describe("FSA1 · todo peso con hasta 2 decimales se acepta (sin errores de coma flotante)", () => {
+  it("«4,1», «8,2», «0,07» y los valores en lb que muestra la app se aceptan; 3 decimales no", () => {
+    const rejected: string[] = [];
+    for (let i = 0; i <= 50_000; i++) { const s = (i / 100).toFixed(2).replace(".", ","); if (parseWeightIn(s, "kg") !== i / 100) rejected.push(s); }
+    expect(rejected).toEqual([]);
+    expect([parseWeightIn("4,1", "kg"), parseWeightIn("8.2", "kg"), parseWeightIn("0,07", "kg")]).toEqual([4.1, 8.2, 0.07]);
+    for (let kg = 1; kg <= 300; kg += 0.25) expect(parseWeightIn(String(kgTo(kg, "lb")).replace(".", ","), "lb")).not.toBeNull();
+    expect(parseWeightIn("4,123", "kg")).toBeNull();
   });
 });

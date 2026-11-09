@@ -36,6 +36,13 @@ export const parseWeightIn = (s: string, unit: WeightUnit): number | null => {
 };
 
 /**
+ * FSA1: el texto de un campo que se precargó con `originalKg`. Si la persona no lo cambió, vuelven los kg guardados: en lb,
+ * 60 kg se muestran «132,3» y, convertidos de vuelta, serían 60,01 kg (editar sólo el nombre cambiaba la carga).
+ */
+export const parseWeightKeeping = (s: string, unit: WeightUnit, originalKg: number | null | undefined): number | null =>
+  originalKg != null && s.trim() !== "" && Number(s.trim().replace(",", ".")) === kgTo(originalKg, unit) ? originalKg : parseWeightIn(s, unit);
+
+/**
  * D182: texto que se está escribiendo en un campo de peso. Deja dígitos y un solo separador decimal (coma o punto), hasta
  * 2 decimales, y saca los ceros a la izquierda («070» → «70», «00» → «0», «0,5» queda). Vacío queda vacío: nunca agrega un 0.
  */
