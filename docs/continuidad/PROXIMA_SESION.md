@@ -1,6 +1,6 @@
 # REPI — Retomar acá
 
-Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, espera el paso del titular en Vercel)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
 ## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 08/11/2026 · PUBLICADO Y VERIFICADO (#85, `ec54444`, D212)
 
@@ -245,14 +245,19 @@ Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte 
   - La corrida más larga tardó 738 ms.
   - Detalle en §10 del contrato.
 - **Aparte:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base. Ver la entrada del incidente (08/11) arriba.
-- **Seguridad, preexistente y pendiente de decisión del titular** (no lo introdujo AC3):
-  - **Qué pasa:** el job de pg_cron `repi-notifications` (lo crea `scripts/schedule-cron.ts`) lleva el bearer de `CRON_SECRET` dentro del comando. pg_cron escribe ese comando en `postgres_logs` cada minuto, así que quien vea los registros de Supabase puede leer la clave.
-  - **Por qué importa:** esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
-  - **Arreglo (#79), aprobado por el titular el 08/11:**
-    - `scripts/operations/cron-secret-vault.sql` ya está aplicado en producción como postgres: Vault tiene la clave nueva generada por la base, y la función `repi_private.cron_bearer()` sólo la ejecuta `repi_app` (`anon`, `authenticated` y `service_role` no tienen acceso).
-    - El job todavía usa la clave vieja, que es la que tiene Vercel, así que funciona igual que antes.
-  - **Falta (paso del titular):** Supabase → Integrations → Vault → revelar `repi_cron_secret` → Vercel → `CRON_SECRET` (Production) → guardar → Redeploy.
-  - **Después:** reprogramar `repi-notifications` llamando a la función, como `repi_app` (DESPLIEGUE.md, paso 3), y verificar 200 y que ningún job tenga un bearer escrito. La clave vieja quedó en los registros: deja de servir en cuanto Vercel tenga la nueva.
+- **Seguridad, preexistente — RESUELTO el 09/11 (#79)** (no lo introdujo AC3):
+  - **Qué pasaba:** el job de pg_cron `repi-notifications` llevaba el bearer de `CRON_SECRET` escrito en el comando, y pg_cron escribe ese comando en `postgres_logs` cada minuto. Esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
+  - **Hecho:**
+    - 08/11: `scripts/operations/cron-secret-vault.sql` aplicado como postgres. La clave nueva la generó la base y vive en Vault (`repi_cron_secret`). `repi_private.cron_bearer()` sólo la ejecuta `repi_app` (`anon`, `authenticated` y `service_role` sin acceso).
+    - 09/11: el titular copió la clave de Vault a Vercel `CRON_SECRET` (Production) y volvió a desplegar.
+    - 09/11: `repi-notifications` reprogramado como `repi_app` (permiso temporal `set` concedido y revocado en la misma transacción). El comando ahora llama a `repi_private.cron_bearer()`.
+  - **Verificado en producción el 09/11:**
+    - Ningún job `repi-*` tiene `Bearer ` en el comando (0 filas).
+    - `net._http_response` dio 200 a las 02:51 UTC con la clave de Vault y el despliegue nuevo (`dpl_Ac6HytX6cyvaGkrem4DMe2P1wL3y`, `ddddce8`).
+    - La membresía de postgres en `repi_app` quedó como estaba (admin sí, set no, otorgada por supabase_admin).
+  - **Hueco durante el cambio:** una sola corrida con 404 (02:50 UTC), mientras terminaba el build. El endpoint responde 404 cuando la clave no coincide, y la corrida siguiente retomó lo pendiente.
+  - **La clave vieja** quedó en los registros viejos de Supabase, pero ya no sirve: Vercel sólo acepta la nueva.
+  - **Próxima rotación:** DESPLIEGUE.md, «Clave de los jobs (`CRON_SECRET`) en Vault y rotación».
 - **Queda por ver en producción:**
   - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
   - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
