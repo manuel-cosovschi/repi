@@ -42,8 +42,9 @@ export function MembersScreen({ shell }: { shell: Shell }) {
   const [q, setQ] = useState("");
   const [qq, setQq] = useState("");
   useEffect(() => { const t = setTimeout(() => setQq(q), 250); return () => clearTimeout(t); }, [q]);
-  const list = useLoad<{ location: { name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`, { keep: true });
-  const current = shell.sel ?? list.data?.members[0]?.id ?? null;
+  const list = useLoad<{ location: { id: string; name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`, { keep: true });
+  // FSA1: al cambiar de sede, mientras llega la lista nueva no se abre sola la ficha de un socio de la sede anterior.
+  const current = shell.sel ?? (list.data?.location.id === loc ? list.data.members[0]?.id : null) ?? null;
   return (
     <>
       <Head kicker={`${shell.ctx.org.name}${list.data ? ` · ${list.data.location.name}` : ""}`} title="Socios" />
