@@ -10,6 +10,9 @@ import * as club from "@/server/community/club";
 import * as fu from "@/server/followup/services";
 import * as gym from "@/server/gym/services";
 import { AccessError, addDays, resetRateLimits } from "@/server/access/util";
+import { pngWithText } from "../../../packages/domain/src/image-fixtures";
+import { hasImageMetadata, imageInfo } from "@repi/domain";
+import { readObject } from "@/server/storage";
 
 let n = 0;
 const mail = () => `cm${++n}.${Date.now()}@test.repi.local`;
@@ -22,7 +25,8 @@ async function verified(name = "Persona Comunidad", birth = "01/01/1990") {
 }
 const err = async (p: Promise<unknown>) => p.then(() => null, (e) => e as AccessError);
 const MP4 = () => { const u = new Uint8Array(64); u.set([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]); return u; };
-const PNG = () => { const u = new Uint8Array(64); u.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); return u; };
+// FSA1: un PNG real (con texto y eXIf): el servidor lo guarda sin metadatos; la firma sola ya no alcanza.
+const PNG = () => pngWithText();
 const today = () => localDate(new Date());
 beforeEach(() => resetRateLimits());
 
@@ -61,6 +65,12 @@ describe("publicaciones y catálogo", () => {
     expect((await err(cm.createPost(w.trainer, w.org, { type: "novedad", title: "Hola equipo", locationId: w.A })))?.code).toBe("forbidden");
     expect((await err(cm.createPost(w.manager, w.org, { type: "novedad", title: "Para todas" })))?.code).toBe("invalid"); // gerente de una sede: elige sede
     const img = await cm.uploadMedia(w.manager, { kind: "image", orgId: w.org, mime: "image/png", bytes: PNG() });
+    // FSA1: la imagen de la comunidad se guarda sin metadatos (texto, eXIf con GPS).
+    const [stored] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, img.id));
+    const raw = new Uint8Array(await new Response((await readObject(stored.storageKey)).stream).arrayBuffer());
+    expect(hasImageMetadata(PNG())).toBe(true);
+    expect(hasImageMetadata(raw)).toBe(false);
+    expect(imageInfo(raw)).toEqual(imageInfo(PNG()));
     await cm.createPost(w.manager, w.org, { type: "novedad", title: "Nueva zona de peso libre", text: "2 racks más", locationId: w.A, imageId: img.id });
     await cm.createPost(w.manager, w.org, { type: "descuento", title: "20% whey", badge: "20% OFF", validUntil: today(), locationId: w.A });
     await db.update(schema.communityPost).set({ validUntil: localDate(addDays(new Date(), -1)) }).where(eq(schema.communityPost.title, "20% whey"));

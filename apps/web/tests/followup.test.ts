@@ -8,6 +8,9 @@ import { setClientStatus } from "@/server/training/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
 import { BRIEF } from "./fixtures/brief";
 
+// FSA1: un video tiene que serlo por contenido (firma ftyp / EBML), no sólo por el tipo declarado.
+const VIDEO = (n: number, webm = false) => { const u = new Uint8Array(n); u.set(webm ? [0x1a, 0x45, 0xdf, 0xa3] : [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]); return u; };
+
 const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
 
 let n = 0;
@@ -149,7 +152,9 @@ describe("pedidos del alumno", () => {
   it("pedido con video → bandeja del coach → resuelto → aviso al alumno; acceso al video restringido", async () => {
     const { coach, orgId, user } = await pair();
     expect((await err(fu.uploadRequestVideo(user, { mime: "image/png", bytes: new Uint8Array(10) })))?.code).toBe("invalid_file");
-    const v = await fu.uploadRequestVideo(user, { mime: "video/mp4", bytes: new Uint8Array(2048) });
+    // FSA1: un archivo cualquiera declarado como MP4 (p. ej. HTML) se rechaza por su contenido.
+    expect((await err(fu.uploadRequestVideo(user, { mime: "video/mp4", bytes: new TextEncoder().encode("<html><script>alert(1)</script></html>".padEnd(2048)) })))?.code).toBe("invalid_file");
+    const v = await fu.uploadRequestVideo(user, { mime: "video/mp4", bytes: VIDEO(2048) });
     const r = await fu.createRequest(user, { kind: "tecnica", text: "¿Está bien la bajada?", videoId: v.id });
     expect((await err(fu.createRequest(user, { kind: "tecnica", text: "Otra vez el mismo video", videoId: v.id })))?.code).toBe("invalid");
     const box = await fu.coachInbox(coach, orgId);
@@ -183,9 +188,9 @@ describe("pedidos del alumno", () => {
 describe("retención de videos (D39)", () => {
   it("borra a los 90 días de resuelto y los huérfanos a las 24 h; el coach ve «eliminado»", async () => {
     const { coach, orgId, user } = await pair();
-    const v = await fu.uploadRequestVideo(user, { mime: "video/mp4", bytes: new Uint8Array(1024) });
+    const v = await fu.uploadRequestVideo(user, { mime: "video/mp4", bytes: VIDEO(1024) });
     const r = await fu.createRequest(user, { kind: "tecnica", text: "Mirá esta serie", videoId: v.id });
-    const orphan = await fu.uploadRequestVideo(user, { mime: "video/webm", bytes: new Uint8Array(512) });
+    const orphan = await fu.uploadRequestVideo(user, { mime: "video/webm", bytes: VIDEO(512, true) });
     expect(await fu.purgeMedia()).toMatchObject({ retention: 0, orphans: 0 });
     await fu.resolveRequest(coach, orgId, r.id);
     const later = new Date(Date.now() + 91 * 86_400_000);

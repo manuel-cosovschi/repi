@@ -9,6 +9,7 @@ import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
 import { minorWithoutGuardian } from "../access/services";
 import { putObject } from "../storage";
+import { withoutImageMetadata } from "./services";
 
 const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise, programExercise, mediaObject } = schema;
 /** Sólo la actividad del detalle (cinta, bici…): alcanza para `isTimedRow` sin traer el plan entero de cada serie. */
@@ -188,10 +189,11 @@ export async function uploadClubImage(userId: string, orgId: string, p: { mime: 
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(mediaObject)
     .where(and(eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "club_image"), gte(mediaObject.createdAt, new Date(Date.now() - 3_600_000))));
   if (n >= 20) throw new AccessError("rate_limited", "Llegaste al límite de fotos por hora. Probá más tarde.", 429);
+  const bytes = withoutImageMetadata(p.bytes, p.mime); // FSA1: sin EXIF/GPS aunque no llegue desde la app
   const id = randomUUID();
   const key = `club/${orgId.replace(/[^a-z0-9]/gi, "")}/${id}`;
-  await putObject(key, p.bytes);
-  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId, purpose: "club_image", storageKey: key, mime: p.mime, sizeBytes: p.bytes.byteLength });
+  await putObject(key, bytes);
+  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId, purpose: "club_image", storageKey: key, mime: p.mime, sizeBytes: bytes.byteLength });
   return { id };
 }
 /** Foto propia del Club, de este gym, sin usar todavía en otra publicación. */
