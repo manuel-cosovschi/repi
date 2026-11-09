@@ -145,8 +145,9 @@ describe("SI2 · alumno: de la vista previa a «Mis rutinas»", () => {
     const ok = { exerciseId: SQUAT, sets: 3, reps: "10", weightKg: 60, restSec: null, note: null };
     const { id } = await own.saveOwnRoutine(user, { name: "Mía", exercises: [ok] });
     expect(await own.listOwnRoutines(other)).toEqual([]);
-    for (const p of [own.saveOwnRoutine(other, { id, name: "Ajena", exercises: [ok] }), own.duplicateOwnRoutine(other, id), own.deleteOwnRoutine(other, id), own.startOwnRoutine(other, id, randomUUID())]) {
-      expect(await err(p)).toMatchObject({ code: "not_found", status: 404 });
+    // Cada intento se crea recién al esperarlo: armar las cuatro promesas juntas dejaba rechazos sin manejar (vitest sale con 1).
+    for (const attempt of [() => own.saveOwnRoutine(other, { id, name: "Ajena", exercises: [ok] }), () => own.duplicateOwnRoutine(other, id), () => own.deleteOwnRoutine(other, id), () => own.startOwnRoutine(other, id, randomUUID())]) {
+      expect(await err(attempt())).toMatchObject({ code: "not_found", status: 404 });
     }
     expect((await routinesOf(user)).map((r) => [r.name, r.exercises[0].weightKg])).toEqual([["Mía", 60]]);
     // Repetir: cada «Empezar» es una sesión nueva; el mismo id (reintento) no crea otra.
