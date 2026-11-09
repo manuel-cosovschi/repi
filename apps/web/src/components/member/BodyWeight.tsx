@@ -128,7 +128,8 @@ export function BodyWeight({ flash, offline }: { flash: (t: string) => void; off
 }
 
 function EditEntry({ e, unit, onClose, onDone }: { e: Entry; unit: "kg" | "lb"; onClose: () => void; onDone: (m: string) => void }) {
-  const [val, setVal] = useState(String(bodyWeightIn(e.weightG, unit)).replace(".", ","));
+  const shown = String(bodyWeightIn(e.weightG, unit)).replace(".", ",");
+  const [val, setVal] = useState(shown);
   const [day, setDay] = useState(e.day);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -137,7 +138,10 @@ function EditEntry({ e, unit, onClose, onDone }: { e: Entry; unit: "kg" | "lb"; 
     const g = parseBodyWeight(val, unit);
     if (g == null) { setErr(`Ingresá un peso válido en ${unit}.`); return; }
     setBusy(true); setErr(null);
-    try { await api(`/api/me/progress/body/weights/${e.id}`, { body: { day, weightG: g } }); onDone("Medición actualizada."); }
+    // FSA1: si sólo cambia la fecha, el peso no se reenvía: lo mostrado está redondeado a 1 decimal (en lb, 80 kg se ve
+    // 176,4 y volvería como 80,014 kg).
+    const changed = val.trim() !== shown;
+    try { await api(`/api/me/progress/body/weights/${e.id}`, { body: changed ? { day, weightG: g } : { day } }); onDone("Medición actualizada."); }
     catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
   };
   const del = async () => {
