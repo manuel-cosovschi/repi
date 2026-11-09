@@ -46,6 +46,7 @@ export function RoutineImportSheet({ flash, onClose, onDone, initialBody }: { fl
     if (!ready.ok) { setErr(ready.why); if (ready.k) focusExercise(review.setState, ready.k); return; }
     if (saving) return; // doble toque
     setSaving(true); setErr(null);
+    review.flush(); // FSA1: el borrador (con su opId) queda escrito antes de mandar: si se corta, el reintento no duplica
     try {
       const r = await api<{ ids: string[]; replay: boolean }>("/api/me/routines/import/save", { body: { opId: s.opId, source: s.preview.source, file: s.preview.file, routines: toRoutines(s, unit) } });
       review.clear();

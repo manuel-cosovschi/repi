@@ -465,9 +465,18 @@ export function useReview(scope: string) {
     if (t.current) clearTimeout(t.current);
     t.current = setTimeout(() => { writeDraft(scope, state); pending.current = null; }, 400);
   }, [scope, state]);
-  useEffect(() => () => { if (t.current) clearTimeout(t.current); if (pending.current) writeDraft(scope, pending.current); }, [scope]);
+  const flush = () => { if (t.current) clearTimeout(t.current); if (pending.current) writeDraft(scope, pending.current); pending.current = null; };
+  useEffect(() => () => flush(), [scope]); // eslint-disable-line react-hooks/exhaustive-deps -- flush lee refs
+  // FSA1: recargar, cerrar la pestaña o pasar la app a segundo plano no ejecuta la limpieza de React: lo de los últimos 400 ms
+  // (por ejemplo «Completar con 3 × 10» justo antes de «Guardar») se perdía junto con el identificador del guardado.
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => { window.removeEventListener("pagehide", flush); document.removeEventListener("visibilitychange", onHide); };
+  }, [scope]); // eslint-disable-line react-hooks/exhaustive-deps -- flush lee refs
   const drop = () => { if (t.current) clearTimeout(t.current); pending.current = null; writeDraft(scope, null); };
-  return { state, setState, start: (s: ReviewState | null) => { setStateRaw(s); if (!s) drop(); }, clear: () => { drop(); setStateRaw(null); } };
+  return { state, setState, flush, start: (s: ReviewState | null) => { setStateRaw(s); if (!s) drop(); }, clear: () => { drop(); setStateRaw(null); } };
 }
 
 /** Error de guardado entendible: un corte de red se reintenta sin duplicar. */
