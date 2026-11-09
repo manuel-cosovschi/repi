@@ -75,6 +75,9 @@ body:has(.sheet-bg, .modal-bg, .tu, .bi) .dt-pill { display: none; }
 @media (max-width: 760px) {
   .dt-card { left: 16px; right: 16px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); }
   .dt-pill { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  /* FSA1 (UI): Coach y Gym no tienen barra de pestañas abajo: la píldora va al borde y el final de la página le deja su
+     carril (antes flotaba a 92 px, sobre la última fila de una página corta, sin forma de desplazarla). */
+  body:has(.co) .dt-pill { bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
 /* D184: la píldora de la demo tapaba «Saltar descanso» y los botones de abajo del entrenamiento. No se esconde ninguna acción:
    la píldora tiene su propio carril (--demo-lane) y las barras fijas de abajo lo reservan. En el entrenamiento (sin barra de
