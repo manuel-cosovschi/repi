@@ -20,9 +20,17 @@ export function Modal({ label, onClose, children, wide, className }: { label: st
     const root = ref.current!;
     const focusables = () => [...root.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute("disabled"));
     (focusables()[0] ?? root).focus();
+    // El de más arriba es el último diálogo del documento (cada uno se monta al final de <body>).
+    const isTop = () => { const all = document.querySelectorAll('.modal[role="dialog"]'); return all[all.length - 1] === root; };
     const onKey = (e: KeyboardEvent) => {
       // Con un modal encima de otro (D134), sólo responde el que tiene el foco.
-      if (!root.contains(document.activeElement)) return;
+      // FSA1: si el elemento enfocado desapareció (p. ej. «Quitar día»), el foco cae en <body> y Esc y Tab dejaban de responder
+      // con el diálogo abierto. En ese caso responde el modal de arriba y recupera el foco.
+      const active = document.activeElement;
+      if (!root.contains(active)) {
+        if ((active === null || active === document.body) && isTop()) root.focus();
+        else return;
+      }
       if (e.key === "Escape") { e.preventDefault(); close.current(); return; }
       if (e.key !== "Tab") return;
       const f = focusables();
