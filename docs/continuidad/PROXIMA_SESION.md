@@ -1,6 +1,32 @@
 # REPI — Retomar acá
 
-Actualizado: 09/11/2026 (**REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 09/11/2026 (**REPI Control: la pantalla también registra (D216, 0054, PR #94)**; antes, **REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+## REPI Control: la pantalla de rutinas también registra — 09/11/2026 · D216, 0054 (PR #94)
+
+- **Pedido:** ampliación del máster REPI Control & Kiosk 1.0: la pantalla compartida muestra objetivos y registra resultados
+  reales, sin que el socio cambie la programación. Reemplaza «sólo consulta».
+- **Objetivos por serie:** profesor (`setTarget`), REPI (Training Intelligence 2.0: `previewTargets` al consultar, sin guardar
+  nada; `ensureTargets` en la sesión, igual que la app) y última vez comparable. Sin datos: «Sin referencia suficiente».
+  Textos de salud neutros (`kioskTarget`).
+- **Registro:** `server/gym/kiosk-training.ts` → `startSession`/`logSet`/`setStageSkip`/`sessionAction` con `KioskVia`. Misma
+  sesión que la app; idempotente por id de serie; conflictos por revisión; se puede salir y seguir. Rutas `GET/POST
+  /api/kiosk/workout`, `workout/sets`, `workout/finish`. La consulta se estira 5 min por pedido (tope 20 min).
+- **Pantalla:** `components/kiosk/KioskApp.tsx` + `KioskTraining.tsx`: Consultar / Registrar, Profesor → REPI → Real, borrador
+  «Sugerido», «Copiar a todas», «No la hice», Reintentar, aviso «¿Seguís ahí?» y borrado total al cerrar. Ficha de sala:
+  chip «Pantalla del gimnasio».
+- **0054 (aditiva):** `workout_session.kiosk_id`, `set_log.kiosk_id` (+ índices parciales). `hosted-0054.sql`, `verify-0054.sh`
+  (ensayado), `rollback/0054`. **Aplicada en producción** tras el respaldo `backup-20261109-185530-42677996245` (issue #95):
+  55 migraciones; huellas de datos reales iguales (una sesión real nueva de la app a las 19:00 UTC, ajena; las 31 previas
+  idénticas); ningún gimnasio real con REPI Control.
+- **Demo control:** Ana con 6 entrenamientos ficticios (REPI recomienda), Martín sin historial.
+- **Comercial:** /conoce («consultan y registran», comparación, demo), film `modo-control` 16:9 y 9:16 con los 7 pasos
+  (59,7 s, grabaciones reales de demo), capturas nuevas y dossier de 2 páginas actualizado. Sin precios.
+- **Pruebas:** `tests/kiosk-log.test.ts` 14 ✓; web 828/828; dominio 1068/1068; E2E integradas 91 ✓ / 3 omitidas / 0 ✗;
+  CI verde.
+- **Pendiente del titular:** probar en la tablet real del primer gimnasio; autorizar gimnasio por gimnasio; frase «por socio
+  activo» del dossier (sigue marcada); el paso 1 del film usa la grabación de la demo «sala» (Gym Norte).
+- **Próxima acción:** ninguna obligatoria. REPI Control sigue apagado en todos los gimnasios reales.
 
 ## REPI Control 1.0 + /conoce con dos modalidades — 09/11/2026 · PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, D213–D215, 0053)
 
