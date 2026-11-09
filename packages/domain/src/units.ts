@@ -1,6 +1,6 @@
 // Unidad de peso preferida (F-HX-23, D95). Todo se guarda en kg (con hasta 2 decimales); lb es sólo presentación y
 // entrada. Cambiar la preferencia no reescribe la historia: la misma serie se ve en la unidad elegida en cada momento.
-import { weightOk } from "./commercial";
+import { twoDecimals, weightOk } from "./commercial";
 
 export type WeightUnit = "kg" | "lb";
 export const WEIGHT_UNITS: readonly WeightUnit[] = ["kg", "lb"];
@@ -30,7 +30,7 @@ export const stepWeightIn = (kg: number, dir: 1 | -1, step: number, unit: Weight
 /** Texto escrito por la persona en su unidad → kg válidos, o null (hasta 2 decimales, entre 0 y 1000 kg). */
 export const parseWeightIn = (s: string, unit: WeightUnit): number | null => {
   const n = Number(s.trim().replace(",", "."));
-  if (s.trim() === "" || !Number.isFinite(n) || n < 0 || Math.round(n * 100) !== n * 100) return null;
+  if (s.trim() === "" || !Number.isFinite(n) || n < 0 || !twoDecimals(n)) return null;
   const kg = toKg(n, unit);
   return weightOk(kg) ? kg : null;
 };

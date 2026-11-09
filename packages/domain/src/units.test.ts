@@ -25,6 +25,16 @@ describe("unidad de peso (F-HX-23)", () => {
     expect(parseWeightIn("1,234", "lb")).toBeNull();
     expect(parseWeightIn("", "lb")).toBeNull();
   });
+  it("FSA1 MEMBER-01: cualquier peso con hasta 2 decimales se acepta (sin falsos «inválido» por coma flotante)", () => {
+    // 1,1 · 4,1 · 64,1 · 1,15 · 82,55 kg: antes `n * 100` no daba entero exacto y se rechazaban.
+    for (const [txt, kg] of [["1,1", 1.1], ["4,1", 4.1], ["64,1", 64.1], ["1,15", 1.15], ["0,29", 0.29], ["8,2", 8.2], ["70,1", 70.1]] as const) expect(parseWeightIn(txt, "kg")).toBe(kg);
+    for (let i = 0; i <= 100000; i++) { const v = Number((i / 100).toFixed(2)); expect(parseWeightIn(String(v).replace(".", ","), "kg")).toBe(v); }
+    // En lb, el valor que la pantalla precarga al tocar el número (p. ej. 70 kg = 154,3 lb) vuelve a aceptarse.
+    for (let q = 0; q <= 4000; q++) { const shown = kgTo(q / 4, "lb"); expect(parseWeightIn(String(shown).replace(".", ","), "lb")).not.toBeNull(); }
+    expect(parseWeightIn("154,3", "lb")).toBe(69.99);
+    expect(parseWeightIn("-1", "kg")).toBeNull();
+    expect(parseWeightIn("1000,01", "kg")).toBeNull();
+  });
 });
 
 describe("D182 · edición del peso sin ceros agregados", () => {
