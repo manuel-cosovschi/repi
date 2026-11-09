@@ -1,0 +1,141 @@
+/* REPI Control · dossier comercial (A4, 2 páginas). Dirección G · Atlética: Barlow (cuerpo) y Barlow Condensed (títulos). */
+@font-face { font-family: "Barlow"; src: url("assets/fonts/barlow-400.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Barlow"; src: url("assets/fonts/barlow-500.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+@font-face { font-family: "Barlow"; src: url("assets/fonts/barlow-600.woff2") format("woff2"); font-weight: 600; font-style: normal; }
+@font-face { font-family: "Barlow Condensed"; src: url("assets/fonts/barlowcondensed-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+:root {
+  --floor: #0F1620;
+  --floor-2: #0A0F1A;
+  --edge: #233041;
+  --ink: #F8FAFC;
+  --sec: #9AA8BA;
+  --cyan: #00D1FF;
+  --tq: #5DE6D8;
+  /* Página clara (impresión) */
+  --paper: #F6F4EF;
+  --text: #0F1620;
+  --mute: #4C596A;
+  --line: rgba(15, 22, 32, .14);
+  --gut: 16mm;
+}
+
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #2a2f36; }
+body { font-family: "Barlow", system-ui, sans-serif; font-weight: 400; color: var(--text); -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 9pt; line-height: 1.38; font-kerning: normal; }
+img { display: block; max-width: 100%; }
+ul, ol { list-style: none; }
+a { color: inherit; text-decoration: none; }
+b, strong, dt, h3 { font-weight: 600; }
+
+.page { width: 210mm; height: 297mm; overflow: hidden; position: relative; background: var(--paper); margin: 0 auto; break-after: page; display: flex; flex-direction: column; }
+.page:last-child { break-after: auto; }
+@media screen { .page { margin: 8mm auto; box-shadow: 0 2mm 8mm rgba(0,0,0,.35); } }
+
+/* Etiqueta de sección: índice + nombre */
+.label { font-size: 7.4pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); display: flex; align-items: baseline; gap: 2.4mm; }
+.label b { font-family: "Barlow Condensed"; font-weight: 700; font-size: 9pt; letter-spacing: .02em; color: var(--text); padding-right: 2.4mm; border-right: .3mm solid var(--line); }
+.label.on-dark { color: var(--sec); }
+.label.on-dark b { color: var(--ink); border-color: var(--edge); }
+.kicker { font-size: 7.4pt; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--sec); }
+.kicker.dark { color: var(--mute); }
+
+.two { display: grid; gap: 9mm; }
+
+/* ── Página 1 ──────────────────────────────────────────────────────────── */
+.hero { background: var(--floor); color: var(--ink); padding: 10mm var(--gut) 8mm; }
+.hero-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 5mm; border-bottom: .3mm solid var(--edge); }
+.hero .wm { height: 7mm; width: auto; }
+.hero-grid { display: grid; grid-template-columns: 70mm 1fr; gap: 9mm; padding-top: 7mm; align-items: start; }
+.eyebrow { font-size: 8pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tq); }
+h1 { font-family: "Barlow Condensed"; font-weight: 700; text-transform: uppercase; font-size: 52pt; line-height: .86; letter-spacing: -.005em; margin-top: 3.2mm; }
+.lead { font-size: 10.6pt; line-height: 1.36; margin-top: 4.4mm; color: var(--ink); }
+.facts { display: flex; flex-wrap: wrap; gap: 1.2mm 0; margin-top: 4.4mm; font-size: 6.8pt; font-weight: 600; letter-spacing: .07em; white-space: nowrap; flex-wrap: nowrap; text-transform: uppercase; color: var(--sec); }
+.facts span + span::before { content: ""; display: inline-block; width: 1mm; height: 1mm; border-radius: 50%; background: var(--cyan); margin: 0 1.8mm; vertical-align: .4mm; }
+.hero-shot img { border: .3mm solid var(--edge); border-radius: 2mm; }
+figcaption { font-size: 6.8pt; color: var(--sec); margin-top: 2mm; letter-spacing: .01em; }
+
+.body { padding: 0 var(--gut); }
+.p1 .body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 5mm; padding-top: 7mm; padding-bottom: 4.5mm; }
+
+.ps { grid-template-columns: 76mm 1fr; }
+.problems { margin-top: 3.4mm; border-top: .3mm solid var(--line); }
+.problems li { padding: 1.6mm 0; border-bottom: .3mm solid var(--line); color: var(--mute); }
+.problems strong { color: var(--text); }
+.solution h2 { font-family: "Barlow Condensed"; font-weight: 700; text-transform: uppercase; font-size: 17pt; line-height: .98; margin-top: 3.4mm; }
+.solution p:last-child { margin-top: 2.4mm; color: var(--mute); font-size: 9pt; }
+
+.how-head { display: flex; justify-content: space-between; align-items: baseline; }
+.how-note { font-size: 7.6pt; color: var(--mute); }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4.5mm; margin-top: 3.6mm; }
+.steps img, .end-tile { border-radius: 1.4mm; aspect-ratio: 16 / 10; width: 100%; }
+.steps img { border: .3mm solid var(--edge); }
+.steps h3 { display: flex; align-items: baseline; gap: 1.6mm; font-size: 9pt; margin-top: 2.4mm; }
+.steps h3 i, .process i { font-style: normal; font-family: "Barlow Condensed"; font-weight: 700; color: var(--text); }
+.steps h3 i { font-size: 10pt; }
+.steps p { font-size: 8pt; color: var(--mute); margin-top: .8mm; line-height: 1.34; }
+.end-tile { background: var(--floor); color: var(--ink); display: flex; flex-direction: column; justify-content: flex-end; padding: 3mm 3.4mm; }
+.end-tile .big { font-family: "Barlow Condensed"; font-weight: 700; font-size: 30pt; line-height: .9; color: var(--cyan); }
+.end-tile .big small { font-size: 15pt; color: var(--cyan); }
+.end-cap { font-size: 7pt; color: var(--sec); margin-top: 1mm; }
+
+.staff { grid-template-columns: 1fr 78mm; align-items: start; }
+.ticks { margin-top: 3.4mm; }
+.ticks li { position: relative; padding-left: 4.4mm; color: var(--mute); }
+.ticks li + li { margin-top: 1.4mm; }
+.ticks li::before { content: ""; position: absolute; left: 0; top: 1.6mm; width: 2.2mm; height: .45mm; background: var(--tq); }
+.phone { margin-top: 3.6mm; padding: 2.4mm 3.2mm; border-left: .8mm solid var(--tq); background: #ECEAE3; }
+.phone-k { font-size: 7.2pt; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text); }
+.phone p:last-child { margin-top: .9mm; color: var(--mute); font-size: 8.3pt; }
+.staff-shot img { border: .3mm solid var(--line); border-radius: 1.6mm; }
+.staff-shot figcaption { color: var(--mute); }
+
+.folio, .folio2 { display: flex; justify-content: space-between; font-size: 6.8pt; letter-spacing: .1em; text-transform: uppercase; }
+.folio { padding: 0 var(--gut) 7mm; color: var(--mute); }
+
+/* ── Página 2 ──────────────────────────────────────────────────────────── */
+.p2 > .body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 5mm; padding-top: 10mm; padding-bottom: 7mm; }
+.p2-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 3.4mm; border-bottom: .5mm solid var(--text); }
+.p2-title { font-family: "Barlow Condensed"; font-weight: 700; text-transform: uppercase; font-size: 15pt; letter-spacing: .01em; }
+.p2-title span { color: var(--mute); }
+
+.feat { display: grid; grid-template-columns: 1fr 1fr; column-gap: 9mm; margin-top: 3.4mm; border-top: .3mm solid var(--line); }
+.feat > div { display: grid; grid-template-columns: 33mm 1fr; gap: 3mm; padding: 1.7mm 0; border-bottom: .3mm solid var(--line); }
+.feat dt { font-size: 8.6pt; line-height: 1.25; }
+.feat dd { font-size: 8pt; color: var(--mute); line-height: 1.32; }
+
+.impl-head { display: flex; justify-content: space-between; align-items: baseline; }
+.hw { font-size: 8pt; color: var(--mute); }
+.hw b { color: var(--text); }
+.process { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; margin-top: 3.6mm; }
+.process li { border-top: .5mm solid var(--text); padding-top: 2.4mm; }
+.process li:first-child { border-top-color: var(--tq); }
+.process i { font-size: 18pt; line-height: 1; display: block; }
+.process h3 { font-size: 8.8pt; line-height: 1.22; margin-top: 1.6mm; }
+.process p { font-size: 8pt; color: var(--mute); margin-top: 1mm; line-height: 1.32; }
+
+.sec { grid-template-columns: 1fr 64mm; }
+.sup { margin-top: 3.4mm; border-top: .3mm solid var(--line); }
+.sup > div { padding: 2mm 0; border-bottom: .3mm solid var(--line); }
+.sup dt { font-size: 7.2pt; letter-spacing: .12em; text-transform: uppercase; }
+.sup dd { font-size: 8.3pt; color: var(--mute); margin-top: .5mm; }
+
+.close { background: var(--floor); color: var(--ink); padding: 8mm var(--gut) 6.5mm; display: grid; grid-template-columns: 1fr 58mm; column-gap: 10mm; row-gap: 5mm; }
+.tag { display: inline-block; margin-top: 3.6mm; font-size: 7.2pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--floor); background: var(--ink); padding: .9mm 2.2mm; border-radius: .8mm; }
+.figures { display: flex; align-items: flex-end; gap: 4mm; margin-top: 3.4mm; }
+.fig { display: flex; flex-direction: column; }
+.fig .n { font-family: "Barlow Condensed"; font-weight: 700; font-size: 38pt; line-height: .9; color: var(--cyan); letter-spacing: -.005em; font-variant-numeric: tabular-nums; }
+.fig .u { font-size: 8.4pt; color: var(--sec); margin-top: 1.4mm; }
+.plus { font-family: "Barlow Condensed"; font-weight: 700; font-size: 24pt; color: var(--sec); padding-bottom: 6.6mm; }
+.terms { display: flex; flex-wrap: wrap; margin-top: 4mm; font-size: 8.6pt; font-weight: 500; }
+.terms span + span::before { content: ""; display: inline-block; width: 1mm; height: 1mm; border-radius: 50%; background: var(--tq); margin: 0 2.6mm; vertical-align: .5mm; }
+.disclaimer { margin-top: 3mm; font-size: 8.4pt; font-weight: 600; color: var(--ink); padding-left: 2.6mm; border-left: .6mm solid var(--sec); }
+.scenario { margin-top: 1.8mm; font-size: 7pt; color: var(--sec); line-height: 1.35; }
+.contact { border-left: .3mm solid var(--edge); padding-left: 8mm; display: flex; flex-direction: column; }
+.contact .wm { height: 8mm; width: auto; align-self: flex-start; }
+.cta { font-family: "Barlow Condensed"; font-weight: 700; text-transform: uppercase; font-size: 15pt; line-height: 1; margin-top: 6mm; }
+.ch { display: flex; flex-direction: column; margin-top: 3.6mm; }
+.ch span { font-size: 6.8pt; letter-spacing: .14em; text-transform: uppercase; color: var(--sec); }
+.ch a { font-size: 11pt; font-weight: 600; color: var(--ink); margin-top: .4mm; }
+.folio2 { grid-column: 1 / -1; color: var(--sec); padding-top: 4mm; border-top: .3mm solid var(--edge); }
