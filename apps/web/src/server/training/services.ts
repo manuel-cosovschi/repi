@@ -246,7 +246,11 @@ export async function writeProgramDoc(tx: Tx, p: { actorId: string; orgId: strin
   // D183: lo guardado se normaliza igual que lo nuevo (identidad y bloques de planes anteriores): sin cambios reales, sin versión nueva.
   const before = validateProgramDoc(plain(cur.doc));
   if (sameDoc(before.ok ? before.doc : plain(cur.doc), doc)) return { version: cur.version.number, created: false };
-  if (cur.version.locked) {
+  // FSA1: la marca «congelada» se vuelve a leer con la fila bloqueada. Si el alumno empezó a entrenar esta versión mientras se
+  // guardaba (startSession la congela en otra transacción), acá se espera a que termine y se crea una versión nueva: nunca se
+  // reescribe en el lugar una versión con un entrenamiento abierto.
+  const [lk] = await tx.select({ locked: programVersion.locked }).from(programVersion).where(eq(programVersion.id, cur.version.id)).for("update");
+  if (cur.version.locked || lk?.locked) {
     const nv = await newVersion(tx, p.programId, cur.version.number + 1, doc, p.actorId);
     await audit(tx, { actorUserId: p.actorId, orgId: p.orgId, action: "program.versioned", resourceType: "program", resourceId: p.programId, meta: { version: nv.number } });
     return { version: nv.number, created: true };
@@ -353,7 +357,8 @@ export async function coachOverview(actorId: string, orgId: string, now = new Da
   });
   const [pendingInv] = await db.select({ n: sql<number>`count(*)::int` }).from(invitation)
     .where(and(eq(invitation.orgId, orgId), eq(invitation.status, "pending"), gte(invitation.expiresAt, now)));
-  const withProg = clients.filter((c) => c.adherence != null);
+  // FSA1: un alumno pausado no tiene programa a la vista; su 0 % no baja la adherencia media de los activos.
+  const withProg = clients.filter((c) => c.status === "active" && c.adherence != null);
   return {
     org: { id: org.id, name: org.name, specialty: org.specialty, modality: org.modality, status: org.status, trialEndsAt: org.trialEndsAt },
     clients,
