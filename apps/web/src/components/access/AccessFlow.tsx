@@ -176,6 +176,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const entryFailed = !!err && !!entry && !joinInfo && !invite && !actInfo;
+  useEffect(() => { if (entryFailed) setGuide(false); }, [entryFailed]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -725,7 +728,9 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     },
   };
 
-  if (guide) {
+  // FSA1 (UI): si el enlace de entrada no se pudo abrir (vencido, inválido), no se pide agregar REPI a inicio antes de
+  // decirlo: primero el motivo y las salidas (y la guía no vuelve al tocar «Ir a ingresar»).
+  if (guide && !entryFailed) {
     const ctx = joinInfo ? { title: joinInfo.orgName, detail: joinInfo.locationName } : invite ? { title: invite.orgName, detail: invite.detail } : actInfo ? { title: actInfo.orgName, detail: "Bienvenida a REPI" } : null;
     return <InstallGuide context={ctx} recovery={entry} onContinue={() => { setGuide(false); window.scrollTo(0, 0); }} />;
   }
