@@ -11,6 +11,13 @@ import type { DemoRole } from "@/server/sandbox/services";
 
 type Step = { t: string; d: string; target?: string; go?: boolean };
 const TOURS: Record<DemoRole, { who: string; steps: Step[] }> = {
+  // REPI Control (D213): la demo empieza en la pantalla de rutinas (/rutinas, sin guía). Si después entra al panel del
+  // gimnasio como Laura, la guía explica quién controla los programas.
+  control: { who: "Dueña de Gimnasio Atlas", steps: [
+    { t: "Gimnasio Atlas · REPI Control", d: "Sos Laura, la dueña. En Atlas los programas los arma y los cambia sólo el equipo de sala: los socios los consultan en la pantalla del gimnasio o en la app, sin poder modificarlos. Todo es ficticio y se borra solo." },
+    { t: "Pantalla de rutinas", d: "Registrás cada tablet o monitor con un enlace que se usa una vez, y la revocás cuando quieras. Cada socio entra con su código y su PIN, sin email ni contraseña.", target: "Pantalla de rutinas", go: true },
+    { t: "Tu equipo, tus permisos", d: "Si alguien deja el gimnasio, le quitás el acceso desde Equipo: deja de ver socios y programas en el pedido siguiente y sus tareas vuelven a la cola.", target: "Equipo", go: true },
+  ] },
   owner: { who: "Dueño o gerente", steps: [
     { t: "Bienvenido a Gym Norte", d: "Sos Martín, el dueño. En dos minutos te mostramos cómo REPI ordena tu gimnasio. Todo es ficticio y se borra solo: tocá lo que quieras." },
     { t: "Tu gimnasio de un vistazo", d: "Socios activos, asistencia, servicio del equipo y alertas, por sede. Sin planillas.", target: "Ejecutivo", go: true },

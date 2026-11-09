@@ -1,0 +1,122 @@
+/* REPI Control (D213): pantalla de consulta de rutinas. G · Atlética sobre fondo oscuro, pensada para tablet o monitor táctil
+   a un brazo de distancia: tipografía grande, blancos de toque de 72 px, un solo dato vivo en cian. Barlow y Barlow Condensed. */
+.kq {
+  --kq-bg: #0A0F1A; --kq-floor: #0F1620; --kq-line: #1F2B3B; --kq-edge: #2A3648; --kq-ink: #F4F7FB; --kq-ink2: #B7C3D3; --kq-mute: #8A9AAF;
+  --kq-live: #00D1FF; --kq-team: #5DE6D8; --kq-err: #FCA5A5;
+  min-height: 100dvh; display: flex; flex-direction: column; background: var(--kq-bg); color: var(--kq-ink);
+  font-family: var(--font-ui, "Barlow", system-ui, sans-serif); font-size: 18px; line-height: 1.4;
+  padding: max(16px, env(safe-area-inset-top)) clamp(16px, 3vw, 40px) max(20px, env(safe-area-inset-bottom));
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  background-image: linear-gradient(var(--kq-line) 1px, transparent 1px), linear-gradient(90deg, var(--kq-line) 1px, transparent 1px);
+  background-size: 96px 96px; background-position: -1px -1px; background-attachment: fixed;
+}
+.kq h1, .kq h2 { margin: 0; font-family: var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; letter-spacing: -.01em; }
+.kq h1 { font-weight: 700; font-size: clamp(40px, 6.4vw, 88px); line-height: .95; outline: none; }
+.kq button { font-family: inherit; cursor: pointer; }
+.kq button:focus-visible { outline: 3px solid var(--kq-live); outline-offset: 3px; }
+.kq button:disabled { opacity: .45; cursor: default; }
+.kq-brand { font: 800 22px var(--font-display, "Barlow Condensed", sans-serif); letter-spacing: .08em; color: var(--kq-live); }
+.kq-lead { margin: 0; max-width: 34ch; font-size: clamp(18px, 2.1vw, 24px); color: var(--kq-ink2); }
+.kq-muted { margin: 0; font-size: 15px; color: var(--kq-mute); }
+.kq-info { margin: 0; padding: 12px 16px; border-radius: 14px; background: rgba(93, 230, 216, .12); color: var(--kq-team); font-size: 17px; }
+.kq-err { margin: 0; padding: 12px 16px; border-radius: 14px; background: rgba(239, 68, 68, .14); color: var(--kq-err); font-size: 17px; max-width: 36ch; }
+.kq-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+.kq-center .kq-lead { max-width: 40ch; }
+
+/* Barra superior */
+.kq-top { display: flex; align-items: center; gap: 14px; min-height: 44px; }
+.kq-where { flex: 1; min-width: 0; font-size: 16px; font-weight: 600; color: var(--kq-ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kq-demo { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--kq-team); color: var(--kq-team); font-size: 14px; font-weight: 700; white-space: nowrap; }
+.kq-idle { font-size: 15px; color: var(--kq-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kq-idle.warn { color: #0A0F1A; background: #FCD34D; padding: 6px 12px; border-radius: 999px; font-weight: 700; }
+
+/* Botones */
+.kq-primary { min-height: 80px; min-width: 260px; padding: 0 40px; border: 0; border-radius: 20px; background: var(--kq-live); color: #04121A;
+  font: 700 clamp(26px, 3vw, 34px) var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; letter-spacing: .02em; }
+.kq-ghost { min-height: 56px; padding: 0 22px; border-radius: 16px; border: 1px solid var(--kq-edge); background: transparent; color: var(--kq-ink); font-size: 18px; font-weight: 600; }
+.kq-end { min-height: 64px; padding: 0 30px; border-radius: 18px; border: 2px solid var(--kq-ink); background: transparent; color: var(--kq-ink);
+  font: 700 24px var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; letter-spacing: .03em; flex: none; }
+.kq-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* Bienvenida */
+.kq-welcome { flex: 1; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: clamp(20px, 4vw, 64px); align-items: center; padding: 24px 0; }
+.kq-hero { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+.kq-hero h1 { font-size: clamp(56px, 9vw, 132px); }
+.kq-side { display: flex; flex-direction: column; gap: 16px; justify-self: end; width: 100%; max-width: 380px; }
+.kq-app { display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 24px; background: var(--kq-floor); border: 1px solid var(--kq-edge); }
+.kq-app strong { font-size: 19px; }
+.kq-app p { margin: 4px 0 0; font-size: 15px; color: var(--kq-ink2); }
+.kq-qr { width: 168px; height: 168px; padding: 10px; border-radius: 14px; background: #fff; }
+.kq-qr svg, .kq-linkqr svg { width: 100%; height: 100%; display: block; }
+.kq-demo-guide { padding: 16px 20px; border-radius: 18px; border: 1px dashed var(--kq-team); background: rgba(93, 230, 216, .06); }
+.kq-demo-guide ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.kq-demo-guide li { font-size: 16px; }
+.kq-demo-guide code { font: 700 19px var(--font-display, "Barlow Condensed", sans-serif); letter-spacing: .06em; color: var(--kq-live); }
+.kq-demo-guide small { display: block; color: var(--kq-mute); font-size: 14px; }
+
+/* Identificación */
+.kq-id { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: clamp(24px, 5vw, 80px); align-items: center; padding: 24px 0; }
+.kq-id-text { display: flex; flex-direction: column; gap: 20px; }
+.kq-digits { display: flex; gap: 10px; }
+.kq-digits span { width: clamp(44px, 5.4vw, 64px); height: clamp(60px, 7vw, 84px); display: grid; place-items: center; border-radius: 14px; border: 2px solid var(--kq-edge);
+  font: 700 clamp(32px, 4vw, 48px) var(--font-display, "Barlow Condensed", sans-serif); font-variant-numeric: tabular-nums; }
+.kq-digits span.on { border-color: var(--kq-live); color: var(--kq-live); }
+.kq-digits span.dot { font-size: clamp(36px, 4.4vw, 54px); }
+.kq-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.kq-pad button { min-height: 80px; border-radius: 18px; border: 1px solid var(--kq-edge); background: var(--kq-floor); color: var(--kq-ink);
+  font: 700 36px var(--font-display, "Barlow Condensed", sans-serif); font-variant-numeric: tabular-nums; }
+.kq-pad button:active:not(:disabled) { background: var(--kq-line); }
+.kq-pad .kq-pad-aux { font: 600 18px var(--font-ui, "Barlow", sans-serif); color: var(--kq-ink2); }
+.kq-pad .kq-pad-ok { background: var(--kq-live); border-color: var(--kq-live); color: #04121A; font-size: 28px; text-transform: uppercase; }
+
+/* Programa */
+.kq-prog { flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 18px 0 8px; }
+.kq-prog-head { display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; }
+.kq-prog-head h1 { font-size: clamp(36px, 5vw, 68px); }
+.kq-eyebrow { margin: 0 0 6px; font-size: 20px; font-weight: 700; color: var(--kq-team); }
+.kq-meta { margin: 8px 0 0; font-size: 15px; color: var(--kq-mute); }
+.kq-note { margin: 0; padding: 12px 16px; border-radius: 14px; background: var(--kq-floor); border-left: 4px solid var(--kq-team); font-size: 17px; color: var(--kq-ink2); }
+.kq-days { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.kq-days button { flex: none; min-height: 64px; padding: 8px 22px; border-radius: 16px; border: 1px solid var(--kq-edge); background: transparent; color: var(--kq-ink2);
+  font: 700 24px var(--font-display, "Barlow Condensed", sans-serif); text-transform: uppercase; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
+.kq-days button small { font: 500 13px var(--font-ui, "Barlow", sans-serif); text-transform: none; color: var(--kq-mute); }
+.kq-days button[aria-selected="true"] { background: var(--kq-ink); color: #0A0F1A; border-color: var(--kq-ink); }
+.kq-days button[aria-selected="true"] small { color: #3A4658; }
+.kq-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.kq-ex { display: flex; gap: 16px; padding: 18px; border-radius: 20px; background: var(--kq-floor); border: 1px solid var(--kq-line); flex-wrap: wrap;
+  animation: kq-in .32s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.kq-n { font: 700 30px var(--font-display, "Barlow Condensed", sans-serif); color: var(--kq-mute); line-height: 1; min-width: 40px; font-variant-numeric: tabular-nums; }
+.kq-ex-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.kq-ex h2 { font-size: clamp(24px, 2.6vw, 30px); line-height: 1.05; }
+.kq-rx { margin: 0; font: 700 clamp(26px, 3vw, 34px) var(--font-display, "Barlow Condensed", sans-serif); color: var(--kq-live); font-variant-numeric: tabular-nums; }
+.kq-chips { margin: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.kq-chips span { padding: 4px 10px; border-radius: 999px; background: var(--kq-line); color: var(--kq-ink2); font-size: 15px; font-weight: 600; }
+.kq-exnote { margin: 0; font-size: 16px; color: var(--kq-ink2); }
+.kq-ex-demo { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.kq-ex-demo video { width: 100%; max-height: 320px; border-radius: 14px; background: #000; }
+.kq-linkqr { display: flex; gap: 12px; align-items: center; color: var(--kq-ink2); }
+.kq-linkqr > div { width: 120px; height: 120px; padding: 8px; background: #fff; border-radius: 12px; }
+.kq-empty { flex: 1; display: grid; place-items: center; text-align: center; }
+.kq-empty .kq-lead { max-width: 40ch; }
+.kq-foot { margin: 6px 0 0; font-size: 14px; color: var(--kq-mute); }
+
+@keyframes kq-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Tablet vertical y teléfono */
+@media (max-width: 900px) {
+  .kq-welcome, .kq-id { grid-template-columns: 1fr; align-content: center; }
+  .kq-side { justify-self: stretch; max-width: none; }
+  .kq-app { flex-direction: row; align-items: center; }
+  .kq-qr { width: 120px; height: 120px; flex: none; }
+  .kq-pad { max-width: 440px; width: 100%; }
+}
+@media (max-width: 560px) {
+  .kq { font-size: 17px; background-size: 64px 64px; }
+  .kq-prog-head { flex-direction: column; }
+  .kq-end { align-self: stretch; }
+  .kq-primary { width: 100%; min-width: 0; }
+  .kq-pad button { min-height: 68px; }
+  .kq-idle:not(.warn) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .kq-ex { animation: none; } }
+@media (forced-colors: active) { .kq-digits span.on, .kq-days button[aria-selected="true"] { border: 3px solid CanvasText; } }
