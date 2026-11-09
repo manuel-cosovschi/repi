@@ -8,6 +8,7 @@ import {
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { cleanTag } from "@/lib/site-events";
+import { PRODUCT_MODES } from "@/content/conoce";
 import { AccessError, addDays, audit, newInviteCode, newToken, sha256, type Tx } from "../access/util";
 import { MailError, deliverMail } from "../mailer";
 import { logError } from "../log";
@@ -35,8 +36,11 @@ export type LeadInput = {
   source?: string | null; campaign?: string | null; interest?: string | null;
   /** D209: código del vendedor del enlace personal (?ref=). Se guarda sólo si es de un vendedor activo. */
   referralCode?: string | null;
+  /** D215: modalidad que le interesa a un gimnasio (REPI Completo, REPI Control o todavía no sabe). Sólo se guarda para «gym». */
+  productMode?: string | null;
 };
 const LEAD_SOURCES = new Set(["qr", "utm", "referral", "direct"]);
+const LEAD_MODES = new Set<string>(PRODUCT_MODES);
 const LEAD_INTERESTS = new Set(["gimnasios", "entrenadores", "deportistas", "aliados"]);
 
 /**
@@ -55,7 +59,7 @@ export async function createLead(p: LeadInput) {
   await db.insert(commercialLead).values({ kind, orgName: (orgName || "—").slice(0, 120), contactName: p.contactName.trim().slice(0, 80),
     email: email ? normalizeEmail(email) : null, phone: phone.slice(0, 40) || null, message: p.message?.trim().slice(0, 600) || null,
     source: p.source && LEAD_SOURCES.has(p.source) ? p.source : null, campaign: cleanTag(p.campaign), interest: p.interest && LEAD_INTERESTS.has(p.interest) ? p.interest : null,
-    referralCode: await activeReferral(p.referralCode) });
+    referralCode: await activeReferral(p.referralCode), productMode: kind === "gym" && p.productMode && LEAD_MODES.has(p.productMode) ? p.productMode : null });
   return { ok: true };
 }
 

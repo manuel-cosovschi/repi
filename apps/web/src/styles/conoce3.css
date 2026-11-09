@@ -383,6 +383,127 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   .x3-pv-tabs button[aria-selected="true"] { background: var(--x-white); }
 }
 
+/* La mención de las modalidades en el perfil Gimnasios. */
+.x3-pv-modes { margin: 0 0 22px; color: var(--x-muted); line-height: 1.45; font-size: 15px; }
+.x3-pv-modes a { color: var(--x-white); text-underline-offset: 3px; }
+
+/* ── 04b · Modalidades: «Un mismo REPI. Dos formas de entrenar.» (D215) ─ */
+.x3-md { position: relative; padding: clamp(90px, 14vh, 160px) 0; }
+/* Velo detrás del texto (como Producto): en el teléfono, toda la escena; en escritorio, a la izquierda (la sala se ve detrás
+   del escenario). La tabla lleva su propio fondo. */
+.x3-md::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(11, 15, 20, .88) 6%, rgba(11, 15, 20, .88) 94%, transparent); }
+@media (min-width: 960px) {
+  .x3-md::before { inset: 0 auto 0 0; width: 60%; background: linear-gradient(90deg, rgba(11, 15, 20, .94) 0%, rgba(11, 15, 20, .9) 62%, rgba(11, 15, 20, 0) 100%); }
+}
+/* Selector: dos pestañas grandes con un indicador que se desliza (como Perspectivas). */
+.x3-md-tabs { --i: 0; position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 6px; border-radius: 18px; background: rgba(26, 36, 51, .92); border: 1px solid var(--x-steel); max-width: 680px; margin: 0 0 clamp(32px, 5vh, 56px); }
+.x3-md-ind { position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 2); border-radius: 13px; background: var(--x-white); transform: translateX(calc(var(--i) * 100%)); transition: transform .55s var(--x-ease); }
+.x3-md-tabs button { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; min-height: 66px; padding: 10px 18px; border: 0; border-radius: 13px; background: none; color: var(--x-muted); text-align: left; cursor: pointer; transition: color .35s; }
+.x3-md-tabs b { font: 700 clamp(1.3rem, 2.4vw, 1.65rem)/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
+.x3-md-tabs small { font: 500 13px/1.25 var(--font-ui); }
+.x3-md-tabs button[aria-selected="true"] { color: var(--x-navy); }
+.x3-md-tabs button[aria-selected="true"] small { color: var(--x-ink-2); }
+/* El panel: texto a la izquierda, escenario a la derecha y los beneficios debajo, de lado a lado. */
+.x3-md-panel { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: clamp(28px, 4vw, 64px) clamp(28px, 5vw, 72px); align-items: start; }
+.x3-md-panel[hidden] { display: none; }
+.x3-md-tag { margin: 0 0 10px; color: var(--x-teal); font-weight: 600; font-size: 15px; }
+.x3-md-copy h3 { margin: 0; font: 700 clamp(2rem, 4.2vw, 3.4rem)/.95 var(--font-display); text-transform: uppercase; letter-spacing: -.015em; text-wrap: balance; }
+.x3-md-pitch { margin: 16px 0 0; color: var(--x-muted); font-size: clamp(1rem, 1.5vw, 1.1rem); line-height: 1.55; max-width: 58ch; }
+.x3-md-feat { list-style: none; margin: 22px 0 0; padding: 0; }
+.x3-md-feat li { position: relative; padding: 10px 0 10px 26px; border-top: 1px solid var(--x-line); line-height: 1.45; }
+.x3-md-feat li::before { content: ""; position: absolute; left: 2px; top: 21px; width: 12px; height: 2px; border-radius: 2px; background: var(--x-teal); }
+.x3-md-act { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 26px; }
+.x3-md-act .x3-btn.text { gap: 6px; }
+.x3-md-price { margin: 14px 0 0; }
+.x3-md-price a { color: var(--x-white); text-underline-offset: 3px; }
+.x3-md-ben { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 clamp(16px, 3vw, 40px); border-top: 1px solid var(--x-line); }
+.x3-md-ben li { display: flex; flex-direction: column; gap: 4px; padding-top: 18px; }
+.x3-md-ben b { font: 700 1.2rem/1.1 var(--font-display); text-transform: uppercase; }
+.x3-md-ben span { color: var(--x-muted); line-height: 1.45; font-size: 15px; }
+/* Escenario: pantallas reales apiladas en su equipo (teléfono del socio o pantalla apaisada del gimnasio), el teléfono que
+   acompaña y los pasos. Alto fijo por equipo: cambiar de pantalla no mueve nada. */
+.x3-md-stage { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.x3-md-area { position: relative; height: clamp(420px, 40vw, 540px); }
+.x3-md-main, .x3-md-aside { position: absolute; margin: 0; }
+.x3-md-glass { position: relative; overflow: hidden; background: #0F1620; box-shadow: 0 40px 70px -35px rgba(0, 0, 0, .9); }
+.x3-md-glass img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; visibility: hidden; transition: opacity 0s linear .5s, visibility 0s linear .5s; }
+/* La pantalla nueva entra encima con un barrido; la anterior se va recién cuando la nueva la tapó. */
+.x3-md-glass img[data-on] { z-index: 1; opacity: 1; visibility: visible; transition: none; }
+.x3-md-main.phone { left: 4%; top: 0; height: 100%; aspect-ratio: 390 / 844; }
+.x3-md-main.phone .x3-md-glass { height: 100%; border-radius: 30px; border: 1px solid var(--x-steel); outline: 6px solid #10161F; }
+.x3-md-main.screen { left: 0; right: 12%; top: 2%; }
+.x3-md-main.screen .x3-md-glass { aspect-ratio: 16 / 10; border-radius: 14px; border: 10px solid #10161F; outline: 1px solid var(--x-steel); }
+.x3-md-main.screen::after { content: ""; display: block; width: 18%; height: 16px; margin: 0 auto; background: linear-gradient(#10161F, #1A2433); border-radius: 0 0 10px 10px; }
+.x3-md-aside { z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.x3-md-aside img { display: block; width: auto; border-radius: 22px; border: 1px solid var(--x-steel); outline: 5px solid #10161F; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .95); }
+.x3-md-aside figcaption { max-width: 24ch; text-align: center; font-size: 13px; line-height: 1.35; color: var(--x-muted); }
+[data-device="phone"] .x3-md-aside { right: 3%; top: 12%; }
+[data-device="phone"] .x3-md-aside img { height: calc(clamp(420px, 40vw, 540px) * .74); }
+[data-device="screen"] .x3-md-aside { right: 2%; bottom: 0; }
+[data-device="screen"] .x3-md-aside img { height: calc(clamp(420px, 40vw, 540px) * .5); }
+.x3-md-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.x3-md-steps button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 6px; border-radius: 999px; border: 1px solid var(--x-steel); background: rgba(11, 15, 20, .82); color: var(--x-muted); font: 600 14px var(--font-ui); cursor: pointer; transition: color .3s, border-color .3s, background-color .3s; }
+.x3-md-steps button span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--x-steel); color: var(--x-white); font-size: 12px; transition: background-color .3s; }
+.x3-md-steps button:hover { border-color: rgba(248, 250, 252, .6); color: var(--x-white); }
+.x3-md-steps button[aria-pressed="true"] { background: var(--x-white); border-color: var(--x-white); color: var(--x-navy); }
+.x3-md-steps button[aria-pressed="true"] span { background: var(--x-navy); }
+/* Cambio de modo (sólo después de que la persona eligió; al cargar, todo quieto): el texto entra escalonado, el equipo se
+   enciende, el teléfono que acompaña sube y la pantalla nueva entra con un barrido. Movimiento reducido o «Pausar
+   animaciones»: el cambio es instantáneo. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="paused"]) .x3-md[data-moved] .x3-md-copy > * { animation: x3-md-up .55s var(--x-ease) both; animation-delay: calc(var(--d, 0) * 55ms); }
+  html:not([data-motion="paused"]) .x3-md[data-moved] .x3-md-main { animation: x3-md-on .6s var(--x-ease) both; }
+  html:not([data-motion="paused"]) .x3-md[data-moved] .x3-md-aside { animation: x3-md-up .6s var(--x-ease) .18s both; }
+  html:not([data-motion="paused"]) .x3-md[data-moved] .x3-md-ben li { animation: x3-md-up .5s var(--x-ease) both; animation-delay: calc(.25s + var(--d, 0) * 70ms); }
+  html:not([data-motion="paused"]) .x3-md .x3-md-glass img[data-on] { animation: x3-wipe .5s var(--x-ease) both; }
+}
+@keyframes x3-md-up { from { opacity: 0; transform: translateY(16px); } }
+@keyframes x3-md-on { from { opacity: 0; transform: scale(.94); } }
+/* «Qué cambia y qué no»: tabla corta con fondo propio; la columna del modo elegido se enciende. */
+.x3-md-cmp { position: relative; margin-top: clamp(56px, 9vh, 96px); padding: clamp(20px, 3vw, 36px); border-radius: 22px; background: rgba(11, 15, 20, .94); border: 1px solid var(--x-line); }
+.x3-md-cmp .x3-h3 { color: var(--x-muted); }
+.x3-md-cmp .x3-h3 em { font-style: normal; color: var(--x-white); }
+.x3-md-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.45; }
+.x3-md-table thead th { padding: 0 14px 12px; text-align: left; font: 700 1.2rem/1 var(--font-display); text-transform: uppercase; color: var(--x-muted); transition: color .4s; }
+.x3-md-table th[scope="row"] { width: 30%; padding: 12px 16px 12px 0; text-align: left; vertical-align: top; font-weight: 600; color: var(--x-white); border-top: 1px solid var(--x-line); }
+.x3-md-table td { padding: 12px 14px; vertical-align: top; color: var(--x-muted); border-top: 1px solid var(--x-line); transition: color .4s, background-color .4s; }
+.x3-md-table .grp th { padding: 24px 0 8px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--x-teal); }
+.x3-md-table tbody:first-of-type .grp th { padding-top: 6px; }
+.x3-md-table tr.same td { color: var(--x-white); }
+.x3-md-cmp[data-active="completo"] [data-col="completo"], .x3-md-cmp[data-active="control"] [data-col="control"] { color: var(--x-white); background: rgba(248, 250, 252, .05); }
+@media (max-width: 959px) {
+  .x3-md-panel { grid-template-columns: 1fr; }
+  .x3-md-stage { order: -1; }
+  .x3-md-ben { grid-template-columns: 1fr; }
+  .x3-md-area { height: 440px; }
+  [data-device="phone"] .x3-md-aside img { height: 320px; }
+  /* La pantalla apaisada ocupa el ancho; el alto sale de su proporción y el teléfono asoma abajo a la derecha. */
+  [data-device="screen"] .x3-md-area { height: calc((100vw - 2 * var(--x-gutter)) * .88 * .625 + 120px); max-height: 520px; }
+  .x3-md-main.screen { right: 12%; }
+  [data-device="screen"] .x3-md-aside img { height: 190px; }
+}
+@media (max-width: 679px) {
+  .x3-md-tabs button { padding: 10px 12px; min-height: 64px; }
+  .x3-md-tabs small { font-size: 12px; }
+  .x3-md-area { height: 400px; }
+  .x3-md-main.phone { left: 0; }
+  [data-device="phone"] .x3-md-aside { right: 0; top: 16%; }
+  [data-device="phone"] .x3-md-aside img { height: 280px; }
+  [data-device="phone"] .x3-md-aside figcaption { max-width: 16ch; }
+  [data-device="screen"] .x3-md-aside img { height: 150px; }
+  [data-device="screen"] .x3-md-aside figcaption { display: none; }
+  .x3-md-steps button { min-height: 38px; font-size: 13px; padding-right: 12px; }
+  /* La tabla se vuelve una lista: cada fila con sus dos respuestas, rotuladas. */
+  .x3-md-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .x3-md-table, .x3-md-table tbody, .x3-md-table tr, .x3-md-table th, .x3-md-table td { display: block; width: auto; }
+  .x3-md-table tr:not(.grp) { padding: 12px 0; border-top: 1px solid var(--x-line); }
+  .x3-md-table th[scope="row"] { padding: 0; border: 0; }
+  .x3-md-table td { margin-top: 8px; padding: 8px 10px; border: 0; border-radius: 10px; }
+  .x3-md-table th[scope="row"] { width: auto; }
+  .x3-md-table td::before { content: attr(data-k); display: block; margin-bottom: 2px; font-size: 12px; font-weight: 600; color: var(--x-dim); }
+}
+
 /* ── 05 · Producto ──────────────────────────────────────────────────── */
 .x3-sc { position: relative; padding: clamp(80px, 12vh, 140px) 0; background: linear-gradient(180deg, transparent, rgba(11, 15, 20, .86) 12%, rgba(11, 15, 20, .86) 88%, transparent); }
 /* Escritorio (Motion 2): el velo queda sólo detrás de la columna de texto; a la derecha la sala vuelve a verse. */
@@ -482,7 +603,21 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-door-who { margin: 0; font-weight: 600; }
 .x3-door .x3-btn.pri { transition: transform .12s var(--x-ease), background-color .2s; }
 .x3-door .x3-btn.pri:active { transform: scale(.97); }
-@media (max-width: 1199px) and (min-width: 900px) { .x3-door-body ul li:nth-child(n+4) { display: none; } }
+/* Cinco puertas (D215 suma la pantalla de REPI Control). Anchas: una fila, con la captura y la lista más cortas. Intermedias:
+   tres arriba y dos centradas abajo, todas del mismo tamaño (abrir una sigue sin empujar a nadie). */
+@media (min-width: 1280px) {
+  .x3-doors { grid-template-columns: repeat(5, minmax(0, 1fr)); height: 640px; }
+  .x3-door-tab span { font-size: clamp(1.25rem, 1.6vw, 1.5rem); }
+  .x3-door-body { padding: 150px 16px 18px; gap: 12px; }
+  .x3-door-body img { max-height: 130px; }
+  .x3-door-body ul li:nth-child(n+4) { display: none; }
+}
+@media (max-width: 1279px) and (min-width: 900px) {
+  .x3-doors { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: 600px; height: auto; }
+  .x3-door { grid-column: span 2; }
+  .x3-door:nth-child(4) { grid-column: 2 / span 2; }
+  .x3-door-body ul li:nth-child(n+4) { display: none; }
+}
 @media (max-width: 899px) {
   .x3-doors { display: flex; flex-direction: column; height: auto; }
   .x3-door { flex: none; }
@@ -533,6 +668,9 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 .x3-fin-h .ln:first-child { color: var(--x-muted); }
 .x3-fin-act { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-top: 40px; }
 .x3-fin-act .x3-btn.pri { flex-basis: 100%; max-width: 420px; position: relative; }
+/* Las dos modalidades, en una línea discreta debajo de las acciones (entra con ellas). */
+.x3-fin-modes { flex-basis: 100%; margin: 4px 0 0; font-size: 15px; color: var(--x-muted); }
+.x3-fin-modes a { color: var(--x-white); text-underline-offset: 3px; }
 /* El trazo que subraya la acción principal (la acción es de las pocas cosas en cian). */
 .x3-fin-under { position: absolute; left: 0; right: 0; bottom: -7px; height: 2px; border-radius: 2px; background: var(--x-cyan); transform-origin: 0 50%; }
 @media (min-width: 760px) { .x3-fin-act .x3-btn.pri { flex-basis: auto; } }

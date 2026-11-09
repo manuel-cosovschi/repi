@@ -10,6 +10,7 @@ import { Fragment, startTransition, useCallback, useEffect, useRef, useState } f
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
 import { api } from "@/lib/api";
+import { PRODUCT_MODE_LABEL } from "@/content/conoce";
 import { authClient } from "@/lib/auth-client";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -28,7 +29,7 @@ type Client = {
   orgId: string; name: string; kind: "gym" | "coach"; demo: boolean; commercialStatus: string; contractId: string | null; stage: string | null; stageLabel: string;
   agreed: number | null; unitPrice: string | null; enabledAccesses: number; overAgreed: boolean;
 };
-type Lead = { id: string; kind: "gym" | "coach" | "partner"; orgName: string; contactName: string; email: string | null; phone: string | null; message: string | null; status: string; createdAt: string; source?: string | null; campaign?: string | null; referralCode?: string | null };
+type Lead = { id: string; kind: "gym" | "coach" | "partner"; orgName: string; contactName: string; email: string | null; phone: string | null; message: string | null; status: string; createdAt: string; source?: string | null; campaign?: string | null; referralCode?: string | null; productMode?: string | null };
 type Clients = { clients: Client[]; demo: Client[]; leads: Lead[] };
 type Term = { id: string; kind: "quantity" | "unit_price"; version: number; value: number; currency: string | null; effectiveFrom: string; reason: string; evidence: string | null; author: string; display: string; createdAt: string };
 type Detail = {
@@ -183,6 +184,7 @@ function Leads({ rows, flash, reload, onCreate }: { rows: Lead[] | null; flash: 
             {l.message && <small>{l.message}</small>}
             {l.referralCode && <small>Llegó con el enlace del vendedor {l.referralCode} (origen, no venta atribuida)</small>}
           </span>
+          {l.kind === "gym" && l.productMode && PRODUCT_MODE_LABEL[l.productMode] && <span className="chip">{l.productMode === "undecided" ? "Modalidad: todavía no sabe" : `Interés: ${PRODUCT_MODE_LABEL[l.productMode]}`}</span>}
           <span className={`chip ${l.status === "new" ? "warn" : l.status === "converted" ? "ok" : "mute"}`}>{{ new: "Nuevo", contacted: "Contactado", converted: "Convertido", discarded: "Descartado" }[l.status] ?? l.status}</span>
           {l.status === "new" && <button type="button" className="btn sm" onClick={() => set(l.id, "contacted")}>Marcar contactado</button>}
           {l.kind !== "partner" && l.status !== "converted" && l.status !== "discarded" && <button type="button" className="btn sm" onClick={() => { void set(l.id, "converted"); onCreate(); }}>Dar de alta</button>}

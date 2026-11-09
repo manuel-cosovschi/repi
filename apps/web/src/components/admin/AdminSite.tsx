@@ -4,15 +4,16 @@
 // Cómo leerlo: docs/comercial/EXPERIENCE_HUB.md §Medición.
 import { useState } from "react";
 import { Head, useLoad } from "@/components/gym/shared";
+import { PRODUCT_MODE_LABEL } from "@/content/conoce";
 
 type Row = { name: string; total: number; qr: number; other: number; visitsQr: number; visitsOther: number };
 type Site = {
   days: number; funnel: Row[]; scans: { campaign: string | null; n: number }[]; profiles: { profile: string | null; n: number }[];
   demos: { target: string | null; name: string; n: number }[]; campaigns: { source: string | null; medium: string | null; campaign: string | null; visits: number }[];
-  visitsByDay: { day: string; qr: boolean; n: number }[]; leads: { source: string | null; campaign: string | null; kind: string; n: number }[];
+  visitsByDay: { day: string; qr: boolean; n: number }[]; leads: { source: string | null; campaign: string | null; kind: string; productMode?: string | null; n: number }[];
 };
 const LABEL: Record<string, string> = {
-  landing_view: "Visitas a la presentación", profile_select: "Eligieron un perfil", video_play: "Reprodujeron un video", demo_click: "Tocaron una demo",
+  landing_view: "Visitas a la presentación", profile_select: "Eligieron un perfil", mode_select: "Miraron una modalidad", video_play: "Reprodujeron un video", demo_click: "Tocaron una demo",
   demo_start: "Demos iniciadas", intel_try: "Probaron el simulador", whatsapp_click: "Abrieron WhatsApp", email_click: "Abrieron el email",
   contact_click: "Fueron al formulario", form_submit: "Enviaron el formulario", meeting_request: "Pidieron reunión",
 };
@@ -61,7 +62,8 @@ export function AdminSite() {
             <Mini title="Escaneos por campaña" rows={s.scans.map((x) => [x.campaign ?? "—", x.n])} />
             <Mini title="Perfil elegido" rows={s.profiles.map((x) => [PROFILE[x.profile ?? ""] ?? "—", x.n])} />
             <Mini title="Demos iniciadas" rows={s.demos.filter((x) => x.name === "demo_start").map((x) => [DEMO[x.target ?? ""] ?? x.target ?? "—", x.n])} foot={s.demos.some((x) => x.name === "demo_error") ? `No se pudieron crear: ${s.demos.filter((x) => x.name === "demo_error").reduce((a, x) => a + x.n, 0)} (límite por IP o demasiadas abiertas).` : undefined} />
-            <Mini title="Contactos por origen" rows={s.leads.map((x) => [`${KIND[x.kind] ?? x.kind} · ${x.source ?? "sin dato"}${x.campaign ? ` · ${x.campaign}` : ""}`, x.n])} />
+            <Mini title="Contactos por origen" rows={sumBy(s.leads, (x) => `${KIND[x.kind] ?? x.kind} · ${x.source ?? "sin dato"}${x.campaign ? ` · ${x.campaign}` : ""}`)} />
+            <Mini title="Gimnasios por modalidad" rows={byMode(s.leads)} />
           </div>
 
           <Mini title="Visitas por campaña (UTM)" rows={s.campaigns.map((x) => [[x.source, x.medium, x.campaign].filter(Boolean).join(" / ") || "Directo o sin UTM", x.visits])} />
@@ -71,6 +73,14 @@ export function AdminSite() {
     </>
   );
 }
+
+/** Suma los conteos que comparten etiqueta (el servidor agrupa también por modalidad). */
+function sumBy(rows: Site["leads"], key: (x: Site["leads"][number]) => string): [string, number][] {
+  const m = new Map<string, number>();
+  for (const x of rows) m.set(key(x), (m.get(key(x)) ?? 0) + x.n);
+  return [...m];
+}
+const byMode = (rows: Site["leads"]) => sumBy(rows.filter((x) => x.kind === "gym"), (x) => PRODUCT_MODE_LABEL[x.productMode ?? ""] ?? "Sin elegir");
 
 function Kpi({ label, value }: { label: string; value: number }) {
   return <div className="card" style={{ padding: 16 }}><small className="muted">{label}</small><div style={{ font: "700 30px var(--font-display)" }}>{value}</div></div>;

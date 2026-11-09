@@ -10,16 +10,17 @@
 // está. Movimiento reducido o pantalla baja: el estado final, quieto.
 import { useRef } from "react";
 import { ArrowRight, ChatCircle } from "@phosphor-icons/react";
-import { CONTACT } from "@/lib/contact";
+import { waLink as wa } from "@/lib/contact";
 import { track } from "@/lib/site-track";
 import { stage } from "../sala/store";
 import { gatherGrow } from "../sala/model";
 import { DemoButton } from "../DemoButton";
 import { TrackLink } from "../TrackLink";
+import { pickMode } from "../interest";
+import { MODES } from "@/content/conoce";
 import { quad } from "./curves";
 import { gsap, PIN_MQ, ScrollTrigger, useGSAP, whenIdle } from "./gsap";
 
-const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 const ORIGIN: [number, number] = [0, 0];
 /** Tamaño (px) del punto de la sala al final de la vuelta: una persona (14 px) que creció con todo lo que se tragó. */
 const ROOM_DOT = 14 * gatherGrow(1);
@@ -118,6 +119,8 @@ export function Finale() {
             <TrackLink event="whatsapp_click" profile="entrenadores" target="cierre" external className="x3-btn ghost" href={wa("Hola, soy entrenador personal y quiero usar REPI con mis alumnos. ¿Me cuentan cómo empezar?")}>Soy entrenador</TrackLink>
             <DemoButton role="member" label="Probar la demo" className="x3-btn ghost" target="cierre" />
             <TrackLink event="whatsapp_click" target="cierre-hablar" external className="x3-btn text" href={wa("Hola, conocí REPI y quiero hablar con el equipo.")}><ChatCircle size={18} weight="bold" aria-hidden="true" />Hablar con REPI</TrackLink>
+            {/* D215: las dos modalidades, sin otro botón: lleva a «Dos formas de entrenar» con la elegida. */}
+            <p className="x3-fin-modes">Para gimnasios, en dos modalidades: {(["completo", "control"] as const).map((id, i) => <span key={id}>{i > 0 && " y "}<a href="#modos" onClick={() => { pickMode(id); track("feature_click", { profile: "gimnasios", target: `cierre-modo-${id}` }); }}>{MODES[id].name}</a></span>)}.</p>
           </div>
         </div>
       </div>

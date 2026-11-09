@@ -1,5 +1,5 @@
 "use client";
-// Escena 06 · «No te lo contamos. Probalo.» Cuatro puertas grandes, una por rol: la elegida se abre y muestra qué se va a
+// Escena 06 · «No te lo contamos. Probalo.» Una puerta grande por demo (cuatro roles y la pantalla de REPI Control): la elegida se abre y muestra qué se va a
 // explorar (con una pantalla real) y el botón inicia la demo real (POST /api/demo). En escritorio se abre al pasar o enfocar;
 // en el teléfono, con un toque. Nada se simula: si la demo falla, DemoButton lo dice y ofrece WhatsApp.
 // Motion 2 (P7): las puertas tienen tamaño fijo (abrir una no empuja a las vecinas: sin reflujo ni CLS); el cuerpo se revela
@@ -31,7 +31,7 @@ export function Demos() {
           {DEMOS.map((d, i) => (
             <article key={d.role} className="x3-door" data-open={i === open ? "1" : undefined} onMouseEnter={() => setOpen(i)} onFocus={() => setOpen(i)} onPointerMove={tilt} onPointerLeave={untilt} aria-labelledby={`dm-${d.role}`}>
               <button type="button" className="x3-door-tab" aria-expanded={i === open} aria-controls={`dm-b-${d.role}`} onClick={() => setOpen(i)}>
-                <span id={`dm-${d.role}`}>{d.title}</span><small>{d.steps} pasos guiados</small>
+                <span id={`dm-${d.role}`}>{d.title}</span><small>{d.steps ? `${d.steps} pasos guiados` : "Sin guía: explorala libre"}</small>
               </button>
               <div className="x3-door-body" id={`dm-b-${d.role}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -9,7 +9,7 @@ export const viewport = conoceViewport;
 export const metadata = conoceMetadata({
   path: "/conoce",
   title: "REPI · Entrenamiento inteligente para gimnasios, entrenadores y alumnos",
-  description: "Rutinas en el teléfono, registro de cada serie, Training Intelligence y seguimiento real. Probá la demo guiada sin cuenta o pedí una presentación.",
+  description: "Entrenamiento inteligente en la app de cada socio o planificación supervisada con pantalla en el gimnasio. Probá la demo sin cuenta o pedí una propuesta.",
 });
 
 export default function ConocePage() {

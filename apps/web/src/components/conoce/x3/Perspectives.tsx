@@ -7,13 +7,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Play } from "@phosphor-icons/react";
 import { PROFILE_CONTENT, VIDEOS, FEATURES } from "@/content/conoce";
-import { CONTACT } from "@/lib/contact";
+import { waLink as wa } from "@/lib/contact";
 import { PROFILES, type Profile } from "@/lib/site-events";
 import { track } from "@/lib/site-track";
 import { stage } from "../sala/store";
 import type { ZoneId } from "../sala/model";
 import { DemoButton } from "../DemoButton";
 import { TrackLink } from "../TrackLink";
+import { announceInterest as announce } from "../interest";
 import { gsap, MOTION_MQ, reduced, useGSAP } from "./gsap";
 import { Say, splitSay } from "./Say";
 import { useFilm } from "./FilmPlayer";
@@ -25,9 +26,8 @@ const SHOT_IMG: Record<Profile, string[]> = {
   deportistas: ["/conoce/shots/training.webp", "/conoce/shots/progress.webp"],
   aliados: ["/conoce/shots/owner.webp", "/conoce/shots/member.webp"],
 };
-const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 /** El formulario de contacto escucha este evento: tipo de organización, interés y (aliados) pedido de reunión. */
-const announceInterest = (p: Profile, meeting = false) => window.dispatchEvent(new CustomEvent("repi:interest", { detail: { profile: p, meeting } }));
+const announceInterest = (p: Profile, meeting = false) => announce({ profile: p, meeting });
 
 export function Perspectives({ initial }: { initial: Profile | null }) {
   const [p, setP] = useState<Profile>(initial ?? "gimnasios");
@@ -112,6 +112,7 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
             </div>
             <div className="x3-pv-side">
               <ul className="x3-pv-feat">{features.map((f) => <li key={f.id}><b>{f.title}.</b> {f.value}</li>)}</ul>
+              {c.modes && <p className="x3-pv-modes">{c.modes} <a href="#modos" onClick={() => track("feature_click", { profile: p, target: "perfil-modos" })}>Ver las dos modalidades</a></p>}
               <div className="x3-pv-act">
                 {c.leadKind ? <a className="x3-btn pri" href="#contacto" onClick={() => { track("contact_click", { profile: p, target: "perspectivas" }); announceInterest(p, p === "aliados"); if (p === "aliados") track("meeting_request", { profile: p, target: "perspectivas" }); }}>{c.cta} <ArrowRight size={18} weight="bold" aria-hidden="true" /></a>
                   : <TrackLink event="whatsapp_click" profile={p} target="perspectivas" external className="x3-btn pri" href={wa(c.whatsapp)}>{c.cta}</TrackLink>}
