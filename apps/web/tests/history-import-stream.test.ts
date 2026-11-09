@@ -116,8 +116,8 @@ describe("historial largo · peticiones reanudables", () => {
 });
 
 describe("historial largo · límites por petición", () => {
-  it("mantiene como máximo cuatro peticiones de partes simultáneas", async () => {
-    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+  it("mantiene un máximo de peticiones de partes simultáneas", async () => {
+    const { HistoryImportReadJob, HISTORY_READ_CONCURRENCY: N } = await import("@/lib/history-import-stream");
     let ready!: () => void;
     const firstWave = new Promise<void>((resolve) => { ready = resolve; });
     const completed = new Set<number>(), release: (() => void)[] = [];
@@ -128,7 +128,7 @@ describe("historial largo · límites por petición", () => {
       if (String(path).endsWith("/finish")) return Response.json({ id: "parallel" });
       const { index } = JSON.parse(String(init?.body));
       active++; maximum = Math.max(maximum, active);
-      if (active === 4) ready();
+      if (active === N) ready();
       return new Promise<Response>((resolve) => {
         const finish = () => { completed.add(index); active--; resolve(Response.json(status())); };
         if (immediate) finish(); else release.push(finish);
@@ -137,14 +137,14 @@ describe("historial largo · límites por petición", () => {
     try {
       const job = new HistoryImportReadJob("notas.txt", Array.from({ length: 9 }, () => ({ text: "texto", context: "" })), "texto");
       const reading = job.read(() => {});
-      await firstWave; expect(active).toBe(4);
+      await firstWave; expect(active).toBe(N);
       immediate = true; release.forEach((finish) => finish());
       await reading;
-      expect(maximum).toBe(4); expect(completed.size).toBe(9);
+      expect(maximum).toBe(N); expect(completed.size).toBe(9);
     } finally { fetchMock.mockRestore(); }
   });
   it("corta una parte que no responde y deja el borrador disponible para continuar", async () => {
-    const { HistoryImportReadJob } = await import("@/lib/history-import-stream");
+    const { HistoryImportReadJob, HISTORY_PART_TIMEOUT_MS } = await import("@/lib/history-import-stream");
     vi.useFakeTimers();
     let started!: () => void;
     const partStarted = new Promise<void>((resolve) => { started = resolve; });
@@ -158,7 +158,7 @@ describe("historial largo · límites por petición", () => {
       const job = new HistoryImportReadJob("notas.txt", [{ text: "texto", context: "" }], "texto");
       const reading = job.read(() => {});
       const rejection = expect(reading).rejects.toMatchObject({ code: "timeout", status: 408 });
-      await partStarted; await vi.advanceTimersByTimeAsync(75_001); await rejection;
+      await partStarted; await vi.advanceTimersByTimeAsync(HISTORY_PART_TIMEOUT_MS + 1); await rejection;
       expect(finishCalls).toBe(0);
     } finally { fetchMock.mockRestore(); vi.useRealTimers(); }
   });

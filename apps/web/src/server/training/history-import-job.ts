@@ -11,6 +11,8 @@ import { prepareHistoryPreview, removeHistoryImport } from "./history-import";
 const { historyImport } = schema;
 export const HISTORY_JOB_MAX_PARTS = 1000;
 export const HISTORY_JOB_PART_LENGTH = 16_000;
+/** Plazo de lectura de una parte (la ruta permite 300 s): alcanza para dividir y releer un bloque denso. */
+export const HISTORY_JOB_PART_MS = 240_000;
 type Source = "csv" | "notes" | "ai";
 type Part = { hash: string; sets: ImportSet[]; notes: string[]; source: Source };
 type JobParsed = {
@@ -80,7 +82,7 @@ export async function readHistoryImportJobPart(userId: string, id: string, input
   if (checkPart(value, input.index, hash)) return status(row, value);
 
   // No se mantiene una conexión de DB mientras responde el lector. Distintas partes pueden leerse en paralelo.
-  const result = await readHistoryInput({ fileName: row.fileName ?? "Historial", kind: "text", text: input.text }, value.today, undefined, context, Date.now() + 60_000);
+  const result = await readHistoryInput({ fileName: row.fileName ?? "Historial", kind: "text", text: input.text }, value.today, undefined, context, Date.now() + HISTORY_JOB_PART_MS);
   if (result.sets.length > IMPORT_MAX_SETS) throw tooLarge();
   return db.transaction(async (tx) => {
     // Volver a leer con bloqueo evita perder partes paralelas o revivir un borrador descartado durante la lectura.

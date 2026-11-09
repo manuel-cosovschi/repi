@@ -29,7 +29,7 @@ export type AiCallInfo = { model: string; status: number | null; finishReason: s
  * Opcionales (D210, para server/brain/gateway.ts; los llamadores actuales no cambian): `model` fuerza el modelo, `signal`
  * cancela junto con el timeout y `onInfo` recibe el estado y los tokens de este intento (sin contenido).
  */
-export async function aiJson<T>(p: { name: string; system: string; parts: AiPart[]; schema: object; maxTokens?: number; effort?: "minimal" | "low" | "medium"; timeoutMs?: number; fast?: boolean; requireComplete?: boolean; model?: string; signal?: AbortSignal; onInfo?: (i: AiCallInfo) => void }): Promise<T> {
+export async function aiJson<T>(p: { name: string; system: string; parts: AiPart[]; schema: object; maxTokens?: number; effort?: "minimal" | "low" | "medium"; timeoutMs?: number; fast?: boolean; requireComplete?: boolean; model?: string; signal?: AbortSignal; onInfo?: (i: AiCallInfo) => void; splitOnTimeout?: boolean }): Promise<T> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new AccessError("ai_unavailable", "La lectura automática no está disponible en este momento.", 503);
   const model = p.model || (p.fast ? aiFastModel() : aiModel());
@@ -50,6 +50,12 @@ export async function aiJson<T>(p: { name: string; system: string; parts: AiPart
     });
   } catch (e) {
     p.onInfo?.({ model, status: null, finishReason: null, usage: null });
+    // Historial largo (09/11): quien puede dividir el pedido y reintentarlo recibe «ai_timeout» sin aviso por email; si al final
+    // no alcanza, lo registra él. El resto de los llamadores sigue igual.
+    if (p.splitOnTimeout && timeout.aborted && !p.signal?.aborted) {
+      console.warn(JSON.stringify({ level: "warn", scope: `ai.timeout.${p.name}`, ms: p.timeoutMs ?? 100_000 }));
+      throw new AccessError("ai_timeout", "La lectura tardó demasiado. Probá de nuevo en un rato.", 504);
+    }
     if (!p.signal?.aborted) logError(`ai.request.${p.name}`, e); // cancelar a pedido del llamador no es un error del servicio
     throw new AccessError("ai_unavailable", "No pudimos conectar con el servicio de lectura. Probá de nuevo en un rato.", 503);
   }

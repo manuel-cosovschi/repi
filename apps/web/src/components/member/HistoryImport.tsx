@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useCached } from "@/lib/cache";
 import { Reveal } from "@/components/motion/Skeleton";
-import { HistoryImportReadJob, previewHistoryImport, type HistoryImportProgress } from "@/lib/history-import-stream";
+import { HISTORY_PART_CHARS, HistoryImportReadJob, previewHistoryImport, type HistoryImportProgress } from "@/lib/history-import-stream";
 import { Sheet } from "./Sheet";
 import { buildHistoryReadParts, fmtWeight, IMPORT_MAX_TEXT_LENGTH, localDate, parseHistoryCsv, parseRoutineNotes, type WeightUnit } from "@repi/domain";
 import { useUnit } from "./units";
@@ -105,7 +105,7 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
       }
       setBusy("read");
       if (body.kind === "text" && (body.text ?? "").length > 24_000 && !parseHistoryCsv(body.text!)) {
-        const parts = buildHistoryReadParts(body.text!, localDate(new Date()), 12_000);
+        const parts = buildHistoryReadParts(body.text!, localDate(new Date()), HISTORY_PART_CHARS);
         const job = new HistoryImportReadJob<Preview>(body.fileName, parts, body.text!);
         pendingJob.current = job; setHasPendingJob(true); setText(body.text!);
         acceptPreview(await job.read(setProgress, controller.signal), controller);
