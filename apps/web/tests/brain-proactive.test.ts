@@ -106,6 +106,9 @@ describe("logros y tendencias (casos 41–45)", () => {
   it("caso 43 · datos insuficientes: la tendencia sin evidencia se calla (queda registrada) y no hay tarjeta", async () => {
     const w = await world();
     const now = new Date();
+    // Sólo verifica la tendencia: los lunes el resumen semanal («Tu semana») se emite con todo derecho y rompía el caso
+    // (CI del lunes 09/11, 00:06 en Argentina). Se apaga esa categoría para que el resultado no dependa del día.
+    await updatePrefs(w.user, { categories: { weekly: false } });
     for (const [d, kg] of [[9, 50], [6, 52.5], [3, 55]] as const) await train(w.user, new Date(now.getTime() - d * D), [{ w: kg, r: 8 }]);
     await train(w.user, new Date(now.getTime() - 2 * D), [{ w: 55, r: 8 }]); // sube, sube, igual: «posible», 4 sesiones
     const r = await proactiveFor(w.user, now);
