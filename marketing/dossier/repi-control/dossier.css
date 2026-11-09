@@ -69,20 +69,11 @@ figcaption { font-size: 6.8pt; color: var(--sec); margin-top: 2mm; letter-spacin
 .how-head { display: flex; justify-content: space-between; align-items: baseline; }
 .how-note { font-size: 7.6pt; color: var(--mute); }
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4.5mm; margin-top: 3.6mm; }
-.steps img, .end-tile { border-radius: 1.4mm; aspect-ratio: 16 / 10; width: 100%; }
-.steps img { border: .3mm solid var(--edge); }
+.steps img { border-radius: 1.4mm; aspect-ratio: 16 / 10; width: 100%; border: .3mm solid var(--edge); }
 .steps h3 { display: flex; align-items: baseline; gap: 1.6mm; font-size: 9pt; margin-top: 2.4mm; }
 .steps h3 i, .process i { font-style: normal; font-family: "Barlow Condensed"; font-weight: 700; color: var(--text); }
 .steps h3 i { font-size: 10pt; }
 .steps p { font-size: 8pt; color: var(--mute); margin-top: .8mm; line-height: 1.34; }
-.end-tile { background: var(--floor); color: var(--ink); display: flex; flex-direction: column; justify-content: flex-end; padding: 3mm 3.4mm; }
-.end-tile .big { font-family: "Barlow Condensed"; font-weight: 700; font-size: 30pt; line-height: .9; color: var(--cyan); }
-.end-tile .big small { font-size: 15pt; color: var(--cyan); }
-.end-cap { font-size: 7pt; color: var(--sec); margin-top: 1mm; }
-/* Paso 4: orden de lectura de cada serie (objetivo del profesor → sugerencia de REPI → resultado real), sin cifras. */
-.end-tile.reg { justify-content: center; gap: 1.4mm; }
-.end-tile .lay { font-size: 6.8pt; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--sec); padding: 1.1mm 0 1.1mm 2.2mm; border-left: .6mm solid var(--edge); line-height: 1.1; }
-.end-tile .lay.real { color: var(--ink); border-left-color: var(--cyan); }
 
 .staff { grid-template-columns: 1fr 78mm; align-items: start; }
 .ticks { margin-top: 3.4mm; }

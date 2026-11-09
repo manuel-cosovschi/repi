@@ -173,21 +173,35 @@ const V = {
     await END(h);
   }),
   // ── REPI Control y REPI Completo (D213): gestos lentos y deliberados; la píldora «Demo» queda a la vista ──────────────────
-  // Pantalla de rutinas (tablet apaisada): bienvenida con el QR opcional, código y PIN de Ana (persona ficticia de la demo),
-  // su programa vigente, cambio de día y «Terminar», que deja la pantalla libre.
-  "ctl-kiosk": () => record("ctl-kiosk", "control", async (p, h) => {
+  // Pantalla de rutinas (tablet apaisada, D216): bienvenida con el QR opcional, código y PIN de Ana (persona ficticia de la
+  // demo), «Consultar mi rutina» (Sentadilla: objetivo del profesor → sugerencia de REPI → última vez), «Registrar mi
+  // entrenamiento» (Día 1: carga la serie 1, copia a las demás y confirma), las series guardadas y «Terminar entrenamiento».
+  // La vista de la profesora de sala con ese registro (ctl-results) sale de la misma demo; ver design/films/SPEC.md.
+  "ctl-kiosk-reg": () => record("ctl-kiosk-reg", "control", async (p, h) => {
     const ana = h.people[0];
+    await p.waitForTimeout(3800);
+    await h.tap(p.getByRole("button", { name: "Empezar" }), 1300);
+    for (const d of ana.code) await h.tap(p.getByRole("button", { name: d, exact: true }), 380);
+    await p.waitForTimeout(700);
+    for (const d of ana.pin) await h.tap(p.getByRole("button", { name: d, exact: true }), 460);
+    await p.waitForTimeout(500);
+    await h.tap(p.getByRole("button", { name: "Ver", exact: true }), 2600);
+    await h.tap(p.getByRole("button", { name: /Consultar mi rutina/ }), 1800);
+    await p.locator(".kq-ex", { hasText: "Sentadilla" }).first().evaluate((n) => window.scrollTo({ top: n.getBoundingClientRect().top + scrollY - 230, behavior: "smooth" }));
     await p.waitForTimeout(4200);
-    await h.tap(p.getByRole("button", { name: "Empezar" }), 1500);
-    for (const d of ana.code) await h.tap(p.getByRole("button", { name: d, exact: true }), 420);
-    await p.waitForTimeout(1100);
-    for (const d of ana.pin) await h.tap(p.getByRole("button", { name: d, exact: true }), 520);
-    await p.waitForTimeout(800);
-    await h.tap(p.getByRole("button", { name: "Ver", exact: true }), 3600);
-    await h.tap(p.getByRole("tab").nth(1), 2800);
-    await h.tap(p.getByRole("tab").nth(0), 2000);
-    await h.tap(p.getByRole("button", { name: "Terminar" }), 4700);
-    await p.waitForTimeout(3000);
+    await p.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" })); await p.waitForTimeout(700);
+    await h.tap(p.getByRole("button", { name: "Volver" }), 1100);
+    await h.tap(p.getByRole("button", { name: /Registrar mi entrenamiento/ }), 1600);
+    await h.tap(p.getByRole("button", { name: /^Empezar / }), 1800);
+    await h.tap(p.locator(".kq-wlist").getByRole("button", { name: /Sentadilla/ }), 1700);
+    await h.tap(p.getByRole("group", { name: "Peso de la serie 1, en kilos" }).getByRole("button", { name: "Más" }), 900);
+    await h.tap(p.getByRole("group", { name: /RIR de la serie 1/ }).getByRole("button", { name: "2", exact: true }), 1400);
+    await h.tap(p.getByRole("button", { name: /Copiar «Serie 1»/ }), 1500);
+    await h.tap(p.getByRole("button", { name: "Confirmar ejercicio" }), 2800);
+    await h.tap(p.locator(".kq-wlist").getByRole("button", { name: /Sentadilla/ }), 2800);
+    await h.tap(p.getByRole("button", { name: /Volver a la lista/ }).last(), 1300);
+    await h.tap(p.getByRole("button", { name: "Terminar entrenamiento" }), 1600);
+    await h.tap(p.getByRole("button", { name: "Sí, terminar" }), 4200);
   }, null, { viewport: { width: 1280, height: 800 }, kiosk: true, tour: true }),
   // El profesor de sala (demo «floor», Gym Norte): crea el programa de Martina (sin programa) y después ajusta el de Julián,
   // que queda en la revisión 2 con el historial a la vista.

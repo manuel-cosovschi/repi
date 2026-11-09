@@ -63,16 +63,15 @@ node marketing/dossier/repi-control/capture.mjs http://localhost:3240
 ```
 
 Usa la demo guiada (entornos ficticios que se borran solos): perfil «control» (Gimnasio Atlas) para la Pantalla de rutinas
-— bienvenida sin la lista de personas de la demo, código, PIN y programa de Ana — y perfil «floor» (Gym Norte) para el panel del
-equipo con el programa institucional y sus revisiones. Sólo funciona contra `localhost`. La píldora «Demo · datos ficticios»
+— bienvenida sin la lista de personas de la demo, código, PIN, la rutina de Ana con sus capas y el registro de una serie — y
+perfil «floor» (Gym Norte) para el panel del equipo con el programa institucional y sus revisiones. Sólo funciona contra `localhost`. La píldora «Demo · datos ficticios»
 queda visible a propósito. Si una pantalla no se puede capturar, el script se detiene: nunca reemplazar una captura por una
 simulación.
 
-**Pendiente (D216):** las capturas actuales son de la pantalla anterior, de sólo consulta (la del programa muestra el pie «Sólo
-para consultar…»). Falta tomar la pantalla con «Consultar mi rutina» / «Registrar mi entrenamiento» y la vista de registro de una
-serie, y actualizar `capture.mjs`. El paso 4 de la página 1 usa un esquema tipográfico sin cifras (objetivo del profesor →
-sugerencia de REPI → resultado real) en lugar de una captura; los lugares a reemplazar están marcados con «CAPTURA PENDIENTE» en
-`dossier.html`.
+Capturas (D216, demo «control» con datos ficticios): `01-bienvenida` («Tu rutina, tu registro», con el QR opcional),
+`02-codigo`, `03-pin`, `04-programa` («Consultar mi rutina» con Sentadilla: objetivo del profesor → sugerencia de REPI → última
+vez; es la imagen grande de la portada) y `06-registro` («Registrar mi entrenamiento» con la serie 1 cargada, antes de confirmar:
+no se guarda nada; es el paso 4). `05-equipo-programa` sale de la demo «floor».
 
 ## De dónde sale cada afirmación
 

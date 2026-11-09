@@ -28,12 +28,12 @@ R = {
         "Notas sueltas por la sala: " + "; ".join(plain(f[4]) for f in (frags_def or b.FRAGS_SALA)) + f". Texto: {q(t1)} "
         f"Las notas se conectan con líneas hacia el centro. Texto: {q(t2)}"),
     "s_logo": lambda sid, dur, claim: f"Logo de REPI. {q(claim)}",
-    "s_device": lambda sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=False: (
-        f"{DEMO}. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
+    "s_device": lambda sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=False, desc=None: (
+        f"{DEMO}. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + (f" {desc}" if desc else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
     "s_network": lambda sid, dur, title: f"Las personas de la sala, unidas por líneas. Texto: {q(title)}",
     "s_end": lambda sid, dur, claim, url, kicker=None: f"Logo de REPI.{f' {kicker}.' if kicker else ''} {q(claim)} Dirección: {url}",
-    "s_tablet": lambda sid, dur, clips, title, sub=None, panels=(), focus=None, keys=(), still=None: (
-        f"{KIOSK}. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
+    "s_tablet": lambda sid, dur, clips, title, sub=None, panels=(), focus=None, keys=(), still=None, desc=None: (
+        f"{KIOSK}. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + (f" {desc}" if desc else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
     "s_arrive": lambda sid, dur, title: f"Plano de la sala: el socio, un punto, entra por recepción y llega a la pantalla de rutinas del gimnasio. Texto: {q(title)}",
     "s_statement": lambda sid, dur, title, sub=None, img=None: (
         f"Texto: {q(title)}" + (f" {q(sub)}" if sub else "") + (" Logo de Smart Center Gym." if img else "")),

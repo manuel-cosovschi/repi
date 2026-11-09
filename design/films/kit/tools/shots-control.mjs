@@ -1,7 +1,9 @@
 // Capturas reales de REPI Control para /conoce (apps/web/public/conoce/shots/control-*.webp). Demo local con datos ficticios.
 // Uso: node shots-control.mjs <carpeta de salida>   Variables: REPI_BASE (por defecto http://localhost:3000), REPI_PW_PKG.
 // - Pantalla de rutinas (1280×800 a 2×, WebP de 1280): se abre en un contexto nuevo sólo con el enlace del equipo (#k=…), sin la
-//   lista de personas de la demo; la píldora «Demo · datos ficticios» del producto queda a la vista.
+//   lista de personas de la demo; la píldora «Demo · datos ficticios» del producto queda a la vista. Bienvenida, PIN, la rutina
+//   de Ana en «Consultar mi rutina» (Sentadilla: profesor, REPI y última vez) y «Registrar mi entrenamiento» con la serie 1
+//   cargada (nada se guarda: la captura es antes de confirmar).
 // - Equipo (teléfono 390×844 a 2×, WebP de 780): el profesor de sala de la demo «floor» ajusta el programa de un socio y la ficha
 //   queda en la revisión 2 con el historial.
 import { createRequire } from "node:module";
@@ -32,9 +34,22 @@ await p.waitForTimeout(600);
 await p.screenshot({ path: `${OUT}/control-identificar.png` }); webp(`${OUT}/control-identificar.png`, "control-identificar", 1280);
 await p.getByRole("button", { name: ana.pin.at(-1), exact: true }).click();
 await p.getByRole("button", { name: "Ver", exact: true }).click();
-await p.getByRole("button", { name: "Terminar" }).waitFor(); await p.waitForTimeout(1200);
+// D216: consultar (objetivo del profesor → sugerencia de REPI → última vez) y registrar lo que hizo.
+await p.getByRole("button", { name: /Consultar mi rutina/ }).click();
+await p.locator(".kq-ex", { hasText: "Sentadilla" }).first().waitFor();
+await p.locator(".kq-ex", { hasText: "Sentadilla" }).first().evaluate((n) => window.scrollTo({ top: n.getBoundingClientRect().top + scrollY - 375 }));
+await p.waitForTimeout(900);
 await p.screenshot({ path: `${OUT}/control-rutina.png` }); webp(`${OUT}/control-rutina.png`, "control-rutina", 1280);
-await p.getByRole("button", { name: "Terminar" }).click();
+await p.evaluate(() => window.scrollTo({ top: 0 }));
+await p.getByRole("button", { name: "Volver" }).click();
+await p.getByRole("button", { name: /Registrar mi entrenamiento/ }).click();
+await p.getByRole("button", { name: /^Empezar / }).click();
+await p.locator(".kq-wlist").getByRole("button", { name: /Sentadilla/ }).click();
+await p.locator(".kq-set").first().waitFor();
+await p.getByRole("group", { name: "Peso de la serie 1, en kilos" }).getByRole("button", { name: "Más" }).click();
+await p.getByRole("group", { name: /RIR de la serie 1/ }).getByRole("button", { name: "2", exact: true }).click();
+await p.evaluate(() => window.scrollTo({ top: 0 })); await p.waitForTimeout(800);
+await p.screenshot({ path: `${OUT}/control-registro.png` }); webp(`${OUT}/control-registro.png`, "control-registro", 1280);
 await k.close();
 
 // El equipo modifica el programa: revisión 2 con autor y motivo

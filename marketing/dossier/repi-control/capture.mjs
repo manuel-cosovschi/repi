@@ -66,9 +66,22 @@ for (const d of ana.code.slice(4)) await key(d);
 for (const d of ana.pin) await key(d);
 await shot(page, "03-pin");
 await page.getByRole("button", { name: "Ver" }).click();
-await page.getByRole("button", { name: "Terminar" }).waitFor();
+// D216: «Consultar mi rutina» (objetivo del profesor → sugerencia de REPI → última vez) y «Registrar mi entrenamiento».
+await page.getByRole("button", { name: /Consultar mi rutina/ }).click();
+const squat = page.locator(".kq-ex", { hasText: "Sentadilla" }).first();
+await squat.waitFor();
+await squat.evaluate((n) => window.scrollTo({ top: n.getBoundingClientRect().top + scrollY - 375 }));
 await shot(page, "04-programa");
-await page.getByRole("button", { name: "Terminar" }).click();
+await page.evaluate(() => window.scrollTo({ top: 0 }));
+await page.getByRole("button", { name: "Volver" }).click();
+await page.getByRole("button", { name: /Registrar mi entrenamiento/ }).click();
+await page.getByRole("button", { name: /^Empezar / }).click();
+await page.locator(".kq-wlist").getByRole("button", { name: /Sentadilla/ }).click();
+await page.locator(".kq-set").first().waitFor();
+await page.getByRole("group", { name: "Peso de la serie 1, en kilos" }).getByRole("button", { name: "Más" }).click();
+await page.getByRole("group", { name: /RIR de la serie 1/ }).getByRole("button", { name: "2", exact: true }).click();
+await page.evaluate(() => window.scrollTo({ top: 0 }));
+await shot(page, "06-registro"); // la serie 1 cargada, antes de confirmar: no se guarda nada
 await kctx.close();
 
 // 2) Panel del equipo (demo «floor», gimnasio ficticio): ficha del socio con su programa institucional y las revisiones.

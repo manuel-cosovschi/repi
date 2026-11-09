@@ -57,7 +57,7 @@ export const VIDEOS: Record<string, Video> = {
     "El profesor diseña y asigna el programa, el socio lo recibe y registra cada serie con el objetivo de REPI y su razón, ve su progreso por ejercicio, el profesor consulta su evolución y el gimnasio sigue su sala.",
     { srcVertical: "/conoce/videos/modo-completo-vertical.mp4", posterVertical: "/conoce/videos/modo-completo-vertical.webp" }),
   "modo-control": film("modo-control", "REPI Control · Tu equipo planifica. Tus socios consultan y registran.", "Gimnasios", "1:00", "Clash Defiant",
-    "El equipo de sala arma y asigna la rutina; el socio la consulta en la pantalla del gimnasio con su código y su PIN, sin instalar nada, toca «Terminar» y la pantalla queda libre. Cada cambio queda en manos del equipo, con su versión.",
+    "El profesor programa y asigna la rutina; el socio se identifica en la pantalla del gimnasio con su código y su PIN, ve ejercicios, peso sugerido, intensidad y descansos, y registra los pesos y las repeticiones reales. Su historial se actualiza, el profesor ve los resultados y el celular es opcional.",
     { srcVertical: "/conoce/videos/modo-control-vertical.mp4", posterVertical: "/conoce/videos/modo-control-vertical.webp" }),
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
@@ -288,7 +288,8 @@ export const MODES: Record<ModeId, ModeContent> = {
     screens: [
       { src: "/conoce/shots/control-bienvenida.webp", alt: "Pantalla de rutinas de REPI Control en el gimnasio: bienvenida", label: "Bienvenida" },
       { src: "/conoce/shots/control-identificar.webp", alt: "El socio ingresa su código de socio y su PIN en la pantalla de rutinas", label: "Código y PIN" },
-      { src: "/conoce/shots/control-rutina.webp", alt: "La rutina del socio en la pantalla de rutinas del gimnasio", label: "Su rutina" },
+      { src: "/conoce/shots/control-rutina.webp", alt: "La rutina del socio en la pantalla de rutinas del gimnasio: en cada serie, el objetivo del profesor, la sugerencia de REPI y la última vez", label: "Su rutina" },
+      { src: "/conoce/shots/control-registro.webp", alt: "El socio carga en la pantalla del gimnasio el peso y las repeticiones reales de su serie de Sentadilla, junto a lo que indicó el profesor y lo que sugiere REPI", label: "Registra lo que hizo" },
       { src: "/conoce/shots/control-equipo.webp", alt: "El equipo del gimnasio en REPI: ficha del socio con su programa y el historial de versiones", label: "El equipo planifica", portrait: true },
     ],
     aside: { src: "/conoce/shots/training.webp", alt: "La rutina del socio en la app de REPI", label: "App opcional", caption: "App opcional: la misma rutina y el mismo historial en el teléfono" },

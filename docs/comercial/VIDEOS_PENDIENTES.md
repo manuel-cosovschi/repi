@@ -28,10 +28,10 @@ archivo; las entradas propuestas están en el informe de la rama).
 | Id | Duración | Qué cuenta |
 | --- | --- | --- |
 | `modo-completo` (+ `-vertical`) | 0:56 | El coach diseña «Hipertrofia · 3 días» y lo asigna; el socio recibe Torso A, registra la serie (descanso 2:00), REPI recomienda 53 kg × 8 y ajusta a 50 kg × 8–10 con la razón; progreso por ejercicio; el coach ve «+2,5 kg» contra la vez anterior; el gimnasio en Seguimiento de sala; «REPI Completo · Entrenamiento inteligente» |
-| `modo-control` (+ `-vertical`) | 1:00 | Rutinas en papel difíciles de consultar → el profesor de sala crea el programa de Martina (revisión 1) → el socio llega → pantalla de rutinas compartida (`/rutinas`, real) con código y PIN en puntos → «Fuerza base · 3 días» de Ana, versión 2 → «Terminar» deja la pantalla libre → QR opcional (no es el de ingreso) → revisión 2 con autor y motivo; «REPI Control · Tu equipo planifica. Tus socios consultan.» |
+| `modo-control` (+ `-vertical`) | 1:00 | D216 · rutinas y cargas en papel → el profesor programa el entrenamiento y lo asigna (revisión 1) → el socio llega y se identifica en la pantalla de rutinas (`/rutinas`, real) con código y PIN → ejercicios, peso sugerido por REPI (69,5 kg × 5–6), intensidad y descanso → termina Sentadilla y registra lo real (72 kg × 5, RIR 2) → «Guardado» y «Entrenamiento terminado» → la profesora de sala ve la sesión con el sello «Pantalla del gimnasio» → QR opcional para el celular; «REPI Control · Tu equipo planifica. Tus socios consultan y registran.» |
 
 Capturas reales para `/conoce` (`apps/web/public/conoce/shots/`): `control-bienvenida.webp` (bienvenida sin la lista de personas
-de la demo), `control-identificar.webp` (PIN con tres puntos), `control-rutina.webp` (programa de Ana) y `control-equipo.webp`
+de la demo), `control-identificar.webp` (PIN con tres puntos), `control-rutina.webp` («Consultar mi rutina»: objetivo del profesor, sugerencia de REPI y última vez), `control-registro.webp` (la serie 1 de Sentadilla cargada, antes de confirmar) y `control-equipo.webp`
 (ficha del socio en la app del gimnasio: revisión 2 y su historial). Se rehacen con `design/films/kit/tools/shots-control.mjs`.
 
 **Regenerarlos:** `design/films/SPEC.md` (sección Producción). Si cambia la interfaz grabada, regrabar con
