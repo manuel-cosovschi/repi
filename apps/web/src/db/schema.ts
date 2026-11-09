@@ -475,8 +475,11 @@ export const workoutSession = pgTable("workout_session", {
   voidedAt: ts("voided_at"),
   voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
   voidReason: text("void_reason"),
+  // REPI Control (D216): entrenamiento empezado en la pantalla de rutinas del gimnasio (equipo autorizado). Null = desde la app.
+  kioskId: text("kiosk_id").references(() => gymKiosk.id, { onDelete: "set null" }),
 }, (t) => [
   index("workout_session_user_idx").on(t.userId, t.startedAt),
+  index("workout_session_kiosk_idx").on(t.kioskId).where(sql`kiosk_id is not null`),
   index("session_relation_idx").on(t.coachClientId, t.startedAt),
   index("session_member_idx").on(t.gymMemberId, t.startedAt),
   uniqueIndex("session_one_open_unique").on(t.userId).where(sql`status in ('in_progress','paused')`),
@@ -511,7 +514,11 @@ export const setLog = pgTable("set_log", {
   // cadencia), validados con `cleanSetMetrics`. La duración sigue en `reps` (segundos). null = no es una actividad o no se
   // registraron (series anteriores y apps viejas).
   metrics: jsonb("metrics").$type<SetMetrics>(),
+  // REPI Control (D216): el último valor de esta serie se guardó desde la pantalla de rutinas (equipo autorizado). Null = desde
+  // la app. El detalle de cada escritura (pantalla, credencial) queda en audit_event.
+  kioskId: text("kiosk_id").references(() => gymKiosk.id, { onDelete: "set null" }),
 }, (t) => [
+  index("set_log_kiosk_idx").on(t.kioskId).where(sql`kiosk_id is not null`),
   uniqueIndex("set_log_unique").on(t.sessionId, t.programExerciseId, t.setIndex),
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
   check("set_log_metrics_object", sql`${t.metrics} is null or jsonb_typeof(${t.metrics}) = 'object'`),

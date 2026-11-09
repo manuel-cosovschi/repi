@@ -976,7 +976,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       <Wishes offline={offline} flash={flash} />
       {/* D210: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
       <RepiPrefs offline={offline} flash={flash} />
-      {/* REPI Control (D213): código para consultar la rutina en la pantalla del gimnasio y cambio de PIN. */}
+      {/* REPI Control (D213/D216): código para consultar y registrar en la pantalla del gimnasio y cambio de PIN. */}
       <KioskAccess offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />

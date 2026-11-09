@@ -47,17 +47,24 @@ QA:      snapshot de cada beat; tira de cortes; lectura a 360 px; audio medido (
 | `altas` | `f-altas` | 23,5 s | Five Armies | 120,0 → 143,5 s |
 | `sala` | `f-sala` | 23,5 s | Clash Defiant | 0,0 → 23,5 s |
 | `modo-completo` / `modo-completo-vertical` | `modo-completo` / `-vertical` (1080×1920) | 56,0 s | Volatile Reaction | 64,0 → 120,0 s |
-| `modo-control` / `modo-control-vertical` | `modo-control` / `-vertical` (1080×1920) | 59,5 s | Clash Defiant | 203,0 → 262,5 s |
+| `modo-control` / `modo-control-vertical` | `modo-control` / `-vertical` (1080×1920) | 59,7 s | Clash Defiant | 203,0 → 262,7 s |
 
 **Modos (D213).** `modo-completo` cuenta el circuito completo (el coach diseña y asigna, el socio recibe, registra y recibe la
-recomendación, su progreso, el coach ve su evolución y el gimnasio sigue su sala). `modo-control` cuenta REPI Control: el
-problema de la rutina en papel (objeto hoja crema), el profesor de sala que crea y asigna el programa, el socio que llega, la
-pantalla de rutinas real (`/rutinas`, tablet 1280×800) con código y PIN, «Terminar», el QR opcional (no es el de ingreso) y la
-revisión 2 con autor y motivo. Escenas nuevas del kit: `s_tablet` (la pantalla de rutinas en una tablet apaisada, con
+recomendación, su progreso, el coach ve su evolución y el gimnasio sigue su sala). `modo-control` cuenta REPI Control (D216, pedido del titular, en este orden): rutinas y cargas en papel (objeto hoja crema) →
+(1) el profesor programa el entrenamiento y lo asigna (revisión 1) → el socio llega → (2) se identifica en la pantalla de rutinas
+real (`/rutinas`, tablet 1280×800) con código y PIN → (3) «Consultar mi rutina»: ejercicios, peso sugerido por REPI, intensidad
+(RIR) y descanso → (4) «Registrar mi entrenamiento»: termina Sentadilla y carga peso y repeticiones reales (72 kg × 5, RIR 2) →
+(5) «Guardado» y «Entrenamiento terminado»: el historial se actualiza → (6) la profesora de sala ve la sesión en la ficha del
+socio, con el sello «Pantalla del gimnasio» → (7) el QR opcional para el celular (no es el de ingreso) → «Tu equipo planifica.
+Tus socios consultan y registran.» Escenas nuevas del kit: `s_tablet` (la pantalla de rutinas en una tablet apaisada, con
 acercamiento de cámara opcional dentro de la pantalla y sonido de tecla en cada número), `s_arrive` (el socio entra por recepción
 y llega a la pantalla, diagrama) y `s_end(kicker=…)` (nombre del modo bajo el wordmark). En vertical, la red de la sala se
-reemplaza por un enunciado (no entra en 1080 de ancho). Grabaciones: `tools/rec-raw.mjs` (`ctl-kiosk`, `ctl-staff`, `cmp-coach`,
-`cmp-owner`, con `REPI_BASE=<demo local>`), que dejan a la vista la píldora «Demo» del producto. Capturas de `/conoce`:
+reemplaza por un enunciado (no entra en 1080 de ancho). Grabaciones: `tools/rec-raw.mjs` (`ctl-kiosk-reg`, `ctl-staff`, `cmp-coach`,
+`cmp-owner`, con `REPI_BASE=<demo local>`), que dejan a la vista la píldora «Demo» del producto. `ctl-results` (paso 6) se graba en
+la misma demo «control» que `ctl-kiosk-reg`, como Carla Sosa (profesora de sala ficticia de Gimnasio Atlas): la demo sólo abre la
+sesión de la dueña, que por permisos ve la asistencia pero no las series, así que la sesión de Carla se abrió con una fila de
+`session` en la base local descartable (nunca contra dev ni producción). Los tiempos de los cortes en `build.py` (`SP`,
+`ID_KEYS`, `REG_SP` y los tramos) son los de esas grabaciones: si se regraban, se vuelven a medir. Capturas de `/conoce`:
 `tools/shots-control.mjs` → `apps/web/public/conoce/shots/control-*.webp`.
 
 ## Producción
@@ -79,6 +86,10 @@ python3 design/films/kit/tools/describe.py   # <id>.descripcion.vtt (pista para 
 - **Teléfono:** cada escena de producto usa **un solo** `<video>` precortado con ffmpeg (`cut-<escena>.mp4`, CFR 30 fps, GOP 15) y
   su primer cuadro como póster debajo. Con varios `<video>` o con clips que arrancan a mitad de escena, el render de HyperFrames
   0.8.193 dejaba la pantalla del teléfono en blanco algunos cuadros. `tools/blank.py` lo controla en cada master (debe dar 0).
+  `blank.py` también marca como «en blanco» las pantallas claras de la app del equipo (formularios blancos): mirar esos cuadros
+  antes de darlos por falla. `modo-control` se renderiza sin `data-motion-blur` (`motion_blur=False` en su guion): con el
+  desenfoque de movimiento, cada vez que un panel entraba o un equipo salía se veía unos 0,3 s el póster de la grabación (otra
+  pantalla) en lugar del video.
 - **Sonido automático:** whoosh en cada corte (dos tomas alternadas), impacto en la marca, pop en cada panel que aterriza, whoosh
   cinemático antes de que los fragmentos vuelen y riser que llega al golpe final.
 - **Audio:** `tools/finish.py` normaliza con loudnorm en dos pasadas (objetivo −14,6 LUFS integrado para quedar en −14 ± 0,5 medido

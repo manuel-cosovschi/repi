@@ -34,7 +34,7 @@ type Detail = {
   weeks: { label: string; n: number }[];
   program: { programId: string; startsOn: string; revision: number; doc: ProgramDoc & { days: (ProgramDoc["days"][number] & { id?: string })[] }; revisions: { number: number; author: string; reason: string | null; at: string }[] } | null;
   tasks: Task[]; programTaskId: string | null; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
-  canEdit: boolean; canWriteNotes: boolean; seesTraining: boolean; restricted: string[]; wishes?: SharedWishesView | null; programBrief?: BriefPrefill | null; log: LoggedSession[];
+  canEdit: boolean; canWriteNotes: boolean; seesTraining: boolean; restricted: string[]; wishes?: SharedWishesView | null; programBrief?: BriefPrefill | null; log: (LoggedSession & { atKiosk?: boolean })[];
   community: { attempts: { challenge: string; value: string; status: string; newRecord: boolean; at: string }[]; achievements: number; level: number; visits30: number } | null;
 };
 
@@ -157,7 +157,7 @@ function MemberDetail({ shell, id, loc, onChanged, page = false, name }: { shell
         {!m.trainingShared ? <span className="muted" style={{ fontSize: 14 }}>El socio no comparte sus entrenamientos con el gym: no se ven sus series.</span>
           : !m.seesTraining ? <span className="muted" style={{ fontSize: 14 }}>Las series y sus notas las ve el equipo de entrenamiento de la sede. La gestión ve la asistencia.</span>
           : !m.log.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span>
-          : <SessionLog sessions={m.log} />}
+          : <SessionLog sessions={m.log} extra={(s) => (s.atKiosk ? <span className="chip mute" title="Registrado por el socio en la pantalla de rutinas del gimnasio">Pantalla del gimnasio</span> : null)} />}
       </section>
       {/* D210: señales de REPI para quien programa en la sede (program.edit + consentimiento; el servidor lo vuelve a exigir). Dueño,
           gerencia y recepción reciben 403 y no ven nada: ni la sección ni pistas de lo que habría. */}

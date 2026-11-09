@@ -204,7 +204,8 @@ describe("pantalla de consulta (kiosco)", () => {
     expect(p.program!.days.map((d) => d.name)).toEqual(["Día A", "Día B"]);
     expect(p.program!.days[0].exercises[0]).toMatchObject({ name: "Sentadilla control", sets: 3, reps: "8-10", restSec: 120, note: "Bajá controlado" });
     const raw = JSON.stringify(p);
-    for (const no of ["email", "userId", "memberId", "Pérez", "pain", "injur", "weightKg", "@test.repi.local", w.ana.userId]) expect(raw).not.toContain(no);
+    // D216: ahora muestra objetivos y cargas (weightKg), pero nunca datos de contacto, salud ni identificadores de la persona.
+    for (const no of ["email", "userId", "memberId", "Pérez", "pain", "injur", "guards", "@test.repi.local", w.ana.userId]) expect(raw).not.toContain(no);
     // La credencial guarda el PIN cifrado, nunca en claro.
     const [c] = await db.select().from(schema.kioskCredential).where(eq(schema.kioskCredential.gymMemberId, w.ana.memberId));
     expect(c.pinHash).not.toContain(ana.pin);

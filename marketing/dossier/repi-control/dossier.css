@@ -47,7 +47,7 @@ b, strong, dt, h3 { font-weight: 600; }
 .hero { background: var(--floor); color: var(--ink); padding: 10mm var(--gut) 8mm; }
 .hero-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 5mm; border-bottom: .3mm solid var(--edge); }
 .hero .wm { height: 7mm; width: auto; }
-.hero-grid { display: grid; grid-template-columns: 70mm 1fr; gap: 9mm; padding-top: 7mm; align-items: start; }
+.hero-grid { display: grid; grid-template-columns: 82mm 1fr; gap: 9mm; padding-top: 7mm; align-items: start; }
 .eyebrow { font-size: 8pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tq); }
 h1 { font-family: "Barlow Condensed"; font-weight: 700; text-transform: uppercase; font-size: 52pt; line-height: .86; letter-spacing: -.005em; margin-top: 3.2mm; }
 .lead { font-size: 10.6pt; line-height: 1.36; margin-top: 4.4mm; color: var(--ink); }
@@ -69,16 +69,11 @@ figcaption { font-size: 6.8pt; color: var(--sec); margin-top: 2mm; letter-spacin
 .how-head { display: flex; justify-content: space-between; align-items: baseline; }
 .how-note { font-size: 7.6pt; color: var(--mute); }
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4.5mm; margin-top: 3.6mm; }
-.steps img, .end-tile { border-radius: 1.4mm; aspect-ratio: 16 / 10; width: 100%; }
-.steps img { border: .3mm solid var(--edge); }
+.steps img { border-radius: 1.4mm; aspect-ratio: 16 / 10; width: 100%; border: .3mm solid var(--edge); }
 .steps h3 { display: flex; align-items: baseline; gap: 1.6mm; font-size: 9pt; margin-top: 2.4mm; }
 .steps h3 i, .process i { font-style: normal; font-family: "Barlow Condensed"; font-weight: 700; color: var(--text); }
 .steps h3 i { font-size: 10pt; }
 .steps p { font-size: 8pt; color: var(--mute); margin-top: .8mm; line-height: 1.34; }
-.end-tile { background: var(--floor); color: var(--ink); display: flex; flex-direction: column; justify-content: flex-end; padding: 3mm 3.4mm; }
-.end-tile .big { font-family: "Barlow Condensed"; font-weight: 700; font-size: 30pt; line-height: .9; color: var(--cyan); }
-.end-tile .big small { font-size: 15pt; color: var(--cyan); }
-.end-cap { font-size: 7pt; color: var(--sec); margin-top: 1mm; }
 
 .staff { grid-template-columns: 1fr 78mm; align-items: start; }
 .ticks { margin-top: 3.4mm; }
@@ -95,11 +90,19 @@ figcaption { font-size: 6.8pt; color: var(--sec); margin-top: 2mm; letter-spacin
 .folio { padding: 0 var(--gut) 7mm; color: var(--mute); }
 
 /* ── Página 2 ──────────────────────────────────────────────────────────── */
-.p2 > .body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 5mm; padding-top: 10mm; padding-bottom: 7mm; }
+.p2 > .body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 4mm; padding-top: 8mm; padding-bottom: 7mm; }
 .p2-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 3.4mm; border-bottom: .5mm solid var(--text); }
 .p2-title { font-family: "Barlow Condensed"; font-weight: 700; text-transform: uppercase; font-size: 15pt; letter-spacing: .01em; }
 .p2-title span { color: var(--mute); }
 
+/* Ciclo del registro: profesor → REPI → socio → análisis → profesor. */
+.cycle { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4mm; margin-top: 3.4mm; margin-bottom: 3.4mm; }
+.cycle li { position: relative; border-top: .5mm solid var(--text); padding-top: 1.8mm; }
+.cycle li:nth-child(3) { border-top-color: var(--tq); }
+.cycle h3 { display: flex; align-items: baseline; gap: 1.6mm; font-size: 8.4pt; line-height: 1.2; }
+.cycle i { font-style: normal; font-family: "Barlow Condensed"; font-weight: 700; font-size: 10pt; color: var(--text); }
+.cycle p { font-size: 7.6pt; color: var(--mute); margin-top: .8mm; line-height: 1.3; }
+.cycle li + li::before { content: "→"; position: absolute; left: -3.4mm; top: 1.7mm; font-size: 8pt; color: var(--mute); }
 .feat { display: grid; grid-template-columns: 1fr 1fr; column-gap: 9mm; margin-top: 3.4mm; border-top: .3mm solid var(--line); }
 .feat > div { display: grid; grid-template-columns: 33mm 1fr; gap: 3mm; padding: 1.7mm 0; border-bottom: .3mm solid var(--line); }
 .feat dt { font-size: 8.6pt; line-height: 1.25; }

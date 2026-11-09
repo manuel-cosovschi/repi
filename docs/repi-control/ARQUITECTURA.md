@@ -62,6 +62,28 @@
 | `GET /api/gym/:org/kiosk/members/:id` y `POST …/issue`, `…/revoke` | Recepción, gerencia o dueño | Credenciales del socio |
 | `GET` y `POST /api/me/kiosk` | Socio | Su código y su PIN |
 
+## Objetivos y registro en la pantalla (D216)
+
+No es un sistema aparte: la pantalla usa los mismos motores, servicios y tablas que la app.
+
+| Qué | Cómo |
+| --- | --- |
+| Objetivo del profesor | La fila del plan (`setTarget`): repeticiones o tiempo, carga, %1RM, RIR/RPE, descanso, nota; método, tempo, variante, grupo (A1, A2) y actividad |
+| Sugerencia de REPI | Training Intelligence 2.0. **Consultar:** `previewTargets` (mismo `recommendExercise` con el historial comparable, las señales y las cargas de la sede que `ensureTargets`), sin guardar nada. **Registrar:** los objetivos de la sesión (`ensureTargets`), los mismos que ve la app |
+| Última vez | `prev` del objetivo: la última serie comparable (mismo tipo de serie y etapa). Sin datos: «Sin referencia suficiente» |
+| Borrador | La carga de REPI (si no la tiene que elegir la persona), si no la indicada por el profesor, si no vacía. Nada cuenta como hecho hasta «Confirmar» |
+| Empezar o seguir | `kioskStartWorkout` → el entrenamiento abierto del socio **en ese gimnasio** (empezado en la app o en otra visita) o `startSession` con `KioskVia` (relación del gimnasio de la pantalla, sin pedir el ingreso validado). Si hay otro abierto fuera del gimnasio, no se toca (409 `other_open`) |
+| Registrar un ejercicio | `kioskLogExercise` → `logSet` por serie (idempotente por id; corregir usa id y revisión; un cambio concurrente queda como conflicto) y `setStageSkip` para una etapa no realizada. Una serie principal no realizada no se registra |
+| Terminar | `kioskFinishWorkout` → `sessionAction("finish")`. «Salir» cierra la consulta y deja el entrenamiento abierto (lo cierra el socio o el cierre automático de siempre) |
+| Origen | `workout_session.kiosk_id` y `set_log.kiosk_id` (0054) + `audit_event` (`kiosk.workout_started`, `kiosk.sets_logged`, `kiosk.workout_finished`, `session.stage_skipped`) con pantalla y credencial |
+| Quién lo ve | El socio en su historial y estadísticas; el equipo de sala en la ficha («Pantalla del gimnasio») y en Training Intelligence; las progresiones siguientes lo usan |
+
+**Rutas nuevas** (todas con el secreto de la pantalla y el token de la consulta, no-store): `GET /api/kiosk/workout`,
+`POST /api/kiosk/workout` (`opId`, `dayIndex`), `POST /api/kiosk/workout/sets`, `POST /api/kiosk/workout/finish`.
+
+**Lo que la pantalla no hace:** reemplazar ejercicios, cambiar series, descansos o cargas indicadas, aceptar propuestas,
+«Aplicar ahora» una versión nueva, ni corregir entrenamientos terminados (eso sigue en el historial de la app).
+
 ## QR
 
 | QR | Para qué | Dónde |

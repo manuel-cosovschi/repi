@@ -2,7 +2,7 @@
 // REPI Control (D213), app del alumno:
 // - SupervisedNote: en un gimnasio que planifica todo, en lugar de «Mis rutinas» queda una nota tranquila y la forma de pedir un
 //   cambio al equipo de sala. Registrar el programa asignado sigue igual.
-// - KioskAccess: el código para consultar la rutina en la pantalla del gimnasio y el cambio de PIN. Sólo aparece si el gimnasio
+// - KioskAccess: el código para consultar la rutina y registrar el entrenamiento en la pantalla del gimnasio (D216) y el cambio de PIN. Sólo aparece si el gimnasio
 //   le emitió un código. El PIN nunca se muestra (ni el actual ni el nuevo después de guardarlo).
 import { useCallback, useEffect, useId, useState } from "react";
 import { api } from "@/lib/api";
@@ -33,7 +33,7 @@ export function KioskAccess({ offline, flash }: { offline: boolean; flash: (m: s
       {on && (
         <section className="wishes kiosk-me" aria-labelledby="kiosk-me-h">
           <h2 id="kiosk-me-h" style={{ fontSize: 16 }}>Pantalla de rutinas del gimnasio</h2>
-          <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Con este código y tu PIN consultás tu rutina en la pantalla del gimnasio, sin instalar nada.</span>
+          <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Con este código y tu PIN consultás tu rutina y registrás tu entrenamiento en la pantalla del gimnasio. Lo que registres ahí queda en tu historial.</span>
           {items!.map((i) => <KioskItemCard key={i.id} item={i} multi={items!.length > 1} offline={offline} flash={flash} onSaved={load} />)}
         </section>
       )}

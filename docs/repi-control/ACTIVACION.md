@@ -41,7 +41,10 @@ El socio que usa la app ve su código en «Tu gym» y puede elegir su propio PIN
 
 ## 4. Comprobar
 
-- En la tablet: **Empezar**, código, PIN y la rutina. **Terminar** deja la pantalla libre.
+- En la tablet: **Empezar**, código, PIN, **Consultar mi rutina** (objetivos del profesor, sugerencia de REPI y última vez) y
+  **Terminar**, que deja la pantalla libre.
+- **Registrar mi entrenamiento:** elegir el día, abrir un ejercicio, confirmar lo hecho y ver «Guardado». Volver a entrar con el
+  código y el PIN muestra lo guardado; la ficha del socio lo marca como «Pantalla del gimnasio».
 - Si la consulta queda abierta, se cierra sola a los 60 segundos sin uso.
 - En la app de un socio de ese gimnasio:
   - no aparecen «Mis rutinas» ni «No vino el profe»;

@@ -64,7 +64,7 @@ export async function coachCreateExercise(actorId: string, orgId: string, p: { n
 
 // ── Programas ───────────────────────────────────────────────────────────────
 type DocEx = ProgramDoc["days"][number]["exercises"][number] & { id?: string };
-type Doc = { name: string; weeks: number; note: string; days: { id?: string; name: string; exercises: DocEx[] }[] };
+export type Doc = { name: string; weeks: number; note: string; days: { id?: string; name: string; exercises: DocEx[] }[] };
 
 export async function readVersion(versionId: string, tx: Tx | typeof db = db): Promise<{ version: typeof programVersion.$inferSelect; doc: Doc }> {
   const [v] = await tx.select().from(programVersion).where(eq(programVersion.id, versionId));
@@ -419,7 +419,7 @@ export async function clientPerformance(actorId: string, orgId: string, coachCli
  * RIR y sensación), en el orden en que lo hizo. Lo ven su coach y el equipo de sala con quien compartió su entrenamiento.
  */
 export async function sessionLogs(sessionIds: string[]) {
-  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null; metrics?: SetMetrics | null; corrected?: boolean }[] }[]>();
+  const out = new Map<string, { exercise: string; timed: boolean; sets: { n: number; weightKg: number | null; reps: number | null; rir: number | null; feel: string | null; note: string | null; label: string | null; metrics?: SetMetrics | null; corrected?: boolean; atKiosk?: boolean }[] }[]>();
   if (!sessionIds.length) return out;
   // D192: el nombre de la serie (Top set, Load Set, Drop 1…) sale de la versión congelada que se entrenó: renombrar después un
   // tipo propio no cambia lo que se muestra de sesiones anteriores.
@@ -438,7 +438,8 @@ export async function sessionLogs(sessionIds: string[]) {
     const label = pe?.detail ? setTarget({ sets: pe.sets, reps: pe.reps, rir: null, restSec: 0, detail: pe.detail as ExerciseDetail }, l.setIndex).label : null;
     // Ejercicios por tiempo: los valores reales de la actividad (velocidad, inclinación, nivel…), además de los segundos en `reps`.
     // Sólo si los hay: el resto de las series queda como antes.
-    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label, ...(l.metrics ? { metrics: l.metrics } : {}), ...(corrected.has(l.id) ? { corrected: true } : {}) });
+    ex.sets.push({ n: l.setIndex + 1, weightKg: l.weightKg == null ? null : Number(l.weightKg), reps: l.reps, rir: l.rir, feel: l.feel, note: l.note, label, ...(l.metrics ? { metrics: l.metrics } : {}), ...(corrected.has(l.id) ? { corrected: true } : {}),
+      ...(l.kioskId ? { atKiosk: true } : {}) }); // D216: guardada en la pantalla de rutinas del gimnasio
     out.set(l.sessionId, list);
   }
   for (const list of out.values()) for (const ex of list) { delete (ex as { key?: string }).key; ex.sets.sort((a, b) => a.n - b.n); }
@@ -735,19 +736,7 @@ export async function myTraining(userId: string, now = new Date()) {
   const { version, doc } = await readVersion(p.currentVersionId!);
   const exIds = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
   const [prev, lastTime, sig, profiles] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds), trainingSignals(userId, now), exerciseProfiles(exIds)]);
-  const [lastDone] = await db.select({ dayId: workoutSession.dayId, dayName: workoutSession.dayName }).from(workoutSession)
-    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.assignmentId, act.assignment.id), eq(workoutSession.status, "completed")))
-    .orderBy(desc(workoutSession.endedAt)).limit(1);
-  // La rotación sigue por posición aunque la versión haya cambiado: se busca el día por nombre+posición.
-  const dayIds = doc.days.map((d) => d.id!);
-  let lastIdx: string | null = null;
-  if (lastDone) {
-    const [d] = await db.select({ position: programDay.position }).from(programDay).where(eq(programDay.id, lastDone.dayId));
-    lastIdx = d && dayIds[d.position] ? dayIds[d.position] : null;
-  }
-  // D185: la rotación saltea los días sin ejercicios (empezarlos dejaba un entrenamiento vacío abierto).
-  let next = nextDayIndex(dayIds, lastIdx);
-  for (let k = 0; k < doc.days.length && next >= 0 && !doc.days[next].exercises.length; k++) next = (next + 1) % doc.days.length;
+  const next = await nextDayOf(userId, act.assignment.id, doc);
   // F-CL-14: programa nuevo o actualizado, con autor. Cada asignación arranca en la versión 1 de su copia: una versión
   // nueva (si ya se entrenó con la anterior) o una edición en el lugar (si todavía no) cuentan como actualización.
   // Margen de 60 s: en asignaciones anteriores la hora de la copia y la de la asignación salían de relojes distintos.
@@ -774,6 +763,24 @@ export async function myTraining(userId: string, now = new Date()) {
       })),
     },
   };
+}
+
+/** Día que toca (índice en `doc.days`) según el último entrenamiento terminado de la asignación. También lo usa la pantalla (D216). */
+export async function nextDayOf(userId: string, assignmentId: string, doc: Doc) {
+  const [lastDone] = await db.select({ dayId: workoutSession.dayId, dayName: workoutSession.dayName }).from(workoutSession)
+    .where(and(eq(workoutSession.userId, userId), eq(workoutSession.assignmentId, assignmentId), eq(workoutSession.status, "completed")))
+    .orderBy(desc(workoutSession.endedAt)).limit(1);
+  // La rotación sigue por posición aunque la versión haya cambiado: se busca el día por nombre+posición.
+  const dayIds = doc.days.map((d) => d.id!);
+  let lastIdx: string | null = null;
+  if (lastDone) {
+    const [d] = await db.select({ position: programDay.position }).from(programDay).where(eq(programDay.id, lastDone.dayId));
+    lastIdx = d && dayIds[d.position] ? dayIds[d.position] : null;
+  }
+  // D185: la rotación saltea los días sin ejercicios (empezarlos dejaba un entrenamiento vacío abierto).
+  let next = nextDayIndex(dayIds, lastIdx);
+  for (let k = 0; k < doc.days.length && next >= 0 && !doc.days[next].exercises.length; k++) next = (next + 1) % doc.days.length;
+  return next;
 }
 
 async function mySession(userId: string, sessionId: string, tx: Tx | typeof db = db, lock = false) {
@@ -839,20 +846,31 @@ async function isSoloSession(tx: Tx, s: typeof workoutSession.$inferSelect) {
 const BAD_TIME = () => new AccessError("invalid_time", "La hora del dispositivo no es válida. Revisá la fecha y hora del teléfono.");
 
 /**
+ * REPI Control (D216): escritura hecha desde la pantalla de rutinas del gimnasio, ya autorizada por `server/gym/kiosk.ts` (equipo
+ * vigente + credencial del socio + consulta abierta). Es el mismo registro que el de la app (mismas tablas, reglas, idempotencia y
+ * conflictos), con tres diferencias: la relación es la del gimnasio de la pantalla (no la activa del teléfono), la presencia la
+ * prueba el equipo autorizado de la sede (no pide el ingreso validado de D127) y el registro queda marcado con la pantalla.
+ * Nunca llega desde una ruta de la app: sólo la arma el kiosco.
+ */
+export type KioskVia = { kioskId: string; gymMemberId: string };
+const wrongRelation = () => new AccessError("not_found", "No encontramos ese entrenamiento.", 404);
+
+/**
  * Inicia una sesión con ID generado en el cliente. Acepta la hora real de inicio (también offline, ventana de 72 h).
  * El día puede pertenecer a una versión anterior del programa asignado: la sesión conserva la versión con la que se hizo.
  * Si otro dispositivo tiene una sesión abierta, es conflicto: sólo se cierra la otra si la persona lo elige (closeOther).
  */
-export async function startSession(userId: string, p: { id: string; dayId: string; startedAt?: string; closeOther?: boolean }, now = new Date()) {
+export async function startSession(userId: string, p: { id: string; dayId: string; startedAt?: string; closeOther?: boolean }, now = new Date(), via?: KioskVia) {
   if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de sesión inválido.");
   const startedAt = clampClientTime(p.startedAt, now);
   if (startedAt === "invalid") throw BAD_TIME();
-  const act = await myActive(userId);
+  // D216: desde la pantalla, la relación es la del gimnasio de la pantalla, aunque en el teléfono la activa sea otra.
+  const act = via ? (await myRelations(userId)).find((r) => r.kind === "gym" && r.id === via.gymMemberId) ?? null : await myActive(userId);
   if (!act?.assignment) throw new AccessError("no_program", "Todavía no tenés un programa asignado.", 409);
   if (act.assignment.startsOn > localDate(startedAt)) throw new AccessError("not_started", `Tu programa empieza el ${act.assignment.startsOn}.`, 409);
   return db.transaction(async (tx) => {
     const [existing] = await tx.select().from(workoutSession).where(eq(workoutSession.id, p.id));
-    if (existing) { if (existing.userId !== userId) throw NOT_FOUND(); return existing; } // reintento idempotente
+    if (existing) { if (existing.userId !== userId || (via && existing.gymMemberId !== via.gymMemberId)) throw NOT_FOUND(); return existing; } // reintento idempotente
     const [day] = await tx.select({ d: programDay }).from(programDay).innerJoin(programVersion, eq(programVersion.id, programDay.versionId))
       .where(and(eq(programDay.id, p.dayId), eq(programVersion.programId, act.assignment!.programId)));
     if (!day) throw new AccessError("invalid", "Ese día no es parte de tu programa actual.");
@@ -870,12 +888,14 @@ export async function startSession(userId: string, p: { id: string; dayId: strin
       await tx.update(workoutSession).set({ ...closed, revision: openS.revision + 1, updatedAt: now }).where(eq(workoutSession.id, openS.id));
       await audit(tx, { actorUserId: userId, action: "session.closed_for_other", resourceType: "workout_session", resourceId: openS.id, meta: { by: p.id, sets: n } });
     }
-    const presenceCheckinId = act.kind === "gym" ? await gymPresence(tx, userId, act.id, "gym.workout.start", now, startedAt) : null;
+    // D216: en la pantalla autorizada de la sede, el equipo prueba la presencia (no se pide el ingreso validado del teléfono).
+    const presenceCheckinId = act.kind === "gym" && !via ? await gymPresence(tx, userId, act.id, "gym.workout.start", now, startedAt) : null;
     await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, day.d.versionId));
     const [s] = await tx.insert(workoutSession).values({
       id: p.id, userId, coachClientId: act.kind === "coach" ? act.id : null, gymMemberId: act.kind === "gym" ? act.id : null, assignmentId: act.assignment!.id, versionId: day.d.versionId, dayId: day.d.id, dayName: day.d.name,
-      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now, tx) : null,
+      startedAt, lastResumedAt: startedAt, presenceCheckinId, floorTrainerId: act.kind === "gym" ? await todaysPick(act.id, now, tx) : null, kioskId: via?.kioskId ?? null,
     }).returning();
+    if (via) await audit(tx, { actorUserId: userId, orgId: act.orgId, action: "kiosk.workout_started", resourceType: "workout_session", resourceId: s.id, meta: { kioskId: via.kioskId } });
     return s;
   });
 }
@@ -1056,7 +1076,7 @@ function setMetricsOf(raw: unknown, profile: ReturnType<typeof metricsProfileOf>
  * Registra o edita una serie. Idempotente por clave (sesión, ejercicio, serie). Con `baseRevision` detecta ediciones
  * concurrentes de otro dispositivo: si los valores difieren se guarda el conflicto con ambas versiones y no se pisa nada.
  */
-export async function logSet(userId: string, sessionId: string, p: SetInput, now = new Date()) {
+export async function logSet(userId: string, sessionId: string, p: SetInput, now = new Date(), via?: KioskVia) {
   if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new AccessError("invalid", "Identificador de serie inválido.");
   if (p.weightKg != null && (!WEIGHT_RE.test(String(p.weightKg)) || p.weightKg > 1000)) throw new AccessError("invalid", "El peso no es válido.");
   // DATA-1 (QA 29/10): en series por tiempo `reps` son segundos (D148); el tope de 200 va para repeticiones (ver abajo).
@@ -1069,6 +1089,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
   if (at === "invalid") throw BAD_TIME();
   const res = await db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true);
+    if (via && s.gymMemberId !== via.gymMemberId) throw wrongRelation(); // D216: la pantalla sólo escribe en el gimnasio de la pantalla
     if (s.status === "abandoned") {
       // FSA1 (MEMBER-04): el cierre automático (D160: 6 h sin actividad o fin del horario del gym) descarta un entrenamiento que el
       // servidor ve sin series, pero el teléfono pudo estar registrándolas sin conexión. Antes esas series se rechazaban para
@@ -1089,7 +1110,7 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     // D195: una sesión anulada no recibe cambios (un teléfono atrasado no la revive); se restaura desde el historial.
     if (s.status === "voided") throw new AccessError("voided", "Anulaste este entrenamiento. Restauralo desde tu historial para cambiarlo.", 409);
     await assertRelationActive(tx, s);
-    if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
+    if (s.gymMemberId && !via && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
     let [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     // DATA-5: también un ejercicio de la rutina anterior que ya tiene series en esta sesión (quedó tras «Aplicar ahora»).
     if (!pe && (await tx.select({ id: setLog.id }).from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, p.programExerciseId))).limit(1)).length)
@@ -1129,8 +1150,8 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
     // Con reemplazo vigente, la serie nueva queda con el ejercicio realmente hecho (historial y récords correctos).
     const [row] = d.kind === "insert"
       ? await tx.insert(setLog).values({ id: p.id, sessionId, programExerciseId: pe.id, exerciseId: chg?.sub ?? pe.exerciseId, setIndex: p.setIndex, weightKg: w, reps: p.reps, rir: p.rir, feel, note, metrics: metrics ?? null, completedAt: at,
-        specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null }).returning()
-      : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, note, ...(metrics !== undefined ? { metrics } : {}), revision: ex!.revision + 1, updatedAt: now }).where(eq(setLog.id, ex!.id)).returning();
+        specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null, kioskId: via?.kioskId ?? null }).returning()
+      : await tx.update(setLog).set({ weightKg: w, reps: p.reps, rir: p.rir, feel, note, ...(metrics !== undefined ? { metrics } : {}), revision: ex!.revision + 1, updatedAt: now, kioskId: via?.kioskId ?? null }).where(eq(setLog.id, ex!.id)).returning();
     await tx.update(workoutSession).set({ updatedAt: now }).where(eq(workoutSession.id, sessionId));
     // Sólo una sensación nueva que pide atención dispara aviso al piso (y sólo en el programa del gym).
     const raise = feel && FEEL_ALERTS.includes(feel) && feel !== (ex?.feel ?? null) && s.gymMemberId
@@ -1298,16 +1319,17 @@ export const skippedRows = (e: { logs: { setIndex: number }[]; skips?: { setInde
  * reciente; si la etapa tiene un resultado, el resultado manda y la omisión no se aplica (nunca pisa lo registrado).
  * También con el entrenamiento terminado: corregir una omisión es corregir el registro, como editar una serie.
  */
-export async function setStageSkip(userId: string, sessionId: string, p: { programExerciseId: string; setIndex: number; skipped: boolean; at?: string }, now = new Date()) {
+export async function setStageSkip(userId: string, sessionId: string, p: { programExerciseId: string; setIndex: number; skipped: boolean; at?: string }, now = new Date(), via?: KioskVia) {
   const at = clampClientTime(p.at, now);
   if (at === "invalid") throw BAD_TIME();
   return db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true); // bloquea la sesión: los cambios de la misma sesión van en fila
+    if (via && s.gymMemberId !== via.gymMemberId) throw wrongRelation();
     if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
     // D195: una sesión anulada no recibe cambios (un teléfono atrasado no la revive); se restaura desde el historial.
     if (s.status === "voided") throw new AccessError("voided", "Anulaste este entrenamiento. Restauralo desde tu historial para cambiarlo.", 409);
     await assertRelationActive(tx, s);
-    if (s.gymMemberId && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
+    if (s.gymMemberId && !via && !(await isSoloSession(tx, s))) await gymPresence(tx, userId, s.gymMemberId, "gym.workout.log_set", now, at, s.presenceCheckinId);
     let [pe] = await tx.select().from(programExercise).where(and(eq(programExercise.id, p.programExerciseId), eq(programExercise.dayId, s.dayId)));
     if (!pe && (await tx.select({ id: setLog.id }).from(setLog).where(and(eq(setLog.sessionId, sessionId), eq(setLog.programExerciseId, p.programExerciseId))).limit(1)).length)
       [pe] = await tx.select().from(programExercise).where(eq(programExercise.id, p.programExerciseId));
@@ -1324,7 +1346,7 @@ export async function setStageSkip(userId: string, sessionId: string, p: { progr
         .onConflictDoUpdate({ target: [setSkip.sessionId, setSkip.programExerciseId, setSkip.setIndex], set: values });
       await tx.update(workoutSession).set({ updatedAt: now }).where(eq(workoutSession.id, sessionId));
       await audit(tx, { actorUserId: userId, action: p.skipped ? "session.stage_skipped" : "session.stage_restored", resourceType: "workout_session", resourceId: s.id,
-        meta: { programExerciseId: pe.id, setIndex: p.setIndex, specId: ref.id } });
+        meta: { programExerciseId: pe.id, setIndex: p.setIndex, specId: ref.id, ...(via ? { kioskId: via.kioskId } : {}) } });
     }
     return { setIndex: p.setIndex, skipped: d.effective, changedAt: d.apply ? at.toISOString() : cur?.changedAt.toISOString() ?? null, logged: !!logged, applied: d.apply, reason: d.reason };
   });
@@ -1409,11 +1431,12 @@ export async function upgradeSession(userId: string, sessionId: string, now = ne
   return { ...res, session: await getSession(userId, sessionId, now) };
 }
 
-export async function sessionAction(userId: string, sessionId: string, action: "pause" | "resume" | "finish", now = new Date(), clientAt?: string) {
+export async function sessionAction(userId: string, sessionId: string, action: "pause" | "resume" | "finish", now = new Date(), clientAt?: string, via?: KioskVia) {
   const at = clampClientTime(clientAt, now);
   if (at === "invalid") throw BAD_TIME();
   const r = await db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true);
+    if (via && s.gymMemberId !== via.gymMemberId) throw wrongRelation();
     if (action !== "finish") await assertRelationActive(tx, s);
     const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(setLog).where(eq(setLog.sessionId, s.id));
     // Sin series no hay sesión que registrar: finalizar descarta (T15). Repetir una acción ya aplicada no cambia nada.

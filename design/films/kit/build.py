@@ -222,16 +222,17 @@ PHONE_CSS = f""".phone {{ position: absolute; width: 470px; height: 1017px; bord
 .panel b.t {{ color: {C['teal']}; }}
 .panel p {{ margin: 14px 0 0; font: 600 28px/1.3 "Barlow"; color: {C['muted']}; max-width: 560px; }}"""
 
-def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=False):
+def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=False, desc=None):
     """La app real: grabación (o captura) en el teléfono, con título al costado y paneles con los valores reales
-    de la acción a tamaño grande. `clips`: [(archivo, media_start, inicio, duración)] cortados dentro del teléfono."""
+    de la acción a tamaño grande. `clips`: [(archivo, media_start, inicio, duración)] cortados dentro del teléfono.
+    `desc`: qué pasa en la grabación, para la pista de descripción (tools/describe.py); no se ve."""
     KIND[sid] = "device"
     vertical = H > W
     if vertical:  # título arriba, panel en el medio, teléfono abajo
         css = PHONE_CSS + f"""#{sid}-ph {{ left: {(W-470)/2}px; top: {H-1017-90}px; }}
 #{sid}-t {{ position: absolute; left: 70px; top: 170px; width: {W-140}px; }}
 #{sid}-sub {{ position: absolute; left: 70px; top: 430px; width: {W-140}px; }}"""
-        panels = [dict(p, x=70, y=440) for p in panels]
+        panels = [dict(p, x=70, y=p.get("vy", 440)) for p in panels]  # `vy`: más abajo si el título ocupa tres líneas
     else:
         px = 1260 if side == "left" else 190
         tx = 150 if side == "left" else 760
@@ -270,8 +271,9 @@ TABLET_CSS = f""".tablet {{ position: absolute; padding: 16px; border-radius: 36
 .tablet .zoom {{ position: absolute; inset: 0; }}
 .tablet video, .tablet img {{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }}"""
 
-def s_tablet(sid, dur, clips, title, sub=None, panels=(), focus=None, keys=(), still=None):
+def s_tablet(sid, dur, clips, title, sub=None, panels=(), focus=None, keys=(), still=None, desc=None):
     """La pantalla de rutinas real (tablet apaisada, 1280×800 grabada a 2×) con el título arriba y los paneles al costado.
+    `desc`: qué pasa en la grabación, para la pista de descripción (tools/describe.py); no se ve.
     `focus`: acercamiento de cámara dentro de la pantalla, dict(x=%, y=%, s=escala, at=s, d=duración[, out=s]).
     `keys`: momentos (s) en que se toca una tecla del teclado en pantalla (sonido de tecla)."""
     KIND[sid] = "tablet"
@@ -622,19 +624,21 @@ FILMS.update({
 })
 
 # ── Modos de REPI (D213): Completo y Control, 16:9 y 9:16 ────────────────────────────────────────────────────────────────
-# Grabaciones nuevas (tools/rec-raw.mjs, demo local con datos ficticios): ctl-kiosk (pantalla de rutinas 1280×800 de la demo
-# «control», Gimnasio Atlas, sin la lista de personas), ctl-staff (profesor de sala de la demo «floor», Gym Norte: crea el
-# programa de Martina y ajusta el de Julián a la revisión 2), cmp-coach (coach: ficha de Valentina, diseña y asigna
-# «Hipertrofia · 3 días») y cmp-owner (Seguimiento de sala). Del socio se reusan f-intelligence y perfil-deportistas.
+# Grabaciones nuevas (tools/rec-raw.mjs, demo local con datos ficticios): ctl-kiosk-reg (pantalla de rutinas 1280×800 de la demo
+# «control», Gimnasio Atlas, sin la lista de personas: Ana consulta y registra Sentadilla), ctl-results (la profesora de sala de la
+# misma demo abre la ficha de Ana: el entrenamiento registrado en la pantalla, con el sello «Pantalla del gimnasio»), ctl-staff
+# (profesor de sala de la demo «floor», Gym Norte: crea el programa de Martina), cmp-coach (coach: ficha de Valentina, diseña y
+# asigna «Hipertrofia · 3 días») y cmp-owner (Seguimiento de sala). Del socio se reusan f-intelligence y perfil-deportistas.
 # Los valores de los paneles son los que se ven en esas grabaciones.
 FRAGS_CONTROL = [("paper", 130, 90, -5, "<small>Rutina · hoja impresa</small>Sentadilla 4×8<br><s>Prensa 3×12</s> 3×10<br>Remo ¿?"),
                  ("paper", 1330, 120, 4, "<small>rutina_final_v3(2).pdf</small>¿Cuál es la vigente?"),
-                 ("chat", 1300, 790, -2, "<small>Socio · 07:40</small>Profe, ¿me pasás la rutina?"),
-                 ("", 200, 800, 3, "<small>Carpeta de recepción</small>Hoja perdida"),
+                 ("chat", 1300, 790, -2, "<small>Socio · 07:40</small>Profe, ¿qué peso pongo?"),
+                 ("", 200, 800, 3, "<small>Cargas de la semana</small>— sin anotar —"),
                  ("", 760, 60, -3, "<small>Cambios del profesor</small>— sin registro —")]
-KIOSK = "ctl-kiosk.mp4"
-SP = 11.0 / 6.5  # código y PIN, de 5,9 a 16,9 s de la grabación, en 6,5 s de pantalla
-ID_KEYS = [round((t - 5.93) / SP, 2) for t in (6.45, 7.25, 8.02, 8.80, 9.59, 10.37, 12.25, 13.15, 14.04, 14.92, 16.35)]
+KIOSK = "ctl-kiosk-reg.mp4"
+SP = 10.3 / 5.5  # código y PIN, de 3,75 a 14,05 s de la grabación, en 5,5 s de pantalla
+ID_KEYS = [round((t - 3.75) / SP, 2) for t in (5.75, 6.43, 7.11, 7.80, 8.48, 9.17, 10.55, 11.30, 12.04, 12.80, 14.0)]
+REG_SP = 1.1  # registro de Sentadilla, de 29,3 a 37,0 s de la grabación
 
 def dev(*a, **k):
     """s_device de los modos: los paneles salen con el teléfono (no quedan solos en el último instante)."""
@@ -665,28 +669,38 @@ def modo_completo(size):
         ])
 
 def modo_control(size):
+    """D216: el profesor programa → el socio se identifica en la pantalla → ve ejercicios, peso sugerido, intensidad y descanso →
+    registra lo real → el historial se actualiza → el profesor ve los resultados → el celular es opcional."""
     return dict(
-        title="REPI Control · Tu equipo planifica. Tus socios consultan.", dur=59.5, size=size, music=("clash-defiant.mp3", 203.0), sfx="auto", poster=39.5,
+        title="REPI Control · Tu equipo planifica. Tus socios consultan y registran.", dur=59.7, size=size, music=("clash-defiant.mp3", 203.0), sfx="auto", poster=38.6,
+        # Sin desenfoque de movimiento del render: con él, HyperFrames 0.8.193 dejaba ver el póster de la grabación (otra
+        # pantalla) unos 0,3 s cada vez que un panel entraba o la tablet salía (las salidas ya llevan su propio blur).
+        motion_blur=False,
         scenes=[
-            ("dot", 2.5, lambda s, d: s_dot(s, d, "En la sala, cada socio busca su rutina.")),
-            ("scatter", 9.0, lambda s, d: s_scatter(s, d, "Rutinas _difíciles_ _de_ _consultar._", "REPI las *centraliza.*", 5.0, FRAGS_CONTROL, calls=2.2, appear=0.85, waves=2)),
+            ("dot", 2.3, lambda s, d: s_dot(s, d, "Cada socio busca su rutina.")),
+            ("scatter", 6.5, lambda s, d: s_scatter(s, d, "Rutinas y cargas, _en_ _papel._", "REPI las *centraliza.*", 3.6, FRAGS_CONTROL, calls=1.6, appear=0.6, waves=1)),
             ("logo", 2.5, lambda s, d: s_logo(s, d, "_Tu_ _equipo_ planifica.")),
-            ("crea", 6.5, lambda s, d: dev(s, d, [("ctl-staff.mp4", 4.3, 0, 1.4), ("ctl-staff.mp4", 8.4, 1.4, 2.4), ("ctl-staff.mp4", 20.6, 3.8, 2.7)], "El profesor *arma* la rutina.", panels=[
-                dict(at=1.4, x=150, y=620, k="Martina López · programa nuevo", v="Fuerza inicial · 2 días", cls="a")])),
-            ("asigna", 4.0, lambda s, d: dev(s, d, [("ctl-staff.mp4", 27.4, 0, 4.0)], "Y la *asigna* al socio.", side="right", panels=[
-                dict(at=1.3, x=760, y=620, k="Programa institucional", v="Revisión 1", cls="t", why="Queda asignado al socio, con autor y motivo.")])),
-            ("llega", 3.0, lambda s, d: s_arrive(s, d, "El socio *llega* al gimnasio.")),
-            ("pantalla", 3.5, lambda s, d: s_tablet(s, d, [(KIOSK, 0.2, 0, 3.5)], "Una pantalla *compartida*, en la sala.", sub="La pone el gimnasio, para todos sus socios.")),
-            ("id", 6.5, lambda s, d: s_tablet(s, d, [(KIOSK, 5.9, 0, 6.5, SP)], "Se identifica *con* *código* *y* *PIN.*", keys=ID_KEYS, panels=[
-                dict(at=0.6, k="Código de socio", v="6 números", cls="a", out=3.4),
-                dict(at=3.7, k="PIN", v="• • • •", cls="a", why="Nadie más lo ve: se muestran puntos.")])),
-            ("rutina", 5.0, lambda s, d: s_tablet(s, d, [(KIOSK, 16.7, 0, 5.0)], "Y consulta su rutina, *sin* *instalar* *nada.*", panels=[
-                dict(at=1.0, k="Hola, Ana P.", v="Fuerza base · 3 días", cls="a", why="Planificado por el equipo de Gimnasio Atlas · versión 2.")])),
-            ("terminar", 4.0, lambda s, d: s_tablet(s, d, [(KIOSK, 25.3, 0, 4.0)], "Toca *Terminar.*", sub="La pantalla queda libre para la próxima persona.", focus=dict(x=90, y=14, s=1.5, at=0.0, d=0.6, out=1.2))),
-            ("qr", 4.0, lambda s, d: s_tablet(s, d, [(KIOSK, 30.2, 0, 0.6)], "Y si quiere, *REPI* *en* *su* *celular.*", sub="QR opcional. No es el QR de ingreso al gimnasio.", focus=dict(x=94, y=52, s=1.7, at=0.5, d=1.0))),
-            ("control", 4.5, lambda s, d: dev(s, d, [("ctl-staff.mp4", 48.0, 0, 4.5)], "Los cambios, *siempre* *del* *equipo.*", panels=[
-                dict(at=1.2, x=150, y=620, k="Julián Ortiz · revisiones", v="Versión 2", cls="t", why="Cada cambio con autor y motivo. El socio sólo consulta.")])),
-            ("end", 4.5, lambda s, d: s_end(s, d, "Tu equipo planifica. *Tus* *socios* *consultan.*", "repiclub.com/conoce?modo=control", kicker="REPI Control")),
+            ("crea", 5.5, lambda s, d: dev(s, d, [("ctl-staff.mp4", 4.3, 0, 1.3), ("ctl-staff.mp4", 8.4, 1.3, 2.2), ("ctl-staff.mp4", 20.6, 3.5, 2.0)], "El profesor *programa* el entrenamiento.", desc="El profesor de sala crea un programa para Martina: nombre, ejercicios y repeticiones.", panels=[
+                dict(at=1.3, x=150, y=620, vy=530, k="Martina López · programa nuevo", v="Fuerza inicial · 2 días", cls="a")])),
+            ("asigna", 3.0, lambda s, d: dev(s, d, [("ctl-staff.mp4", 27.4, 0, 3.0)], "Y lo *asigna* al socio.", side="right", desc="Guarda la revisión y la ficha de la socia muestra su programa institucional.", panels=[
+                dict(at=1.2, x=760, y=620, k="Programa institucional", v="Revisión 1", cls="t", why="Con autor y motivo.")])),
+            ("llega", 2.6, lambda s, d: s_arrive(s, d, "El socio *llega* a la pantalla.")),
+            ("id", 5.5, lambda s, d: s_tablet(s, d, [(KIOSK, 3.75, 0, 5.5, SP)], "Se identifica *con* *código* *y* *PIN.*", keys=ID_KEYS, desc="Ana toca Empezar y escribe su código de socio y su PIN, que se ve como puntos.", panels=[
+                dict(at=0.6, k="Código de socio", v="6 números", cls="a", out=2.9),
+                dict(at=3.1, k="PIN", v="• • • •", cls="a", why="Nadie más lo ve: se muestran puntos.")])),
+            ("consulta", 6.5, lambda s, d: s_tablet(s, d, [(KIOSK, 14.3, 0, 1.4), (KIOSK, 18.0, 1.4, 5.1)], "Ejercicios, *peso* *sugerido*, intensidad y descanso.", desc="Entre «Consultar mi rutina» y «Registrar mi entrenamiento», elige consultar. La cámara se acerca a Sentadilla: 4 series de 5 a 6 repeticiones con RIR 2, descanso de 3 minutos y, en cada serie, lo que indicó el profesor, lo que sugiere REPI y la última vez.",
+                focus=dict(x=94, y=70, s=1.55, at=2.7, d=0.9), panels=[
+                dict(at=3.0, k="Sentadilla · REPI sugiere", v="69,5 kg × 5–6", cls="a", why="Lo que indicó el profesor: 4 × 5–6 · RIR 2, descanso 3:00.")])),
+            ("registra", 7.0, lambda s, d: s_tablet(s, d, [(KIOSK, 29.3, 0, 7.0, REG_SP)], "Termina el ejercicio y *registra* *lo* *real.*", desc="En «Registrar mi entrenamiento», abre Sentadilla, sube la serie 1 a 72 kg con 5 repeticiones, marca RIR 2, la copia a las otras series y toca «Confirmar ejercicio».",
+                focus=dict(x=93, y=80, s=1.6, at=0.9, d=0.8, out=4.4), panels=[
+                dict(at=3.6, k="Real · serie 1", v="72 kg × 5", cls="a", why="RIR 2. Nada se guarda hasta que confirma.")])),
+            ("historial", 4.5, lambda s, d: s_tablet(s, d, [(KIOSK, 37.0, 0, 2.0), (KIOSK, 46.4, 2.0, 2.5)], "Su historial *se* *actualiza.*", desc="La lista del día muestra «Guardado: 4 series de Sentadilla». Al terminar, la pantalla dice «Entrenamiento terminado» y queda libre.", panels=[
+                dict(at=0.5, k="Guardado", v="4 series", cls="t", out=2.0),
+                dict(at=2.3, k="Entrenamiento terminado", v="En su historial", cls="t", why="También en la app.")])),
+            ("resultados", 5.5, lambda s, d: dev(s, d, [("ctl-results.mp4", 0.8, 0, 1.4), ("ctl-results.mp4", 4.3, 1.4, 4.1)], "El profesor *ve* *los* *resultados.*", desc="En la app del gimnasio, la profesora de sala abre la ficha de Ana: la sesión de hoy, con el sello «Pantalla del gimnasio» y las cuatro series de Sentadilla de 72 kg por 5.", panels=[
+                dict(at=1.8, x=150, y=620, k="Ana · Pantalla del gimnasio", v="72 kg × 5", cls="a", why="Sentadilla, en su registro de sesiones. El programa lo cambia sólo el equipo.")])),
+            ("qr", 3.8, lambda s, d: s_tablet(s, d, [(KIOSK, 0.1, 0, 3.8, 1.0)], "Y el celular, *opcional.*", desc="La cámara se acerca al QR de la bienvenida: «Opcional: tu rutina en el celular».", sub="No es el QR de ingreso.", focus=dict(x=95, y=67, s=1.8, at=0.4, d=1.0))),
+            ("end", 4.5, lambda s, d: s_end(s, d, "Tu equipo planifica. *Tus* *socios* *consultan* *y* *registran.*", "repiclub.com/conoce?modo=control", kicker="REPI Control")),
         ])
 
 FILMS.update({
@@ -706,7 +720,7 @@ INDEX = """<!doctype html>
 </head>
 <!-- {title}. Generado por design/films/kit/build.py: editar el guion ahí y volver a generar. -->
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="{dur}" data-width="{w}" data-height="{h}" data-motion-blur="on">
+<div id="root" data-composition-id="main" data-start="0" data-duration="{dur}" data-width="{w}" data-height="{h}" data-motion-blur="{mblur}">
 {hosts}
 <audio id="bgm" src="assets/media/{music}" data-start="0" data-duration="{dur}" data-media-start="{mstart}" data-volume="0.9" data-fade-in="0.6" data-fade-out="1.6"></audio>
 {sfx}
@@ -738,8 +752,7 @@ def precut(d, sid, clips, dur, size=(780, 1688)):
         f, ms, st, du = c[:4]; sp = c[4] if len(c) > 4 else 1.0
         args += ["-ss", f"{ms}", "-t", f"{du * sp:.3f}", "-i", src]
         parts.append(f"[{i}:v]setpts=(PTS-STARTPTS)/{sp},fps=30,scale={size[0]}:{size[1]},setsar=1[v{i}]")
-    cover = sum(c[3] for c in clips)
-    graph = ";".join(parts) + ";" + "".join(f"[v{i}]" for i in range(len(clips))) + f"concat=n={len(clips)}:v=1:a=0[c];[c]tpad=stop_mode=clone:stop_duration={max(0, dur - cover) + 0.5:.2f}[out]"
+    graph = ";".join(parts) + ";" + "".join(f"[v{i}]" for i in range(len(clips))) + f"concat=n={len(clips)}:v=1:a=0[c];[c]tpad=stop_mode=clone:stop_duration={dur + 0.5:.2f}[out]"  # -t corta; si un tramo pide más de lo que queda en la grabación, se sostiene su último cuadro
     out = os.path.join(d, "assets", "media", f"cut-{sid}.mp4")
     subprocess.run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", graph, "-map", "[out]", "-t", f"{dur}", "-r", "30", "-c:v", "libx264", "-crf", "16", "-g", "15", "-pix_fmt", "yuv420p", "-an", out], check=True)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", out, "-frames:v", "1", "-q:v", "3", out[:-4] + ".jpg"], check=True)
@@ -795,7 +808,7 @@ def build(name):
         t += dur
     assert abs(t - f["dur"]) < 0.01, f"{name}: escenas suman {t}, film {f['dur']}"
     sfx = "\n".join(f'<audio id="sfx{i}" src="assets/sfx/{x[0]}.mp3" data-start="{x[1]}" data-duration="{x[2] if len(x) > 2 else sfx_len(os.path.join(d, "assets", "sfx", x[0] + ".mp3"))}" data-volume="0.55"></audio>' for i, x in enumerate(sfx_list))
-    open(os.path.join(d, "index.html"), "w").write(INDEX.format(res="landscape" if W > H else "portrait", w=W, h=H, dur=f["dur"], title=f["title"], hosts="\n".join(hosts), music=f["music"][0], mstart=f["music"][1], sfx=sfx))
+    open(os.path.join(d, "index.html"), "w").write(INDEX.format(res="landscape" if W > H else "portrait", w=W, h=H, dur=f["dur"], title=f["title"], hosts="\n".join(hosts), music=f["music"][0], mstart=f["music"][1], sfx=sfx, mblur="on" if f.get("motion_blur", True) else "off"))
     open(os.path.join(d, ".gitignore"), "w").write("assets/media/\nassets/sfx/\nrenders/\nsnapshots/\n.hyperframes/\n")
     print("ok", name, f"{t:.1f}s", len(f["scenes"]), "escenas")
 
