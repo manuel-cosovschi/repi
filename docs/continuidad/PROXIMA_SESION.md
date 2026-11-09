@@ -1,6 +1,46 @@
 # REPI — Retomar acá
 
-Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 09/11/2026 (**auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+
+## Auditoría integral FSA1 (REPI Full System Audit 1.0) — 09/11/2026 · PUBLICADO Y VERIFICADO (#88, `210bf9e`, sin migraciones)
+
+- **Informe:** `docs/audits/REPI_FULL_SYSTEM_AUDIT_1/` (01–10). Veredicto en 10: **APTO CON OBSERVACIONES**.
+- **Cómo se hizo:**
+  - Seis auditores en paralelo en worktrees: socio, seguridad, personal, interfaz, importación y comunicaciones/IA/admin.
+  - Infraestructura y producción, sólo en lectura.
+  - Cada defecto se reprodujo contra `main`, se le escribió una prueba que falla y se corrigió.
+  - Integración en `claude/full-system-audit-1`, con los duplicados resueltos (2FA, ficha del socio, pesos).
+- **Defectos:** 63 encontrados (P0 2, P1 8, P2 21, P3 32); 51 corregidos.
+  - **P0:** salteo de 2FA por enlace o código por email (SEC-01); serie sin conexión perdida en silencio (MEM-03).
+  - **P1:** la gestión leía series y notas del socio (STF-01); carrera al guardar un programa en uso (STF-02); «Guardado en tu cuenta» sin almacenamiento (MEM-02); series de una sesión cerrada por el servidor (MEM-04); pesos con decimales (MEM-01); IA que daba por leídos números ausentes (IMP-01); avisos sin nadie en turno (COM-02).
+- **Pruebas:**
+  - Dominio 1068 ✓; web 788 ✓; guardas 26/26.
+  - E2E completa en una build local de la rama: 288 ✓ / 5 ✗. Las 5 fallas son 3 pruebas: 2 de portabilidad de la prueba, corregidas, y 1 intermitente que ya fallaba en `main`.
+  - Nuevas: `ui-sweep`, `ui-keyboard`, `ui-failures`, `member-sync-adversarial`, `member-home-flow`, `own-routine-import`, `auth-second-factor`, `twofa-bypass`, `offline-keep-done-client`, `member-late-sets` y bloques FSA1 en una docena de archivos.
+  - Las E2E que siembran aceptan ahora una base `repi_e2e_*` local (antes sólo `repi_dev`, que está en su tope de demos).
+- **Publicación:**
+  - Respaldo `backup-20261109-054319-42568711678` (issue #89).
+  - CI verde y squash `210bf9e`; `/api/version` = `210bf9e8af02` a las 05:53 UTC.
+  - Smoke con demos 25/25 (`scratchpad/prod-smoke-fsa1.cjs`; contra `main` falla justo en lo corregido).
+  - Vercel sin errores, cron en 200.
+  - Huella de los datos reales (16 tablas) idéntica antes y después.
+- **Pendiente del titular (09 §1):**
+  - **D-1:** quitar a alguien del equipo o cambiarle rol o sede (STF-09, P1). Mitigación por SQL en 09 §2.
+  - **D-2:** confirmar qué ve la gestión de las series.
+  - **D-3:** lesiones en «No vino el profe» y en la rutina sin programa (COM-07).
+  - **D-4:** reintento del email transaccional (COM-09).
+  - **D-5:** autorizar el borrado de 5 archivos huérfanos de demos (83 KB) con `scripts/operations/storage-orphans.sql`.
+  - **D-6:** ajustes de diseño (UI-13, UI-14).
+- **No verificado:**
+  - Dispositivos físicos, Safari y Firefox: sólo hay Chromium.
+  - Push, email e IA reales; Admin y Ventas en la UI; carga.
+  - Probar en el iPhone del titular: entrenar con y sin conexión, Mi cuerpo, fotos e importación.
+- **Infraestructura (07):**
+  - El cronograma de respaldos funciona, con 6 a 8 h de demora de GitHub.
+  - El acceso a Vercel funciona.
+  - El `search_path` de 2 triggers queda para la próxima migración.
+  - Las 196 claves foráneas sin índice quedan como riesgo de escala, sin cambios.
+- **Próximo:** decisiones D-1 a D-4 y prueba en un iPhone. Después, nuevos desarrollos.
 
 ## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 08/11/2026 · PUBLICADO Y VERIFICADO (#85, `ec54444`, D212)
 
