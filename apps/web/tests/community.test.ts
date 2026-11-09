@@ -10,6 +10,9 @@ import * as club from "@/server/community/club";
 import * as fu from "@/server/followup/services";
 import * as gym from "@/server/gym/services";
 import { AccessError, addDays, resetRateLimits } from "@/server/access/util";
+import { pngWithText } from "../../../packages/domain/src/image-fixtures";
+import { hasImageMetadata, imageInfo } from "@repi/domain";
+import { readObject } from "@/server/storage";
 
 let n = 0;
 const mail = () => `cm${++n}.${Date.now()}@test.repi.local`;
@@ -22,7 +25,8 @@ async function verified(name = "Persona Comunidad", birth = "01/01/1990") {
 }
 const err = async (p: Promise<unknown>) => p.then(() => null, (e) => e as AccessError);
 const MP4 = () => { const u = new Uint8Array(64); u.set([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]); return u; };
-const PNG = () => { const u = new Uint8Array(64); u.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); return u; };
+// FSA1: un PNG real (con texto y eXIf): el servidor lo guarda sin metadatos; la firma sola ya no alcanza.
+const PNG = () => pngWithText();
 const today = () => localDate(new Date());
 beforeEach(() => resetRateLimits());
 
@@ -61,6 +65,12 @@ describe("publicaciones y catálogo", () => {
     expect((await err(cm.createPost(w.trainer, w.org, { type: "novedad", title: "Hola equipo", locationId: w.A })))?.code).toBe("forbidden");
     expect((await err(cm.createPost(w.manager, w.org, { type: "novedad", title: "Para todas" })))?.code).toBe("invalid"); // gerente de una sede: elige sede
     const img = await cm.uploadMedia(w.manager, { kind: "image", orgId: w.org, mime: "image/png", bytes: PNG() });
+    // FSA1: la imagen de la comunidad se guarda sin metadatos (texto, eXIf con GPS).
+    const [stored] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, img.id));
+    const raw = new Uint8Array(await new Response((await readObject(stored.storageKey)).stream).arrayBuffer());
+    expect(hasImageMetadata(PNG())).toBe(true);
+    expect(hasImageMetadata(raw)).toBe(false);
+    expect(imageInfo(raw)).toEqual(imageInfo(PNG()));
     await cm.createPost(w.manager, w.org, { type: "novedad", title: "Nueva zona de peso libre", text: "2 racks más", locationId: w.A, imageId: img.id });
     await cm.createPost(w.manager, w.org, { type: "descuento", title: "20% whey", badge: "20% OFF", validUntil: today(), locationId: w.A });
     await db.update(schema.communityPost).set({ validUntil: localDate(addDays(new Date(), -1)) }).where(eq(schema.communityPost.title, "20% whey"));
@@ -271,6 +281,27 @@ describe("Repi Club", () => {
     expect((await club.feed(r1.userId, w.org)).some((x) => x.id === p.id)).toBe(true);
     const outsider = await verified();
     expect((await err(club.feed(outsider, w.org)))?.code).toBe("not_found");
+  });
+
+  it("FSA1: «mantener» en moderación no vuelve a publicar lo que su autor borró (publicación ni comentario)", async () => {
+    const w = await world();
+    const vale = await w.member("Valentina Gómez");
+    const juli = await w.member("Julián Ortiz");
+    for (const u of [vale, juli]) await club.joinClub(u.userId, w.org, { showName: true, inRanking: false });
+    const p = await club.createClubPost(vale.userId, w.org, { text: "Me arrepiento de esto" });
+    const c = await club.commentPost(vale.userId, w.org, (await club.createClubPost(juli.userId, w.org, { text: "Hola" })).id, "Comentario a borrar");
+    await club.report(juli.userId, w.org, { type: "post", id: p.id, reason: "Spam" });
+    await club.report(juli.userId, w.org, { type: "comment", id: c.id, reason: "Spam" });
+    await club.deleteOwn(vale.userId, w.org, "post", p.id);
+    await club.deleteOwn(vale.userId, w.org, "comment", c.id);
+    // El reporte abierto sigue en la bandeja de moderación; decidir «mantener» lo cierra sin publicar de nuevo.
+    await club.moderateClub(w.manager, w.org, { type: "post", id: p.id, outcome: "keep" });
+    await club.moderateClub(w.manager, w.org, { type: "comment", id: c.id, outcome: "keep" });
+    const [post] = await db.select({ s: schema.clubPost.status }).from(schema.clubPost).where(eq(schema.clubPost.id, p.id));
+    const [com] = await db.select({ s: schema.clubComment.status }).from(schema.clubComment).where(eq(schema.clubComment.id, c.id));
+    expect([post.s, com.s]).toEqual(["removed", "removed"]);
+    expect((await club.feed(juli.userId, w.org)).some((x) => x.id === p.id)).toBe(false);
+    expect((await club.clubReports(w.manager, w.org)).filter((r) => r.id === p.id || r.id === c.id).every((r) => !r.open)).toBe(true);
   });
 
   it("ranking del mes sólo con quienes lo eligieron y con datos del gym (no del coach privado)", async () => {

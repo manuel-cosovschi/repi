@@ -5,7 +5,7 @@ import {
   ACTIVITY_FIELDS, activityOf, applySessionAction, repsDistance, carriesLoad, defaultRepsFor, kindAt, labelAt, parseReps, startWeight,
   type ActivityDetail, type ExerciseChangeReason, type ExerciseDetail, type MetricsProfile, type Proposal, type RowTarget, type SessionStatus, type SetKind, type SetMetrics, type Suggestion, type Trend, type LoadLadder,
 } from "@repi/domain";
-import { idbAll, idbClear, idbDel, idbGet, idbPut } from "./idb";
+import { idbAll, idbClear, idbDel, idbGet, idbMerge, idbPut } from "./idb";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
 // `skip` (D183): etapa conectada (drop, mini serie) que la persona decidió no hacer: queda resuelta y no es un resultado.
@@ -132,7 +132,27 @@ export const saveTraining = (t: unknown) => idbPut("kv", { t, at: new Date().toI
 export const loadTraining = <T>() => idbGet<{ t: T; at: string }>("kv", "training");
 
 export const getLocal = (id: string) => idbGet<LocalSession>("sessions", id);
-export const putLocal = (s: LocalSession) => idbPut("sessions", { ...s, updatedAt: new Date().toISOString() });
+/**
+ * FSA1 (MEMBER-03): una copia vieja de la sesión (otra pestaña, una respuesta del servidor aplicada sobre una lectura anterior)
+ * nunca «deshace» en el teléfono una serie ya registrada: si lo guardado la tiene hecha y la copia no, queda la guardada. En el
+ * teléfono una serie hecha no vuelve a pendiente; sólo el servidor puede cambiar eso (`putServerCopy`).
+ */
+export function keepDone(incoming: LocalSession, stored: LocalSession | undefined): LocalSession {
+  if (!stored) return incoming;
+  let sets: Record<string, LocalSet> | null = null;
+  for (const [k, v] of Object.entries(incoming.sets)) {
+    const o = stored.sets[k];
+    if (o?.done && !v?.done) (sets ??= { ...incoming.sets })[k] = o;
+  }
+  return sets ? { ...incoming, sets } : incoming;
+}
+/** Guarda un cambio hecho en el teléfono (lectura y escritura en una sola transacción, sin deshacer series hechas). */
+export const putLocal = (s: LocalSession) => idbMerge<LocalSession>("sessions", s.id, (cur) => ({ ...keepDone(s, cur), updatedAt: new Date().toISOString() }));
+/** Reemplaza la copia local por la del servidor (sin nada pendiente en la cola): manda el servidor. */
+export const putServerCopy = (s: LocalSession) => idbPut("sessions", { ...s, updatedAt: new Date().toISOString() });
+/** Cambia la sesión guardada a partir de lo que hay guardado AHORA (en la misma transacción). Sin sesión, no hace nada. */
+export const updateLocal = (id: string, fn: (s: LocalSession) => LocalSession) =>
+  idbMerge<LocalSession>("sessions", id, (cur) => (cur ? { ...keepDone(fn(cur), cur), updatedAt: new Date().toISOString() } : undefined));
 export const delLocal = (id: string) => idbDel("sessions", id);
 export const allLocal = () => idbAll<LocalSession>("sessions");
 export const openLocal = async () => (await allLocal()).find((s) => s.status === "in_progress" || s.status === "paused") ?? null;

@@ -27,6 +27,25 @@ describe("imágenes privadas", () => {
     expect(Array.from(out.slice(-5))).toEqual([0x12, 0x34, 0x56, 0xff, 0xd9]);
     expect(imageInfo(out)).toEqual({ mime: "image/jpeg", width: 640, height: 480 });
   });
+  it("FSA1 · JPEG: el EXIF de una imagen secundaria (MPF) después del EOI y el de entre cuadros progresivos también se quitan", () => {
+    const exif = enc("Exif\0\0MM\0*GPSLatitude -34.6037 GPSLongitude -58.3816");
+    const app1 = cat([0xff, 0xe1, (exif.length + 2) >> 8, (exif.length + 2) & 0xff], exif);
+    // Imagen secundaria (mapa de ganancia o profundidad) anexada al final, con su propio EXIF con ubicación.
+    const withTrailer = cat(jpegWithGps(), [0xff, 0xd8], app1, [0xff, 0xd9]);
+    const a = stripImageMetadata(withTrailer);
+    expect(hasImageMetadata(a)).toBe(false);
+    expect(Array.from(a.slice(-5))).toEqual([0x12, 0x34, 0x56, 0xff, 0xd9]);
+    // Progresivo: un APP1 entre dos cuadros; el segundo cuadro (con un byte relleno FF00 y un reinicio FFD0) queda igual.
+    const base = jpegWithGps();
+    const prog = cat(base.subarray(0, base.length - 2), app1, [0xff, 0xda, 0, 8, 1, 1, 0, 0, 0x3f, 0], [0x11, 0xff, 0x00, 0x22, 0xff, 0xd0, 0x33], [0xff, 0xd9]);
+    const b = stripImageMetadata(prog);
+    expect(hasImageMetadata(b)).toBe(false);
+    expect(Array.from(b.slice(-11))).toEqual([0, 0x3f, 0, 0x11, 0xff, 0x00, 0x22, 0xff, 0xd0, 0x33, 0xff, 0xd9].slice(-11));
+    expect(imageInfo(b)).toEqual({ mime: "image/jpeg", width: 640, height: 480 });
+    // Un archivo cortado sin EOI conserva los datos que tiene (no se rompe la foto).
+    const cut = stripImageMetadata(base.subarray(0, base.length - 2));
+    expect(Array.from(cut.slice(-3))).toEqual([0x12, 0x34, 0x56]);
+  });
   it("PNG: quita texto y eXIf sin romper los demás bloques", () => {
     const out = stripImageMetadata(pngWithText());
     expect(dec(out)).not.toMatch(/GPS|eXIf|tEXt/);

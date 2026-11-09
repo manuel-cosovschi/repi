@@ -3,7 +3,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
-  ACHIEVEMENT_KIND, CARD_TOKEN_TTL_MIN, CHALLENGE_CATEGORIES, CHALLENGE_DIFFICULTY, MAX_PENDING_PROPOSALS, isDifficulty, MONTH_SESSIONS_GOAL, SAFETY_NOTE, ageAt, attemptValueOk, bestByMember, fileOk, fmtValue,
+  ACHIEVEMENT_KIND, CARD_TOKEN_TTL_MIN, imageInfo, stripImageMetadata, CHALLENGE_CATEGORIES, CHALLENGE_DIFFICULTY, MAX_PENDING_PROPOSALS, isDifficulty, MONTH_SESSIONS_GOAL, SAFETY_NOTE, ageAt, attemptValueOk, bestByMember, fileOk, fmtValue,
   isDivision, isNewRecord, isUnit, localDate, weekOf, type AchievementKind, type ChallengeUnit, type Division,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -25,6 +25,22 @@ const in30Days = () => localDate(addDays(new Date(), 30));
 
 // ── Archivos ────────────────────────────────────────────────────────────────
 /** Sube una imagen de comunidad (staff con permiso de publicar) o un video de intento (socio). Tipo validado por firma. */
+/**
+ * FSA1 (seguridad): una imagen que ven otras personas (comunidad, Club, perfil) se guarda sin metadatos (EXIF con la ubicación
+ * GPS, XMP, IPTC, comentarios), aunque llegue sin pasar por la app (que ya la achica en el navegador). Mismo método que las
+ * fotos de progreso (D200): tipo real por contenido y dimensiones intactas; si no se puede limpiar, se rechaza.
+ */
+export function withoutImageMetadata(bytes: Uint8Array, mime: string): Uint8Array {
+  const bad = () => new AccessError("invalid_file", "La imagen tiene que ser JPG, PNG o WebP de hasta 5 MB.");
+  const info = imageInfo(bytes);
+  if (!info || info.mime !== mime) throw bad();
+  let clean: Uint8Array;
+  try { clean = stripImageMetadata(bytes); } catch { throw bad(); }
+  const after = imageInfo(clean);
+  if (!after || after.width !== info.width || after.height !== info.height) throw bad();
+  return clean;
+}
+
 export async function uploadMedia(userId: string, p: { kind: "image" | "attempt_video"; orgId: string; mime: string; bytes: Uint8Array }) {
   if (!fileOk(p.kind, p.mime, p.bytes)) {
     throw new AccessError("invalid_file", p.kind === "image" ? "La imagen tiene que ser JPG, PNG o WebP de hasta 5 MB." : "El video tiene que ser MP4, MOV o WebM de hasta 80 MB.");
@@ -33,10 +49,11 @@ export async function uploadMedia(userId: string, p: { kind: "image" | "attempt_
     const ctx = await gymContext(userId, p.orgId);
     if (!ctx.caps.includes("community.publish") && !ctx.caps.includes("catalog.publish")) throw new AccessError("forbidden", "Tu rol no puede publicar en la comunidad.", 403);
   } else if (!(await memberOf(userId, p.orgId))) throw NOT_FOUND();
+  const bytes = p.kind === "image" ? withoutImageMetadata(p.bytes, p.mime) : p.bytes;
   const id = randomUUID();
   const key = `${p.kind === "image" ? "community" : "attempt"}/${p.orgId.replace(/[^a-z0-9]/gi, "")}/${id}`;
-  await putObject(key, p.bytes);
-  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId: p.orgId, purpose: p.kind === "image" ? "community_image" : "attempt_video", storageKey: key, mime: p.mime, sizeBytes: p.bytes.byteLength });
+  await putObject(key, bytes);
+  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId: p.orgId, purpose: p.kind === "image" ? "community_image" : "attempt_video", storageKey: key, mime: p.mime, sizeBytes: bytes.byteLength });
   return { id };
 }
 

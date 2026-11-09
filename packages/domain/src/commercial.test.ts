@@ -55,6 +55,8 @@ describe("pesos finos", () => {
     expect(parseWeight("13,75")).toBe(13.75);
     expect(parseWeight("1.25")).toBe(1.25);
     expect(parseWeight("2.125")).toBeNull();
+    expect(parseWeight("64,1")).toBe(64.1); // FSA1 MEMBER-01: sin falsos rechazos por coma flotante
+    expect(parseWeight("1.15")).toBe(1.15);
     expect(parseWeight("")).toBeNull();
   });
 });

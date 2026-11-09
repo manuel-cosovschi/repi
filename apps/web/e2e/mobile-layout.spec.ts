@@ -130,13 +130,15 @@ test("alumno: importa una rutina con métodos escritos; lo claro se aplica, lo a
   await up.getByRole("textbox").fill("Día,Ejercicio,Series,Reps,Peso,Técnica\nHombros,Elevaciones laterales,3,12,6,drop set en la última\nHombros,Remo en polea,3,10,40,pirámide");
   await up.getByRole("button", { name: "Leer el texto" }).click();
   const rev = page.getByRole("dialog", { name: "Revisá tu rutina" });
+  // Smart Import 2.0: cada ejercicio es una fila plegable; lo que necesita respuesta se abre solo y cuenta «para revisar».
+  const ask = rev.getByRole("group", { name: /Método de Remo en polea/ });
+  await expect(ask).toContainText("¿Es Pirámide?"); // ambiguo: se pregunta (fila abierta sola), no se transforma
+  await expect(rev.getByText("1 para revisar")).toBeVisible();
+  await rev.getByRole("button", { name: /^Elevaciones laterales/ }).click();
   await expect(rev.getByText(/Método: .*Drop set/)).toBeVisible(); // claro: aplicado a la vista
   await expect(rev.getByText(/Leído de «drop set»/)).toBeVisible();
-  const ask = rev.getByRole("group", { name: /Método de Remo en polea/ });
-  await expect(ask).toContainText("¿Es Pirámide?"); // ambiguo: se pregunta, no se transforma
-  await expect(rev.getByText(/Hay 1 método que no está claro/)).toBeVisible();
   await ask.getByRole("button", { name: "No, dejar como nota" }).click();
-  await expect(rev.getByText(/Hay 1 método que no está claro/)).toHaveCount(0);
+  await expect(rev.getByText(/para revisar/)).toHaveCount(0);
   if (test.info().project.name === "mobile") expect(await covered(rev)).toEqual([]);
   await rev.getByRole("button", { name: "Guardar rutina" }).click();
   const card = mine.locator(".or-card").filter({ hasText: "Hombros" });

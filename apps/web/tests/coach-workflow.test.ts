@@ -381,6 +381,98 @@ describe("Load Set y tipos personalizados", () => {
   });
 });
 
+describe("FSA1 · ciclo completo del coach independiente", () => {
+  it("invita, el alumno acepta, asigna, entrena, el coach ve los resultados, propone un cambio y el historial queda intacto", async () => {
+    const coach = await verified("Coach Ciclo");
+    const org = await acc.createCoachOrganization(coach.id, { brand: `Coach Ciclo ${n}-${Date.now()}` });
+    const u = await verified("Alumna Ciclo");
+    const inv = await acc.inviteCoachClient(coach.id, org.id, { email: u.email });
+    expect((await tr.coachOverview(coach.id, org.id)).kpis.pendingInvites).toBe(1);
+    const { relationId: rel } = await acc.acceptInvitation(u.id, inv.code, []);
+    const ov = await tr.coachOverview(coach.id, org.id);
+    expect([ov.kpis.active, ov.kpis.noProgram, ov.kpis.pendingInvites]).toEqual([1, 1, 0]);
+    expect((await tr.clientDetail(coach.id, org.id, rel)).program).toBeNull();
+    const tpl = await tr.createTemplate(coach.id, org.id, program([{ name: "Piernas", exercises: [ex("Sentadilla CW", 3, "5")] }], "Fuerza ciclo"));
+    await tr.assignProgram(coach.id, org.id, tpl, { coachClientIds: [rel], startsOn: localDate(new Date()) });
+    const t = await tr.myTraining(u.id);
+    expect(t.state === "ready" && t.program.name).toBe("Fuerza ciclo");
+    const sid = await train(u.id, [[{ w: 100, r: 5 }, { w: 100, r: 5 }, { w: 102.5, r: 4 }]]);
+    const d1 = await tr.clientDetail(coach.id, org.id, rel);
+    expect(d1.sessions[0]).toMatchObject({ id: sid, status: "completed", sets: 3 });
+    expect(d1.sessions[0].exercises[0].sets.map((s) => s.weightKg)).toEqual([100, 100, 102.5]);
+    expect((await tr.coachOverview(coach.id, org.id)).kpis.weekSessions).toBe(1);
+    const hist = await results(u.id);
+    const [s0] = await db.select().from(workoutSession).where(eq(workoutSession.id, sid));
+    // El coach propone un cambio en el programa del alumno: versión nueva (la entrenada quedó congelada).
+    const pid = d1.program!.programId;
+    const r = await tr.saveProgram(coach.id, org.id, pid, program([{ name: "Piernas", exercises: [ex("Sentadilla CW", 4, "4")] }], "Fuerza ciclo"));
+    expect(r).toEqual({ version: 2, created: true });
+    const t2 = await tr.myTraining(u.id);
+    expect(t2.state === "ready" && t2.program.days[0].exercises[0].sets).toBe(4);
+    expect(await results(u.id)).toBe(hist);
+    const [s1] = await db.select().from(workoutSession).where(eq(workoutSession.id, sid));
+    expect([s1.versionId, s1.dayId]).toEqual([s0.versionId, s0.dayId]);
+    const oldEx = await db.select().from(schema.programExercise).where(eq(schema.programExercise.dayId, s0.dayId));
+    expect(oldEx.map((e) => [e.sets, e.reps])).toEqual([[3, "5"]]);
+    expect((await tr.clientDetail(coach.id, org.id, rel)).sessions[0].exercises[0].sets.map((s) => s.weightKg)).toEqual([100, 100, 102.5]);
+    // La plantilla no cambió por editar la copia del alumno.
+    expect((await tr.getProgram(coach.id, org.id, tpl)).doc.days[0].exercises[0].sets).toBe(3);
+  });
+
+  it("guardar mientras el alumno empieza a entrenar esa versión: versión nueva, nunca se reescribe la que abrió", async () => {
+    const w = await coachWorld();
+    const v0 = await tr.getProgram(w.coach, w.org, w.b.pid);
+    expect([v0.version, v0.locked]).toEqual([1, false]); // asignada, todavía sin entrenar: se edita en el lugar
+    const [cur] = await db.select({ v: schema.program.currentVersionId }).from(schema.program).where(eq(schema.program.id, w.b.pid));
+    // startSession congela la versión dentro de su transacción; la retenemos abierta mientras el coach guarda.
+    let release!: () => void;
+    const locked = new Promise<void>((ok) => { release = ok; });
+    let holding!: () => void;
+    const held = new Promise<void>((ok) => { holding = ok; });
+    const start = db.transaction(async (tx) => {
+      await tx.update(programVersion).set({ locked: true }).where(eq(programVersion.id, cur.v!));
+      holding();
+      await locked;
+    });
+    await held;
+    const save = tr.saveProgram(w.coach, w.org, w.b.pid, program([{ name: "Día 1", exercises: [ex("Sentadilla CW", 5, "3")] }, { name: "Día 2", exercises: [] }], "Fuerza B"));
+    await new Promise((ok) => setTimeout(ok, 300));
+    release();
+    await start;
+    expect(await save).toMatchObject({ created: true, version: 2 });
+    const oldEx = await db.select().from(schema.programExercise).innerJoin(schema.programDay, eq(schema.programDay.id, schema.programExercise.dayId)).where(eq(schema.programDay.versionId, cur.v!));
+    expect(oldEx.map((r) => [r.program_exercise.sets, r.program_exercise.reps])).toEqual([[3, "5"]]);
+  });
+
+  it("el alumno deja de compartir su salud: el coach deja de ver sus lesiones al instante; terminar la relación corta todo", async () => {
+    const w = await coachWorld();
+    const fu = await import("@/server/followup/services");
+    await fu.setShare(w.a.user, "health", true);
+    await fu.addInjury(w.a.user, { zone: "Rodilla", status: "active", detail: "Menisco" });
+    expect((await fu.clientHealth(w.coach, w.org, w.a.rel)).injuries).toHaveLength(1);
+    await fu.setShare(w.a.user, "health", false);
+    const h = await fu.clientHealth(w.coach, w.org, w.a.rel);
+    expect([h.granted, h.injuries]).toEqual([false, []]);
+    expect(JSON.stringify(h)).not.toContain("Menisco");
+    await tr.setClientStatus(w.coach, w.org, w.a.rel, "ended");
+    const denied = await Promise.allSettled([tr.clientDetail(w.coach, w.org, w.a.rel), fu.clientHealth(w.coach, w.org, w.a.rel), tr.clientPerformance(w.coach, w.org, w.a.rel)]);
+    expect(denied.map((r) => r.status === "rejected" ? (r.reason as { status: number }).status : r.status)).toEqual([404, 404, 404]);
+    // Su historial sigue siendo suyo.
+    expect((await tr.myHistory(w.a.user))).toBeTruthy();
+  });
+
+  it("la adherencia media del panel sólo promedia a los alumnos activos", async () => {
+    const w = await coachWorld();
+    await train(w.a.user, [[{ w: 80, r: 5 }]]);
+    const before = await tr.coachOverview(w.coach, w.org);
+    const a = before.clients.find((c) => c.id === w.a.rel)!, b = before.clients.find((c) => c.id === w.b.rel)!;
+    expect(before.kpis.adherence).toBe(Math.round((a.adherence! + b.adherence!) / 2));
+    await tr.setClientStatus(w.coach, w.org, w.b.rel, "paused");
+    const after = await tr.coachOverview(w.coach, w.org);
+    expect([after.kpis.active, after.kpis.adherence]).toEqual([1, a.adherence]);
+  });
+});
+
 describe("Tipos personalizados en el gimnasio", () => {
   it("cada entrenador de sala tiene su lista; recepción no accede", async () => {
     const owner = await verified("Dueño ST");

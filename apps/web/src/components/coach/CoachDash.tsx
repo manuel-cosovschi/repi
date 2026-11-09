@@ -29,7 +29,7 @@ export function CoachDash({ orgId, ov, first, onInvite, onNewProgram, go, openCl
   ];
   const todos = [
     ...ov.clients.filter((c) => c.status === "active" && !c.program).map((c) => ({ t: `${c.name} no tiene programa`, d: "Asignale uno para que lo vea en su app", dot: "var(--ui-accent)", cta: "Asignar programa", go: () => go("builder") })),
-    ...ov.clients.filter((c) => c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => (openClient ? openClient(c.id) : go("clients", { sel: c.id })) })),
+    ...ov.clients.filter((c) => c.status === "active" && c.program && c.adherence === 0).map((c) => ({ t: `${c.name} no entrenó esta semana`, d: `Programa: ${c.program!.name}`, dot: "var(--ui-warning)", cta: "Ver ficha", go: () => (openClient ? openClient(c.id) : go("clients", { sel: c.id })) })),
     ...(k.pendingInvites ? [{ t: `${k.pendingInvites} ${k.pendingInvites === 1 ? "invitación pendiente" : "invitaciones pendientes"}`, d: "Esperando que la persona acepte en su app", dot: "var(--ui-accent-2)", cta: "Invitar otra", go: onInvite }] : []),
     ...repiTodos(repi, ov, go, openClient),
   ];

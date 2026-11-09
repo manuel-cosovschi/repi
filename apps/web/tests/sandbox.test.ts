@@ -7,6 +7,7 @@ import { coachPayments } from "@/server/coachpay/services";
 import { myTraining } from "@/server/training/services";
 import { listAlerts } from "@/server/gym/alerts";
 import { inviteCoachClient } from "@/server/access/services";
+import { probeObject, putObject } from "@/server/storage";
 
 // D85: cada demo es un mundo propio, coherente para recorrer los cuatro perfiles, y se borra completo al vencer.
 describe("demo guiada", () => {
@@ -73,6 +74,27 @@ describe("demo guiada", () => {
     }
     expect(await db.select().from(schema.aiUsage).where(inArray(schema.aiUsage.orgId, [gymId, coachId]))).toHaveLength(0);
     expect(await db.select().from(schema.aiPolicy).where(inArray(schema.aiPolicy.scope, [`user:${vale}`, `org:${gymId}`]))).toHaveLength(0);
+  });
+
+  it("FSA1: al vencer la demo se borran también sus archivos (foto de progreso, video y subida pendiente), no sólo las filas", async () => {
+    const d = await startDemo("member");
+    await sealDemo(d.tag);
+    const [box] = await db.select().from(schema.demoSandbox).where(eq(schema.demoSandbox.tag, d.tag));
+    const uid = (box.userIds as string[])[0];
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+    const keys = { photo: `progress/${uid}/fsa1-foto`, video: `video/${uid}/fsa1-video`, pending: `video/${uid}/fsa1-pendiente` };
+    for (const k of Object.values(keys)) await putObject(k, bytes);
+    await db.insert(schema.mediaObject).values([
+      { ownerUserId: uid, purpose: "progress_photo", storageKey: keys.photo, mime: "image/jpeg", sizeBytes: bytes.length },
+      { ownerUserId: uid, purpose: "request_video", storageKey: keys.video, mime: "video/mp4", sizeBytes: bytes.length },
+    ]);
+    await db.insert(schema.uploadIntent).values({ ownerUserId: uid, purpose: "request_video", storageKey: keys.pending, mime: "video/mp4", sizeBytes: bytes.length, expiresAt: new Date(Date.now() + 3_600_000) });
+    for (const k of Object.values(keys)) expect(await probeObject(k)).not.toBeNull();
+    await db.update(schema.demoSandbox).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.demoSandbox.id, box.id));
+    expect(await purgeSandboxes()).toBeGreaterThanOrEqual(1);
+    expect(await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.ownerUserId, uid))).toHaveLength(0);
+    // Antes del arreglo las filas se iban en cascada y los tres archivos quedaban en el bucket sin forma de alcanzarlos.
+    for (const k of Object.values(keys)) expect(await probeObject(k), k).toBeNull();
   });
 
   it("D197: las sedes de una demo no aparecen en la búsqueda pública de gimnasios", async () => {

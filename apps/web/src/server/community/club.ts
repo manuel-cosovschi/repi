@@ -9,6 +9,7 @@ import { AccessError, addDays, audit } from "../access/util";
 import { NOT_FOUND, gymContext, need } from "../gym/services";
 import { minorWithoutGuardian } from "../access/services";
 import { putObject } from "../storage";
+import { withoutImageMetadata } from "./services";
 
 const { user, gymMember, achievement, workoutSession, attendance, clubMember, clubPost, clubReaction, clubComment, clubReport, clubBlock, clubProfile, setLog, exercise, programExercise, mediaObject } = schema;
 /** Sólo la actividad del detalle (cinta, bici…): alcanza para `isTimedRow` sin traer el plan entero de cada serie. */
@@ -188,10 +189,11 @@ export async function uploadClubImage(userId: string, orgId: string, p: { mime: 
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(mediaObject)
     .where(and(eq(mediaObject.ownerUserId, userId), eq(mediaObject.purpose, "club_image"), gte(mediaObject.createdAt, new Date(Date.now() - 3_600_000))));
   if (n >= 20) throw new AccessError("rate_limited", "Llegaste al límite de fotos por hora. Probá más tarde.", 429);
+  const bytes = withoutImageMetadata(p.bytes, p.mime); // FSA1: sin EXIF/GPS aunque no llegue desde la app
   const id = randomUUID();
   const key = `club/${orgId.replace(/[^a-z0-9]/gi, "")}/${id}`;
-  await putObject(key, p.bytes);
-  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId, purpose: "club_image", storageKey: key, mime: p.mime, sizeBytes: p.bytes.byteLength });
+  await putObject(key, bytes);
+  await db.insert(mediaObject).values({ id, ownerUserId: userId, orgId, purpose: "club_image", storageKey: key, mime: p.mime, sizeBytes: bytes.byteLength });
   return { id };
 }
 /** Foto propia del Club, de este gym, sin usar todavía en otra publicación. */
@@ -480,13 +482,15 @@ export async function moderateClub(actorId: string, orgId: string, p: { type: "p
   need(ctx, "club.moderate");
   return db.transaction(async (tx) => {
     const status = p.outcome === "remove" ? "removed" as const : "visible" as const;
+    // FSA1: «mantener» sólo vuelve a mostrar lo oculto por reportes; lo que su autor borró (removed) sigue borrado.
     if (p.type === "post") {
-      const r = await tx.update(clubPost).set({ status }).where(and(eq(clubPost.id, p.id), eq(clubPost.orgId, orgId))).returning();
-      if (!r.length) throw NOT_FOUND();
+      const [x] = await tx.select({ id: clubPost.id }).from(clubPost).where(and(eq(clubPost.id, p.id), eq(clubPost.orgId, orgId))).for("update");
+      if (!x) throw NOT_FOUND();
+      await tx.update(clubPost).set({ status }).where(and(eq(clubPost.id, p.id), ne(clubPost.status, "removed")));
     } else {
       const [c] = await tx.select({ id: clubComment.id }).from(clubComment).innerJoin(clubPost, eq(clubPost.id, clubComment.postId)).where(and(eq(clubComment.id, p.id), eq(clubPost.orgId, orgId)));
       if (!c) throw NOT_FOUND();
-      await tx.update(clubComment).set({ status }).where(eq(clubComment.id, p.id));
+      await tx.update(clubComment).set({ status }).where(and(eq(clubComment.id, p.id), ne(clubComment.status, "removed")));
     }
     await tx.update(clubReport).set({ status: p.outcome === "remove" ? "removed" : "kept", decidedBy: actorId, decidedAt: new Date() })
       .where(and(eq(clubReport.targetType, p.type), eq(clubReport.targetId, p.id), eq(clubReport.status, "open")));

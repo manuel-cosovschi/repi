@@ -219,6 +219,20 @@ describe("SI2 · lo que transcribe la IA pasa por las mismas reglas", () => {
     const a = fromAiExercise({ ...base, name: "Remo", sets: 3, reps: "10", source: "Remo", unclear: ["reps"] });
     expect(a.issues.filter((i) => i.kind === "unclear").map((i) => i.field).sort()).toEqual(["reps", "sets"]);
   });
+  it("FSA1 · números que la IA da por leídos pero no están en el renglón citado (o lo contradicen) quedan para confirmar", () => {
+    const unclear = (x: ImportExercise) => x.issues.filter((i) => i.kind === "unclear").map((i) => i.field).sort();
+    // Carga inventada: el renglón no dice 100 kg.
+    expect(unclear(fromAiExercise({ ...base, name: "Sentadilla", sets: 4, reps: "8", weight: 100, unit: "kg", source: "Sentadilla 4x8" }))).toEqual(["weight"]);
+    // Contradicción: el renglón dice 3x10 y la IA devolvió 5x12.
+    expect(unclear(fromAiExercise({ ...base, name: "Press banca", sets: 5, reps: "12", source: "Press banca 3x10" }))).toEqual(["reps", "sets"]);
+    // Por serie: una carga que no figura.
+    expect(unclear(fromAiExercise({ ...base, name: "Remo con barra", sets: 3, set_reps: ["12", "10", "8"], set_weights: [40, 45, 90], source: "Remo con barra 3x12/10/8 40/45/50 kg" }))).toEqual(["weight"]);
+    // Lo que sí está escrito no se marca: coma decimal, libras, rangos y series contadas por los valores por serie.
+    expect(unclear(fromAiExercise({ ...base, name: "Press inclinado", sets: 4, reps: "8-12", weight: 22.5, source: "Press inclinado 4 x 8-12 22,5kg" }))).toEqual([]);
+    expect(unclear(fromAiExercise({ ...base, name: "Press banca", sets: 4, reps: "10", weight: 135, unit: "lb", source: "Press banca 4x10 135lb" }))).toEqual([]);
+    expect(unclear(fromAiExercise({ ...base, name: "A1 Sentadilla", sets: 3, set_reps: ["10", "8", "6"], source: "A1 Sentadilla 10/8/6" }))).toEqual([]);
+    expect(unclear(fromAiExercise({ ...base, name: "Plancha", sets: 3, reps: "al fallo", source: "Plancha 3 al fallo" }))).toEqual([]);
+  });
 });
 
 describe("SI2 · emparejar con la biblioteca", () => {

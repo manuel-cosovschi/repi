@@ -8,7 +8,7 @@
 //    borra al guardar o descartar. El archivo original nunca se guarda.
 //  · `opId` identifica el guardado: un reintento no duplica.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { GROUP_LETTERS, circuitIssues, presetPlan, cleanDecimalDraft, detectGroupWord, emptyDetail, fitActivity, importedDetail, kgTo, methodDetail, parseWeightIn, prescriptionText, profileOf,
+import { GROUP_LETTERS, circuitIssues, presetPlan, cleanDecimalDraft, detectGroupWord, emptyDetail, fitActivity, importedDetail, kgTo, methodDetail, parseWeightIn, parseWeightKeeping, prescriptionText, profileOf,
   type ActivityDetail, type ExerciseDetail, type GroupKind, type ImportField, type ImportIssue, type ImportedMethod, type ImportOriginExercise, type ImportSetValue, type ProgramDoc, type WeightUnit } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
 import { ApiError } from "@/lib/api";
@@ -87,6 +87,9 @@ export function openIssues(e: REx, mode: Mode, unit: WeightUnit = "kg"): { field
   if (e.w.trim() && parseWeightIn(e.w, unit) == null) out.push({ field: "weight", kind: "missing", text: "La carga va en números (por ejemplo 12,5)." });
   if (e.per?.some((r) => r.w.trim() && parseWeightIn(r.w, unit) == null)) out.push({ field: "weight", kind: "missing", text: "Revisá las cargas por serie: van en números." });
   for (const i of e.issues) if (i.kind === "unclear" && !e.filled.includes(i.field) && !out.some((o) => o.field === i.field)) out.push({ field: i.field, kind: "unclear", text: i.text });
+  // FSA1: un método escrito que no está claro («pirámide») espera la respuesta de la persona. Antes la fila figuraba «Listo»
+  // y plegada, y la pregunta quedaba escondida; ahora cuenta para revisar y la fila se abre (D184: lo ambiguo se pregunta).
+  if (e.method && e.mstate === "ask" && !e.custom && !out.some((o) => o.field === "method")) out.push({ field: "method", kind: "unclear", text: `Dice «${e.method.matched}»: confirmá si es ${e.method.label} o dejalo como nota.` });
   return out;
 }
 
@@ -115,12 +118,13 @@ const noteOf = (e: REx) => { const lost = fitToExercise(e).lost; return lost ? [
 
 /** Ejercicio revisado → series, repeticiones, carga y detalle (método, por serie, combinado) con las formas del constructor. */
 export function buildEx(e: REx, unit: WeightUnit, letter: string | null) {
-  const weightKg = e.w.trim() ? parseWeightIn(e.w, unit) : null;
+  // FSA1: un valor leído que no se tocó vuelve igual (en lb, 60 kg se ve 132,3 y volvería como 60,01 kg).
+  const weightKg = e.w.trim() ? parseWeightKeeping(e.w, unit, e.orig?.weightKg) : null;
   let detail: ExerciseDetail | null, sets: number;
   if (e.custom) { detail = e.custom.detail; sets = e.custom.sets; }
   else {
     sets = e.sets ?? 0;
-    const per = e.per && e.per.length === sets ? e.per.map((r) => ({ reps: r.reps.trim() || e.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null })) : null;
+    const per = e.per && e.per.length === sets ? e.per.map((r, i) => ({ reps: r.reps.trim() || e.reps.trim(), weightKg: r.w.trim() ? parseWeightKeeping(r.w, unit, e.orig?.perSet?.[i]?.weightKg) : null })) : null;
     // Ejercicios por tiempo: la actividad leída se guarda configurada (si lo revisado sigue siendo una duración o una distancia).
     detail = importedDetail({ sets, reps: e.reps.trim(), weightKg, perSet: per, rir: e.rir, rpe: e.rpe, tempo: e.tempo, activity: fitToExercise(e).activity });
     if (e.method && e.mstate === "applied") { const r = methodDetail(e.method, { sets, reps: e.reps.trim(), weightKg }, detail); detail = r.detail; sets = r.detail.setPlan?.length ?? sets; }
@@ -464,9 +468,18 @@ export function useReview(scope: string) {
     if (t.current) clearTimeout(t.current);
     t.current = setTimeout(() => { writeDraft(scope, state); pending.current = null; }, 400);
   }, [scope, state]);
-  useEffect(() => () => { if (t.current) clearTimeout(t.current); if (pending.current) writeDraft(scope, pending.current); }, [scope]);
+  const flush = () => { if (t.current) clearTimeout(t.current); if (pending.current) writeDraft(scope, pending.current); pending.current = null; };
+  useEffect(() => () => flush(), [scope]); // eslint-disable-line react-hooks/exhaustive-deps -- flush lee refs
+  // FSA1: recargar, cerrar la pestaña o pasar la app a segundo plano no ejecuta la limpieza de React: lo de los últimos 400 ms
+  // (por ejemplo «Completar con 3 × 10» justo antes de «Guardar») se perdía junto con el identificador del guardado.
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => { window.removeEventListener("pagehide", flush); document.removeEventListener("visibilitychange", onHide); };
+  }, [scope]); // eslint-disable-line react-hooks/exhaustive-deps -- flush lee refs
   const drop = () => { if (t.current) clearTimeout(t.current); pending.current = null; writeDraft(scope, null); };
-  return { state, setState, start: (s: ReviewState | null) => { setStateRaw(s); if (!s) drop(); }, clear: () => { drop(); setStateRaw(null); } };
+  return { state, setState, flush, start: (s: ReviewState | null) => { setStateRaw(s); if (!s) drop(); }, clear: () => { drop(); setStateRaw(null); } };
 }
 
 /** Error de guardado entendible: un corte de red se reintenta sin duplicar. */

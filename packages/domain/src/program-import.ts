@@ -46,6 +46,8 @@ export const IMPORT_LIMITS = { textChars: 400_000, days: 60, exercisesPerDay: 60
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const clip = (s: string | null | undefined, n: number) => (s ? s.replace(/\s+/g, " ").trim().slice(0, n) || null : null);
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Números escritos en un texto («4x10», «62,5 kg», «12/10/8»), con coma o punto decimal. */
+const numbersIn = (s: string) => [...s.matchAll(/\d+(?:[.,]\d+)?/g)].map((m) => Number(m[0].replace(",", ".")));
 export const lbToKg = (lb: number) => round2(lb / LB_PER_KG);
 
 // ── Números, cargas y repeticiones ──────────────────────────────────────────────────────────────────────────────────────
@@ -662,9 +664,17 @@ export function fromAiExercise(a: AiExercise): ImportExercise {
       if (e.activity && kg != null) e.note = clip([e.note, `${String(kg).replace(".", ",")} kg`].filter(Boolean).join(" · "), 120);
     }
   }
-  // Evidencia: si el renglón leído no tiene ningún número, las series y repeticiones no pueden venir de ahí.
-  if (e.source && !/\d/.test(e.source) && (e.sets != null || (e.reps && /\d/.test(e.reps)))) {
-    e.issues.push({ field: "sets", kind: "unclear", text: "No encontramos las series escritas en ese renglón: confirmalas." });
+  // Evidencia (FSA1): cada número que la IA da por leído tiene que figurar en el renglón que cita. Si no está (series,
+  // repeticiones o carga que no aparecen, o que lo contradicen), no se presenta como leído: queda para confirmar.
+  if (e.source) {
+    const nums = numbersIn(e.source);
+    const seen = (x: number) => nums.some((y) => Math.abs(y - x) < 0.001);
+    const doubt = (field: ImportField, text: string) => { if (!e.issues.some((i) => i.field === field && i.kind === "unclear")) e.issues.push({ field, kind: "unclear", text }); };
+    if (sets != null && !seen(sets) && sets !== setReps.length && sets !== setW.length) doubt("sets", "No encontramos esas series en el renglón leído: confirmalas.");
+    const repNums = [e.reps, ...(e.perSet ?? []).map((x) => x.reps)].flatMap((r) => numbersIn(r ?? ""));
+    if (repNums.some((x) => !seen(x))) doubt("reps", "No encontramos esas repeticiones en el renglón leído: confirmalas.");
+    const rawW = [a.weight, ...(a.set_weights ?? [])].filter((w): w is number => typeof w === "number" && Number.isFinite(w) && w > 0);
+    if ((e.weightKg != null || e.perSet?.some((x) => x.weightKg != null)) && rawW.some((w) => !seen(w))) doubt("weight", "No encontramos esa carga en el renglón leído: confirmala.");
   }
   return finishExercise({ ...e, section: clip(a.section, 40), groupKind: e.group ? "superset" : null, rounds: null });
 }

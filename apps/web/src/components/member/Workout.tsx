@@ -8,11 +8,12 @@ import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabel
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
 import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, fitTargetsToLoads, nearLoads, type RowTarget } from "@repi/domain";
 import { ACTIVITY_MAX_SEC, activityOf, activityValuesText, fmtSeconds, sameMetrics, type ActivityProfile, type SetMetrics } from "@repi/domain";
+import { MAX_REPS, MAX_TIMED_SEC, rowFlags, weightOk } from "@repi/domain";
 import { SetGuide } from "./SetGuide";
 import { syncInk, syncView } from "./SyncBadge";
 import { Hint } from "./Hint";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, rowResolved, setKey, activityDraft, type ExChange, type LocalEx, type LocalInterval, type LocalSession, type LocalSet } from "@/lib/offline/store";
+import { getLocal, putLocal, putServerCopy, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, rowResolved, setKey, activityDraft, type ExChange, type LocalEx, type LocalInterval, type LocalSession, type LocalSet } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { activityDoneTxt, activityLogTxt, activityProfileOf, activityTargetSec, kg, metaTxt, type Summary } from "./types";
 import { ActivityInputs } from "./ActivitySet";
@@ -114,7 +115,22 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const [restAlert, setRestAlert] = useState<RestAlertState>("unsupported");
   useEffect(() => { setRestAlert(restAlertState()); return cancelRestAlert; }, []);
 
-  const commit = useCallback(async (next: LocalSession) => { setS(next); await putLocal(next); }, []);
+  // FSA1 (MEMBER-02): si el teléfono no puede guardar (sin espacio, almacenamiento bloqueado), el cambio no queda en pantalla
+  // como hecho ni se encola: se vuelve a lo que había y se avisa. Antes la serie aparecía registrada y no estaba en ningún lado.
+  // `server`: la copia viene del servidor y la reemplaza (aplicar la rutina nueva).
+  const [storeErr, setStoreErr] = useState<string | null>(null);
+  const shown = useRef<LocalSession | null>(null);
+  const commit = useCallback(async (next: LocalSession, server = false) => {
+    const before = shown.current;
+    shown.current = next;
+    setS(next);
+    try { await (server ? putServerCopy : putLocal)(next); setStoreErr(null); return true; }
+    catch {
+      if (shown.current === next) { shown.current = before; setS(before); }
+      setStoreErr("No se pudo guardar en este teléfono (sin espacio o almacenamiento bloqueado): lo último que cargaste no quedó registrado. Liberá espacio o salí del modo privado y volvé a intentar.");
+      return false;
+    }
+  }, []);
 
   const showSummary = useCallback(async (local: LocalSession) => {
     // Con conexión y sin pendientes: resumen del servidor (incluye récords). Si no, el local.
@@ -136,7 +152,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         const known = new Set(srv.exercises.flatMap((e) => ((e as { skips?: { setIndex: number }[] }).skips ?? []).map((k) => setKey(e.id, k.setIndex))));
         const kept = keepLocalOnly(fromServer(srv, local?.rest), local, known);
         x = kept.session;
-        await putLocal(x);
+        await putServerCopy(x);
         for (const k of kept.upload) { const [peId, idx] = k.split(":"); await enqueue({ key: `skip:${x.id}:${k}`, kind: "skip", sid: x.id, peId, idx: Number(idx) }); }
         setOutdated(!!srv.outdated);
       } catch (e) {
@@ -263,6 +279,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const brain = useBrain();
   const sRef = useRef(s);
   sRef.current = s;
+  shown.current = s;
   const { registerWorkout } = brain;
   useEffect(() => {
     // Un ejercicio que el servidor reemplazó u omitió hoy: se adopta tal cual (sólo si en el teléfono no tiene series hechas).
@@ -330,23 +347,27 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     // Editar una serie ya hecha no toca el descanso; si no, un descanso viejo no queda tapando una etapa sin pausa (un drop).
     // El descanso recuerda qué serie lo abrió: el mensaje del servidor sobre otra serie no aparece en él.
     const next = { ...s, ...extra, sets, iv, ivAt: ivChange ? new Date().toISOString() : s.ivAt ?? null, rest: wasDone ? s.rest : (more || flow) && restS > 0 ? { end: Date.now() + restS * 1000, total: restS, left: restS, paused: false, of: { peId: ex.id, idx: i } } : null };
+    if (!(await commit(next))) return false;
+    // Los borradores (RIR, sensación, nota) se limpian sólo si quedó guardado: si no, siguen ahí para reintentar.
     setRir(null); setFeel(null); setSel(null); setNoteDraft(null);
     if (flow) { setExIdx(flow.idx); if (!flow.endOfRound) flash(`Seguí con ${labels[flow.idx] ?? ""} ${s.exercises[flow.idx].change?.substitute?.name ?? s.exercises[flow.idx].name}, sin descanso.`.replace("  ", " ")); else if (flow.rounds > 1) flash(`Vuelta ${flow.round + 1} de ${flow.rounds}.`); }
-    await commit(next);
-    if (enqueueSet) await enqueue({ key: `set:${s.id}:${setKey(ex.id, i)}`, kind: "set", sid: s.id, peId: ex.id, idx: i });
-    if (ivChange) await enqueue({ key: `interval:${s.id}`, kind: "interval", sid: s.id });
+    try {
+      if (enqueueSet) await enqueue({ key: `set:${s.id}:${setKey(ex.id, i)}`, kind: "set", sid: s.id, peId: ex.id, idx: i });
+      if (ivChange) await enqueue({ key: `interval:${s.id}`, kind: "interval", sid: s.id });
+    } catch { setStoreErr("La serie quedó en este teléfono, pero no se pudo dejar lista para sincronizar. Tocala y volvé a guardarla; si sigue el aviso, liberá espacio en el teléfono."); return false; }
+    return true;
   };
   /** D184: empezar el intervalo EMOM de la serie en curso (también para volver a empezarlo si venció o se interrumpió). */
   const startInterval = async () => {
     if (!s || !ex?.detail?.emomSec || cur < 0) return;
-    await commit({ ...s, iv: { peId: ex.id, block: blockOf(cur), start: Date.now(), emomSec: ex.detail.emomSec, status: "running" }, ivAt: new Date().toISOString() });
+    if (!(await commit({ ...s, iv: { peId: ex.id, block: blockOf(cur), start: Date.now(), emomSec: ex.detail.emomSec, status: "running" }, ivAt: new Date().toISOString() }))) return;
     await enqueue({ key: `interval:${s.id}`, kind: "interval", sid: s.id });
   };
   /** D184: una etapa omitida vuelve a quedar pendiente (corrección); en todos los dispositivos al sincronizar. */
   const unskip = async (i: number) => {
     if (!s || !ex) return;
     const k = setKey(ex.id, i);
-    await commit({ ...s, sets: { ...s.sets, [k]: { ...s.sets[k], skip: false, skipAt: new Date().toISOString() } } });
+    if (!(await commit({ ...s, sets: { ...s.sets, [k]: { ...s.sets[k], skip: false, skipAt: new Date().toISOString() } } }))) return;
     await enqueue({ key: `skip:${s.id}:${k}`, kind: "skip", sid: s.id, peId: ex.id, idx: i });
     flash(`${rowName(i)[0].toUpperCase()}${rowName(i).slice(1)} vuelve a estar pendiente.`);
   };
@@ -374,6 +395,12 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const f = wasDone ? curRow.feel ?? null : feel;
     const { skip: _sk, ...row } = curRow;
     const actVals = actP ? { r: actSec(curRow), m: actM(curRow), w: 0, rir: null } : null;
+    // FSA1 (MEMBER-05): los mismos topes que el servidor. Una serie que el servidor rechaza frenaba la sincronización de TODO el
+    // entrenamiento («No se pudo guardar en tu cuenta») hasta corregirla; ahora se avisa antes de registrarla.
+    const fl = rowFlags({ sets: ex.sets, reps: ex.reps, detail: ex.detail ?? null }, cur);
+    const maxR = actP && fl.timed ? ACTIVITY_MAX_SEC : fl.timed || fl.durationSec ? MAX_TIMED_SEC : MAX_REPS;
+    if ((actVals?.r ?? curRow.r) > maxR) { flash(maxR === MAX_REPS ? `Revisá las repeticiones: hasta ${MAX_REPS} por serie.` : `Revisá el tiempo: hasta ${Math.round(maxR / 3600)} h por serie.`); return; }
+    if (!actP && !weightOk(curRow.w)) { flash("Revisá el peso: hasta 1000 kg, con 2 decimales como máximo."); return; }
     const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, ...actVals, done: true, at: curRow.at ?? new Date().toISOString() } };
     // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i), labelAt(ex.detail, cur), labelAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
@@ -393,7 +420,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         if (a.event && key && !(s.intelSeen ?? []).includes(key)) { extra.intel = { key, text: a.event.text, restPlusSec: a.event.restPlusSec, at: new Date().toISOString() }; extra.intelSeen = [...(s.intelSeen ?? []), key]; }
       }
     }
-    await advance(sets, cur, wasDone, true, extra);
+    if (!(await advance(sets, cur, wasDone, true, extra))) return;
     if (!wasDone && gym && f && FEEL_ALERTS.includes(f as SetFeel) && !navigator.onLine) flash("Sin conexión: el aviso a sala sale al reconectar (si pasaron menos de 10 minutos).");
     if (wasDone) flash(`${rowName(cur)[0].toUpperCase()}${rowName(cur).slice(1)} actualizada.`);
   };
@@ -406,7 +433,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const sets = { ...s.sets };
     const at = new Date().toISOString();
     for (const k of left) sets[setKey(ex.id, k)] = { ...sets[setKey(ex.id, k)], skip: true, skipAt: at };
-    await advance(sets, left[left.length - 1], false, false);
+    if (!(await advance(sets, left[left.length - 1], false, false))) return;
     // D184: la omisión se guarda en el servidor (offline, por la cola): los otros dispositivos la ven y no es un resultado.
     for (const k of left) await enqueue({ key: `skip:${s.id}:${setKey(ex.id, k)}`, kind: "skip", sid: s.id, peId: ex.id, idx: k });
     flash(`Serie ${b.index + 1} terminada: ${left.length === 1 ? "1 etapa quedó sin hacer" : `${left.length} etapas quedaron sin hacer`}.`);
@@ -416,7 +443,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const n = localAction(s, action);
     if (!n) return;
     // D184: pausar interrumpe el intervalo EMOM en curso (lo mismo hace el servidor al recibir la pausa).
-    await commit(action === "pause" && n.iv?.status === "running" ? { ...n, iv: { ...n.iv, status: "interrupted" }, ivAt: new Date().toISOString() } : n);
+    if (!(await commit(action === "pause" && n.iv?.status === "running" ? { ...n, iv: { ...n.iv, status: "interrupted" }, ivAt: new Date().toISOString() } : n))) return;
     await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action, at: new Date().toISOString() });
     if (action === "pause") flash("Entrenamiento en pausa. El reloj se detuvo.");
   };
@@ -454,7 +481,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         return;
       }
       const done = { ...n, rest: null };
-      await commit(done);
+      if (!(await commit(done))) return;
       await enqueue({ key: `action:${s.id}:${Date.now()}`, kind: "action", sid: s.id, action: "finish", at: new Date().toISOString() });
       await flush();
       // Si otra pasada de la cola seguía en curso, esperar (hasta ~2 s) a que se vacíe: así el resumen sale del servidor
@@ -505,7 +532,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
       const fresh = fromServer(r.session, s.rest);
       const at = fresh.exercises.findIndex((e) => e.exerciseId === ex?.exerciseId);
       setExIdx(at >= 0 ? at : 0); setSel(null); setRir(null); setNoteDraft(null);
-      await commit(fresh);
+      await commit(fresh, true);
       onDismissChange?.(); setOutdated(false);
       flash(!r.changed ? "Ya tenías la rutina al día." : r.kept.length ? `Rutina nueva aplicada. Lo que hiciste de ${r.kept.join(", ")} quedó guardado.` : "Rutina nueva aplicada a este entrenamiento.");
     } catch (e) { flash((e as Error).message); } finally { setUpgrading(false); }
@@ -535,7 +562,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     }
     const exercises = s.exercises.map((e) => (e.id === ex.id ? nextEx : e));
     setSel(null); setRir(null); setFeel(null); setNoteDraft(null);
-    await commit({ ...s, exercises, sets });
+    if (!(await commit({ ...s, exercises, sets }))) return;
     await enqueue({ key: `exchange:${s.id}:${ex.id}`, kind: "exchange", sid: s.id, peId: ex.id });
     flash(!c ? `Volviste a ${ex.name}.` : c.kind === "skip" ? `Salteaste ${ex.name}.` : `Hacés ${c.substitute?.name} en lugar de ${ex.name}.`);
   };
@@ -612,6 +639,7 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             }}>Descartar de este teléfono</button></div>
           </div>
         ) : sync.kind === "error" && <p role="alert" className="mb-err">{sync.error}</p>}
+        {storeErr && <p role="alert" className="mb-err">{storeErr}</p>}
         {s.conflict?.kind === "open_session" && (
           <div className="conflict" role="alert">
             <strong>Hay otro entrenamiento abierto en otro dispositivo</strong>

@@ -1,6 +1,6 @@
 // Unidad de peso preferida (F-HX-23, D95). Todo se guarda en kg (con hasta 2 decimales); lb es sólo presentación y
 // entrada. Cambiar la preferencia no reescribe la historia: la misma serie se ve en la unidad elegida en cada momento.
-import { weightOk } from "./commercial";
+import { twoDecimals, weightOk } from "./commercial";
 
 export type WeightUnit = "kg" | "lb";
 export const WEIGHT_UNITS: readonly WeightUnit[] = ["kg", "lb"];
@@ -30,10 +30,17 @@ export const stepWeightIn = (kg: number, dir: 1 | -1, step: number, unit: Weight
 /** Texto escrito por la persona en su unidad → kg válidos, o null (hasta 2 decimales, entre 0 y 1000 kg). */
 export const parseWeightIn = (s: string, unit: WeightUnit): number | null => {
   const n = Number(s.trim().replace(",", "."));
-  if (s.trim() === "" || !Number.isFinite(n) || n < 0 || Math.round(n * 100) !== n * 100) return null;
+  if (s.trim() === "" || !Number.isFinite(n) || n < 0 || !twoDecimals(n)) return null;
   const kg = toKg(n, unit);
   return weightOk(kg) ? kg : null;
 };
+
+/**
+ * FSA1: el texto de un campo que se precargó con `originalKg`. Si la persona no lo cambió, vuelven los kg guardados: en lb,
+ * 60 kg se muestran «132,3» y, convertidos de vuelta, serían 60,01 kg (editar sólo el nombre cambiaba la carga).
+ */
+export const parseWeightKeeping = (s: string, unit: WeightUnit, originalKg: number | null | undefined): number | null =>
+  originalKg != null && s.trim() !== "" && Number(s.trim().replace(",", ".")) === kgTo(originalKg, unit) ? originalKg : parseWeightIn(s, unit);
 
 /**
  * D182: texto que se está escribiendo en un campo de peso. Deja dígitos y un solo separador decimal (coma o punto), hasta

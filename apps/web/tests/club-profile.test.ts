@@ -11,6 +11,9 @@ import * as tr from "@/server/training/services";
 import * as club from "@/server/community/club";
 import * as fu from "@/server/followup/services";
 import { resetRateLimits } from "@/server/access/util";
+import { jpegWithGps } from "../../../packages/domain/src/image-fixtures";
+import { hasImageMetadata, imageInfo } from "@repi/domain";
+import { readObject } from "@/server/storage";
 
 let n = 0;
 async function verified(name: string) {
@@ -20,7 +23,8 @@ async function verified(name: string) {
   await auth.api.verifyEmailOTP({ body: { email, otp: /(\d{6})/.exec(m.body)![1] } });
   return r.userId!;
 }
-const JPG = () => { const u = new Uint8Array(64); u.set([0xff, 0xd8, 0xff, 0xe0]); return u; };
+// FSA1: una foto real (con EXIF y GPS): el servidor la guarda sin metadatos; un encabezado suelto ya no alcanza.
+const JPG = () => jpegWithGps();
 const err = (p: Promise<unknown>) => p.then(() => null, (e) => e as { code?: string });
 beforeEach(() => resetRateLimits());
 
@@ -56,6 +60,13 @@ describe("perfil del Club", () => {
     for (const x of [ana, beto]) await club.joinClub(x.u, org.id, { showName: true, inRanking: false });
     expect((await err(club.uploadClubImage(ana.u, org.id, { mime: "image/jpeg", bytes: new Uint8Array(64) })))?.code).toBe("invalid_file");
     const av = await club.uploadClubImage(ana.u, org.id, { mime: "image/jpeg", bytes: JPG() });
+    // FSA1: lo que ven los demás socios se guarda sin EXIF ni GPS, aunque la foto llegue sin pasar por la app.
+    const [stored] = await db.select().from(schema.mediaObject).where(eq(schema.mediaObject.id, av.id));
+    const raw = new Uint8Array(await new Response((await readObject(stored.storageKey)).stream).arrayBuffer());
+    expect(hasImageMetadata(JPG())).toBe(true);
+    expect(hasImageMetadata(raw)).toBe(false);
+    expect(imageInfo(raw)).toEqual(imageInfo(JPG()));
+    expect(stored.sizeBytes).toBe(raw.byteLength);
 
     // Máximos: la serie más pesada (110 × 3), con 1RM estimado; se muestran sólo si la persona lo elige.
     const mine = await club.setClubProfile(ana.u, org.id, { bio: "Voy por los 120", avatarId: av.id, showMaxes: false });

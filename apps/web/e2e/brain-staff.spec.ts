@@ -24,7 +24,7 @@ function devDb() {
     url = env.DATABASE_URL;
   }
   const u = new URL(url);
-  if (!["localhost", "127.0.0.1"].includes(u.hostname) || u.pathname !== "/repi_dev") throw new Error("La siembra de E2E sólo corre contra repi_dev local.");
+  if (!["localhost", "127.0.0.1"].includes(u.hostname) || !/^\/repi_(dev|e2e_[a-z0-9_]+)$/.test(u.pathname)) throw new Error("La siembra de E2E sólo corre contra repi_dev o repi_e2e_* locales.");
   return postgres(url, { max: 1, onnotice: () => {} });
 }
 /** Un pedido del alumno desde REPI (propuesta abierta + acción propose_to_coach ejecutada), sólo en una organización demo. */

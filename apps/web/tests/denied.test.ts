@@ -19,4 +19,12 @@ describe("auditoría de accesos denegados", () => {
     expect(rows[0]).toMatchObject({ result: "denied", actorUserId: null, meta: { code: "forbidden", status: 403, method: "POST" } });
     expect(JSON.stringify(rows[0])).not.toMatch(/secreto|12345678/);
   });
+  it("FSA1: el token de una invitación de vendedor no queda en la auditoría", async () => {
+    const token = `tok-${Date.now()}-AbCdEfGhIjKlMnOpQrStUvWxYz012345`;
+    const deny = handle(async () => { throw new AccessError("forbidden", "Es para otra cuenta.", 403); });
+    await deny(new Request(`https://repi.test/api/ventas/activar/${token}`, { method: "POST" }), {});
+    const rows = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.action, "access.denied"), eq(schema.auditEvent.resourceId, "/api/ventas/activar/…")));
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(await db.select().from(schema.auditEvent).where(eq(schema.auditEvent.action, "access.denied")))).not.toContain(token);
+  });
 });

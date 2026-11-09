@@ -139,6 +139,32 @@ describe("SI2 · alumno: de la vista previa a «Mis rutinas»", () => {
     expect(await err(own.saveImportedRoutines(user, { opId: "x", source: "text", file: "text", routines: [{ name: "A", exercises: [ok], origin: [] }] }))).toMatchObject({ code: "invalid" });
   });
 
+  it("FSA1 · «Mis rutinas»: otra persona no lee, edita, duplica, borra ni empieza una rutina ajena; el tope resiste guardados simultáneos", async () => {
+    const { user } = await coachWithClient();
+    const other = (await coachWithClient()).user;
+    const ok = { exerciseId: SQUAT, sets: 3, reps: "10", weightKg: 60, restSec: null, note: null };
+    const { id } = await own.saveOwnRoutine(user, { name: "Mía", exercises: [ok] });
+    expect(await own.listOwnRoutines(other)).toEqual([]);
+    // Cada intento se crea recién al esperarlo: armar las cuatro promesas juntas dejaba rechazos sin manejar (vitest sale con 1).
+    for (const attempt of [() => own.saveOwnRoutine(other, { id, name: "Ajena", exercises: [ok] }), () => own.duplicateOwnRoutine(other, id), () => own.deleteOwnRoutine(other, id), () => own.startOwnRoutine(other, id, randomUUID())]) {
+      expect(await err(attempt())).toMatchObject({ code: "not_found", status: 404 });
+    }
+    expect((await routinesOf(user)).map((r) => [r.name, r.exercises[0].weightKg])).toEqual([["Mía", 60]]);
+    // Repetir: cada «Empezar» es una sesión nueva; el mismo id (reintento) no crea otra.
+    const s1 = randomUUID();
+    await own.startOwnRoutine(user, id, s1);
+    await own.startOwnRoutine(user, id, s1);
+    expect(await db.select().from(schema.workoutSession).where(eq(schema.workoutSession.userId, user))).toHaveLength(1);
+    // Tope: con 28 guardadas, cuatro «Guardar»/«Duplicar» y una importación a la vez dejan exactamente 30.
+    for (let i = 0; i < 27; i++) await own.saveOwnRoutine(user, { name: `R${i}`, exercises: [ok] });
+    const res = await Promise.allSettled([
+      ...[1, 2, 3].map((i) => own.saveOwnRoutine(user, { name: `X${i}`, exercises: [ok] })), own.duplicateOwnRoutine(user, id),
+      own.saveImportedRoutines(user, { opId: randomUUID(), source: "text", file: "text", routines: [{ name: "Imp", exercises: [{ ...ok, detail: null }], origin: [] }] }),
+    ]);
+    expect(res.filter((r) => r.status === "fulfilled")).toHaveLength(2);
+    expect(await routinesOf(user)).toHaveLength(30);
+  });
+
   it("caso 21 · un día con más ejercicios que el tope se parte en la vista previa, sin perder ninguno", async () => {
     const { user } = await coachWithClient();
     const text = `Día A\n${Array.from({ length: 15 }, (_, i) => `Sentadilla ${i + 1}x10`.replace(/ (\d+)x/, " 3x")).join("\n")}`;
@@ -250,6 +276,45 @@ describe("SI2 · lectura con IA (simulada): mismas reglas, sin seguir instruccio
     ], notes: [], unreadable: [] }));
     const p = await own.previewRoutineImport(user, { fileName: "programas.pdf", kind: "pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" });
     expect(p.variants.map((v) => [v.name, v.days.length])).toEqual([["Fuerza", 1], ["Hipertrofia", 2]]);
+  });
+
+  it("FSA1 · salida inválida, contradictoria o lenta: nunca un error sin control ni datos presentados como leídos", async () => {
+    const { user } = await coachWithClient();
+    process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || "test-key";
+    const jpeg = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD";
+    const rawAi = (content: string) => vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: "stop" }] }), { status: 200 }));
+    // Estructura distinta de la pedida: «ai_bad_output» (422), no un TypeError (500).
+    for (const content of [JSON.stringify({ programs: "abc" }), JSON.stringify(null), JSON.stringify({ programs: [{ name: "", days: [{ name: "", exercises: [5] }] }] })]) {
+      vi.stubGlobal("fetch", rawAi(content));
+      expect(await err(own.previewRoutineImport(user, { fileName: "f.jpg", kind: "image", dataUrl: jpeg }))).toMatchObject({ code: "ai_bad_output", status: 422 });
+    }
+    // Un campo con otro tipo queda vacío y marcado como faltante: nunca se convierte («4» texto no son 4 series).
+    vi.stubGlobal("fetch", rawAi(JSON.stringify({ programs: [{ name: "", days: [{ name: "Día 1", exercises: [ex({ name: "Sentadilla", sets: "4", reps: 10, weight: "80", source: "Sentadilla 4x10 80" })] }] }], notes: [], unreadable: [] })));
+    const typed = (await own.previewRoutineImport(user, { fileName: "f.jpg", kind: "image", dataUrl: jpeg })).variants[0].days[0].exercises[0];
+    expect([typed.exerciseId, typed.sets, typed.reps, typed.weightKg]).toEqual([SQUAT, null, null, null]);
+    expect(typed.issues.filter((i) => i.kind === "missing").map((i) => i.field).sort()).toEqual(["reps", "sets"]);
+    // Con texto legible, una salida inválida devuelve lo leído directo (marcado), como cuando la IA falla.
+    vi.stubGlobal("fetch", rawAi(JSON.stringify({ programs: "abc" })));
+    const fb = await own.previewRoutineImport(user, { fileName: "t", kind: "text", text: "Día A\nSentadilla 3x10\n%%%% ### ilegible ###\nPress banca 3x10" });
+    expect([fb.source, fb.variants[0].days[0].exercises.length]).toEqual(["text", 2]);
+    // Carga inventada y series contradictorias: el renglón citado no las dice, así que quedan para confirmar (no «listas»).
+    vi.stubGlobal("fetch", rawAi(JSON.stringify({ programs: [{ name: "", days: [{ name: "Día 1", exercises: [
+      ex({ name: "Sentadilla", sets: 4, reps: "8", weight: 100, unit: "kg", source: "Sentadilla 4x8" }),
+      ex({ name: "Press banca", sets: 5, reps: "12", source: "Press banca 3x10" }),
+    ] }] }], notes: [], unreadable: [] })));
+    const [sq, bp] = (await own.previewRoutineImport(user, { fileName: "f.jpg", kind: "image", dataUrl: jpeg })).variants[0].days[0].exercises;
+    expect(sq.issues.filter((i) => i.kind === "unclear").map((i) => i.field)).toEqual(["weight"]);
+    expect(bp.issues.filter((i) => i.kind === "unclear").map((i) => i.field).sort()).toEqual(["reps", "sets"]);
+    // Lenta: el pedido se corta por tiempo («ai_unavailable»); con texto legible se devuelve lo leído directo.
+    const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => realTimeout(30));
+    vi.stubGlobal("fetch", vi.fn((_u: string, init: { signal: AbortSignal }) => new Promise((_r, rej) => init.signal.addEventListener("abort", () => rej(Object.assign(new Error("timeout"), { name: "TimeoutError" }))))));
+    try {
+      expect(await err(own.previewRoutineImport(user, { fileName: "f.jpg", kind: "image", dataUrl: jpeg }))).toMatchObject({ code: "ai_unavailable", status: 503 });
+      const slow = await own.previewRoutineImport(user, { fileName: "t", kind: "text", text: "Día A\nSentadilla 3x10\n%%%% ### ilegible ###\nPress banca 3x10" });
+      expect([slow.source, slow.notes[0]]).toEqual(["text", expect.stringMatching(/falló/)]);
+    } finally { spy.mockRestore(); }
+    expect(await routinesOf(user)).toHaveLength(0); // leer nunca guarda
   });
 
   it("tipo de archivo comprobado por su contenido", () => {

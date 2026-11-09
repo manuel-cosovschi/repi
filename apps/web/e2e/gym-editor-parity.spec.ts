@@ -31,6 +31,8 @@ test("sala: subir ejercicio, indicación, quitar día y recuperar el borrador al
   await expect(tabs).toHaveCount(nDays);
 
   // Escape cierra sin perder nada: al reabrir se recupera el borrador, y se puede descartar.
+  // FSA1: aunque el foco haya quedado fuera del diálogo (el botón enfocado desapareció al quitar el día), Esc lo cierra.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("Escape");
   await expect(ed).toHaveCount(0);
   await expect(page.getByText(/Tus cambios quedaron en este navegador/).first()).toBeVisible();

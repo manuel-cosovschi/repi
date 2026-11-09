@@ -67,7 +67,13 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   useEffect(() => { firstLoad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { api<{ exercises: Lib[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
   useEffect(() => {
-    if (!pid) { setProg(null); setDoc(null); return; }
+    // FSA1: cambios del programa que se deja (dentro de la espera del autoguardado) se guardan ya, no al volver a abrirlo.
+    if (dirty.current && progRef.current && docRef.current && progRef.current.id !== pid) {
+      const snap = { d: docRef.current, p: progRef.current };
+      clearTimeout(timer.current);
+      void (inflight.current ?? Promise.resolve(true)).then(() => persist(snap)); // en orden, después de un guardado en curso
+    }
+    if (!pid) { dirty.current = false; setProg(null); setDoc(null); return; }
     dirty.current = false; setSave({ s: "idle" }); setAssign(false);
     // Mientras carga el elegido no queda a la vista el anterior: «Asignar» usaría el programa equivocado (F-05).
     if (prog?.id !== pid) { setProg(null); setDoc(null); }
@@ -93,24 +99,29 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const docRef = useRef(doc); docRef.current = doc;
   const progRef = useRef(prog); progRef.current = prog;
   const inflight = useRef<Promise<boolean> | null>(null);
-  const persist = (): Promise<boolean> => {
-    const d = docRef.current, p = progRef.current;
+  const persist = (snap?: { d: EditableDoc; p: ProgramFull }): Promise<boolean> => {
+    const d = snap?.d ?? docRef.current, p = snap?.p ?? progRef.current;
     if (!d || !p) return Promise.resolve(false);
+    // Sigue a la vista el programa que se guarda (al cambiar de programa se guarda el anterior sin tocar el estado del nuevo).
+    const shown = () => progRef.current?.id === p.id;
     const run = (async () => {
-      setSave({ s: "saving" });
+      if (shown()) setSave({ s: "saving" });
       try {
         const r = await api<{ version: number; created: boolean }>(`/api/coach/${orgId}/programs/${p.id}`, { method: "PUT", body: strip(d) });
-        setSave({ s: "saved", v: r.version });
-        if (r.created) {
+        if (shown()) setSave({ s: "saved", v: r.version });
+        else flash(`Cambios de «${d.name}» guardados${r.created ? ` como versión ${r.version}` : ""}.`);
+        if (r.created && shown()) {
           flash(`Versión ${r.version} guardada. Las sesiones ya registradas y otras asignaciones no cambian.`);
-          setProg((x) => x && { ...x, version: r.version, locked: false });
+          setProg((x) => x && x.id === p.id ? { ...x, version: r.version, locked: false } : x);
         }
         // Si hubo otro cambio mientras se guardaba, sigue pendiente (se guarda en la próxima vuelta).
         if (docRef.current === d) { dirty.current = false; clearDraft(p.id); }
         loadList();
         return true;
       } catch (e) {
-        setSave({ s: "error", m: `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.` });
+        const m = `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.`;
+        if (!shown()) { flash(`«${d.name}»: ${m.replace(" y se guardan solos cuando vuelva la conexión", "; se guardan al volver a abrirlo")}`); return false; }
+        setSave({ s: "error", m });
         timer.current = setTimeout(() => setRetry((n) => n + 1), 8000);
         return false;
       } finally { inflight.current = null; }

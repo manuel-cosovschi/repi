@@ -33,4 +33,17 @@ export const idbPut = (store: StoreName, value: unknown, key?: IDBValidKey) => t
 export const idbDel = (store: StoreName, key: IDBValidKey) => tx<undefined>(store, "readwrite", (s) => s.delete(key));
 export const idbAll = <T>(store: StoreName) => tx<T[]>(store, "readonly", (s) => s.getAll());
 export const idbClear = (store: StoreName) => tx<undefined>(store, "readwrite", (s) => s.clear());
+/**
+ * Leer y escribir un registro en UNA transacción: otra escritura (otra pestaña, la cola, la pantalla) no puede quedar en el
+ * medio y perderse. `merge` recibe lo guardado y devuelve lo que se escribe (`undefined` = no escribir nada).
+ */
+export const idbMerge = <T>(store: StoreName, key: IDBValidKey, merge: (cur: T | undefined) => T | undefined) => open().then((d) => new Promise<void>((res, rej) => {
+  const t = d.transaction(store, "readwrite");
+  const os = t.objectStore(store);
+  const g = os.get(key);
+  g.onsuccess = () => { const v = merge(g.result as T | undefined); if (v !== undefined) os.put(v); };
+  t.oncomplete = () => res();
+  t.onerror = () => rej(t.error);
+  t.onabort = () => rej(t.error);
+}));
 export const idbAvailable = () => typeof indexedDB !== "undefined";

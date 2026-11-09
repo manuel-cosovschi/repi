@@ -118,13 +118,28 @@ export async function myExerciseProgress(userId: string, exerciseId: string, ran
     ...[...byDay.entries()].map(([day, rows]) => ({ ...pointOf(rows), day, at: `${day}T15:00:00.000Z`, source: "import" as const, sessionId: null, dayName: null, record: false, first: false })),
   ].sort((a, b) => a.at.localeCompare(b.at));
   const metric = metricOf(all, ex.kind);
-  let best: number | null = null;
-  for (const p of all) {
-    const v = valueOf(p, metric);
-    if (v == null) continue;
-    if (best == null) p.first = true;
-    else if (v > best) p.record = true;
-    if (best == null || v > best) best = v;
+  if (metric === "load") {
+    // FSA1: 1RM estimado contra 1RM estimado y carga contra carga. Una sesión sólo con series de más de 12 repeticiones no
+    // tiene 1RM estimado: se compara su carga máxima con la mejor carga anterior (nunca una carga con un 1RM, que no son
+    // la misma escala: 80 × 8 no supera a 100 × 15, y 75 × 15 sí supera a 60 × 10).
+    let bestE: number | null = null, bestTop: number | null = null;
+    for (const p of all) {
+      if (p.e1rm == null && p.topKg == null) continue;
+      if (bestE == null && bestTop == null) p.first = true;
+      else if (p.e1rm != null && bestE != null) p.record = p.e1rm > bestE;
+      else p.record = p.topKg != null && bestTop != null && p.topKg > bestTop;
+      if (p.e1rm != null && (bestE == null || p.e1rm > bestE)) bestE = p.e1rm;
+      if (p.topKg != null && (bestTop == null || p.topKg > bestTop)) bestTop = p.topKg;
+    }
+  } else {
+    let best: number | null = null;
+    for (const p of all) {
+      const v = valueOf(p, metric);
+      if (v == null) continue;
+      if (best == null) p.first = true;
+      else if (v > best) p.record = true;
+      if (best == null || v > best) best = v;
+    }
   }
   const from = rangeStart(range, localDate(now));
   const points = from ? all.filter((p) => p.day >= from) : all;

@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { ArrowDown, ArrowUp, Play, Plus } from "@phosphor-icons/react";
 import {
   EXERCISE_GROUPS, METRICS_PROFILE_HINT, METRICS_PROFILE_LABEL, activityOf, guessExerciseGroup, guessExerciseKind, guessMetricsProfile, isActivityProfile, kindOfProfile, matchesExerciseQuery,
-  cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, prescriptionText, repsText, syncCircuit, circuitIssues, resizeBlocks,
+  cleanDecimalDraft, groupLabels, isStraightPlan, kgTo, mainSets, parseReps, parseWeightIn, parseWeightKeeping, prescriptionText, repsText, syncCircuit, circuitIssues, resizeBlocks,
   type ExerciseDetail, type MetricsProfile, type WeightUnit,
 } from "@repi/domain";
 import { ExerciseDetailEditor, detailSummary } from "@/components/coach/ExerciseDetailEditor";
@@ -61,6 +61,7 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
   const list = c.data ?? (c.err ? [] : null);
   const [edit, setEdit] = useState<Saved | "new" | null>(null);
   const [importing, setImporting] = useState(false);
+  const [dup, setDup] = useState<string | null>(null); // FSA1: un doble toque en «Duplicar» no crea dos copias
   const unit = useUnit();
   const load = c.reload;
   const open = (r: Saved | "new") => { if (offline) { flash("Necesitás conexión para armar o editar tus rutinas."); return; } setEdit(r); };
@@ -97,8 +98,10 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
             <button type="button" className="ghost sm" onClick={() => open(r)}>Editar</button>
             {/* D210: qué decía la rutina importada, qué faltaba, qué completaste y qué se sugirió (lo explica REPI con la procedencia). */}
             {r.imported && !offline && <RepiAsk section="routines" refs={{ routineId: r.id }} subject={r.name} label="Entender esta rutina" className="ghost sm rp-ask-btn" send="Explicame esta rutina" />}
-            <button type="button" className="ghost sm" disabled={offline} onClick={async () => {
-              try { await api(`/api/me/routines/${r.id}/duplicate`, { body: {} }); flash(`Duplicaste «${r.name}».`); void load(); } catch (e) { flash((e as Error).message); }
+            <button type="button" className="ghost sm" disabled={offline || dup != null} aria-busy={dup === r.id || undefined} onClick={async () => {
+              if (dup) return;
+              setDup(r.id);
+              try { await api(`/api/me/routines/${r.id}/duplicate`, { body: {} }); flash(`Duplicaste «${r.name}».`); void load(); } catch (e) { flash((e as Error).message); } finally { setDup(null); }
             }}>Duplicar</button>
           </div>
         </div>
@@ -162,7 +165,7 @@ function Editor({ initial, unit, flash, onClose, onSaved }: { initial: Saved | n
     setBusy(true); setWarn(null);
     try {
       await api("/api/me/routines", { body: { id: initial?.id ?? null, name: name.trim(), exercises: list.map((r) => ({
-        exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightIn(r.w, unit) : null, restSec: r.restSec, note: r.note?.trim() || null, detail: r.detail ?? null,
+        exerciseId: r.exerciseId, sets: r.sets, reps: r.reps.trim(), weightKg: r.w.trim() ? parseWeightKeeping(r.w, unit, r.weightKg) : null, restSec: r.restSec, note: r.note?.trim() || null, detail: r.detail ?? null,
       })) } });
       flash(initial ? "Rutina actualizada." : "Rutina guardada. Ya la podés empezar.");
       onSaved();

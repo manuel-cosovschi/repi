@@ -33,7 +33,7 @@ type Detail = {
   weeks: { label: string; n: number }[];
   program: { programId: string; startsOn: string; revision: number; doc: ProgramDoc & { days: (ProgramDoc["days"][number] & { id?: string })[] }; revisions: { number: number; author: string; reason: string | null; at: string }[] } | null;
   tasks: Task[]; programTaskId: string | null; notes: { id: string; kind: "institutional" | "personal"; text: string; author: string; mine: boolean; at: string }[];
-  canEdit: boolean; canWriteNotes: boolean; restricted: string[]; wishes?: SharedWishesView | null; programBrief?: BriefPrefill | null; log: LoggedSession[];
+  canEdit: boolean; canWriteNotes: boolean; seesTraining: boolean; restricted: string[]; wishes?: SharedWishesView | null; programBrief?: BriefPrefill | null; log: LoggedSession[];
   community: { attempts: { challenge: string; value: string; status: string; newRecord: boolean; at: string }[]; achievements: number; level: number; visits30: number } | null;
 };
 
@@ -42,8 +42,9 @@ export function MembersScreen({ shell }: { shell: Shell }) {
   const [q, setQ] = useState("");
   const [qq, setQq] = useState("");
   useEffect(() => { const t = setTimeout(() => setQq(q), 250); return () => clearTimeout(t); }, [q]);
-  const list = useLoad<{ location: { name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`, { keep: true });
-  const current = shell.sel ?? list.data?.members[0]?.id ?? null;
+  const list = useLoad<{ location: { id: string; name: string }; awaiting: string[]; members: Row[] }>(`/api/gym/${shell.orgId}/members?loc=${loc}&q=${encodeURIComponent(qq)}`, { keep: true });
+  // FSA1: al cambiar de sede, mientras llega la lista nueva no se abre sola la ficha de un socio de la sede anterior.
+  const current = shell.sel ?? (list.data?.location.id === loc ? list.data.members[0]?.id : null) ?? null;
   return (
     <>
       <Head kicker={`${shell.ctx.org.name}${list.data ? ` · ${list.data.location.name}` : ""}`} title="Socios" />
@@ -153,6 +154,7 @@ function MemberDetail({ shell, id, loc, onChanged, page = false, name }: { shell
       <section className="card">
         <h2>Entrenamientos registrados</h2>
         {!m.trainingShared ? <span className="muted" style={{ fontSize: 14 }}>El socio no comparte sus entrenamientos con el gym: no se ven sus series.</span>
+          : !m.seesTraining ? <span className="muted" style={{ fontSize: 14 }}>Las series y sus notas las ve el equipo de entrenamiento de la sede. La gestión ve la asistencia.</span>
           : !m.log.length ? <span className="muted" style={{ fontSize: 14 }}>Todavía no registró entrenamientos.</span>
           : <SessionLog sessions={m.log} />}
       </section>
@@ -194,7 +196,7 @@ function MemberDetail({ shell, id, loc, onChanged, page = false, name }: { shell
           </div>
         )}
         {notes.map((n) => <div key={n.id} className="trow" style={{ alignItems: "flex-start" }}><span className="muted" style={{ flex: "0 0 120px" }}>{n.author} · {fmt(n.at)}</span><span style={{ flex: 1, lineHeight: 1.45 }}>{n.text}</span></div>)}
-        {!notes.length && <span className="muted" style={{ fontSize: 14 }}>Sin notas.</span>}
+        {!notes.length && <span className="muted" style={{ fontSize: 14 }}>{m.seesTraining ? "Sin notas." : "Las notas del equipo de entrenamiento no se muestran a la gestión."}</span>}
       </section>
       <section className="card lock" style={{ flexDirection: "row" }}>
         <Ic i={Lock} size={22} color="var(--ui-muted)" />

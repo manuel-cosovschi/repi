@@ -53,7 +53,7 @@ html:has(.co), body:has(.co) { background: var(--ui-sidebar-bg); }
 /* Fundido entre secciones de escritorio (G · Atlética): 160 ms sólo en el contenido; la navegación lateral no se anima. */
 .co-content[data-section] { animation: co-section-in var(--dur-section-fade) var(--ease-std); }
 @keyframes co-section-in { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 767px) { .co-content { padding: 18px max(16px, env(safe-area-inset-right)) max(40px, calc(env(safe-area-inset-bottom) + 24px)) max(16px, env(safe-area-inset-left)); } }
+@media (max-width: 767px) { .co-content { padding: 18px max(16px, env(safe-area-inset-right)) calc(max(40px, calc(env(safe-area-inset-bottom) + 24px)) + var(--demo-lane, 0px)) max(16px, env(safe-area-inset-left)); } }
 
 .co-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
 .co-head > div:first-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -101,7 +101,7 @@ html:has(.co), body:has(.co) { background: var(--ui-sidebar-bg); }
 .pill { height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid var(--ui-border-strong); background: var(--ui-surface); color: var(--ui-text-2); font: 600 12px var(--font-ui); cursor: pointer; }
 .pill[aria-pressed="true"] { background: var(--ui-inverse-bg); border-color: var(--ui-inverse-bg); color: var(--ui-inverse-text); }
 .sorts { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ui-muted); padding: 0 4px; }
-.sorts button { border: 0; background: none; padding: 4px 2px; font: 600 12px var(--font-ui); color: var(--ui-muted); cursor: pointer; }
+.sorts button { border: 0; background: none; padding: 4px 2px; min-height: 24px; font: 600 12px var(--font-ui); color: var(--ui-muted); cursor: pointer; } /* FSA1: área táctil ≥ 24 px (WCAG 2.5.8) */
 .sorts button[aria-pressed="true"] { color: var(--ui-text); text-decoration: underline; }
 .crow { display: flex; gap: 10px; align-items: center; text-align: left; padding: 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--ui-text); width: 100%; font: inherit; }
 .crow:hover { background: var(--ui-selection-bg); }

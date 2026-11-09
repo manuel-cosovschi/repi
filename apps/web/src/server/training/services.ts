@@ -246,7 +246,11 @@ export async function writeProgramDoc(tx: Tx, p: { actorId: string; orgId: strin
   // D183: lo guardado se normaliza igual que lo nuevo (identidad y bloques de planes anteriores): sin cambios reales, sin versión nueva.
   const before = validateProgramDoc(plain(cur.doc));
   if (sameDoc(before.ok ? before.doc : plain(cur.doc), doc)) return { version: cur.version.number, created: false };
-  if (cur.version.locked) {
+  // FSA1: la marca «congelada» se vuelve a leer con la fila bloqueada. Si el alumno empezó a entrenar esta versión mientras se
+  // guardaba (startSession la congela en otra transacción), acá se espera a que termine y se crea una versión nueva: nunca se
+  // reescribe en el lugar una versión con un entrenamiento abierto.
+  const [lk] = await tx.select({ locked: programVersion.locked }).from(programVersion).where(eq(programVersion.id, cur.version.id)).for("update");
+  if (cur.version.locked || lk?.locked) {
     const nv = await newVersion(tx, p.programId, cur.version.number + 1, doc, p.actorId);
     await audit(tx, { actorUserId: p.actorId, orgId: p.orgId, action: "program.versioned", resourceType: "program", resourceId: p.programId, meta: { version: nv.number } });
     return { version: nv.number, created: true };
@@ -353,7 +357,8 @@ export async function coachOverview(actorId: string, orgId: string, now = new Da
   });
   const [pendingInv] = await db.select({ n: sql<number>`count(*)::int` }).from(invitation)
     .where(and(eq(invitation.orgId, orgId), eq(invitation.status, "pending"), gte(invitation.expiresAt, now)));
-  const withProg = clients.filter((c) => c.adherence != null);
+  // FSA1: un alumno pausado no tiene programa a la vista; su 0 % no baja la adherencia media de los activos.
+  const withProg = clients.filter((c) => c.status === "active" && c.adherence != null);
   return {
     org: { id: org.id, name: org.name, specialty: org.specialty, modality: org.modality, status: org.status, trialEndsAt: org.trialEndsAt },
     clients,
@@ -1058,7 +1063,23 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
   if (at === "invalid") throw BAD_TIME();
   const res = await db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true);
-    if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
+    if (s.status === "abandoned") {
+      // FSA1 (MEMBER-04): el cierre automático (D160: 6 h sin actividad o fin del horario del gym) descarta un entrenamiento que el
+      // servidor ve sin series, pero el teléfono pudo estar registrándolas sin conexión. Antes esas series se rechazaban para
+      // siempre (sólo quedaba descartarlas). Ahora la primera que llega lo reabre: sigue en curso (el teléfono manda su «Finalizar»)
+      // o, si ya hay otro abierto, queda completado. Un descarte hecho por la persona sigue rechazando series.
+      const [auto] = await tx.select({ id: schema.auditEvent.id }).from(schema.auditEvent)
+        .where(and(eq(schema.auditEvent.action, "workout.auto_closed"), eq(schema.auditEvent.resourceType, "workout_session"), eq(schema.auditEvent.resourceId, s.id))).limit(1);
+      if (!auto || at.getTime() < s.startedAt.getTime()) throw new AccessError("closed", "Esta sesión fue descartada.", 409);
+      const [other] = await tx.select({ id: workoutSession.id }).from(workoutSession)
+        .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"]), ne(workoutSession.id, s.id))).limit(1);
+      const revived = other
+        ? { status: "completed" as const, endedAt: at, lastResumedAt: null }
+        : { status: "in_progress" as const, endedAt: null, lastResumedAt: at };
+      await tx.update(workoutSession).set({ ...revived, revision: s.revision + 1, updatedAt: now }).where(eq(workoutSession.id, s.id));
+      await audit(tx, { actorUserId: userId, action: "workout.revived_by_late_set", resourceType: "workout_session", resourceId: s.id, meta: { status: revived.status } });
+      Object.assign(s, revived, { revision: s.revision + 1 });
+    }
     // D195: una sesión anulada no recibe cambios (un teléfono atrasado no la revive); se restaura desde el historial.
     if (s.status === "voided") throw new AccessError("voided", "Anulaste este entrenamiento. Restauralo desde tu historial para cambiarlo.", 409);
     await assertRelationActive(tx, s);
