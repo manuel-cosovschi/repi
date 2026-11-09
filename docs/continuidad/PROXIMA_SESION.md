@@ -88,7 +88,11 @@ Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte 
   - Las migraciones alojadas entran con `set role`, así que no heredan estos valores, y fijan su propio `lock_timeout`.
   - Rigen para las conexiones nuevas; el pool las renueva a los 300 s como máximo.
   - Revertir: los tres `alter role repi_app reset …` del script.
-  - Estado: PENDIENTE_APLICACION
+  - **APLICADO Y VERIFICADO el 09/11 (02:59 UTC)**, tras el respaldo verde `backup-20261109-025758-42553560073`:
+    - `pg_db_role_setting` lista los tres valores.
+    - El cron (cada corrida es una sesión nueva de `repi_app`) siguió en 200.
+    - Vercel sin errores de ejecución desde las 02:45.
+    - Supavisor conservaba una conexión de servidor de las 02:15: toma los valores cuando la recicla.
 - **Publicado 08/11:** merge `47fac4f`, sin migraciones. En producción: `/api/version` = `47fac4f44cc3`; `/api/admin/summary` sin sesión → 401; el cron por minuto siguió en 200 (`net._http_response`); Vercel sin errores de ejecución en los 30 min siguientes. Los tiempos del rol `repi_app` se aplicaron el 09/11 (ver arriba).
 - **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
 
