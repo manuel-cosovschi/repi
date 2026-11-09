@@ -19,6 +19,21 @@ Sin voz ni locución: se entienden sin sonido. Música de Kevin MacLeod (CC BY 4
 | `f-altas` | 0:24 | Un QR por sede; el socio pide acceso y el equipo confirma; «Identidad no es pertenencia» |
 | `f-sala` | 0:24 | El socio pide ayuda desde su serie, el equipo responde; «una señal para acercarse, no un diagnóstico» |
 
+### Modos de REPI (D213, rama `claude/repi-control-films`)
+
+Mismo kit y mismas reglas. Archivos en `apps/web/public/conoce/videos/` (con `-vertical` 1080×1920 para teléfonos) y pista de
+descripciones `.descripcion.vtt`. **Falta sumarlos a `VIDEOS` en `apps/web/src/content/conoce.ts`** (lo hace quien mantiene ese
+archivo; las entradas propuestas están en el informe de la rama).
+
+| Id | Duración | Qué cuenta |
+| --- | --- | --- |
+| `modo-completo` (+ `-vertical`) | 0:56 | El coach diseña «Hipertrofia · 3 días» y lo asigna; el socio recibe Torso A, registra la serie (descanso 2:00), REPI recomienda 53 kg × 8 y ajusta a 50 kg × 8–10 con la razón; progreso por ejercicio; el coach ve «+2,5 kg» contra la vez anterior; el gimnasio en Seguimiento de sala; «REPI Completo · Entrenamiento inteligente» |
+| `modo-control` (+ `-vertical`) | 1:00 | Rutinas en papel difíciles de consultar → el profesor de sala crea el programa de Martina (revisión 1) → el socio llega → pantalla de rutinas compartida (`/rutinas`, real) con código y PIN en puntos → «Fuerza base · 3 días» de Ana, versión 2 → «Terminar» deja la pantalla libre → QR opcional (no es el de ingreso) → revisión 2 con autor y motivo; «REPI Control · Tu equipo planifica. Tus socios consultan.» |
+
+Capturas reales para `/conoce` (`apps/web/public/conoce/shots/`): `control-bienvenida.webp` (bienvenida sin la lista de personas
+de la demo), `control-identificar.webp` (PIN con tres puntos), `control-rutina.webp` (programa de Ana) y `control-equipo.webp`
+(ficha del socio en la app del gimnasio: revisión 2 y su historial). Se rehacen con `design/films/kit/tools/shots-control.mjs`.
+
 **Regenerarlos:** `design/films/SPEC.md` (sección Producción). Si cambia la interfaz grabada, regrabar con
 `design/films/kit/tools/rec-raw.mjs` (demo local con datos ficticios) y volver a correr `render-all.sh` con `FORCE=1`.
 

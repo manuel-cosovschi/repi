@@ -38,7 +38,7 @@ ZONES = [("recepcion", -14.5, 8.5, 8, 6), ("racks", -2, -2.5, 12, 9), ("maquinas
 GEAR = [(-6, -5, 2.2, 1.4), (-2, -5, 2.2, 1.4), (2, -5, 2.2, 1.4), (-6, 0, 2.2, 1.4), (-2, 0, 2.2, 1.4), (2, 0, 2.2, 1.4), (7, -7, 2.4, 1.6), (11, -7, 2.4, 1.6), (15, -7, 2.4, 1.6), (7, -3, 2.4, 1.6), (11, -3, 2.4, 1.6), (15, -3, 2.4, 1.6), (7, 1, 2.4, 1.6), (11, 1, 2.4, 1.6),
         (-5, 8.5, 1.2, 2.4), (-2.5, 8.5, 1.2, 2.4), (0, 8.5, 1.2, 2.4), (2.5, 8.5, 1.2, 2.4), (5, 8.5, 1.2, 2.4), (-14.5, 9.5, 4.5, 1), (-14.5, -5.5, 3, 1.2), (14, 8.5, 3.2, 1.4)]
 M = 44  # px por metro (en vertical, la sala llena el alto: más cerca)
-KIND, HINTS = {}, []  # tipo de cada escena y momentos con «pop» (para el sonido automático)
+KIND, HINTS, KEYS = {}, [], []  # tipo de cada escena, momentos con «pop» y teclas tocadas (para el sonido automático)
 
 def canvas(w, h):
     global W, H, M
@@ -126,9 +126,14 @@ FRAGS_SALA = [("paper", 130, 90, -5, "<small>Rutina</small>Sentadilla 4×8<br>Pr
          ("", 760, 60, -3, "<small>Progreso</small>— sin datos —")]
 FRAG_C = (200, 85)  # centro aproximado de cada tarjeta, para los trazos
 
-def s_scatter(sid, dur, t1, t2, connect_at, frags_def=None):
-    """Fragmentos sueltos sobre la sala; después, trazos que los conectan con el punto cian."""
+def s_scatter(sid, dur, t1, t2, connect_at, frags_def=None, calls=5.0, appear=1.05, waves=3):
+    """Fragmentos sueltos sobre la sala; después, trazos que los conectan con el punto cian.
+    `calls`: cuándo empieza cada fragmento a «llamar»; `appear`: separación entre fragmentos que aparecen. En vertical, las
+    posiciones (pensadas para 1920×1080) se reparten en dos columnas arriba y abajo del título."""
     FRAGS = frags_def or FRAGS_SALA
+    if H > W:
+        pos = [(60, 170), (560, 360), (580, 1400), (70, 1600), (300, 640)]
+        FRAGS = [(k, pos[i][0], pos[i][1], r, t) for i, (k, x, y, r, t) in enumerate(FRAGS)]
     KIND[sid] = ("scatter", dur - 1.5)
     css = FRAG_CSS + f"""#{sid}-dot {{ position: absolute; left: {W/2-22}px; top: {H/2-22}px; width: 44px; height: 44px; border-radius: 50%; background: {C['cyan']}; }}
 #{sid}-lines {{ position: absolute; inset: 0; }}
@@ -150,18 +155,18 @@ def s_scatter(sid, dur, t1, t2, connect_at, frags_def=None):
 <h2 id="{sid}-t1" class="h {sid}-tt clip" data-start="0" data-duration="{connect_at + 0.4}">{words(t1)}</h2>
 <h2 id="{sid}-t2" class="h {sid}-tt clip" data-start="{connect_at}" data-duration="{dur - connect_at}">{words(t2)}</h2>"""
     pk = []
-    for w in range(3):
+    for w in range(waves):
         for i, (k, x, y, r, txt) in enumerate(FRAGS):
             pk.append(f'<div id="{sid}-k{w}{i}" class="{sid}-pk" style="left:{x + FRAG_C[0]}px;top:{y + FRAG_C[1]}px"></div>')
     body = body.replace(f'<div id="{sid}-dot"', "".join(pk) + f'\n<div id="{sid}-dot"')
     js = [f'tl.fromTo("#{sid}-floor", {{ scale: 1 }}, {{ scale: 1.06, duration: {dur}, ease: "none" }}, 0);']
     # Antes de conectarse, cada fragmento «llama» y nadie responde.
     for i in range(len(FRAGS)):
-        at = 5.0 + i * 0.68
+        at = calls + i * 0.68
         js.append(f'tl.to("#{sid}-f{i}", {{ y: -14, duration: 0.16, ease: "power2.out" }}, {at:.2f});')
         js.append(f'tl.to("#{sid}-f{i}", {{ y: 0, duration: 0.4, ease: "back.out(2.4)" }}, {at + 0.16:.2f});')
     # Ya conectados, los datos viajan por los trazos al punto, en tres oleadas.
-    for w in range(3):
+    for w in range(waves):
         at = connect_at + 0.9 + w * 1.1
         for i, (k, x, y, r, txt) in enumerate(FRAGS):
             js.append(f'tl.fromTo("#{sid}-k{w}{i}", {{ x: 0, y: 0, opacity: 0 }}, {{ x: {W/2 - x - FRAG_C[0]}, y: {H/2 - y - FRAG_C[1]}, opacity: 1, duration: 0.7, ease: "power2.in" }}, {at + i * 0.05:.2f});')
@@ -169,7 +174,7 @@ def s_scatter(sid, dur, t1, t2, connect_at, frags_def=None):
         js.append(f'tl.to("#{sid}-dot", {{ scale: 1.35, duration: 0.12, ease: "power2.out" }}, {at + 0.72:.2f});')
         js.append(f'tl.to("#{sid}-dot", {{ scale: 1, duration: 0.35, ease: "back.out(1.6)" }}, {at + 0.84:.2f});')
     for i in range(len(FRAGS)):
-        js.append(f'tl.fromTo("#{sid}-f{i}", {{ opacity: 0, scale: 0.6 }}, {{ opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }}, {0.3 + i * 1.05:.2f});')
+        js.append(f'tl.fromTo("#{sid}-f{i}", {{ opacity: 0, scale: 0.6 }}, {{ opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }}, {0.3 + i * appear:.2f});')
         js.append(f'tl.to("#{sid}-l{i}", {{ strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }}, {connect_at + 0.15 + i * 0.12:.2f});')
     js.append(f'tl.fromTo("#{sid}-t1 .w", {{ opacity: 0, filter: "blur(6px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.07 }}, 0.6);')
     js.append(f'tl.to("#{sid}-t1 .w", {{ opacity: 0, filter: "blur(8px)", duration: 0.18, stagger: 0.03 }}, {connect_at - 0.2});')
@@ -217,7 +222,7 @@ PHONE_CSS = f""".phone {{ position: absolute; width: 470px; height: 1017px; bord
 .panel b.t {{ color: {C['teal']}; }}
 .panel p {{ margin: 14px 0 0; font: 600 28px/1.3 "Barlow"; color: {C['muted']}; max-width: 560px; }}"""
 
-def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=None):
+def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=False):
     """La app real: grabación (o captura) en el teléfono, con título al costado y paneles con los valores reales
     de la acción a tamaño grande. `clips`: [(archivo, media_start, inicio, duración)] cortados dentro del teléfono."""
     KIND[sid] = "device"
@@ -236,7 +241,7 @@ def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=Non
     for p in panels: HINTS.append((sid, p["at"]))
     # Un único video por escena, precortado con ffmpeg (build → precut): con varios <video> o clips que arrancan a mitad
     # de escena, el render deja el teléfono en blanco unos cuadros. El póster (primer cuadro) queda debajo.
-    PRECUTS.append((sid, clips, dur))
+    PRECUTS.append((sid, clips, dur, (780, 1688)))
     vids = [f'<img src="assets/media/cut-{sid}.jpg" alt="">',
             f'<video id="{sid}-v" class="clip" src="assets/media/cut-{sid}.mp4" muted playsinline data-start="0" data-duration="{dur}" data-track-index="2"></video>']
     if still: vids = [f'<img src="assets/media/{still}" alt="">']
@@ -256,7 +261,100 @@ def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=Non
     for j, p in enumerate(panels):
         js.append(f'tl.fromTo("#{sid}-p{j}", {{ opacity: 0, x: {"-80" if side == "left" or vertical else "80"}, scale: 0.9 }}, {{ opacity: 1, x: 0, scale: 1, duration: 0.55, ease: "expo.out" }}, {p["at"]});')
         if p.get("out"): js.append(f'tl.to("#{sid}-p{j}", {{ opacity: 0, filter: "blur(8px)", duration: 0.2 }}, {p["out"]});')
-    js.append(f'tl.to("#{sid}-ph, #{sid}-t, #{sid}-sub", {{ x: {-W if side == "left" or vertical else W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
+    out = "".join(f", #{sid}-p{j}" for j in range(len(panels))) if exit_panels else ""  # con exit_panels, los paneles salen con el teléfono
+    js.append(f'tl.to("#{sid}-ph, #{sid}-t, #{sid}-sub{out}", {{ x: {-W if side == "left" or vertical else W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
+    return scene(sid, dur, css, body, "\n".join(js))
+
+TABLET_CSS = f""".tablet {{ position: absolute; padding: 16px; border-radius: 36px; background: #05080C; border: 2px solid {C['steel']}; box-shadow: 0 30px 60px -10px rgba(0,0,0,.55); }}
+.tablet .scr {{ position: relative; width: 100%; height: 100%; border-radius: 20px; overflow: hidden; background: #0A0F1A; }}
+.tablet .zoom {{ position: absolute; inset: 0; }}
+.tablet video, .tablet img {{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }}"""
+
+def s_tablet(sid, dur, clips, title, sub=None, panels=(), focus=None, keys=(), still=None):
+    """La pantalla de rutinas real (tablet apaisada, 1280×800 grabada a 2×) con el título arriba y los paneles al costado.
+    `focus`: acercamiento de cámara dentro de la pantalla, dict(x=%, y=%, s=escala, at=s, d=duración[, out=s]).
+    `keys`: momentos (s) en que se toca una tecla del teclado en pantalla (sonido de tecla)."""
+    KIND[sid] = "tablet"
+    vertical = H > W
+    if vertical:
+        tw, tl_, tt = 1000, 40, 700
+        css_t = f"""#{sid}-t {{ position: absolute; left: 70px; top: 170px; width: {W-140}px; }}
+#{sid}-sub {{ position: absolute; left: 70px; top: {1400 if panels else 560}px; width: {W-140}px; }}"""
+        panels = [dict(p, x=70, y=1390) for p in panels]
+    else:
+        tw, tl_, tt = 1120, 110, 290
+        css_t = f"""#{sid}-t {{ position: absolute; left: 110px; top: 76px; width: 1700px; font-size: 104px; }}
+#{sid}-sub {{ position: absolute; left: 1290px; top: {720 if panels else 360}px; width: 530px; }}"""
+        panels = [dict(p, x=1290, y=360) for p in panels]
+    th = (tw - 36) * 800 / 1280 + 36
+    css = TABLET_CSS + PHONE_CSS + css_t + f"""
+#{sid}-tab {{ left: {tl_}px; top: {tt}px; width: {tw}px; height: {th:.0f}px; }}
+.{sid}-pn {{ max-width: {W - 140 if vertical else 600}px; }}"""
+    for p in panels: HINTS.append((sid, p["at"]))
+    for k in keys: KEYS.append((sid, k))
+    PRECUTS.append((sid, clips, dur, (1920, 1200)))
+    vids = [f'<img src="assets/media/cut-{sid}.jpg" alt="">',
+            f'<video id="{sid}-v" class="clip" src="assets/media/cut-{sid}.mp4" muted playsinline data-start="0" data-duration="{dur}" data-track-index="2"></video>']
+    if still: vids = [f'<img src="assets/media/{still}" alt="">']
+    pnl = []
+    for j, p in enumerate(panels):
+        pnl.append(f'<div id="{sid}-p{j}" class="panel {sid}-pn" style="left:{p["x"]}px;top:{p["y"]}px"><small>{p["k"]}</small><b class="{p.get("cls", "")}">{p["v"]}</b>{f"<p>{p["why"]}</p>" if p.get("why") else ""}</div>')
+    body = f"""{floor_svg(sid, draw=False)}
+<div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,15,20,.92) 0%, rgba(11,15,20,.7) 45%, rgba(11,15,20,.5) 100%)"></div>
+<div id="{sid}-tab" class="tablet"><div class="scr"><div id="{sid}-zoom" class="zoom" data-layout-allow-overflow>{"".join(vids)}</div></div></div>
+<h2 id="{sid}-t" class="h clip" data-start="0" data-duration="{dur}">{words(title)}</h2>
+{f'<p id="{sid}-sub" class="s clip" data-start="0" data-duration="{dur}">{sub}</p>' if sub else ""}
+{"".join(pnl)}"""
+    js = [f'tl.fromTo("#{sid}-tab", {{ y: 160, filter: "blur(14px)" }}, {{ y: 0, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }}, 0);',
+          f'tl.fromTo("#{sid}-t .w", {{ opacity: 0, filter: "blur(6px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.08 }}, 0.2);']
+    if sub: js.append(f'tl.fromTo("#{sid}-sub", {{ opacity: 0, filter: "blur(8px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.2 }}, 0.9);')
+    if focus:
+        js.append(f'tl.set("#{sid}-zoom", {{ transformOrigin: "{focus["x"]}% {focus["y"]}%" }}, 0);')
+        js.append(f'tl.fromTo("#{sid}-zoom", {{ scale: 1 }}, {{ scale: {focus["s"]}, duration: {focus.get("d", 0.9)}, ease: "power2.inOut" }}, {focus["at"]});')
+        if focus.get("out"): js.append(f'tl.to("#{sid}-zoom", {{ scale: 1, duration: 0.7, ease: "power2.inOut" }}, {focus["out"]});')
+    for j, p in enumerate(panels):
+        js.append(f'tl.fromTo("#{sid}-p{j}", {{ opacity: 0, x: {-80 if vertical else 80}, scale: 0.9 }}, {{ opacity: 1, x: 0, scale: 1, duration: 0.55, ease: "expo.out" }}, {p["at"]});')
+        if p.get("out"): js.append(f'tl.to("#{sid}-p{j}", {{ opacity: 0, filter: "blur(8px)", duration: 0.2 }}, {p["out"]});')
+    js.append(f'tl.to("#{sid}-tab, #{sid}-t, #{sid}-sub, .{sid}-pn", {{ x: {-W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
+    return scene(sid, dur, css, body, "\n".join(js))
+
+def s_arrive(sid, dur, title):
+    """La sala desde arriba: el socio (punto cian) entra por recepción y camina hasta la pantalla de rutinas del gimnasio,
+    que se enciende cuando llega. El equipo (turquesa) en su lugar."""
+    KIND[sid] = "arrive"; HINTS.append((sid, 2.3))
+    vertical = H > W
+    a = (0.2 * W, 0.80 * H) if vertical else (0.17 * W, 0.86 * H)
+    m = (0.2 * W, 0.56 * H) if vertical else (0.17 * W, 0.58 * H)
+    s = (0.62 * W, 0.40 * H) if vertical else (0.44 * W, 0.40 * H)
+    css = f""".pd {{ position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: {C['cyan']}; }}
+.pd.st {{ background: {C['teal']}; }}
+#{sid}-scr {{ position: absolute; left: {s[0] - 70}px; top: {s[1] - 110}px; width: 140px; height: 90px; border-radius: 12px; border: 4px solid {C['white']}; background: {C['steel']}; }}
+#{sid}-on {{ position: absolute; inset: 8px; border-radius: 6px; background: {C['white']}; opacity: 0; }}
+#{sid}-tag {{ position: absolute; left: {s[0] + 90}px; top: {s[1] - 104}px; padding: 14px 20px; border-radius: 16px; background: {C['surface']}; border: 2px solid {C['teal']}; font: 700 34px "Barlow Condensed"; text-transform: uppercase; white-space: nowrap; }}
+#{sid}-ring {{ position: absolute; left: {s[0] - 50}px; top: {s[1] - 50}px; width: 100px; height: 100px; border-radius: 50%; border: 3px solid {C['cyan']}; opacity: 0; }}
+#{sid}-t {{ position: absolute; left: 60px; right: 60px; bottom: {150 if vertical else 90}px; text-align: center; }}
+#{sid}-shade {{ position: absolute; inset: 0; background: linear-gradient(0deg, rgba(11,15,20,.95) 0%, rgba(11,15,20,0) 40%); }}"""
+    if vertical: css += f"\n#{sid}-tag {{ left: {s[0] - 200}px; top: {s[1] - 220}px; }}"
+    staff = [(0.78 * W, 0.30 * H), (0.30 * W, 0.22 * H)] if vertical else [(0.70 * W, 0.28 * H), (0.30 * W, 0.24 * H)]
+    dots = "".join(f'<div id="{sid}-s{i}" class="pd st" style="left:{x:.0f}px;top:{y:.0f}px"></div>' for i, (x, y) in enumerate(staff))
+    body = f"""{floor_svg(sid, draw=False)}
+{dots}
+<div id="{sid}-scr"><div id="{sid}-on"></div></div>
+<div id="{sid}-tag" class="clip" data-start="0" data-duration="{dur}">Pantalla de rutinas</div>
+<div id="{sid}-ring" class="clip" data-start="0" data-duration="{dur}"></div>
+<div id="{sid}-me" class="pd clip" data-start="0" data-duration="{dur}" style="left:{a[0]:.0f}px;top:{a[1]:.0f}px"></div>
+<div id="{sid}-shade"></div>
+<h2 id="{sid}-t" class="h clip" data-start="0" data-duration="{dur}">{words(title)}</h2>"""
+    js = [f'tl.fromTo("#{sid}-s0, #{sid}-s1", {{ scale: 0 }}, {{ scale: 1, duration: 0.4, ease: "back.out(2)", stagger: 0.08 }}, 0.1);',
+          f'tl.fromTo("#{sid}-scr", {{ opacity: 0, scale: 0.8 }}, {{ opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)" }}, 0.15);',
+          f'tl.fromTo("#{sid}-tag", {{ opacity: 0, y: 20 }}, {{ opacity: 1, y: 0, duration: 0.4, ease: "expo.out" }}, 0.35);',
+          f'tl.fromTo("#{sid}-me", {{ scale: 0 }}, {{ scale: 1, duration: 0.35, ease: "back.out(2)" }}, 0.3);',
+          f'tl.to("#{sid}-me", {{ x: {m[0] - a[0]:.0f}, y: {m[1] - a[1]:.0f}, duration: 0.8, ease: "power1.inOut" }}, 0.6);',
+          f'tl.to("#{sid}-me", {{ x: {s[0] - a[0]:.0f}, y: {s[1] - a[1]:.0f}, duration: 0.85, ease: "power2.inOut" }}, 1.4);',
+          f'tl.fromTo("#{sid}-ring", {{ scale: 0.4, opacity: 0 }}, {{ scale: 2.4, duration: 0.9, ease: "expo.out", keyframes: {{ opacity: [0, 0.9, 0] }} }}, 2.25);',
+          f'tl.fromTo("#{sid}-on", {{ opacity: 0 }}, {{ opacity: 1, duration: 0.25 }}, 2.3);',
+          f'tl.fromTo("#{sid}-t .w", {{ opacity: 0, filter: "blur(6px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.08 }}, 0.3);',
+          f'tl.to("#{sid}-t", {{ opacity: 0, filter: "blur(8px)", duration: 0.2 }}, {dur - 0.25});']
     return scene(sid, dur, css, body, "\n".join(js))
 
 def s_network(sid, dur, title):
@@ -300,20 +398,25 @@ def s_network(sid, dur, title):
            f'tl.fromTo("#{sid}-t .w", {{ opacity: 0, filter: "blur(6px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.08 }}, 0.4);']
     return scene(sid, dur, css, body, "\n".join(js))
 
-def s_end(sid, dur, claim, url):
-    """Los puntos de la sala convergen en uno, que sube a su lugar sobre la «ı» del wordmark. Frase y dirección."""
+KICK_CSS = "\n#{sid}-k {{ position: absolute; left: 0; right: 0; top: {top}px; text-align: center; font: 700 52px/1 \"Barlow Condensed\"; text-transform: uppercase; letter-spacing: 0.1em; color: " + C["white"] + "; margin: 0; }}"
+
+def s_end(sid, dur, claim, url, kicker=None):
+    """Los puntos de la sala convergen en uno, que sube a su lugar sobre la «ı» del wordmark. Frase y dirección.
+    Con `kicker` (p. ej. «REPI Control»), el wordmark se achica y el nombre del modo va entre el wordmark y la frase."""
     KIND[sid] = "end"
-    wt = H / 2 - 290
-    ut = H / 2 + (280 if W > H else 360)
+    ww = 460 if kicker else 560
+    wt = H / 2 - (350 if kicker else 290)
+    tt = H / 2 + (10 if kicker else 50)
+    ut = H / 2 + ((280 if W > H else 470) if kicker else (280 if W > H else 360))
     css = WM_CSS + f""".cd {{ position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: {C['cyan']}; }}
-#{sid}-wm {{ left: {W/2-280}px; top: {wt}px; }}
-#{sid}-t {{ position: absolute; left: 40px; right: 40px; top: {H/2+50}px; text-align: center; }}
+#{sid}-wm {{ left: {W/2-ww/2}px; top: {wt}px; }}{KICK_CSS.format(sid=sid, top=H/2-92) if kicker else ""}
+#{sid}-t {{ position: absolute; left: 40px; right: 40px; top: {tt}px; text-align: center; }}
 #{sid}-u {{ position: absolute; left: 0; right: 0; top: {ut}px; text-align: center; font: 600 46px "Barlow"; color: {C['white']}; }}
 #{sid}-u span {{ border-bottom: 3px solid {C['cyan']}; padding-bottom: 6px; }}"""
     import random
     rnd = random.Random(3)
     dots, js = [], []
-    dot_x, dot_y = W / 2 - 280 + 560 * 0.8892 + 560 * 0.1012 / 2, wt + (560 * 154 / 315) * 0.0158 + 560 * 0.1012 / 2
+    dot_x, dot_y = W / 2 - ww / 2 + ww * 0.8892 + ww * 0.1012 / 2, wt + (ww * 154 / 315) * 0.0158 + ww * 0.1012 / 2
     for i in range(14):
         x, y = rnd.uniform(160, W - 160), rnd.uniform(120, H - 120)
         dots.append(f'<div id="{sid}-c{i}" class="cd" style="left:{x:.0f}px;top:{y:.0f}px"></div>')
@@ -323,12 +426,13 @@ def s_end(sid, dur, claim, url):
 <div id="{sid}-shade" style="position:absolute;inset:0;background:{C['navy']}"></div>
 {"".join(dots)}
 <div id="{sid}-hero" class="cd" style="left:{W/2}px;top:{H/2}px;width:56px;height:56px;margin:-28px 0 0 -28px"></div>
-{wordmark(sid, 560)}
+{wordmark(sid, ww)}{f'{chr(10)}<p id="{sid}-k" class="clip" data-start="0" data-duration="{dur}">{html.escape(kicker)}</p>' if kicker else ""}
 <h2 id="{sid}-t" class="h clip" data-start="0" data-duration="{dur}">{words(claim)}</h2>
 <p id="{sid}-u" class="clip" data-start="0" data-duration="{dur}"><span>{url}</span></p>"""
+    if kicker: js.append(f'tl.fromTo("#{sid}-k", {{ opacity: 0, y: 24 }}, {{ opacity: 1, y: 0, duration: 0.6, ease: "expo.out" }}, 1.3);')
     js += [f'tl.fromTo("#{sid}-shade", {{ opacity: 0.2 }}, {{ opacity: 1, duration: 0.8 }}, 0);',
            f'tl.fromTo("#{sid}-hero", {{ scale: 0 }}, {{ scale: 1, duration: 0.25, ease: "back.out(2)" }}, 0.6);',
-           f'tl.to("#{sid}-hero", {{ x: {dot_x - W/2:.0f}, y: {dot_y - H/2:.0f}, scale: {560*0.1012/56:.3f}, duration: 0.55, ease: "power3.inOut" }}, 0.85);',
+           f'tl.to("#{sid}-hero", {{ x: {dot_x - W/2:.0f}, y: {dot_y - H/2:.0f}, scale: {ww*0.1012/56:.3f}, duration: 0.55, ease: "power3.inOut" }}, 0.85);',
            f'tl.fromTo("#{sid}-wm img", {{ clipPath: "inset(0 100% 0 0)" }}, {{ clipPath: "inset(0 0% 0 0)", duration: 0.6, ease: "power3.out" }}, 1.1);',
            f'tl.set("#{sid}-wmdot", {{ opacity: 0 }}, 0);',
            f'tl.set("#{sid}-wmdot", {{ opacity: 1 }}, 1.4);',
@@ -517,6 +621,81 @@ FILMS.update({
         ]),
 })
 
+# ── Modos de REPI (D213): Completo y Control, 16:9 y 9:16 ────────────────────────────────────────────────────────────────
+# Grabaciones nuevas (tools/rec-raw.mjs, demo local con datos ficticios): ctl-kiosk (pantalla de rutinas 1280×800 de la demo
+# «control», Gimnasio Atlas, sin la lista de personas), ctl-staff (profesor de sala de la demo «floor», Gym Norte: crea el
+# programa de Martina y ajusta el de Julián a la revisión 2), cmp-coach (coach: ficha de Valentina, diseña y asigna
+# «Hipertrofia · 3 días») y cmp-owner (Seguimiento de sala). Del socio se reusan f-intelligence y perfil-deportistas.
+# Los valores de los paneles son los que se ven en esas grabaciones.
+FRAGS_CONTROL = [("paper", 130, 90, -5, "<small>Rutina · hoja impresa</small>Sentadilla 4×8<br><s>Prensa 3×12</s> 3×10<br>Remo ¿?"),
+                 ("paper", 1330, 120, 4, "<small>rutina_final_v3(2).pdf</small>¿Cuál es la vigente?"),
+                 ("chat", 1300, 790, -2, "<small>Socio · 07:40</small>Profe, ¿me pasás la rutina?"),
+                 ("", 200, 800, 3, "<small>Carpeta de recepción</small>Hoja perdida"),
+                 ("", 760, 60, -3, "<small>Cambios del profesor</small>— sin registro —")]
+KIOSK = "ctl-kiosk.mp4"
+SP = 11.0 / 6.5  # código y PIN, de 5,9 a 16,9 s de la grabación, en 6,5 s de pantalla
+ID_KEYS = [round((t - 5.93) / SP, 2) for t in (6.45, 7.25, 8.02, 8.80, 9.59, 10.37, 12.25, 13.15, 14.04, 14.92, 16.35)]
+
+def dev(*a, **k):
+    """s_device de los modos: los paneles salen con el teléfono (no quedan solos en el último instante)."""
+    return s_device(*a, exit_panels=True, **k)
+
+def modo_completo(size):
+    vertical = size[1] > size[0]
+    return dict(
+        title="REPI Completo · Entrenamiento inteligente", dur=56.0, size=size, music=("volatile-reaction.mp3", 64.0), sfx="auto", poster=26.5,
+        scenes=[
+            ("dot", 2.5, lambda s, d: s_dot(s, d, "Un profesor, un socio y una sala.")),
+            ("logo", 2.5, lambda s, d: s_logo(s, d, "_Entrenamiento_ inteligente.")),
+            ("disena", 6.0, lambda s, d: dev(s, d, [("cmp-coach.mp4", 23.8, 0, 1.4), ("cmp-coach.mp4", 25.4, 1.4, 4.6)], "El profesor *diseña* el programa.", panels=[
+                dict(at=0.9, x=150, y=620, k="Programa · versión 1", v="Hipertrofia · 3 días", cls="a")])),
+            ("asigna", 5.0, lambda s, d: dev(s, d, [("cmp-coach.mp4", 31.6, 0, 5.0)], "Y lo *asigna.*", side="right", panels=[
+                dict(at=2.9, x=760, y=620, k="Programa asignado a", v="Valentina y Julián", cls="t")])),
+            ("recibe", 4.0, lambda s, d: dev(s, d, [("perfil-deportistas.mp4", 0.0, 0, 4.0)], "El socio *lo* *recibe.*", panels=[
+                dict(at=0.9, x=150, y=620, k="Próximo entrenamiento", v="Torso A", cls="a")])),
+            ("registra", 4.5, lambda s, d: dev(s, d, [("perfil-deportistas.mp4", 8.7, 0, 4.5)], "Registra *cada* *serie.*", side="right", panels=[
+                dict(at=1.6, x=760, y=620, k="Descanso indicado", v="2:00", cls="a")])),
+            ("serie", 7.0, lambda s, d: dev(s, d, SERIE, "REPI *recomienda*, con la razón.", panels=[P_REC, P_ADJ])),
+            ("progreso", 5.0, lambda s, d: dev(s, d, [("perfil-deportistas.mp4", 19.0, 0, 5.0)], "Su progreso, *por* *ejercicio.*", side="right", sub="Cargas, repeticiones, volumen y récords.")),
+            ("consulta", 5.5, lambda s, d: dev(s, d, [("cmp-coach.mp4", 4.0, 0, 1.8), ("cmp-coach.mp4", 8.2, 1.8, 3.7)], "El profesor *ve* *su* *evolución.*", panels=[
+                dict(at=2.2, x=150, y=620, k="Remo en polea", v="+2,5 kg", cls="a", why="Contra la vez anterior, en su registro de sesiones.")])),
+            ("gimnasio", 5.5, lambda s, d: dev(s, d, [("cmp-owner.mp4", 2.0, 0, 5.5)], "El gimnasio *sigue* su sala.", side="right", sub="Seguimiento de sala y equipo, por sede.")),
+            ("red", 4.0, (lambda s, d: s_statement(s, d, "Profesor, socio y gimnasio. *Conectados.*")) if vertical else (lambda s, d: s_network(s, d, "Profesor, socio y gimnasio. *Conectados.*"))),
+            ("end", 4.5, lambda s, d: s_end(s, d, "*Entrenamiento* inteligente.", "repiclub.com/conoce", kicker="REPI Completo")),
+        ])
+
+def modo_control(size):
+    return dict(
+        title="REPI Control · Tu equipo planifica. Tus socios consultan.", dur=59.5, size=size, music=("clash-defiant.mp3", 203.0), sfx="auto", poster=39.5,
+        scenes=[
+            ("dot", 2.5, lambda s, d: s_dot(s, d, "En la sala, cada socio busca su rutina.")),
+            ("scatter", 9.0, lambda s, d: s_scatter(s, d, "Rutinas _difíciles_ _de_ _consultar._", "REPI las *centraliza.*", 5.0, FRAGS_CONTROL, calls=2.2, appear=0.85, waves=2)),
+            ("logo", 2.5, lambda s, d: s_logo(s, d, "_Tu_ _equipo_ planifica.")),
+            ("crea", 6.5, lambda s, d: dev(s, d, [("ctl-staff.mp4", 4.3, 0, 1.4), ("ctl-staff.mp4", 8.4, 1.4, 2.4), ("ctl-staff.mp4", 20.6, 3.8, 2.7)], "El profesor *arma* la rutina.", panels=[
+                dict(at=1.4, x=150, y=620, k="Martina López · programa nuevo", v="Fuerza inicial · 2 días", cls="a")])),
+            ("asigna", 4.0, lambda s, d: dev(s, d, [("ctl-staff.mp4", 27.4, 0, 4.0)], "Y la *asigna* al socio.", side="right", panels=[
+                dict(at=1.3, x=760, y=620, k="Programa institucional", v="Revisión 1", cls="t", why="Queda asignado al socio, con autor y motivo.")])),
+            ("llega", 3.0, lambda s, d: s_arrive(s, d, "El socio *llega* al gimnasio.")),
+            ("pantalla", 3.5, lambda s, d: s_tablet(s, d, [(KIOSK, 0.2, 0, 3.5)], "Una pantalla *compartida*, en la sala.", sub="La pone el gimnasio, para todos sus socios.")),
+            ("id", 6.5, lambda s, d: s_tablet(s, d, [(KIOSK, 5.9, 0, 6.5, SP)], "Se identifica *con* *código* *y* *PIN.*", keys=ID_KEYS, panels=[
+                dict(at=0.6, k="Código de socio", v="6 números", cls="a", out=3.4),
+                dict(at=3.7, k="PIN", v="• • • •", cls="a", why="Nadie más lo ve: se muestran puntos.")])),
+            ("rutina", 5.0, lambda s, d: s_tablet(s, d, [(KIOSK, 16.7, 0, 5.0)], "Y consulta su rutina, *sin* *instalar* *nada.*", panels=[
+                dict(at=1.0, k="Hola, Ana P.", v="Fuerza base · 3 días", cls="a", why="Planificado por el equipo de Gimnasio Atlas · versión 2.")])),
+            ("terminar", 4.0, lambda s, d: s_tablet(s, d, [(KIOSK, 25.3, 0, 4.0)], "Toca *Terminar.*", sub="La pantalla queda libre para la próxima persona.", focus=dict(x=90, y=14, s=1.5, at=0.0, d=0.6, out=1.2))),
+            ("qr", 4.0, lambda s, d: s_tablet(s, d, [(KIOSK, 30.2, 0, 0.6)], "Y si quiere, *REPI* *en* *su* *celular.*", sub="QR opcional. No es el QR de ingreso al gimnasio.", focus=dict(x=94, y=52, s=1.7, at=0.5, d=1.0))),
+            ("control", 4.5, lambda s, d: dev(s, d, [("ctl-staff.mp4", 48.0, 0, 4.5)], "Los cambios, *siempre* *del* *equipo.*", panels=[
+                dict(at=1.2, x=150, y=620, k="Julián Ortiz · revisiones", v="Versión 2", cls="t", why="Cada cambio con autor y motivo. El socio sólo consulta.")])),
+            ("end", 4.5, lambda s, d: s_end(s, d, "Tu equipo planifica. *Tus* *socios* *consultan.*", "repiclub.com/conoce?modo=control", kicker="REPI Control")),
+        ])
+
+FILMS.update({
+    "modo-completo": modo_completo((1920, 1080)),
+    "modo-completo-vertical": modo_completo((1080, 1920)),
+    "modo-control": modo_control((1920, 1080)),
+    "modo-control-vertical": modo_control((1080, 1920)),
+})
+
 INDEX = """<!doctype html>
 <html lang="es" data-resolution="{res}">
 <head>
@@ -548,15 +727,17 @@ def sfx_len(path):
 
 PRECUTS = []  # (escena, cortes, duración) que s_device pide precortar
 
-def precut(d, sid, clips, dur):
-    """Corta y concatena los tramos de la grabación en un solo MP4 CFR 30 fps (GOP corto) y extrae el póster."""
+def precut(d, sid, clips, dur, size=(780, 1688)):
+    """Corta y concatena los tramos de la grabación en un solo MP4 CFR 30 fps (GOP corto) y extrae el póster.
+    Un tramo puede llevar un quinto valor, la velocidad (1,6 = 1,6× más rápido: `du` es lo que dura en pantalla)."""
     import subprocess
     srcs = [os.path.join(MEDIA_SRC, "footage", f) for f, *_ in clips]
     if not all(os.path.exists(x) for x in srcs): return
     args, parts = [], []
-    for i, ((f, ms, st, du), src) in enumerate(zip(clips, srcs)):
-        args += ["-ss", f"{ms}", "-t", f"{du}", "-i", src]
-        parts.append(f"[{i}:v]fps=30,scale=780:1688,setsar=1,setpts=PTS-STARTPTS[v{i}]")
+    for i, (c, src) in enumerate(zip(clips, srcs)):
+        f, ms, st, du = c[:4]; sp = c[4] if len(c) > 4 else 1.0
+        args += ["-ss", f"{ms}", "-t", f"{du * sp:.3f}", "-i", src]
+        parts.append(f"[{i}:v]setpts=(PTS-STARTPTS)/{sp},fps=30,scale={size[0]}:{size[1]},setsar=1[v{i}]")
     cover = sum(c[3] for c in clips)
     graph = ";".join(parts) + ";" + "".join(f"[v{i}]" for i in range(len(clips))) + f"concat=n={len(clips)}:v=1:a=0[c];[c]tpad=stop_mode=clone:stop_duration={max(0, dur - cover) + 0.5:.2f}[out]"
     out = os.path.join(d, "assets", "media", f"cut-{sid}.mp4")
@@ -579,12 +760,14 @@ def auto_sfx(scenes):
         t += dur
     for sid, at in HINTS:
         if sid in starts: out.append(("pop", round(starts[sid] + at, 2)))
+    for sid, at in KEYS:  # cada número tocado en el teclado de la pantalla de rutinas
+        if sid in starts: out.append(("key-press", round(starts[sid] + at, 2), 0.3))
     return sorted(out, key=lambda x: x[1])
 
 def build(name):
     f = FILMS[name]
     canvas(*f.get("size", (1920, 1080)))
-    KIND.clear(); HINTS.clear()
+    KIND.clear(); HINTS.clear(); KEYS.clear()
     d = os.path.join(ROOT, name)
     os.makedirs(os.path.join(d, "compositions"), exist_ok=True)
     for sub in ("fonts", "brand", "media", "sfx"): os.makedirs(os.path.join(d, "assets", sub), exist_ok=True)

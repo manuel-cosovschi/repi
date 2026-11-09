@@ -2,6 +2,19 @@
 
 Actualizado: 09/11/2026 (**auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
+## Films de los modos REPI Completo y REPI Control — 09/11/2026 · rama `claude/repi-control-films` (sin push, sin publicar)
+
+- **Hecho:** dos films nuevos con el kit HyperFrames (`design/films/modo-completo`, `modo-control` y sus `-vertical`), sin voz,
+  música de Kevin MacLeod (Volatile Reaction 64,0 → 120,0 s; Clash Defiant 203,0 → 262,5 s) y efectos de Pixabay.
+  Web en `apps/web/public/conoce/videos/modo-*.mp4/.webp` (+ `.descripcion.vtt`) y capturas `shots/control-*.webp`.
+- **Material:** grabaciones reales de la demo local con datos ficticios (`kit/tools/rec-raw.mjs`, ahora con `REPI_BASE`;
+  `ctl-kiosk`, `ctl-staff`, `cmp-coach`, `cmp-owner`) y `kit/tools/shots-control.mjs`. Medios fuera de Git.
+- **QA:** `hyperframes check` sin errores; snapshots por escena, tira de cortes y lectura a 360 px; audio −14,5/−14,6 LUFS,
+  pico ≤ −2,3 dBTP; sin cuadros con el teléfono en blanco (los avisos de `blank.py` son formularios blancos reales).
+- **Pendiente:** sumar `modo-completo` y `modo-control` a `VIDEOS` en `apps/web/src/content/conoce.ts` (lo tiene otro agente);
+  el profesor que edita es de la demo «floor» (Gym Norte) porque la demo «control» abre sólo la sesión de la dueña.
+- **Sin migraciones ni cambios de app.**
+
 ## Auditoría integral FSA1 (REPI Full System Audit 1.0) — 09/11/2026 · PUBLICADO Y VERIFICADO (#88, `210bf9e`, sin migraciones)
 
 - **Informe:** `docs/audits/REPI_FULL_SYSTEM_AUDIT_1/` (01–10). Veredicto en 10: **APTO CON OBSERVACIONES**.
