@@ -482,13 +482,15 @@ export async function moderateClub(actorId: string, orgId: string, p: { type: "p
   need(ctx, "club.moderate");
   return db.transaction(async (tx) => {
     const status = p.outcome === "remove" ? "removed" as const : "visible" as const;
+    // FSA1: «mantener» sólo vuelve a mostrar lo oculto por reportes; lo que su autor borró (removed) sigue borrado.
     if (p.type === "post") {
-      const r = await tx.update(clubPost).set({ status }).where(and(eq(clubPost.id, p.id), eq(clubPost.orgId, orgId))).returning();
-      if (!r.length) throw NOT_FOUND();
+      const [x] = await tx.select({ id: clubPost.id }).from(clubPost).where(and(eq(clubPost.id, p.id), eq(clubPost.orgId, orgId))).for("update");
+      if (!x) throw NOT_FOUND();
+      await tx.update(clubPost).set({ status }).where(and(eq(clubPost.id, p.id), ne(clubPost.status, "removed")));
     } else {
       const [c] = await tx.select({ id: clubComment.id }).from(clubComment).innerJoin(clubPost, eq(clubPost.id, clubComment.postId)).where(and(eq(clubComment.id, p.id), eq(clubPost.orgId, orgId)));
       if (!c) throw NOT_FOUND();
-      await tx.update(clubComment).set({ status }).where(eq(clubComment.id, p.id));
+      await tx.update(clubComment).set({ status }).where(and(eq(clubComment.id, p.id), ne(clubComment.status, "removed")));
     }
     await tx.update(clubReport).set({ status: p.outcome === "remove" ? "removed" : "kept", decidedBy: actorId, decidedAt: new Date() })
       .where(and(eq(clubReport.targetType, p.type), eq(clubReport.targetId, p.id), eq(clubReport.status, "open")));

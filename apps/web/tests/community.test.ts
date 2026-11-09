@@ -283,6 +283,27 @@ describe("Repi Club", () => {
     expect((await err(club.feed(outsider, w.org)))?.code).toBe("not_found");
   });
 
+  it("FSA1: «mantener» en moderación no vuelve a publicar lo que su autor borró (publicación ni comentario)", async () => {
+    const w = await world();
+    const vale = await w.member("Valentina Gómez");
+    const juli = await w.member("Julián Ortiz");
+    for (const u of [vale, juli]) await club.joinClub(u.userId, w.org, { showName: true, inRanking: false });
+    const p = await club.createClubPost(vale.userId, w.org, { text: "Me arrepiento de esto" });
+    const c = await club.commentPost(vale.userId, w.org, (await club.createClubPost(juli.userId, w.org, { text: "Hola" })).id, "Comentario a borrar");
+    await club.report(juli.userId, w.org, { type: "post", id: p.id, reason: "Spam" });
+    await club.report(juli.userId, w.org, { type: "comment", id: c.id, reason: "Spam" });
+    await club.deleteOwn(vale.userId, w.org, "post", p.id);
+    await club.deleteOwn(vale.userId, w.org, "comment", c.id);
+    // El reporte abierto sigue en la bandeja de moderación; decidir «mantener» lo cierra sin publicar de nuevo.
+    await club.moderateClub(w.manager, w.org, { type: "post", id: p.id, outcome: "keep" });
+    await club.moderateClub(w.manager, w.org, { type: "comment", id: c.id, outcome: "keep" });
+    const [post] = await db.select({ s: schema.clubPost.status }).from(schema.clubPost).where(eq(schema.clubPost.id, p.id));
+    const [com] = await db.select({ s: schema.clubComment.status }).from(schema.clubComment).where(eq(schema.clubComment.id, c.id));
+    expect([post.s, com.s]).toEqual(["removed", "removed"]);
+    expect((await club.feed(juli.userId, w.org)).some((x) => x.id === p.id)).toBe(false);
+    expect((await club.clubReports(w.manager, w.org)).filter((r) => r.id === p.id || r.id === c.id).every((r) => !r.open)).toBe(true);
+  });
+
   it("ranking del mes sólo con quienes lo eligieron y con datos del gym (no del coach privado)", async () => {
     const w = await world();
     const vale = await w.member("Valentina Gómez");
