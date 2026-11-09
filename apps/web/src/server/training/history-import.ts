@@ -3,7 +3,7 @@
 // persona confirma. El archivo no se guarda. Lo importado aparece en Progreso («Antes de REPI») y sugiere pesos iniciales.
 import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, makeExerciseMatcher, normalizeImport, IMPORT_MAX_SETS, IMPORT_MAX_TEXT_LENGTH, type ImportSet, type NormalizedSet } from "@repi/domain";
+import { exerciseEvolution, exerciseKey, importCanonical, importOverlap, localDate, makeExerciseMatcher, normalizeImport, variantConflict, IMPORT_MAX_SETS, IMPORT_MAX_TEXT_LENGTH, type ImportSet, type NormalizedSet } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiJson, aiModel, aiFastModel, aiOn } from "../ai/openai";
@@ -64,7 +64,9 @@ export async function matchExercises(names: string[], lib: { id: string; name: s
       for (const m of r.map ?? []) {
         if (!pending.includes(m.written) || !m.catalog) continue;
         const hit = byKey.get(exerciseKey(m.catalog));
-        if (hit) out[m.written] = hit;
+        // FSA1: la misma regla que la importación de programas (D207): una propuesta que agrega o contradice una variante
+        // («Remo» → «Remo en máquina») se descarta, así lo importado no suma al progreso de otro ejercicio.
+        if (hit && !variantConflict(m.written, hit.name, true)) out[m.written] = hit;
       }
     } catch { /* sin emparejar: se guarda con el nombre escrito */ }
   }
