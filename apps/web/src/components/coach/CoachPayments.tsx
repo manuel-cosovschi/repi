@@ -54,7 +54,7 @@ export function CoachPayments({ orgId, flash, openClient }: { orgId: string; fla
               <div className="table">
                 {k.clients.map((c) => (
                   <div key={c.id} className="trow">
-                    <button type="button" style={{ flex: "1 1 160px", textAlign: "left", fontWeight: 600, border: 0, background: "none", padding: 0, color: "inherit", font: "inherit", cursor: "pointer" }} onClick={() => openClient(c.id)}>{c.name}</button>
+                    <button type="button" style={{ flex: "1 1 160px", textAlign: "left", fontWeight: 600, border: 0, background: "none", padding: 0, minHeight: 32, color: "inherit", font: "inherit", cursor: "pointer" }} onClick={() => openClient(c.id)}>{c.name}</button>
                     <span style={{ flex: "1 1 200px" }}>{c.next ? <>{c.next.concept} · {money(c.next.amountMinor, c.next.currency)} · vence {day(c.next.dueOn)}{c.openCount > 1 ? <small className="muted"> · +{c.openCount - 1}</small> : null}</> : <span className="muted">Sin cargos pendientes{c.lastPaidOn ? ` · último pago ${day(c.lastPaidOn)}` : ""}</span>}</span>
                     {c.next && chargeChip(c.next)}
                     {c.next ? <button type="button" className="btn sm" onClick={() => setPay(c.next)}>Registrar pago</button>

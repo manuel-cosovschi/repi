@@ -149,7 +149,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
                 <h3 style={{ fontSize: 14, marginBottom: 4 }}>{t.sessions === 1 ? "Tus primeras marcas" : "Tus mejores marcas del período"}</h3>
                 <ul className="pp-rows">
                   {sum!.marks.map((m) => (
-                    <li key={m.id}><button type="button" className="linkbtn" style={{ textAlign: "left", padding: 0, height: "auto" }} onClick={() => { setExId(m.id); setPick(false); }}>{m.name}</button>
+                    <li key={m.id}><button type="button" className="linkbtn" style={{ textAlign: "left", padding: "10px 0", margin: "-10px 0" }} onClick={() => { setExId(m.id); setPick(false); }}>{m.name}</button>
                       <span className="mb-muted">{m.topKg != null ? `${n1(kgTo(m.topKg, unit))} ${unit} × ${m.repsAtTop}` : m.maxReps != null ? `${m.maxReps} reps` : m.maxSec != null ? secTxt(m.maxSec) : "—"}</span></li>
                   ))}
                 </ul>
