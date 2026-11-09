@@ -139,7 +139,7 @@ function Stage({ id, step, setStep }: { id: ModeId; step: number; setStep: (k: n
           <div className="x3-md-glass">
             {c.screens.map((s, i) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={s.src} src={s.src} alt={s.alt} {...dims} loading="lazy" decoding="async" data-on={i === step ? "1" : undefined} aria-hidden={i === step ? undefined : true} />
+              <img key={s.src} src={s.src} alt={s.alt} {...(s.portrait ? { width: 390, height: 844 } : dims)} data-fit={s.portrait ? "portrait" : undefined} loading="lazy" decoding="async" data-on={i === step ? "1" : undefined} aria-hidden={i === step ? undefined : true} />
             ))}
           </div>
           <figcaption className="x3-sr">{c.name}, pantalla {step + 1} de {c.screens.length}: {c.screens[step]?.label}</figcaption>

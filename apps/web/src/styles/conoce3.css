@@ -758,3 +758,6 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
   --ui-divider: #2D3B4F; --ui-link: #00D1FF; --ui-warning-tint: rgba(255, 196, 92, .12); --ui-warning-text: #FFD48A; --ui-selection-bg: rgba(0, 209, 255, .16); --ui-accent: #00D1FF;
   --ui-accent-tint: rgba(93, 230, 216, .12); --ui-error-tint: rgba(255, 120, 100, .14); box-shadow: none; }
 .x3 .cn-sim .cn-btn.pri { background: var(--x-white); color: var(--x-navy); border-radius: 8px; min-height: 46px; border: 0; font: 600 15px var(--font-ui); }
+
+/* D215: una captura de teléfono dentro del marco apaisado de la pantalla se ve entera, centrada sobre el piso. */
+.x3-md-glass img[data-fit="portrait"] { object-fit: contain; object-position: center; background: #0B1018; }

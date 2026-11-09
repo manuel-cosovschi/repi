@@ -225,7 +225,8 @@ export type ProductMode = (typeof PRODUCT_MODES)[number];
 /** Cómo se lee la modalidad elegida en REPI Admin (Contactos, Sitio y QR) y en las notas del prospecto de ventas. */
 export const PRODUCT_MODE_LABEL: Record<string, string> = { completo: "REPI Completo", control: "REPI Control", undecided: "Todavía no sabe" };
 export const isModeId = (x: unknown): x is ModeId => typeof x === "string" && (MODE_IDS as readonly string[]).includes(x);
-export type ModeScreen = { src: string; alt: string; label: string };
+/** `portrait`: captura de teléfono dentro del marco apaisado (se muestra entera, sin recortar). */
+export type ModeScreen = { src: string; alt: string; label: string; portrait?: boolean };
 export type ModeContent = {
   id: ModeId; name: string; tag: string; claim: string; pitch: string; features: string[]; benefits: { title: string; text: string }[];
   /** Equipo principal del escenario: el teléfono del socio (Completo) o la pantalla del gimnasio, apaisada (Control). */
@@ -287,7 +288,7 @@ export const MODES: Record<ModeId, ModeContent> = {
       { src: "/conoce/shots/control-bienvenida.webp", alt: "Pantalla de consulta de REPI Control en el gimnasio: bienvenida", label: "Bienvenida" },
       { src: "/conoce/shots/control-identificar.webp", alt: "El socio ingresa su código de socio y su PIN en la pantalla de consulta", label: "Código y PIN" },
       { src: "/conoce/shots/control-rutina.webp", alt: "La rutina del socio en la pantalla de consulta", label: "Su rutina" },
-      { src: "/conoce/shots/control-equipo.webp", alt: "El equipo prepara los programas en REPI", label: "El equipo planifica" },
+      { src: "/conoce/shots/control-equipo.webp", alt: "El equipo del gimnasio en REPI: ficha del socio con su programa y el historial de versiones", label: "El equipo planifica", portrait: true },
     ],
     aside: { src: "/conoce/shots/training.webp", alt: "La rutina del socio en la app de REPI", label: "App opcional", caption: "App opcional: consulta y, si el gimnasio lo habilita, registro" },
     film: "modo-control", demo: "control", demoLabel: "Probar la pantalla de consulta", cta: "Quiero REPI Control",
