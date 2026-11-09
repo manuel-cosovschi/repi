@@ -41,11 +41,11 @@ Auditoría FSA1, 09/11/2026.
 | Suite | Resultado | Notas |
 | --- | --- | --- |
 | Dominio (`packages/domain`) | 54 archivos, **1068 ✓** | — |
-| Web (vitest, `repi_test`) | 104 archivos, **788 ✓** | La primera corrida salió con código 1 por 3 rechazos sin manejar en una prueba nueva (INF-04); corregido. Se repite al final |
+| Web (vitest, `repi_test`) | 104 archivos, **788 ✓**, salida 0 | Repetido sobre el código final con la UI integrada. Antes salía con código 1 por 3 rechazos sin manejar en una prueba nueva (INF-04), ya corregida |
 | Guardas (`test:guards`) | **26 ✓, 0 ✗** | — |
 | Typecheck | ✓ | — |
 | Build de producción | ✓ | — |
-| E2E (Chromium, móvil y escritorio, rama integrada, `repi_e2e_fsa`) | ver §4 | — |
+| E2E (Chromium, móvil y escritorio, rama integrada, base `repi_e2e_fsa` con `STORAGE_DIR`) | **288 ✓, 5 ✗, 47 omitidas** en la corrida completa aislada. Las 5 fallas son 3 pruebas: 2 con defectos de portabilidad de la propia prueba, ya corregidos (luego 21/21 ✓ en esos archivos), y 1 intermitente que ya fallaba igual en `main` | Las 47 omitidas son condicionales: Admin necesita `E2E_ADMIN_STATE` y hay casos sólo de escritorio o sólo de móvil |
 
 ## 4. E2E: fallas que ya existían en `main` y su causa
 
@@ -58,4 +58,14 @@ La primera corrida de la rama integrada (base `repi_fsa_int`) dio 243 ✓, 18 �
 | `mobile-layout:123` (importar con métodos) | Falla | La prueba esperaba la revisión anterior a Smart Import 2.0 (CI no corre E2E). Además había un defecto real: la pregunta de un método ambiguo quedaba escondida (IMP-12) | Corregido y prueba actualizada |
 | `gym-editor-parity:9` | Intermitente (1 de 4) | Defecto real del modal: Esc y Tab dejaban de responder si desaparecía el elemento enfocado (MOD-01) | Corregido; la prueba fuerza la condición y falla siempre contra `main` |
 
-**Corrida final:** ver 08 §2.
+**Corrida final** (rama integrada, base `repi_e2e_fsa` nueva, una sola instancia): 288 ✓, 5 ✗, 47 omitidas, en 19,7 min.
+
+| Falla | Causa | Estado |
+| --- | --- | --- |
+| `personal-progress:85` (fotos) | La prueba consultaba `http://localhost:3000` fijo, no el servidor bajo prueba | Corregida; pasa |
+| `training-intelligence-roles:51` | La prueba leía `.env.local` sin mirar `DATABASE_URL` | Corregida; pasa |
+| `gym-member-page:202` (desktop) | Foco en el título de Programas la primera vez: intermitente también en `main`, según el auditor de personal | Abierta (intermitente, no reproducible a demanda; pasó al repetir) |
+
+**Ajustes del entorno de prueba hechos en la auditoría** (no son de la app):
+- Cinco pruebas que siembran aceptaban sólo `repi_dev`. `repi_dev` está en su tope de 300 demos y no se purga, así que no podían correr. Ahora aceptan también `repi_e2e_*` local.
+- Una corrida inválida quedó descartada. Hubo dos instancias simultáneas contra un servidor de la build anterior, que superaron el tope de demos. Se repitió aislada.
