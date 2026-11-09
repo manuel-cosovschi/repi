@@ -211,3 +211,51 @@ test("sin almacenamiento en el teléfono: la serie que no se pudo guardar no apa
   expect(await logs0(page, id)).toHaveLength(0);
   expect(errors.filter((e) => !netNoise(e) && !/Sin espacio|QuotaExceeded/.test(e))).toEqual([]);
 });
+
+test("más repeticiones que el tope del servidor: se avisa antes de registrar y el entrenamiento sigue sincronizando", async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors = watchErrors(page);
+  const id = await start(page);
+  const more = page.getByRole("button", { name: "Más repeticiones" });
+  const reps = page.locator(".stepper:not(.wstep) strong").first();
+  while (Number(await reps.innerText()) <= 200) await more.click();
+  await page.getByRole("button", { name: /^Completar serie 1$/ }).click();
+  await expect(page.getByText(/Revisá las repeticiones: hasta 200/).first()).toBeAttached();
+  await expect(page.getByRole("list", { name: "Series" }).getByRole("listitem").nth(0)).not.toHaveAccessibleName(/completada/);
+  // Corrige y registra: se guarda en la cuenta, sin el aviso de «No se pudo guardar».
+  await page.getByRole("button", { name: "Menos repeticiones" }).click();
+  await page.getByRole("button", { name: /^Completar serie 1$/ }).click();
+  await saved(page);
+  await expect(page.getByText(/No se pudo guardar en tu cuenta/)).toHaveCount(0);
+  await expect.poll(async () => (await logs0(page, id))[0]?.reps, { timeout: 15_000 }).toBe(200);
+  expect(errors).toEqual([]);
+});
+
+test("sin conexión: registrar, corregir, finalizar y volver la red: el servidor queda con lo corregido, completado y en el historial", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const errors = watchErrors(page);
+  const id = await start(page);
+  await context.setOffline(true);
+  await typeWeight(page, "50");
+  await page.getByRole("button", { name: /^Completar serie 1$/ }).click();
+  const skipRest = page.getByRole("button", { name: "Saltar descanso" });
+  if (await skipRest.isVisible().catch(() => false)) await skipRest.click();
+  await page.getByRole("button", { name: /^Completar serie 2$/ }).click();
+  if (await skipRest.isVisible().catch(() => false)) await skipRest.click();
+  // Corregir la serie 1 sin conexión.
+  await page.getByRole("list", { name: "Series" }).getByRole("listitem").nth(0).click();
+  await typeWeight(page, "52,5");
+  await page.getByRole("button", { name: /^Guardar serie 1$/ }).click();
+  page.once("dialog", (d) => void d.accept());
+  await page.getByRole("button", { name: "Finalizar" }).click();
+  await expect(page.getByText(/Guardado en el teléfono\. Se sincroniza al volver la conexión/)).toBeVisible();
+  expect(await logs0(page, id)).toHaveLength(0);
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(async () => ((await sess(page, id)) as unknown as { status: string }).status, { timeout: 30_000 }).toBe("completed");
+  const l = await logs0(page, id);
+  expect(l.map((x) => [x.setIndex, x.weightKg])).toEqual([[0, 52.5], [1, 50]]);
+  const h = (await (await page.request.get("/api/me/history")).json()) as { sessions: { id: string; sets: number }[] };
+  expect(h.sessions.find((x) => x.id === id)?.sets).toBe(2);
+  expect(errors.filter((e) => !netNoise(e))).toEqual([]);
+});

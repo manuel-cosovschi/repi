@@ -8,6 +8,7 @@ import { EXERCISE_CHANGE_REASONS, FEEL_ALERTS, TECHNIQUES, comboNext, groupLabel
 import { WORKOUT_IDLE_PROMPT_MS, carriesLoad, cleanDecimalDraft, isReducedKind, kindAt, labelAt, reducedLoadHint } from "@repi/domain";
 import { comboStep, exerciseComplete, groupRounds, intervalView, planBlocks, sessionMetrics, adjustAfterSet, fitTargetsToLoads, nearLoads, type RowTarget } from "@repi/domain";
 import { ACTIVITY_MAX_SEC, activityOf, activityValuesText, fmtSeconds, sameMetrics, type ActivityProfile, type SetMetrics } from "@repi/domain";
+import { MAX_REPS, MAX_TIMED_SEC, rowFlags, weightOk } from "@repi/domain";
 import { SetGuide } from "./SetGuide";
 import { syncInk, syncView } from "./SyncBadge";
 import { Hint } from "./Hint";
@@ -394,6 +395,12 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     const f = wasDone ? curRow.feel ?? null : feel;
     const { skip: _sk, ...row } = curRow;
     const actVals = actP ? { r: actSec(curRow), m: actM(curRow), w: 0, rir: null } : null;
+    // FSA1 (MEMBER-05): los mismos topes que el servidor. Una serie que el servidor rechaza frenaba la sincronización de TODO el
+    // entrenamiento («No se pudo guardar en tu cuenta») hasta corregirla; ahora se avisa antes de registrarla.
+    const fl = rowFlags({ sets: ex.sets, reps: ex.reps, detail: ex.detail ?? null }, cur);
+    const maxR = actP && fl.timed ? ACTIVITY_MAX_SEC : fl.timed || fl.durationSec ? MAX_TIMED_SEC : MAX_REPS;
+    if ((actVals?.r ?? curRow.r) > maxR) { flash(maxR === MAX_REPS ? `Revisá las repeticiones: hasta ${MAX_REPS} por serie.` : `Revisá el tiempo: hasta ${Math.round(maxR / 3600)} h por serie.`); return; }
+    if (!actP && !weightOk(curRow.w)) { flash("Revisá el peso: hasta 1000 kg, con 2 decimales como máximo."); return; }
     const sets = { ...s.sets, [k]: { ...row, rir: wasDone ? curRow.rir : rir, feel: f, note: noteDraft?.trim() || null, ...actVals, done: true, at: curRow.at ?? new Date().toISOString() } };
     // El peso hecho pasa a las series siguientes compatibles; nunca a una reducida ni desde una aproximación (D182).
     if (!wasDone) for (let i = cur + 1; i < ex.sets; i++) { const kk = setKey(ex.id, i); if (!sets[kk].done && !sets[kk].pend && carriesLoad(kindAt(ex.detail, cur), kindAt(ex.detail, i), labelAt(ex.detail, cur), labelAt(ex.detail, i))) sets[kk] = { ...sets[kk], w: curRow.w }; }
