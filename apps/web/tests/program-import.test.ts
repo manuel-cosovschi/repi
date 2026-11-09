@@ -139,6 +139,31 @@ describe("SI2 · alumno: de la vista previa a «Mis rutinas»", () => {
     expect(await err(own.saveImportedRoutines(user, { opId: "x", source: "text", file: "text", routines: [{ name: "A", exercises: [ok], origin: [] }] }))).toMatchObject({ code: "invalid" });
   });
 
+  it("FSA1 · «Mis rutinas»: otra persona no lee, edita, duplica, borra ni empieza una rutina ajena; el tope resiste guardados simultáneos", async () => {
+    const { user } = await coachWithClient();
+    const other = (await coachWithClient()).user;
+    const ok = { exerciseId: SQUAT, sets: 3, reps: "10", weightKg: 60, restSec: null, note: null };
+    const { id } = await own.saveOwnRoutine(user, { name: "Mía", exercises: [ok] });
+    expect(await own.listOwnRoutines(other)).toEqual([]);
+    for (const p of [own.saveOwnRoutine(other, { id, name: "Ajena", exercises: [ok] }), own.duplicateOwnRoutine(other, id), own.deleteOwnRoutine(other, id), own.startOwnRoutine(other, id, randomUUID())]) {
+      expect(await err(p)).toMatchObject({ code: "not_found", status: 404 });
+    }
+    expect((await routinesOf(user)).map((r) => [r.name, r.exercises[0].weightKg])).toEqual([["Mía", 60]]);
+    // Repetir: cada «Empezar» es una sesión nueva; el mismo id (reintento) no crea otra.
+    const s1 = randomUUID();
+    await own.startOwnRoutine(user, id, s1);
+    await own.startOwnRoutine(user, id, s1);
+    expect(await db.select().from(schema.workoutSession).where(eq(schema.workoutSession.userId, user))).toHaveLength(1);
+    // Tope: con 28 guardadas, cuatro «Guardar»/«Duplicar» y una importación a la vez dejan exactamente 30.
+    for (let i = 0; i < 27; i++) await own.saveOwnRoutine(user, { name: `R${i}`, exercises: [ok] });
+    const res = await Promise.allSettled([
+      ...[1, 2, 3].map((i) => own.saveOwnRoutine(user, { name: `X${i}`, exercises: [ok] })), own.duplicateOwnRoutine(user, id),
+      own.saveImportedRoutines(user, { opId: randomUUID(), source: "text", file: "text", routines: [{ name: "Imp", exercises: [{ ...ok, detail: null }], origin: [] }] }),
+    ]);
+    expect(res.filter((r) => r.status === "fulfilled")).toHaveLength(2);
+    expect(await routinesOf(user)).toHaveLength(30);
+  });
+
   it("caso 21 · un día con más ejercicios que el tope se parte en la vista previa, sin perder ninguno", async () => {
     const { user } = await coachWithClient();
     const text = `Día A\n${Array.from({ length: 15 }, (_, i) => `Sentadilla ${i + 1}x10`.replace(/ (\d+)x/, " 3x")).join("\n")}`;

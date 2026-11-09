@@ -135,11 +135,16 @@ export async function saveOwnRoutine(userId: string, p: Input) {
     await audit(db, { actorUserId: userId, action: "own_routine.updated", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length, methods: c.exercises.filter((e) => e.detail).length } });
     return { id: r.id };
   }
-  const mine = await db.select({ id: ownRoutine.id }).from(ownRoutine).where(eq(ownRoutine.userId, userId));
-  if (mine.length >= OWN_ROUTINES_MAX) throw new AccessError("invalid", `Podés guardar hasta ${OWN_ROUTINES_MAX} rutinas. Borrá alguna que ya no uses.`);
-  const [r] = await db.insert(ownRoutine).values({ userId, name: c.name, exercises: c.exercises, createdAt: now, updatedAt: now }).returning();
-  await audit(db, { actorUserId: userId, action: "own_routine.created", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length, methods: c.exercises.filter((e) => e.detail).length } });
-  return { id: r.id };
+  // FSA1: el tope se cuenta con el mismo lock por persona que la importación: dos «Guardar» o «Duplicar» a la vez (o una
+  // importación en curso) no pasan de OWN_ROUTINES_MAX.
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`own-routine-import:${userId}`}))`);
+    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(ownRoutine).where(eq(ownRoutine.userId, userId));
+    if (n >= OWN_ROUTINES_MAX) throw new AccessError("invalid", `Podés guardar hasta ${OWN_ROUTINES_MAX} rutinas. Borrá alguna que ya no uses.`);
+    const [r] = await tx.insert(ownRoutine).values({ userId, name: c.name, exercises: c.exercises, createdAt: now, updatedAt: now }).returning();
+    await audit(tx, { actorUserId: userId, action: "own_routine.created", resourceType: "own_routine", resourceId: r.id, meta: { exercises: c.exercises.length, methods: c.exercises.filter((e) => e.detail).length } });
+    return { id: r.id };
+  });
 }
 
 /** D184: duplicar una rutina propia (con sus métodos y etapas, que conservan su identidad dentro de la copia). */
