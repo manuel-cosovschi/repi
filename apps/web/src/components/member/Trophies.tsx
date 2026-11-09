@@ -115,10 +115,17 @@ export function TrophyUnlock({ items, onDone }: { items: Unlock[]; onDone: () =>
   const btn = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onDone(); };
+    // FSA1 (UI): diálogo modal a pantalla completa. Tab no sale a la página de atrás (el único control es el botón) y, al
+    // cerrar, el foco vuelve a donde estaba (p. ej. la tarjeta del trofeo que se tocó).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDone();
+      else if (e.key === "Tab") { e.preventDefault(); btn.current?.focus(); }
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onDone]);
+  const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
+  useEffect(() => () => { if (opener?.isConnected) opener.focus({ preventScroll: true }); }, [opener]);
 
   useLayoutEffect(() => {
     const el = root.current;

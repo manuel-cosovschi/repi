@@ -105,12 +105,17 @@ export function DemoTour() {
   const total = role ? TOURS[role].steps.length : 0;
   const next = useCallback(() => setI((x) => Math.min(total - 1, x + 1)), [total]);
   const prev = useCallback(() => setI((x) => Math.max(0, x - 1)), []);
+  // FSA1 (UI): al cerrar la guía con Esc o «Salir», el foco pasa a «Guía» de la píldora (antes quedaba en <body>).
+  const guide = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+  const close = useCallback(() => { refocus.current = true; setOpen(false); }, []);
+  useEffect(() => { if (!open && refocus.current) { refocus.current = false; guide.current?.focus(); } }, [open]);
   useEffect(() => {
     if (!inApp || !open) return;
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") prev(); };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") prev(); };
     addEventListener("keydown", k);
     return () => removeEventListener("keydown", k);
-  }, [inApp, open, next, prev]);
+  }, [inApp, open, next, prev, close]);
 
   if (!inApp || !role || !step) return null;
   const last = i === total - 1;
@@ -128,12 +133,12 @@ export function DemoTour() {
               ? <a className="dt-pri" href="/demo">Probar otro perfil</a>
               : <button type="button" className="dt-pri" onClick={next}>{i === 0 ? "Empezar" : "Siguiente"}</button>}
           </div>
-          <button type="button" className="dt-x" onClick={() => setOpen(false)}>{last ? "Explorar por mi cuenta" : "Salir de la guía"}</button>
+          <button type="button" className="dt-x" onClick={close}>{last ? "Explorar por mi cuenta" : "Salir de la guía"}</button>
         </div>
       ) : (
         <div className="dt-pill">
           <span>Demo</span>
-          <button type="button" onClick={() => setOpen(true)}>Guía</button>
+          <button ref={guide} type="button" onClick={() => setOpen(true)}>Guía</button>
           <a href="/demo">Otro perfil</a>
         </div>
       )}

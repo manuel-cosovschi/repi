@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBackdropClose } from "./backdrop";
 import { useScrollLock } from "./scrollLock";
@@ -15,8 +15,11 @@ export function Modal({ label, onClose, children, wide, className }: { label: st
   // M06: al cerrar, el diálogo deja de existir en el acto y una copia inerte se achica y se desvanece (150 ms).
   const bg = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => { const n = bg.current; return () => ghostOut(n, "modal"); }, []);
+  // FSA1 (UI): el botón que abrió el modal se toma en el primer render. En el efecto ya es tarde si un campo del modal tiene
+  // autoFocus (React lo enfoca antes): se guardaba ese campo y, al cerrar, el foco se perdía en <body>.
+  const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
+    const prev = opener;
     const root = ref.current!;
     const focusables = () => [...root.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute("disabled"));
     (focusables()[0] ?? root).focus();
@@ -43,7 +46,7 @@ export function Modal({ label, onClose, children, wide, className }: { label: st
     const main = document.querySelector("main");
     main?.setAttribute("inert", "");
     return () => { document.removeEventListener("keydown", onKey); main?.removeAttribute("inert"); prev?.focus?.(); };
-  }, []);
+  }, [opener]);
   // Portal fuera de <main> para poder marcar el fondo como inerte.
   const backdrop = useBackdropClose(onClose);
   return createPortal(

@@ -1,7 +1,7 @@
 "use client";
 // Hoja inferior de App Alumno v4 (`fbSheet`): título, cierre, grupos de chips, aviso, texto, video y acción.
 // Accesible: diálogo modal, foco inicial y atrapado, Esc cierra, fondo inerte, foco restaurado.
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBackdropClose } from "@/components/ui/backdrop";
 import { Ic } from "@/components/ui/Ic";
@@ -28,8 +28,10 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
   // M06: al cerrar, la hoja deja de existir en el acto (foco, lectores, pruebas) y una copia inerte baja y se desvanece.
   const bg = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => { const n = bg.current; return () => ghostOut(n, "sheet"); }, []);
+  // FSA1 (UI): quien abrió la hoja se toma en el primer render (un autoFocus adentro se adelanta al efecto).
+  const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
+    const prev = opener;
     const root = ref.current!;
     const focusables = () => [...root.querySelectorAll<HTMLElement>("button,[href],input,textarea,[tabindex]:not([tabindex='-1'])")].filter((el) => !el.hasAttribute("disabled"));
     root.focus();
@@ -47,7 +49,7 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
     const col = document.querySelector(".mb-col");
     col?.setAttribute("inert", "");
     return () => { document.removeEventListener("keydown", onKey); col?.removeAttribute("inert"); prev?.focus?.(); };
-  }, []);
+  }, [opener]);
   return createPortal(
     <div ref={bg} className="sheet-bg" {...backdrop}>
       <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
