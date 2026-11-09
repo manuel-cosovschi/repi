@@ -99,7 +99,7 @@ export class HistoryImportReadJob<T> {
   private finished = false;
   private result: T | undefined;
   private done = new Set<number>();
-  constructor(readonly fileName: string, readonly parts: HistoryImportPart[], private readonly sourceText: string) {}
+  constructor(readonly fileName: string, readonly parts: HistoryImportPart[], private readonly sourceText: string, private readonly approx?: { sessions: number; from: string; to: string }) {}
 
   private status(value: HistoryImportJobStatus): HistoryImportJobStatus {
     if (!value || typeof value.id !== "string" || !value.id || value.total !== this.parts.length || !Array.isArray(value.completed)
@@ -117,7 +117,7 @@ export class HistoryImportReadJob<T> {
       const digest = globalThis.crypto?.subtle ? await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(this.sourceText)) : null;
       if (signal?.aborted) throw aborted();
       const inputHash = digest ? Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("") : undefined;
-      status = this.status(await requestJson<HistoryImportJobStatus>("/api/me/history-import-job", { fileName: this.fileName, parts: this.parts.length, ...(inputHash ? { inputHash } : {}) }, signal));
+      status = this.status(await requestJson<HistoryImportJobStatus>("/api/me/history-import-job", { fileName: this.fileName, parts: this.parts.length, ...(inputHash ? { inputHash } : {}), ...(this.approx ? { approx: this.approx } : {}) }, signal));
       this.id = status.id;
     }
     this.done = new Set(status.completed);

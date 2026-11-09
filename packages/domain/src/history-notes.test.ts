@@ -87,11 +87,21 @@ describe("lectura rápida y completa de notas de entrenamiento", () => {
 
   it("rechaza la vía rápida completa ante una línea o dato sin explicar", () => {
     const good = "12/03/2024\nPress (105kg)\n5;5;5;4\n";
-    for (const extra of ["Me dolió el hombro", "Remo (20kg)\n12;once", "Remo (20kg)\n12;", "Remo\n", "descanso 90s", "Remo 3x10 5000kg", "Remo 3x201 20kg", "Remo 0x10 20kg", "13/03/2024\n", "2025\n"]) {
+    for (const extra of ["Me dolió el hombro", "Remo (20kg)\n12;once", "Remo (20kg)\n70:8;8;8", "Remo (20kg)\n12,5", "Remo\n", "descanso 90s", "Remo 3x10 5000kg", "Remo 3x201 20kg", "Remo 0x10 20kg", "13/03/2024\n", "2025\n"]) {
       expect(read(good + extra), extra).toBeNull();
     }
     expect(read("Press (105kg)\n5;5;5;4")).toBeNull();
     expect(read("12/03/2024\nPress (105kg)\nRemo (20kg)\n12;11")).toBeNull();
+  });
+
+  // 09/11: formas del historial real de un alumno que antes iban enteras a la lectura automática (y ésta las omitía).
+  it("lee series con su propia carga, marcas de drop o fallo y separadores mezclados, sin inventar series", () => {
+    const parsed = read("12/03/2024\nLaterales con mancuernas\n13(16kg) 13(8kg)\n12 (16kg); 12 (8kg)\nPolea (5 ladrillos)\n14;12;10;\nSillon (99kg)\n17;18;18+drop\n9;8;8;6+fallo\nCurl (12kg)\n9;9;9,8\n130kg: 4;3:3:3\n")!;
+    const by = (name: string) => parsed.sets.filter((x) => x.exercise === name).map((x) => [x.weightKg, x.reps]);
+    expect(by("Laterales con mancuernas")).toEqual([[16, 13], [8, 13], [16, 12], [8, 12]]);
+    expect(by("Polea")).toEqual([[null, 14], [null, 12], [null, 10]]);
+    expect(by("Sillon")).toEqual([[99, 17], [99, 18], [99, 18], [99, 9], [99, 8], [99, 8], [99, 6]]);
+    expect(by("Curl")).toEqual([[12, 9], [12, 9], [12, 9], [12, 8], [130, 4], [130, 3], [130, 3], [130, 3]]);
   });
 
   it("rechaza fechas inválidas, futuras, contradictorias y cronologías ambiguas", () => {

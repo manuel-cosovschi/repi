@@ -161,7 +161,9 @@ describe("historial anterior", () => {
   });
   it("sin IA disponible, lo que no es planilla se explica; vacío o formato raro se rechaza", async () => {
     const u = await verified();
-    expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "lunes sentadilla 3x10 60" })))?.code).toBe("ai_unavailable");
+    // 09/11: sin ninguna fecha escrita se avisa antes de intentar leer (REPI no inventa fechas); con fecha y sin IA, se explica.
+    expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "lunes sentadilla 3x10 60" })))?.code).toBe("no_dates");
+    expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "12/03/2024\nsentadilla tres series pesadas" })))?.code).toBe("ai_unavailable");
     expect((await err(hi.previewHistoryImport(u, { fileName: "x.png", kind: "image", dataUrl: "data:text/html;base64,PGgxPg==" })))?.code).toBe("invalid");
     expect((await err(hi.previewHistoryImport(u, { fileName: "v.csv", kind: "text", text: "   " })))?.code).toBe("invalid");
     expect((await err(aiSoloAdvice(u)))?.code).toBe("ai_unavailable"); // D133: sin clave, el plan con reglas sigue y la IA avisa

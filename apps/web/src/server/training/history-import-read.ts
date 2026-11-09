@@ -1,5 +1,5 @@
 // Lectura completa del historial: bloques de texto con contexto, sin recortar el original.
-import { parseHistoryCsv, parseHistoryNotes, partitionHistoryNotes, splitHistoryText, type HistoryTextChunk, type ImportSet } from "@repi/domain";
+import { NO_DATES_MESSAGE, dateIsWritten, historyDateEvidence, parseHistoryCsv, parseHistoryNotes, partitionHistoryNotes, splitHistoryText, type HistoryTextChunk, type ImportSet } from "@repi/domain";
 import { aiJson, aiOn, type AiPart } from "../ai/openai";
 import { AccessError } from "../access/util";
 import { logError } from "../log";
@@ -40,7 +40,9 @@ Hoy es ${today}. Reglas:
 - Salida compacta: agrupá series consecutivas del mismo ejercicio y peso en un elemento de sets. Cada repetición va en el array reps: «3x10 con 60» → {"weight_kg":60,"reps":[10,10,10],"seconds":[]}. «105 kg: 5;5;5;4» → {"weight_kg":105,"reps":[5,5,5,4],"seconds":[]}. Nunca resumas ni quites series iguales.
 - Tiempo: array seconds, por ejemplo [60,45]; si no hay repeticiones, reps []. Si ambos arrays tienen datos, deben tener igual longitud (null donde falte el valor). Si sólo se conoce el peso, reps lleva un null por cada serie (tres series de sólo peso: reps [null,null,null], seconds []). No colapses series sin repeticiones. Libras a kilos (× 0,4536). Peso corporal o carga desconocida: weight_kg null.
 - Nombres de ejercicios en español, como los escribió la persona (corregí sólo errores evidentes de tipeo).
-- No inventes nada. Si algo no se lee o es ambiguo, omitilo y explicalo brevemente en notes (en español). Sin fecha legible, no se incluye.`;
+- Fechas: sólo las escritas en el texto (o en el contexto, para una continuación). NUNCA uses la fecha de hoy ni inventes una: una sesión sin fecha escrita se omite entera (no la agregues a sessions).
+- No inventes nada. Si algo no se lee o es ambiguo, omitilo.
+- notes: como máximo 3 aclaraciones breves para la persona, en español simple, sólo sobre lo que omitiste o no pudiste leer. Nunca nombres de campos ni términos técnicos (weight_kg, reps, null, array, JSON).`;
 
 /** Tiempo máximo de un pedido a la IA. Si un bloque denso no termina, se divide y se relee por partes (ver readTextChunk). */
 export const AI_ATTEMPT_MS = 90_000;
@@ -48,7 +50,8 @@ export const AI_ATTEMPT_MS = 90_000;
  *  terminaba en el plazo). */
 export const AI_CHUNK_CHARS = 4_000;
 
-async function readPart(f: ImportFile, today: string, context = "", timeoutMs = AI_ATTEMPT_MS): Promise<{ sets: ImportSet[]; notes: string[] }> {
+type Read = { sets: ImportSet[]; notes: string[]; undated: number };
+async function readPart(f: ImportFile, today: string, context = "", timeoutMs = AI_ATTEMPT_MS): Promise<Read> {
   const parts: AiPart[] = [{ type: "text", text: `Archivo: ${f.fileName.slice(0, 120)}. Transcribí el historial de entrenamiento.` }];
   if (context) parts.push({ type: "text", text: `Contexto del historial (sólo referencia para fechas, año y ejercicio; NO transcribir sus series):\n${context}` });
   if (f.kind === "text") parts.push({ type: "text", text: `Parte a transcribir completa (incluí todas sus series, hasta la última línea):\n${f.text ?? ""}` });
@@ -64,12 +67,18 @@ async function readPart(f: ImportFile, today: string, context = "", timeoutMs = 
       sets.push({ day: s.date, exercise: e.name, weightKg: x.weight_kg, reps: x.reps[i] ?? null, seconds: x.seconds[i] ?? null });
     }
   }
+  let undated = 0, kept = sets;
   if (f.kind === "text") {
+    // Incidente 09/11: una serie sólo vale con una fecha escrita en el texto (o en el contexto de la continuación). Las que la
+    // lectura fechó por su cuenta (por ejemplo, con el día de hoy) no se cargan y se informan.
+    const ev = historyDateEvidence(`${context}\n${f.text ?? ""}`);
+    kept = sets.filter((s) => dateIsWritten(s.day, ev));
+    undated = sets.length - kept.length;
     const expectedDays = numericDatedDays(f.text ?? "");
-    const covered = new Set(sets.map((set) => set.day));
+    const covered = new Set(kept.map((set) => set.day));
     if (expectedDays.some((day) => !covered.has(day))) throw new AccessError("ai_bad_output", "La lectura omitió una fecha del historial. Reintentá esa parte para completarla.", 422);
   }
-  return { sets, notes: (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 10) };
+  return { sets: kept, notes: (out.notes ?? []).map((n) => String(n).slice(0, 300)).slice(0, 3), undated };
 }
 
 async function readTextChunk(f: ImportFile, today: string, chunk: HistoryTextChunk, deadline: number): Promise<Awaited<ReturnType<typeof readPart>>> {
@@ -91,12 +100,12 @@ async function readTextChunk(f: ImportFile, today: string, chunk: HistoryTextChu
     const parts = splitHistoryText(chunk.text, Math.max(256, Math.floor(chunk.text.length / 2)));
     const results = [];
     for (const part of parts) results.push(await readTextChunk(f, today, { text: part.text, context: [chunk.context, part.context].filter(Boolean).join("\n") }, deadline));
-    return { sets: results.flatMap((r) => r.sets), notes: results.flatMap((r) => r.notes) };
+    return { sets: results.flatMap((r) => r.sets), notes: results.flatMap((r) => r.notes), undated: results.reduce((n, r) => n + r.undated, 0) };
   }
 }
 
 /** Si falla una parte no se devuelve una lectura parcial ni se crea la vista previa. */
-export async function readHistoryWithAi(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 240_000): Promise<{ sets: ImportSet[]; notes: string[] }> {
+export async function readHistoryWithAi(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 240_000): Promise<Read> {
   if (f.kind !== "text") {
     onProgress?.({ stage: "reading", completed: 0, total: 1 });
     const result = await readPart(f, today, "", Math.min(AI_ATTEMPT_MS, Math.max(1, deadline - Date.now())));
@@ -119,23 +128,26 @@ export async function readHistoryWithAi(f: ImportFile, today: string, onProgress
     }
   }
   await Promise.all(Array.from({ length: Math.min(4, chunks.length) }, () => worker()));
-  return { sets: results.flatMap((r) => r.sets), notes: [...new Set(results.flatMap((r) => r.notes))] };
+  return { sets: results.flatMap((r) => r.sets), notes: [...new Set(results.flatMap((r) => r.notes))], undated: results.reduce((n, r) => n + r.undated, 0) };
 }
 
 /** Formatos claros se estructuran en el servidor; sólo las sesiones desconocidas requieren transcripción. */
-export async function readHistoryInput(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 240_000) {
+export type HistoryRead = { sets: ImportSet[]; notes: string[]; undated?: number; source: "csv" | "notes" | "ai" };
+export async function readHistoryInput(f: ImportFile, today: string, onProgress?: (p: HistoryImportProgress) => void, context = "", deadline = Date.now() + 240_000): Promise<HistoryRead> {
   onProgress?.({ stage: "reading" });
   if (f.kind === "text" && !context) {
     const csv = parseHistoryCsv(f.text ?? "");
-    if (csv) return { sets: csv, notes: [], source: "csv" as const };
+    if (csv) return { sets: csv, notes: [], undated: 0, source: "csv" as const };
     const notes = parseHistoryNotes(f.text ?? "", today);
-    if (notes) return { ...notes, source: "notes" as const };
+    if (notes) return { ...notes, undated: 0, source: "notes" as const };
+    // Sin ninguna fecha escrita no hay historial que ubicar en el tiempo: se avisa antes de gastar la lectura automática.
+    if (!historyDateEvidence(f.text ?? "").count) throw new AccessError("no_dates", NO_DATES_MESSAGE, 422);
     const partitioned = partitionHistoryNotes(f.text ?? "", today);
     if (partitioned) {
-      type Segment = { text: string; days: Set<string>; requiredDays: Set<string>; count: number; result?: { sets: ImportSet[]; notes: string[] } };
+      type Segment = { text: string; days: Set<string>; requiredDays: Set<string>; count: number; result?: Read };
       const segments: Segment[] = [];
       for (const block of partitioned.blocks) {
-        if (block.parsed) segments.push({ text: "", days: new Set([block.day]), requiredDays: new Set([block.day]), count: 1, result: block.parsed });
+        if (block.parsed) segments.push({ text: "", days: new Set([block.day]), requiredDays: new Set([block.day]), count: 1, result: { ...block.parsed, undated: 0 } });
         else {
           const last = segments.at(-1);
           if (last && !last.result && last.text.length + block.text.length + 1 <= AI_CHUNK_CHARS) {
@@ -162,7 +174,8 @@ export async function readHistoryInput(f: ImportFile, today: string, onProgress?
         }
       }
       await Promise.all(Array.from({ length: Math.min(4, pending.length) }, () => worker()));
-      return { sets: segments.flatMap((segment) => segment.result!.sets), notes: [...new Set(segments.flatMap((segment) => segment.result!.notes))], source: pending.length ? "ai" as const : "notes" as const };
+      return { sets: segments.flatMap((segment) => segment.result!.sets), notes: [...new Set(segments.flatMap((segment) => segment.result!.notes))],
+        undated: segments.reduce((n, segment) => n + segment.result!.undated, 0), source: pending.length ? "ai" as const : "notes" as const };
     }
   }
   if (!aiOn()) throw new AccessError("ai_unavailable", "Por ahora podemos leer planillas y notas con fechas, ejercicios y series claras. Revisá el formato o probá de nuevo en un rato.", 503);

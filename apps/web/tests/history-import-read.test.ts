@@ -70,7 +70,7 @@ describe("lectura completa del historial largo", () => {
       { weight_kg: null, reps: [], seconds: [60, 45] },
     ] }] }], notes: [] });
     const updates: { stage: string; completed?: number; total?: number }[] = [];
-    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text: "notas complejas" }, "2026-11-06", (p) => updates.push(p));
+    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text: "12/03/2024\nnotas complejas" }, "2026-11-06", (p) => updates.push(p));
     expect(out.sets.map((s) => [s.weightKg, s.reps, s.seconds])).toEqual([
       [105, 5, null], [105, 5, null], [105, 5, null], [105, 4, null], [80, 6, 30], [80, 5, 40], [null, null, 60], [null, null, 45],
     ]);
@@ -141,6 +141,25 @@ describe("lectura completa del historial largo", () => {
     await expect(readHistoryWithAi({ fileName: "Historial", kind: "text", text }, "2026-11-06", undefined, "", Date.now() + 10_000))
       .rejects.toMatchObject({ code: "ai_incomplete", message: expect.stringContaining("Continuar") });
     expect(logError).toHaveBeenCalledTimes(1);
+  });
+
+  // Incidente 09/11 (segunda parte): el historial no tenía fechas y la lectura le puso a 9135 series la fecha de hoy.
+  it("un historial sin ninguna fecha escrita se rechaza con un mensaje claro y sin gastar la lectura automática", async () => {
+    const text = "Semana 1\nDía A\nPress plano (105kg)\n5;5;5;4\nPolea (5 ladrillos) 17;16;13\n".repeat(50);
+    await expect(readHistoryInput({ fileName: "Sin fechas", kind: "text", text }, "2026-11-09")).rejects.toMatchObject({ code: "no_dates", message: expect.stringContaining("no inventa fechas") });
+    expect(mockAi).not.toHaveBeenCalled();
+  });
+
+  it("descarta las series que la lectura fechó con un día que no está escrito (por ejemplo, hoy) y las informa", async () => {
+    const text = "12/03/2024\nPress plano (105kg)\n5;5;5;4\nSemana de descarga\nCurl 12;10";
+    mockAi.mockResolvedValue({ sessions: [
+      { date: "2024-03-12", exercises: [{ name: "Press plano", sets: [{ weight_kg: 105, reps: [5, 5, 5, 4], seconds: [] }] }] },
+      { date: "2026-11-09", exercises: [{ name: "Curl", sets: [{ weight_kg: null, reps: [12, 10], seconds: [] }] }] },
+    ], notes: ["Se asignó la fecha actual al bloque sin fecha.", "weight_kg es null en Curl."] });
+    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text }, "2026-11-09");
+    expect(out.sets.map((x) => x.day)).toEqual(["2024-03-12", "2024-03-12", "2024-03-12", "2024-03-12"]);
+    expect(out.undated).toBe(2);
+    expect(mockAi.mock.calls[0][0].system).toContain("NUNCA uses la fecha de hoy");
   });
 
   it("mantiene la lectura de fotos y PDF en una sola petición", async () => {
