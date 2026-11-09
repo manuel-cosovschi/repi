@@ -66,7 +66,7 @@ export async function personMetrics(orgId: string, locationIds: string[], userId
 export async function locationOutcomes(locationIds: string[], now = new Date()) {
   if (!locationIds.length) return null;
   const members = await db.select({ id: gymMember.id }).from(gymMember).where(and(inArray(gymMember.locationId, locationIds), eq(gymMember.status, "active")));
-  if (!members.length) return { members: 0, withProgram: null, trained30: null, twoPerWeek: null, sessions30: 0 };
+  if (!members.length) return { members: 0, withProgram: null, trained30: null, twoPerWeek: null, sessions30: 0, trainedN: 0 };
   const ids = members.map((m) => m.id);
   const withProg = await db.select({ id: programAssignment.gymMemberId }).from(programAssignment).where(and(inArray(programAssignment.gymMemberId, ids), eq(programAssignment.status, "active")));
   const s = await db.select({ gm: workoutSession.gymMemberId, endedAt: workoutSession.endedAt }).from(workoutSession)
@@ -76,7 +76,7 @@ export async function locationOutcomes(locationIds: string[], now = new Date()) 
   for (const x of s28) per.set(x.gm!, (per.get(x.gm!) ?? 0) + 1);
   const trained = new Set(s.map((x) => x.gm));
   return {
-    members: ids.length, sessions30: s.length,
+    members: ids.length, sessions30: s.length, trainedN: trained.size, // FSA1: cantidad real (el embudo no la reconstruye desde el %)
     withProgram: Math.round((withProg.length / ids.length) * 100),
     trained30: Math.round((trained.size / ids.length) * 100),
     twoPerWeek: Math.round(([...per.values()].filter((n) => n >= 8).length / ids.length) * 100), // 2+ por semana en 4 semanas
@@ -178,7 +178,7 @@ export async function managerPanel(actorId: string, orgId: string, locationId: s
     .where(and(inArray(gymTask.locationId, ids), inArray(gymTask.status, ["open", "pending_acceptance", "in_progress", "follow_up"])));
   const [done7] = await db.select({ n: sql<number>`count(*)::int` }).from(gymTask).where(and(inArray(gymTask.locationId, ids), eq(gymTask.status, "done"), gte(gymTask.completedAt, addDays(now, -7))));
   const openTasks = onShift.length ? await db.select({ u: gymTask.assigneeUserId, n: sql<number>`count(*)::int` }).from(gymTask)
-    .where(and(inArray(gymTask.assigneeUserId, onShift.map((o) => o.id)), inArray(gymTask.status, ["open", "in_progress", "follow_up"]))).groupBy(gymTask.assigneeUserId) : [];
+    .where(and(inArray(gymTask.assigneeUserId, onShift.map((o) => o.id)), inArray(gymTask.locationId, ids), inArray(gymTask.status, ["open", "in_progress", "follow_up"]))).groupBy(gymTask.assigneeUserId) : [];
   const revs = await db.select().from(review).where(and(inArray(review.locationId, ids), gte(review.createdAt, addDays(now, -30))));
   const agg = reviewAggregate(revs.map((r) => ({ stars: r.stars, dims: [r.dim1, r.dim2, r.dim3], status: r.status as ReviewStatus })));
   const members = await db.select({ id: gymMember.id }).from(gymMember).where(and(inArray(gymMember.locationId, ids), eq(gymMember.status, "active")));
@@ -227,7 +227,7 @@ export async function engagement(actorId: string, orgId: string, locationId: str
       .where(and(inArray(workoutSession.gymMemberId, members.map((m) => m.id)), eq(workoutSession.status, "completed"), gte(workoutSession.endedAt, from), lt(workoutSession.endedAt, to))) : [{ n: 0 }];
     return { label: `S${i + 1}`, perMember: members.length ? Math.round(((r?.n ?? 0) / members.length) * 10) / 10 : null };
   }));
-  const trained30 = out && out.members ? Math.round(((out.trained30 ?? 0) * out.members) / 100) : 0;
+  const trained30 = out?.trainedN ?? 0;
   return {
     funnel: [
       { label: "Padrón del gym", n: counts.roster, note: "Cargado por el gym" },
@@ -266,7 +266,9 @@ export async function executive(actorId: string, orgId: string, now = new Date()
     const revs = await db.select().from(review).where(and(eq(review.locationId, l.id), gte(review.createdAt, addDays(now, -90))));
     const agg = reviewAggregate(revs.map((r) => ({ stars: r.stars, dims: [r.dim1, r.dim2, r.dim3], status: r.status as ReviewStatus })));
     const fu = await db.select().from(gymTask).where(and(eq(gymTask.locationId, l.id), eq(gymTask.category, "seguimiento"), isNotNull(gymTask.dueAt), gte(gymTask.dueAt, addDays(now, -30)), lt(gymTask.dueAt, now)));
-    const staffN = (await staffIn(orgId, [l.id])).filter((s) => s.locationId === l.id).length;
+    // FSA1: quien trabaja en varias sedes cuenta en cada una (antes una fila por persona dejaba a una sede sin contarla).
+    const [{ n: staffN }] = await db.select({ n: sql<number>`count(distinct ${staffMembership.userId})::int` }).from(staffMembership)
+      .where(and(eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active"), inArray(staffMembership.role, ["floor_trainer", "coordinator"]), eq(staffMembership.locationId, l.id)));
     return {
       id: l.id, name: l.name, roster: c.roster, members: c.members, linked: c.linked, adoption: c.adoption,
       sessions30: o?.sessions30 ?? 0, perMember30: o && o.members ? Math.round(((o.sessions30 ?? 0) / o.members) * 10) / 10 : null,

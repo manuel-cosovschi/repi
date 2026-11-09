@@ -632,19 +632,22 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     const from = addIso(week0, -7 * (7 - i)); const to = addIso(from, 7);
     return { label: `S${i + 1}`, n: sessions.filter((s) => { const d = localDate(s.endedAt!); return d >= from && d < to; }).length };
   });
-  const notes = await db.select({ n: gymNote, author: user.name }).from(gymNote).innerJoin(user, eq(user.id, gymNote.authorUserId))
-    .where(and(eq(gymNote.gymMemberId, m.m.id), isNull(gymNote.deletedAt), or(eq(gymNote.kind, "institutional"), eq(gymNote.authorUserId, actorId)))).orderBy(desc(gymNote.createdAt));
+  // FSA1: series (con sensación y notas, que pueden hablar de molestias) y notas del equipo son del equipo de entrenamiento de la
+  // sede (D178, «Qué ve el gym de cada socio»). Dueño y gerencia administran el gimnasio: ven asistencia agregada, no esto.
+  const team = gymCan(rolesAt(ctx, m.m.locationId), "floor.work");
+  const notes = team ? await db.select({ n: gymNote, author: user.name }).from(gymNote).innerJoin(user, eq(user.id, gymNote.authorUserId))
+    .where(and(eq(gymNote.gymMemberId, m.m.id), isNull(gymNote.deletedAt), or(eq(gymNote.kind, "institutional"), eq(gymNote.authorUserId, actorId)))).orderBy(desc(gymNote.createdAt)) : [];
   const tasks = await db.select(taskCols).from(gymTask).where(and(eq(gymTask.gymMemberId, m.m.id), inArray(gymTask.status, [...ACTIVE]))).orderBy(asc(gymTask.createdAt));
   const lastAt = sessions[0]?.endedAt ?? null;
   // D178: las últimas sesiones con cada serie (peso, repeticiones, RIR), sólo si el socio compartió su entrenamiento.
-  const recent = g ? await db.select().from(workoutSession).where(and(eq(workoutSession.gymMemberId, m.m.id), inArray(workoutSession.status, ["completed", "in_progress", "paused"])))
+  const recent = g && team ? await db.select().from(workoutSession).where(and(eq(workoutSession.gymMemberId, m.m.id), inArray(workoutSession.status, ["completed", "in_progress", "paused"])))
     .orderBy(desc(workoutSession.startedAt)).limit(10) : [];
   const logs = await sessionLogs(recent.map((x) => x.id));
   // D147: lo que busca entrenando, sólo para quien arma su programa y sólo si el socio eligió compartirlo.
   const builds = !!g && gymCan(rolesAt(ctx, m.m.locationId), "program.edit");
   const [pref] = builds ? await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, m.m.userId)) : [];
   return {
-    id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g,
+    id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g, seesTraining: team,
     wishes: builds ? sharedWishes(pref?.wishes as TrainingWishes | null) : null,
     // D206: lo que pidió el socio en su pedido de programa (se lo mandó al equipo): precarga «Armar con REPI».
     programBrief: gymCan(rolesAt(ctx, m.m.locationId), "program.edit") ? (() => { const b = [...tasks].reverse().find((t) => t.category === "programa_nuevo" && isCompleteBrief(t.context?.brief))?.context?.brief; return b ? briefToAssistant(b) : null; })() : null,
