@@ -509,7 +509,8 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     }),
     join: () => {
       const info = joinInfo;
-      if (!info) return { title: "Cargando tu sede…" };
+      // FSA1 (UI): QR vencido, borrado o sin conexión: no se queda «Cargando…» para siempre; se explica y hay salida.
+      if (!info) return err ? { title: "No pudimos abrir tu sede", secondary: [{ label: "Reintentar", go: () => window.location.reload() }, { label: "Ir a ingresar", go: () => start("login", "login") }] } : { title: "Cargando tu sede…" };
       const base = { info: { ini: initials(info.orgName), t: info.orgName, d: info.locationName } };
       if (!info.operational) return { ...base, title: "Este gimnasio todavía no habilitó REPI", sub: "Consultá en recepción cuándo va a estar disponible." };
       if (signedIn) {
@@ -579,7 +580,7 @@ export function AccessFlow({ initial, social }: { initial: AccessInitial; social
     },
     activate: () => {
       const a = actInfo;
-      if (!a) return { title: "Cargando tu invitación…" };
+      if (!a) return err ? { title: "No pudimos abrir tu invitación", secondary: [{ label: "Reintentar", go: () => window.location.reload() }, { label: "Ir a ingresar", go: () => start("login", "login") }] } : { title: "Cargando tu invitación…" };
       const info = { ini: initials(a.orgName), t: a.orgName, d: a.kind === "gym" ? "Gimnasio" : a.kind === "seller" ? "Vendedor REPI" : "Coach" };
       if (a.state !== "pending") return { info, title: a.state === "accepted" ? "Esta invitación ya se usó" : "La invitación no está vigente", sub: a.state === "accepted" ? "Ingresá con tu cuenta para entrar a tu espacio." : "Pedí una nueva al equipo de REPI.", secondary: [{ label: "Ir a ingresar", go: () => start("login", "login") }] };
       if (signedIn) return {
