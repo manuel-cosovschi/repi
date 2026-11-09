@@ -15,6 +15,7 @@ import * as h from "@/server/training/history";
 import * as ex from "@/server/progress/exercises";
 import * as bd from "@/server/progress/body";
 import * as ph from "@/server/progress/photos";
+import * as hi from "@/server/training/history-import";
 import { sessionCalories } from "@/server/progress/calories";
 import * as an from "@/server/announcements/services";
 import { markNotificationsSeen, myNotifications } from "@/server/notifications/feed";
@@ -145,6 +146,55 @@ describe("gráficos de entrenamiento", () => {
     expect((await err(ex.myExerciseProgress(other.id, EX["Press banca PP"], "all")))?.status).toBe(404);
     expect((await ex.myProgressExercises(other.id)).exercises).toEqual([]);
     expect((await err(ex.myExerciseProgress(w.coach, EX["Press banca PP"], "all")))?.status).toBe(404);
+  });
+});
+
+describe("FSA1 · cifras del progreso contra lo guardado", () => {
+  it("récords: 1RM contra 1RM y carga contra carga (80 × 8 no supera a 100 × 15; 75 × 15 sí supera a 60 × 10)", async () => {
+    const a = await world();
+    await trained(a.user, { bench: [[100, 15]], daysAgo: 30 }); // sin 1RM estimado (más de 12 reps)
+    await trained(a.user, { bench: [[80, 8], [80, 8]], daysAgo: 20 }); // 1RM est. 101,3 pero carga menor
+    await trained(a.user, { bench: [[110, 3]], daysAgo: 10 }); // carga mayor
+    const pa = await ex.myExerciseProgress(a.user, EX["Press banca PP"], "all");
+    expect(pa.points.map((p) => [p.topKg, p.e1rm, p.first, p.record])).toEqual([[100, null, true, false], [80, 101.3, false, false], [110, 121, false, true]]);
+    expect(pa.records).toBe(1);
+    const b = await world();
+    await trained(b.user, { bench: [[60, 10]], daysAgo: 20 });
+    await trained(b.user, { bench: [[75, 15]], daysAgo: 10 }); // más carga y más reps: récord aunque no tenga 1RM estimado
+    expect((await ex.myExerciseProgress(b.user, EX["Press banca PP"], "all")).points.map((p) => p.record)).toEqual([false, true]);
+  });
+
+  it("con series anuladas, corregidas, sesión anulada e historial importado: totales exactos de lo vigente", async () => {
+    const w = await world();
+    const s1 = await trained(w.user, { bench: [[60, 10], [62.5, 8], [100, 10]], pull: [8], cardioSec: 300, daysAgo: 12, minutes: 50 });
+    const s2 = await trained(w.user, { bench: [[65, 8], [65, 7]], daysAgo: 5, minutes: 40 });
+    const s3 = await trained(w.user, { bench: [[70, 5]], daysAgo: 2, minutes: 30 }); // se anula entera
+    const rows = await db.select().from(schema.setLog).where(eq(schema.setLog.sessionId, s1)).orderBy(schema.setLog.completedAt);
+    const bad = rows.find((r) => Number(r.weightKg) === 100)!, fix = rows.find((r) => Number(r.weightKg) === 62.5)!;
+    await h.setVoided(w.user, s1, bad.id, { requestId: randomUUID(), voided: true });
+    await h.correctSet(w.user, s1, fix.id, { requestId: randomUUID(), baseRevision: fix.revision, values: { weightKg: 62.5, reps: 9 } });
+    const [x3] = await db.select().from(schema.workoutSession).where(eq(schema.workoutSession.id, s3));
+    await h.sessionVoided(w.user, s3, { requestId: randomUUID(), voided: true, baseRevision: x3.revision });
+    // Historial anterior a REPI (planilla): 2 × 12 con 50 kg el 05/01/2024.
+    const imp = await hi.previewHistoryImport(w.user, { fileName: "antes.csv", kind: "text", text: "Fecha,Ejercicio,Series,Reps,Peso\n05/01/2024,Press banca PP,2,12,50\n" });
+    await hi.confirmHistoryImport(w.user, imp.id);
+
+    // Lo que dice la base, sumado a mano: s1 = 60×10 + 62,5×9 (la de 100 anulada) y s2 = 65×8 + 65×7.
+    const sum = await ex.myProgressSummary(w.user, "30d");
+    expect(sum.totals).toEqual({ sessions: 2, sets: 2 + 2 + 1 + 1, reps: 10 + 9 + 15 + 8, volumeKg: 600 + 562.5 + 520 + 455, activeMinutes: 90, exercises: 3 });
+    expect(sum.marks.find((m) => m.name === "Press banca PP")).toMatchObject({ sessions: 2, topKg: 65, repsAtTop: 8, e1rm: 82.3 });
+    const p = await ex.myExerciseProgress(w.user, EX["Press banca PP"], "all");
+    expect(p.points.map((x) => [x.source, x.day, x.sets, x.reps, x.volumeKg, x.topKg, x.e1rm, x.first, x.record])).toEqual([
+      ["import", "2024-01-05", 2, 24, 1200, 50, 70, true, false],
+      ["session", dayAgo(12), 2, 19, 1162.5, 62.5, 81.3, false, true],
+      ["session", dayAgo(5), 2, 15, 975, 65, 82.3, false, true],
+    ]);
+    expect(p.totals).toEqual({ sessions: 3, sets: 6, volumeKg: 3337.5, firstDay: "2024-01-05" });
+    expect(p.best).toEqual({ day: dayAgo(5), e1rm: 82.3, set: { weightKg: 65, reps: 8 } });
+    // El rango corta los puntos pero los récords se comparan con todo lo anterior.
+    const r30 = await ex.myExerciseProgress(w.user, EX["Press banca PP"], "30d");
+    expect(r30.points.map((x) => [x.first, x.record])).toEqual([[false, true], [false, true]]);
+    expect((await ex.myProgressExercises(w.user)).exercises.find((e) => e.name === "Press banca PP")).toMatchObject({ sessions: 2, imported: false });
   });
 });
 
