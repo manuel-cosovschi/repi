@@ -24,6 +24,8 @@ import * as guide from "@/server/gym/owner-assistant";
 import * as dc from "@/server/training/day-copy";
 import * as st from "@/server/training/set-types";
 import * as eqp from "@/server/gym/equipment";
+import * as kiosk from "@/server/gym/kiosk";
+import * as staff from "@/server/gym/staff-admin";
 import { CopyChoiceZ, SetTypeZ } from "@/server/training/workflow-schema";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
@@ -72,7 +74,8 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       return { ...d, community: await cm.memberCommunitySummary(orgId, b) }; // intentos y logros en la ficha (F-HX-15)
     }
     case "library": return gym.gymLibrary(me, orgId);
-    case "team": return gym.teamList(me, orgId, loc(u));
+    case "team": return b ? staff.staffAccess(me, orgId, b) : gym.teamList(me, orgId, loc(u)); // STF-09: gestionar a una persona
+    case "kiosk": return b === "members" && c ? kiosk.credentialStatus(me, orgId, c) : kiosk.kioskSettings(me, orgId); // D213
     case "shifts": return gym.weekPlan(me, orgId, loc(u) ?? "", u.searchParams.get("week"));
     case "perf":
       if (b === "me") return mt.myPerformance(me, orgId, period(u));
@@ -155,6 +158,17 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "intel-proposals" && b) return gym.decideMemberProposal(me, orgId, b, await body(req, z.object({ status: z.enum(["accepted", "modified", "rejected", "kept"]), note: z.string().max(200).nullable().optional() }))); // D191
   if (a === "members" && b && c === "notes") return gym.addNote(me, orgId, b, await body(req, z.object({ kind: z.enum(["institutional", "personal"]), text: z.string().max(1000) })));
   if (a === "members" && b && c === "conversation") return msg.floorConversationFor(me, orgId, b);
+  // STF-09 (D214): quitar del equipo o cambiar rol y sede.
+  if (a === "team" && b && c === "revoke") return staff.revokeStaff(me, orgId, b, (await body(req, z.object({ reason: z.string().max(200).nullable().optional() }))).reason ?? null);
+  if (a === "team" && b && c === "role") return staff.changeStaffRole(me, orgId, b, await body(req, z.object({ role: z.enum(staff.MANAGEABLE_ROLES), locationId: id.nullable() })));
+  // REPI Control (D213): pantallas de rutinas y credenciales de socios.
+  if (a === "kiosk" && b === "devices" && !c) { const p = await body(req, z.object({ loc: id, name: z.string().max(60) })); return kiosk.createKiosk(me, orgId, p.loc, p.name); }
+  if (a === "kiosk" && b === "devices" && c) { const [, , , d] = path; if (d === "revoke") return kiosk.revokeKiosk(me, orgId, c); }
+  if (a === "kiosk" && b === "members" && c) {
+    const [, , , d] = path;
+    if (d === "issue") return kiosk.issueCredential(me, orgId, c);
+    if (d === "revoke") return kiosk.revokeCredential(me, orgId, c);
+  }
   if (a === "team" && b && c === "after-hours") return gym.setAfterHours(me, orgId, b, (await body(req, z.object({ on: z.boolean() }))).on);
   if (a === "team" && b && c === "private") return gym.tryPrivate(me, orgId, b, (await body(req, z.object({ what: z.string().max(80) }))).what);
   if (a === "shifts") { const p = await body(req, z.object({ loc: id, userId: id, date: z.string().max(10), code: z.string().max(1).nullable() })); return gym.setPlanCell(me, orgId, p.loc, p); }

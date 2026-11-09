@@ -17,6 +17,13 @@ const config: NextConfig = {
         // Cámara (QR de ingreso) y ubicación (sede) sólo desde REPI; el resto apagado.
         { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=(), payment=(), usb=(), interest-cohort=()" },
       ],
+    }, {
+      // REPI Control (D213): la pantalla de rutinas y su API nunca quedan en una caché (ni del navegador ni compartida).
+      source: "/api/kiosk/:path*",
+      headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }, { key: "X-Robots-Tag", value: "noindex" }],
+    }, {
+      source: "/rutinas",
+      headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }, { key: "X-Robots-Tag", value: "noindex" }],
     }];
   },
 };

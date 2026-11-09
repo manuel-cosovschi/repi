@@ -5,12 +5,14 @@ import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { localDate, planSolo, type SoloContext, type SoloVariant } from "@repi/domain";
 import { db, schema } from "@/db";
 import { audit } from "../access/util";
+import { assertMemberAuthoring } from "../gym/routine-policy";
 import { myTraining } from "./services";
 
 const { workoutSession, setLog, checkin } = schema;
 
 export async function soloPlan(userId: string, variant: SoloVariant, now = new Date()) {
   const t = await myTraining(userId, now);
+  if (t.relation) await assertMemberAuthoring(userId, t.relation, "ai_adjust"); // D213: «No vino el profe» cambia lo prescrito
   const today = localDate(now);
   let open: SoloContext["open"] = null;
   if (t.openSession) {

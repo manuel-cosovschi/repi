@@ -10,6 +10,7 @@ import { aiFastModel, aiJson, aiOn } from "../ai/openai";
 import { mySettings } from "../settings/services";
 import { ensureExerciseCatalog, visibleIn } from "./library";
 import { lastSetByExercise, myActive, myTraining } from "./services";
+import { assertMemberAuthoring } from "../gym/routine-policy";
 
 const { exercise, checkin } = schema;
 
@@ -61,6 +62,7 @@ export function aiMethodDetail(m: AiMethod | undefined, e: { name: string; kind:
 export async function soloRoutine(userId: string, now = new Date(), message?: string): Promise<SoloRoutine> {
   const act = await myActive(userId);
   if (!act) throw new AccessError("no_relation", "Para entrenar con REPI necesitás estar con un coach o un gimnasio.", 409);
+  await assertMemberAuthoring(userId, act, "ai_routine"); // D213: antes de gastar IA
   const t = await myTraining(userId, now);
   if (t.state === "ready") throw new AccessError("has_program", "Ya tenés una rutina asignada: usá «Tu rutina para hoy».", 409);
   await ensureExerciseCatalog();

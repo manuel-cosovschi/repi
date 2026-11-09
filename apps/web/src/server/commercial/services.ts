@@ -228,6 +228,31 @@ export async function setClientConnect(actorId: string, contractId: string, on: 
   await audit(db, { actorUserId: actorId, orgId: o.id, action: on ? "connect.enabled" : "connect.disabled", resourceType: "organization", resourceId: o.id });
   return { connectEnabled: on, changed: true };
 }
+/**
+ * REPI Control (D213): política de rutinas («open» o «supervised») y pantalla de consulta, gimnasio por gimnasio. Sólo REPI
+ * Admin la cambia; el dueño y la gerencia la ven. Apagar no borra nada: las pantallas y credenciales quedan, pero dejan de
+ * funcionar mientras la pantalla esté deshabilitada; las rutinas propias guardadas vuelven a estar disponibles al pasar a «open».
+ */
+export async function setClientControl(actorId: string, contractId: string, p: { routinePolicy?: "open" | "supervised"; kioskEnabled?: boolean }) {
+  await requireAdmin(actorId);
+  const c = await contractFor(contractId);
+  const [o] = await db.select().from(organization).where(eq(organization.id, c.orgId));
+  if (!o) throw NOT_FOUND();
+  if (o.kind !== "gym") throw new AccessError("invalid", "REPI Control es para gimnasios.");
+  const next = { routinePolicy: p.routinePolicy ?? o.routinePolicy, kioskEnabled: p.kioskEnabled ?? o.kioskEnabled };
+  if (next.routinePolicy === o.routinePolicy && next.kioskEnabled === o.kioskEnabled) return { ...next, changed: false };
+  await db.transaction(async (tx) => {
+    await tx.update(organization).set(next).where(eq(organization.id, o.id));
+    if (next.routinePolicy !== o.routinePolicy)
+      await audit(tx, { actorUserId: actorId, orgId: o.id, action: `routine_policy.${next.routinePolicy}`, resourceType: "organization", resourceId: o.id, meta: { from: o.routinePolicy } });
+    if (next.kioskEnabled !== o.kioskEnabled) {
+      await audit(tx, { actorUserId: actorId, orgId: o.id, action: next.kioskEnabled ? "kiosk.enabled" : "kiosk.disabled", resourceType: "organization", resourceId: o.id });
+      // Deshabilitar corta las consultas abiertas en el acto.
+      if (!next.kioskEnabled) await tx.execute(sql`update kiosk_session s set ended_at = now(), end_reason = 'disabled' from gym_kiosk k where k.id = s.kiosk_id and k.org_id = ${o.id} and s.ended_at is null`);
+    }
+  });
+  return { ...next, changed: true };
+}
 /** Control de acceso del gimnasio (D127): REPI Admin enciende el piloto; el modo lo elige el dueño. Apagar revoca ingresos vigentes. */
 export async function setClientAccessControl(actorId: string, contractId: string, on: boolean) {
   await requireAdmin(actorId);

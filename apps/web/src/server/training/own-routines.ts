@@ -9,6 +9,7 @@ import { AccessError, audit } from "../access/util";
 import { createMemberExercise, ensureExerciseCatalog, exerciseProfiles, libraryCols, visibleIn, withProfile } from "./library";
 import { buildPreview, readImport, splitLongDays, type ImportInput } from "./program-import";
 import { lastSetByExercise, myActive, startSoloRoutine } from "./services";
+import { assertMemberAuthoring, type MemberAuthoring } from "../gym/routine-policy";
 
 const { ownRoutine, exercise } = schema;
 export const OWN_ROUTINES_MAX = 30;
@@ -21,15 +22,17 @@ type Input = { id?: string | null; name: string; exercises: OwnRoutineEx[] };
 
 const NOT_FOUND = () => new AccessError("not_found", "No encontramos esa rutina.", 404);
 
-async function relationOrg(userId: string) {
+async function relationOrg(userId: string, authoring?: MemberAuthoring) {
   const act = await myActive(userId);
   if (!act) throw new AccessError("no_relation", "Para entrenar con REPI necesitás estar con un coach o un gimnasio.", 409);
+  // REPI Control (D213): en un gimnasio supervisado el socio no crea, importa ni edita rutinas propias (ni ejercicios propios).
+  if (authoring) await assertMemberAuthoring(userId, act, authoring);
   return act.orgId;
 }
 
 /** D163: ejercicio propio del alumno (lo que no encuentra en la biblioteca). */
 export async function createMyExercise(userId: string, p: { name: string; group: string; kind?: string | null; profile?: string | null }) {
-  return createMemberExercise(userId, await relationOrg(userId), p);
+  return createMemberExercise(userId, await relationOrg(userId, "member_exercise"), p);
 }
 
 /** Biblioteca para armar la rutina: catálogo de REPI y ejercicios propios de la organización con la que entrena. */
@@ -114,7 +117,7 @@ export async function listOwnRoutines(userId: string) {
 }
 
 export async function saveOwnRoutine(userId: string, p: Input) {
-  const orgId = await relationOrg(userId);
+  const orgId = await relationOrg(userId, "own_routine");
   const c = clean(p);
   await ensureExerciseCatalog();
   const ids = [...new Set(c.exercises.map((e) => e.exerciseId))];
@@ -176,6 +179,7 @@ export async function startOwnRoutine(userId: string, routineId: string, session
  * guarda todo junto con `saveImportedRoutines`. `beforeAi` aplica los topes de uso sólo si hace falta la IA.
  */
 export async function previewRoutineImport(userId: string, f: ImportInput, beforeAi: () => Promise<void> = async () => {}) {
+  await relationOrg(userId, "routine_import"); // D213: antes de leer el archivo o gastar IA
   const lib = await myExerciseLibrary(userId);
   const read = await readImport(f, beforeAi);
   const p = splitLongDays(await buildPreview(read, lib), OWN_ROUTINE_EXERCISES_MAX);
@@ -210,7 +214,7 @@ const activityOrNull = (a: unknown) => { const v = validateActivity(a); return v
 export async function saveImportedRoutines(userId: string, p: ImportSave) {
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(p.opId)) throw new AccessError("invalid", "Falta el identificador de la importación. Volvé a abrir la revisión.");
   if (!p.routines.length) throw new AccessError("invalid", "No hay días para guardar.");
-  const orgId = await relationOrg(userId);
+  const orgId = await relationOrg(userId, "routine_import");
   const cleaned = p.routines.map((r, i) => {
     try { return clean({ name: r.name, exercises: r.exercises }); }
     catch (e) { if (e instanceof AccessError) throw new AccessError(e.code, `${r.name?.trim() || `Día ${i + 1}`}: ${e.message}`, e.status); throw e; }

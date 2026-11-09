@@ -28,6 +28,9 @@ export const ACTIONS: Record<ActionKind, ActionSpec> = {
 };
 export const isActionKind = (x: unknown): x is ActionKind => typeof x === "string" && Object.prototype.hasOwnProperty.call(ACTIONS, x);
 
+/** Acciones que cambian lo prescrito (aunque sea sólo por hoy): en un gimnasio supervisado no se proponen ni se ejecutan. */
+export const SUPERVISED_BLOCKED: ReadonlySet<ActionKind> = new Set<ActionKind>(["propose_substitution", "propose_short_session", "apply_substitution", "apply_short_session"]);
+
 export type ExecContext = {
   age: AgeBand;
   sessionOpen: boolean;
@@ -37,10 +40,12 @@ export type ExecContext = {
   allowAuto?: readonly ActionKind[];
   /** Preferencia declarada «consultame antes de cambiar»: nada operativo se ejecuta solo. */
   confirmFirst?: boolean;
+  /** REPI Control (D213): el gimnasio supervisa la planificación; REPI no cambia lo prescrito, ni por hoy. */
+  supervised?: boolean;
 };
 export type ExecDecision = {
   mode: "auto" | "confirm" | "blocked";
-  code: "ok" | "autonomy_info" | "minor" | "out_of_session" | "health" | "coach_program" | "no_coach" | "risk" | "confirm_pref" | "default";
+  code: "ok" | "supervised" | "autonomy_info" | "minor" | "out_of_session" | "health" | "coach_program" | "no_coach" | "risk" | "confirm_pref" | "default";
   /** Motivo en palabras (para la persona). */
   reason: string | null;
 };
@@ -53,6 +58,8 @@ export type ExecDecision = {
 export function decideExecution(spec: ActionSpec, autonomy: Autonomy, ctx: ExecContext): ExecDecision {
   if (spec.adultOnly && ctx.age !== "adult") return { mode: "blocked", code: "minor", reason: "Esta acción es sólo para personas adultas." };
   if (spec.inSession && !ctx.sessionOpen) return { mode: "blocked", code: "out_of_session", reason: "Sirve sólo con un entrenamiento abierto." };
+  if (ctx.supervised && SUPERVISED_BLOCKED.has(spec.kind))
+    return { mode: "blocked", code: "supervised", reason: "En tu gimnasio la rutina la decide el equipo de sala: no la cambio, ni por hoy. Si querés, les aviso." };
   if (autonomy === 0 && spec.operational) return { mode: "blocked", code: "autonomy_info", reason: "Con la asistencia en modo informativo no preparo cambios. Podés cambiarlo en Perfil → Asistente REPI." };
   if (spec.kind === "propose_to_coach" && ctx.programOwner !== "coach" && ctx.programOwner !== "gym")
     return { mode: "blocked", code: "no_coach", reason: "Tu rutina no es de un entrenador: la podés editar vos en Mis rutinas." };
