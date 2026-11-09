@@ -52,11 +52,16 @@ export const VIDEOS: Record<string, Video> = {
   "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant",
     "El socio pide ayuda desde su serie y el entrenador de turno la recibe, la toma y le responde."),
   // Modalidades (escena «Dos formas de entrenar»): films pendientes. Sin `src` el botón del video no se muestra.
-  "modo-completo": { id: "modo-completo", title: "REPI Completo · Entrenamiento inteligente", audience: "Gimnasios", src: null, poster: null, captions: null, duration: null },
-  "modo-control": { id: "modo-control", title: "REPI Control · Planificación supervisada", audience: "Gimnasios", src: null, poster: null, captions: null, duration: null },
+  // D215: un film por modalidad (16:9 y 9:16), grabados en la demo real (datos ficticios).
+  "modo-completo": film("modo-completo", "REPI Completo · Entrenamiento inteligente", "Gimnasios, entrenadores y socios", "0:56", "Volatile Reaction",
+    "El profesor diseña y asigna el programa, el socio lo recibe y registra cada serie con el objetivo de REPI y su razón, ve su progreso por ejercicio, el profesor consulta su evolución y el gimnasio sigue su sala.",
+    { srcVertical: "/conoce/videos/modo-completo-vertical.mp4", posterVertical: "/conoce/videos/modo-completo-vertical.webp" }),
+  "modo-control": film("modo-control", "REPI Control · Tu equipo planifica. Tus socios consultan.", "Gimnasios", "1:00", "Clash Defiant",
+    "El equipo de sala arma y asigna la rutina; el socio la consulta en la pantalla del gimnasio con su código y su PIN, sin instalar nada, toca «Terminar» y la pantalla queda libre. Cada cambio queda en manos del equipo, con su versión.",
+    { srcVertical: "/conoce/videos/modo-control-vertical.mp4", posterVertical: "/conoce/videos/modo-control-vertical.webp" }),
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
-export const VIDEO_ORDER = ["film-marca", "f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados", "f-progreso", "f-altas", "f-sala"];
+export const VIDEO_ORDER = ["film-marca", "f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados", "f-progreso", "f-altas", "f-sala", "modo-completo", "modo-control"];
 
 // ── Hero (Experience 3.0) ───────────────────────────────────────────────────
 // Variantes preparadas para probar titulares y propuesta en el futuro (`/conoce?v=b`), sin plataforma externa. «a» es la vigente.
