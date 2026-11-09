@@ -153,6 +153,28 @@ describe("alta comercial (criterios 1–4)", () => {
     expect(u.email).toBe(email); // la cuenta la creó la persona, no Admin
   });
 
+  it("FSA1: revocar la bienvenida y cambiar el estado de un contacto quedan auditados; un no-Admin no puede ninguna", async () => {
+    const ad = await admin();
+    const email = mail();
+    const c = await cm.createClient(ad, { kind: "coach", orgName: "Coach Auditado", legalName: null, responsibleName: "Resp", responsibleEmail: email, currency: "ARS" });
+    await cm.recordAcceptance(ad, c.contractId, { method: "external", ref: "email", acceptedAt: "2026-10-20", termsVersion: "v1" });
+    await cm.enableClient(ad, c.contractId, {});
+    await cm.sendOwnerInvitation(ad, c.contractId);
+    const token = /\/activar\/([\w-]+)/.exec((await lastMail(email)).body)![1];
+    const notAdmin = await verified();
+    expect(await code(cm.revokeOwnerInvitation(notAdmin, c.contractId))).toBe("not_found");
+    await cm.revokeOwnerInvitation(ad, c.contractId);
+    expect((await cm.lookupOwnerInvitation(token)).state).toBe("revoked");
+    const leadEmail = mail();
+    await cm.createLead({ kind: "gym", orgName: "Gym Lead Auditado", contactName: "Lu", email: leadEmail });
+    const [lead] = await db.select().from(schema.commercialLead).where(eq(schema.commercialLead.email, leadEmail));
+    expect(await code(cm.setLeadStatus(notAdmin, lead.id, "contacted"))).toBe("not_found");
+    await cm.setLeadStatus(ad, lead.id, "contacted");
+    const acts = (await db.select({ a: schema.auditEvent.action, r: schema.auditEvent.resourceId }).from(schema.auditEvent).where(eq(schema.auditEvent.actorUserId, ad)))
+      .filter((x) => x.r === lead.id || x.a === "commercial.owner_invitation_revoked").map((x) => x.a).sort();
+    expect(acts).toEqual(["commercial.lead_status", "commercial.owner_invitation_revoked"]);
+  });
+
   it("clientes previos: regularización sin suspender ni cambiar accesos", async () => {
     const ad = await admin();
     const owner = await verified();

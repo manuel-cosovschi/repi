@@ -515,17 +515,23 @@ export async function sendOwnerInvitation(actorId: string, contractId: string) {
 export async function revokeOwnerInvitation(actorId: string, contractId: string) {
   await requireAdmin(actorId);
   const c = await contractFor(contractId);
-  await db.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.orgId, c.orgId), eq(invitation.kind, "org_owner"), eq(invitation.status, "pending")));
+  // FSA1: revocar una bienvenida es un cambio de acceso; queda auditado como el resto de REPI Admin.
+  await db.transaction(async (tx) => {
+    const r = await tx.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.orgId, c.orgId), eq(invitation.kind, "org_owner"), eq(invitation.status, "pending"))).returning({ id: invitation.id });
+    await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.owner_invitation_revoked", resourceType: "client_contract", resourceId: c.id, meta: { revoked: r.length } });
+  });
   return { ok: true };
 }
-/** Cambiar responsable: acción autorizada que revoca las invitaciones vigentes. */
+/** Cambiar responsable: acción autorizada que revoca las invitaciones vigentes. Todo o nada (FSA1). */
 export async function changeResponsible(actorId: string, contractId: string, p: { name: string; email: string }) {
   await requireAdmin(actorId);
   if (!isEmail(p.email) || (p.name ?? "").trim().length < 2) throw new AccessError("invalid", "Nombre y email válidos.");
   const c = await contractFor(contractId);
-  await db.update(clientContract).set({ responsibleName: p.name.trim(), responsibleEmail: normalizeEmail(p.email), updatedAt: new Date() }).where(eq(clientContract.id, c.id));
-  await db.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.orgId, c.orgId), eq(invitation.kind, "org_owner"), eq(invitation.status, "pending")));
-  await audit(db, { actorUserId: actorId, orgId: c.orgId, action: "commercial.responsible_changed", resourceType: "client_contract", resourceId: c.id });
+  await db.transaction(async (tx) => {
+    await tx.update(clientContract).set({ responsibleName: p.name.trim(), responsibleEmail: normalizeEmail(p.email), updatedAt: new Date() }).where(eq(clientContract.id, c.id));
+    await tx.update(invitation).set({ status: "revoked", revokedAt: new Date() }).where(and(eq(invitation.orgId, c.orgId), eq(invitation.kind, "org_owner"), eq(invitation.status, "pending")));
+    await audit(tx, { actorUserId: actorId, orgId: c.orgId, action: "commercial.responsible_changed", resourceType: "client_contract", resourceId: c.id });
+  });
   return { ok: true };
 }
 
@@ -606,5 +612,6 @@ export async function setLeadStatus(actorId: string, id: string, status: "contac
   await requireAdmin(actorId);
   const [r] = await db.update(commercialLead).set({ status }).where(eq(commercialLead.id, id)).returning();
   if (!r) throw NOT_FOUND();
+  await audit(db, { actorUserId: actorId, action: "commercial.lead_status", resourceType: "commercial_lead", resourceId: id, meta: { status } }); // FSA1: sin datos del contacto
   return { status };
 }
