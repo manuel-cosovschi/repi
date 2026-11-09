@@ -54,22 +54,34 @@ export function imageInfo(b: Uint8Array): ImageInfo | null {
   return d && d.width > 0 && d.height > 0 ? { mime, ...d } : null;
 }
 
-/** JPEG: se quitan APP1–APP15 (EXIF con GPS, XMP, IPTC, datos del fabricante) y comentarios; quedan JFIF (APP0) y el perfil ICC. */
+/**
+ * JPEG: se quitan APP1–APP15 (EXIF con GPS, XMP, IPTC, datos del fabricante) y comentarios; quedan JFIF (APP0) y el perfil ICC.
+ * FSA1: también entre los cuadros de un JPEG progresivo, y se descarta todo lo que sigue al fin de la imagen (EOI): las imágenes
+ * secundarias de MPF (mapas de ganancia, profundidad) y los anexos del fabricante traen su propio EXIF, a veces con ubicación.
+ */
 function stripJpeg(b: Uint8Array): Uint8Array {
   const out: Uint8Array[] = [b.subarray(0, 2)];
   let i = 2;
-  while (i + 4 <= b.length) {
+  while (i + 2 <= b.length) {
     if (b[i] !== 0xff) throw new Error("jpeg");
     const m = b[i + 1];
     if (m === 0xff) { i++; continue; }
-    if (m === 0xda) { out.push(b.subarray(i)); break; } // desde los datos de imagen se copia todo igual
-    if (m === 0xd9) { out.push(b.subarray(i, i + 2)); break; }
+    if (m === 0xd9) { out.push(b.subarray(i, i + 2)); break; } // fin de la imagen: lo anexado después no se copia
+    if (i + 4 > b.length) throw new Error("jpeg");
     const len = u16be(b, i + 2);
     if (len < 2 || i + 2 + len > b.length) throw new Error("jpeg");
     const seg = b.subarray(i, i + 2 + len);
     const icc = m === 0xe2 && ascii(b, i + 4, 11) === "ICC_PROFILE";
     if (!((m >= 0xe1 && m <= 0xef && !icc) || m === 0xfe)) out.push(seg);
     i += 2 + len;
+    if (m === 0xda) {
+      // Datos de la imagen (se copian igual) hasta el próximo marcador real: FF00 es un byte relleno y FFD0–FFD7, reinicios.
+      let j = i;
+      for (; j + 1 < b.length; j++) if (b[j] === 0xff && b[j + 1] !== 0x00 && b[j + 1] !== 0xff && !(b[j + 1] >= 0xd0 && b[j + 1] <= 0xd7)) break;
+      if (j + 1 >= b.length) { out.push(b.subarray(i)); break; } // archivo cortado sin EOI: se copian los datos que hay
+      out.push(b.subarray(i, j));
+      i = j;
+    }
   }
   return concat(out);
 }
