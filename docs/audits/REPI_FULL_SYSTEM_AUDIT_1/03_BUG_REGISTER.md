@@ -57,6 +57,8 @@ Los duplicados encontrados por dos áreas se consolidaron y se indica cuál arre
 | COM-04 | «Mantener» en moderación volvía a publicar lo que el autor había borrado | Sólo cambia lo oculto | `community.test.ts` | Corregido |
 | COM-05 | Cambios de REPI Admin sin auditoría (revocar bienvenida, estado de contacto); cambio de responsable no atómico | Auditoría y transacción | `annex.test.ts` + e2e | Corregido |
 | INF-01 | Al vencer una demo, sus archivos quedaban en el bucket para siempre (los 5 huérfanos de producción) | `purgeSandboxes` borra los archivos después del commit | `sandbox.test.ts` «FSA1» | Corregido |
+| UI-01 | Un QR de sede vencido o una invitación inválida quedaban en «Cargando…» para siempre, sin salida | «No pudimos abrir…» con «Reintentar» e «Ir a ingresar» (`AccessFlow.tsx`) | e2e `ui-sweep.spec.ts` | Corregido |
+| UI-02 | En el teléfono, una invitación inválida mostraba primero (y otra vez) la guía de instalación | `entryFailed` apaga la guía | e2e `ui-sweep.spec.ts` (mobile) | Corregido |
 | COM-07 | «No vino el profe» y la rutina sin programa no leen las lesiones ni las molestias registradas | — | — | **Abierto (decisión, 09)** |
 | COM-09 | El email transaccional no se reintenta (código, restablecer contraseña, consentimiento del tutor, decisión de alta) | — (COM-03 al menos deja ver los fallos) | `mailer.test.ts` | **Abierto (diseño, 09)** |
 
@@ -76,6 +78,20 @@ Los duplicados encontrados por dos áreas se consolidaron y se indica cuál arre
 | COM-06 | Notificaciones `skipped` en producción explicadas (sin dispositivo); el push no se podía activar desde «Avisos» | Corregido (e2e) |
 | INF-02 | `brain-proactive` caso 43 fallaba los lunes (el resumen semanal se emite con razón): sólo la prueba | Corregido (#86) |
 | INF-04 | Prueba nueva de «Mis rutinas» con rechazos sin manejar (vitest salía con 1) | Corregido |
+| MOD-01 | Al quitar el elemento enfocado (p. ej. «Quitar día») el modal ignoraba Esc y Tab con el diálogo abierto; la prueba gym-editor-parity era intermitente también en `main` (1 de 4) | Corregido en la integración (`Modal.tsx`; la prueba fuerza la pérdida de foco y falla siempre contra `main`) |
+| IMP-12 | La pregunta de un método ambiguo («¿Es Pirámide?») quedaba en una fila plegada marcada «Listo»; la e2e de mobile-layout esperaba el diseño anterior a Smart Import 2.0 (fallaba también en `main`; CI no corre E2E) | Corregido en la integración (`ProgramImport.tsx` `openIssues`; prueba actualizada) |
+| UI-03 | Campos táctiles de menos de 16 px (zoom de iOS al enfocar) | Corregido (`ui-sweep.spec.ts`) |
+| UI-04 | Modal con un campo en `autoFocus`: el foco caía en `<body>` al cerrar | Corregido (`ui-keyboard.spec.ts`) |
+| UI-05 | QR de ingreso a pantalla completa sin foco, sin Esc y sin trampa de Tab | Corregido (`ui-keyboard.spec.ts`) |
+| UI-06 | Trofeo: Tab salía del diálogo y el foco se perdía al cerrar | Corregido (`ui-keyboard.spec.ts`) |
+| UI-07 | Guía de la demo: foco en `<body>` al cerrarla | Corregido (`ui-keyboard.spec.ts`) |
+| UI-08 | «Ahora no» a una reseña mostraba éxito aunque el servidor fallara | Corregido (`ui-failures.spec.ts`) |
+| UI-09 | La píldora de la demo tapaba la última fila en Coach y Gym (teléfono) | Corregido (`ui-sweep.spec.ts`) |
+| UI-10 | `/instalar/cartel` con 26 px de scroll lateral en tableta vertical | Corregido (`ui-sweep.spec.ts`) |
+| UI-11 | Áreas táctiles de 17 a 22 px en listas | Corregido (explorador; sin aserción permanente de 44 px) |
+| UI-12 | Enlaces de texto de 17 px en `/acceso` y en el pie | No se corrige (cumplen WCAG 2.5.8 por espaciado) |
+| UI-13 | Una sección sin `h1` y el nombre del socio que no es encabezado | Abierto (diseño) |
+| UI-14 | Dock del entrenamiento alto en tableta apaisada | Abierto (diseño) |
 | MEM-06 | Carrera teórica: la pantalla podría mostrar el valor anterior de una corrección hasta recargar (IndexedDB ya no lo pierde) | Abierto (no reproducible) |
 | IMP-10 | Cambiar de variante en la revisión de importación conserva el `opId` | Abierto (borde raro) |
 | IMP-11 | El mensaje `ai_incomplete` habla de «historial» al importar rutinas | Abierto (texto compartido) |
