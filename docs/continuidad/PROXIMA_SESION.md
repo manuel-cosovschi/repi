@@ -79,14 +79,17 @@ Actualizado: 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte 
   - Guarda estática `tests/safety/transactions.check.ts` (en `test:guards`, corre en CI): falla si una transacción vuelve a pedir otra conexión.
   - Regresión `tests/pool-deadlock.test.ts` con el pool real de 3 conexiones.
   - `tests/deadline.test.ts`.
-- **Pendiente del titular (producción):**
-  - Tiempos en el rol `repi_app`, previo «Respaldo»:
-    - `alter role repi_app set idle_in_transaction_session_timeout = '30s'`;
-    - `alter role repi_app set lock_timeout = '15s'`;
-    - `alter role repi_app set statement_timeout = '60s'`.
-    - Supavisor los aplica a las conexiones nuevas. Se verifica con `select current_setting('lock_timeout')`.
-    - Revisar antes los scripts que entran como `repi_app` (`ops:retention`). Opcional: `log_lock_waits = on`.
-- **Publicado 08/11:** merge `47fac4f`, sin migraciones. En producción: `/api/version` = `47fac4f44cc3`; `/api/admin/summary` sin sesión → 401; el cron por minuto siguió en 200 (`net._http_response`); Vercel sin errores de ejecución en los 30 min siguientes. Los tiempos del rol `repi_app` siguen sin aplicar (decisión del titular).
+- **Tiempos en el rol `repi_app` (aprobados por el titular el 09/11):** `scripts/operations/app-role-timeouts.sql`, con el respaldo previo (issue #87).
+  - Valores: `idle_in_transaction_session_timeout` 30 s, `lock_timeout` 15 s, `statement_timeout` 60 s.
+  - Margen: la consulta más lenta registrada de `repi_app` tardó 0,41 s (`pg_stat_statements`).
+  - Ninguna transacción de `src/` llama a un servicio externo dentro del callback (revisión por AST del 09/11).
+  - `ops:retention` no se conecta a la base.
+  - El respaldo usa `repi_backup`, con sus propios límites.
+  - Las migraciones alojadas entran con `set role`, así que no heredan estos valores, y fijan su propio `lock_timeout`.
+  - Rigen para las conexiones nuevas; el pool las renueva a los 300 s como máximo.
+  - Revertir: los tres `alter role repi_app reset …` del script.
+  - Estado: PENDIENTE_APLICACION
+- **Publicado 08/11:** merge `47fac4f`, sin migraciones. En producción: `/api/version` = `47fac4f44cc3`; `/api/admin/summary` sin sesión → 401; el cron por minuto siguió en 200 (`net._http_response`); Vercel sin errores de ejecución en los 30 min siguientes. Los tiempos del rol `repi_app` se aplicaron el 09/11 (ver arriba).
 - **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
 
 ## Ejercicios por tiempo (D211): cinta con duración, velocidad e inclinación — 08/11/2026 · PUBLICADO Y VERIFICADO (#81, `b8f2c5c`; 0052 aplicada)
