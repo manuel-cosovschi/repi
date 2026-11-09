@@ -224,7 +224,7 @@ function UntilCell({ shell, a, onSaved }: { shell: Shell; a: Access; onSaved: ()
   return (
     <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
       <input type="date" aria-label={`Vigente hasta · ${a.name}`} value={v} onChange={(e) => setV(e.target.value)}
-        style={{ height: 34, borderRadius: 8, border: "1px solid var(--ui-control-border)", padding: "0 8px", font: "500 13px var(--font-ui)" }} />
+        style={{ height: 34, borderRadius: 8, border: "1px solid var(--ui-control-border)", padding: "0 8px", font: "500 var(--touch-fs, 13px) var(--font-ui)" }} />
       {v !== (a.accessUntil ?? "") && <button type="button" className="btn sm pri" aria-busy={busy === `u-${a.id}` || undefined} onClick={() => void save(v || null)}>Guardar</button>}
       {a.accessUntil && v === a.accessUntil && <button type="button" className="btn sm" onClick={() => { setV(""); void save(null); }}>Sin vencimiento</button>}
       {expired && <span className="chip warn">Vencida</span>}

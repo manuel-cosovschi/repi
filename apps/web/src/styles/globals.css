@@ -88,7 +88,9 @@ button[aria-busy="true"] { pointer-events: none; cursor: progress; }
 @media (pointer: coarse) {
   html .search input, html .dayname input, html .exrow input, html textarea.note, html .field input, html .field select, html .field textarea,
   html .chat-compose textarea, html .gy-locpick select, html .cx-form select, html .og-form input, html .fb textarea, html .sheet textarea,
-  html .club-compose textarea, html .club-compose select, html .club-cbox input, html .club-field textarea { font-size: 16px; }
+  html .club-compose textarea, html .club-compose select, html .club-cbox input, html .club-field textarea, html input.weeks, html .rp-quiet input { font-size: 16px; }
+  /* FSA1 (UI): los campos con estilo en línea (selector de sede, «Vigente hasta») leen el tamaño de esta variable. */
+  :root { --touch-fs: 16px; }
 }
 
 /* D188 · Tema global. El cambio de tema no anima nada (sin destellos ni movimiento): los colores cambian en el mismo cuadro.

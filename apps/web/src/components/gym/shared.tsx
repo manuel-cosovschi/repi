@@ -113,7 +113,7 @@ export function LocSelect({ shell, allowAll, value, onChange }: { shell: Shell; 
   return (
     <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <span>Sede</span>
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} style={{ height: 38, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "500 14px var(--font-ui)", background: "var(--ui-input-bg)" }}>
+      <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} style={{ height: 38, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "500 var(--touch-fs, 14px) var(--font-ui)", background: "var(--ui-input-bg)" }}>
         {allowAll && <option value="">Todas las sedes</option>}
         {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>

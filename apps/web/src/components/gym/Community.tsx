@@ -38,7 +38,7 @@ function useImage(orgId: string, flash: (t: string) => void) {
 function LocField({ com, value, onChange }: { com: Com; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">Dónde se publica
-      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "400 14px var(--font-ui)" }}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "400 var(--touch-fs, 14px) var(--font-ui)" }}>
         {com.allLocations && <option value="">Todas las sedes</option>}
         {com.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
