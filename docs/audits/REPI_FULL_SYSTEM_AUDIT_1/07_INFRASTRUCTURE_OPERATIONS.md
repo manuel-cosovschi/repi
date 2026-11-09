@@ -82,7 +82,7 @@ El último respaldo tiene 138 tablas, 5418 filas, 53 migraciones y 0 archivos de
 | Advertencia | Nivel | Decisión |
 | --- | --- | --- |
 | RLS activado sin políticas (138 tablas) | INFO | Diseño previsto (D68): la API REST pública queda sin acceso y la app entra como dueña de las tablas |
-| `search_path` mutable en `gym_task_event_immutable` y `commission_entry_immutable` | WARN | Triggers de inmutabilidad que no nombran tablas (sólo `NEW`, `OLD` y `TG_OP`) ni son SECURITY DEFINER. Fijar `search_path = ''` es seguro: se hace con una migración aditiva en este bloque |
+| `search_path` mutable en `gym_task_event_immutable` y `commission_entry_immutable` | WARN | Triggers de inmutabilidad que no nombran tablas (sólo `NEW`, `OLD` y `TG_OP`) ni son SECURITY DEFINER. Como no resuelven ningún nombre, el `search_path` no cambia lo que ejecutan: sin riesgo explotable. **Aceptado como P3 (FSA1-INFRA-03)**: corregirlo exige una migración productiva con respaldo, que no se justifica por esto solo. Se incorpora en la próxima migración que haga falta (`alter function … set search_path = ''`) |
 | 196 claves foráneas sin índice y 15 índices sin uso | INFO | Sin razón medible hoy: el `delete` más lento de `repi_app` (purga de demos) tarda 0,41 s. Riesgo de escala documentado en 09; no se agregan índices sin medición |
 
 ## 7. Jobs programados
