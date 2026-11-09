@@ -1,8 +1,8 @@
 # REPI — Retomar acá
 
-Actualizado: 09/11/2026 (**REPI Control 1.0 y /conoce con dos modalidades: rama `claude/repi-control`, migración 0053**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 09/11/2026 (**REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
-## REPI Control 1.0 + /conoce con dos modalidades — 09/11/2026 · rama `claude/repi-control` (D213–D215, migración 0053)
+## REPI Control 1.0 + /conoce con dos modalidades — 09/11/2026 · PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, D213–D215, 0053)
 
 - **Máster:** «REPI Controlled Gym Mode & Kiosk 1.0» y su ampliación «REPI Control + REPI Completo en /conoce». Documentación:
   `docs/repi-control/` (README, ACTIVACION, SEGURIDAD, ARQUITECTURA, LIMITACIONES_Y_COSTOS).
@@ -47,7 +47,23 @@ Actualizado: 09/11/2026 (**REPI Control 1.0 y /conoce con dos modalidades: rama 
   - Probar la pantalla en la tablet real del primer gimnasio.
   - Autorizar gimnasio por gimnasio antes de activar.
   - El profesor de los films y la captura del equipo vienen de la demo «floor» (Gym Norte).
-- **Próxima acción:** PR → CI → respaldo → 0053 en producción → merge → verificación con demos.
+- **Publicación (09/11):**
+  - CI del PR #91 en verde.
+  - Respaldo `backup-20261109-165202-42658629470` verificado (issue #92).
+  - 0053 aplicada con `hosted-0053.sql`: 54 migraciones, tablas con RLS y dueño `repi_app`, sin permisos públicos. Quedó sólo
+    la membresía original de `postgres` (sin SET).
+  - Huella de los datos reales (9 tablas) idéntica antes y después.
+  - Merge `3d1aa5c`; `/api/version` = `3d1aa5c45b5d`.
+  - Ningún error de ejecución en Vercel.
+  - Las 5 organizaciones reales siguen en «open» y sin pantalla; sólo las demos «control» quedan supervisadas.
+- **Smoke de producción con demos: 41/41** (`scratchpad/prod-smoke-ctl.cjs`):
+  - /conoce y perfiles; films y capturas.
+  - `?modo=control` preselecciona la modalidad y el formulario; sin precios.
+  - `/rutinas` no-store; APIs sin sesión → 401.
+  - Demo control: PIN incorrecto con mensaje genérico; Ana ve la versión 2, sin campos ni datos privados; «Terminar»
+    invalida el token en el servidor; Sofía sin programa.
+  - REPI Completo intacto: alumno de Gym Norte con `supervised=false` y rutinas propias.
+- **Próxima acción:** decisiones del titular (lista de arriba); activar REPI Control sólo en el gimnasio que autorice.
 
 ## Auditoría integral FSA1 (REPI Full System Audit 1.0) — 09/11/2026 · PUBLICADO Y VERIFICADO (#88, `210bf9e`, sin migraciones)
 

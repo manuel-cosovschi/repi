@@ -14,6 +14,8 @@ Es la misma plataforma que REPI Completo, con otra política por gimnasio. No es
 
 ## Estado
 
+- **Publicado y verificado el 09/11/2026** (PR #91, `3d1aa5c`, migración 0053 tras el respaldo `backup-20261109-165202-42658629470`; smoke con demos 41/41).
+
 - **Por defecto, todo está apagado.** `organization.routine_policy = 'open'` y `kiosk_enabled = false` para todas las
   organizaciones. Sólo REPI Admin lo cambia, gimnasio por gimnasio, y únicamente con la autorización del titular para ese gimnasio.
 - **Demo aislada:** `/api/demo {role:"control"}` crea «Gimnasio Atlas» con datos ficticios (`is_demo`, se borra a las 6 h). Tiene
