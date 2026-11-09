@@ -298,7 +298,9 @@ export async function gymConfig(actorId: string, orgId: string) {
   const counts = await rosterCounts(orgId, locs.map((l) => l.id));
   const [progs] = await db.select({ n: sql<number>`count(*)::int` }).from(program).where(and(eq(program.orgId, orgId), eq(program.kind, "member_copy")));
   return {
-    org: { name: ctx.org.name, status: ctx.org.status, trialEndsAt: ctx.org.trialEndsAt, reviewResponses: ctx.org.reviewResponses },
+    org: { name: ctx.org.name, status: ctx.org.status, trialEndsAt: ctx.org.trialEndsAt, reviewResponses: ctx.org.reviewResponses,
+      // REPI Control (D213): sólo lectura para el gimnasio; lo configura REPI.
+      routinePolicy: ctx.org.routinePolicy, kioskEnabled: ctx.org.kioskEnabled },
     steps: [
       { title: "Registrar el gym", detail: ctx.org.name, done: true },
       { title: "Configurar sedes", detail: locs.map((l) => l.name).join(", ") || "Sin sedes", done: locs.length > 0 },

@@ -55,7 +55,9 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "context": {
       const ctx = await gym.gymContext(me, orgId);
       const { allowed } = await gym.scopedLocation(ctx, null);
-      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled };
+      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled,
+        // REPI Control (D213): quién soy (STF-09 no se gestiona a sí mismo), pantalla de rutinas y planificación supervisada.
+        userId: me, kiosk: ctx.org.kioskEnabled, supervised: ctx.org.routinePolicy === "supervised" };
     }
     case "notices": return notices.myStaffNotices(me, orgId);
     case "equipment": return b === "library" ? eqp.equipmentLibrary(me, orgId, loc(u)) : eqp.listEquipment(me, orgId, loc(u), { archived: u.searchParams.get("archived") === "1" }); // D195

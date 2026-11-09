@@ -11,6 +11,7 @@ export type TrainEx = { id: string; exerciseId: string; name: string; sets: numb
 export type Training = {
   userId: string; firstName: string; coach: { name: string; org: string } | null; today: string; week: string[]; weightUnit?: WeightUnit;
   ai?: boolean; // D184: la sugerencia de REPI está disponible en el servidor
+  supervised?: boolean; // REPI Control (D213): el gimnasio de la relación activa planifica todo (sin rutinas propias ni de REPI)
   relation: { id: string; kind: "coach" | "gym"; name: string; org: string; orgId?: string } | null;
   relations: { id: string; kind: "coach" | "gym"; name: string; org: string; hasProgram: boolean }[];
   state: "no_program" | "scheduled" | "ready"; startsOn?: string; openSession: string | null; openSessionDay: string | null;

@@ -25,11 +25,12 @@ import { FloorNowCard } from "./FloorNow";
 import { HoursPrompt } from "./Hours";
 import { ExerciseVideos } from "@/components/coach/ExerciseVideos";
 import { EquipmentScreen } from "./Equipment";
+import { KioskScreen } from "./Kiosk";
 import { Head, can, initials, type GymCtxView, type GymScreen, type Shell } from "./shared";
 import { Ic } from "@/components/ui/Ic";
 import { featureOn } from "@/lib/features";
 import { RepiNews, useRepiNewsUnread } from "@/components/announcements/RepiNews";
-import { ArrowsLeftRight, Barbell, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, VideoCamera, Megaphone, type Icon } from "@phosphor-icons/react";
+import { ArrowsLeftRight, Barbell, Bell, BookOpen, CalendarBlank, CaretUpDown, ChartBar, ChatCircle, CheckCircle, DeviceTablet, Desk, Door, Gauge, House, Key, List, MapPin, Pulse, QrCode, Queue, Receipt, SlidersHorizontal, Star, Users, VideoCamera, Megaphone, type Icon } from "@phosphor-icons/react";
 import { FlashToast } from "@/components/ui/FlashToast";
 import { SectionStage } from "@/components/motion/SectionStage";
 import { useDrawer } from "@/components/motion/useDrawer";
@@ -38,7 +39,7 @@ import { Skel } from "@/components/motion/Skeleton";
 
 const IC = {
   home: House, queue: Queue, users: Users, swap: ArrowsLeftRight, chart: ChartBar, gauge: Gauge, check: CheckCircle, star: Star, cal: CalendarBlank,
-  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen, qr: QrCode, video: VideoCamera, barbell: Barbell, megaphone: Megaphone,
+  pulse: Pulse, pin: MapPin, receipt: Receipt, gear: SlidersHorizontal, msg: ChatCircle, desk: Desk, door: Door, key: Key, bell: Bell, book: BookOpen, qr: QrCode, tablet: DeviceTablet, video: VideoCamera, barbell: Barbell, megaphone: Megaphone,
 };
 type NavItem = [GymScreen, string, Icon, string | null];
 
@@ -77,6 +78,12 @@ function navFor(ctx: GymCtxView): NavItem[] {
   if (can(ctx, "catalog.publish")) add(["community", r.includes("reception") && !can(ctx, "community.publish") ? "Catálogo" : "Comunidad", IC.users, null]);
   // F-HX-26: quien recibe avisos de altas o de sala tiene su bandeja, segunda en la lista.
   if (can(ctx, "floor.work") || can(ctx, "members.approve") || r.some((x) => x === "owner" || x === "manager" || x === "reception")) out.splice(1, 0, ["notices", "Avisos", IC.bell, null]);
+  // REPI Control (D213): pantalla de rutinas, junto a Accesos. Dueño y gerencia la ven siempre (si REPI no la habilitó, explica cómo
+  // pedirla y muestra la planificación); recepción, sólo cuando está habilitada.
+  if (r.includes("owner") || r.includes("manager") || (ctx.kiosk && can(ctx, "reception.desk"))) {
+    const i = Math.max(out.findIndex((x) => x[0] === "accesses"), out.findIndex((x) => x[0] === "presence"));
+    if (!out.some((x) => x[0] === "kiosk")) out.splice(i < 0 ? out.length : i + 1, 0, ["kiosk", "Pantalla de rutinas", IC.tablet, null]);
+  }
   // D164: videos de cómo se hace cada ejercicio: dueño, gerencia y quienes arman programas.
   if (r.includes("owner") || r.includes("manager") || can(ctx, "program.edit")) add(["videos", "Videos de ejercicios", IC.video, null]);
   // D195: equipamiento de la sede (administran dueño, gerencia y coordinación; consulta quien arma programas).
@@ -297,6 +304,7 @@ export function GymApp({ orgId, initial }: { orgId: string; initial: { s?: strin
             {k === "queue" && (ctx.connect ? <ConnectQueueScreen shell={shell} /> : <QueueScreen shell={shell} />)}
             {k === "connect" && <ConnectReportScreen shell={shell} />}
             {k === "presence" && <AccessControlScreen shell={shell} />}
+            {k === "kiosk" && <KioskScreen shell={shell} />}
             {k === "members" && <MembersScreen shell={shell} />}
             {k === "member" && <MemberPage shell={shell} name={memberName} back={from && from !== "members" ? { to: from, label: nav.find((n) => n[0] === from)?.[1] ?? "Atrás", go: back } : null} />}
             {k === "handoff" && <HandoffScreen shell={shell} />}

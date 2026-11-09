@@ -6,6 +6,7 @@ import { GYM_ROLE_LABEL, INVITABLE_GYM_ROLES, TASK_CATEGORY, TASK_PRIORITY, type
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { TrainerDetail } from "./Perf";
+import { StaffAccessModal } from "./StaffAccess";
 import { Bars, Head, HBar, LocSelect, PRI_CHIP, dec, fmt, initials, nf, stars, useAct, useLoad, when, type Shell, type Task } from "./shared";
 
 type Panel = {
@@ -66,6 +67,7 @@ export function TeamScreen({ shell }: { shell: Shell }) {
   const [q, setQ] = useState("");
   const [invite, setInvite] = useState(false);
   const [invKey, setInvKey] = useState(0);
+  const [manage, setManage] = useState<{ id: string; name: string } | null>(null); // STF-09
   const { run } = useAct(shell.flash);
   if (shell.sel) return <TrainerDetail shell={shell} id={shell.sel} onBack={() => shell.setSel(null)} backLabel={owner ? "Equipo y servicio" : "Equipo"} />;
   const list = (t.data?.staff ?? []).filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()));
@@ -77,7 +79,7 @@ export function TeamScreen({ shell }: { shell: Shell }) {
       <label className="search" style={{ maxWidth: 420 }}><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar persona" aria-label="Buscar persona" /></label>
       <section className="card" style={{ padding: 0, overflowX: "auto" }} tabIndex={0}>
         <table className="gy-table">
-          <thead><tr><th scope="col">Persona</th><th scope="col">Rol</th><th scope="col">Hoy</th><th scope="col">Tareas abiertas</th><th scope="col">Fuera de turno</th></tr></thead>
+          <thead><tr><th scope="col">Persona</th><th scope="col">Rol</th><th scope="col">Hoy</th><th scope="col">Tareas abiertas</th><th scope="col">Fuera de turno</th>{t.data?.canManage && <th scope="col">Acceso</th>}</tr></thead>
           <tbody>
             {list.map((s) => {
               const floor = s.roles.some((r) => r === "floor_trainer" || r === "coordinator");
@@ -89,6 +91,8 @@ export function TeamScreen({ shell }: { shell: Shell }) {
                   <td>{s.onShift ? <span className="chip ok">En turno desde {fmt(s.shiftSince, { hour: "2-digit", minute: "2-digit" })}</span> : s.plannedToday ? <span className="chip mute">{s.plannedToday.label} {s.plannedToday.from}–{s.plannedToday.to}</span> : <span className="muted">—</span>}</td>
                   <td>{floor ? s.openTasks : "—"}</td>
                   <td>{floor && t.data!.canManage ? <label style={{ display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={s.afterHoursAccess} onChange={(e) => toggle(s.id, e.target.checked)} />{s.afterHoursAccess ? "Habilitado" : "No"}</label> : floor ? (s.afterHoursAccess ? "Habilitado" : "No") : "—"}</td>
+                  {/* STF-09 (D214): cambiar rol o sede, o quitar del equipo. Nadie se gestiona a sí mismo. */}
+                  {t.data!.canManage && <td>{s.id !== shell.ctx.userId ? <button type="button" className="btn sm" aria-label={`Gestionar acceso de ${s.name}`} onClick={() => setManage({ id: s.id, name: s.name })}>Gestionar acceso</button> : <span className="muted">Vos</span>}</td>}
                 </tr>
               );
             })}
@@ -98,6 +102,7 @@ export function TeamScreen({ shell }: { shell: Shell }) {
       </section>
       <span className="muted">“Fuera de turno” permite tomar y completar tareas sin turno iniciado (trabajo remoto autorizado).</span>
       {t.data?.canManage && <PendingStaffInvites shell={shell} key={invKey} />}
+      {manage && <StaffAccessModal shell={shell} userId={manage.id} name={manage.name} onClose={() => setManage(null)} onChanged={() => { setManage(null); void t.reload(); }} />}
       {invite && <InviteStaff shell={shell} onClose={() => { setInvite(false); t.reload(); setInvKey((k) => k + 1); }} />}
     </>
   );

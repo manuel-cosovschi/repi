@@ -321,8 +321,10 @@ export function Picker({ onPick, onCancel, taken, initialQuery = "", pending, on
  * D162: en Inicio, sin programa asignado, la rutina propia que toca hoy (la siguiente a la última que entrenó). Sin rutinas
  * propias muestra `fallback` (la tarjeta de siempre: pedir programa o cargar la propia).
  */
-export function NextOwnRoutine({ offline, busyOpen, onStart, fallback }: { offline: boolean; busyOpen: boolean; onStart: (id: string) => void; fallback: ReactNode }) {
-  const c = useCached<Saved[]>("/api/me/routines");
+export function NextOwnRoutine({ offline, busyOpen, onStart, fallback, skip = false }: { offline: boolean; busyOpen: boolean; onStart: (id: string) => void; fallback: ReactNode; skip?: boolean }) {
+  // REPI Control (D213): `skip` (gimnasio supervisado) muestra sólo `fallback`, sin pedir ni ofrecer las rutinas propias.
+  const c = useCached<Saved[]>(skip ? null : "/api/me/routines");
+  if (skip) return <>{fallback}</>;
   const list = c.data ?? (c.err ? [] : null);
   const r = list?.find((x) => x.next) ?? list?.[0];
   // M06: la tarjeta se reserva (esqueleto del mismo alto) hasta saber si hay rutina propia; nunca aparece de golpe.

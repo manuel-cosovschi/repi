@@ -20,6 +20,7 @@ type Preview = {
 type Mark = { day: string; weightKg: number | null; reps: number | null; seconds: number | null };
 type Mine = { imports: { id: string; fileName: string | null; sessions: number; sets: number; fromDay: string | null; toDay: string | null }[]; evolution: { exercise: string; sessions: number; first: Mark; best: Mark; last: Mark }[] };
 
+const ROUTINE_NOT_HISTORY = "Esto parece una rutina, no un historial con fechas. En tu gimnasio las rutinas las planifica el equipo: si querés que la tengan en cuenta, pedíselo al equipo de sala. Acá podés cargar entrenamientos que ya hiciste, con su fecha.";
 const textLimitMessage = `El historial supera los ${IMPORT_MAX_TEXT_LENGTH.toLocaleString("es-AR")} caracteres. Dividilo en partes; el texto se conserva completo.`;
 
 const d = (iso: string | null) => (iso ? new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`)) : "—");
@@ -28,7 +29,9 @@ const mark = (m: Mark, unit: WeightUnit) => m.seconds != null && m.weightKg == n
 export { readImportFile, type ImportBody } from "@/lib/import-file";
 import { readImportFile, type ImportBody } from "@/lib/import-file";
 
-export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void }) {
+// REPI Control (D213): con `supervised` (gimnasio que planifica todo) se sigue pudiendo cargar el historial pasado, pero unas notas
+// que describen una rutina no se ofrecen como rutina propia: se avisa y se sugiere pedírsela al equipo.
+export function BeforeRepi({ flash, offline, onChanged, supervised = false }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void; supervised?: boolean }) {
   const unit = useUnit();
   // M06: caché en memoria; lo importado entra con alto 0 → real (bloque opcional, nunca de golpe).
   const c = useCached<Mine>(offline ? null : "/api/me/history-import");
@@ -58,13 +61,13 @@ export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) =
         )}
       </Reveal>
       <button type="button" className="ghost" disabled={offline} onClick={() => setOpen(true)}>Cargar historial anterior</button>
-      {routineBody && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
-      {open && <ImportSheet flash={flash} onRoutine={(body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}
+      {routineBody && !supervised && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
+      {open && <ImportSheet flash={flash} onRoutine={supervised ? null : (body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}
     </section>
   );
 }
 
-function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string) => void; onClose: () => void; onDone: () => void; onRoutine: (body: ImportBody) => void }) {
+function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string) => void; onClose: () => void; onDone: () => void; onRoutine: ((body: ImportBody) => void) | null }) {
   const unit = useUnit();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -96,7 +99,10 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
       if (typeof body === "string") { setErr(body); return; }
       if (body.kind === "text" && (body.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) { setErr(textLimitMessage); return; }
       // Las notas sin fechas que describen una rutina van a la revisión editable de «Mis rutinas».
-      if (body.kind === "text" && parseRoutineNotes(body.text ?? "")) { onRoutine(body); return; }
+      if (body.kind === "text" && parseRoutineNotes(body.text ?? "")) {
+        if (onRoutine) { onRoutine(body); return; }
+        setErr(ROUTINE_NOT_HISTORY); return;
+      }
       setBusy("read");
       if (body.kind === "text" && (body.text ?? "").length > 24_000 && !parseHistoryCsv(body.text!)) {
         const parts = buildHistoryReadParts(body.text!, localDate(new Date()), 12_000);
