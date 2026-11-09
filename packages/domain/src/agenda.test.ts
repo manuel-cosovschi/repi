@@ -19,7 +19,11 @@ describe("agenda (F-CO-10)", () => {
   it("iCalendar con UTC, escapes y cancelación", () => {
     const ics = appointmentIcs({ id: "abc", startsAt: new Date("2026-10-30T21:00:00Z"), durationMin: 45, title: "Sesión con Agustín", place: "Gym Norte, sala 2; piso 1", now: new Date("2026-10-27T12:00:00Z") });
     expect(ics).toContain("DTSTART:20261030T210000Z\r\nDTEND:20261030T214500Z");
-    expect(ics).toContain("LOCATION:Gym Norte\\, sala 2\; piso 1");
+    expect(ics).toContain("LOCATION:Gym Norte\\, sala 2\\; piso 1");
+    // FSA1: un retorno de carro suelto en la nota del coach no agrega propiedades al evento.
+    const evil = appointmentIcs({ id: "y", startsAt: new Date("2026-10-30T21:00:00Z"), durationMin: 30, title: "t", description: "Traé agua\rURL:https://evil.example\rORGANIZER:mailto:x@evil.example" });
+    expect(evil.split("\r\n").filter((l) => /^(URL|ORGANIZER):/.test(l))).toEqual([]);
+    expect(evil).toContain("DESCRIPTION:Traé agua\\nURL:https://evil.example\\nORGANIZER:mailto:x@evil.example");
     expect(ics).toContain("UID:abc@repiclub.com");
     expect(ics).toContain("STATUS:CONFIRMED");
     expect(appointmentIcs({ id: "x", startsAt: new Date(), durationMin: 30, title: "t", cancelled: true })).toContain("STATUS:CANCELLED");
