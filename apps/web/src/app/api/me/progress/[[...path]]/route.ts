@@ -43,6 +43,9 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   }
   if (a === "photos" && !b) {
     await limit(`progress-photo:${me}`, 10);
+    // FSA1: el tamaño se controla antes de leer el cuerpo (la foto es de hasta 3 MB; margen para el formulario).
+    const len = Number(req.headers.get("content-length") ?? "0");
+    if (!len || len > 4 * 1024 * 1024) throw new AccessError("invalid_file", "La foto tiene que ser JPG, PNG o WebP de hasta 3 MB.", 413);
     const f = (await req.formData()).get("file");
     const meta = z.object({ day, pose: z.enum(["front", "side", "back", "other"]).nullable().optional() }).parse({ day: new URL(req.url).searchParams.get("day"), pose: new URL(req.url).searchParams.get("pose") || null });
     if (!(f instanceof File)) throw new AccessError("invalid_file", "Elegí una foto.");
