@@ -8,7 +8,7 @@ import { activityOf, isTimedRow, prescriptionText, type ExerciseDetail } from "@
 import { api } from "@/lib/api";
 import { keepSame } from "@/lib/cache";
 import { signOutSafely } from "@/lib/session-cleanup";
-import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
+import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, putServerCopy, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
 import { ApiError } from "@/lib/api";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -141,7 +141,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (lo && srvOpen !== undefined && srvOpen !== lo.id && lo.synced && !(await pendingFor(lo.id).catch(() => 1))) {
       try {
         const f = fromServer(await api<Parameters<typeof fromServer>[0]>(`/api/me/sessions/${lo.id}`), lo.rest);
-        await putLocal(f);
+        await putServerCopy(f);
         if (f.status !== "in_progress" && f.status !== "paused") lo = null;
       } catch { /* sin conexión: queda como estaba */ }
     }

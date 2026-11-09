@@ -4,7 +4,7 @@
 // hecha mientras otra viajaba no se pierde ni genera un conflicto falso. Reintentos idempotentes (IDs estables).
 import { sameMetrics, type SetMetrics } from "@repi/domain";
 import { idbAll, idbDel, idbPut } from "./idb";
-import { adoptServerIntel, getLocal, putLocal, setKey, type LocalSession, type LocalSet } from "./store";
+import { adoptServerIntel, getLocal, setKey, updateLocal, type LocalSession, type LocalSet } from "./store";
 
 export type Item =
   | { seq?: number; key: string; kind: "start"; sid: string }
@@ -129,12 +129,12 @@ export async function flush(): Promise<void> {
       } catch { offline = true; break; } // sin red o servidor caído: se reintenta solo
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        if (s.rejected) { const cur = await getLocal(it.sid); if (cur) await putLocal({ ...cur, rejected: undefined }); }
+        if (s.rejected) await updateLocal(it.sid, (cur) => ({ ...cur, rejected: undefined }));
         await applyResult(it, b, data);
         continue;
       }
       if (res.status === 409 && data.code === "open_session" && it.kind === "start") {
-        await putLocal({ ...(await getLocal(it.sid))!, conflict: { kind: "open_session", other: data.data.other } });
+        await updateLocal(it.sid, (cur) => ({ ...cur, conflict: { kind: "open_session", other: data.data.other } }));
         blocked.add(it.sid); conflict = true; continue;
       }
       if (res.status >= 500 || res.status === 429) { offline = true; break; }
@@ -143,8 +143,8 @@ export async function flush(): Promise<void> {
       if (res.status === 403 && (data.code === "relation_inactive" || data.code === "presence_required")) {
         const message: string = data.error ?? "Tu acceso no está vigente.";
         hadError = message;
-        const cur = await getLocal(it.sid); // el estado vigente: pudo cambiar mientras viajaba el pedido
-        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code } });
+        // El estado vigente (pudo cambiar mientras viajaba el pedido), leído y escrito en la misma transacción.
+        await updateLocal(it.sid, (cur) => ({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code } }));
         blocked.add(it.sid); continue;
       }
       if (res.status === 401) { hadError = "Tu sesión venció. Ingresá de nuevo para sincronizar (no se borra nada)."; break; }
@@ -153,8 +153,7 @@ export async function flush(): Promise<void> {
       if (it.kind === "start" || it.kind === "set") {
         const message: string = data.error ?? "El servidor no aceptó este entrenamiento.";
         hadError = message;
-        const cur = await getLocal(it.sid);
-        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code ?? "rejected" } });
+        await updateLocal(it.sid, (cur) => ({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code ?? "rejected" } }));
         blocked.add(it.sid); continue;
       }
       // 4xx: el servidor rechazó el dato. Se informa; no se reintenta en silencio.
@@ -169,34 +168,46 @@ export async function flush(): Promise<void> {
   }
 }
 
+/**
+ * FSA1 (MEMBER-03): cada resultado se aplica sobre lo guardado AHORA, leído y escrito en una sola transacción. Antes se leía la
+ * sesión, se esperaba y se escribía la copia leída: una serie registrada (o corregida) en ese instante se pisaba con la copia
+ * vieja y, sin la serie hecha, la cola descartaba su envío (se perdía sin aviso).
+ */
 async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string, unknown>) {
-  let s = await getLocal(it.sid);
-  if (!s) { await idbDel("queue", it.seq!); return; }
-  if (it.kind === "start") { await putLocal({ ...s, synced: true, closeOther: false, conflict: undefined }); await idbDel("queue", it.seq!); return; }
+  let found = false;
+  if (it.kind === "start") { await updateLocal(it.sid, (s) => ({ ...s, synced: true, closeOther: false, conflict: undefined })); await idbDel("queue", it.seq!); return; }
   if (it.kind === "set") {
     const k = setKey(it.peId, it.idx);
-    const x = s.sets[k];
-    const changedMeanwhile = setChangedSince(x, b.sent as SentSet);
-    if (data.status === "conflict") {
-      s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null, metrics: (data.metrics as SetMetrics | null | undefined) ?? null }, appliedIsMine: false } };
-    } else {
-      // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras (y sus métricas).
-      s.sets[k] = acceptedSet(x, data, changedMeanwhile);
-      // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
-      const alert = data.alert as { notified: number } | null | undefined;
-      if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
-      // D210: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono) entra en ESTA escritura, si el
-      // teléfono no tenía uno y sigue el descanso de esa serie (ver adoptServerIntel). Antes se avisaba a la pantalla antes de
-      // escribir y esta copia, leída antes, lo borraba. La pantalla lo toma al refrescarse tras sincronizar; nunca demora la cola.
-      const intel = data.intel as { event?: { code: string; text: string; restPlusSec: number | null } | null } | null | undefined;
-      if (intel?.event) s = adoptServerIntel(s, { peId: it.peId, idx: it.idx, event: intel.event }) ?? s;
-    }
-    await putLocal(s);
+    let changedMeanwhile = false;
+    await updateLocal(it.sid, (cur) => {
+      found = true;
+      let s: LocalSession = { ...cur, sets: { ...cur.sets } };
+      const x = s.sets[k];
+      changedMeanwhile = setChangedSince(x, b.sent as SentSet);
+      if (data.status === "conflict") {
+        s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null, metrics: (data.metrics as SetMetrics | null | undefined) ?? null }, appliedIsMine: false } };
+      } else {
+        // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras (y sus métricas).
+        s.sets[k] = acceptedSet(x, data, changedMeanwhile);
+        // D210: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono) entra en ESTA escritura, si el
+        // teléfono no tenía uno y sigue el descanso de esa serie (ver adoptServerIntel). La pantalla lo toma al refrescarse tras
+        // sincronizar; nunca demora la cola.
+        const intel = data.intel as { event?: { code: string; text: string; restPlusSec: number | null } | null } | null | undefined;
+        if (intel?.event) s = adoptServerIntel(s, { peId: it.peId, idx: it.idx, event: intel.event }) ?? s;
+      }
+      return s;
+    });
+    if (!found) { await idbDel("queue", it.seq!); return; }
+    // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
+    const alert = data.status === "conflict" ? null : data.alert as { notified: number } | null | undefined;
+    if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
     if (!changedMeanwhile || data.status === "conflict") await idbDel("queue", it.seq!);
     return;
   }
   if (it.kind === "exchange") {
     // Si la persona volvió a cambiar mientras viajaba el pedido, el ítem queda y se envía el estado nuevo.
+    const s = await getLocal(it.sid);
+    if (!s) { await idbDel("queue", it.seq!); return; }
     const c = s.exercises.find((y) => y.id === it.peId)?.change ?? null;
     const now = JSON.stringify(c ? { kind: c.kind, reason: c.reason, exerciseId: c.substitute?.exerciseId ?? null } : null);
     if (now === b.sent) await idbDel("queue", it.seq!);
@@ -206,27 +217,35 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
     // Si la persona volvió a cambiarla mientras viajaba, queda el ítem y se envía lo nuevo. Si no, lo que dice el servidor
     // manda: otro dispositivo pudo deshacerla después, o la etapa ya tenía un resultado (el resultado gana).
     const k = setKey(it.peId, it.idx);
-    const x = s.sets[k];
-    if (!x) { await idbDel("queue", it.seq!); return; }
-    if (`${!!x.skip && !x.done}|${x.skipAt ?? ""}` !== b.sent) return;
-    if (!x.done && (data.skipped as boolean) !== !!x.skip) { s.sets[k] = { ...x, skip: !!data.skipped, skipAt: (data.changedAt as string | null) ?? x.skipAt }; await putLocal(s); }
-    await idbDel("queue", it.seq!);
+    let drop = true;
+    await updateLocal(it.sid, (s) => {
+      const x = s.sets[k];
+      if (!x) return s;
+      if (`${!!x.skip && !x.done}|${x.skipAt ?? ""}` !== b.sent) { drop = false; return s; }
+      if (!x.done && (data.skipped as boolean) !== !!x.skip) return { ...s, sets: { ...s.sets, [k]: { ...x, skip: !!data.skipped, skipAt: (data.changedAt as string | null) ?? x.skipAt } } };
+      return s;
+    });
+    if (drop) await idbDel("queue", it.seq!);
     return;
   }
   if (it.kind === "interval") {
-    const iv = s.iv ?? null;
-    const now = `${JSON.stringify(iv ? { peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status } : null)}|${s.ivAt ?? ""}`;
-    if (now !== b.sent) return;
-    const skew = typeof data.serverNow === "string" ? Date.parse(data.serverNow) - Date.now() : s.skew ?? 0;
-    // No se aplicó (había un cambio más reciente de otro dispositivo, o el intervalo era viejo): queda el del servidor.
-    if (data.applied === false) {
-      const v = data.interval as { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null;
-      await putLocal({ ...s, skew, iv: v ? { peId: v.peId, block: v.block, start: Date.parse(v.startedAt) - skew, emomSec: v.emomSec, status: v.status } : null, ivAt: v ? new Date(Date.parse(v.at) - skew).toISOString() : s.ivAt });
-    } else await putLocal({ ...s, skew });
-    await idbDel("queue", it.seq!);
+    let drop = true;
+    await updateLocal(it.sid, (s) => {
+      const iv = s.iv ?? null;
+      const now = `${JSON.stringify(iv ? { peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status } : null)}|${s.ivAt ?? ""}`;
+      if (now !== b.sent) { drop = false; return s; }
+      const skew = typeof data.serverNow === "string" ? Date.parse(data.serverNow) - Date.now() : s.skew ?? 0;
+      // No se aplicó (había un cambio más reciente de otro dispositivo, o el intervalo era viejo): queda el del servidor.
+      if (data.applied === false) {
+        const v = data.interval as { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null;
+        return { ...s, skew, iv: v ? { peId: v.peId, block: v.block, start: Date.parse(v.startedAt) - skew, emomSec: v.emomSec, status: v.status } : null, ivAt: v ? new Date(Date.parse(v.at) - skew).toISOString() : s.ivAt };
+      }
+      return { ...s, skew };
+    });
+    if (drop) await idbDel("queue", it.seq!);
     return;
   }
-  if (it.kind === "action") { await putLocal({ ...s, revision: (data.revision as number) ?? s.revision }); await idbDel("queue", it.seq!); return; }
+  if (it.kind === "action") { await updateLocal(it.sid, (s) => ({ ...s, revision: (data.revision as number) ?? s.revision })); await idbDel("queue", it.seq!); return; }
   await idbDel("queue", it.seq!);
 }
 
