@@ -1063,7 +1063,23 @@ export async function logSet(userId: string, sessionId: string, p: SetInput, now
   if (at === "invalid") throw BAD_TIME();
   const res = await db.transaction(async (tx) => {
     const s = await mySession(userId, sessionId, tx, true);
-    if (s.status === "abandoned") throw new AccessError("closed", "Esta sesión fue descartada.", 409);
+    if (s.status === "abandoned") {
+      // FSA1 (MEMBER-04): el cierre automático (D160: 6 h sin actividad o fin del horario del gym) descarta un entrenamiento que el
+      // servidor ve sin series, pero el teléfono pudo estar registrándolas sin conexión. Antes esas series se rechazaban para
+      // siempre (sólo quedaba descartarlas). Ahora la primera que llega lo reabre: sigue en curso (el teléfono manda su «Finalizar»)
+      // o, si ya hay otro abierto, queda completado. Un descarte hecho por la persona sigue rechazando series.
+      const [auto] = await tx.select({ id: schema.auditEvent.id }).from(schema.auditEvent)
+        .where(and(eq(schema.auditEvent.action, "workout.auto_closed"), eq(schema.auditEvent.resourceType, "workout_session"), eq(schema.auditEvent.resourceId, s.id))).limit(1);
+      if (!auto || at.getTime() < s.startedAt.getTime()) throw new AccessError("closed", "Esta sesión fue descartada.", 409);
+      const [other] = await tx.select({ id: workoutSession.id }).from(workoutSession)
+        .where(and(eq(workoutSession.userId, userId), inArray(workoutSession.status, ["in_progress", "paused"]), ne(workoutSession.id, s.id))).limit(1);
+      const revived = other
+        ? { status: "completed" as const, endedAt: at, lastResumedAt: null }
+        : { status: "in_progress" as const, endedAt: null, lastResumedAt: at };
+      await tx.update(workoutSession).set({ ...revived, revision: s.revision + 1, updatedAt: now }).where(eq(workoutSession.id, s.id));
+      await audit(tx, { actorUserId: userId, action: "workout.revived_by_late_set", resourceType: "workout_session", resourceId: s.id, meta: { status: revived.status } });
+      Object.assign(s, revived, { revision: s.revision + 1 });
+    }
     // D195: una sesión anulada no recibe cambios (un teléfono atrasado no la revive); se restaura desde el historial.
     if (s.status === "voided") throw new AccessError("voided", "Anulaste este entrenamiento. Restauralo desde tu historial para cambiarlo.", 409);
     await assertRelationActive(tx, s);
