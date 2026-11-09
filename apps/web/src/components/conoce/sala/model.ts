@@ -129,7 +129,7 @@ export const SHOTS = {
   deportistas: { pos: [0.9, 28.8, 22.2], look: [-2, 0.4, -1], svg: [-2, 0, 2.4] },
   aliados: { pos: [0, 46, 0.5], look: [0, 0, 0], svg: [0, 0, 0.85] },
   /** Modalidades (escena «Dos formas de entrenar»): Completo mira la sala donde se entrena con el teléfono (peso libre y
-   *  máquinas); Control, el box del equipo que planifica y la recepción, donde va la pantalla de consulta. */
+   *  máquinas); Control, el box del equipo que planifica y la recepción, donde va la pantalla de rutinas. */
   completo: { pos: [6, 30, 23], look: [2, 0, -1.5], svg: [2, -1.5, 1.5] },
   control: { pos: [-7, 30, 26], look: [-13, 0, 1], svg: [-13, 1, 1.3] },
   showcase: { pos: [20.2, 28, 20.4], look: [9, 0, -2], svg: [9, -2, 2] },

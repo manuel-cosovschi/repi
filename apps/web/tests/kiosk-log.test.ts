@@ -11,6 +11,8 @@ import * as kt from "@/server/gym/kiosk-training";
 import { historyList } from "@/server/training/history";
 import { AccessError, resetRateLimits } from "@/server/access/util";
 
+// El estado «ready» de myTraining (con programa) para las pruebas.
+const ready = async (userId: string) => { const t = await tr.myTraining(userId); if (t.state !== "ready") throw new Error(`sin programa: ${t.state}`); return t; };
 const err = async (p: Promise<unknown>) => p.then(() => null, (e) => e as AccessError);
 let n = 0;
 async function person(name: string) {
@@ -34,7 +36,7 @@ const DOC = (name = "Programa sala") => ({ name, weeks: 6, note: "Calentá 10 mi
   { name: "Día A", exercises: [
     { exerciseId: EX, name: "Sentadilla kiosco", sets: 3, reps: "8-10", rir: 2, restSec: 120, note: "Bajá controlado" },
     { exerciseId: EX2, name: "Press kiosco", sets: 2, reps: "5", rir: 1, restSec: 180, note: null, detail: { technique: "top_backoff" as const, setPlan: [
-      { kind: "top" as const, reps: "3-5", weightKg: 100, rir: 1 }, { kind: "backoff" as const, reps: "8", weightKg: null, rir: 2 },
+      { kind: "top" as const, reps: "3-5", weightKg: 100, pct1rm: null, rir: 1, rpe: null, restSec: null, note: null }, { kind: "backoff" as const, reps: "8", weightKg: null, pct1rm: null, rir: 2, rpe: null, restSec: null, note: null },
     ], group: null, groupKind: null, rounds: null, tempo: null, variant: null, unilateral: false, progression: null } },
   ] },
   { name: "Día B", exercises: [{ exerciseId: EX, name: "Sentadilla kiosco", sets: 4, reps: "6", rir: 1, restSec: 150, note: null }] },
@@ -194,13 +196,13 @@ describe("registro desde la pantalla (D216)", () => {
     expect(r.exercise!.done).toBe(1);
     expect((await err(kt.kioskLogExercise(w.secret, tok, { sessionId: workout.id, programExerciseId: press.id, sets: sets([{ kg: 50, reps: 5 }], 5) })))?.code).toBe("invalid");
     expect((await err(kt.kioskLogExercise(w.secret, tok, { sessionId: workout.id, programExerciseId: press.id, sets: sets([{ kg: null, reps: null }]) })))?.code).toBe("invalid");
-    const otherDay = (await tr.myTraining(w.ana.userId)).program!.days[1].exercises[0];
+    const otherDay = (await ready(w.ana.userId)).program!.days[1].exercises[0];
     expect((await err(kt.kioskLogExercise(w.secret, tok, { sessionId: workout.id, programExerciseId: otherDay.id, sets: sets([{ kg: 50, reps: 5 }]) })))?.code).toBe("invalid");
   });
 
   it("app y pantalla comparten la misma sesión: se sigue donde quedó, sin sesiones paralelas, y se termina una sola vez", async () => {
     const w = await world();
-    const t = await tr.myTraining(w.ana.userId);
+    const t = await ready(w.ana.userId);
     const sid = randomUUID();
     await tr.startSession(w.ana.userId, { id: sid, dayId: t.program!.days[0].id });
     const sq = t.program!.days[0].exercises[0];
@@ -236,7 +238,7 @@ describe("registro desde la pantalla (D216)", () => {
     const [m2] = await db.insert(schema.gymMember).values({ orgId: w2.org, locationId: w2.A, userId: w.ana.userId, status: "active" }).returning();
     await gym.saveMemberProgram(w2.t1, w2.org, m2.id, { doc: DOC("Otro gym"), reason: "Inicial" });
     await tr.setActiveRelation(w.ana.userId, m2.id);
-    const t = await tr.myTraining(w.ana.userId);
+    const t = await ready(w.ana.userId);
     const sid = randomUUID();
     await tr.startSession(w.ana.userId, { id: sid, dayId: t.program!.days[0].id });
     const tok = await login(w);

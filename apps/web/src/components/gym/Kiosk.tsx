@@ -34,12 +34,12 @@ export function KioskScreen({ shell }: { shell: Shell }) {
   const manager = shell.ctx.roles.some((r) => r === "owner" || r === "manager");
   return (
     <>
-      <Head kicker="Consulta de rutinas en el gimnasio, sin instalar nada" title="Pantalla de rutinas" />
+      <Head kicker="Consulta de rutinas y registro del entrenamiento en el gimnasio, sin instalar nada" title="Pantalla de rutinas" />
       {s.err && <p role="alert" className="err-box">{s.err}</p>}
       {s.data && !s.data.enabled && (
         <section className="card">
           <h2>Todavía no está habilitada</h2>
-          <span className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>La pantalla de rutinas es una tablet o un monitor del gimnasio donde cada socio consulta su programa con su código y un PIN, sin instalar la app.
+          <span className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>La pantalla de rutinas es una tablet o un monitor del gimnasio donde cada socio consulta su programa y registra lo que hizo con su código y un PIN, sin instalar la app.
             La habilita REPI para cada gimnasio. Si la querés usar, escribinos desde Ayuda y soporte y te contamos cómo seguir.</span>
           <a className="btn" href="/ayuda" style={{ alignSelf: "flex-start", display: "inline-grid", placeItems: "center" }}>Ayuda y soporte</a>
         </section>
@@ -51,7 +51,7 @@ export function KioskScreen({ shell }: { shell: Shell }) {
             <ol className="kc-steps">
               <li><b>Registrá la pantalla</b> de la sede: abrís el enlace una vez en la tablet y queda autorizada.</li>
               <li><b>Entregale a cada socio su código y su PIN</b> desde su ficha o en Recepción, al verificar el carnet. El PIN se ve una sola vez.</li>
-              <li><b>El socio consulta su rutina</b> con el código y el PIN. La pantalla muestra sólo el programa vigente y se cierra sola si nadie la usa.</li>
+              <li><b>El socio consulta su rutina y registra su entrenamiento</b> con el código y el PIN: ve el programa vigente con lo que indicó el profe y lo que sugiere REPI, y anota peso y repeticiones. No puede cambiar el programa, y la pantalla se cierra sola si nadie la usa.</li>
             </ol>
             <span className="muted">{s.data.credentials === 1 ? "1 socio tiene código activo." : `${s.data.credentials} socios tienen código activo.`}</span>
           </section>
@@ -276,7 +276,7 @@ function IssuedModal({ gym, name, code, pin, flash, onClose }: { gym: string; na
           <span><small>Código de socio</small><b aria-label={`Código ${code.split("").join(" ")}`}>{spaced(code)}</b></span>
           <span><small>PIN</small><b aria-label={`PIN ${pin.split("").join(" ")}`}>{pin}</b></span>
         </div>
-        <span className="kc-print-help">En la pantalla de rutinas del gimnasio, escribí tu código y tu PIN para ver tu programa. Podés cambiar el PIN desde la app REPI, en Perfil.</span>
+        <span className="kc-print-help">En la pantalla de rutinas del gimnasio, escribí tu código y tu PIN para ver tu programa y registrar tu entrenamiento. Podés cambiar el PIN desde la app REPI, en Perfil.</span>
       </div>
       <div className="mfoot">
         <button type="button" className="btn" onClick={copy}>Copiar</button>

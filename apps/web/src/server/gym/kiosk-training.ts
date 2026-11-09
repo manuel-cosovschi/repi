@@ -250,9 +250,11 @@ export type KioskSetInput = { id: string; setIndex: number; skipped?: boolean; w
  */
 export async function kioskLogExercise(secret: string, token: string, p: { sessionId: string; programExerciseId: string; sets: KioskSetInput[] }, now = new Date()) {
   const live = await liveSession(secret, token, now);
-  await myOpen(live, p.sessionId);
+  const w = await myOpen(live, p.sessionId);
   const [pe] = await db.select().from(programExercise).where(eq(programExercise.id, p.programExerciseId));
-  if (!pe) throw new AccessError("invalid", "Ese ejercicio no es parte de este entrenamiento.");
+  // Del día de la sesión (o uno de la versión anterior que ya tiene series en ella, como en `logSet`).
+  const inSession = pe && (pe.dayId === w.dayId || (await db.select({ id: setLog.id }).from(setLog).where(and(eq(setLog.sessionId, w.id), eq(setLog.programExerciseId, pe.id))).limit(1)).length > 0);
+  if (!pe || !inSession) throw new AccessError("invalid", "Ese ejercicio no es parte de este entrenamiento.");
   const seen = new Set<number>();
   for (const r of p.sets) {
     if (!Number.isInteger(r.setIndex) || r.setIndex < 0 || r.setIndex >= pe.sets || seen.has(r.setIndex)) throw new AccessError("invalid", "Revisá las series.");
@@ -275,8 +277,8 @@ export async function kioskLogExercise(secret: string, token: string, p: { sessi
   await audit(db, { actorUserId: userId, orgId: live.d.k.orgId, action: "kiosk.sets_logged", resourceType: "workout_session", resourceId: p.sessionId,
     meta: { kioskId: live.d.k.id, credentialId: live.s.c.id, programExerciseId: pe.id, saved: results.filter((x) => x.status === "ok").length,
       skipped: results.filter((x) => x.status === "skipped" || x.status === "not_done").length, conflicts: results.filter((x) => x.status === "conflict").length } });
-  const w = await workoutView(live, p.sessionId, now);
-  return { results, exercise: w.exercises.find((x) => x.id === pe.id) ?? null, done: w.done, total: w.total };
+  const v = await workoutView(live, p.sessionId, now);
+  return { results, exercise: v.exercises.find((x) => x.id === pe.id) ?? null, done: v.done, total: v.total };
 }
 
 /** «Terminar entrenamiento»: lo mismo que «Finalizar» en la app (sin series, se descarta). */

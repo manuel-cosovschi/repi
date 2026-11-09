@@ -256,7 +256,7 @@ test.describe("modalidades: REPI Completo y REPI Control", () => {
     await control.click();
     await expect(control).toHaveAttribute("aria-selected", "true");
     await expect(panel(page, "control")).toBeVisible();
-    await expect(panel(page, "control").getByRole("heading", { level: 3 })).toHaveText(/Tu equipo planifica\. Tus socios consultan\./);
+    await expect(panel(page, "control").getByRole("heading", { level: 3 })).toHaveText(/Tu equipo planifica\. Tus socios consultan y registran\./);
     await expect(panel(page, "control")).toContainText("código de socio y un PIN personal");
     await expect(panel(page, "completo")).toBeHidden();
     await expect(page).toHaveURL(/[?&]modo=control/);
@@ -286,7 +286,8 @@ test.describe("modalidades: REPI Completo y REPI Control", () => {
     }
     await expect(table).toContainText("Cambia según la política del gimnasio");
     await expect(table).toContainText("En las dos modalidades");
-    await expect(table).toContainText("no cambia lo prescrito");
+    await expect(table).toContainText("sin cambiar lo programado");
+    await expect(table).toContainText("no modifica lo programado");
     const text = (await page.locator("#modos").textContent()) ?? "";
     expect(text).not.toMatch(/\$\s?\d|ARS|USD|por mes|mensual|más barat|más car/i);
     await expect(page.locator("#modos")).toContainText("Pedí una propuesta personalizada");
@@ -367,9 +368,9 @@ test.describe("modalidades: REPI Completo y REPI Control", () => {
     await expect(panel(page, "control").locator(".x3-md-glass img[data-on]")).toHaveAttribute("src", "/conoce/shots/control-identificar.webp");
   });
 
-  test("la demo de REPI Control (pantalla de consulta) arranca desde la escena", async ({ page }) => {
+  test("la demo de REPI Control (pantalla del gimnasio) arranca desde la escena", async ({ page }) => {
     await page.goto("/conoce?sala=low&modo=control");
-    await panel(page, "control").getByRole("button", { name: "Probar la pantalla de consulta" }).click();
+    await panel(page, "control").getByRole("button", { name: "Probar la pantalla del gimnasio" }).click();
     await page.waitForURL((u) => !u.pathname.startsWith("/conoce"), { timeout: 20_000 });
   });
 });

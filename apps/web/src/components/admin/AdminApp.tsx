@@ -668,10 +668,10 @@ function ContractView({ id, flash, back }: { id: string; flash: (t: string) => v
           </div>
           <small className="muted">Sólo el personal con permiso de programas (coordinación y sala) crea, modifica y asigna rutinas. El socio registra lo que hizo sobre su programa, sin cambiar lo prescrito. Vale sólo dentro de este gimnasio: si la persona también entrena con un coach personal, ahí conserva sus rutinas.</small>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-            <strong>Pantalla de consulta de rutinas</strong>
+            <strong>Pantalla de rutinas (consultar y registrar)</strong>
             <span className={`chip ${v.org.kioskEnabled ? "ok" : "mute"}`}>{v.org.kioskEnabled ? "Habilitada" : "Deshabilitada"}</span>
             <button type="button" className="btn" style={{ marginLeft: "auto" }} aria-busy={busy === "control" || undefined}
-              onClick={() => act("control", `${base}/control`, { kioskEnabled: !v.org.kioskEnabled }, v.org.kioskEnabled ? "Pantalla de consulta deshabilitada. Las consultas abiertas se cerraron." : "Pantalla de consulta habilitada. El gimnasio registra cada pantalla y emite los códigos.")}>
+              onClick={() => act("control", `${base}/control`, { kioskEnabled: !v.org.kioskEnabled }, v.org.kioskEnabled ? "Pantalla de rutinas deshabilitada. Las consultas abiertas se cerraron." : "Pantalla de rutinas habilitada. El gimnasio registra cada pantalla y emite los códigos.")}>
               {v.org.kioskEnabled ? "Deshabilitar" : "Habilitar"}</button>
           </div>
           <small className="muted">El gimnasio registra y revoca cada tablet o monitor en «Pantalla de rutinas» y entrega a cada socio un código y un PIN. La tablet la pone el gimnasio.</small>

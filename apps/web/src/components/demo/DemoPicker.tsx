@@ -11,7 +11,7 @@ const ROLES: [string, string, string, Icon][] = [
   ["floor", "Entrenador de sala", "Avisos en vivo de la sala, cola de pedidos y fichas de socios.", UsersThree],
   ["member", "Alumno o socio", "Entrenar desde el teléfono, progreso, chat y el gimnasio en la app.", DeviceMobile],
   ["coach", "Personal trainer", "Alumnos, programas, rendimiento, mensajes y cobros.", Barbell],
-  ["control", "Pantalla de rutinas · REPI Control", "La tablet del gimnasio: el socio consulta su rutina con código y PIN, sin instalar nada.", Monitor],
+  ["control", "Pantalla de rutinas · REPI Control", "La tablet del gimnasio: el socio consulta su rutina y registra su entrenamiento con código y PIN, sin instalar nada.", Monitor],
 ];
 
 export function DemoPicker() {

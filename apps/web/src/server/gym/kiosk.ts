@@ -1,5 +1,5 @@
-// REPI Control (D213): pantalla de consulta de rutinas (kiosco). Una tablet o monitor del gimnasio, autorizada por el personal,
-// donde el socio se identifica con su código de socio y su PIN y ve el programa vigente, sólo para consultar.
+// REPI Control (D213): pantalla de rutinas (kiosco). Una tablet o monitor del gimnasio, autorizada por el personal, donde el socio
+// se identifica con su código de socio y su PIN, ve el programa vigente y (D216, `kiosk-training.ts`) registra lo que hizo.
 //
 // Seguridad (docs/repi-control/SEGURIDAD.md):
 // - Dos factores de la pantalla: el secreto del equipo (32 bytes, sólo su hash en la base, encabezado propio, distinto del QR de
