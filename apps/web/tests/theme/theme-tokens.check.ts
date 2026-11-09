@@ -34,8 +34,9 @@ test("los componentes no escriben colores fijos (usan var(--ui-*))", () => {
   const walk = (d: string) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p); else if (p.endsWith(".tsx")) files.push(p); } };
   walk(join(root, "components"));
   walk(join(root, "app"));
-  // Sitio público (editorial navy), pantallas de recepción, buzón de desarrollo y el QR (se lee sobre blanco) tienen diseño fijo.
-  const allowed = (p: string, l: string) => /ingreso\/pantalla|ranking\/pantalla|dev\/mailbox|components\/site\//.test(p) || /renderSVG|^\s*\/\//.test(l);
+  // Sitio público (editorial navy), pantallas de recepción y de rutinas (D213, tablet del gimnasio), buzón de desarrollo y el QR
+  // (se lee sobre blanco) tienen diseño fijo.
+  const allowed = (p: string, l: string) => /ingreso\/pantalla|ranking\/pantalla|app\/rutinas\/|dev\/mailbox|components\/site\//.test(p) || /renderSVG|^\s*\/\//.test(l);
   const bad: string[] = [];
   for (const p of files) {
     readFileSync(p, "utf8").split("\n").forEach((l, i) => { if (!allowed(p, l) && /["'`]#[0-9a-fA-F]{3,8}\b|var\(--(?:dark|light|core|semantic|access)-/.test(l)) bad.push(`${p.slice(root.length)}:${i + 1}`); });

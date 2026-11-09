@@ -290,10 +290,16 @@ test.describe("modalidades: REPI Completo y REPI Control", () => {
     const text = (await page.locator("#modos").textContent()) ?? "";
     expect(text).not.toMatch(/\$\s?\d|ARS|USD|por mes|mensual|más barat|más car/i);
     await expect(page.locator("#modos")).toContainText("Pedí una propuesta personalizada");
-    // Los films de las modalidades todavía no tienen archivo: no hay botón de video.
+    // Cada modalidad abre su film (16:9; en un teléfono vertical, la versión 9:16) y los archivos existen.
     for (const id of ["completo", "control"] as const) {
       await page.getByRole("tab", { name: new RegExp(`REPI ${id === "completo" ? "Completo" : "Control"}`) }).click();
-      await expect(panel(page, id).getByRole("button", { name: /Ver el video/ })).toHaveCount(0);
+      await panel(page, id).getByRole("button", { name: /Ver el video/ }).click();
+      const video = page.locator("dialog.x3-film video source");
+      await expect(video).toHaveAttribute("src", new RegExp(`/conoce/videos/modo-${id}(-vertical)?\\.mp4$`));
+      for (const f of [`modo-${id}.mp4`, `modo-${id}.webp`, `modo-${id}.descripcion.vtt`, `modo-${id}-vertical.mp4`, `modo-${id}-vertical.webp`])
+        expect((await page.request.head(`/conoce/videos/${f}`)).status(), f).toBe(200);
+      await page.keyboard.press("Escape");
+      await expect(page.locator("dialog.x3-film[open]")).toHaveCount(0);
     }
   });
 
