@@ -147,6 +147,24 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
   return { targets: out, history: open ? history : null };
 }
 
+/**
+ * D216: objetivos de REPI para consultar una rutina sin entrenarla (pantalla de rutinas, modo «Consultar»). Es exactamente el
+ * cálculo de `ensureTargets` (mismo historial comparable, mismas señales, `recommendExercise` y cargas reales de la sede), pero
+ * no guarda nada: mirar la rutina no crea una sesión ni objetivos. Al empezar el entrenamiento, `ensureTargets` emite y guarda
+ * los de esa sesión con las mismas reglas.
+ */
+export async function previewTargets(userId: string, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null) {
+  const out = new Map<string, RowTarget[]>();
+  const list = exs.filter((e) => !e.skipped);
+  if (!list.length) return out;
+  const [history, sig] = await Promise.all([historyRows(userId, list.map((e) => e.doing), { now }), trainingSignals(userId, now)]);
+  for (const e of list) {
+    const lad = ladderFor(e, gym);
+    out.set(e.id, fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad));
+  }
+  return out;
+}
+
 /** Tendencia y propuesta del ejercicio para la persona (texto breve; nunca cambia la rutina). */
 export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail" | "profile">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false, increment: number | null = loadIncrement(e.detail)): Outlook {
   const plan = Array.from({ length: e.sets }, (_, i) => rowContext(e as ExCtx, i));

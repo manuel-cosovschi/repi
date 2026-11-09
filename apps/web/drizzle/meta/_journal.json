@@ -379,6 +379,13 @@
       "when": 1794235622996,
       "tag": "0053_repi_control",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794246607856,
+      "tag": "0054_kiosk_log",
+      "breakpoints": true
     }
   ]
 }

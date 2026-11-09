@@ -652,7 +652,8 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     // D206: lo que pidió el socio en su pedido de programa (se lo mandó al equipo): precarga «Armar con REPI».
     programBrief: gymCan(rolesAt(ctx, m.m.locationId), "program.edit") ? (() => { const b = [...tasks].reverse().find((t) => t.category === "programa_nuevo" && isCompleteBrief(t.context?.brief))?.context?.brief; return b ? briefToAssistant(b) : null; })() : null,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
-    log: recent.map((x) => ({ id: x.id, dayName: x.dayName, status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, rpe: x.rpe, note: x.note, exercises: logs.get(x.id) ?? [] })),
+    // D216: «Registrado en la pantalla del gimnasio» cuando el entrenamiento se empezó en la pantalla de rutinas.
+    log: recent.map((x) => ({ id: x.id, dayName: x.dayName, status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, rpe: x.rpe, note: x.note, atKiosk: !!x.kioskId, exercises: logs.get(x.id) ?? [] })),
     program: prog, tasks: await decorate(tasks, gymCan(rolesAt(ctx, m.m.locationId), "floor.work")),
     programTaskId: (opts.task ? tasks.find((t) => t.id === opts.task && closesWithProgram(t, actorId)) : undefined)?.id ?? tasks.find((t) => closesWithProgram(t, actorId))?.id ?? null,
     notes: notes.map((x) => ({ id: x.n.id, kind: x.n.kind, text: x.n.text, author: x.author, mine: x.n.authorUserId === actorId, at: x.n.createdAt })),

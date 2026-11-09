@@ -111,10 +111,13 @@ export async function startDemo(role: DemoRole, now = new Date()) {
         { name: "Torso", exercises: [exDrop("Press inclinado mancuernas", 3, "10-12", 1, 90), ex("Jalón al pecho", 3, "10-12", 1, 90), ex("Elevaciones laterales", 3, "12-15", 1, 60)] },
         { name: "Piernas", exercises: [ex("Sentadilla", 3, "10", 2, 120), ex("Prensa", 3, "12", 1, 90), ex("Hip thrust", 3, "12", 1, 90)] },
       ] } });
+      // D216: Ana entrenó las últimas semanas (datos ficticios): REPI recomienda sus cargas con Training Intelligence. Martín
+      // todavía no registró nada: la pantalla muestra lo indicado y «Sin referencia suficiente», sin inventar pesos.
+      await history(ana.id, mm[ana.id], 6, now, 0.9, "gym");
       const dev = await createKiosk(laura.id, atlas.id, centro.id, "Tablet sala de musculación");
       const secret = dev.link.split("#k=")[1];
       const people: { name: string; code: string; pin: string; note: string }[] = [];
-      for (const [u, name, note] of [[ana, "Ana P.", "Con programa vigente (versión 2)"], [martin, "Martín G.", "Otro programa, otro profesor"], [sofia, "Sofía D.", "Sin programa todavía"]] as const) {
+      for (const [u, name, note] of [[ana, "Ana P.", "Programa versión 2 con historial: REPI recomienda cargas"], [martin, "Martín G.", "Otro programa, sin historial todavía"], [sofia, "Sofía D.", "Sin programa todavía"]] as const) {
         const c = await issueCredential(laura.id, atlas.id, mm[u.id]);
         people.push({ name, code: c.code, pin: c.pin, note });
       }
@@ -350,8 +353,9 @@ export async function sealDemo(tag: string) {
   if (b) await db.update(schema.user).set({ twoFactorEnabled: true }).where(inArray(schema.user.id, b.userIds as string[]));
 }
 
-async function history(userId: string, relId: string, count: number, now: Date, strength: number) {
-  const [a] = await db.select().from(schema.programAssignment).where(and(eq(schema.programAssignment.coachClientId, relId), eq(schema.programAssignment.status, "active")));
+async function history(userId: string, relId: string, count: number, now: Date, strength: number, kind: "coach" | "gym" = "coach") {
+  const relCol = kind === "gym" ? schema.programAssignment.gymMemberId : schema.programAssignment.coachClientId;
+  const [a] = await db.select().from(schema.programAssignment).where(and(eq(relCol, relId), eq(schema.programAssignment.status, "active")));
   const [p] = await db.select().from(schema.program).where(eq(schema.program.id, a.programId));
   const days = await db.select().from(schema.programDay).where(eq(schema.programDay.versionId, p.currentVersionId!)).orderBy(asc(schema.programDay.position));
   const exs = await db.select().from(schema.programExercise).where(inArray(schema.programExercise.dayId, days.map((d) => d.id))).orderBy(asc(schema.programExercise.position));
@@ -363,7 +367,7 @@ async function history(userId: string, relId: string, count: number, now: Date, 
     const end = new Date(start.getTime() + 55 * 60_000);
     const sid = randomUUID();
     await db.insert(schema.workoutSession).values({
-      id: sid, userId, coachClientId: relId, assignmentId: a.id, versionId: p.currentVersionId!, dayId: d.id, dayName: d.name, status: "completed",
+      id: sid, userId, coachClientId: kind === "coach" ? relId : null, gymMemberId: kind === "gym" ? relId : null, assignmentId: a.id, versionId: p.currentVersionId!, dayId: d.id, dayName: d.name, status: "completed",
       startedAt: start, lastResumedAt: null, activeMs: 52 * 60_000, endedAt: end, rpe: 7 + (i % 2), revision: 2, updatedAt: end,
     });
     for (const e of exs.filter((x) => x.dayId === d.id)) {

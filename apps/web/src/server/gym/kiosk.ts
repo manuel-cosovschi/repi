@@ -22,6 +22,8 @@ import { mediaFor } from "../training/exercise-media";
 const { gymKiosk, kioskCredential, kioskSession, gymMember, gymLocation, organization, programAssignment, program, user, appRateLimit } = schema;
 
 export const KIOSK_SESSION_MS = 5 * 60_000;
+/** D216: cada pedido de la persona estira la consulta hasta 5 min más, con un tope absoluto de 20 min desde que se identificó. */
+export const KIOSK_SESSION_MAX_MS = 20 * 60_000;
 export const KIOSK_IDLE_SEC = 60;
 export const CODE_LOCK_AFTER = 5;
 export const CODE_LOCK_MS = 15 * 60_000;
@@ -258,49 +260,37 @@ export async function kioskIdentify(secret: string, p: { code: string; pin: stri
   return { token, expiresAt, idleSec: KIOSK_IDLE_SEC };
 }
 
-async function liveSession(secret: string, token: string, now = new Date()) {
+export async function liveSession(secret: string, token: string, now = new Date()) {
   const d = await device(secret, now);
   if (!token || token.length < 30 || token.length > 100) throw new AccessError("session_over", "La consulta terminó.", 401);
   const [s] = await db.select({ s: kioskSession, c: kioskCredential, m: gymMember }).from(kioskSession)
     .innerJoin(kioskCredential, eq(kioskCredential.id, kioskSession.credentialId)).innerJoin(gymMember, eq(gymMember.id, kioskCredential.gymMemberId))
     .where(and(eq(kioskSession.tokenHash, sha(token)), eq(kioskSession.kioskId, d.k.id), isNull(kioskSession.endedAt), gt(kioskSession.expiresAt, now)));
   if (!s || s.c.revokedAt || s.m.status !== "active" || s.m.orgId !== d.k.orgId) throw new AccessError("session_over", "La consulta terminó.", 401);
+  // D216: mientras la persona usa la pantalla, la consulta se estira (registrar lleva más que mirar), siempre con el tope absoluto.
+  const want = Math.min(s.s.createdAt.getTime() + KIOSK_SESSION_MAX_MS, now.getTime() + KIOSK_SESSION_MS);
+  if (want - s.s.expiresAt.getTime() > 30_000) {
+    s.s.expiresAt = new Date(want);
+    await db.update(kioskSession).set({ expiresAt: s.s.expiresAt }).where(and(eq(kioskSession.id, s.s.id), isNull(kioskSession.endedAt)));
+  }
   return { d, s };
 }
 
 /**
- * Programa vigente del socio identificado, sólo lectura: días, ejercicios, series, repeticiones, descansos, notas del equipo y
- * demostraciones del gimnasio. Sin historial, cargas anteriores, salud, contacto ni apellido.
+ * Programa vigente del socio identificado, para consultar (D213), con los objetivos de cada serie (D216): lo indicado por el
+ * profesor, lo que recomienda Training Intelligence y la última vez comparable. Mirar no crea una sesión ni guarda nada. Sin
+ * salud, contacto ni apellido. Detalle en `kiosk-training.ts`.
  */
 export async function kioskProgram(secret: string, token: string, now = new Date()) {
   const { d, s } = await liveSession(secret, token, now);
-  const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, s.m.userId));
+  return (await import("./kiosk-training")).programView(d, s, now);
+}
+
+/** Nombre y la inicial del apellido: lo único de la persona que muestra la pantalla. */
+export async function personOf(userId: string) {
+  const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId));
   const parts = (u?.name ?? "").trim().split(/\s+/);
-  const person = { firstName: parts[0] || "Socio", initial: parts[1]?.[0] ? `${parts[1][0].toUpperCase()}.` : "" };
-  const base = { person, gym: d.org.name, expiresAt: s.s.expiresAt, idleSec: KIOSK_IDLE_SEC };
-  const [a] = await db.select({ a: programAssignment, p: program }).from(programAssignment).innerJoin(program, eq(program.id, programAssignment.programId))
-    .where(and(eq(programAssignment.gymMemberId, s.m.id), eq(programAssignment.status, "active")));
-  if (!a?.p.currentVersionId) return { ...base, program: null };
-  const { version, doc } = await readVersion(a.p.currentVersionId);
-  const ids = [...new Set(doc.days.flatMap((x) => x.exercises.map((e) => e.exerciseId)))];
-  const media = await mediaFor(d.k.orgId, ids);
-  return {
-    ...base,
-    program: {
-      name: doc.name, note: doc.note ?? null, weeks: doc.weeks ?? null, version: version.number, updatedAt: version.createdAt, startsOn: a.a.startsOn,
-      days: doc.days.map((day) => ({
-        name: day.name,
-        exercises: day.exercises.map((e) => {
-          const m = media.get(e.exerciseId);
-          return {
-            name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec ?? null, note: e.note ?? null,
-            prescription: prescriptionText({ sets: e.sets, reps: e.reps, rir: e.rir, detail: e.detail ?? null }, { rir: true }),
-            demo: m ? (m.kind === "video" ? { kind: "video" as const, url: signMedia(s.s.id, m.url.split("/").pop()!, s.s.expiresAt) } : { kind: "link" as const, url: m.url }) : null,
-          };
-        }),
-      })),
-    },
-  };
+  return { firstName: parts[0] || "Socio", initial: parts[1]?.[0] ? `${parts[1][0].toUpperCase()}.` : "" };
 }
 
 export async function kioskEnd(secret: string, token: string, reason: "done" | "idle" = "done") {
@@ -311,7 +301,7 @@ export async function kioskEnd(secret: string, token: string, reason: "done" | "
 
 // ── Demostraciones subidas por el gimnasio: URL firmada atada a la consulta ─
 const mediaKey = () => createHmac("sha256", requireEnv("BETTER_AUTH_SECRET")).update("repi-kiosk-media-v1").digest();
-function signMedia(sessionId: string, mediaId: string, exp: Date) {
+export function signMedia(sessionId: string, mediaId: string, exp: Date) {
   const body = Buffer.from(`${sessionId}.${mediaId}.${exp.getTime()}`).toString("base64url");
   const mac = createHmac("sha256", mediaKey()).update(body).digest("base64url").slice(0, 32);
   return `/api/kiosk/media/${mediaId}?t=${body}.${mac}`;
