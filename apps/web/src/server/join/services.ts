@@ -12,6 +12,7 @@ import { AccessError, audit, type Tx } from "../access/util";
 import { NOT_FOUND, gymContext, inScope, need, needRoles, scopedLocations } from "../gym/services";
 import { sendMail } from "../mailer";
 import { enqueue } from "../push/services";
+import { logError } from "../log";
 
 const { user, organization, gymLocation, staffMembership, gymMember, gymMemberLocation, membershipRequest, locationJoinLink, shiftLog, legalAcceptance } = schema;
 
@@ -284,8 +285,9 @@ export async function decideJoin(actorId: string, orgId: string, requestId: stri
       await db.update(membershipRequest).set({ status: "expired" }).where(and(eq(membershipRequest.id, requestId), eq(membershipRequest.status, "pending")));
     throw e;
   });
-  await enqueue([res.userId], { kind: "join_resolved", dedupe: `res:${requestId}`, title: "REPI", body: "Tu solicitud de acceso tiene novedades", url: "/acceso?step=workspace" }).catch(() => {});
-  await mailJoinDecision(res.userId, orgId, res.status).catch(() => {});
+  await enqueue([res.userId], { kind: "join_resolved", dedupe: `res:${requestId}`, title: "REPI", body: "Tu solicitud de acceso tiene novedades", url: "/acceso?step=workspace" }).catch((e) => logError("join.resolved_push", e));
+  // FSA1: la decisión ya quedó guardada y el socio la ve en /acceso; un rechazo del proveedor no la deshace, pero se registra.
+  await mailJoinDecision(res.userId, orgId, res.status).catch((e) => logError("join.decision_mail", e));
   return res;
 }
 
@@ -323,7 +325,7 @@ export async function remindPendingConsent(now = new Date()) {
     await sendMail({
       to: r.email, subject: `${r.org} aprobó tu acceso: falta un paso`,
       body: `Hola ${r.name.split(" ")[0]}: ${r.org} ya aprobó tu acceso a REPI.\nFalta confirmar qué ve tu gimnasio para empezar a entrenar. Entrá en ${appUrl()}/acceso con tu email.`,
-    }).then(() => sent++, () => {});
+    }).then(() => sent++, (e) => logError("join.consent_reminder_mail", e));
   }
   return sent;
 }

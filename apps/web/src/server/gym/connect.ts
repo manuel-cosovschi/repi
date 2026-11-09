@@ -513,7 +513,16 @@ export async function connectReport(actorId: string, orgId: string, locationId: 
  * 1) pedido sin tomar hace CONNECT_WAIT_ALERT_MIN → a quienes están en turno en la sede, una vez;
  * 2) seguimiento que vence en CONNECT_DUE_SOON_HOURS o vencido → a su responsable (o al turno si quedó libre), uno por día.
  * Respeta la pausa de avisos de cada persona (processOutbox los marca «skipped»). Sin modelos de IA.
+ * FSA1: sin nadie en turno en la sede, el aviso va a la gestión de esa sede (dueño, gerencia y coordinación), como el
+ * escalamiento de las altas por QR; antes no le llegaba a nadie y el pedido sólo se veía si alguien abría «Sala».
  */
+async function sweepRecipients(orgId: string, locationId: string) {
+  const onShift = await floorOnShift(orgId, locationId);
+  if (onShift.length) return onShift;
+  const rows = await db.select({ u: schema.staffMembership.userId, role: schema.staffMembership.role, loc: schema.staffMembership.locationId }).from(schema.staffMembership)
+    .where(and(eq(schema.staffMembership.orgId, orgId), eq(schema.staffMembership.status, "active")));
+  return [...new Set(rows.filter((r) => (!r.loc || r.loc === locationId) && gymCan([r.role], "team.read")).map((r) => r.u))];
+}
 export async function connectSweep(now = new Date()) {
   const orgs = featureOn("connect") ? await db.select({ id: organization.id }).from(organization).where(and(eq(organization.connectEnabled, true), eq(organization.kind, "gym"))) : [];
   if (!orgs.length) return { waiting: 0, due: 0 };
@@ -524,14 +533,14 @@ export async function connectSweep(now = new Date()) {
     .limit(200);
   let w = 0, d = 0;
   for (const t of waiting) {
-    const to = await floorOnShift(t.orgId, t.locationId);
+    const to = await sweepRecipients(t.orgId, t.locationId);
     w += await enqueue(to, { kind: "assist_wait", dedupe: `assistwait:${t.id}`, title: `Pedido esperando · ${t.loc}`, body: `T-${t.number} · ${reasonLabel(t)} · sin tomar hace más de ${CONNECT_WAIT_ALERT_MIN} min`, url: `/gym/${t.orgId}?s=queue&sel=${t.id}` });
   }
   const due = await db.select({ id: gymTask.id, orgId: gymTask.orgId, locationId: gymTask.locationId, number: gymTask.number, reason: gymTask.reason, category: gymTask.category, assignee: gymTask.assigneeUserId, dueAt: gymTask.dueAt })
     .from(gymTask).where(and(inArray(gymTask.orgId, orgIds), eq(gymTask.status, "follow_up"), sql`${gymTask.dueAt} < ${new Date(now.getTime() + CONNECT_DUE_SOON_HOURS * 3_600_000).toISOString()}`)).limit(300);
   const today = localDate(now);
   for (const t of due) {
-    const to = t.assignee ? [t.assignee] : await floorOnShift(t.orgId, t.locationId);
+    const to = t.assignee ? [t.assignee] : await sweepRecipients(t.orgId, t.locationId);
     const late = !!t.dueAt && t.dueAt < now;
     d += await enqueue(to, { kind: "assist_due", dedupe: `assistdue:${t.id}:${today}`, title: late ? "Seguimiento vencido" : "Seguimiento por vencer", body: `T-${t.number} · ${reasonLabel(t)}`, url: `/gym/${t.orgId}?s=queue&sel=${t.id}` });
   }

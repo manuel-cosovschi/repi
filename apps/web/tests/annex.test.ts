@@ -1,7 +1,7 @@
 // Anexo 26/10/2026 «Acceso, altas y facturación» (§11) y pedidos extra (sensación por serie, evolución en el Club).
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
@@ -294,6 +294,30 @@ describe("acceso del socio por QR (criterios 10–19)", () => {
     const r2 = await join.requestAccess(w.manager, slug, { terms: true });
     const id2 = "request" in r2 ? r2.request!.id : "";
     expect(await code(join.decideJoin(w.manager, w.org, id2, { approve: true, method: "recepcion" }))).toBe("self");
+  });
+
+  it("FSA1: si el proveedor de email rechaza el aviso de la decisión, la decisión queda y el error se registra (no se silencia)", async () => {
+    const w = await world();
+    const slug = await slugFor(w.manager, w.org, w.A);
+    const socio = await verified();
+    const r = await join.requestAccess(socio, slug, { terms: true });
+    const id = "request" in r ? r.request!.id : "";
+    const env = { d: process.env.MAIL_DRIVER, k: process.env.RESEND_API_KEY, f: process.env.MAIL_FROM };
+    Object.assign(process.env, { MAIL_DRIVER: "resend", RESEND_API_KEY: "re_test_only", MAIL_FROM: "REPI <no-reply@example.test>" });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 500 }));
+    const logs = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(join.decideJoin(w.recep, w.org, id, { approve: true, method: "recepcion" })).resolves.toMatchObject({ status: "approved" });
+      expect(fetchSpy).toHaveBeenCalledWith("https://api.resend.com/emails", expect.anything()); // intento real al proveedor (falso)
+      const lines = logs.mock.calls.map((c) => String(c[0]));
+      expect(lines.some((l) => l.includes('"scope":"join.decision_mail"') && l.includes("rechaz"))).toBe(true);
+      expect(lines.join("\n")).not.toContain("re_test_only"); // sin secretos en el registro
+    } finally {
+      fetchSpy.mockRestore(); logs.mockRestore();
+      for (const [k, v] of [["MAIL_DRIVER", env.d], ["RESEND_API_KEY", env.k], ["MAIL_FROM", env.f]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+    const [mine] = await join.myJoinRequests(socio);
+    expect(mine.status).toBe("approved");
   });
 
   it("vence a las 24 h; cancelar; QR revocado no sirve; gym no habilitado no recibe solicitudes; email sin verificar tampoco", async () => {
