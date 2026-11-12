@@ -826,10 +826,14 @@ export const coachCharge = pgTable("coach_charge", {
 // Objetivos acordados coach ↔ alumno (F-CO-03 / F-HX-02, D97). Indicadores automáticos (1RM estimado, carga × reps,
 // entrenamientos por semana) se calculan desde las series de la relación; «manual» lo carga el coach con fecha.
 // Decimales como texto exacto, igual que set_log.weight_kg. La línea base es el valor al acordar.
+// D217: también las metas PROPIAS del alumno por ejercicio («origin = self»: `user_id`, sin relación). Mismas columnas y mismo
+// cálculo; nuevos tipos «reps» (peso corporal) y «time» (segundos). Una meta del coach nunca la edita el alumno ni al revés.
 export const clientGoal = pgTable("client_goal", {
   id: id(),
-  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["e1rm", "load", "frequency", "manual"] }).notNull(),
+  coachClientId: text("coach_client_id").references(() => coachClient.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  origin: text("origin", { enum: ["coach", "self"] }).notNull().default("coach"),
+  kind: text("kind", { enum: ["e1rm", "load", "frequency", "manual", "reps", "time"] }).notNull(),
   title: text("title").notNull(),
   exerciseId: text("exercise_id").references(() => exercise.id),
   target: text("target").notNull(),
@@ -845,7 +849,11 @@ export const clientGoal = pgTable("client_goal", {
   createdAt: now("created_at"),
   updatedAt: now("updated_at"),
   closedAt: ts("closed_at"),
-}, (t) => [index("client_goal_rel_idx").on(t.coachClientId, t.status)]);
+}, (t) => [
+  index("client_goal_rel_idx").on(t.coachClientId, t.status),
+  index("client_goal_self_idx").on(t.userId, t.status).where(sql`user_id is not null`),
+  check("client_goal_owner_valid", sql`(${t.origin} = 'coach' and ${t.coachClientId} is not null and ${t.userId} is null) or (${t.origin} = 'self' and ${t.userId} is not null and ${t.coachClientId} is null)`),
+]);
 
 // Agenda coach ↔ alumno (F-CO-10 / F-HX-07, D98). Turno propio, separado del entrenamiento registrado: el coach marca
 // realizada/no asistió y el alumno confirma o avisa que no puede. Hora guardada en UTC; se muestra en hora argentina.

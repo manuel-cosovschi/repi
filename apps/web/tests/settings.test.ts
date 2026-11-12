@@ -34,9 +34,11 @@ describe("configuración del alumno", () => {
     const yo = await person();
     await updateSettings(yo, { weightUnit: "lb" });
     const r = await updateSettings(yo, { wishes: { goal: "strength", daysPerWeek: 3, minutes: "50", likes: "  peso libre ", avoid: "" } });
-    expect(r).toEqual({ uid: yo, theme: "system", themeChangedAt: null, weightUnit: "lb", wishes: { goal: "strength", daysPerWeek: 3, minutes: 50, likes: "peso libre", avoid: null, shareWithTrainers: false } });
+    // D217: se guarda sobre el perfil canónico (campos nuevos vacíos, versión y procedencia «profile»).
+    expect(r).toMatchObject({ uid: yo, theme: "system", themeChangedAt: null, weightUnit: "lb", wishes: { goal: "strength", daysPerWeek: 3, minutes: 50, likes: "peso libre", avoid: null, shareWithTrainers: false, experience: null } });
+    expect(r.wishes!.meta).toMatchObject({ version: 1, fields: { goal: { via: "profile" } } });
     await expect(updateSettings(yo, { wishes: { minutes: 1000 } })).rejects.toMatchObject({ code: "invalid" });
-    const log = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, yo), eq(schema.auditEvent.action, "settings.wishes")));
+    const log = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, yo), eq(schema.auditEvent.action, "profile.updated")));
     expect(JSON.stringify(log[0].meta)).not.toContain("peso libre");
   });
 

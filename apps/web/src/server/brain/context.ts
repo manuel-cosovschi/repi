@@ -6,7 +6,7 @@
 // La referencia que manda el navegador (`ref`: ejercicio, sesión, rutina) sólo SUGIERE: se valida contra la base y un id ajeno
 // responde 404, igual que uno inexistente. Es barato: dos tandas de consultas en paralelo (sin IA ni cálculos pesados).
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import { ageEligibility, localDate, nextDayIndex, parseReps, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
+import { ageEligibility, localDate, nextDayIndex, parseReps, personalProfile, profileStatus, readWishes, type ExerciseDetail, type PersonalProfile, type TrainingWishes } from "@repi/domain";
 import {
   arDaysBetween, contextVersion, endOfArDay, fact, noFact, type AgeBand, type BrainContext, type BrainPrefs, type ExerciseRef, type MemoryItem, type Section,
 } from "@repi/domain/brain";
@@ -56,6 +56,8 @@ export type ServerContext = {
   meta: Map<string, ExMeta>;
   /** «Consultame antes de cambiar algo» (preferencia declarada). */
   confirmFirst: boolean;
+  /** D217: perfil de entrenamiento para el motor (objetivo, experiencia, días, minutos, equipamiento, estado). */
+  personal: PersonalProfile;
   /** Lo que la persona pidió evitar (deseos y memoria), para no proponerlo. */
   avoids: string[];
   /** Restricciones que nombran ejercicios (molestias recientes), para no proponerlos. */
@@ -66,17 +68,13 @@ export type ServerContext = {
   ms: number;
 };
 
-const GOAL_TEXT: Record<string, string> = { strength: "fuerza", muscle: "ganar músculo", fat_loss: "bajar grasa", health: "salud", sport: "rendimiento deportivo", habit: "crear el hábito" };
+const GOAL_TEXT: Record<string, string> = { strength: "fuerza", muscle: "ganar músculo", fat_loss: "bajar grasa", health: "salud", sport: "rendimiento deportivo", habit: "crear el hábito", endurance: "resistencia" };
+const EXPERIENCE_TEXT: Record<string, string> = { beginner: "principiante", intermediate: "intermedio", advanced: "avanzado" };
 const ownerOf = (kind: string | null | undefined, rel: "coach" | "gym" | null): "coach" | "gym" | "own" | null =>
   kind === "solo" ? "own" : kind === "member_copy" ? "gym" : kind === "client_copy" || kind === "template" ? (rel ?? "coach") : rel;
 
-function wishesOf(w: unknown): TrainingWishes | null {
-  if (!w || typeof w !== "object") return null;
-  const o = w as Record<string, unknown>;
-  const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : null);
-  const str = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim().slice(0, 200) : null);
-  return { goal: (str(o.goal) as TrainingWishes["goal"]) ?? null, daysPerWeek: num(o.daysPerWeek), minutes: num(o.minutes), likes: str(o.likes), avoid: str(o.avoid) };
-}
+/** D217: el perfil canónico (wishes.ts) normalizado; lo inválido de épocas anteriores se descarta sin lanzar. */
+const wishesOf = (w: unknown): TrainingWishes | null => readWishes(w);
 
 /** Valida y normaliza la referencia (sólo formato; la pertenencia se resuelve contra la base). */
 export function cleanRef(r: unknown): BrainRef {
@@ -230,8 +228,9 @@ export async function loadContext(userId: string, opts: { section?: Section; ref
   const memAvoid = memory.filter((m) => m.kind === "preference" && m.key.startsWith("avoid_exercise:"));
   const memLike = memory.filter((m) => m.kind === "preference" && m.key.startsWith("likes_exercise:"));
   const nameOf = (m: MemoryItem) => (m.value && typeof m.value === "object" && typeof (m.value as { name?: unknown }).name === "string" ? (m.value as { name: string }).name : m.key.split(":")[1]?.replace(/_/g, " ") ?? "");
-  const avoids = [...memAvoid.map(nameOf), ...(wishes?.avoid ? [wishes.avoid] : [])].filter(Boolean);
-  const likes = [...memLike.map(nameOf), ...(wishes?.likes ? [wishes.likes] : [])].filter(Boolean);
+  // D217: ejercicios que no le gustan y preferidos (elegidos de la biblioteca) se suman a lo dicho en texto y a la memoria.
+  const avoids = [...new Set([...memAvoid.map(nameOf), ...(wishes?.dislikes ?? []).map((e) => e.name), ...(wishes?.avoid ? [wishes.avoid] : [])].filter(Boolean))];
+  const likes = [...new Set([...memLike.map(nameOf), ...(wishes?.favorites ?? []).map((e) => e.name), ...(wishes?.likes ? [wishes.likes] : [])].filter(Boolean))];
   const goals = wishes?.goal && GOAL_TEXT[wishes.goal] && (adult || wishes.goal !== "fat_loss") ? [GOAL_TEXT[wishes.goal]] : [];
   const restrictions = [
     ...pains.map((p) => ({ label: `molestia (${p.zone})`, exercise: p.exerciseName ?? null, since: p.at.toISOString() })),
@@ -260,12 +259,14 @@ export async function loadContext(userId: string, opts: { section?: Section; ref
     person: {
       age: fact<AgeBand>(age, "profile", null, "declared", age === "unknown" ? "none" : "high"),
       unit: u.unit ?? "kg",
-      experience: noFact<string | null>(null, "wishes"),
+      // D217: experiencia DECLARADA (nunca inferida de las cargas). Sin declarar, falta y se dice.
+      experience: wishes?.experience ? fact<string | null>(EXPERIENCE_TEXT[wishes.experience], "wishes", wishes.meta?.fields?.experience?.at ?? null, "declared") : noFact<string | null>(null, "wishes"),
       goals: goals.length ? fact(goals, "wishes", null, "declared") : noFact<string[]>([], "wishes"),
       weeklyTarget: wishes?.daysPerWeek != null ? fact<number | null>(wishes.daysPerWeek, "wishes", null, "declared") : noFact<number | null>(null, "wishes"),
       minutesAvailable: wishes?.minutes != null ? fact<number | null>(wishes.minutes, "wishes", null, "declared") : noFact<number | null>(null, "wishes"),
       likes: fact(likes, "user_pref", null, "declared"),
       avoids: fact(avoids, "user_pref", null, "declared"),
+      profile: { status: profileStatus(wishes, age).status, version: wishes?.meta?.version ?? 0 },
     },
     relation: { kind: relation?.kind ?? (programCtx?.kind === "solo" ? "own" : "none"), orgName: picked?.orgName ?? null, hasCoach: relation?.kind === "coach" },
     program: {
@@ -298,7 +299,7 @@ export async function loadContext(userId: string, opts: { section?: Section; ref
   ctx.version = contextVersion(ctx);
 
   return {
-    ctx, userId, now, prefs, relation, program: programCtx, execOwner, supervised: await relationSupervised(relation),
+    ctx, userId, now, prefs, relation, program: programCtx, execOwner, supervised: await relationSupervised(relation), personal: personalProfile(wishes, age),
     session: sess ? { id: sess.id, versionId: open!.versionId, dayId: open!.dayId, status: open!.status, startedAt: open!.startedAt, coachClientId: open!.coachClientId, gymMemberId: open!.gymMemberId, programKind: sess.programKind, exercises: sx } : null,
     exercises, meta,
     confirmFirst: memory.some((m) => m.kind === "preference" && m.key === "confirm_before_change" && m.value !== false),

@@ -10,6 +10,7 @@ import { activityOf, emptyDetail, prescriptionText, type ActivityDetail, type Me
 import { useUnit } from "./units";
 import { api } from "@/lib/api";
 import { Sheet } from "./Sheet";
+import { PROFILE_EVENT } from "./profile-store";
 
 type Prev = { weightKg: number | null; reps: number | null } | null;
 // Ejercicios por tiempo: `profile` y `activity` (cinta, bici…) para leer «10 min · 5 km/h · incl. 3» en lugar de series × reps;
@@ -36,6 +37,8 @@ function advice(force = false) {
   }
   return cached.p;
 }
+// D217: un cambio del perfil de entrenamiento deja vieja la sugerencia guardada: la próxima vez se vuelve a pedir.
+if (typeof window !== "undefined") window.addEventListener(PROFILE_EVENT, () => { cached = null; });
 
 export function SoloEntry({ onOpen, prefetch = true }: { onOpen: (v: SoloVariant) => void; prefetch?: boolean }) {
   useEffect(() => { if (prefetch && navigator.onLine) advice().catch(() => {}); }, [prefetch]); // sin programa no hay día que sugerir (D153)

@@ -4,7 +4,7 @@
 // D138: la persona puede responder («la máquina está ocupada», «no hay», «me molesta») y la IA rearma la rutina con esa
 // información, cambiando sólo por alternativas compatibles de la biblioteca (primero las aprobadas por su profe) o salteando.
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
-import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isActivityProfile, isChangeReason, localDate, prescriptionText, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
+import { COMPARABLE_KINDS, EXERCISE_CHANGE_REASONS, EXPERIENCE_LEVELS, PROFILE_EQUIPMENT, TRAINING_WISH_GOALS, checkLoad, coachSetLoads, hasWishes, isActivityProfile, isChangeReason, localDate, prescriptionText, progressionApplies, type ExerciseChangeReason, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { assertMemberAuthoring } from "../gym/routine-policy";
@@ -91,7 +91,9 @@ export async function aiSoloAdvice(userId: string, now = new Date(), follow?: Ai
     ultimosEntrenamientos: recent.map((r) => ({ dia: r.dayName, fecha: r.endedAt ? localDate(r.endedAt) : null, rpe: r.rpe, series: sets.filter((x) => x.s === r.id).length })),
     checkinHoy: ci ? { energia: ci.energy, sueno: ci.sleep, animo: ci.mood } : null,
     objetivos: goals.map((g) => ({ objetivo: g.title, actual: g.current, meta: g.target, progreso: g.progress })),
-    loQueBusca: wishes && hasWishes(wishes) ? { objetivo: wishes.goal ? TRAINING_WISH_GOALS[wishes.goal] : null, diasPorSemana: wishes.daysPerWeek, minutosDisponibles: wishes.minutes, leGusta: wishes.likes, prefiereEvitar: wishes.avoid } : null,
+    // D217: perfil canónico (sin datos de salud: las molestias van por su propio consentimiento).
+    loQueBusca: wishes && hasWishes(wishes) ? { objetivo: wishes.goal ? TRAINING_WISH_GOALS[wishes.goal] : null, experiencia: wishes.experience ? EXPERIENCE_LEVELS[wishes.experience] : null, diasPorSemana: wishes.daysPerWeek, minutosDisponibles: wishes.minutes,
+      leGusta: wishes.likes, prefiereEvitar: wishes.avoid, noLeGustan: wishes.dislikes?.map((e) => e.name) ?? null, equipamiento: wishes.equipment?.map((e) => PROFILE_EQUIPMENT[e]) ?? null, restricciones: wishes.limits ?? null } : null,
   };
   // D138: con respuesta de la persona, alternativas compatibles del día que venía haciendo (o del próximo).
   const followDay = followDayId ? t.program.days.find((d) => d.id === followDayId) ?? null : null;

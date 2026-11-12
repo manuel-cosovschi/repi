@@ -6,7 +6,7 @@
 // queda trazado); una falla acá nunca impide registrar una serie (quien llama la atrapa); no llama a ningún LLM.
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
-  TI_VERSION, TI_WINDOW, activityOf, adjustAfterSet, labelAt, prescriptionText, type MetricsProfile, loadIncrement, fitTargetsToLoads, resolveLadder, type LoadLadder, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
+  TI_VERSION, TI_WINDOW, activityOf, personalizeProposal, personalizeTargets, type PersonalProfile, adjustAfterSet, labelAt, prescriptionText, type MetricsProfile, loadIncrement, fitTargetsToLoads, resolveLadder, type LoadLadder, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
   type ExCtx, type ExerciseDetail, type HistRow, type IntelEvent, type Proposal, type RowTarget, type SetKind, type Trend,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -114,7 +114,12 @@ export type Outlook = { trend: Trend; proposal: Proposal | null } | null;
 export const ladderFor = (e: Pick<SessionEx, "doing" | "exerciseId" | "detail">, gym?: Map<string, LoadLadder> | null) =>
   resolveLadder(e.doing === e.exerciseId ? e.detail : null, gym?.get(e.doing) ?? null);
 
-export async function ensureTargets(userId: string, s: { id: string; versionId: string; status: string }, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null) {
+/** D217: perfil y dueño del programa para personalizar (sin perfil, los objetivos de siempre). */
+export type PersonalOpts = { profile?: PersonalProfile | null; coachOwned?: boolean };
+const failureReps = (reps: string) => /fallo|failure/i.test(reps);
+const personal = (ts: RowTarget[], e: SessionEx, o?: PersonalOpts) => (o?.profile ? personalizeTargets(ts, o.profile, { coachOwned: o.coachOwned, failure: failureReps(e.reps) }) : ts);
+
+export async function ensureTargets(userId: string, s: { id: string; versionId: string; status: string }, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null, po?: PersonalOpts) {
   const current = await db.select().from(trainingTarget).where(and(eq(trainingTarget.sessionId, s.id), isNull(trainingTarget.supersededAt)));
   const open = s.status === "in_progress" || s.status === "paused";
   const byPe = new Map<string, TargetRow[]>();
@@ -132,7 +137,7 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
         // Sustituto: otro equipo (salto desconocido salvo que la sede lo tenga cargado). D195: con lista de cargas de la sede, el
         // objetivo se ajusta a una carga que existe (nunca la del profe ni una serie hecha).
         const lad = ladderFor(e, gym);
-        const ts = fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad);
+        const ts = personal(fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad), e, po);
         const mine = (byPe.get(e.id) ?? []).filter((r) => !stale.includes(r));
         const missing = ts.filter((t) => !e.logged.has(t.setIndex) && !mine.some((r) => r.setIndex === t.setIndex));
         if (!missing.length) continue;
@@ -153,20 +158,20 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
  * no guarda nada: mirar la rutina no crea una sesión ni objetivos. Al empezar el entrenamiento, `ensureTargets` emite y guarda
  * los de esa sesión con las mismas reglas.
  */
-export async function previewTargets(userId: string, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null) {
+export async function previewTargets(userId: string, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null, po?: PersonalOpts) {
   const out = new Map<string, RowTarget[]>();
   const list = exs.filter((e) => !e.skipped);
   if (!list.length) return out;
   const [history, sig] = await Promise.all([historyRows(userId, list.map((e) => e.doing), { now }), trainingSignals(userId, now)]);
   for (const e of list) {
     const lad = ladderFor(e, gym);
-    out.set(e.id, fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad));
+    out.set(e.id, personal(fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad), e, po));
   }
   return out;
 }
 
 /** Tendencia y propuesta del ejercicio para la persona (texto breve; nunca cambia la rutina). */
-export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail" | "profile">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false, increment: number | null = loadIncrement(e.detail)): Outlook {
+export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail" | "profile">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false, increment: number | null = loadIncrement(e.detail), person: PersonalProfile | null = null): Outlook {
   const plan = Array.from({ length: e.sets }, (_, i) => rowContext(e as ExCtx, i));
   const main = plan.find((c) => c.cls === "main" || c.cls === "top");
   if (!main) return null;
@@ -174,7 +179,7 @@ export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec
   const trend = exerciseTrend(pts);
   const t = setTarget(e as ExCtx, main.index);
   const r = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(t.reps.trim());
-  const proposal = nextProposal(trend, pts, { repsMin: r ? Number(r[1]) : null, repsMax: r ? Number(r[2] ?? r[1]) : null, coachOwned, fatigue, increment });
+  const proposal = personalizeProposal(nextProposal(trend, pts, { repsMin: r ? Number(r[1]) : null, repsMax: r ? Number(r[2] ?? r[1]) : null, coachOwned, fatigue, increment }), trend, person);
   return { trend, proposal };
 }
 

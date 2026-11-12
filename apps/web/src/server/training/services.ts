@@ -981,13 +981,16 @@ async function sessionIntel(userId: string, s: typeof workoutSession.$inferSelec
   const sx = await ti.sessionExercises(s.id, exs, logs);
   // D195: cargas reales de la sede del socio (catálogo de equipamiento). Sin catálogo o en una sesión de coach: como siempre.
   const gym = s.gymMemberId ? await import("../gym/equipment").then((m) => m.laddersForMember(s.gymMemberId, sx.map((e) => e.doing))).catch(() => null) : null;
-  const { targets, history } = await ti.ensureTargets(userId, s, sx, now, gym);
+  // D217: perfil de la persona (objetivo, experiencia) para personalizar dentro de las reglas; en un programa del profe o de la
+  // sede no se agrega guía de esfuerzo propia (manda su programación).
+  const open = s.status === "in_progress" || s.status === "paused";
+  const [owned, profile] = open ? await Promise.all([isSoloSession(db as unknown as Tx, s).then((x) => !x), import("../settings/profile").then((m) => m.personalOf(userId, now)).catch(() => null)]) : [true, null];
+  const { targets, history } = await ti.ensureTargets(userId, s, sx, now, gym, { profile, coachOwned: owned });
   const ladders = new Map(sx.map((e) => [e.id, ti.ladderFor(e, gym)]));
   const outlook = new Map<string, import("./intelligence").Outlook>();
-  if (s.status === "in_progress" || s.status === "paused") {
+  if (open) {
     const hist = history && sx.every((e) => e.skipped || history.has(e.doing)) ? history : await ti.historyRows(userId, sx.map((e) => e.doing), { excludeSessionId: s.id, now });
-    const owned = !(await isSoloSession(db as unknown as Tx, s));
-    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned, false, ladders.get(e.id)?.incrementKg ?? null));
+    for (const e of sx) if (!e.skipped) outlook.set(e.id, ti.outlookFor(e, hist.get(e.doing) ?? [], now, owned, false, ladders.get(e.id)?.incrementKg ?? null, profile));
   }
   return { targets, outlook, ladders };
 }

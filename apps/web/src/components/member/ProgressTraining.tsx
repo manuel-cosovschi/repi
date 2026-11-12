@@ -2,14 +2,20 @@
 // PP1 (D199) · Progreso › Entrenamiento: resumen del período (útil desde la primera sesión) y evolución por ejercicio.
 // Todo se calcula en el servidor con las series válidas (anuladas fuera, corregidas con su valor vigente); el teléfono sólo
 // pide el resumen y el ejercicio elegido, nunca todo el historial. Unidades: se guardan kg y se muestran en la unidad elegida.
+// D217 · Progress Intelligence 2.0: del ejercicio elegido se pide además su «insight» (una vez por ejercicio, no por período):
+// tarjetas A/B/C separadas, estimaciones, análisis de REPI, metas (D), regularidad y procedencia de los datos.
 import { useEffect, useMemo, useState } from "react";
-import { PROGRESS_RANGES, isActivityProfile, kgTo, volumeIn, type ProgressRange, type WeightUnit } from "@repi/domain";
+import { PROGRESS_RANGES, isActivityProfile, kgTo, localDate, volumeIn, type ProgressRange, type WeightUnit } from "@repi/domain";
 import { useCached } from "@/lib/cache";
 import { Loading, Skel } from "@/components/motion/Skeleton";
 import { RepiAsk } from "@/components/brain/RepiAsk";
 import { useBrain } from "@/components/brain/BrainProvider";
-import { ProgressChart, type ChartPoint } from "./ProgressChart";
+import { ProgressChart, type ChartFuture, type ChartPoint } from "./ProgressChart";
 import { useUnit } from "./units";
+import { CardsSkeleton, DataNotes, Estimates, PerfCards, RegularityRow, nextLine } from "./ProgressIntelCards";
+import { IntelGoals } from "./ProgressIntelGoals";
+import { IntelAnalysis } from "./ProgressIntelAnalysis";
+import { wFmt, type PI } from "./ProgressIntelShared";
 
 type Summary = {
   totals: { sessions: number; sets: number; reps: number; volumeKg: number; activeMinutes: number; exercises: number };
@@ -18,12 +24,14 @@ type Summary = {
 };
 type ExItem = { id: string; name: string; group: string; kind: string; sessions: number; lastDay: string; imported: boolean };
 type Point = { day: string; at: string; source: "session" | "import"; sessionId: string | null; dayName: string | null; sets: number; reps: number; volumeKg: number;
-  topKg: number | null; repsAtTop: number | null; e1rm: number | null; best: { weightKg: number; reps: number } | null; maxReps: number | null; maxSec: number | null; record: boolean; first: boolean };
+  topKg: number | null; repsAtTop: number | null; e1rm: number | null; best: { weightKg: number; reps: number } | null; maxReps: number | null; maxSec: number | null; record: boolean; first: boolean;
+  approx?: boolean };
 // `profile` (ejercicios por tiempo): una actividad (cinta, bici, remo…) se sigue por su duración.
 type ExProgress = { exercise: { id: string; name: string; group: string; kind: string; profile?: string | null }; metric: "load" | "reps" | "time"; points: Point[]; records: number; truncated: boolean;
   totals: { sessions: number; sets: number; volumeKg: number; firstDay: string | null }; best: { day: string; e1rm: number; set: { weightKg: number; reps: number } } | null };
 type Metric = "e1rm" | "top" | "reps" | "volume" | "bw" | "time";
 
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const dayTxt = (d: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 const n1 = (x: number) => x.toLocaleString("es-AR", { maximumFractionDigits: 1 });
 const secTxt = (s: number) => (s >= 60 ? `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}` : `${s} s`);
@@ -86,6 +94,11 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
   const autoPick = !exId && !q && !err && !!list?.length;
   const E = useCached<ExProgress>(exId && !offline ? `/api/me/progress/exercises/${encodeURIComponent(exId)}?range=${range}` : null, { keep: true });
   const ex = E.data, exErr = E.err && (E.stale || !ex) ? E.err : null;
+  // D217: la inteligencia del ejercicio (no depende del período). Sólo se usa si es del ejercicio elegido: con `keep`, al
+  // cambiar de ejercicio no se muestran cifras de otro (queda el esqueleto hasta que llega).
+  const I = useCached<PI>(exId && !offline ? `/api/me/progress/exercises/${encodeURIComponent(exId)}/insight` : null, { keep: true });
+  const pi = I.data && I.data.exercise.id === exId ? I.data : null;
+  const piErr = I.err && !pi ? I.err : null;
   useEffect(() => {
     if (!ex) return;
     setMetric((m) => (ex.metric === "load" ? (["e1rm", "top", "reps", "volume"].includes(m) ? m : "e1rm") : ex.metric === "reps" ? "bw" : "time"));
@@ -102,7 +115,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
     if (y == null) return [];
     const set = p.topKg != null ? `${n1(kgTo(p.topKg, unit))} ${unit} × ${p.repsAtTop}` : p.maxReps != null ? `${p.maxReps} reps` : p.maxSec != null ? secTxt(p.maxSec) : "";
     return [{
-      id: `${p.sessionId ?? p.day}-${i}`, day: p.day, y, record: p.record, first: p.first,
+      id: `${p.sessionId ?? p.day}-${i}`, day: p.day, y, record: p.record, first: p.first, approx: !!p.approx,
       label: `${dayTxt(p.day)} · ${fmt(y)}`,
       detail: <>
         <small>{p.source === "import" ? "Historial importado" : p.dayName}{set ? ` · mejor serie ${set}` : ""} · {p.sets} {p.sets === 1 ? "serie" : "series"}{p.volumeKg ? ` · volumen ${volumeIn(p.volumeKg, unit).toLocaleString("es-AR")} ${unit}` : ""}{p.e1rm && metric !== "e1rm" ? ` · 1RM est. ${n1(kgTo(p.e1rm, unit))} ${unit}` : ""}</small>
@@ -113,6 +126,33 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
     }];
   }), [ex, metric, unit, fmt, onOpenSession]);
 
+  // D: línea de la meta activa (propia primero, si no la acordada con el entrenador). En kg, como los puntos del gráfico.
+  const target = useMemo(() => {
+    if (!pi || (metric !== "top" && metric !== "e1rm")) return null;
+    const kind = metric === "top" ? "load" : "e1rm";
+    const g = pi.goals.self.find((x) => x.kind === kind) ?? pi.goals.coach.find((x) => x.kind === kind && x.status === "active");
+    if (!g) return null;
+    const w = wFmt(unit)(g.target);
+    return { y: g.target, label: kind === "load" ? `Meta ${w}${g.targetReps ? ` × ${g.targetReps}` : ""}` : `Meta ${w}` };
+  }, [pi, metric, unit]);
+  // C: la propuesta de REPI como un marcador aparte (nunca unido a la línea real): después de la última sesión, con la
+  // frecuencia habitual de este ejercicio (mín. 2 días, 3 si no se sabe) y nunca antes de hoy.
+  const future = useMemo<ChartFuture | null>(() => {
+    const pr = pi?.next?.proposal;
+    if (!pi || metric !== "top" || !pr || pr.weightKg == null || pr.kind === "rest" || !pi.data.lastDay) return null;
+    const gap = Math.max(2, Math.round(pi.regularity.avgGapDays ?? 3));
+    const today = localDate(new Date());
+    const d = addDays(pi.data.lastDay, gap);
+    const w = wFmt(unit)(pr.weightKg);
+    return {
+      day: d < today ? today : d, y: pr.weightKg, label: `Propuesta de REPI: ${w}${pr.reps ? ` × ${pr.reps}` : ""}`,
+      detail: <>
+        <small>{nextLine(pi, unit)}</small>
+        {pr.requiresCoach && <small><span className="hx-chip" style={{ marginLeft: 0 }}>Propuesta para tu entrenador</span></small>}
+      </>,
+    };
+  }, [pi, metric, unit]);
+
   if (offline) return <div className="pc-empty" role="status">Sin conexión: tus gráficos se calculan en el servidor con tu historial completo. Volvé a abrirlos cuando tengas señal.</div>;
   const t = sum?.totals;
   const maxW = Math.max(1, ...(sum?.weeks ?? []).map((w) => w.sessions));
@@ -121,7 +161,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
       <section className="pp-card" aria-labelledby="pp-sum" aria-busy={S.stale || undefined} data-stale={S.stale || undefined}>
         {/* M06 (QA r2): mientras carga, el lugar de «Preguntale a REPI» (36 px) reservado: al llegar el período el encabezado
             crecía 14 px y corría la tarjeta. */}
-        <div className="pp-head"><h2 id="pp-sum">Tu período</h2>{!sum && !err && brainOn && <span className="linkbtn rp-ask" aria-hidden="true" style={{ visibility: "hidden" }}>Preguntale a REPI</span>}{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
+        <div className="pp-head"><h2 id="pp-sum">Tu progreso</h2>{!sum && !err && brainOn && <span className="linkbtn rp-ask" aria-hidden="true" style={{ visibility: "hidden" }}>Preguntale a REPI</span>}{t && t.sessions > 0 && <RepiAsk section="progress" chips={[{ label: "¿Estoy progresando?", text: "¿Estoy progresando?" }, { label: "¿En qué mejoré más?", text: "¿En qué ejercicio mejoré más?" }]} />}</div>
         <RangePicker value={range} onChange={setRange} label="Período" />
         {err && <p className="mb-err" role="alert">{err} <button type="button" className="linkbtn" onClick={loadSum}>Reintentar</button></p>}
         {!sum && !err && <PeriodSkeleton unit={unit} />}
@@ -165,7 +205,7 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         {list && !list.length && !q && <span className="mb-muted" style={{ fontSize: 14 }}>Cuando registres series, acá vas a ver cómo evoluciona cada ejercicio.</span>}
         {(pick || (list && !exId && !autoPick)) && !!(list?.length || q) && (
           <>
-            <label className="search"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
+            <label className="search"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por ejercicio o grupo muscular" aria-label="Buscar por ejercicio o grupo muscular" /></label>
             <div className="pp-exlist" role="list">
               {list?.map((x) => (
                 <button key={x.id} type="button" role="listitem" aria-current={x.id === exId ? "true" : undefined} onClick={() => { setExId(x.id); setPick(false); }}>
@@ -181,34 +221,39 @@ export function ProgressTraining({ onOpenSession, offline, initialRange = "90d" 
         {ex ? (
           <>
             <div><b style={{ fontSize: 17 }}>{ex.exercise.name}</b><br /><small className="mb-muted">{ex.exercise.group} · desde {ex.totals.firstDay ? dayTxt(ex.totals.firstDay) : "—"}{ex.records ? ` · ${ex.records} ${ex.records === 1 ? "récord" : "récords"} en el período` : ""}</small></div>
-            {/* D210: «Preguntale a REPI» sobre el ejercicio del gráfico (el servidor valida que sea tuyo). */}
-            <RepiAsk section="progress" refs={{ exerciseId: ex.exercise.id }} subject={ex.exercise.name} label="Preguntale a REPI sobre este ejercicio"
-              chips={[{ label: "¿Estoy progresando?", text: `¿Estoy progresando en ${ex.exercise.name}?` }, { label: "Mi última marca", text: `¿Qué marca hice la última vez en ${ex.exercise.name}?` }, { label: "¿Por qué me estanqué?", text: `¿Por qué estoy estancado en ${ex.exercise.name}?` }]} />
+            {/* D217: tarjetas de rendimiento (A, B y C separadas) y «¿Cuánto podría levantar?». «Preguntale a REPI» sobre el
+                ejercicio va en «Lo que ve REPI». */}
+            {piErr ? <p className="mb-err" role="alert">{piErr} <button type="button" className="linkbtn" onClick={() => void I.reload()}>Reintentar</button></p>
+              : pi ? <><PerfCards pi={pi} unit={unit} onOpenSession={onOpenSession} /><Estimates pi={pi} unit={unit} /></>
+              : <><Loading what="tus marcas de este ejercicio" /><CardsSkeleton /></>}
             {metrics.length > 1 && (
               <div className="pp-ranges" role="group" aria-label="Métrica">
                 {metrics.map((m) => <button key={m} type="button" aria-pressed={metric === m} onClick={() => setMetric(m)}>{mTxt(m)}</button>)}
               </div>
             )}
-            <ProgressChart key={`${ex.exercise.id}-${metric}-${range}`} title={`${mTxt(metric)} de ${ex.exercise.name}`} points={pts} fmt={fmt}
+            <ProgressChart key={`${ex.exercise.id}-${metric}-${range}`} title={`${mTxt(metric)} de ${ex.exercise.name}`} points={pts} fmt={fmt} target={target} future={future}
               empty={ex.points.length ? `No hay registros de ${mTxt(metric).toLowerCase()} en este período.` : "Sin registros de este ejercicio en el período elegido."} />
             <small className="mb-muted">{mHelp(metric)}</small>
             {ex.best && metric !== "volume" && <small className="mb-muted">Mejor 1RM estimado del período: {n1(kgTo(ex.best.e1rm, unit))} {unit} ({n1(kgTo(ex.best.set.weightKg, unit))} {unit} × {ex.best.set.reps}, {dayTxt(ex.best.day)}).</small>}
-            {ex.truncated && <small className="mb-muted">Se muestran las series más recientes; se alcanzó el límite de lectura.</small>}
+            {ex.truncated && !pi && <small className="mb-muted">Se muestran las series más recientes; se alcanzó el límite de lectura.</small>}
             {pts.length > 0 && (
               <details>
                 <summary style={{ cursor: "pointer", fontSize: 14 }}>Ver todos los registros ({pts.length})</summary>
                 <ul className="pp-rows" aria-label={`Registros de ${ex.exercise.name}`}>
                   {[...ex.points].reverse().map((p, i) => (
-                    <li key={i}><span>{dayTxt(p.day)}{p.record && <span className="hx-chip">Récord</span>}{p.source === "import" && <span className="hx-chip">Importado</span>}<br />
+                    <li key={i}><span>{dayTxt(p.day)}{p.record && <span className="hx-chip">Récord</span>}{p.source === "import" && <span className="hx-chip">Importado</span>}{p.approx && <span className="hx-chip bad">Fecha aproximada</span>}<br />
                       <span className="mb-muted">{p.topKg != null ? `${n1(kgTo(p.topKg, unit))} ${unit} × ${p.repsAtTop}` : p.maxReps != null ? `${p.maxReps} reps` : p.maxSec != null ? secTxt(p.maxSec) : ""} · {p.sets} {p.sets === 1 ? "serie" : "series"}</span></span>
                       {p.sessionId ? <button type="button" className="linkbtn" onClick={() => onOpenSession(p.sessionId!)}>Ver</button> : <span />}</li>
                   ))}
                 </ul>
               </details>
             )}
+            {pi && <><RegularityRow pi={pi} /><DataNotes pi={pi} /></>}
           </>
         ) : null}
       </section>
+      {ex && pi && <IntelAnalysis pi={pi} unit={unit} onOpenSession={onOpenSession} />}
+      {ex && pi && <IntelGoals pi={pi} unit={unit} onChanged={I.reload} />}
     </>
   );
 }

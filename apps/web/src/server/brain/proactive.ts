@@ -11,7 +11,7 @@
 // - Push sólo con push=true, persona adulta y asistencia proactiva activa, por la cola existente (enqueue), con una clave por
 //   aviso; el horario de silencio lo aplica processOutbox al enviar (posterga, no descarta).
 import { and, desc, eq, gte, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
-import { ageEligibility, epley1rm, localDate, rowContext, sessionPoints, type ExCtx, type ExerciseDetail, type ImportOrigin, type SetKind } from "@repi/domain";
+import { ageEligibility, epley1rm, localDate, rowContext, sessionPoints, type ExCtx, type ExerciseDetail, type ImportOrigin, type PersonalProfile, type SetKind } from "@repi/domain";
 import { buildCandidates, decide, type trendCandidate } from "@repi/domain/brain/relevance";
 import { detectMarks, type Measure, type PriorMarks, type ReviewSet } from "@repi/domain/brain/session";
 import { addArDays, arDay, arDaysBetween, arInstant, arParts, arWeekStart, fmtArDate } from "@repi/domain/brain/quiet";
@@ -29,8 +29,9 @@ import { exerciseProfiles, rowProfile } from "../training/library";
 import { assistantOn, getPrefs } from "./prefs";
 import { activeInterventions, arDayStart, cancelObsoleteInterventions, upsertIntervention, type InterventionView } from "./store";
 import { relationSupervised } from "../gym/routine-policy";
+import { personalOf } from "../settings/profile";
 
-const { user, userPref, workoutSession, setLog, exercise, program, programVersion, programExercise, ownRoutine, checkin, brainIntervention, notificationOutbox } = schema;
+const { user, workoutSession, setLog, exercise, program, programVersion, programExercise, ownRoutine, checkin, brainIntervention, notificationOutbox } = schema;
 const DAY = 86_400_000;
 
 // ── Parámetros ──────────────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ async function sessionMarks(userId: string, s: SessionRow) {
 }
 
 /** Tendencias de los ejercicios de la última sesión con Training Intelligence (exerciseTrend + nextProposal, sin escribir nada). */
-async function sessionTrends(userId: string, s: SessionRow, now: Date) {
+async function sessionTrends(userId: string, s: SessionRow, now: Date, person: PersonalProfile | null = null) {
   const pes = await db.selectDistinct({ pe: setLog.programExerciseId, ex: setLog.exerciseId }).from(setLog).where(and(eq(setLog.sessionId, s.id), sql`${setLog.voidedAt} is null`));
   const byEx = new Map<string, string>();
   for (const p of pes) if (!byEx.has(p.ex)) byEx.set(p.ex, p.pe);
@@ -133,7 +134,7 @@ async function sessionTrends(userId: string, s: SessionRow, now: Date) {
     if (!pe || !rows.length) continue;
     const ctx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: (pe.detail as ExerciseDetail | null) ?? null, profile: rowProfile(pe, ex, profiles) };
     const fatigue = rows.slice(0, 12).filter((r) => r.feel === "limite" || r.rir === 0).length >= 4;
-    const o = outlookFor(ctx, rows, now, coachOwned, fatigue);
+    const o = outlookFor(ctx, rows, now, coachOwned, fatigue, undefined, person); // D217: la propuesta con el objetivo declarado
     if (!o) continue;
     // Las fechas de la evidencia son las de las sesiones que la tendencia comparó (las mismas reglas que outlookFor).
     const plan = Array.from({ length: ctx.sets }, (_, i) => rowContext(ctx as ExCtx, i));
@@ -204,14 +205,15 @@ async function gather(userId: string, now: Date): Promise<Built> {
     .from(workoutSession).where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), isNotNull(workoutSession.endedAt), lte(workoutSession.endedAt, now)))
     .orderBy(desc(workoutSession.endedAt)).limit(40) as SessionRow[];
   const last = sessions[0] ?? null;
-  const [pref] = await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, userId));
-  const target = (pref?.wishes as { daysPerWeek?: number | null } | null)?.daysPerWeek ?? null;
+  // D217: perfil canónico (días declarados para la meta semanal; objetivo para redactar las propuestas).
+  const person = await personalOf(userId, now).catch(() => null);
+  const target = person?.daysPerWeek ?? null;
   const weekFrom = arInstant(arWeekStart(now)).getTime();
   const daysSinceLast = last ? arDaysBetween(last.endedAt, now) : null;
 
   const [marks, trends, prog, imports, [ci]] = await Promise.all([
     last && now.getTime() - last.endedAt.getTime() <= PR_FRESH_MS ? safe("marks", () => sessionMarks(userId, last), null) : Promise.resolve(null),
-    last && daysSinceLast != null && daysSinceLast <= TREND_FRESH_DAYS ? safe("trends", () => sessionTrends(userId, last, now), []) : Promise.resolve([]),
+    last && daysSinceLast != null && daysSinceLast <= TREND_FRESH_DAYS ? safe("trends", () => sessionTrends(userId, last, now, person), []) : Promise.resolve([]),
     safe("program", () => programSignal(userId, now), { versionId: undefined, program: null } as { versionId: string | null | undefined; program: null | { versionId: string; byCoach: boolean; changedAt: string } }),
     safe("imports", () => importSignals(userId, now), []),
     safe("checkin", () => db.select({ energy: checkin.energy, sleep: checkin.sleep, at: checkin.createdAt }).from(checkin).where(and(eq(checkin.userId, userId), eq(checkin.date, localDate(now)))), []),

@@ -5,11 +5,12 @@
 // completarlos, se adjuntan al pedido existente y se avisa a quien lo tomó.
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  briefSummary, cleanProgramBrief, cleanWishes, isCompleteBrief,
+  briefSummary, cleanProgramBrief, isCompleteBrief, readWishes,
   type ProgramRequestBrief, type TrainingWishes,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
+import { updateProfile } from "../settings/profile";
 import { ACTIVE, addEvent, myGymRelations } from "../gym/services";
 import { enqueue } from "../push/services";
 
@@ -50,10 +51,12 @@ export async function briefPrefill(userId: string) {
   const last = [lastTask && { b: lastTask.ctx?.brief, at: lastTask.at }, lastReq && { b: lastReq.brief, at: lastReq.at }]
     .filter((x): x is { b: ProgramRequestBrief; at: Date } => !!x && isCompleteBrief(x.b)).sort((a, b) => b.at.getTime() - a.at.getTime())[0]?.b ?? null;
   const [p] = await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, userId));
-  const w = (p?.wishes ?? null) as TrainingWishes | null;
+  // D217: el perfil canónico manda (el pedido anterior lo actualizó y cualquier cambio posterior es más nuevo); el último
+  // pedido completa lo que el perfil no tiene.
+  const w = readWishes(p?.wishes);
   return {
-    goal: last?.goal ?? w?.goal ?? null, daysPerWeek: last?.daysPerWeek ?? w?.daysPerWeek ?? null, minutes: last?.minutes ?? w?.minutes ?? null,
-    level: last?.level ?? null, hasLimitations: last?.hasLimitations ?? null, limitationsDetail: last?.limitationsDetail ?? null,
+    goal: w?.goal ?? last?.goal ?? null, daysPerWeek: w?.daysPerWeek ?? last?.daysPerWeek ?? null, minutes: w?.minutes ?? last?.minutes ?? null,
+    level: w?.experience ?? last?.level ?? null, hasLimitations: last?.hasLimitations ?? null, limitationsDetail: last?.limitationsDetail ?? null,
     focus: last?.focus ?? [], place: last?.place ?? (rels.length ? "gym" : null), likes: last?.likes ?? w?.likes ?? null, avoid: last?.avoid ?? w?.avoid ?? null, notes: last?.notes ?? null,
   };
 }
@@ -62,13 +65,13 @@ export async function programRequestState(userId: string) {
   return { pending: await pendingBriefs(userId), prefill: await briefPrefill(userId) };
 }
 
-/** Lo que busca entrenando (D139) se actualiza con lo nuevo; las lesiones NO van ahí (sólo viajan con el pedido). */
+/**
+ * Lo que busca entrenando se actualiza con lo nuevo del pedido sobre el perfil canónico (D217: cambio parcial con procedencia
+ * «pedido de programa»; el nivel del pedido es la experiencia declarada). Las lesiones NO van ahí (sólo viajan con el pedido).
+ */
 async function syncWishes(userId: string, b: ProgramRequestBrief) {
-  const [p] = await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, userId));
-  const cur = (p?.wishes ?? null) as TrainingWishes | null;
-  const r = cleanWishes({ goal: b.goal, daysPerWeek: b.daysPerWeek, minutes: Math.min(240, b.minutes), likes: b.likes ?? cur?.likes ?? null, avoid: b.avoid ?? cur?.avoid ?? null, shareWithTrainers: cur?.shareWithTrainers === true });
-  if (!r.ok) return;
-  await db.insert(userPref).values({ userId, wishes: r.wishes, updatedAt: new Date() }).onConflictDoUpdate({ target: userPref.userId, set: { wishes: r.wishes, updatedAt: new Date() } });
+  await updateProfile(userId, { goal: b.goal, daysPerWeek: b.daysPerWeek, minutes: Math.min(240, b.minutes), experience: b.level,
+    ...(b.likes ? { likes: b.likes.slice(0, 200) } : {}), ...(b.avoid ? { avoid: b.avoid.slice(0, 200) } : {}) }, "program_request");
 }
 
 /** Al crear un pedido nuevo: deja el brief y actualiza lo que busca entrenando. */

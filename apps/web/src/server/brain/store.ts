@@ -367,3 +367,15 @@ export async function usageAggregate(p: { since: Date; until?: Date }) {
     .groupBy(aiUsage.task, aiUsage.model, aiUsage.outcome).orderBy(aiUsage.task, aiUsage.model, aiUsage.outcome);
   return rows.map((r) => ({ ...r, outcome: r.outcome ?? "in_flight" }));
 }
+
+/**
+ * D217: cancela los avisos vigentes que dependen del perfil (objetivo, días, experiencia) cuando la persona lo cambia: una
+ * meta semanal o un «estable» redactado con el objetivo anterior quedaría obsoleto. Nunca toca programas ni propuestas al coach.
+ */
+export const PROFILE_DEPENDENT_KINDS = ["weekly_summary", "weekly_target_met", "plateau", "progressing", "declining"] as const;
+export async function cancelProfileInterventions(userId: string, now = new Date()) {
+  const rows = await db.update(brainIntervention).set({ status: "cancelled", reason: "profile_changed", resolvedAt: now })
+    .where(and(eq(brainIntervention.userId, userId), inArray(brainIntervention.status, ["pending", "shown"]), inArray(brainIntervention.kind, [...PROFILE_DEPENDENT_KINDS])))
+    .returning({ id: brainIntervention.id });
+  return rows.length;
+}

@@ -31,12 +31,14 @@ async function currentValue(g: { kind: GoalKind; exerciseId: string | null; targ
   return ok.length ? Math.max(...ok) : null;
 }
 
+/** Sólo metas acordadas con el coach (origin coach; D217: las propias del alumno van por server/progress/goals.ts). */
 async function view(g: typeof clientGoal.$inferSelect, now: Date) {
-  const current = await currentValue({ kind: g.kind, exerciseId: g.exerciseId, targetReps: g.targetReps, manualValue: g.manualValue }, g.coachClientId, now);
+  const kind = g.kind as GoalKind;
+  const current = await currentValue({ kind, exerciseId: g.exerciseId, targetReps: g.targetReps, manualValue: g.manualValue }, g.coachClientId!, now);
   const target = Number(g.target), baseline = num(g.baseline);
   return {
-    id: g.id, kind: g.kind, title: g.title, unit: g.unit, target, targetReps: g.targetReps, baseline, current,
-    progress: goalProgress({ baseline, target, current }), source: GOAL_SOURCES[g.kind], manualAt: g.manualAt,
+    id: g.id, kind, title: g.title, unit: g.unit, target, targetReps: g.targetReps, baseline, current, exerciseId: g.exerciseId,
+    progress: goalProgress({ baseline, target, current }), source: GOAL_SOURCES[kind], manualAt: g.manualAt,
     dueOn: g.dueOn, status: g.status, note: g.note, createdAt: g.createdAt, closedAt: g.closedAt,
   };
 }
@@ -91,7 +93,7 @@ export async function updateGoal(actorId: string, orgId: string, goalId: string,
   const [row] = await db.select({ g: clientGoal }).from(clientGoal).innerJoin(coachClient, eq(coachClient.id, clientGoal.coachClientId))
     .where(and(eq(clientGoal.id, goalId), eq(coachClient.coachOrgId, orgId)));
   if (!row) throw NF();
-  await requireClientOf(orgId, row.g.coachClientId);
+  await requireClientOf(orgId, row.g.coachClientId!);
   const g = row.g;
   if (p.manualValue !== undefined && g.kind !== "manual") throw new AccessError("invalid", "Este objetivo se calcula solo con los entrenamientos.");
   if (p.manualValue != null && (!Number.isFinite(p.manualValue) || Math.abs(p.manualValue) > 100_000)) throw new AccessError("invalid", "Valor inválido.");

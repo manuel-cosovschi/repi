@@ -44,3 +44,6 @@ export * from "./equipment";
 export * from "./progress";
 export * from "./image";
 export * from "./sales";
+export * from "./personalize";
+export * from "./progress-intel";
+export * from "./chart-view";

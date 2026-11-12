@@ -11,8 +11,13 @@ const TABLE: [string, IntentName, Record<string, unknown>?][] = [
   ["¿Qué me toca hoy?", "today"], ["q me toca hoy", "today"], ["que entreno hoy", "today"], ["¿qué tengo para hoy?", "today"], ["¿qué sigue?", "today"],
   ["Armame una alternativa para cuando no está mi profe.", "today", { mode: "solo" }], ["rutina de hoy", "today"],
   // Marcas y cargas
+  // D217 · Progreso: máximo real, capacidad estimada, próxima carga y distancia a una carga.
+  ["¿Cuál es el máximo que levanté en press banca?", "max_lift", { exerciseId: EX.pb.id }], ["cual es mi mejor marca de sentadilla", "max_lift", { exerciseId: EX.sq.id }],
+  ["¿Cuánto podría tirar para ocho repeticiones en sentadilla?", "capacity", { exerciseId: EX.sq.id, reps: 8 }], ["cuanto puedo levantar para 5 reps en press banca", "capacity", { exerciseId: EX.pb.id, reps: 5 }],
+  ["¿Qué me recomendás intentar la próxima vez en press banca?", "next_target", { exerciseId: EX.pb.id }], ["cuanto tiro la proxima en sentadilla", "next_target", { exerciseId: EX.sq.id }],
+  ["¿Cuánto me falta para llegar a 100 kg en sentadilla?", "goal_distance", { exerciseId: EX.sq.id, kg: 100 }], ["cuanto me falta para 225 lb en press banca", "goal_distance", { exerciseId: EX.pb.id, kg: 102.06 }],
   ["¿Qué marca hice la última vez en press banca?", "last_mark", { exerciseId: EX.pb.id }], ["cuanto levante en banca la ultima vez", "last_mark", { exerciseId: EX.pb.id }],
-  ["cuanto levanté la semana pasada en sentadilla", "last_mark", { exerciseId: EX.sq.id }], ["¿cuál es mi récord en press banca?", "last_mark", { exerciseId: EX.pb.id }],
+  ["cuanto levanté la semana pasada en sentadilla", "last_mark", { exerciseId: EX.sq.id }], ["¿cuál es mi récord en press banca?", "max_lift", { exerciseId: EX.pb.id }],
   ["última marca en remo", "last_mark", { exerciseId: null, exerciseQuery: "remo" }], // dos remos: no elige
   ["ultima marca en el remo con barra", "last_mark", { exerciseId: EX.rb.id }], ["mi marca en sentadiya", "last_mark", { exerciseId: EX.sq.id }], // error de tipeo leve
   ["¿Por qué me recomendaste ese peso?", "why_weight"], ["porqe me recomiendas ese peso", "why_weight"], ["por qué no subimos en la dorsalera?", "why_weight", { exerciseId: EX.jp.id }],

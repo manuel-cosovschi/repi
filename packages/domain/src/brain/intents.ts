@@ -160,6 +160,8 @@ function daysOf(t: string): number | null {
   return n >= 1 && n <= 7 ? n : null;
 }
 
+const REP_WORDS: Record<string, number> = { una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, quince: 15, veinte: 20 };
+
 // ── Tabla de reglas ────────────────────────────────────────────────────────────────────────────────────────────────────
 type Rule = [IntentName, number, RegExp];
 const RULES: Rule[] = [
@@ -177,7 +179,13 @@ const RULES: Rule[] = [
   ["set_feedback", 0.86, /\b(la|esa|esta|ultima|anterior) serie (me )?(costo|salio|fue|estuvo|quedo)\b|\bme costo (muchisimo|mucho|un monton|bastante|horrores)\b|\b(muy|re|super|demasiado) (pesad[oa]|livian[oa]|facil|dificil|exigente)\b|\bquede al limite\b|\bme sobraron\b|\bno llegue (a|al)\b|\bsalieron (todas|las \d+)\b|\bsalio (facil|bien|justo)\b/],
   ["change_exercise", 0.88, /\b(cambiar|cambio|cambia|reemplazar|reemplazo|reemplaza|sustituir|sustituyo|cambiarlo|cambiarla|reemplazarlo|reemplazarla)\b.{0,25}\b(ejercicio|maquina|por otro|por otra|este|ese|esta|esa|lo|la)\b|\b(otro|otra) (ejercicio|maquina|opcion|alternativa)\b|\balternativa\b|\bno puedo hacer (este|ese|esta|esa)\b/],
   ["why_weight", 0.92, /\bpor que (ese|este|esa|esta|tanto|tan poco|el|la|esos|estos) (peso|carga|kilos|kg|numero)\b|\bpor que me (recomendas|recomendaste|recomiendas|recomendo|sugeris|sugeriste|sugieres|pusiste|pones|marcas|marcaste|das|diste|indicas|indicaste)\b|\bde donde (sale|salio) (ese|el|este) (peso|numero|valor)\b|\bpor que (subir|bajar|mantener|bajo|subo|mantengo|no subo|no subimos|bajamos|subimos|mantenemos)\b/],
-  ["last_mark", 0.9, /\b(que|cual|cuanto|cuantos kilos) (marca |peso )?(hice|levante|puse|meti|fue mi marca|era mi marca|fue)\b.{0,30}\b(ultima vez|vez pasada|otro dia|anterior|semana pasada)\b|\bultima marca\b|\bmi marca (en|de)\b|\b(mejor marca|mi record|mi mejor marca|record personal)\b|\bcuanto (levanto|levante|hago|hice) (en|de)\b|\bque hice (la ultima vez|la vez pasada)\b/],
+  ["last_mark", 0.9, /\b(que|cual|cuanto|cuantos kilos) (marca |peso )?(hice|levante|puse|meti|fue mi marca|era mi marca|fue)\b.{0,30}\b(ultima vez|vez pasada|otro dia|anterior|semana pasada)\b|\bultima marca\b|\bmi marca (en|de)\b|\bcuanto (levanto|levante|hago|hice) (en|de)\b|\bque hice (la ultima vez|la vez pasada)\b/],
+  // D217 · Progreso: el máximo REAL (y aparte la estimación), la capacidad estimada para N repeticiones, la próxima carga de
+  // trabajo (la de Training Intelligence) y cuánto falta para una carga.
+  ["max_lift", 0.93, /\b(cual|cuanto) (es|fue|seria) (el |mi )?(maximo|mayor peso|peso maximo|maxima carga|mayor carga|mas pesado|record)\b|\b(el )?maximo que (levante|hice|tire|meti|movi|puse)\b|\b(mejor marca|mi record|mi mejor marca|record personal|mi pr|mi maximo)\b|\bcuanto es lo maximo\b|\blo mas pesado que (levante|hice|tire)\b/],
+  ["capacity", 0.94, /\bcuanto (podria|puedo|deberia|tendria que|llegaria a|lograria) (tirar|levantar|meter|poner|hacer|cargar|mover|subir)\b.{0,40}\b(\d{1,2}|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte) (repeticiones|repeticion|reps|rep|repes)\b|\bpara (\d{1,2}|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte) (repeticiones|reps|repes)\b.{0,30}\bcuanto\b|\bcuanto (es )?(mi )?(1rm|rm|una repeticion maxima)\b/],
+  ["next_target", 0.91, /\bque (me )?(recomendas|recomendarias|sugeris|aconsejas|propones) (intentar|hacer|probar|tirar|levantar|meter|poner)\b|\b(la )?proxima (vez|sesion)\b.{0,30}\b(que|cuanto) (intento|pruebo|hago|tiro|levanto|meto|pongo)\b|\bque (intento|pruebo|hago) la proxima\b|\bcuanto (tiro|levanto|meto|pongo|cargo) la proxima\b|\b(cual|que) (es )?(mi )?(proximo objetivo|proxima carga)\b/],
+  ["goal_distance", 0.93, /\bcuanto (me )?(falta|faltan|queda) (para|hasta) (llegar a |levantar |tirar |hacer |meter )?(los |el )?\d{1,3}([.,]\d{1,2})? ?(kg|kilos|lb|libras)?\b/],
   ["trend", 0.88, /\bestoy (progresando|mejorando|estancad[oa]|empeorando|avanzando)\b|\bcomo (vengo|voy|ando|estoy)\b|\bprogres(o|e|ando|ar)\b|\btendencia\b|\b(en que|que) (ejercicio )?mejore\b|\bque paso con mi fuerza\b|\brespecto (de|a) hace\b|\bque (tendria|deberia|puedo) que mejorar\b|\bestancamiento\b|\bme estanque\b/],
   ["count", 0.9, /\bcuantas (veces|sesiones)\b|\bcuantos (entrenamientos|dias|entrenos)\b.{0,20}\b(entrene|fui|hice|llevo|van)\b|\bcuantos entrenamientos\b|\bcuantas veces (entrene|hice|fui)\b/],
   ["weekly_plan", 0.86, /\b(quiero|voy a|pienso|me gustaria|puedo) (entrenar|ir|venir) (\d|uno|una|dos|tres|cuatro|cinco|seis|siete) (dias|veces)\b|\b(dias|veces) (por|a la|en la) semana\b|\bplan (de la semana|semanal)\b|\besta semana\b.{0,25}\b(entrenar|entreno|dias)\b|\bcuantos dias (me toca|tengo que|deberia)\b/],
@@ -191,7 +199,7 @@ const RULES: Rule[] = [
 const YES = /^(si|sip|dale|ok|okey|okay|de una|bueno|listo|obvio|claro|va|vamos|perfecto|hacelo|confirmo|confirmar|correcto|exacto|eso|por favor)(( |, ?)(si|dale|gracias|por favor|esa|ese|eso|la primera|la segunda|el primero|el segundo|hacelo|claro))*$/;
 const NO = /^(no|nop|nope|para nada|mejor no|dejalo|deja|cancelar|cancela|ni ahi|negativo|todavia no|ahora no)(( |, ?)(no|gracias|por ahora|todavia|dejalo|mejor))*$/;
 const CHOICE: [RegExp, number][] = [[/\b(la|el) (primera|primero|1)\b|\bopcion (1|uno)\b/, 1], [/\b(la|el) (segunda|segundo|2)\b|\bopcion (2|dos)\b/, 2]];
-const EXERCISE_INTENTS: ReadonlySet<IntentName> = new Set<IntentName>(["last_mark", "why_weight", "trend", "count", "busy_machine", "change_exercise", "progress_general", "pain"]);
+const EXERCISE_INTENTS: ReadonlySet<IntentName> = new Set<IntentName>(["last_mark", "why_weight", "trend", "count", "busy_machine", "change_exercise", "progress_general", "pain", "max_lift", "capacity", "next_target", "goal_distance"]);
 
 const WHEN = /\s+(la ultima vez|la vez pasada|el otro dia|hoy|ahora|este mes|esta semana|este ano|el mes pasado|la semana pasada)$/;
 /** Lo que viene después del último «en», «de» o «del» (o artículo) de la frase («última marca en press banca» → «press banca»). */
@@ -259,7 +267,7 @@ export function classify(text: string, ctx: IntentCtx = {}): Intent {
     slots.exercise = ex?.name ?? null;
     if (!ex) {
       const q = tailQuery(t);
-      if (q && (name === "last_mark" || name === "why_weight" || name === "count" || name === "trend")) slots.exerciseQuery = q;
+      if (q && (name === "last_mark" || name === "why_weight" || name === "count" || name === "trend" || name === "max_lift" || name === "next_target")) slots.exerciseQuery = q;
     } else conf = Math.min(1, conf + 0.05);
     if ((name === "busy_machine" || name === "change_exercise") && !ex && ctx.current) { slots.exerciseId = ctx.current.id; slots.exercise = ctx.current.name; slots.assumed = 1; }
   }
@@ -272,6 +280,18 @@ export function classify(text: string, ctx: IntentCtx = {}): Intent {
     case "busy_machine": slots.reason = /\bno (tengo|hay|tienen|encuentro)\b|\bfalta\b|\brot[oa]\b|\bfuera de servicio\b/.test(t) && !/\bocupad|\blibre\b|\bdisponible\b|\bcola\b|\bfila\b|\busando\b|\bganaron\b/.test(t) ? "no_equipment" : "busy"; break;
     case "change_exercise": slots.reason = /\bno me gusta|\bodio\b|\bno me copa/.test(t) ? "dislike" : /\bocupad/.test(t) ? "busy" : null; break;
     case "count": slots.period = periodOf(t); break;
+    case "capacity": {
+      if (/\b(1rm|rm|una repeticion maxima)\b/.test(t)) { slots.reps = 1; break; }
+      const m = /\b(\d{1,2}|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte) (repeticiones|repeticion|reps|rep|repes)\b/.exec(t);
+      slots.reps = m ? (/^\d+$/.test(m[1]) ? Number(m[1]) : REP_WORDS[m[1]] ?? null) : null;
+      break;
+    }
+    case "goal_distance": {
+      const m = /\b(\d{1,3}(?:[.,]\d{1,2})?) ?(kg|kilos|lb|libras)?\b/.exec(t.replace(/^.*?\b(?:para|hasta)\b/, ""));
+      const v = m ? Number(m[1].replace(",", ".")) : null;
+      slots.kg = v == null ? null : m![2] === "lb" || m![2] === "libras" ? Math.round((v / 2.20462262) * 100) / 100 : v;
+      break;
+    }
     case "weekly_plan": slots.days = daysOf(t); break;
     case "set_feedback": slots.feel = feelOf(t); break;
     case "today": slots.mode = /\bno (vino|esta|viene) (mi |el )?(profe|entrenador)\b/.test(t) ? "solo" : null; break;

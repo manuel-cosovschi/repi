@@ -36,7 +36,8 @@ import { resetHints, useHintSeen } from "./Hint";
 import { ProgressTraining } from "./ProgressTraining";
 import { BodyWeight } from "./BodyWeight";
 import { ProgressPhotos } from "./ProgressPhotos";
-import { Wishes } from "./Wishes";
+import { TrainingProfile } from "./TrainingProfile";
+import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
@@ -99,6 +100,11 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [privKey, setPrivKey] = useState(0);
   const [solo, setSolo] = useState<"solo" | "coach_absent" | null>(null); // Adaptive Coach fase 1 (D108)
+  // D217: antes de «Entrenar por mi cuenta» o «No vino el profe», el formulario breve si al perfil le falta lo esencial (nunca bloquea).
+  const gate = useProfileGate();
+  // REPI Control (D213): con gimnasio supervisado estas opciones no se ofrecen; si llegara a pedirse, no pasa por el formulario.
+  const supervised = !!t?.supervised;
+  const openSolo = useCallback((v: "solo" | "coach_absent") => (supervised ? setSolo(v) : gate(v, () => setSolo(v))), [gate, supervised]);
   const [connectTick, setConnectTick] = useState(0); // REPI Connect (D126): recarga la tarjeta de pedidos
   // Control de acceso del gimnasio (D127): estado de la validación de ingreso por gimnasio, siempre desde el servidor.
   const [presence, setPresence] = useState<{ gyms: GymPresence[]; demo: boolean } | null>(null);
@@ -393,7 +399,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge}
               onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
             {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
+              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo}
               own={t.relation ? (t.supervised ? <SupervisedNote offline={!!offlineAt} onAsk={() => setSheet({ type: "help", kind: "rutina", to: "gym" })} /> : <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} />) : null} /></>}
             {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
             {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
@@ -412,6 +418,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
+      {/* D217: formulario breve del perfil (lo abre `gate` antes de rutinas, importar, «por mi cuenta», «No vino el profe» e Inicio). */}
+      <ProfileGateHost />
       {solo && !t?.supervised && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onStartRoutine={(r) => void startRoutine(r)} onContinue={() => openId && setWorkout(openId)}
         onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
       {sheet?.type === "help" && (inbox?.gym?.connect && (sheet.to ?? (t?.relation?.kind === "gym" || !inbox.coach ? "gym" : "coach")) === "gym"
@@ -602,6 +610,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         onOpen={onCardOpen}
         onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }}
         extra={repiCoversProgram && progUpdate && t.program ? <ProgramUpdateInfo u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} /> : null} />
+      {/* D217: perfil nuevo o incompleto: «Contale a REPI qué buscás» (una vez; nunca con un entrenamiento abierto). */}
+      <ProfileNudge hidden={offline || !!t.openSession} />
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}
@@ -973,7 +983,8 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         ))}
       </section>
       <MyCharges />
-      <Wishes offline={offline} flash={flash} />
+      {/* D217: perfil de entrenamiento canónico (también para REPI Control: es personal). */}
+      <TrainingProfile offline={offline} flash={flash} />
       {/* D210: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
       <RepiPrefs offline={offline} flash={flash} />
       {/* REPI Control (D213/D216): código para consultar y registrar en la pantalla del gimnasio y cambio de PIN. */}
