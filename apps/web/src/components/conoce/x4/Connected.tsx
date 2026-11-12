@@ -46,7 +46,7 @@ export function Connected() {
   /** -1: toda la sala. */
   const [active, setActive] = useState(-1);
   const [pinned, setPinned] = useState(false);
-  const [spots, setSpots] = useState<{ x: number; y: number }[] | null>(null);
+  const [spots, setSpots] = useState<{ x: number; y: number; hide?: boolean }[] | null>(null);
   const [inView, setInView] = useState(false);
   /** La escena está fijada (ocupa la pantalla): recién ahí los botones sobre la sala coinciden con sus zonas. */
   const [stuck, setStuck] = useState(false);
@@ -61,9 +61,23 @@ export function Connected() {
       let last = -2;
       const measure = () => {
         // Dónde queda cada zona en la pantalla con la toma general (para los botones sobre la sala).
-        // Nunca fuera de la pantalla ni debajo de la cabecera: un botón que no se puede tocar no sirve.
-        const vw = window.innerWidth, vh = window.innerHeight;
-        setSpots(SPOTS.map((s) => { const z = zoneById(s.id), q = stage.project(z.x, z.z, "connected"); return { x: Math.min(vw - 76, Math.max(76, q.x)), y: Math.min(vh - 40, Math.max(110, q.y)) }; }));
+        // Nunca fuera de la pantalla, debajo de la cabecera ni encima de la tarjeta, y sin pisarse entre ellos: un botón que no
+        // se puede tocar no sirve. El que no entra (pantallas muy chicas) no se muestra: la zona sigue en las pestañas.
+        const vw = window.innerWidth, vh = window.innerHeight, narrow = vw < 760;
+        const card = sec.querySelector<HTMLElement>(".x4-con-card")?.getBoundingClientRect(), pinTop = sec.querySelector<HTMLElement>(".x4-con-pin")?.getBoundingClientRect().top ?? 0;
+        // La tarjeta, en coordenadas de la escena fijada (cuando se mide, la escena puede no estar todavía arriba de todo).
+        const c = card ? { l: card.left - 14, r: card.right + 14, t: card.top - pinTop - 14, b: card.bottom - pinTop + 14 } : null;
+        const maxY = narrow && c ? c.t - 12 : vh - 40;
+        const placed: { x: number; y: number; hide?: boolean }[] = [];
+        SPOTS.map((s, i) => { const z = zoneById(s.id), q = stage.project(z.x, z.z, "connected"); return { i, x: Math.min(vw - 86, Math.max(86, q.x)), y: Math.max(112, q.y) }; })
+          .sort((a, b) => a.y - b.y)
+          .forEach((q) => {
+            let { x, y } = q;
+            if (!narrow && c && x > c.l - 70 && x < c.r + 70 && y > c.t && y < c.b) x = Math.min(vw - 86, c.r + 80);
+            for (let k = 0; k < 6; k++) { const hit = placed.find((o) => o && !o.hide && Math.abs(o.x - x) < 170 && Math.abs(o.y - y) < 48); if (!hit) break; y = hit.y + 48; }
+            placed[q.i] = { x, y, hide: y > maxY };
+          });
+        setSpots(placed);
       };
       let trig: ScrollTrigger | null = null;
       const idle = whenIdle(() => {
@@ -129,7 +143,7 @@ export function Connected() {
           {/* Botones sobre la sala (vista general): cada zona se elige tocándola. Con la zona elegida, se ocultan. */}
           {pinned && spots && (
             <div className="x4-con-spots" data-on={active < 0 && stuck ? "1" : undefined}>
-              {SPOTS.map((z, i) => (
+              {SPOTS.map((z, i) => !spots[i].hide && (
                 <button key={z.id} type="button" className="x4-spot" style={{ left: spots[i].x, top: spots[i].y }} tabIndex={active < 0 && stuck ? 0 : -1} aria-hidden={active < 0 && stuck ? undefined : true}
                   onClick={() => go(i, "sala")} onPointerEnter={() => stage.set({ preview: z.id })} onPointerLeave={() => stage.set({ preview: null })} onFocus={() => stage.set({ preview: z.id })} onBlur={() => stage.set({ preview: null })}>
                   <i aria-hidden="true" /><span>{z.tab}</span>

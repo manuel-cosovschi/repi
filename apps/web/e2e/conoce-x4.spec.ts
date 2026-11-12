@@ -67,18 +67,27 @@ test.describe("la sala, con movimiento", () => {
     await page.evaluate(() => { const e = document.querySelector(".x4-con-track")!; window.scrollTo(0, e.getBoundingClientRect().top + window.scrollY + 40); });
     const spots = page.locator(".x4-con-spots");
     await expect(spots).toHaveAttribute("data-on", "1");
-    await expect(page.locator(".x4-spot")).toHaveCount(4);
-    // Cada botón queda dentro de la pantalla y mide al menos 40 px (se puede tocar).
+    // En pantalla ancha están las cuatro zonas; en una angosta, las que no entran sin tapar la tarjeta ni pisarse se retiran
+    // (las pestañas siguen ofreciendo las cuatro).
     const vp = page.viewportSize()!;
-    for (const b of await page.locator(".x4-spot").all()) {
+    const all = page.locator(".x4-spot");
+    if (vp.width >= 900) await expect(all).toHaveCount(4); else expect(await all.count()).toBeGreaterThanOrEqual(2);
+    // Cada botón queda dentro de la pantalla, mide al menos 40 px (se puede tocar) y no tapa la tarjeta ni a otro botón.
+    const card = (await page.locator(".x4-con-card").boundingBox())!;
+    const hit = (a: { x: number; y: number; width: number; height: number }, b: typeof a) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    const boxes: (typeof card)[] = [];
+    for (const b of await all.all()) {
       const r = (await b.boundingBox())!;
       expect(r.x).toBeGreaterThanOrEqual(0); expect(r.x + r.width).toBeLessThanOrEqual(vp.width + 1);
       expect(r.height).toBeGreaterThanOrEqual(40);
+      expect(hit(r, card)).toBe(false);
+      for (const o of boxes) expect(hit(r, o)).toBe(false);
+      boxes.push(r);
     }
     const y0 = await page.evaluate(() => window.scrollY);
-    await page.locator(".x4-spot", { hasText: "Oficina" }).click();
-    await expect(zoneTab(page, "Oficina")).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator("#con-panel")).toContainText("Ve lo que pasa en su sala.");
+    await page.locator(".x4-spot", { hasText: /^Sala$/ }).click();
+    await expect(zoneTab(page, "Sala")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#con-panel")).toContainText("Cada serie con su objetivo.");
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(y0);
     await expect(spots).not.toHaveAttribute("data-on", "1"); // con una zona elegida, los botones de la vista general se retiran
     // Volver arriba del tramo devuelve la vista general (la posición de la página y la zona dicen siempre lo mismo).
