@@ -24,11 +24,16 @@ async function adminEmails(): Promise<string[]> {
   const rows = await db.select({ email: schema.user.email }).from(schema.user).where(and(eq(schema.user.platformRole, "admin"), eq(schema.user.emailVerified, true)));
   return [...new Set(rows.map((r) => r.email).filter((e) => e && !e.endsWith(".invalid")))];
 }
+/** Admin de REPI + email comercial de respuestas (donde está el calendario del titular), sin repetir. */
+async function ownerEmails(): Promise<string[]> {
+  const s = await getSettings();
+  return [...new Set([...(await adminEmails()), ...(s.sender.replyTo ? [s.sender.replyTo.toLowerCase()] : [])])];
+}
 export async function notifyOwner(subject: string, body: string, attachments?: { filename: string; content: string; contentType?: string }[]) {
   const s = await getSettings();
   if (!s.notify.email) return 0;
   let n = 0;
-  for (const to of await adminEmails()) {
+  for (const to of await ownerEmails()) {
     try { await deliverMail({ to, subject, body, attachments }); n++; } catch (e) { logError("leads.notify_owner", e); }
   }
   return n;
@@ -111,6 +116,60 @@ export async function stepOutreach(opts: { now?: Date; budgetMs?: number } = {})
   return out;
 }
 
+// ── Cola de WhatsApp e Instagram (la envía Claude en el Mac del titular, con sus cuentas) ──────────────────
+const SOCIAL_NAME = "Piloto automático · WhatsApp e Instagram";
+async function socialCampaign() {
+  const [c] = await db.select().from(leadCampaign).where(eq(leadCampaign.name, SOCIAL_NAME)).orderBy(desc(leadCampaign.createdAt)).limit(1);
+  if (c) return c.status === "approved" ? c : null;
+  const [n] = await db.insert(leadCampaign).values({
+    name: SOCIAL_NAME, channel: "best", variant: "first_contact", status: "approved", maxRecipients: 1000, dailyLimit: 10, approvedAt: new Date(),
+    approval: { recipients: [], messageIds: [], textHash: "autopilot-social", count: 0, sendMode: "manual",
+      costNote: "Sin costo: los envía Claude desde las cuentas de WhatsApp e Instagram del titular, uno por uno, a ritmo normal.",
+      consentNote: "Pedido del titular (12/11/2026): «Usa WhatsApp e Instagram igual… Yo me ocupo de lo que prohíben las plataformas». Sólo a datos comerciales publicados por el negocio; un «no» o «baja» corta todo." },
+  }).returning();
+  return n;
+}
+/**
+ * Prepara la cola del día: primeros contactos por WhatsApp (o Instagram si no hay WhatsApp) para gimnasios sin email ni
+ * envíos previos, y aprueba los seguimientos vencidos por esos canales. No envía: queda «aprobado» con su enlace.
+ */
+export async function stepSocialQueue(opts: { now?: Date } = {}) {
+  const s = await getSettings();
+  const out = { queued: 0, followups: 0, skipped: [] as string[], reason: null as string | null };
+  if (!s.autopilot.enabled || !s.autopilot.social) { out.reason = "cola de WhatsApp e Instagram apagada"; return out; }
+  const camp = await socialCampaign();
+  if (!camp) { out.reason = "la campaña de WhatsApp e Instagram está pausada o cerrada"; return out; }
+  const d = ar(opts.now ?? new Date()).date;
+  const [{ n: pending }] = await db.select({ n: sql<number>`count(*)::int` }).from(leadMessage).where(and(eq(leadMessage.campaignId, camp.id), eq(leadMessage.status, "approved")));
+  let budget = Math.max(0, s.autopilot.socialDailyLimit - pending);
+  // Seguimientos vencidos por WhatsApp/Instagram de leads que se contactaron por esos canales.
+  const due = await db.select({ m: leadMessage, b: leadBusiness }).from(leadMessage).innerJoin(leadBusiness, eq(leadBusiness.id, leadMessage.businessId))
+    .innerJoin(leadTask, and(eq(leadTask.businessId, leadMessage.businessId), eq(leadTask.kind, "followup"), eq(leadTask.status, "open"), lte(leadTask.dueOn, d)))
+    .where(and(eq(leadMessage.direction, "out"), inArray(leadMessage.channel, ["whatsapp", "instagram"]), eq(leadMessage.status, "draft"), sql`coalesce(${leadMessage.step}, 0) > 0`,
+      eq(leadBusiness.doNotContact, false), eq(leadBusiness.sequenceStopped, false), isNull(leadBusiness.lastReplyAt))).limit(20);
+  for (const { m, b } of due) {
+    if (budget <= 0) break;
+    if (m.guardIssues.length) { out.skipped.push(`${b.name}: seguimiento con advertencias`); continue; }
+    await approveForAutopilot(camp.id, m.id, b.id); budget--; out.followups++;
+  }
+  if (budget > 0) {
+    const leads = await db.select().from(leadBusiness).where(and(
+      inArray(leadBusiness.stage, ["validated", "qualified", "to_contact", "prepared"]), eq(leadBusiness.doNotContact, false), isNull(leadBusiness.exclusion), isNull(leadBusiness.repId),
+      isNull(leadBusiness.reviewOfId), isNull(leadBusiness.firstSentOn), isNull(leadBusiness.email), sql`(${leadBusiness.whatsapp} is not null or ${leadBusiness.instagram} is not null)`,
+      sql`${leadBusiness.score} >= ${s.autopilot.minScore}`,
+    )).orderBy(desc(leadBusiness.score), asc(leadBusiness.name)).limit(budget);
+    for (const b of leads) {
+      const ch = b.whatsapp ? "whatsapp" : "instagram";
+      const [existing] = await db.select().from(leadMessage).where(and(eq(leadMessage.businessId, b.id), eq(leadMessage.direction, "out"), eq(leadMessage.channel, ch), inArray(leadMessage.status, ["draft", "approved"]), sql`coalesce(${leadMessage.step}, 0) = 0`)).limit(1);
+      const m = existing ?? await createDraft(null, b.id, { variant: ch === "instagram" ? "instagram" : "first_contact", channel: ch, campaignId: camp.id });
+      if (m.status === "approved") continue;
+      if (m.guardIssues.length) { out.skipped.push(`${b.name}: mensaje con advertencias`); continue; }
+      await approveForAutopilot(camp.id, m.id, b.id); out.queued++;
+    }
+  }
+  return out;
+}
+
 // ── Agenda pública ───────────────────────────────────────────────────────────
 async function takenSlots(): Promise<string[]> {
   const rows = await db.select({ at: leadTask.dueAt }).from(leadTask).where(and(eq(leadTask.kind, "meeting"), eq(leadTask.status, "open"), sql`${leadTask.dueAt} is not null`));
@@ -154,7 +213,7 @@ export async function bookMeeting(token: string, p: { slot: string; name: string
   // Invitación de calendario: al titular (con organizador = email comercial) y, si dejó email, al gimnasio.
   const owner = s.sender.replyTo || "hola@repiclub.com";
   const desc = `Reunión de ${s.booking.slotMin} minutos con ${b.name} (${b.city ?? ""}).\nContacto: ${name} · ${phone}${email ? ` · ${email}` : ""}\n${s.booking.meetingUrl ? `Enlace: ${s.booking.meetingUrl}\n` : `${s.sender.name} llama al ${phone} a la hora acordada.\n`}Ficha: ${appUrl()}/admin?s=captacion`;
-  const owners = await adminEmails();
+  const owners = await ownerEmails();
   const ics = icsInvite({ uid: `${res.id}@repiclub.com`, startLocal: p.slot, minutes: s.booking.slotMin, title: `REPI · ${b.name}`, description: desc, organizerEmail: owner, organizerName: `${s.sender.name} · ${s.sender.company}`,
     attendees: [...owners.map((e) => ({ email: e, name: s.sender.name })), ...(email ? [{ email, name }] : [])], location: s.booking.meetingUrl || `Llamada/WhatsApp al ${phone}` });
   const att = [{ filename: "invitacion.ics", content: Buffer.from(ics).toString("base64"), contentType: "text/calendar; method=REQUEST; charset=UTF-8" }];

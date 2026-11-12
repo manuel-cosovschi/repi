@@ -192,6 +192,10 @@ async function aiClassify(text: string, rules: IntentResult): Promise<IntentResu
 /** Registra una respuesta real (pegada o informada) y aplica lo que corresponde. Nunca contesta sola. */
 export async function recordReply(actorId: string, businessId: string, p: { channel: string; text: string; receivedOn?: string | null }) {
   await leadsAdmin(actorId);
+  return recordReplyAs(actorId, businessId, p);
+}
+/** Igual que recordReply, sin sesión: lo usan las automatizaciones (Gmail, sesión del Mac) por la entrada interna. */
+export async function recordReplyAs(actorId: string | null, businessId: string, p: { channel: string; text: string; receivedOn?: string | null }) {
   const text = p.text.trim().slice(0, 4000);
   if (!text) throw bad("Pegá el texto de la respuesta.");
   const day = p.receivedOn && /^\d{4}-\d{2}-\d{2}$/.test(p.receivedOn) && p.receivedOn <= today() ? p.receivedOn : today();

@@ -166,7 +166,7 @@ export async function stepReport() {
   return { ...sum, digest };
 }
 
-const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => (await import("./autopilot")).stepOutreach(), followup: stepFollowup, report: stepReport };
+const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => { const a = await import("./autopilot"); const email = await a.stepOutreach(); const social = await a.stepSocialQueue(); return { ...email, social }; }, followup: stepFollowup, report: stepReport };
 
 /** Ejecución por el job interno (CRON_SECRET), sin sesión: igual que la manual pero registrada como «cron-manual». */
 export async function runStepSystem(step: Step, opts: { areaIds?: string[]; budgetMs?: number } = {}) {

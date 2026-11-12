@@ -619,7 +619,7 @@ function Runs({ flash }: { flash: Flash }) {
 // ── Ajustes ─────────────────────────────────────────────────────────────────
 type SettingsV = { settings: { weights: Record<string, number>; cadence: { steps: number[]; businessDaysOnly: boolean }; schedule: Record<string, string | boolean | number[]> & { enabled: boolean; days: number[] };
   sender: { name: string; company: string; product: string; site: string; whatsapp: string; replyTo: string }; socialProof: string;
-  autopilot: { enabled: boolean; dailyLimit: number; window: { from: string; to: string }; followups: boolean; minScore: number };
+  autopilot: { enabled: boolean; dailyLimit: number; window: { from: string; to: string }; followups: boolean; minScore: number; social: boolean; socialDailyLimit: number };
   booking: { enabled: boolean; days: number[]; from: string; to: string; slotMin: number; horizonDays: number; minNoticeHours: number; meetingUrl: string };
   notify: { email: boolean; meetingReminderMin: number }; allowedClientNames: string[]; presentationUrl: string; demoUrl: string;
   limits: { discoveryAreasPerRun: number; enrichPerRun: number; composePerRun: number; emailPerDay: number; maxChars: number }; channels: { emailSend: boolean; whatsappApi: boolean }; aiCompose: boolean; aiClassify: boolean; pricing: { currency: "ARS"; tiers: { minMembers: number; unitMinor: number }[]; examples: { members: number; unitMinor: number }[] } };
@@ -649,6 +649,7 @@ function Settings({ flash }: { flash: Flash }) {
       <section className="card"><h2>Piloto automático</h2>
         <p className="sv-note">Con la programación encendida, cada día hábil manda por email el primer mensaje a los mejores gimnasios con email (y un seguimiento si no hay respuesta), dentro de la franja y el tope. Las respuestas llegan al email de respuesta; cada mensaje invita a WhatsApp y a la agenda. WhatsApp e Instagram no se automatizan: las plataformas no permiten mensajes en frío.</p>
         <label className="sv-note"><input type="checkbox" checked={s.autopilot.enabled} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, enabled: e.target.checked } })} /> Encendido</label>
+        <label className="sv-note"><input type="checkbox" checked={s.autopilot.social} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, social: e.target.checked } })} /> Preparar cada día la cola de WhatsApp e Instagram (la envía Claude desde tu Mac con tus cuentas; campaña «Piloto automático · WhatsApp e Instagram»)</label>
         <label className="sv-note"><input type="checkbox" checked={s.autopilot.followups} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, followups: e.target.checked } })} /> Mandar el seguimiento si no responde</label>
         <div className="grid-2">
           <label className="field">Emails por día<input inputMode="numeric" value={s.autopilot.dailyLimit} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, dailyLimit: Number(e.target.value) || 0 } })} /></label>

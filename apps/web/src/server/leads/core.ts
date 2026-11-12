@@ -42,7 +42,7 @@ export type Settings = {
    * mensaje y un seguimiento, dentro de la franja y el tope diario, con identificación y baja. WhatsApp e Instagram no se
    * automatizan (las plataformas no permiten mensajes en frío).
    */
-  autopilot: { enabled: boolean; dailyLimit: number; window: { from: string; to: string }; followups: boolean; minScore: number };
+  autopilot: { enabled: boolean; dailyLimit: number; window: { from: string; to: string }; followups: boolean; minScore: number; social: boolean; socialDailyLimit: number };
   /** Agenda pública: el gimnasio elige un horario y llega una invitación de calendario al titular. */
   booking: BookingConfig & { enabled: boolean; meetingUrl: string };
   /** Avisos al titular por email (reuniones, recordatorios, resumen diario sólo si hay algo). */
@@ -68,7 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiCompose: false,
   aiClassify: false,
   customStages: [],
-  autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40 },
+  autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40, social: false, socialDailyLimit: 10 },
   booking: { ...DEFAULT_BOOKING, enabled: true, meetingUrl: "" },
   notify: { email: true, meetingReminderMin: 60 },
   // Dossier comercial 2026, p. 6: 400 socios × $200 = $80.000/mes; 500 socios × $170 = $85.000/mes (ejemplos ilustrativos).
