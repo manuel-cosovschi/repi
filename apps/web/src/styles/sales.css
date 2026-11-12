@@ -77,3 +77,32 @@
   .sv-reps-table td[data-label]::before { content: attr(data-label) ": "; }
   .sv-reps-table td:last-child { grid-column: 2 / span 2; margin-top: 6px; }
 }
+
+/* D218 · Admin › Captación */
+.ld-actions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.ld-actions li small, .ld-msg-h small { display: block; color: var(--ui-muted); font-size: 12px; }
+.ld-msgs, .ld-recipients { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ld-msg { border: 1px solid var(--ui-border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ld-msg.in { background: var(--ui-surface-2); }
+.ld-msg-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ld-msg-h small { width: 100%; }
+.ld-body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size: 14px; line-height: 1.5; }
+.ld-score { display: grid; grid-template-columns: minmax(120px, max-content) 1fr 5ch; gap: 4px 10px; align-items: center; font-size: 13px; }
+.ld-score small { grid-column: 1 / -1; color: var(--ui-muted); margin: -2px 0 6px; }
+.ld-warn { border-color: var(--ui-chip-warn-ink, var(--ui-border)); }
+.ld-h { font-size: 16px; margin: 6px 0 0; }
+.ld-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ld-facts li { display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--ui-border); }
+.ld-fk { font-weight: 600; font-size: 13px; }
+.ld-fv { overflow-wrap: anywhere; font-size: 14px; }
+.ld-fs { grid-column: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ld-fs small { color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .ld-facts li { grid-template-columns: 1fr; } .ld-fs { grid-column: 1; } }
+.ld-approval .sv-preview dd { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .ld-score { grid-template-columns: minmax(0, 1fr) 80px 5ch; }
+  .ld-approval .sv-preview { grid-template-columns: 1fr; }
+}
+.ld-link { background: none; border: 0; padding: 2px 0; color: var(--ui-link, var(--ui-text)); font: inherit; font-weight: 600; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; overflow-wrap: anywhere; }
+.ld-link:disabled { color: inherit; text-decoration: none; cursor: default; }
+.sv-checks a.btn, .sv-filter a.btn { display: inline-grid; place-items: center; text-decoration: none; }

@@ -10,6 +10,7 @@ import * as an from "@/server/announcements/services";
 import * as se from "@/server/site/events";
 import * as ab from "@/server/brain/admin";
 import { salesGet, salesPost } from "@/server/sales/admin-routes";
+import { leadsGet, leadsPost } from "@/server/leads/routes";
 import { ADMIN_DEADLINE_MS } from "@/server/deadline";
 
 // Incidente 07/11 (corte a los 300 s): REPI Admin responde 503 a los 25 s si algo no termina, y la función se corta a los 60 s.
@@ -26,6 +27,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   const u = new URL(req.url);
   if (a === "sales") return salesGet(me, ((await params).path ?? []).slice(1), u.searchParams); // D209
+  if (a === "captacion") return leadsGet(me, ((await params).path ?? []).slice(1), u.searchParams); // D218
   if (a === "summary") return cm.adminSummary(me);
   if (a === "announcements") return an.adminAnnouncements(me); // D202
   if (a === "site") return se.siteSummary(me, Number(u.searchParams.get("days")) || 30); // D205
@@ -46,6 +48,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   const me = await sessionUserId();
   await limit(`admin:${me}`, 60);
   if (a === "sales") return salesPost(me, ((await params).path ?? []).slice(1), req); // D209
+  if (a === "captacion") return leadsPost(me, ((await params).path ?? []).slice(1), req); // D218
   if (a === "clients" && !b) {
     return cm.createClient(me, await body(req, z.object({
       kind: z.enum(["gym", "coach"]), orgName: z.string().max(120), legalName: z.string().max(160).nullable().optional(), responsibleName: z.string().max(80), responsibleEmail: z.string().max(200), currency: z.string().max(3),

@@ -393,6 +393,13 @@
       "when": 1794491042333,
       "tag": "0055_self_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794500068507,
+      "tag": "0056_lead_intelligence",
+      "breakpoints": true
     }
   ]
 }
