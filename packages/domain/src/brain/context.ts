@@ -36,6 +36,8 @@ export function missingList(ctx: BrainContext): string[] {
   const out: string[] = [];
   if (!ctx.program.versionId) out.push("No tenés un programa vigente.");
   if (!ctx.history.lastSessionAt) out.push("Todavía no hay entrenamientos registrados.");
+  if (!ctx.person.goals.value.length) out.push("No definiste tu objetivo de entrenamiento.");
+  if (ctx.person.experience.value == null) out.push("No sé tu experiencia entrenando.");
   if (ctx.person.weeklyTarget.value == null) out.push("No definiste cuántos días por semana querés entrenar.");
   if (ctx.person.minutesAvailable.value == null) out.push("No sé cuánto tiempo tenés por sesión.");
   if (ctx.person.age.value === "unknown") out.push("No sé tu edad (completá tu fecha de nacimiento en Perfil).");

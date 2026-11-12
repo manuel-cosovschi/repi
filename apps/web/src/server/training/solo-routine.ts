@@ -3,7 +3,7 @@
 // busca entrenando, su check-in y sus marcas previas. Sin la IA (o si tarda o falla) se arma con reglas: cuerpo completo,
 // un ejercicio por grupo, más o menos según los minutos disponibles. No recibe datos de salud, nombre ni email.
 import { and, eq, isNull, or } from "drizzle-orm";
-import { TRAINING_WISH_GOALS, checkLoad, detectedLabel, hasWishes, isActivityProfile, localDate, methodDetail, profileOf, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
+import { EXPERIENCE_LEVELS, PROFILE_EQUIPMENT, TRAINING_WISH_GOALS, checkLoad, detectedLabel, hasWishes, isActivityProfile, localDate, methodDetail, profileOf, type ExerciseDetail, type TrainingWishes } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { aiFastModel, aiJson, aiOn } from "../ai/openai";
@@ -72,7 +72,9 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
     db.select().from(checkin).where(and(eq(checkin.userId, userId), eq(checkin.date, localDate(now)))),
   ]);
   // Sin series por tiempo ni actividades (una cinta propia creada «con peso» sigue siendo cardio: no lleva series × reps).
-  const usable = lib.filter((e) => e.kind !== "time" && !isActivityProfile(profileOf({ metricsProfile: e.metricsProfile, name: e.name, kind: e.kind, muscleGroup: e.muscleGroup })) && GROUPS.includes(e.muscleGroup));
+  // D217: lo que no le gusta (elegido de la biblioteca) no se propone; los preferidos van primero.
+  const disliked = new Set((wishes?.dislikes ?? []).map((e) => e.id)), fav = new Set((wishes?.favorites ?? []).map((e) => e.id));
+  const usable = lib.filter((e) => !disliked.has(e.id) && e.kind !== "time" && !isActivityProfile(profileOf({ metricsProfile: e.metricsProfile, name: e.name, kind: e.kind, muscleGroup: e.muscleGroup })) && GROUPS.includes(e.muscleGroup));
   if (!usable.length) throw new AccessError("no_library", "Todavía no hay ejercicios en la biblioteca para armar tu rutina.", 409);
   const prev = await lastSetByExercise(userId, usable.map((e) => e.id));
   const w = wishes && hasWishes(wishes) ? wishes : null;
@@ -80,7 +82,7 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
 
   // Reglas (respaldo y base): un ejercicio por grupo; primero los que ya hizo, después los de carga y por nombre.
   const pick = (g: string) => usable.filter((e) => e.muscleGroup === g)
-    .sort((a, b) => Number(!!prev.get(b.id)) - Number(!!prev.get(a.id)) || Number(b.kind === "load_reps") - Number(a.kind === "load_reps") || a.name.localeCompare(b.name, "es"))[0];
+    .sort((a, b) => Number(fav.has(b.id)) - Number(fav.has(a.id)) || Number(!!prev.get(b.id)) - Number(!!prev.get(a.id)) || Number(b.kind === "load_reps") - Number(a.kind === "load_reps") || a.name.localeCompare(b.name, "es"))[0];
   const base = (n: number) => GROUPS.map(pick).filter((e): e is NonNullable<typeof e> => !!e).slice(0, n);
   const mk = (e: typeof usable[number], sets: number, reps: string, weightKg: number | null, note: string): RoutineEx => {
     const pv = prev.get(e.id);
@@ -108,7 +110,8 @@ export async function soloRoutine(userId: string, now = new Date(), message?: st
       hoy: localDate(now), lugar: act.kind === "gym" ? "gimnasio" : "donde entrene (coach a distancia)",
       biblioteca: [...code].map(([k, e]) => ({ code: k, nombre: e.name, grupo: e.muscleGroup, tipo: e.kind === "bodyweight" ? "peso corporal" : "con carga", ultimaMarca: prev.get(e.id) ?? undefined })),
       checkinHoy: ci ? { energia: ci.energy, sueno: ci.sleep, animo: ci.mood } : null,
-      loQueBusca: w ? { objetivo: w.goal ? TRAINING_WISH_GOALS[w.goal] : null, minutosDisponibles: w.minutes, leGusta: w.likes, prefiereEvitar: w.avoid } : null,
+      loQueBusca: w ? { objetivo: w.goal ? TRAINING_WISH_GOALS[w.goal] : null, experiencia: w.experience ? EXPERIENCE_LEVELS[w.experience] : null, minutosDisponibles: w.minutes, leGusta: w.likes, prefiereEvitar: w.avoid,
+        equipamiento: w.equipment?.length ? w.equipment.map((e) => PROFILE_EQUIPMENT[e]) : null, ejerciciosPreferidos: w.favorites?.map((e) => e.name) ?? null, restricciones: w.limits ?? null } : null,
       pedidoDeLaPersona: message?.trim().slice(0, 400) || null,
     };
     try {

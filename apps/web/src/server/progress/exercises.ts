@@ -8,7 +8,7 @@
 //   el tiempo) la supera. La primera sesión no es un récord: es la primera marca.
 // - Historial importado (D162) aparece como «importado», sin sesión de origen.
 // Sólo la persona dueña: todo filtra por user_id en el servidor; no hay parámetro de usuario.
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { bestE1rm, localDate, profileOf, rangeStart, volumeKg, IMPORT_MAX_SETS, type ProgressRange } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError } from "../access/util";
@@ -30,6 +30,8 @@ export type ProgressPoint = {
   sets: number; reps: number; volumeKg: number; topKg: number | null; repsAtTop: number | null;
   e1rm: number | null; best: { weightKg: number; reps: number } | null; maxReps: number | null; maxSec: number | null;
   record: boolean; first: boolean;
+  /** D217: día de un historial importado sin fechas (ubicado en orden): la fecha es aproximada. */
+  approx?: boolean;
 };
 
 function rawOf(s: SetRow, f: Flags): Raw {
@@ -71,11 +73,12 @@ export async function myProgressExercises(userId: string, o: { q?: string | null
     .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), isNull(setLog.voidedAt)))
     .groupBy(setLog.exerciseId).as("logged");
   const rows = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, last: logged.last, sessions: logged.sessions })
-    .from(logged).innerJoin(exercise, eq(exercise.id, logged.id)).where(like ? ilike(exercise.name, like) : undefined)
+    // D217: se busca por nombre o grupo muscular; el orden es «usados recientemente».
+    .from(logged).innerJoin(exercise, eq(exercise.id, logged.id)).where(like ? or(ilike(exercise.name, like), ilike(exercise.muscleGroup, like)) : undefined)
     .orderBy(desc(logged.last), asc(exercise.name)).limit(lim + 1).offset(off);
   const imported = await db.select({ id: historyEntry.exerciseId, name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, last: sql<string>`max(${historyEntry.day})`, days: sql<number>`count(distinct ${historyEntry.day})::int` })
     .from(historyEntry).innerJoin(exercise, eq(exercise.id, historyEntry.exerciseId))
-    .where(and(eq(historyEntry.userId, userId), like ? ilike(exercise.name, like) : undefined)).groupBy(historyEntry.exerciseId, exercise.name, exercise.muscleGroup, exercise.kind).limit(200);
+    .where(and(eq(historyEntry.userId, userId), like ? or(ilike(exercise.name, like), ilike(exercise.muscleGroup, like)) : undefined)).groupBy(historyEntry.exerciseId, exercise.name, exercise.muscleGroup, exercise.kind).limit(200);
   const seen = new Set(rows.map((r) => r.id));
   const page = rows.slice(0, lim).map((r) => ({ id: r.id, name: r.name, group: r.group, kind: r.kind, sessions: r.sessions, lastDay: localDate(new Date(r.last)), imported: false }));
   // Ejercicios que sólo están en el historial importado van al final de la primera página.
@@ -93,10 +96,14 @@ export async function myExerciseProgress(userId: string, exerciseId: string, ran
     .orderBy(desc(workoutSession.endedAt)).limit(EXERCISE_SET_CAP + 1);
   // Los importados abarcan varios años y tienen su propio tope. El registro extra detecta un corte real;
   // se conservan los más recientes y los puntos se ordenan cronológicamente después de agruparlos.
-  const readImports = await db.select().from(historyEntry).where(and(eq(historyEntry.userId, userId), eq(historyEntry.exerciseId, exerciseId)))
+  // D217: con la marca de fecha aproximada del import (historial sin fechas ubicado en orden por la persona).
+  const readImports = await db.select({ e: historyEntry, approx: sql<boolean>`jsonb_typeof(${schema.historyImport.parsed} -> 'approx') = 'object'` }).from(historyEntry)
+    .innerJoin(schema.historyImport, eq(schema.historyImport.id, historyEntry.importId))
+    .where(and(eq(historyEntry.userId, userId), eq(historyEntry.exerciseId, exerciseId)))
     .orderBy(desc(historyEntry.day), desc(historyEntry.setIndex)).limit(IMPORT_MAX_SETS + 1);
   const truncated = readSets.length > EXERCISE_SET_CAP || readImports.length > IMPORT_MAX_SETS;
-  const sets = readSets.slice(0, EXERCISE_SET_CAP), imports = readImports.slice(0, IMPORT_MAX_SETS);
+  const sets = readSets.slice(0, EXERCISE_SET_CAP), imports = readImports.slice(0, IMPORT_MAX_SETS).map((x) => ({ ...x.e, approx: !!x.approx }));
+  const approxDays = new Set(imports.filter((e) => e.approx).map((e) => e.day));
   if (!sets.length && !imports.length) throw NOT_FOUND();
   const flags = await timedPeIds(sets.map((x) => x.l.programExerciseId));
 
@@ -115,7 +122,7 @@ export async function myExerciseProgress(userId: string, exerciseId: string, ran
   }
   const all: ProgressPoint[] = [
     ...[...bySession.entries()].map(([id, g]) => ({ ...pointOf(g.rows), day: localDate(g.at), at: g.at.toISOString(), source: "session" as const, sessionId: id, dayName: g.dayName, record: false, first: false })),
-    ...[...byDay.entries()].map(([day, rows]) => ({ ...pointOf(rows), day, at: `${day}T15:00:00.000Z`, source: "import" as const, sessionId: null, dayName: null, record: false, first: false })),
+    ...[...byDay.entries()].map(([day, rows]) => ({ ...pointOf(rows), day, at: `${day}T15:00:00.000Z`, source: "import" as const, sessionId: null, dayName: null, record: false, first: false, approx: approxDays.has(day) })),
   ].sort((a, b) => a.at.localeCompare(b.at));
   const metric = metricOf(all, ex.kind);
   if (metric === "load") {

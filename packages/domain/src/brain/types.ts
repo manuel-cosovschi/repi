@@ -72,6 +72,8 @@ export type BrainContext = {
     minutesAvailable: Fact<number | null>;
     likes: Fact<string[]>;
     avoids: Fact<string[]>;
+    /** D217: estado del perfil de entrenamiento (completo, parcial o sin información) y su versión. */
+    profile?: { status: "complete" | "partial" | "none"; version: number };
   };
   relation: { kind: Relation; orgName: string | null; hasCoach: boolean };
   program: {
@@ -201,7 +203,9 @@ export type MemoryItem = {
 export type IntentName =
   | "today" | "last_mark" | "why_weight" | "trend" | "count" | "busy_machine" | "short_time" | "pain" | "alarm" | "low_energy"
   | "explain_method" | "set_preference" | "forget" | "fewer_messages" | "ask_coach" | "floor_help" | "body_goal" | "import_explain"
-  | "set_feedback" | "weekly_plan" | "change_exercise" | "progress_general" | "greeting" | "thanks" | "yes" | "no" | "unknown";
+  | "set_feedback" | "weekly_plan" | "change_exercise" | "progress_general" | "greeting" | "thanks" | "yes" | "no" | "unknown"
+  // D217 · Progreso: máximo real, capacidad estimada, próxima carga y distancia a una meta (cuatro conceptos separados).
+  | "max_lift" | "capacity" | "next_target" | "goal_distance";
 export type Intent = { name: IntentName; slots: Record<string, string | number | null>; confidence: number };
 
 export type ReplyCard =

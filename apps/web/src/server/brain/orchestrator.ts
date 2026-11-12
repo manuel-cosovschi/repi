@@ -14,7 +14,7 @@
 // como dato delimitado; el texto de la persona también va delimitado. Una carga, repeticiones o series que no salen de los datos
 // (lo que dijo la persona o REPI antes) → fallback.
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { bodyGoalProgress, epley1rm, exerciseRows, sessionPoints, exerciseTrend, nextProposal, setTarget, type ExerciseDetail, type HistRow, type ImportOrigin } from "@repi/domain";
+import { bestSet, capacityFor, distanceTo, maxLoad, metricOfSets, nextText, bodyGoalProgress, epley1rm, exerciseRows, sessionPoints, exerciseTrend, nextProposal, personalizeProposal, setTarget, type ExerciseDetail, type HistRow, type ImportOrigin } from "@repi/domain";
 import {
   AGE_REPLY, answerUnknown, arDay, arInstant, arWeekStart, canTalkBody, classify, clip, compose, contextForAi, dataBlock, detectSafety, hashHex,
   normalizeKey, norm, parsePreference, propose, resolveExercise, shortenSession,
@@ -134,7 +134,7 @@ async function awaitReply(userId: string, messageId: string): Promise<typeof bra
 
 // ── Decisión ────────────────────────────────────────────────────────────────
 type Turn = { prior: MessageView[]; pending: MessageView | null; salt: string; cache: AltCache; now: Date };
-const EXERCISE_FOLLOWUP: ReadonlySet<IntentName> = new Set<IntentName>(["last_mark", "why_weight", "trend"]);
+const EXERCISE_FOLLOWUP: ReadonlySet<IntentName> = new Set<IntentName>(["last_mark", "why_weight", "trend", "max_lift", "capacity", "next_target", "goal_distance"]);
 const GENERIC_WORDS = new Set(["ultima", "ultimas", "marca", "marcas", "vez", "peso", "pesos", "carga", "cargas", "kilos", "kg", "tendencia", "progreso", "record",
   "mejor", "ese", "este", "esa", "esta", "ejercicio", "numero", "serie", "series", "de", "la", "el", "mi", "y", "que", "hice", "fue"]);
 const BODY_DIET = /\b(peso corporal|bajar de peso|subir de peso|perder peso|ganar peso|adelgaz\w*|engord\w*|dieta\w*|calori\w*|comer|como para|comida\w*|aliment\w*|grasa corporal|proteina\w*|suplement\w*|kilos de mas|balanza|mi peso|cuanto peso)\b/;
@@ -264,6 +264,7 @@ async function rulesReply(sc: ServerContext, intent: Intent, text: string, t: Tu
     }
     case "last_mark": if (m) { data.lastMark = await lastMarkFor(uid, m); data.best = data.lastMark?.timed ? null : await bestFor(uid, m.exerciseId); } break;
     case "why_weight": if (m) data.target = await targetFor(sc, m); break;
+    case "max_lift": case "capacity": case "next_target": case "goal_distance": if (m) data.progress = await progressFor(sc, m, intent, t.now); break;
     case "trend": if (m) { const tr = (await trendsFor(sc, [m], t.now)).get(m.ref); data.trend = tr?.trend ?? null; data.points = tr?.points ?? []; data.proposal = tr?.proposal ?? null; } break;
     case "progress_general": {
       const metas = programMetas(sc).slice(0, 6);
@@ -334,6 +335,31 @@ async function bestFor(userId: string, exerciseId: string): Promise<AnswerData["
   return best;
 }
 
+/**
+ * D217: datos de Progreso del ejercicio con los mismos cálculos que la pantalla (progress-intel.ts sobre las series válidas) y,
+ * para la próxima carga, la propuesta de Training Intelligence (`trendsFor`, igual que «¿Estoy progresando?»).
+ */
+async function progressFor(sc: ServerContext, m: ExMeta, intent: Intent, now: Date): Promise<AnswerData["progress"]> {
+  const { exerciseSets } = await import("../progress/insight");
+  const { sets } = await exerciseSets(sc.userId, m.exerciseId);
+  if (!sets.length) return null;
+  const metric = metricOfSets(sets, m.kind);
+  const mx = maxLoad(sets), b = bestSet(sets);
+  const out: NonNullable<AnswerData["progress"]> = {
+    metric, max: mx ? { w: mx.w, r: mx.r, day: mx.day, approx: mx.approx, source: mx.source } : null, best: b ? { w: b.w, r: b.r, e1rm: b.e1rm, day: b.day } : null,
+    bestReps: Math.max(0, ...sets.filter((s) => s.cls !== "warmup" && s.cls !== "timed" && !(s.w && s.w > 0)).map((s) => s.r ?? 0)) || null,
+    bestSec: Math.max(0, ...sets.filter((s) => s.cls === "timed").map((s) => s.sec ?? 0)) || null,
+  };
+  if (intent.name === "capacity") { const reps = Number(intent.slots.reps) || 8; out.capacity = { reps, ...capacityFor(reps, sets, now) }; }
+  if (intent.name === "goal_distance" && intent.slots.kg != null) { const kg = Number(intent.slots.kg); out.distance = { kg, text: distanceTo(kg, sets).text }; }
+  if (intent.name === "next_target") {
+    const tr = (await trendsFor(sc, [m], now)).get(m.ref);
+    const last = tr?.points[tr.points.length - 1];
+    out.next = tr ? { text: nextText(last ? { w: last.w, r: last.r } : null, tr.proposal), requiresCoach: !!tr.proposal?.requiresCoach } : null;
+  }
+  return out;
+}
+
 /** Objetivo vigente de Training Intelligence para la próxima fila del ejercicio en la sesión abierta (el mismo que ve SetGuide). */
 async function targetFor(sc: ServerContext, m: ExMeta): Promise<AnswerData["target"]> {
   const se = sessionEx(sc, m.ref);
@@ -357,7 +383,7 @@ function programMetas(sc: ServerContext): ExMeta[] {
 }
 
 /** Tendencia, puntos comparados y propuesta por ejercicio (Training Intelligence: sessionPoints → exerciseTrend → nextProposal). */
-async function trendsFor(sc: ServerContext, metas: ExMeta[], now: Date) {
+export async function trendsFor(sc: ServerContext, metas: ExMeta[], now: Date) {
   const out = new Map<string, { trend: ReturnType<typeof exerciseTrend>; points: ReturnType<typeof sessionPoints>; proposal: ReturnType<typeof nextProposal> }>();
   if (!metas.length) return out;
   const hist = await historyRows(sc.userId, metas.map((m) => m.exerciseId), { now });
@@ -372,7 +398,7 @@ async function trendsFor(sc: ServerContext, metas: ExMeta[], now: Date) {
     const trend = exerciseTrend(points);
     const tg = setTarget(ex, main.index);
     const rr = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(tg.reps.trim());
-    const proposal = nextProposal(trend, points, { repsMin: rr ? Number(rr[1]) : null, repsMax: rr ? Number(rr[2] ?? rr[1]) : null, coachOwned });
+    const proposal = personalizeProposal(nextProposal(trend, points, { repsMin: rr ? Number(rr[1]) : null, repsMax: rr ? Number(rr[2] ?? rr[1]) : null, coachOwned }), trend, sc.personal);
     out.set(m.ref, { trend, points, proposal });
   }
   return out;

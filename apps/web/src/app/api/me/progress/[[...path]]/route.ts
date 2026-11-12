@@ -9,6 +9,8 @@ import * as ex from "@/server/progress/exercises";
 import * as bd from "@/server/progress/body";
 import * as ph from "@/server/progress/photos";
 import { sessionCalories } from "@/server/progress/calories";
+import { myExerciseInsight, exerciseSets } from "@/server/progress/insight";
+import * as goals from "@/server/progress/goals";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -19,9 +21,12 @@ const grams = z.number().int().min(20_000).max(400_000);
 const rangeOf = (req: Request): ProgressRange => { const r = new URL(req.url).searchParams.get("range"); return isProgressRange(r) ? r : "90d"; };
 
 export const GET = handle<Ctx>(async (req, { params }) => {
-  const [a, b] = (await params).path ?? [];
+  const [a, b, c] = (await params).path ?? [];
   const me = await sessionUserId();
   const u = new URL(req.url);
+  // D217: inteligencia por ejercicio (máximos, estimaciones, próxima carga de TI, metas, análisis) y metas propias.
+  if (a === "exercises" && b && c === "insight") { on("progress"); return myExerciseInsight(me, id.parse(b)); }
+  if (a === "goals" && !b) { on("progress"); return { goals: await goals.mySelfGoals(me, { exerciseId: u.searchParams.get("exerciseId") }), ...(await goals.canSetSelfGoals(me)) }; }
   if (a === "summary") { on("progress"); return ex.myProgressSummary(me, rangeOf(req)); }
   if (a === "exercises" && !b) { on("progress"); return ex.myProgressExercises(me, { q: u.searchParams.get("q"), offset: Number(u.searchParams.get("offset")) || 0 }); }
   if (a === "exercises" && b) { on("progress"); return ex.myExerciseProgress(me, id.parse(b), rangeOf(req)); }
@@ -35,6 +40,12 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   const [a, b, c] = (await params).path ?? [];
   const me = await sessionUserId();
   await limit(`progress:${me}`, 40);
+  if (a === "goals" && !b) {
+    on("progress");
+    const p = await body(req, z.object({ kind: z.enum(goals.SELF_GOAL_KINDS), exerciseId: id.nullable().optional(), target: z.number(), targetReps: z.number().int().nullable().optional(), dueOn: day.nullable().optional(), note: z.string().max(300).nullable().optional() }).strict());
+    return goals.createSelfGoal(me, p, async (exId) => (await exerciseSets(me, exId)).sets);
+  }
+  if (a === "goals" && b) { on("progress"); return goals.updateSelfGoal(me, id.parse(b), await body(req, z.object({ status: z.enum(["active", "achieved", "cancelled"]).optional(), dueOn: day.nullable().optional(), note: z.string().max(300).nullable().optional() }).strict())); }
   if (a === "body" && b === "weights" && !c) { on("body_weight"); return bd.saveWeight(me, await body(req, z.object({ day, weightG: grams }))); }
   if (a === "body" && b === "weights" && c) { on("body_weight"); return bd.updateWeight(me, id.parse(c), await body(req, z.object({ day: day.optional(), weightG: grams.optional() }))); }
   if (a === "body" && b === "goal") {

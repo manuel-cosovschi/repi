@@ -979,6 +979,41 @@
 .pc-tip { min-height: 44px; background: var(--ui-surface-2); border-radius: 12px; padding: 10px 12px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 .pc-tip small { color: var(--ui-muted); font-size: 12.5px; }
 .pc-empty { background: var(--ui-surface); border-radius: 14px; padding: 16px; font-size: 14px; color: var(--ui-muted); line-height: 1.45; }
+/* Zoom y desplazamiento (botones reales, 40 px de toque; en 320 px la fila se parte en dos sin scroll horizontal). */
+.pc-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.pc-tg { display: inline-flex; gap: 6px; }
+.pc-tb { flex: none; min-width: 40px; height: 40px; padding: 0; border-radius: 12px; border: 1px solid var(--ui-border); background: transparent; color: var(--ui-text-2); font: 600 12.5px var(--font-ui); display: inline-grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pc-tb svg { width: 16px; height: 16px; }
+.pc-tb-txt { padding: 0 12px; }
+.pc-tb-end { margin-left: auto; }
+.pc-tb[aria-disabled="true"] { opacity: .4; cursor: default; }
+.pc-tb[aria-pressed="true"] { background: var(--ui-text); border-color: var(--ui-text); color: var(--ui-surface); }
+.pc-tb:focus-visible, .pc-plot:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.pc-plot { border-radius: 8px; }
+.pc-plot svg { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+@media (pointer: fine) { .pc-plot[data-zoom] svg { cursor: crosshair; } }
+.pc-gap { stroke-dasharray: 4 5; opacity: .3; }
+.pc-dot.sm { stroke-width: 0; }
+.pc-dot.approx { fill: var(--ui-surface); stroke: var(--ui-accent); stroke-width: 1.75; stroke-dasharray: 2 2; }
+.pc-dot.rec.approx { stroke: var(--ui-warning); }
+.pc-dot.approx.on { stroke-width: 2.5; }
+.pc-fut { fill: var(--ui-surface); stroke: var(--ui-accent-2); stroke-width: 2; stroke-dasharray: 3 2.5; }
+.pc-fut.on { stroke: var(--ui-text); }
+.pc-fut-c { fill: var(--ui-accent-2); pointer-events: none; }
+.pc-pt:focus-visible .pc-fut { stroke: var(--ui-focus); stroke-width: 3; }
+.pc-today { stroke: var(--ui-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.pc-today-txt { font-size: 10.5px; }
+.pc-brush { fill: var(--ui-accent-tint); stroke: var(--ui-accent); stroke-width: 1; }
+.pc-ov { display: block; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; margin-top: -2px; }
+.pc-ov:active { cursor: grabbing; }
+.pc-ov-track { fill: var(--ui-chart-track); }
+.pc-ov-line { fill: none; stroke: var(--ui-muted); stroke-width: 1.25; stroke-linejoin: round; opacity: .8; }
+.pc-ov-fut { fill: none; stroke: var(--ui-accent-2); stroke-width: 1.5; }
+.pc-ov-win { fill: var(--ui-accent-tint); stroke: var(--ui-accent); stroke-width: 1.5; }
+.pc-range { margin: 0; font-size: 12.5px; color: var(--ui-muted); min-height: 1.4em; }
+.pc-k-gap { width: 16px; border-top: 2px dashed var(--ui-accent); opacity: .4; }
+.pc-k-approx { width: 9px; height: 9px; border-radius: 50%; border: 1.5px dashed var(--ui-accent); }
+.pc-k-fut { width: 11px; height: 11px; border-radius: 50%; border: 2px dashed var(--ui-accent-2); }
 .pp-card { background: var(--ui-surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .pp-card h2, .pp-card h3 { margin: 0; }
 .pp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }

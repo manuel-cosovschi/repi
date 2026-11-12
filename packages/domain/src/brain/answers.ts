@@ -51,13 +51,23 @@ export type AnswerData = {
   variant?: number;
   /** Sal de las claves idempotentes (p. ej. el id del mensaje). */
   salt?: string;
+  /** D217 · Progreso del ejercicio: A máximo real, B estimación, C próxima carga (TI) y distancia a una carga. */
+  progress?: {
+    max: { w: number; r: number; day: string; approx: boolean; source: "session" | "import" } | null;
+    best: { w: number; r: number; e1rm: number; day: string } | null;
+    capacity?: { reps: number; weightKg: number | null; text: string } | null;
+    distance?: { kg: number; text: string } | null;
+    next?: { text: string | null; requiresCoach: boolean } | null;
+    metric: "load" | "reps" | "time";
+    bestReps?: number | null; bestSec?: number | null;
+  } | null;
 };
 
 const SUGGEST: Record<Section, string[]> = {
   home: ["¿Qué me toca hoy?", "¿Estoy progresando?", "¿Cuántas veces entrené esta semana?"],
   workout: ["La máquina está ocupada", "Me quedan 20 minutos", "¿Por qué este peso?"],
   review: ["¿Cómo me fue respecto de la anterior?", "¿Qué hago la próxima?"],
-  progress: ["¿Estoy progresando?", "¿En qué ejercicio mejoré más?"],
+  progress: ["¿Estoy progresando?", "¿En qué ejercicio mejoré más?", "¿Cuál es mi máximo?"],
   body: ["¿Cómo viene mi objetivo de peso?"],
   history: ["¿Cuál fue mi última marca?", "¿Cuántas veces entrené este mes?"],
   routines: ["Explicame mi rutina importada", "¿Qué es un drop set?"],
@@ -104,6 +114,47 @@ export function answerLastMark(_ctx: BrainContext, d: AnswerData): Reply {
     cards: [{ type: "fact", title: name, rows: [{ label: "Última vez", value: what }, { label: "Fecha", value: fmtArDate(lm.at) }], via: "data" }, evCard(evidence)],
     actions: [propose("show_history", { exerciseId: d.exercise.id }, "Ver historial", "Abre el historial de este ejercicio.", d.salt)],
   });
+}
+
+// ── D217 · Máximo real, capacidad estimada, próxima carga y distancia (nunca la misma cifra para los cuatro) ─────────────────
+const ESTIMATE_NOTE = "Es una estimación (Epley), no una repetición máxima ejecutada.";
+const dayTxt = (d: string) => fmtArDate(`${d}T12:00:00-03:00`);
+export function answerMaxLift(_ctx: BrainContext, d: AnswerData): Reply {
+  if (!d.exercise) return askExercise(d);
+  const name = d.exercise.name, p = d.progress;
+  if (!p || (!p.max && p.bestReps == null && p.bestSec == null)) return reply(`Todavía no tengo registros de ${name}.`, { suggestions: SUGGEST.progress });
+  const show = propose("show_history", { exerciseId: d.exercise.id }, "Ver en Progreso", "Abre la evolución de este ejercicio.", d.salt);
+  if (p.metric === "reps" && p.bestReps != null) return reply(`Tu mejor serie de ${name} sin carga externa fue de ${p.bestReps} repeticiones.`, { actions: [show] });
+  if (p.metric === "time" && p.bestSec != null) return reply(`Tu mejor marca de ${name} es ${fmtSeconds(p.bestSec)}.`, { actions: [show] });
+  const m = p.max!;
+  const real = `Tu mayor carga registrada en ${name} es ${fmtKg(m.w)} × ${m.r} (${dayTxt(m.day)}${m.approx ? ", fecha aproximada" : m.source === "import" ? ", importado" : ""}).`;
+  const est = p.best ? ` Tu mejor serie fue ${fmtKg(p.best.w)} × ${p.best.r}, con un 1RM estimado de ${fmtKg(p.best.e1rm)}. ${ESTIMATE_NOTE}` : "";
+  const rows = [{ label: "Mayor carga real", value: `${fmtKg(m.w)} × ${m.r}` }, ...(p.best ? [{ label: "1RM estimado", value: fmtKg(p.best.e1rm) }] : [])];
+  return reply(real + est, {
+    cards: [{ type: "fact", title: name, rows, via: "data" }, evCard({ basis: "Todas tus series válidas de este ejercicio (REPI e importadas).", excluded: "No cuento aproximaciones, series anuladas ni etapas de un drop.", via: "data" })],
+    actions: [show], suggestions: [`¿Cuánto podría tirar para 8 repeticiones en ${name}?`, `¿Qué intento la próxima vez en ${name}?`],
+  });
+}
+export function answerCapacity(_ctx: BrainContext, d: AnswerData): Reply {
+  if (!d.exercise) return askExercise(d);
+  const c = d.progress?.capacity;
+  if (!c) return reply(`Todavía no tengo series con carga de ${d.exercise.name} para estimarlo.`);
+  return reply(`${c.text} No es tu próxima carga de trabajo: esa depende de tu programación y de tus últimas sesiones comparables.`, {
+    cards: [evCard({ basis: "Estimación por la fórmula de Epley con tu mejor serie reciente de 1 a 10 repeticiones.", excluded: "No uso series de más de 10 repeticiones, fechas aproximadas ni registros de hace más de 4 meses.", via: "rules" })],
+    suggestions: [`¿Qué intento la próxima vez en ${d.exercise.name}?`],
+  });
+}
+export function answerNextTarget(_ctx: BrainContext, d: AnswerData): Reply {
+  if (!d.exercise) return askExercise(d);
+  const n = d.progress?.next;
+  if (!n?.text) return reply(`Todavía no tengo sesiones comparables de ${d.exercise.name} para proponerte algo. Seguí la indicación de tu entrenador o una carga con la que completes el rango con buena técnica.`);
+  return reply(n.text, { cards: [evCard({ basis: "Training Intelligence: tus últimas sesiones comparables (misma serie y rango).", excluded: "No uso aproximaciones ni series anuladas.", via: "rules" })] });
+}
+export function answerGoalDistance(_ctx: BrainContext, d: AnswerData): Reply {
+  if (!d.exercise) return askExercise(d);
+  const g = d.progress?.distance;
+  if (!g) return reply("¿Hasta qué carga? Decime los kilos, por ejemplo «¿cuánto me falta para 100 kg?».");
+  return reply(g.text, { suggestions: [`¿Cuál es mi máximo en ${d.exercise.name}?`] });
 }
 
 export function answerWhyWeight(_ctx: BrainContext, d: AnswerData): Reply {
@@ -371,6 +422,10 @@ export function compose(intent: Intent, ctx: BrainContext, d: AnswerData = {}): 
     case "alarm": case "pain": return answerSafety(ctx, d);
     case "today": return answerToday(ctx, d);
     case "last_mark": return answerLastMark(ctx, d);
+    case "max_lift": return answerMaxLift(ctx, d);
+    case "capacity": return answerCapacity(ctx, d);
+    case "next_target": return answerNextTarget(ctx, d);
+    case "goal_distance": return answerGoalDistance(ctx, d);
     case "why_weight": return answerWhyWeight(ctx, d);
     case "trend": return answerTrend(ctx, d);
     case "progress_general": return answerProgressGeneral(ctx, d);

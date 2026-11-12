@@ -231,3 +231,27 @@ describe("answers · desconocido, inyección y edad (casos 59–60, 64)", () => 
     expect(daysAgo(0)).toBe(NOW);
   });
 });
+
+describe("D217 · Progreso: cuatro conceptos que no se mezclan", () => {
+  const ex = { id: "e1", name: "Sentadilla", short: "" };
+  const base = { metric: "load" as const, max: { w: 100, r: 3, day: "2026-11-02", approx: false, source: "session" as const }, best: { w: 90, r: 8, e1rm: 114, day: "2026-10-20" } };
+  it("máximo: la carga REAL y, aparte, la estimación con su aclaración", () => {
+    const r = compose({ name: "max_lift", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: base });
+    expect(r.text).toContain("Tu mayor carga registrada en Sentadilla es 100 kg × 3");
+    expect(r.text).toContain("1RM estimado de 114 kg");
+    expect(r.text).toContain("no una repetición máxima ejecutada");
+    expect(compose({ name: "max_lift", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { metric: "reps", max: null, best: null, bestReps: 12 } }).text).toContain("12 repeticiones");
+    expect(compose({ name: "max_lift", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: null }).text).toContain("Todavía no tengo registros");
+  });
+  it("capacidad: estimación que aclara que no es la próxima carga de trabajo", () => {
+    const r = compose({ name: "capacity", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { ...base, capacity: { reps: 8, weightKg: 90, text: "Estimación aproximada: 90 kg × 8." } } });
+    expect(r.text).toContain("No es tu próxima carga de trabajo");
+  });
+  it("próxima carga: la de Training Intelligence; sin sesiones comparables no inventa", () => {
+    expect(compose({ name: "next_target", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { ...base, next: { text: "La última vez completaste 90 kg × 8…", requiresCoach: false } } }).text).toContain("La última vez completaste");
+    expect(compose({ name: "next_target", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { ...base, next: null } }).text).toContain("Todavía no tengo sesiones comparables");
+  });
+  it("distancia: pide la carga si no la dijo", () => {
+    expect(compose({ name: "goal_distance", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { ...base, distance: null } }).text).toContain("¿Hasta qué carga?");
+  });
+});

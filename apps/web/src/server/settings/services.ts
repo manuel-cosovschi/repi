@@ -2,9 +2,10 @@
 // (sin push al alumno todavía); menores según la política que defina el titular: no hay opciones que simular acá.
 // D139: además, lo que busca entrenando (objetivo, tiempo, gustos y lo que evita), que usa la IA de «No vino el profe».
 import { eq, sql } from "drizzle-orm";
-import { acceptThemeChange, cleanWishes, isThemePref, isWeightUnit, type ThemePref, type TrainingWishes, type WeightUnit } from "@repi/domain";
+import { acceptThemeChange, cleanWishes, isThemePref, readWishes, isWeightUnit, type ThemePref, type TrainingWishes, type WeightUnit } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
+import { updateProfile } from "./profile";
 
 const { userPref } = schema;
 
@@ -13,7 +14,7 @@ export async function mySettings(userId: string) {
     .from(userPref).where(eq(userPref.userId, userId));
   // D188: `uid` es la propia cuenta (quien pregunta); el cliente lo usa sólo para no mandar un cambio pendiente a otra cuenta.
   return {
-    uid: userId, weightUnit: (p?.weightUnit ?? "kg") as WeightUnit, wishes: (p?.wishes ?? null) as TrainingWishes | null,
+    uid: userId, weightUnit: (p?.weightUnit ?? "kg") as WeightUnit, wishes: readWishes(p?.wishes) as TrainingWishes | null,
     theme: (p?.theme ?? "system") as ThemePref, themeChangedAt: p?.themeChangedAt ? p.themeChangedAt.getTime() : null,
   };
 }
@@ -43,19 +44,20 @@ export async function updateSettings(userId: string, p: { weightUnit?: unknown; 
     await audit(db, { actorUserId: userId, action: "settings.updated", resourceType: "user", resourceId: userId, meta: { weightUnit: p.weightUnit } });
   }
   if (p.wishes !== undefined) {
+    // D217: la pantalla vieja manda el perfil «completo» de D139; se aplica como cambio sobre el perfil canónico (lo nuevo que
+    // no manda, como la experiencia, se conserva) con procedencia y versión.
     const r = cleanWishes(p.wishes);
     if (!r.ok) throw new AccessError("invalid", r.error);
-    await db.insert(userPref).values({ userId, wishes: r.wishes, updatedAt: now })
-      .onConflictDoUpdate({ target: userPref.userId, set: { wishes: r.wishes, updatedAt: now } });
-    // Sin el texto en la auditoría: sólo qué se completó.
-    await audit(db, { actorUserId: userId, action: "settings.wishes", resourceType: "user", resourceId: userId, meta: { goal: r.wishes.goal, filled: Object.entries(r.wishes).filter(([, v]) => v != null).map(([k]) => k) } });
+    await updateProfile(userId, r.wishes, "profile", now);
   }
   return mySettings(userId);
 }
 
 // ── D195: ayudas de primera vez (onboarding contextual) ─────────────────────
 // Sólo la clave de cada ayuda y cuándo se vio u omitió (nada personal). Sirve para no repetirlas en otro dispositivo.
-export const HINT_KEYS = ["start_guide", "ti_intro", "history_edit", "workout_nav", "coach_start", "gym_equipment", "rest_intel", "new_progress_body", "new_progress_photos"] as const;
+// D217: «profile_*» = el formulario breve del perfil ya se ofreció en ese lugar (completado u omitido): no se vuelve a ofrecer ahí.
+export const HINT_KEYS = ["start_guide", "ti_intro", "history_edit", "workout_nav", "coach_start", "gym_equipment", "rest_intel", "new_progress_body", "new_progress_photos",
+  "profile_onboarding", "profile_routines", "profile_import", "profile_solo", "profile_coach_absent", "profile_brain", "progress_intel"] as const;
 export type HintKey = (typeof HINT_KEYS)[number];
 export const isHintKey = (k: unknown): k is HintKey => typeof k === "string" && (HINT_KEYS as readonly string[]).includes(k);
 
