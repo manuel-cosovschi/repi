@@ -26,7 +26,7 @@ Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0
   demo de alumno 14/14 (perfil y metas sin sesión 401, perfil parcial→completo con procedencia, campo de salud 400, vista
   inteligente con máximo real y 1RM estimado, 404 ajeno, meta propia creada y cerrada, Progreso sin errores). Datos reales:
   45 sesiones iguales, ningún perfil real tocado, la única meta propia es de la demo. Vercel sin errores.
-- **Cierre (mismo día, PR de cierre):** «Cargar historial anterior» también ofrece el formulario breve; REPI responde máximo,
+- **Cierre (mismo día, #103 `b54271e`, smoke 16/16: lo anterior + REPI responde el máximo real en kg y la capacidad en lb):** «Cargar historial anterior» también ofrece el formulario breve; REPI responde máximo,
   capacidad, próxima carga y distancia en la unidad elegida (lb); marcadores chicos con 60–150 puntos visibles; QA de historial
   largo en build local (iPhone 13 emulado, 428 registros, 3 años con hueco de 90 días y tramo con fecha aproximada): zoom,
   alejar, «Ver todo», desplazamiento, pellizco y arrastre con eventos táctiles reales, teclado, tramos punteados, cambio de
