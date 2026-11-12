@@ -91,8 +91,11 @@ export async function leadsPost(me: string, path: string[], req: Request): Promi
   if (a === "settings") {
     const p = await body(req, z.object({
       weights: z.record(z.string(), z.number().int()).optional(), cadence: z.object({ steps: z.array(z.number().int()).max(6), businessDaysOnly: z.boolean() }).optional(),
-      schedule: z.object({ enabled: z.boolean(), days: z.array(z.number().int()).max(7), discovery: z.string(), enrich: z.string(), score: z.string(), compose: z.string(), followup: z.string(), report: z.string() }).optional(),
-      sender: z.object({ name: z.string().max(80), company: z.string().max(80), product: z.string().max(40), site: z.string().max(80), whatsapp: z.string().max(40) }).optional(),
+      schedule: z.object({ enabled: z.boolean(), days: z.array(z.number().int()).max(7), discovery: z.string(), enrich: z.string(), score: z.string(), compose: z.string(), outreach: z.string(), followup: z.string(), report: z.string() }).optional(),
+      sender: z.object({ name: z.string().max(80), company: z.string().max(80), product: z.string().max(40), site: z.string().max(80), whatsapp: z.string().max(40), replyTo: z.string().max(200) }).optional(),
+      autopilot: z.object({ enabled: z.boolean(), dailyLimit: z.number().int(), window: z.object({ from: z.string(), to: z.string() }), followups: z.boolean(), minScore: z.number().int().min(0).max(100) }).optional(),
+      booking: z.object({ enabled: z.boolean(), days: z.array(z.number().int().min(0).max(6)).max(7), from: z.string(), to: z.string(), slotMin: z.number().int(), horizonDays: z.number().int(), minNoticeHours: z.number().int().min(0).max(72), meetingUrl: z.string().max(300) }).optional(),
+      notify: z.object({ email: z.boolean(), meetingReminderMin: z.number().int().min(5).max(240) }).optional(),
       socialProof: z.string().max(300).optional(), allowedClientNames: z.array(z.string().max(80)).max(20).optional(), presentationUrl: z.string().max(300).optional(), demoUrl: z.string().max(300).optional(),
       limits: z.object({ discoveryAreasPerRun: z.number().int(), enrichPerRun: z.number().int(), composePerRun: z.number().int(), emailPerDay: z.number().int(), maxChars: z.number().int() }).optional(),
       channels: z.object({ emailSend: z.boolean(), whatsappApi: z.literal(false) }).optional(), aiCompose: z.boolean().optional(), aiClassify: z.boolean().optional(),

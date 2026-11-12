@@ -60,6 +60,8 @@ export type CopyContext = {
   leadId: string; name: string; city: string | null; category: LeadCategory; estMembers: number | null; branches: number | null;
   contactName: string | null; positioning: string | null;
   sender: { name: string; company: string; product: string; site: string; whatsapp?: string | null };
+  /** Enlace para que el gimnasio elija un horario (agenda pública de Captación). Sólo en emails. */
+  bookingUrl?: string | null;
   /** Ejemplos de precio por socio publicados en el dossier (ilustrativos). Sólo se usan al responder una consulta de precios. */
   priceExamples?: PriceExample[] | null;
   /** Prueba social autorizada por el titular (texto exacto). Vacío = no se menciona a ningún cliente. */
@@ -109,7 +111,11 @@ export function compose(variant: Variant, c: CopyContext): Draft {
       return out(`${hello} ${who}. Te escribo a vos porque ${c.sender.product} está pensada para dueños de gimnasios: ${fnText.length ? list(fnText) : "rutinas y seguimiento"} en un mismo lugar.${proof}\n\n${why}. ${pick(r, CTA)}`);
     case "email": {
       const subject = pick(r, [`${c.sender.product} para ${c.name}`, `Una idea para ${c.name}`, `Rutinas y seguimiento para ${c.name}`]);
-      return out(`${hello}\n\n${who}. ${intro} ${product} ${what}.${proof}\n\n${why}. El costo es mensual y se calcula por socio, así que se puede sumar a la cuota sin un aumento grande.\n\n${pick(r, CTA)}\n\nSaludos,\n${c.sender.name}\n${c.sender.company} · ${c.sender.site}${c.sender.whatsapp ? ` · WhatsApp ${c.sender.whatsapp}` : ""}`, subject);
+      // Con agenda: la llamada se elige en un clic; con WhatsApp del remitente, también se puede responder por ahí.
+      const cta = c.bookingUrl
+        ? `¿Te parece una llamada de 15 minutos para mostrártelo? Elegí el horario que te quede cómodo acá: ${c.bookingUrl}${c.sender.whatsapp ? `\n\nSi preferís, respondé este mail o escribime por WhatsApp al ${c.sender.whatsapp}.` : ""}`
+        : `${pick(r, CTA)}${c.sender.whatsapp ? ` También me podés escribir por WhatsApp al ${c.sender.whatsapp}.` : ""}`;
+      return out(`${hello}\n\n${who}. ${intro} ${product} ${what}.${proof}\n\n${why}. El costo es mensual y se calcula por socio, así que se puede sumar a la cuota sin un aumento grande.\n\n${cta}\n\nSaludos,\n${c.sender.name}\n${c.sender.company} · ${c.sender.site}${c.sender.whatsapp ? ` · WhatsApp ${c.sender.whatsapp}` : ""}`, subject);
     }
     case "reply_interest":
       return out(`¡Buenísimo! Gracias por responder. ${c.presentationUrl ? `Te dejo la presentación: ${c.presentationUrl}\n\n` : ""}${pick(r, CTA_DEMO)}`);
@@ -124,7 +130,7 @@ export function compose(variant: Variant, c: CopyContext): Draft {
     case "demo":
       return out(`Genial. ${pick(r, CTA_DEMO)}${c.demoUrl ? ` Si preferís verlo antes por tu cuenta: ${c.demoUrl}` : ""}`);
     case "followup_1":
-      return out(`${pick(r, ["Hola de nuevo.", "Hola, ¿cómo va?", "Hola, ¿qué tal?"])} Te escribí hace unos días por ${c.sender.product}. ${pick(r, ["¿Pudiste verlo?", "¿Te quedó alguna duda?", "¿Te sirve que te mande la presentación?"])}`);
+      return out(`${pick(r, ["Hola de nuevo.", "Hola, ¿cómo va?", "Hola, ¿qué tal?"])} Te escribí hace unos días por ${c.sender.product}. ${pick(r, ["¿Pudiste verlo?", "¿Te quedó alguna duda?", "¿Te sirve que te mande la presentación?"])}${c.bookingUrl ? `\n\nSi querés verlo en una llamada corta, elegí el horario acá: ${c.bookingUrl}` : ""}${c.bookingUrl ? "\n\nSi ya me respondiste por otro lado, desestimá este mensaje." : ""}`, c.bookingUrl ? `Re: ${c.sender.product} para ${c.name}` : null);
     case "followup_2":
       return out(`Hola, último mensaje para no molestar: si en algún momento quieren ${a1.benefit}, ${c.sender.product} puede ayudar. ${pick(r, ["Quedo a disposición.", "Cualquier cosa me escribís.", "Si te interesa, respondé este mensaje y lo vemos."])}`);
     case "objection": {

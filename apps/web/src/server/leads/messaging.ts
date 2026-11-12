@@ -10,7 +10,7 @@ import type { Tx } from "../access/util";
 import { aiJson, aiOn } from "../ai/openai";
 import { deliverMail } from "../mailer";
 import { logError } from "../log";
-import { bad, getLead, getSettings, leadBusiness, leadCampaign, leadMessage, leadSuppression, leadTask, leadsAdmin, logLead, NF, today, unsubscribeUrl } from "./core";
+import { bad, bookingUrl, getLead, getSettings, leadBusiness, leadCampaign, leadMessage, leadSuppression, leadTask, leadsAdmin, logLead, NF, today, unsubscribeUrl } from "./core";
 import { refreshLead } from "./store";
 
 type Lead = typeof leadBusiness.$inferSelect;
@@ -22,6 +22,7 @@ export async function copyContext(b: Lead, objection?: Objection | null) {
     leadId: b.id, name: b.name, city: b.city, category: b.category as never, estMembers: b.estMembers, branches: b.branches, contactName: b.contactName, positioning: b.positioning,
     sender: s.sender, socialProof: s.socialProof || null, presentationUrl: s.presentationUrl || null, demoUrl: s.demoUrl || null, objection: objection ?? null,
     priceExamples: s.pricing.examples,
+    bookingUrl: s.booking.enabled ? bookingUrl(b.id) : null,
     settings: s,
   };
 }
@@ -159,7 +160,7 @@ export async function sendEmailNow(actorId: string | null, messageId: string) {
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(leadMessage).where(and(eq(leadMessage.provider, "mailer"), eq(leadMessage.status, "sent"), gte(leadMessage.sentAt, new Date(`${today()}T00:00:00-03:00`))));
   if (n >= Math.min(s.limits.emailPerDay, c.dailyLimit)) throw bad("Se alcanzó el límite diario de emails. Sigue mañana.");
   try {
-    await deliverMail({ to: m.toAddress, subject: m.subject ?? `${s.sender.product}`, body: m.body + emailFooter(s.sender.company, s.sender.site, unsubscribeUrl(b.id)) });
+    await deliverMail({ to: m.toAddress, subject: m.subject ?? `${s.sender.product}`, body: m.body + emailFooter(s.sender.company, s.sender.site, unsubscribeUrl(b.id)), replyTo: s.sender.replyTo || undefined });
   } catch (e) {
     await db.update(leadMessage).set({ status: "failed", error: String((e as Error).message).slice(0, 300), provider: "mailer" }).where(eq(leadMessage.id, m.id));
     await logLead(db, { businessId: b.id, kind: "send_failed", summary: "El proveedor rechazó el email: la campaña sigue pausada para este contacto", actorUserId: actorId, actorRole: actorId ? "admin" : "system" });
