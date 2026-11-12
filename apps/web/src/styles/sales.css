@@ -91,7 +91,13 @@
 .ld-score small { grid-column: 1 / -1; color: var(--ui-muted); margin: -2px 0 6px; }
 .ld-warn { border-color: var(--ui-warn-border, var(--ui-border)); }
 .ld-h { font-size: 16px; margin: 6px 0 0; }
-.ld-facts td, .ld-facts th { vertical-align: top; }
+.ld-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ld-facts li { display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--ui-border); }
+.ld-fk { font-weight: 600; font-size: 13px; }
+.ld-fv { overflow-wrap: anywhere; font-size: 14px; }
+.ld-fs { grid-column: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ld-fs small { color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .ld-facts li { grid-template-columns: 1fr; } .ld-fs { grid-column: 1; } }
 .ld-approval .sv-preview dd { overflow-wrap: anywhere; }
 @media (max-width: 640px) {
   .ld-score { grid-template-columns: minmax(0, 1fr) 80px 5ch; }

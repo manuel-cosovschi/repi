@@ -117,7 +117,7 @@ function Leads({ onOpen, flash }: { onOpen: (id: string) => void; flash: Flash }
             <thead><tr><th>Gimnasio</th><th>Puntaje</th><th>Etapa</th><th>Contacto</th><th>Próxima acción</th></tr></thead>
             <tbody>{d.data.rows.map((r) => (
               <tr key={r.id}>
-                <th scope="row"><button type="button" className="ld-link" onClick={() => onOpen(r.id)}>{r.name}</button><br /><small className="muted">{[r.locality, r.city].filter(Boolean).join(", ")} · {r.categoryLabel}</small>
+                <th scope="row"><button type="button" className="ld-link" onClick={() => onOpen(r.id)}>{r.name}</button><br /><small className="muted">{[r.locality !== r.city ? r.locality : null, r.city].filter(Boolean).join(", ")} · {r.categoryLabel}</small>
                   {r.review && <span className="chip warn">Posible duplicado</span>}{r.doNotContact ? <span className="chip bad">No contactar</span> : r.exclusion && <span className="chip mute">Excluido</span>}</th>
                 <td data-label="Puntaje"><span className={`chip ${BAND_CHIP[r.band]}`}>{r.score} · {r.bandLabel}</span><br /><small className="muted">{r.topReason}</small></td>
                 <td data-label="Etapa">{r.stageLabel}</td>
@@ -200,7 +200,7 @@ function LeadModal({ id, flash, onClose, onOpen }: { id: string; flash: Flash; o
   return (
     <Modal label={`Gimnasio ${l.name}`} onClose={onClose} wide>
       <div className="mhead"><h2>{l.name} <span className={`chip ${BAND_CHIP[l.scoreBand]}`}>{l.score} · {l.bandLabel}</span></h2><button type="button" className="x" aria-label="Cerrar" onClick={onClose}>×</button></div>
-      <p className="sv-note">{[l.locality, l.city].filter(Boolean).join(", ")} · {l.categoryLabel} · {l.stageLabel}{v.rep && <> · Vendedor: <b>{v.rep.name}</b></>}</p>
+      <p className="sv-note">{[l.locality !== l.city ? l.locality : null, l.city].filter(Boolean).join(", ")} · {l.categoryLabel} · {l.stageLabel}{v.rep && <> · Vendedor: <b>{v.rep.name}</b></>}</p>
       {l.doNotContact && <p role="alert" className="err-box">No contactar: pidió no recibir mensajes. No se preparan ni registran envíos.</p>}
       {!l.doNotContact && l.exclusion && <p className="sv-note"><span className="chip mute">Excluido</span> {l.exclusionNote}</p>}
       {v.review && <section className="card ld-warn"><b>¿Es el mismo negocio que «{v.review.name}»?</b><small> Coincide por {l.reviewSignals?.join(", ")}. {v.review.address ?? ""}</small>
@@ -326,10 +326,17 @@ function DataTab({ v, flash, reload, onEdit }: { v: Detail; flash: Flash; reload
     <>
       <section className="card"><div className="mhead"><h2>Datos y fuentes</h2><span className="sv-checks"><button type="button" className="btn sm" onClick={onEdit}>Editar / completar</button>{l.website && <button type="button" className="btn sm" onClick={() => post(`lead/${l.id}/enrich`, {}, "Sitio oficial revisado.")}>Leer sitio oficial</button>}</span></div>
         <p className="sv-note">Cada dato con su fuente. «Sin verificar» = visto en un directorio o buscador: confirmalo (por ejemplo, llamando o abriendo la fuente) antes de usarlo.</p>
-        <div style={{ overflowX: "auto" }} tabIndex={0}><table className="gy-table ld-facts"><thead><tr><th>Dato</th><th>Valor</th><th>Fuente</th><th>Estado</th><th><span className="sr-only">Acciones</span></th></tr></thead>
-          <tbody>{cur.map((f) => <tr key={f.id}><th scope="row">{FIELD[f.field] ?? f.field}</th><td style={{ overflowWrap: "anywhere" }}>{f.value}</td><td>{f.sourceUrl ? <a href={f.sourceUrl} target="_blank" rel="noopener noreferrer">{f.sourceLabel}</a> : f.sourceLabel}<br /><small className="muted">{fmt(`${f.observedAt}T15:00:00Z`)}</small></td>
-            <td><span className={`chip ${f.status === "verified" ? "ok" : "warn"}`}>{f.status === "verified" ? "Verificado" : "Sin verificar"}</span></td>
-            <td>{f.status !== "verified" && <button type="button" className="btn sm" onClick={() => post(`fact/${f.id}`, { status: "verified" }, "Verificado.")}>Verificar</button>} <button type="button" className="btn sm" onClick={() => post(`fact/${f.id}`, { status: "rejected" }, "Descartado.")}>Descartar</button></td></tr>)}</tbody></table></div>
+        <ul className="ld-facts">{cur.map((f) => (
+          <li key={f.id}>
+            <span className="ld-fk">{FIELD[f.field] ?? f.field}</span>
+            <span className="ld-fv">{f.field === "category" ? LEAD_CATEGORY_LABEL[f.value as keyof typeof LEAD_CATEGORY_LABEL] ?? f.value : f.value}</span>
+            <span className="ld-fs">
+              <span className={`chip ${f.status === "verified" ? "ok" : "warn"}`}>{f.status === "verified" ? "Verificado" : "Sin verificar"}</span>
+              <small>{f.sourceUrl ? <a href={f.sourceUrl} target="_blank" rel="noopener noreferrer">{f.sourceLabel}</a> : f.sourceLabel} · {fmt(`${f.observedAt}T15:00:00Z`)}</small>
+              {f.status !== "verified" && <button type="button" className="btn sm" onClick={() => post(`fact/${f.id}`, { status: "verified" }, "Verificado.")}>Verificar</button>}
+              <button type="button" className="btn sm" onClick={() => post(`fact/${f.id}`, { status: "rejected" }, "Descartado.")}>Descartar</button>
+            </span>
+          </li>))}</ul>
         {old.length > 0 && <details><summary>Valores anteriores u otras fuentes ({old.length})</summary><ul className="sv-timeline">{old.map((f) => <li key={f.id}>{FIELD[f.field] ?? f.field}: {f.value}<small>{f.sourceLabel} · {f.status === "rejected" ? "descartado" : f.status === "verified" ? "verificado" : "sin verificar"} · {f.observedAt}</small></li>)}</ul></details>}
         {v.chain.length > 0 && <p className="sv-note">Misma cadena: {v.chain.map((c) => c.name).join(", ")}.</p>}
         <p className="sv-note">Visto por primera vez {when(l.firstSeenAt)} · última verificación {l.lastVerifiedAt ? when(l.lastVerifiedAt) : "—"}</p>
