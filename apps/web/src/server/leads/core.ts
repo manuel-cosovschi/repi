@@ -2,7 +2,7 @@
 // Toda la captación vive en REPI Admin (Admin con 2FA). Nada de este módulo envía mensajes por sí solo.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
-import { DEFAULT_CADENCE, DEFAULT_WEIGHTS, localDate, validateCadence, validateWeights, type Cadence, type ScoreWeights } from "@repi/domain";
+import { DEFAULT_CADENCE, DEFAULT_WEIGHTS, localDate, validateCadence, validateWeights, type Cadence, type PriceExample, type PriceTier, type ScoreWeights } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, type Tx } from "../access/util";
 import { requireAdmin } from "../commercial/services";
@@ -24,7 +24,7 @@ export type Settings = {
   weights: ScoreWeights;
   cadence: Cadence;
   schedule: Schedule;
-  sender: { name: string; company: string; product: string; site: string };
+  sender: { name: string; company: string; product: string; site: string; whatsapp: string };
   /** Texto exacto de prueba social autorizado por el titular. Vacío = no se nombra a ningún cliente. */
   socialProof: string;
   /** Clientes que se pueden nombrar (autorización registrada). */
@@ -37,24 +37,29 @@ export type Settings = {
   aiCompose: boolean;
   aiClassify: boolean;
   customStages: string[];
-  /** Precio de referencia por socio SÓLO para estimar el valor del pipeline (se muestra como estimación). No cotiza. */
-  pricing: { referenceUnitPriceMinor: number | null; currency: "ARS" };
+  /**
+   * Precio por socio (dossier comercial 2026): tramos de referencia SÓLO para estimar el valor de las oportunidades, y ejemplos
+   * ilustrativos que se citan al responder una consulta de precios. El precio real se acuerda con cada gimnasio: no cotiza.
+   */
+  pricing: { currency: "ARS"; tiers: PriceTier[]; examples: PriceExample[] };
 };
 export const DEFAULT_SETTINGS: Settings = {
   weights: DEFAULT_WEIGHTS,
   cadence: DEFAULT_CADENCE,
   schedule: { enabled: false, days: [1, 2, 3, 4, 5], discovery: "08:00", enrich: "08:30", score: "09:00", compose: "09:30", followup: "17:30", report: "18:00" },
-  sender: { name: "Manuel", company: "Sovare", product: "Repi", site: "repiclub.com" },
-  socialProof: "",
-  allowedClientNames: [],
-  presentationUrl: "https://repiclub.com/conoce",
-  demoUrl: "https://repiclub.com/conoce",
+  sender: { name: "Manuel", company: "Sovare", product: "Repi", site: "repiclub.com", whatsapp: "223 538-3082" },
+  // Autorizado por el titular el 12/11/2026 (D218): nombrar a Smart Center Gym y las implementaciones en curso.
+  socialProof: "Ya funciona en Smart Center Gym, en Mar del Plata, y estamos en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil.",
+  allowedClientNames: ["Smart Center Gym"],
+  presentationUrl: "https://repiclub.com/conoce/gimnasios",
+  demoUrl: "https://repiclub.com/conoce/gimnasios",
   limits: { discoveryAreasPerRun: 2, enrichPerRun: 12, composePerRun: 10, emailPerDay: 20, maxChars: 900 },
   channels: { emailSend: false, whatsappApi: false },
   aiCompose: false,
   aiClassify: false,
   customStages: [],
-  pricing: { referenceUnitPriceMinor: null, currency: "ARS" },
+  // Dossier comercial 2026, p. 6: 400 socios × $200 = $80.000/mes; 500 socios × $170 = $85.000/mes (ejemplos ilustrativos).
+  pricing: { currency: "ARS", tiers: [{ minMembers: 0, unitMinor: 20000 }, { minMembers: 500, unitMinor: 17000 }], examples: [{ members: 400, unitMinor: 20000 }, { members: 500, unitMinor: 17000 }] },
 };
 export async function getSettings(tx: Tx | typeof db = db): Promise<Settings> {
   const rows = await tx.select().from(leadSetting);

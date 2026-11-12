@@ -92,11 +92,11 @@ export async function leadsPost(me: string, path: string[], req: Request): Promi
     const p = await body(req, z.object({
       weights: z.record(z.string(), z.number().int()).optional(), cadence: z.object({ steps: z.array(z.number().int()).max(6), businessDaysOnly: z.boolean() }).optional(),
       schedule: z.object({ enabled: z.boolean(), days: z.array(z.number().int()).max(7), discovery: z.string(), enrich: z.string(), score: z.string(), compose: z.string(), followup: z.string(), report: z.string() }).optional(),
-      sender: z.object({ name: z.string().max(80), company: z.string().max(80), product: z.string().max(40), site: z.string().max(80) }).optional(),
+      sender: z.object({ name: z.string().max(80), company: z.string().max(80), product: z.string().max(40), site: z.string().max(80), whatsapp: z.string().max(40) }).optional(),
       socialProof: z.string().max(300).optional(), allowedClientNames: z.array(z.string().max(80)).max(20).optional(), presentationUrl: z.string().max(300).optional(), demoUrl: z.string().max(300).optional(),
       limits: z.object({ discoveryAreasPerRun: z.number().int(), enrichPerRun: z.number().int(), composePerRun: z.number().int(), emailPerDay: z.number().int(), maxChars: z.number().int() }).optional(),
       channels: z.object({ emailSend: z.boolean(), whatsappApi: z.literal(false) }).optional(), aiCompose: z.boolean().optional(), aiClassify: z.boolean().optional(),
-      customStages: z.array(z.string().max(40)).max(10).optional(), pricing: z.object({ referenceUnitPriceMinor: z.number().int().positive().nullable(), currency: z.literal("ARS") }).optional(),
+      customStages: z.array(z.string().max(40)).max(10).optional(), pricing: z.object({ currency: z.literal("ARS"), tiers: z.array(z.object({ minMembers: z.number().int().min(0), unitMinor: z.number().int().positive() })).min(1).max(8), examples: z.array(z.object({ members: z.number().int().positive(), unitMinor: z.number().int().positive() })).max(3) }).optional(),
     }));
     if (p.customStages?.some((x) => (LEAD_STAGES as readonly string[]).includes(x))) throw NF();
     const out = await saveSettings(me, p as never);

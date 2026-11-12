@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAutoMove, classifyReply, compose, copyGuard, DEFAULT_CADENCE, DEFAULT_WEIGHTS, factWins, identityKeys, intentPlan, matchLead, nextSequenceStep,
-  normPhoneAR, parseFollowUpDate, scoreLead, segmentOf, validateCadence, validateWeights, waLink, igHandle, domainOf, clientsForMrr, VARIANTS, type CopyContext, type ScoreInput,
+  normPhoneAR, parseFollowUpDate, unitPriceFor, scoreLead, segmentOf, validateCadence, validateWeights, waLink, igHandle, domainOf, clientsForMrr, VARIANTS, type CopyContext, type ScoreInput,
 } from "./index";
 
 describe("teléfonos argentinos", () => {
@@ -171,6 +171,26 @@ describe("mensajes", () => {
     expect(copyGuard("Sale $200 por socio", { allowedNames: [], maxChars: 900 })[0]).toMatch(/precio/);
     expect(copyGuard("Trabajamos con Smart", { allowedNames: [], maxChars: 900 })[0]).toMatch(/cliente/);
     expect(copyGuard("Trabajamos con Smart", { allowedNames: ["Smart Center"], maxChars: 900 })).toEqual([]);
+  });
+  it("precios: tramos del dossier, ejemplos sólo en la respuesta de precios", () => {
+    const tiers = [{ minMembers: 0, unitMinor: 20000 }, { minMembers: 500, unitMinor: 17000 }];
+    expect(unitPriceFor(tiers, 400)).toBe(20000);
+    expect(unitPriceFor(tiers, 500)).toBe(17000);
+    const p = compose("pricing", { ...ctx, priceExamples: [{ members: 400, unitMinor: 20000 }, { members: 500, unitMinor: 17000 }] });
+    expect(p.body).toContain("con 400 socios a $200 por socio son $80.000 por mes");
+    expect(p.body).toContain("con 500 socios a $170 por socio son $85.000 por mes");
+    expect(p.body).toMatch(/no una lista de precios/);
+    expect(copyGuard(p.body, { allowedNames: [], maxChars: 900 })[0]).toMatch(/precio/);
+    expect(copyGuard(p.body, { allowedNames: [], maxChars: 900, allowPrices: true })).toEqual([]);
+  });
+  it("prueba social autorizada: nombra al cliente y no repite «estamos implementando»", () => {
+    const proof = "Ya funciona en Smart Center Gym, en Mar del Plata, y estamos en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil.";
+    for (const id of ["a", "b", "c"]) {
+      const d = compose("first_contact", { ...ctx, leadId: id, socialProof: proof });
+      expect(d.body).toContain(proof);
+      expect(d.body).not.toMatch(/Estamos implementando/);
+      expect(copyGuard(d.body, { allowedNames: ["Smart Center Gym"], maxChars: 900 })).toEqual([]);
+    }
   });
   it("wa.me con texto y MRR", () => {
     expect(waLink("549 2234123456", "Hola ¿qué tal?")).toBe("https://wa.me/5492234123456?text=Hola%20%C2%BFqu%C3%A9%20tal%3F");

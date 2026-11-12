@@ -66,8 +66,9 @@ Scripts de la migración:
   - Tener poca presencia digital no suma como necesidad.
 - **Mensajes.**
   - Sólo mencionan funciones con estado «disponible» del catálogo `CLAIMS`, verificado contra `ESTADO_Y_LIMITES.md` y el código. Body Intelligence, aptos médicos y cobro de cuotas figuran como roadmap.
-  - No se nombra a ningún cliente salvo un texto de prueba social que autorice el titular.
-  - No hay precios ni porcentajes de resultados.
+  - Prueba social autorizada por el titular (12/11): «Ya funciona en Smart Center Gym, en Mar del Plata, y estamos en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil.» No se nombra a ningún otro cliente.
+  - Precio: se cotiza por socio y se acuerda con cada gimnasio. Sólo la respuesta a una consulta de precios cita los ejemplos del dossier (400 × $200 = $80.000/mes; 500 × $170 = $85.000/mes), aclarando que no son una lista de precios. Ningún otro mensaje da precios ni porcentajes de resultados.
+  - El valor de las oportunidades se estima con los tramos del dossier ($200 por socio por debajo de 500 socios, $170 desde 500) y se muestra como estimado.
   - Un texto que no pasa la guarda no se puede aprobar.
 - **Envío.**
   - WhatsApp sin consentimiento: siempre manual con wa.me.
@@ -128,6 +129,8 @@ Scripts de la migración:
 
 Interruptor de emergencia: `REPI_LEADS=off` apaga rutas y jobs sin tocar datos.
 
+Entrada interna: `POST /api/cron/leads` con `Authorization: Bearer CRON_SECRET` (la clave de Vault). Acepta `{"action":"run","step":"discovery"}` o `{"action":"import","label":…,"rows":[…],"exclusions":[…]}`. Desde Supabase se llama con `net.http_post` y `repi_private.cron_bearer()`, con el rol `repi_app`, sin ver la clave. Nunca envía mensajes.
+
 ## Campaña piloto «Repi — Captación Gimnasios Costa Atlántica» (12/11/2026)
 
 - **Investigación:**
@@ -140,7 +143,7 @@ Interruptor de emergencia: `REPI_LEADS=off` apaga rutas y jobs sin tocar datos.
   - 49 quedaron en la cola de contacto. Del resto, 44 están «pendientes de investigación» porque no tienen ningún canal publicado.
   - Canales: 3 con WhatsApp, 3 con email, 24 con Instagram, 35 con teléfono y 7 con sitio.
   - Ninguno publica la cantidad de socios, así que los puntajes son medios y lo dicen.
-- **Exclusión:** Smart Center Gym quedó **excluido como posible cliente actual. Confirmar.**
+- **Exclusión:** Smart Center Gym quedó **excluido: es cliente** (confirmado por el titular el 12/11).
 - **Los 10 mejores:** tienen sus mensajes en la campaña «pendiente de aprobación», con el mejor canal de cada uno. **Nada se envió.**
 - **El listado de los 30 mejores** (nombre, ciudad, dirección, sitio, teléfono o WhatsApp, email, Instagram, fuentes, puntaje, prioridad, motivo, mensaje, mejor canal, estado y próxima acción) se entregó aparte, en Excel. La investigación para importar está en `docs/comercial/captacion/piloto-costa-atlantica-2026-11-12.json`: 95 negocios, sólo datos comerciales públicos y la fuente de cada uno. Se importa con Leads › Importar.
 

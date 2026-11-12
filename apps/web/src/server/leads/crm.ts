@@ -171,6 +171,10 @@ const TYPES: SourceType[] = ["official_site", "osm", "directory", "search_result
  */
 export async function importLeads(actorId: string, rows: ImportRow[], p: { label: string }) {
   await leadsAdmin(actorId);
+  return importLeadsAs(actorId, rows, p);
+}
+/** Importación sin sesión (job con CRON_SECRET): queda como «system» en el expediente y en la auditoría. */
+export async function importLeadsAs(actorId: string | null, rows: ImportRow[], p: { label: string }) {
   if (!Array.isArray(rows) || !rows.length) throw bad("No hay filas para importar.");
   if (rows.length > 500) throw bad("Hasta 500 filas por importación.");
   const out = { created: 0, updated: 0, branch: 0, review: 0, unchanged: 0, excluded: 0, errors: [] as string[] };
@@ -183,7 +187,7 @@ export async function importLeads(actorId: string, rows: ImportRow[], p: { label
         const t = TYPES.includes(v.type as SourceType) ? v.type as SourceType : "import";
         sources[field] = { type: t, url: v.url ?? null, observedAt: v.seenAt ?? today(), status: "unverified" };
       }
-      const res = await ingest({ ...r, sources, source: { type: "import", observedAt: today(), status: "unverified" }, notes: r.notes ? `${p.label}: ${r.notes}` : null }, { userId: actorId, role: "admin" });
+      const res = await ingest({ ...r, sources, source: { type: "import", observedAt: today(), status: "unverified" }, notes: r.notes ? `${p.label}: ${r.notes}` : null }, { userId: actorId, role: actorId ? "admin" : "system" });
       out[res.outcome === "branch" ? "branch" : res.outcome]++;
       if (res.excluded) out.excluded++;
     } catch (e) { out.errors.push(`${r.name ?? "?"}: ${(e as Error).message}`); }
@@ -195,13 +199,21 @@ export async function importLeads(actorId: string, rows: ImportRow[], p: { label
 /** Lista de exclusión (clientes actuales, conversaciones abiertas, ya contactados): se marcan y no entran en la cola. */
 export async function importExclusions(actorId: string, names: { name: string; city?: string | null; reason: string }[]) {
   await leadsAdmin(actorId);
+  return importExclusionsAs(actorId, names);
+}
+export async function importExclusionsAs(actorId: string | null, names: { name: string; city?: string | null; reason: string }[]) {
   let marked = 0; const notFound: string[] = [];
   for (const x of names.slice(0, 300)) {
     const n = normName(x.name);
     if (n.length < 2) continue;
     const hits = await db.select({ id: leadBusiness.id }).from(leadBusiness).where(and(eq(leadBusiness.normName, n), x.city ? sql`lower(${leadBusiness.city}) = lower(${x.city})` : sql`true`));
     if (!hits.length) { notFound.push(x.name); continue; }
-    for (const h of hits) { await setExclusion(actorId, h.id, { exclude: true, note: x.reason }); marked++; }
+    for (const h of hits) {
+      await db.update(leadBusiness).set({ exclusion: "manual", exclusionNote: x.reason.slice(0, 200), updatedAt: new Date() }).where(eq(leadBusiness.id, h.id));
+      await logLead(db, { businessId: h.id, kind: "exclusion", summary: `Excluido de la prospección: ${x.reason.slice(0, 200)}`, actorUserId: actorId, actorRole: actorId ? "admin" : "system" });
+      await refreshLead(db, h.id);
+      marked++;
+    }
   }
   return { marked, notFound };
 }

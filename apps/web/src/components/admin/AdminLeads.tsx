@@ -618,8 +618,8 @@ function Runs({ flash }: { flash: Flash }) {
 
 // ── Ajustes ─────────────────────────────────────────────────────────────────
 type SettingsV = { settings: { weights: Record<string, number>; cadence: { steps: number[]; businessDaysOnly: boolean }; schedule: Record<string, string | boolean | number[]> & { enabled: boolean; days: number[] };
-  sender: { name: string; company: string; product: string; site: string }; socialProof: string; allowedClientNames: string[]; presentationUrl: string; demoUrl: string;
-  limits: { discoveryAreasPerRun: number; enrichPerRun: number; composePerRun: number; emailPerDay: number; maxChars: number }; channels: { emailSend: boolean; whatsappApi: boolean }; aiCompose: boolean; aiClassify: boolean; pricing: { referenceUnitPriceMinor: number | null; currency: "ARS" } };
+  sender: { name: string; company: string; product: string; site: string; whatsapp: string }; socialProof: string; allowedClientNames: string[]; presentationUrl: string; demoUrl: string;
+  limits: { discoveryAreasPerRun: number; enrichPerRun: number; composePerRun: number; emailPerDay: number; maxChars: number }; channels: { emailSend: boolean; whatsappApi: boolean }; aiCompose: boolean; aiClassify: boolean; pricing: { currency: "ARS"; tiers: { minMembers: number; unitMinor: number }[]; examples: { members: number; unitMinor: number }[] } };
   areas: { id: string; name: string; province: string | null; tier: number; radiusKm: number; enabled: boolean; lastDiscoveredAt: string | null }[] };
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 function Settings({ flash }: { flash: Flash }) {
@@ -658,6 +658,7 @@ function Settings({ flash }: { flash: Flash }) {
           <label className="field">Empresa<input value={s.sender.company} onChange={(e) => setS({ ...s, sender: { ...s.sender, company: e.target.value } })} /></label>
           <label className="field">Producto<input value={s.sender.product} onChange={(e) => setS({ ...s, sender: { ...s.sender, product: e.target.value } })} /></label>
           <label className="field">Sitio<input value={s.sender.site} onChange={(e) => setS({ ...s, sender: { ...s.sender, site: e.target.value } })} /></label>
+          <label className="field">WhatsApp comercial (firma del email)<input value={s.sender.whatsapp} onChange={(e) => setS({ ...s, sender: { ...s.sender, whatsapp: e.target.value } })} /></label>
           <label className="field">Enlace de la presentación<input value={s.presentationUrl} onChange={(e) => setS({ ...s, presentationUrl: e.target.value })} /></label>
           <label className="field">Enlace de la demo<input value={s.demoUrl} onChange={(e) => setS({ ...s, demoUrl: e.target.value })} /></label>
         </div>
@@ -675,8 +676,11 @@ function Settings({ flash }: { flash: Flash }) {
           <label className="field">Zonas por investigación<input inputMode="numeric" value={s.limits.discoveryAreasPerRun} onChange={(e) => setS({ ...s, limits: { ...s.limits, discoveryAreasPerRun: Number(e.target.value) || 1 } })} /></label>
           <label className="field">Sitios por enriquecimiento<input inputMode="numeric" value={s.limits.enrichPerRun} onChange={(e) => setS({ ...s, limits: { ...s.limits, enrichPerRun: Number(e.target.value) || 1 } })} /></label>
           <label className="field">Borradores por preparación<input inputMode="numeric" value={s.limits.composePerRun} onChange={(e) => setS({ ...s, limits: { ...s.limits, composePerRun: Number(e.target.value) || 1 } })} /></label>
-          <label className="field">Precio de referencia por socio (ARS, sólo para estimar)<input inputMode="numeric" value={s.pricing.referenceUnitPriceMinor ? s.pricing.referenceUnitPriceMinor / 100 : ""} onChange={(e) => setS({ ...s, pricing: { ...s.pricing, referenceUnitPriceMinor: e.target.value ? Math.round(Number(e.target.value) * 100) || null : null } })} /></label>
         </div>
+        <h3 style={{ fontSize: 15, margin: "12px 0 4px" }}>Precio por socio (referencia del dossier)</h3>
+        <p className="sv-note">Se usa sólo para estimar el valor de las oportunidades y, como ejemplo, al responder una consulta de precios. El precio real se acuerda con cada gimnasio.</p>
+        <div className="grid-2">{s.pricing.tiers.map((t, i) => <label key={i} className="field">Desde {t.minMembers} socios: $ por socio<input inputMode="numeric" value={t.unitMinor / 100} onChange={(e) => setS({ ...s, pricing: { ...s.pricing, tiers: s.pricing.tiers.map((x, j) => j === i ? { ...x, unitMinor: Math.round(Number(e.target.value) * 100) || x.unitMinor } : x) } })} /></label>)}</div>
+        <p className="sv-note">Ejemplos que se citan: {s.pricing.examples.map((e) => `${e.members} socios × $${e.unitMinor / 100} = $${((e.members * e.unitMinor) / 100).toLocaleString("es-AR")}/mes`).join(" · ")}</p>
         <div className="mfoot"><button type="button" className="btn pri" onClick={() => save({ channels: { emailSend: s.channels.emailSend, whatsappApi: false }, limits: s.limits, pricing: s.pricing })}>Guardar</button></div>
       </section>
     </>

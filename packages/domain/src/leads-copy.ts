@@ -59,12 +59,21 @@ export const VARIANT_LABEL: Record<Variant, string> = {
 export type CopyContext = {
   leadId: string; name: string; city: string | null; category: LeadCategory; estMembers: number | null; branches: number | null;
   contactName: string | null; positioning: string | null;
-  sender: { name: string; company: string; product: string; site: string };
+  sender: { name: string; company: string; product: string; site: string; whatsapp?: string | null };
+  /** Ejemplos de precio por socio publicados en el dossier (ilustrativos). Sólo se usan al responder una consulta de precios. */
+  priceExamples?: PriceExample[] | null;
   /** Prueba social autorizada por el titular (texto exacto). Vacío = no se menciona a ningún cliente. */
   socialProof: string | null;
   presentationUrl: string | null; demoUrl: string | null;
   objection?: Objection | null;
 };
+export type PriceExample = { members: number; unitMinor: number };
+export type PriceTier = { minMembers: number; unitMinor: number };
+/** Precio por socio de referencia para estimar: el tramo de mayor mínimo que se cumple. Estimación, no cotización. */
+export function unitPriceFor(tiers: PriceTier[], members: number): number | null {
+  return [...tiers].sort((a, b) => a.minMembers - b.minMembers).filter((t) => members >= t.minMembers).at(-1)?.unitMinor ?? null;
+}
+const ars = (minor: number) => `$${Math.round(minor / 100).toLocaleString("es-AR")}`;
 export type Draft = { variant: Variant; segment: Segment; subject: string | null; body: string; arguments: string[]; claims: string[] };
 
 // Pequeño PRNG determinístico: el mismo lead recibe siempre la misma redacción; leads distintos, redacciones distintas.
@@ -89,23 +98,29 @@ export function compose(variant: Variant, c: CopyContext): Draft {
   const what = fnText.length ? `que integra ${list(fnText)}` : "para digitalizar el entrenamiento";
   const why = `Creo que les puede servir para ${a1.benefit}`;
   const proof = c.socialProof?.trim() ? ` ${c.socialProof.trim()}` : "";
+  // Con prueba social autorizada («ya funciona en… y estamos implementando en…») no se repite «estamos implementando».
+  const intro = proof ? pick(r, ["Te escribo por", "Te cuento de", "Te comparto"]) : "Estamos implementando";
   const out = (body: string, subject: string | null = null): Draft => ({ variant, segment: seg, subject, body: body.replace(/[ \t]+\n/g, "\n").trim(), arguments: [a1.benefit], claims: a1.claims });
   switch (variant) {
     case "first_contact":
     case "instagram":
-      return out(`${hello} ${who}. Estamos implementando ${product} ${what}.${proof}\n\n${why}. ${pick(r, CTA)}`);
+      return out(`${hello} ${who}. ${intro} ${product} ${what}.${proof}\n\n${why}. ${pick(r, CTA)}`);
     case "owner_known":
       return out(`${hello} ${who}. Te escribo a vos porque ${c.sender.product} está pensada para dueños de gimnasios: ${fnText.length ? list(fnText) : "rutinas y seguimiento"} en un mismo lugar.${proof}\n\n${why}. ${pick(r, CTA)}`);
     case "email": {
       const subject = pick(r, [`${c.sender.product} para ${c.name}`, `Una idea para ${c.name}`, `Rutinas y seguimiento para ${c.name}`]);
-      return out(`${hello}\n\n${who}. Estamos implementando ${product} ${what}.${proof}\n\n${why}. El costo es mensual y se calcula por socio, así que se puede sumar a la cuota sin un aumento grande.\n\n${pick(r, CTA)}\n\nSaludos,\n${c.sender.name}\n${c.sender.company} · ${c.sender.site}`, subject);
+      return out(`${hello}\n\n${who}. ${intro} ${product} ${what}.${proof}\n\n${why}. El costo es mensual y se calcula por socio, así que se puede sumar a la cuota sin un aumento grande.\n\n${pick(r, CTA)}\n\nSaludos,\n${c.sender.name}\n${c.sender.company} · ${c.sender.site}${c.sender.whatsapp ? ` · WhatsApp ${c.sender.whatsapp}` : ""}`, subject);
     }
     case "reply_interest":
       return out(`¡Buenísimo! Gracias por responder. ${c.presentationUrl ? `Te dejo la presentación: ${c.presentationUrl}\n\n` : ""}${pick(r, CTA_DEMO)}`);
     case "presentation":
       return out(`${c.presentationUrl ? `Te paso la presentación: ${c.presentationUrl}` : "Te preparo la presentación y te la mando por acá."}\n\nEn corto: ${fnText.length ? list(fnText) : "rutinas, registro y seguimiento"}. ${pick(r, CTA_DEMO)}`);
     case "pricing":
-      return out(`Claro. El precio es mensual y se calcula por socio: cuantos más socios, menor el valor por socio. ${c.estMembers ? `Para unos ${c.estMembers} socios te armo la cotización exacta y te la confirmo.` : "¿Cuántos socios activos tienen más o menos? Con eso te paso la cotización exacta."}`);
+    {
+      const ex = (c.priceExamples ?? []).slice(0, 2).map((e) => `con ${e.members} socios a ${ars(e.unitMinor)} por socio son ${ars(e.members * e.unitMinor)} por mes`);
+      const ref = ex.length ? ` Como referencia, ${ex.join(", y ")} (son ejemplos, no una lista de precios).` : "";
+      return out(`Claro. Se paga una mensualidad según la cantidad de socios y un precio por socio que acordamos con cada gimnasio: a mayor volumen, menor precio por socio.${ref} ${c.estMembers ? `Para unos ${c.estMembers} socios te armo la propuesta exacta.` : "¿Cuántos socios activos tienen más o menos? Con eso te armo la propuesta exacta."}`);
+    }
     case "demo":
       return out(`Genial. ${pick(r, CTA_DEMO)}${c.demoUrl ? ` Si preferís verlo antes por tu cuenta: ${c.demoUrl}` : ""}`);
     case "followup_1":
@@ -139,14 +154,14 @@ export const OBJECTION_PLAYBOOK: Record<Objection, { label: string; concern: str
  * Revisa un texto (propio o de la IA) antes de mostrarlo como borrador: funciones no disponibles presentadas como hechas,
  * clientes nombrados sin autorización, cifras de resultados o precios concretos sin validar, y largo excesivo.
  */
-export function copyGuard(text: string, opts: { allowedNames: string[]; maxChars: number }): string[] {
+export function copyGuard(text: string, opts: { allowedNames: string[]; maxChars: number; allowPrices?: boolean }): string[] {
   const issues: string[] = [];
   const t = text.toLowerCase();
   if (/body intelligence|an[aá]lisis corporal|escaneo corporal/.test(t)) issues.push("Menciona Body Intelligence (en desarrollo) como si estuviera disponible.");
   if (/apto(s)? m[eé]dico/.test(t)) issues.push("Menciona aptos médicos (no disponible).");
   if (/cobr(o|ar) (de )?(las )?cuotas|pasarela de pago|factura(ci[oó]n)? (electr|fiscal)/.test(t)) issues.push("Menciona cobros o facturación (no disponibles).");
   if (/\b\d{1,3}\s?%\s*(m[aá]s|menos)?\s*(de )?(retenci|adherencia|socios|ventas|ingresos)/.test(t)) issues.push("Incluye un resultado en % que no está medido.");
-  if (/\$\s?\d|\bars\s?\d|\d+\s?(pesos|por socio)/.test(t)) issues.push("Incluye un precio concreto: la cotización requiere validación.");
+  if (!opts.allowPrices && /\$\s?\d|\bars\s?\d|\d+\s?(pesos|por socio)/.test(t)) issues.push("Incluye un precio concreto: la cotización requiere validación.");
   if (/\bsmart\b/.test(t) && !opts.allowedNames.some((n) => /smart/i.test(n))) issues.push("Nombra a un cliente sin autorización registrada.");
   if (/(garantiz|asegur)(amos|a|o) (que|resultados)|100\s?%/.test(t)) issues.push("Promete resultados.");
   if (text.length > opts.maxChars) issues.push(`Es largo (${text.length} caracteres; máximo ${opts.maxChars}).`);

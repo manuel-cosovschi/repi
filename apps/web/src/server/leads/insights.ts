@@ -1,7 +1,7 @@
 // D218 · Panel comercial, informe diario, mejores acciones y Repi Sales Agent. Todo sale de la base: lo estimado se marca
 // como estimado y una tasa sin base es «—», no 0 %.
 import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
-import { BAND_LABEL, INTENT_LABEL, LEAD_STAGE_LABEL, LEAD_STAGES, OBJECTION_PLAYBOOK, VARIANT_LABEL, clientsForMrr, normCity, rate, type Intent, type LeadStage, type Objection } from "@repi/domain";
+import { unitPriceFor, BAND_LABEL, INTENT_LABEL, LEAD_STAGE_LABEL, LEAD_STAGES, OBJECTION_PLAYBOOK, VARIANT_LABEL, clientsForMrr, normCity, rate, type Intent, type LeadStage, type Objection } from "@repi/domain";
 import { db, schema } from "@/db";
 import { aiJson, aiOn } from "../ai/openai";
 import { logError } from "../log";
@@ -45,9 +45,12 @@ export async function dashboard(actorId: string, f: { days?: number } = {}) {
   const order: LeadStage[] = ["qualified", "contacted", "replied", "interested", "meeting_set", "demo_done", "proposal", "negotiation", "won"];
   const reach = (k: LeadStage) => { const i = LEAD_STAGES.indexOf(k); return stages.filter((x) => { const j = LEAD_STAGES.indexOf(x.stage as LeadStage); return j >= i && j <= LEAD_STAGES.indexOf("won"); }).reduce((a, x) => a + n(x.n), 0); };
   const funnel = order.map((k, i) => ({ stage: k, label: LEAD_STAGE_LABEL[k], reached: reach(k), conv: i === 0 ? null : rate(reach(k), reach(order[i - 1])) }));
-  const unit = s.pricing.referenceUnitPriceMinor;
   const pipeStages: LeadStage[] = ["interested", "meeting_pending", "meeting_set", "demo_done", "proposal", "negotiation"];
   const pipeMembers = stages.filter((x) => pipeStages.includes(x.stage as LeadStage)).reduce((a, x) => a + n(x.members), 0);
+  // Valor estimado: cada oportunidad con socios informados × precio por socio de su tramo (dossier). Sin socios, no suma.
+  const pipeRows = await db.select({ m: leadBusiness.estMembers }).from(leadBusiness).where(and(inArray(leadBusiness.stage, pipeStages), sql`${leadBusiness.estMembers} is not null`));
+  const pipeEstimate = pipeRows.reduce((a, r) => a + (r.m ?? 0) * (unitPriceFor(s.pricing.tiers, r.m ?? 0) ?? 0), 0);
+  const pipeNoMembers = stages.filter((x) => pipeStages.includes(x.stage as LeadStage)).reduce((a, x) => a + n(x.n) - n(x.withMembers), 0);
   // MRR confirmado: ventas aprobadas en Ventas que nacieron en Captación (prospecto con origen sales_intelligence).
   const [mrr] = await db.select({ minor: sql<number>`coalesce(sum(${schema.salesDeal.members} * ${schema.salesDeal.unitPriceMinor}), 0)::bigint`, deals: sql<number>`count(*)::int` }).from(schema.salesDeal)
     .innerJoin(schema.salesProspect, eq(schema.salesProspect.id, schema.salesDeal.prospectId)).where(and(eq(schema.salesDeal.status, "approved"), eq(schema.salesProspect.source, "sales_intelligence")));
@@ -69,7 +72,8 @@ export async function dashboard(actorId: string, f: { days?: number } = {}) {
     comunicacion: { ...com, ...tasks, repliedLeads: n(repliedLeads[0]?.n), contactedLeads: n(contactedLeads[0]?.n), replyRate: rate(n(repliedLeads[0]?.n), n(contactedLeads[0]?.n)), intents: intents.map((i) => ({ intent: i.intent, label: INTENT_LABEL[i.intent as Intent] ?? i.intent, n: i.n })), avgReplyHours: rt?.hours ?? null },
     ventas: {
       interested: st("interested"), meetings: st("meeting_set") + st("meeting_pending"), demos: st("demo_done"), proposals: st("proposal"), negotiation: st("negotiation"), won: st("won"), lost: st("lost") + st("no_interest"), funnel,
-      pipelineMembers: pipeMembers, pipelineEstimateMinor: unit ? pipeMembers * unit : null, estimateNote: unit ? "Estimado: socios informados × precio de referencia (no es una cotización)." : "Cargá un precio de referencia en Ajustes para estimar el valor del pipeline.",
+      pipelineMembers: pipeMembers, pipelineEstimateMinor: s.pricing.tiers.length ? pipeEstimate : null,
+      estimateNote: `Estimado mensual: socios informados × precio por socio de referencia (dossier), no una cotización.${pipeNoMembers ? ` ${pipeNoMembers} oportunidad${pipeNoMembers === 1 ? "" : "es"} sin socios informados no suman.` : ""}`,
       mrrConfirmedMinor: n(mrr?.minor), mrrDeals: n(mrr?.deals),
     },
     productividad: { byRep, byChannel: byChannel.map((c) => ({ ...c, replyRate: rate(n(c.replies), n(c.sent)) })), byVariant: [...byVariant].map((v) => ({ ...v, label: VARIANT_LABEL[v.variant as never] ?? v.variant, replyRate: rate(n(v.replied), n(v.sent)), meetingRate: rate(n(v.meetings), n(v.sent)) })), objections: [...objections].map((o) => ({ ...o, label: OBJECTION_PLAYBOOK[o.objection as Objection]?.label ?? o.objection })) },
@@ -159,12 +163,12 @@ export async function askAgent(actorId: string, question: string): Promise<Answe
     const target = Number((q.match(/(\d[\d.]*)\s*(mil|millon|millones|m\b)?/)?.[1] ?? "0").replace(/\./g, ""));
     const mult = /millon/.test(q) ? 1_000_000 : /\bmil\b/.test(q) ? 1000 : 1;
     const s = await getSettings();
-    const unit = s.pricing.referenceUnitPriceMinor;
-    if (!unit) return { answer: "Para calcularlo necesito un precio de referencia por socio en Ajustes (se usa sólo para estimar).", basis: "Sin precio de referencia" };
     const [avg] = await db.select({ m: sql<number>`coalesce(avg(${leadBusiness.estMembers}), 0)::int` }).from(leadBusiness).where(sql`${leadBusiness.estMembers} is not null`);
-    const members = avg?.m || 250;
+    const members = avg?.m || 400;
+    const unit = unitPriceFor(s.pricing.tiers, members);
+    if (!unit) return { answer: "Para calcularlo necesito los tramos de precio por socio en Ajustes (se usan sólo para estimar).", basis: "Sin precio de referencia" };
     const r = clientsForMrr(target * mult * 100, 0, members, unit);
-    return { answer: `Con un ticket estimado de ${members} socios × $${(unit / 100).toLocaleString("es-AR")} = $${(r.ticketMinor / 100).toLocaleString("es-AR")} por mes, para $${(target * mult).toLocaleString("es-AR")} de MRR hacen falta ${r.clients} clientes.${avg?.m ? "" : " (Sin socios informados: supuse 250.)"}`, basis: "Estimación con el precio de referencia de Ajustes; no es una cotización" };
+    return { answer: `Con un ticket estimado de ${members} socios × $${(unit / 100).toLocaleString("es-AR")} = $${(r.ticketMinor / 100).toLocaleString("es-AR")} por mes, para $${(target * mult).toLocaleString("es-AR")} de MRR hacen falta ${r.clients} clientes.${avg?.m ? "" : " (Sin socios informados: supuse 400, el ejemplo del dossier.)"}`, basis: "Estimación con el precio por socio de referencia del dossier; no es una cotización" };
   }
   if (aiOn()) {
     try {

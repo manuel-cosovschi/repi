@@ -113,7 +113,6 @@ describe("B · exclusiones y no contactar", () => {
 
 describe("C · campaña con aprobación, envío confirmado, respuesta y seguimiento", () => {
   it("recorrido completo", async () => {
-    await saveSettings(admin, { pricing: { referenceUnitPriceMinor: 20000, currency: "ARS" } });
     const ids: string[] = [];
     for (const [i, n] of ["Titan", "Olimpo", "Hércules"].entries()) {
       const r = await crm.saveManual(admin, { name: gym(n), city: "Mar del Plata", whatsapp: `+54 9 223 70${i}-000${i}`, category: "fitness_center", estMembers: 300 + i * 100 });
@@ -125,7 +124,8 @@ describe("C · campaña con aprobación, envío confirmado, respuesta y seguimie
     let d = await camp.campaignDetail(admin, c.id);
     const mine = d.recipients.filter((r) => ids.includes(r.businessId));
     expect(mine).toHaveLength(3);
-    expect(mine.every((r) => r.status === "draft" && r.guardIssues.length === 0 && !/smart/i.test(r.body))).toBe(true);
+    // Prueba social autorizada por el titular (12/11): nombra a Smart Center Gym y las implementaciones en curso; pasa la guarda.
+    expect(mine.every((r) => r.status === "draft" && r.guardIssues.length === 0 && /Smart Center Gym/.test(r.body) && /Balcarce y Tandil/.test(r.body) && !/Estamos implementando/.test(r.body))).toBe(true);
     expect(d.preview.sendMode).toBe("manual");
     // Antes de aprobar no se puede registrar un envío de la campaña.
     await expect(msg.confirmSent(admin, mine[0].messageId)).rejects.toThrow(/aprobada/);
@@ -158,6 +158,11 @@ describe("C · campaña con aprobación, envío confirmado, respuesta y seguimie
     expect(open).toHaveLength(0);
     // Pide precios y una demo → interesado y reunión pendiente; agenda la reunión.
     await msg.recordReply(admin, ids[1], { channel: "whatsapp", text: "¿Cuánto sale por mes?" });
+    // Respuesta de precios: modelo por socio con los ejemplos del dossier; la guarda permite precios sólo en esta variante.
+    const pr = await msg.createDraft(admin, ids[1], { variant: "pricing" });
+    expect(pr.body).toMatch(/400 socios a \$200 por socio son \$80\.000 por mes/);
+    expect(pr.body).toMatch(/400 socios te armo la propuesta exacta/);
+    expect(pr.guardIssues).toEqual([]);
     await msg.recordReply(admin, ids[1], { channel: "whatsapp", text: "Dale, coordinemos una demo" });
     expect((await lead(ids[1])).stage).toBe("meeting_pending");
     const t = await msg.addTask(admin, ids[1], { kind: "meeting", dueOn: "2026-11-18", dueAt: "2026-11-18T10:30", note: "Demo con el dueño" });
@@ -219,5 +224,23 @@ describe("D · vendedores, exportación, baja por enlace y programador", () => {
     expect((await pipe.leadsTick(new Date("2026-11-12T12:32:00Z"))).ran).toBeNull();
     expect((await pipe.leadsTick(new Date("2026-11-14T12:30:00Z"))).ran).toBeNull(); // sábado
     await saveSettings(admin, { schedule: { enabled: false, days: [1, 2, 3, 4, 5], discovery: "08:00", enrich: "08:30", score: "09:00", compose: "09:30", followup: "17:30", report: "18:00" } });
+  });
+});
+
+describe("E · entrada interna con CRON_SECRET", () => {
+  it("sin la clave no existe; con la clave importa como sistema y excluye", async () => {
+    const { POST } = await import("@/app/api/cron/leads/route");
+    process.env.CRON_SECRET = "x".repeat(40);
+    const call = (body: unknown, auth = true) => POST(new Request("http://localhost/api/cron/leads", { method: "POST", headers: { "content-type": "application/json", ...(auth ? { authorization: `Bearer ${"x".repeat(40)}` } : {}) }, body: JSON.stringify(body) }));
+    expect((await call({ action: "run", step: "score" }, false)).status).toBe(404);
+    const rows = [{ name: gym("Cron Gym"), city: "Tandil", instagram: `crongym${tag}`, sources: { instagram: { url: "https://ejemplo.invalid/ig", type: "search_result", seenAt: "2026-11-12" } } }, { name: gym("Atlético Sur"), city: "Tandil", phone: "249 444 1234" }];
+    const r = await call({ action: "import", label: "Prueba", rows, exclusions: [{ name: gym("Atlético Sur"), city: "Tandil", reason: "Cliente actual" }] });
+    expect(r.status).toBe(200);
+    const j = await r.json() as { imported: { created: number }; excluded: { marked: number } };
+    expect(j.imported.created).toBe(2); // nombres distintos: sin revisión de duplicado
+    expect(j.excluded.marked).toBe(1);
+    const run = await call({ action: "run", step: "score" });
+    expect(((await run.json()) as { status: string }).status).toBe("ok");
+    delete process.env.CRON_SECRET;
   });
 });

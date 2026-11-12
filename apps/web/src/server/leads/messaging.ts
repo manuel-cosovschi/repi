@@ -21,6 +21,7 @@ export async function copyContext(b: Lead, objection?: Objection | null) {
   return {
     leadId: b.id, name: b.name, city: b.city, category: b.category as never, estMembers: b.estMembers, branches: b.branches, contactName: b.contactName, positioning: b.positioning,
     sender: s.sender, socialProof: s.socialProof || null, presentationUrl: s.presentationUrl || null, demoUrl: s.demoUrl || null, objection: objection ?? null,
+    priceExamples: s.pricing.examples,
     settings: s,
   };
 }
@@ -60,9 +61,9 @@ export async function createDraft(actorId: string | null, businessId: string, p:
   let text = { subject: d.subject, body: d.body }, by: "template" | "ai" = "template";
   if (p.useAi !== false) {
     const ai = await aiPolish(text, b, variant);
-    if (ai && copyGuard(ai.body, { allowedNames: ctx.settings.allowedClientNames, maxChars: ctx.settings.limits.maxChars }).length === 0) { text = ai; by = "ai"; }
+    if (ai && copyGuard(ai.body, { allowedNames: ctx.settings.allowedClientNames, maxChars: ctx.settings.limits.maxChars, allowPrices: variant === "pricing" }).length === 0) { text = ai; by = "ai"; }
   }
-  const issues = copyGuard(text.body, { allowedNames: ctx.settings.allowedClientNames, maxChars: ctx.settings.limits.maxChars });
+  const issues = copyGuard(text.body, { allowedNames: ctx.settings.allowedClientNames, maxChars: ctx.settings.limits.maxChars, allowPrices: variant === "pricing" });
   const to = channel === "whatsapp" ? b.whatsapp ?? (normPhoneAR(b.phone, b.city)?.wa ?? null) : channel === "email" ? b.email : b.instagram;
   const [m] = await tx.insert(leadMessage).values({
     businessId, campaignId: p.campaignId ?? null, direction: "out", channel, variant, step: p.step ?? (variant.startsWith("followup") ? Number(variant.slice(-1)) : 0),
@@ -84,7 +85,7 @@ export async function updateDraft(actorId: string, messageId: string, p: { body:
   const s = await getSettings();
   const body = p.body.trim().slice(0, 4000);
   if (!body) throw bad("El mensaje está vacío.");
-  const issues = copyGuard(body, { allowedNames: s.allowedClientNames, maxChars: s.limits.maxChars });
+  const issues = copyGuard(body, { allowedNames: s.allowedClientNames, maxChars: s.limits.maxChars, allowPrices: m.variant === "pricing" });
   // Editar un mensaje aprobado lo devuelve a borrador: la aprobación era sobre el texto anterior.
   await db.update(leadMessage).set({ body, subject: p.subject ?? m.subject, guardIssues: issues, generatedBy: "manual", status: "draft", approvedAt: null, approvedBy: null }).where(eq(leadMessage.id, messageId));
   return { ok: true, issues };

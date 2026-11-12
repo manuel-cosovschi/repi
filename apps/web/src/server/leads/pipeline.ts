@@ -154,6 +154,12 @@ export async function stepReport() {
 
 const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), followup: stepFollowup, report: stepReport };
 
+/** Ejecución por el job interno (CRON_SECRET), sin sesión: igual que la manual pero registrada como «cron-manual». */
+export async function runStepSystem(step: Step, opts: { areaIds?: string[]; budgetMs?: number } = {}) {
+  if (!STEPS.includes(step)) throw new Error("paso inválido");
+  const work = step === "discovery" ? () => stepDiscovery(opts) : step === "enrich" ? () => stepEnrich(opts) : STEP_FN[step];
+  return run(step, "manual", null, work);
+}
 /** Ejecución manual desde Admin (no cuenta para el programador). */
 export async function runStep(actorId: string, step: Step, opts: { areaIds?: string[]; ids?: string[] } = {}) {
   await leadsAdmin(actorId);
