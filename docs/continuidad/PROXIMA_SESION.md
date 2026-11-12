@@ -32,7 +32,12 @@ Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 005
   - WhatsApp e Instagram no se automatizan (políticas de las plataformas).
   - n8n no se usa: sus cuentas de Gmail y WhatsApp son de otros negocios del titular.
   - Detalle en `SALES_INTELLIGENCE.md` § Piloto automático.
-  - La publicación y la activación en producción se registran abajo, cuando estén hechas.
+  - **Publicado y activado el 12/11** (#110 `3594989`; `/api/version` = `35949890d4a5`). Resend: dominio `repiclub.com` verificado.
+  - En `lead_setting` de producción: programación diaria de lunes a viernes, piloto encendido (8 por día, de 10:00 a 17:30, puntaje mínimo 40), envío de email encendido y cadencia [0, 4, 10] en días hábiles.
+  - Primera corrida automática (16:09–16:13 AR): calificación de 94, 7 borradores, y **3 emails reales enviados y aceptados por Resend** (SQUATGIM, Andrea Fusella y Caldea) con agenda, WhatsApp, prueba social y baja.
+  - OSM sigue saturado y se reintenta cada día hábil a las 08:00.
+  - La agenda en producción responde 200 y ofrece 111 horarios desde el 13/11 10:30.
+  - **Próxima acción:** ninguna del titular. Revisar `lead_run` y las respuestas si avisa. Si OSM sigue sin responder varios días, evaluar un servidor de Overpass propio o pago (es un gasto: decide el titular).
 
 
 - **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.
