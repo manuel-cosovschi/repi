@@ -111,15 +111,16 @@ export const DEFAULT_AREAS: { name: string; province: string; tier: number; lat:
   { name: "Rosario", province: "Santa Fe", tier: 3, lat: -32.9468, lng: -60.6393, radiusKm: 10 },
   { name: "Córdoba", province: "Córdoba", tier: 3, lat: -31.4201, lng: -64.1888, radiusKm: 12 },
 ];
-export async function ensureAreas() {
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(leadArea);
+export async function ensureAreas(tx: Tx | typeof db = db) {
+  const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(leadArea);
   if (n > 0) return;
-  await db.insert(leadArea).values(DEFAULT_AREAS.map((a) => ({ ...a, enabled: a.tier === 1 }))).onConflictDoNothing();
+  await tx.insert(leadArea).values(DEFAULT_AREAS.map((a) => ({ ...a, enabled: a.tier === 1 }))).onConflictDoNothing();
 }
 /** Nivel geográfico por ciudad (nombre de zona configurada). */
-export async function tierByCity(): Promise<Map<string, { tier: number; areaId: string }>> {
-  await ensureAreas();
-  const rows = await db.select().from(leadArea);
+/** Dentro de una transacción, pasar su `tx`: no pedir otra conexión del pool mientras se retiene una (guarda transactions.check). */
+export async function tierByCity(tx: Tx | typeof db = db): Promise<Map<string, { tier: number; areaId: string }>> {
+  await ensureAreas(tx);
+  const rows = await tx.select().from(leadArea);
   const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
   return new Map(rows.map((r) => [fold(r.name), { tier: r.tier, areaId: r.id }]));
 }

@@ -89,7 +89,7 @@
 .ld-body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size: 14px; line-height: 1.5; }
 .ld-score { display: grid; grid-template-columns: minmax(120px, max-content) 1fr 5ch; gap: 4px 10px; align-items: center; font-size: 13px; }
 .ld-score small { grid-column: 1 / -1; color: var(--ui-muted); margin: -2px 0 6px; }
-.ld-warn { border-color: var(--ui-warn-border, var(--ui-border)); }
+.ld-warn { border-color: var(--ui-chip-warn-ink, var(--ui-border)); }
 .ld-h { font-size: 16px; margin: 6px 0 0; }
 .ld-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .ld-facts li { display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--ui-border); }

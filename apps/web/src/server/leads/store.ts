@@ -153,7 +153,7 @@ export async function refreshLead(tx: Tx | typeof db, id: string): Promise<strin
     const cl = await tx.select().from(schema.commercialLead).where(or(...(email ? [sql`lower(${schema.commercialLead.email}) = ${email}`] : []), ...(phoneN ? [sql`right(regexp_replace(coalesce(${schema.commercialLead.phone}, ''), '\\D', '', 'g'), 8) = ${phoneN.national.slice(-8)}`] : []))).limit(1);
     if (cl[0]) commercialLeadId = cl[0].id;
   }
-  const tiers = await tierByCity();
+  const tiers = await tierByCity(tx);
   const fold = (s: string | null) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
   const t = tiers.get(fold(city));
   const intent = { ...b.intentFlags, inbound: b.intentFlags.inbound || !!commercialLeadId };
