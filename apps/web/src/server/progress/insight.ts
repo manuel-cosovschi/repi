@@ -5,7 +5,7 @@
 // Sólo la persona dueña: todo filtra por user_id de la sesión; un ejercicio ajeno o inexistente responde 404.
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import {
-  BEST_SET_CRITERION, ESTIMATE_LIMITS, ESTIMATE_METHOD, RECENT_DAYS, bestSet, effort, estimates, goalStatus, localDate, maxLoad, metricOfSets, nextText,
+  BEST_SET_CRITERION, ESTIMATE_LIMITS, kgTo, ESTIMATE_METHOD, RECENT_DAYS, bestSet, effort, estimates, goalStatus, localDate, maxLoad, metricOfSets, nextText,
   personalUses, profileOf, progressInsights, readWishes, recordEvents, regularity, IMPORT_MAX_SETS, type ExerciseGoalKind, type PICls, type PISet, type SetKind,
 } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -69,7 +69,7 @@ export async function myExerciseInsight(userId: string, exerciseId: string, now 
   if (!sets.length) throw NOT_FOUND();
   const [{ sc, meta }, [pref], days, selfGoals, coachGoals, can] = await Promise.all([
     contextFor(userId, ex, now),
-    db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, userId)),
+    db.select({ wishes: userPref.wishes, unit: userPref.weightUnit }).from(userPref).where(eq(userPref.userId, userId)),
     db.select({ endedAt: workoutSession.endedAt }).from(workoutSession)
       .where(and(eq(workoutSession.userId, userId), eq(workoutSession.status, "completed"), gte(workoutSession.endedAt, new Date(now.getTime() - 28 * DAY)))),
     mySelfGoals(userId, { exerciseId }, now),
@@ -77,6 +77,9 @@ export async function myExerciseInsight(userId: string, exerciseId: string, now 
     canSetSelfGoals(userId),
   ]);
   const metric = metricOfSets(sets, ex.kind);
+  // Los textos que arma el servidor van en la unidad que eligió la persona (los números siguen en kg).
+  const unit = (pref?.unit ?? "kg") as "kg" | "lb";
+  const fmt = (kg: number) => `${String(kgTo(kg, unit)).replace(".", ",")} ${unit}`;
   const tr = (await trendsFor(sc, [meta], now).catch(() => null))?.get(meta.ref) ?? null;
   const points = tr?.points ?? [];
   const lastPt = points[points.length - 1] ?? null;
@@ -85,7 +88,7 @@ export async function myExerciseInsight(userId: string, exerciseId: string, now 
   const since = now.getTime() - RECENT_DAYS * DAY;
   const recent = sets.filter((s) => Date.parse(s.at) >= since && !s.approx);
   const best = bestSet(sets), recentBest = bestSet(recent);
-  const goals = selfGoals.filter((g) => g.status === "active" && g.kind !== "frequency").map((g) => ({ ...g, status_: goalStatus({ kind: g.kind as ExerciseGoalKind, target: g.target, targetReps: g.targetReps, baseline: g.baseline }, sets) }));
+  const goals = selfGoals.filter((g) => g.status === "active" && g.kind !== "frequency").map((g) => ({ ...g, status_: goalStatus({ kind: g.kind as ExerciseGoalKind, target: g.target, targetReps: g.targetReps, baseline: g.baseline }, sets, fmt) }));
   const wishes = readWishes(pref?.wishes);
   const coachOwned = sc.execOwner === "coach" || sc.execOwner === "gym";
   const bw = (xs: PISet[]) => xs.filter((s) => s.cls !== "warmup" && s.cls !== "timed" && !(s.w && s.w > 0) && s.r != null).reduce<PISet | null>((a, s) => (!a || s.r! > a.r! ? s : a), null);
@@ -111,7 +114,7 @@ export async function myExerciseInsight(userId: string, exerciseId: string, now 
     estimates: metric === "load" ? estimates(sets, now) : null,
     records: { count: records.length, last: records.slice(-5).reverse() },
     // C. Próxima carga de trabajo: la de Training Intelligence (misma cifra que el entrenamiento y el cerebro).
-    next: tr ? { trend: tr.trend, proposal: tr.proposal, text: nextText(lastPt ? { w: lastPt.w, r: lastPt.r } : null, tr.proposal), coachOwned,
+    next: tr ? { trend: tr.trend, proposal: tr.proposal, text: nextText(lastPt ? { w: lastPt.w, r: lastPt.r } : null, tr.proposal, fmt), coachOwned,
       used: points.map((p) => ({ day: localDate(new Date(p.at)), w: p.w, r: p.r, rir: p.rir, sessionIds: [...new Set(sets.filter((s) => s.sessionId && s.day === localDate(new Date(p.at))).map((s) => s.sessionId!))] })) } : null,
     // D. Metas (propias y acordadas con el entrenador; nunca predicciones).
     goals: {

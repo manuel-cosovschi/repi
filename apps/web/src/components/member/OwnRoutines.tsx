@@ -26,6 +26,7 @@ import { Ic } from "@/components/ui/Ic";
 import { RoutineImportSheet } from "./RoutineImport";
 import { IntInput } from "@/components/ui/IntInput";
 import { Sheet } from "./Sheet";
+import { useProfileGate } from "./ProfileGate";
 import { kg } from "./types";
 import { useUnit } from "./units";
 
@@ -64,8 +65,14 @@ export function OwnRoutines({ offline, flash, onStart, busyOpen }: { offline: bo
   const [dup, setDup] = useState<string | null>(null); // FSA1: un doble toque en «Duplicar» no crea dos copias
   const unit = useUnit();
   const load = c.reload;
-  const open = (r: Saved | "new") => { if (offline) { flash("Necesitás conexión para armar o editar tus rutinas."); return; } setEdit(r); };
-  const upload = () => { if (offline) { flash("Necesitás conexión para subir tu rutina."); return; } setImporting(true); };
+  // D217: antes de una rutina nueva o de subir una, el formulario breve del perfil si le falta lo esencial (una vez por lugar;
+  // «Ahora no» sigue igual). Editar una rutina existente no pasa por ahí.
+  const gate = useProfileGate();
+  const open = (r: Saved | "new") => {
+    if (offline) { flash("Necesitás conexión para armar o editar tus rutinas."); return; }
+    if (r === "new") gate("routines", () => setEdit("new")); else setEdit(r);
+  };
+  const upload = () => { if (offline) { flash("Necesitás conexión para subir tu rutina."); return; } gate("import", () => setImporting(true)); };
   return (
     <section className="or" aria-labelledby="or-h">
       <div className="or-head">
