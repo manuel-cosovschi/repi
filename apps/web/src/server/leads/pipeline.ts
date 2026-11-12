@@ -32,31 +32,39 @@ async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron
 
 // ── Pasos ────────────────────────────────────────────────────────────────────
 /** Investigación: OpenStreetMap en las zonas encendidas, empezando por las que hace más tiempo no se revisan. */
-export async function stepDiscovery(opts: { areaIds?: string[] } = {}) {
+export async function stepDiscovery(opts: { areaIds?: string[]; budgetMs?: number } = {}) {
   await ensureAreas();
   const s = await getSettings();
   const areas = await db.select().from(leadArea).where(opts.areaIds?.length ? inArray(leadArea.id, opts.areaIds) : eq(leadArea.enabled, true))
     .orderBy(sql`${leadArea.lastDiscoveredAt} asc nulls first`, asc(leadArea.tier)).limit(s.limits.discoveryAreasPerRun);
-  const out = { areas: [] as string[], found: 0, created: 0, updated: 0, branches: 0, review: 0, unchanged: 0, errors: [] as string[] };
+  const out = { areas: [] as string[], found: 0, created: 0, updated: 0, branches: 0, review: 0, unchanged: 0, known: 0, pending: 0, errors: [] as string[] };
+  // Presupuesto de tiempo (el job de cada minuto comparte 45 s y Admin corta a los 25 s): lo que no entra sigue en la próxima
+  // corrida. Los elementos de OSM ya registrados se saltean, así cada corrida avanza sobre los nuevos.
+  const until = Date.now() + (opts.budgetMs ?? 20_000);
+  const known = new Set((await db.execute<{ r: string }>(sql`select distinct jsonb_array_elements_text(external_refs) as r from lead_business`)).map((x) => x.r));
   for (const a of areas) {
+    if (Date.now() > until) break;
     try {
       const cands = await discoverOsm(a);
       out.found += cands.length;
+      let complete = true;
       for (const c of cands.slice(0, 300)) {
+        if (c.externalRef && known.has(c.externalRef)) { out.known++; continue; }
+        if (Date.now() > until) { complete = false; out.pending++; continue; }
         try {
           const r = await ingest(c, { userId: null, role: "system" });
           if (r.outcome === "created") out.created++; else if (r.outcome === "updated") out.updated++; else if (r.outcome === "branch") out.branches++; else if (r.outcome === "review") out.review++; else out.unchanged++;
         } catch (e) { out.errors.push(`${c.name}: ${(e as Error).message}`); }
       }
-      await db.update(leadArea).set({ lastDiscoveredAt: new Date() }).where(eq(leadArea.id, a.id));
-      out.areas.push(a.name);
+      if (complete) await db.update(leadArea).set({ lastDiscoveredAt: new Date() }).where(eq(leadArea.id, a.id));
+      out.areas.push(complete ? a.name : `${a.name} (sigue en la próxima corrida)`);
     } catch (e) { out.errors.push(`${a.name}: ${(e as Error).message}`); }
   }
   return out;
 }
 
 /** Enriquecimiento: sitio oficial (robots.txt), los que nunca se enriquecieron o hace más de 60 días. */
-export async function stepEnrich(opts: { ids?: string[] } = {}) {
+export async function stepEnrich(opts: { ids?: string[]; budgetMs?: number } = {}) {
   const s = await getSettings();
   const stale = new Date(Date.now() - 60 * 864e5);
   const rows = await db.select().from(leadBusiness).where(and(
@@ -64,7 +72,9 @@ export async function stepEnrich(opts: { ids?: string[] } = {}) {
     or(isNull(leadBusiness.enrichedAt), lte(leadBusiness.enrichedAt, stale)),
   )).orderBy(desc(leadBusiness.score)).limit(opts.ids?.length ? 20 : s.limits.enrichPerRun);
   const out = { checked: 0, updated: 0, skipped: [] as string[], errors: [] as string[] };
+  const until = Date.now() + (opts.budgetMs ?? 20_000);
   for (const b of rows) {
+    if (Date.now() > until) break; // el resto sigue en la próxima corrida (no se marcó como enriquecido)
     out.checked++;
     try {
       const r = await readOfficialSite(b.website as string);
