@@ -1,6 +1,27 @@
 # REPI — Retomar acá
 
-Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: en PR, sin publicar, sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+
+## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · EN PR, SIN PUBLICAR
+
+- **Estado:** rama `claude/fix-sandbox-purge` (desde `main` `708b873`), PR abierto contra `main`. Sin integrar ni desplegar. **No hay migración.**
+- **Síntoma:** alerta por email «Error en REPI: sandbox.purge · tarea en segundo plano · código 23503 · Failed query: delete», una por hora (el job falla cada minuto; el aviso está limitado).
+- **Causa (registros de Postgres de producción):** `update or delete on table "user" violates foreign key constraint "client_goal_created_by_user_id_fk" on table "client_goal"`. Desde el 12/11 17:25 (hora argentina), cuando venció la primera demo con una meta propia.
+  - Una meta propia (D217, 0055, `client_goal` con `origin = self`) apunta dos veces a la misma persona: `user_id` con cascada y `created_by` sin cascada. Al borrar la persona, Postgres revisa `created_by` antes de que la cascada borre la fila.
+  - Antes de 0055 toda meta colgaba de `coach_client` (obligatoria), que la limpieza borra antes que a las personas; 0055 la volvió opcional.
+  - La limpieza de esa demo se deshace entera y se reintenta cada minuto: la demo queda para siempre. Las demás demos se siguen borrando.
+- **En producción al diagnosticar (sólo lectura):** 3 demos vencidas sin borrar (las tres de perfil socio, una meta propia cada una). Se borran solas en la primera corrida del job después de publicar el arreglo.
+- **Arreglo:** `apps/web/src/server/sandbox/services.ts` (`purgeSandboxes`), dentro de la misma transacción:
+  - borra las metas (`client_goal` por `user_id` o `created_by`) antes que a las personas;
+  - borra `legal_acceptance` de las organizaciones de la demo antes que la organización (misma clase: `org_id` sin cascada; hoy ninguna pantalla de la demo la crea).
+- **Pruebas:** `apps/web/tests/sandbox-purge.test.ts` (3):
+  - la demo de socio con metas propias y un objetivo del coach se borra entera (fallaba con 23503 antes del arreglo);
+  - los cinco perfiles de la demo se borran completos, también con una aceptación legal ligada a la organización (fallaba antes);
+  - guarda de la clase del error: lee el catálogo de la base migrada y falla si aparece una referencia sin cascada a `user` u `organization` en una tabla que la organización de la demo no arrastra y que la limpieza no borra a mano.
+  - typecheck ✓, guardas 26/26, dominio 1177/1177, web 865/865 (110 archivos, sobre `repi_test` local), build ✓.
+- **Límite de la guarda:** cubre las referencias directas a `user` y `organization`. El orden dentro de una cascada (como `program_exercise → exercise`, resuelto el 30/10) sólo lo cubren las pruebas de limpieza de cada perfil.
+- **Próxima acción (titular):** integrar el PR y desplegar. Después, confirmar que no llegan más alertas y que `demo_sandbox` no tiene filas vencidas.
+- **Mejora posible, no hecha:** que el aviso incluya el nombre de la restricción (`constraint_name` del error de Postgres, no es un dato personal); hoy el detalle se recorta a «Failed query: delete» y hubo que leer los registros de la base.
 
 
 ## REPI Sales Intelligence 1.0 — Captación de gimnasios — 12/11/2026 · PUBLICADO (D218, 0056, #107, #108)
