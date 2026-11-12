@@ -4,7 +4,7 @@ Generado por `scripts/inventory/build_inventory.py` desde `features.json` (93 ID
 
 Ejes separados: **certeza** (confirmado/documentado/propuesto/en_conflicto/retirado), **diseño** disponible en el handoff y **estado técnico en este repo** (sin_implementar/estatico/interactivo_local/simulado/integrado/persistente/probado).
 
-Total: **166** entradas. Estado técnico: estatico 1, integrado 26, no_aplica 6, persistente 9, probado 82, sin_implementar 42.
+Total: **166** entradas. Estado técnico: estatico 1, integrado 26, no_aplica 6, persistente 8, probado 85, sin_implementar 40.
 
 | ID | Funcionalidad | Módulo | Rol | Certeza | Diseño | Estado repo | Fuente | Aceptación / pendiente |
 |---|---|---|---|---|---|---|---|---|
@@ -15,7 +15,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 26, no_aplica 6,
 | F-CL-03 | Registro de series en un toque | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-03 | Completar serie ≤1 toque; steppers ±2,5 kg/±1 rep; autosave visible |
 | F-CL-04 | Temporizador de descanso (reloj real) | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-04 | Basado en timestamp de fin; pausar/+30s/saltar; no depende de frames |
 | F-CL-05 | Resumen de sesión + récord personal validado | Entrenamiento | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-05 | PR solo si supera registro comparable previo; celebración desactivable |
-| F-CL-06 | Progreso (fuerza, volumen, constancia, medidas) | Progreso | Alumno | documentado | prototipo interactivo | persistente | features.json · F-CL-06 | Volumen = series×reps×peso documentado; "Datos insuficientes" para lo no medido |
+| F-CL-06 | Progreso (fuerza, volumen, constancia, medidas) | Progreso | Alumno | documentado | prototipo interactivo | probado | features.json · F-CL-06 | Volumen = series×reps×peso documentado; "Datos insuficientes" para lo no medido |
 | F-CL-07 | Offline + sincronización idempotente | Entrenamiento | Alumno | documentado | sin diseño | probado | features.json · F-CL-07 | Sin pérdida ni duplicado al reconectar (E2E 5 del brief) |
 | F-BI-01 | Mi cuerpo · introducción | Body Intelligence | Alumno | documentado | prototipo interactivo | sin_implementar | features.json · F-BI-01 | Opcional; entrenamiento funciona sin activarlo |
 | F-BI-02 | Consentimiento granular por tipo de dato | Body Intelligence | Alumno | confirmado | prototipo interactivo | sin_implementar | features.json · F-BI-02 | 6 tipos apagados por defecto; guardar ≠ compartir |
@@ -39,7 +39,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 26, no_aplica 6,
 | F-NT-02 | Preferencias / push / email | Notificaciones | Todos | documentado | sin diseño | integrado | features.json · F-NT-02 | Criterio de aceptación vacío en el handoff: definir |
 | F-CO-01 | Panel del coach con pendientes accionables | Coach | Coach | documentado | prototipo interactivo | persistente | features.json · F-CO-01 | Cada pendiente con acción directa |
 | F-CO-02 | Directorio de clientes split view | Coach | Coach | documentado | prototipo interactivo | probado | features.json · F-CO-02 | Búsqueda, filtros, orden |
-| F-CO-03 | Objetivos del cliente con progreso | Coach | Coach | documentado | prototipo interactivo | sin_implementar | features.json · F-CO-03 | Criterio de aceptación vacío en el handoff: definir |
+| F-CO-03 | Objetivos del cliente con progreso | Coach | Coach | documentado | prototipo interactivo | probado | features.json · F-CO-03 | Criterio de aceptación vacío en el handoff: definir |
 | F-CO-04 | Rendimiento: 1RM estimado, volumen por grupo, fortalezas/mejoras, check-in | Coach | Coach | confirmado | prototipo interactivo | integrado | features.json · F-CO-04 | Fórmula Epley documentada; heurística revisable |
 | F-CO-05 | Registro de sesiones con notas del alumno | Coach | Coach | confirmado | prototipo interactivo | probado | features.json · F-CO-05 | Criterio de aceptación vacío en el handoff: definir |
 | F-CO-06 | Salud: lesiones, molestias 0–10, condiciones | Coach | Coach | confirmado | prototipo interactivo | probado | features.json · F-CO-06 | No diagnosticar; derivar a profesional |
@@ -141,7 +141,7 @@ Total: **166** entradas. Estado técnico: estatico 1, integrado 26, no_aplica 6,
 | F-BL-05 | Aviso al cliente de cambio de suscripción, fin de prueba y criterio de conteo | Facturación SaaS | Coach, dueño | en_conflicto | prototipo interactivo | sin_implementar | REPI Desktop Coach.dc.html ('Cambio en tu suscripción:', 'Termina el 31 may', 'máximo del período'); Auditoría 4.1–4.4 🔴 | Aviso y historial visibles al cliente. |
 | F-CO-18 | Molestias y check-ins recientes en la ficha | Coach | Coach | documentado | prototipo interactivo | probado | REPI Desktop Coach.dc.html ('Molestias y check-ins recientes', 'Revisar ejercicios que cargan la zona') | Sin seeds presentados como datos reales. |
 | F-HX-01 | Registro de nutrición del alumno o integración | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 1.6 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
-| F-HX-02 | Vista de objetivos acordados en la app | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 1.7 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
+| F-HX-02 | Vista de objetivos acordados en la app | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 1.7 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-03 | Ficha de salud + apto médico con aviso de vencimiento | Auditoría de huecos |  | propuesto | sin diseño | sin_implementar | REPI Auditoría de huecos.md · 1.8 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-04 | Descanso por ejercicio desde la prescripción | Auditoría de huecos |  | propuesto | sin diseño | probado | REPI Auditoría de huecos.md · 2.2 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |
 | F-HX-05 | Indicación del coach por ejercicio en sesión activa | Auditoría de huecos |  | propuesto | sin diseño | integrado | REPI Auditoría de huecos.md · 2.3 | Requisito propuesto por auditoría de diseño; requiere diseño y criterio |

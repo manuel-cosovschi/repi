@@ -139,4 +139,58 @@ negada con metas propias, reversión y reaplicación) y `scripts/rollback/0055_s
 - Dominio: `wishes.test.ts`, `personalize.test.ts`, `progress-intel.test.ts`, `chart-view.test.ts`, `brain/intents.test.ts` y
   `brain/answers.test.ts` (nuevas intenciones).
 - Servidor (repi_test): `apps/web/tests/profile-progress.test.ts`.
-- Mapa de los 64 casos del máster: ver la sección «Pruebas» de `docs/continuidad/PROXIMA_SESION.md` del bloque D217.
+- QA: build local con la demo de alumno (390 px claro/oscuro, iPhone 13 emulado y 820 px) y un historial importado de 3 años
+  (428 registros, tramo con fecha aproximada y hueco de 90 días); smoke en producción 14/14 sólo con la demo.
+
+### Mapa de los 64 casos del máster
+
+Referencias: **D** = dominio (`packages/domain/src/…`), **S** = servidor (`apps/web/tests/profile-progress.test.ts`), **Q** = QA en
+build local (`pi-shots`/`pi-long`), **P** = smoke de producción, **E** = otra prueba existente.
+
+| # | Caso | Dónde |
+|---|---|---|
+| 1–4 | Sin perfil, completa, completo, parcial | S «sin perfil → parcial → completo»; D `wishes.test.ts` (estado); Q formulario breve sólo con lo que falta; P perfil none→partial→complete |
+| 5 | Primera rutina | Q/código: «Nueva» en Mis rutinas pasa por el formulario breve (`OwnRoutines`, «routines»); S rutina propia de principiante |
+| 6 | Importa una rutina | «Subir» y «Cargar historial anterior» pasan por el formulario breve («import») |
+| 7 | Modifica objetivos | S «cambiar el objetivo cancela los avisos…; el programa no cambia»; D intervención «goal_changed» |
+| 8 | Cancela el formulario | S `markProfileAsked`; Q «Ahora no»/Esc siguen con la acción |
+| 9 | Más de una relación | Perfil por persona (no por relación); contexto usa la relación de la sesión abierta (E `brain-context.test.ts`) |
+| 10 | REPI Control | S «REPI Control: el socio… no fija metas»; el perfil sí se completa; la pantalla del gimnasio no recibe el perfil |
+| 11–12 | Menor y edad sin confirmar | S «menores y edad sin confirmar»; D `profileStatus(…, "minor"/"unknown")` |
+| 13–14 | Objetivos y experiencia diferentes | D personalize «misma carga, distinto énfasis y guía»; S rutina propia de principiante |
+| 15 | Sin historial | D y S «sin historial: ninguna carga inventada» |
+| 16 | Historial extenso | Q 428 registros: vista inteligente 62–75 ms, evolución 28 ms; E `history-import*.test.ts` |
+| 17 | Objetivo cambiado con programa vigente | D `personalizeProposal` (fuerza estancada → revisar con el entrenador); S programa sin cambios |
+| 18 | Prescripción humana | D «filas del profe intactas» y «programa del profe sin carga»; S caso 18 |
+| 19–20 | RIR alto / bajo | D «RIR del plan presente no se pisa»; E `intelligence.test.ts` (max_effort, «easier»/«harder») |
+| 21 | Fatiga declarada | E `intelligence.test.ts` y `progression.test.ts` (low_readiness, max_effort); propuesta «deload» |
+| 22 | Restricción vigente | E guardas `pain_exercise`/`pain_or_injury`; contexto con molestias (E `brain-context.test.ts`) |
+| 23 | Método avanzado | D «top set + back-off: sólo la principal recibe guía» |
+| 24 | Ejercicio sustituido | E `substitutions.test.ts`, `brain-chat.test.ts` (reemplazo sólo por hoy); TI usa el ejercicio que se hace |
+| 25 | Datos insuficientes | D/S «perfil incompleto: se marca y se dice qué falta» |
+| 26–28 | Carga máxima, mejor serie, 1RM | D progress-intel 26–28; S «máximo real, mejor serie, 1RM…»; P vista inteligente |
+| 29 | Estimación por repeticiones | D 29 (±4 reps, ≤10 reps de referencia, sin fecha aproximada, 120 días) |
+| 30 | Próxima carga | D `nextText`; S «la MISMA propuesta que Training Intelligence» |
+| 31 | Objetivo individual | D/S «La mejor serie registrada con ese peso fue de…»; P meta creada y cerrada |
+| 32–33 | Récord histórico / reciente | D 32–33 |
+| 34–35 | Importado / fecha aproximada | D 34–35; S «historial importado con fecha aproximada»; Q marcador hueco y leyenda |
+| 36–37 | Serie anulada / corregida | S «serie anulada no cuenta; corregida con su valor vigente, sin duplicar» |
+| 38–40 | Tiempo, peso corporal, drop sets | D 38–40 |
+| 41 | kg y lb | D 41 y «con libras elegidas… en lb»; textos del servidor en la unidad elegida |
+| 42–45 | Zoom in/out, restablecer, desplazamiento | D `chart-view.test.ts`; Q historial largo (botones, «Ver todo», «Antes») |
+| 46 | Pellizco | Q eventos táctiles reales (CDP) en iPhone 13 emulado: pellizco acerca, arrastre desplaza |
+| 47–48 | Dos sesiones el mismo día / una sola | D `chart-view.test.ts` (separación estable); Q demo con 1–2 registros (sin línea ni zoom) |
+| 49–50 | Historial muy largo / grandes intervalos | Q 428 registros sin errores; tramo de 90 días punteado |
+| 51–52 | Cambio de ejercicio con zoom / de período | Q «otro ejercicio sin zoom heredado»; el gráfico se reinicia por `key` |
+| 53 | Teclado | Q Fin/←/«+»/«0»; D navegación |
+| 54 | Movimiento reducido | Sin animación con `prefers-reduced-motion` (verificado por el agente del gráfico en Chromium) |
+| 55 | Tema claro y oscuro | Q capturas 390 px claro y oscuro |
+| 56 | Sin conexión | Progreso muestra «Sin conexión…» (sin pedir datos); el formulario breve deja seguir sin bloquear |
+| 57 | Móvil y tablet | Q 390 px, iPhone 13 emulado y 820 px |
+| 58 | No leer el progreso de otro | S caso 58 (404); P 404 |
+| 59 | Entrenador sin relación vigente | E `goals.test.ts`/`privacy.test.ts` (coach sin relación: 404); las metas propias no se exponen al coach (S) |
+| 60 | Gimnasio de otra organización | E `gym.test.ts`, `repi-control.test.ts` (aislamiento por organización) |
+| 61 | Programa institucional no alterable | S caso 10/61; E `repi-control.test.ts` |
+| 62 | Propuesta que no se ejecuta sin autorización | D `nextProposal`/`requiresCoach`; E `brain-actions.test.ts` (acciones confirmadas en el servidor) |
+| 63 | Corrección sin duplicación | S 36–37 |
+| 64 | Acciones de REPI validadas por el servidor | S caso 64 (respuestas con datos del servidor); E `brain-actions.test.ts` |

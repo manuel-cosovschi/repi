@@ -997,6 +997,7 @@
 .pc-dot.approx { fill: var(--ui-surface); stroke: var(--ui-accent); stroke-width: 1.75; stroke-dasharray: 2 2; }
 .pc-dot.rec.approx { stroke: var(--ui-warning); }
 .pc-dot.approx.on { stroke-width: 2.5; }
+.pc-dot.approx.sm { stroke-width: 1; stroke-dasharray: 1.5 1.5; }
 .pc-fut { fill: var(--ui-surface); stroke: var(--ui-accent-2); stroke-width: 2; stroke-dasharray: 3 2.5; }
 .pc-fut.on { stroke: var(--ui-text); }
 .pc-fut-c { fill: var(--ui-accent-2); pointer-events: none; }

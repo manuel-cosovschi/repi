@@ -10,6 +10,7 @@ import { Sheet } from "./Sheet";
 import { buildHistoryReadParts, datedFromUndated, fmtWeight, historyDateEvidence, IMPORT_MAX_TEXT_LENGTH, localDate, NO_DATES_MESSAGE, parseHistoryCsv, undatedSessions, parseRoutineNotes, type WeightUnit } from "@repi/domain";
 import { useUnit } from "./units";
 import { RoutineImportSheet } from "./RoutineImport";
+import { useProfileGate } from "./ProfileGate";
 
 type Preview = {
   id: string; source: "csv" | "notes" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
@@ -33,6 +34,7 @@ import { readImportFile, type ImportBody } from "@/lib/import-file";
 // que describen una rutina no se ofrecen como rutina propia: se avisa y se sugiere pedírsela al equipo.
 export function BeforeRepi({ flash, offline, onChanged, supervised = false }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void; supervised?: boolean }) {
   const unit = useUnit();
+  const gate = useProfileGate();
   // M06: caché en memoria; lo importado entra con alto 0 → real (bloque opcional, nunca de golpe).
   const c = useCached<Mine>(offline ? null : "/api/me/history-import");
   const mine = c.data;
@@ -60,7 +62,8 @@ export function BeforeRepi({ flash, offline, onChanged, supervised = false }: { 
           </>
         )}
       </Reveal>
-      <button type="button" className="ghost" disabled={offline} onClick={() => setOpen(true)}>Cargar historial anterior</button>
+      {/* D217: al importar, se ofrece (una vez) completar el perfil; nunca frena la carga. */}
+      <button type="button" className="ghost" disabled={offline} onClick={() => gate("import", () => setOpen(true))}>Cargar historial anterior</button>
       {routineBody && !supervised && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
       {open && <ImportSheet flash={flash} onRoutine={supervised ? null : (body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}
     </section>

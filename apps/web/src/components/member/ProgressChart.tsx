@@ -34,7 +34,7 @@ export type ChartPoint = { id: string; day: string; y: number; record?: boolean;
 /** Propuesta de REPI para la próxima sesión: no es un registro. */
 export type ChartFuture = { day: string; y: number; label: string; detail?: ReactNode };
 
-const H = 188, OV = 30, PAD = { r: 14, t: 18, b: 28 }, INSET = 9, DENSE = 150, SPREAD = 8, HIT = 24, MIN = 60_000;
+const H = 188, OV = 30, PAD = { r: 14, t: 18, b: 28 }, INSET = 9, DENSE = 150, COMPACT = 60, SPREAD = 8, HIT = 24, MIN = 60_000;
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const Ico = ({ d }: { d: string }) => <svg viewBox="0 0 16 16" aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
@@ -118,6 +118,8 @@ export function ProgressChart({ title, points, fmt, target, future, onSelect, em
   const sy = (y: number) => B - ((y - ys.lo) / (ys.hi - ys.lo || 1)) * ih;
   const toT = (px: number) => cur.x0 + ((px - L) / iw) * span;
   const dense = count > DENSE;
+  // QA D217: entre 60 y 150 puntos visibles, marcadores chicos (siguen siendo enfocables) para que no se amontonen.
+  const compact = !dense && count > COMPACT;
   const px: number[] = [], py: number[] = [];
   for (let i = lo; i < hi; i++) { px.push(sx(d.xs[i]) + (dense ? 0 : d.grp[i].offset * SPREAD)); py.push(sy(d.ys[i])); }
   const P = (i: number) => ({ x: px[i - lo], y: py[i - lo] });
@@ -289,7 +291,7 @@ export function ProgressChart({ title, points, fmt, target, future, onSelect, em
   const focusable = (i: number) => (
     <g key={d.ord[i].p.id} data-i={i} role="button" tabIndex={-1} aria-pressed={sel === i} aria-label={ptLabel(i)} className="pc-pt">
       {!dense && <circle cx={P(i).x} cy={P(i).y} r={16} className="pc-hit" />}
-      {marker(i, dense)}
+      {marker(i, dense || compact)}
     </g>
   );
   const shown: number[] = [];

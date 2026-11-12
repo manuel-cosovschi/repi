@@ -12,6 +12,7 @@ import type { MemoryDraft } from "./memory";
 import { type Alternative, type ShortenPlan, setsText } from "./session";
 import { fmtArDate } from "./quiet";
 import { fmtKg, listEs, norm, numEs } from "./util";
+import { kgTo } from "../units";
 
 export type AnswerData = {
   exercise?: ExerciseRef | null;
@@ -118,8 +119,10 @@ export function answerLastMark(_ctx: BrainContext, d: AnswerData): Reply {
 
 // ── D217 · Máximo real, capacidad estimada, próxima carga y distancia (nunca la misma cifra para los cuatro) ─────────────────
 const ESTIMATE_NOTE = "Es una estimación (Epley), no una repetición máxima ejecutada.";
+/** Kilos en la unidad que eligió la persona (los datos siguen en kg). */
+const fmtW = (ctx: BrainContext, kg: number) => (ctx.person.unit === "lb" ? `${String(kgTo(kg, "lb")).replace(".", ",")} lb` : fmtKg(kg));
 const dayTxt = (d: string) => fmtArDate(`${d}T12:00:00-03:00`);
-export function answerMaxLift(_ctx: BrainContext, d: AnswerData): Reply {
+export function answerMaxLift(ctx: BrainContext, d: AnswerData): Reply {
   if (!d.exercise) return askExercise(d);
   const name = d.exercise.name, p = d.progress;
   if (!p || (!p.max && p.bestReps == null && p.bestSec == null)) return reply(`Todavía no tengo registros de ${name}.`, { suggestions: SUGGEST.progress });
@@ -127,9 +130,9 @@ export function answerMaxLift(_ctx: BrainContext, d: AnswerData): Reply {
   if (p.metric === "reps" && p.bestReps != null) return reply(`Tu mejor serie de ${name} sin carga externa fue de ${p.bestReps} repeticiones.`, { actions: [show] });
   if (p.metric === "time" && p.bestSec != null) return reply(`Tu mejor marca de ${name} es ${fmtSeconds(p.bestSec)}.`, { actions: [show] });
   const m = p.max!;
-  const real = `Tu mayor carga registrada en ${name} es ${fmtKg(m.w)} × ${m.r} (${dayTxt(m.day)}${m.approx ? ", fecha aproximada" : m.source === "import" ? ", importado" : ""}).`;
-  const est = p.best ? ` Tu mejor serie fue ${fmtKg(p.best.w)} × ${p.best.r}, con un 1RM estimado de ${fmtKg(p.best.e1rm)}. ${ESTIMATE_NOTE}` : "";
-  const rows = [{ label: "Mayor carga real", value: `${fmtKg(m.w)} × ${m.r}` }, ...(p.best ? [{ label: "1RM estimado", value: fmtKg(p.best.e1rm) }] : [])];
+  const real = `Tu mayor carga registrada en ${name} es ${fmtW(ctx, m.w)} × ${m.r} (${dayTxt(m.day)}${m.approx ? ", fecha aproximada" : m.source === "import" ? ", importado" : ""}).`;
+  const est = p.best ? ` Tu mejor serie fue ${fmtW(ctx, p.best.w)} × ${p.best.r}, con un 1RM estimado de ${fmtW(ctx, p.best.e1rm)}. ${ESTIMATE_NOTE}` : "";
+  const rows = [{ label: "Mayor carga real", value: `${fmtW(ctx, m.w)} × ${m.r}` }, ...(p.best ? [{ label: "1RM estimado", value: fmtW(ctx, p.best.e1rm) }] : [])];
   return reply(real + est, {
     cards: [{ type: "fact", title: name, rows, via: "data" }, evCard({ basis: "Todas tus series válidas de este ejercicio (REPI e importadas).", excluded: "No cuento aproximaciones, series anuladas ni etapas de un drop.", via: "data" })],
     actions: [show], suggestions: [`¿Cuánto podría tirar para 8 repeticiones en ${name}?`, `¿Qué intento la próxima vez en ${name}?`],

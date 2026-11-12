@@ -14,7 +14,7 @@
 // como dato delimitado; el texto de la persona también va delimitado. Una carga, repeticiones o series que no salen de los datos
 // (lo que dijo la persona o REPI antes) → fallback.
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { bestSet, capacityFor, distanceTo, maxLoad, metricOfSets, nextText, bodyGoalProgress, epley1rm, exerciseRows, sessionPoints, exerciseTrend, nextProposal, personalizeProposal, setTarget, type ExerciseDetail, type HistRow, type ImportOrigin } from "@repi/domain";
+import { kgTo, bestSet, capacityFor, distanceTo, maxLoad, metricOfSets, nextText, bodyGoalProgress, epley1rm, exerciseRows, sessionPoints, exerciseTrend, nextProposal, personalizeProposal, setTarget, type ExerciseDetail, type HistRow, type ImportOrigin } from "@repi/domain";
 import {
   AGE_REPLY, answerUnknown, arDay, arInstant, arWeekStart, canTalkBody, classify, clip, compose, contextForAi, dataBlock, detectSafety, hashHex,
   normalizeKey, norm, parsePreference, propose, resolveExercise, shortenSession,
@@ -345,17 +345,20 @@ async function progressFor(sc: ServerContext, m: ExMeta, intent: Intent, now: Da
   if (!sets.length) return null;
   const metric = metricOfSets(sets, m.kind);
   const mx = maxLoad(sets), b = bestSet(sets);
+  // Los textos van en la unidad que eligió la persona (los números siguen en kg).
+  const unit = sc.ctx.person.unit;
+  const fmt = (kg: number) => (unit === "lb" ? `${String(kgTo(kg, "lb")).replace(".", ",")} lb` : `${String(Math.round(kg * 100) / 100).replace(".", ",")} kg`);
   const out: NonNullable<AnswerData["progress"]> = {
     metric, max: mx ? { w: mx.w, r: mx.r, day: mx.day, approx: mx.approx, source: mx.source } : null, best: b ? { w: b.w, r: b.r, e1rm: b.e1rm, day: b.day } : null,
     bestReps: Math.max(0, ...sets.filter((s) => s.cls !== "warmup" && s.cls !== "timed" && !(s.w && s.w > 0)).map((s) => s.r ?? 0)) || null,
     bestSec: Math.max(0, ...sets.filter((s) => s.cls === "timed").map((s) => s.sec ?? 0)) || null,
   };
-  if (intent.name === "capacity") { const reps = Number(intent.slots.reps) || 8; out.capacity = { reps, ...capacityFor(reps, sets, now) }; }
-  if (intent.name === "goal_distance" && intent.slots.kg != null) { const kg = Number(intent.slots.kg); out.distance = { kg, text: distanceTo(kg, sets).text }; }
+  if (intent.name === "capacity") { const reps = Number(intent.slots.reps) || 8; out.capacity = { reps, ...capacityFor(reps, sets, now, fmt) }; }
+  if (intent.name === "goal_distance" && intent.slots.kg != null) { const kg = Number(intent.slots.kg); out.distance = { kg, text: distanceTo(kg, sets, fmt).text }; }
   if (intent.name === "next_target") {
     const tr = (await trendsFor(sc, [m], now)).get(m.ref);
     const last = tr?.points[tr.points.length - 1];
-    out.next = tr ? { text: nextText(last ? { w: last.w, r: last.r } : null, tr.proposal), requiresCoach: !!tr.proposal?.requiresCoach } : null;
+    out.next = tr ? { text: nextText(last ? { w: last.w, r: last.r } : null, tr.proposal, fmt), requiresCoach: !!tr.proposal?.requiresCoach } : null;
   }
   return out;
 }
