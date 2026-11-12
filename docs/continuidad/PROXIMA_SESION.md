@@ -1,9 +1,9 @@
 # REPI — Retomar acá
 
-Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): EN CURSO** — ver abajo); antes, 09/11/2026 (**REPI Control: la pantalla también registra (D216, 0054): PUBLICADO Y VERIFICADO (#94, `ea37f6a`, smoke 20/20)**; antes, **REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**); antes, 09/11/2026 (**REPI Control: la pantalla también registra (D216, 0054): PUBLICADO Y VERIFICADO (#94, `ea37f6a`, smoke 20/20)**; antes, **REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
 
-## Personalización y Progress Intelligence 2.0 — 12/11/2026 · EN CURSO (D217, 0055)
+## Personalización y Progress Intelligence 2.0 — 12/11/2026 · PUBLICADO Y VERIFICADO (#100, `bd5da5b`, D217, 0055)
 
 - **Máster:** «REPI Personalization & Progress Intelligence 2.0». Documento: `docs/PERSONALIZACION_PROGRESO_2.md`; decisión D217.
 - **Rama:** `claude/progreso-inteligente` (worktree `/home/user/repi-pi`).
@@ -19,9 +19,17 @@ Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0
   `goal_distance`; gráfico interactivo (`chart-view.ts`, `ProgressChart.tsx`).
 - **0055 (aditiva):** metas propias en `client_goal` (`origin`, `user_id`). `hosted-0055.sql`, `verify-0055.sh` (ensayado OK),
   `rollback/0055`. Producción antes de aplicar: 55 migraciones, 0 filas en `client_goal` (consulta de sólo lectura).
-- **Pruebas:** dominio 1140/1140; `tests/profile-progress.test.ts` 17 ✓; regresión relacionada 266 ✓ (gateway de IA lento bajo
-  carga: pasa solo).
-- **Próxima acción:** QA visual, PR, CI, respaldo, 0055 en producción, integrar y verificar con cuentas demo.
+- **Pruebas:** dominio 1140/1140; web 850/850 (incluye `tests/profile-progress.test.ts`, 17); typecheck y build OK; CI verde.
+  QA visual en build local con la demo de alumno (390 px claro/oscuro, 820 px): sin errores de consola.
+- **Publicación:** respaldo `backup-20261112-141250-43234402674` (issue #101) → 0055 aplicada (56 migraciones; `coach_client`
+  previo idéntico, 0 metas reales) → integrado `bd5da5b` (`/api/version` `bd5da5b435bf`). Smoke en repiclub.com sólo con la
+  demo de alumno 14/14 (perfil y metas sin sesión 401, perfil parcial→completo con procedencia, campo de salud 400, vista
+  inteligente con máximo real y 1RM estimado, 404 ajeno, meta propia creada y cerrada, Progreso sin errores). Datos reales:
+  45 sesiones iguales, ningún perfil real tocado, la única meta propia es de la demo. Vercel sin errores.
+- **Pendiente / límites:** la importación de historial («Antes de REPI») no ofrece el formulario breve; los textos del cerebro
+  sobre máximo/capacidad/distancia salen en kg aunque la persona use lb (Progreso sí usa su unidad); falta probar en un
+  teléfono real con gestos (pellizco y doble toque se probaron en Chromium).
+- **Próxima acción:** ninguna obligatoria.
 
 ## REPI Control: la pantalla de rutinas también registra — 09/11/2026 · PUBLICADO Y VERIFICADO (#94, `ea37f6a`, D216, 0054)
 
