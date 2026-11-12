@@ -10,6 +10,7 @@ import { closeIdleWorkouts } from "@/server/training/services";
 import { checkBackupFreshness } from "@/server/ops/backup-watch";
 import { remindProgramBriefs } from "@/server/training/program-request";
 import { runProactive } from "@/server/brain/proactive";
+import { leadsTick } from "@/server/leads/pipeline";
 import { after } from "next/server";
 import { CRON_DEADLINE_MS, DeadlineError, withDeadline } from "@/server/deadline";
 
@@ -48,10 +49,12 @@ export async function GET(req: Request) {
   // D210: Asistente REPI. Sólo a las 9 y a las 18 (hora AR); cada minuto de la franja evalúa 1/60 de las personas activas, con
   // tope de personas y de tiempo; idempotente (claves únicas y lock por persona). Antes de la cola: su push sale en este mismo minuto.
   const brain = await step("brain", () => runProactive(), null);
+  // D218: Captación. Si la programación está encendida, un paso diario como máximo por minuto (hora AR); nunca envía mensajes.
+  const leads = await step("leads", () => leadsTick(), { ran: null });
   const p = await step("outbox", () => processOutbox(), { processed: 0 });
   // D198: vigilante de respaldos, una vez por hora (minuto 7), independiente del cronograma de GitHub.
   const backup = new Date().getUTCMinutes() === 7 ? await step("backup", () => checkBackupFreshness(), null) : null;
   const brainOut = brain?.ran ? { evaluated: brain.evaluated, emitted: brain.emitted, pushed: brain.pushed, duplicates: brain.duplicates, failed: brain.failed, ms: brain.ms, budgetHit: brain.budgetHit } : null;
-  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders, briefReminders, brain: brainOut, backup };
+  const out = { escalated: e.escalated, processed: p.processed, sent: "sent" in p ? p.sent : 0, demos, trialNotices: trial.created, connect, shiftsClosed, scheduled, workoutsClosed, consentReminders, briefReminders, brain: brainOut, backup, leads: leads.ran };
   return failed.length ? Response.json({ ...out, error: "job falló", failed }, { status: 500 }) : Response.json(out);
 }

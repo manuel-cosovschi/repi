@@ -2364,3 +2364,214 @@ export const salesNotice = pgTable("sales_notice", {
   readAt: ts("read_at"),
   createdAt: now("created_at"),
 }, (t) => [index("sales_notice_user_idx").on(t.userId, t.createdAt)]);
+
+// ── D218 · REPI Sales Intelligence 1.0: captación de gimnasios (Admin › Captación) ───────────────────────────────
+// Expediente persistente por negocio/sede con la procedencia de cada dato. Ningún envío sale sin una campaña aprobada o una
+// confirmación manual; «no contactar» se respeta por canal aunque el negocio vuelva a aparecer meses después.
+export const leadArea = pgTable("lead_area", {
+  id: id(),
+  name: text("name").notNull(),
+  province: text("province"),
+  tier: integer("tier").notNull(), // 1 máxima prioridad, 2 expansión regional, 3 nacional
+  lat: doublePrecision("lat").notNull(),
+  lng: doublePrecision("lng").notNull(),
+  radiusKm: doublePrecision("radius_km").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  lastDiscoveredAt: ts("last_discovered_at"),
+  createdAt: now("created_at"),
+}, (t) => [uniqueIndex("lead_area_name_uq").on(t.name)]);
+
+export const leadBusiness = pgTable("lead_business", {
+  id: id(),
+  name: text("name").notNull(),
+  normName: text("norm_name").notNull(),
+  legalName: text("legal_name"),
+  city: text("city"),
+  locality: text("locality"),
+  province: text("province"),
+  address: text("address"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  website: text("website"),
+  domain: text("domain"),
+  instagram: text("instagram"),
+  facebook: text("facebook"),
+  email: text("email"),
+  phone: text("phone"),
+  phoneNational: text("phone_national"),
+  whatsapp: text("whatsapp"), // número de wa.me (549…) sólo si el negocio lo publica como WhatsApp o una persona lo confirma
+  category: text("category").notNull().default("unknown"),
+  positioning: text("positioning"),
+  branches: integer("branches"),
+  estMembers: integer("est_members"),
+  tools: text("tools"),
+  contactName: text("contact_name"),
+  contactRole: text("contact_role"),
+  chainKey: text("chain_key"),
+  externalRefs: jsonb("external_refs").$type<string[]>().notNull().default([]),
+  areaId: text("area_id").references(() => leadArea.id, { onDelete: "set null" }),
+  geoTier: integer("geo_tier"),
+  stage: text("stage").notNull().default("discovered"),
+  stageChangedAt: now("stage_changed_at"),
+  score: integer("score").notNull().default(0),
+  scoreBand: text("score_band").notNull().default("low"),
+  scoreLines: jsonb("score_lines").$type<{ factor: string; points: number; max: number; why: string }[]>().notNull().default([]),
+  scoredAt: ts("scored_at"),
+  techSignals: jsonb("tech_signals").$type<{ kind: string; evidence: string }[]>().notNull().default([]),
+  intentFlags: jsonb("intent_flags").$type<{ inbound: boolean; replied: boolean; positive: boolean; askedPrice: boolean; meeting: boolean }>().notNull()
+    .default({ inbound: false, replied: false, positive: false, askedPrice: false, meeting: false }),
+  ownerUserId: text("owner_user_id").references(() => user.id, { onDelete: "set null" }),
+  repId: text("rep_id").references(() => salesRep.id),
+  salesProspectId: text("sales_prospect_id").references(() => salesProspect.id, { onDelete: "set null" }),
+  commercialLeadId: text("commercial_lead_id").references(() => commercialLead.id, { onDelete: "set null" }),
+  orgId: text("org_id").references(() => organization.id, { onDelete: "set null" }),
+  exclusion: text("exclusion"), // customer | negotiation | contacted | manual: fuera de la cola de prospección
+  exclusionNote: text("exclusion_note"),
+  doNotContact: boolean("do_not_contact").notNull().default(false),
+  reviewOfId: text("review_of_id"), // posible duplicado de otro expediente: revisión humana, nunca fusión automática
+  reviewSignals: jsonb("review_signals").$type<string[]>(),
+  nextAction: text("next_action"),
+  nextActionOn: text("next_action_on"),
+  firstSentOn: text("first_sent_on"),
+  lastSentOn: text("last_sent_on"),
+  followupsSent: integer("followups_sent").notNull().default(0),
+  sequenceStopped: boolean("sequence_stopped").notNull().default(false),
+  snoozeUntil: text("snooze_until"),
+  lastReplyAt: ts("last_reply_at"),
+  notes: text("notes"),
+  firstSeenAt: now("first_seen_at"),
+  lastVerifiedAt: ts("last_verified_at"),
+  enrichedAt: ts("enriched_at"),
+  revision: integer("revision").notNull().default(1),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  index("lead_business_stage_idx").on(t.stage, t.score), index("lead_business_city_idx").on(t.city), index("lead_business_norm_idx").on(t.normName),
+  index("lead_business_domain_idx").on(t.domain), index("lead_business_phone_idx").on(t.phoneNational), index("lead_business_ig_idx").on(t.instagram),
+  index("lead_business_next_idx").on(t.nextActionOn), index("lead_business_rep_idx").on(t.repId),
+]);
+
+/** Procedencia: cada valor con su fuente, fecha de obtención y verificación. El vigente es `current`; los demás quedan de historia. */
+export const leadFact = pgTable("lead_fact", {
+  id: id(),
+  businessId: text("business_id").notNull().references(() => leadBusiness.id, { onDelete: "cascade" }),
+  field: text("field").notNull(),
+  value: text("value").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceUrl: text("source_url"),
+  status: text("status", { enum: ["verified", "unverified", "rejected"] }).notNull().default("unverified"),
+  observedAt: text("observed_at").notNull(),
+  verifiedAt: ts("verified_at"),
+  verifiedBy: text("verified_by").references(() => user.id, { onDelete: "set null" }),
+  current: boolean("current").notNull().default(true),
+  createdAt: now("created_at"),
+}, (t) => [index("lead_fact_business_idx").on(t.businessId, t.field)]);
+
+/** Ejecuciones de los procesos (descubrimiento, enriquecimiento, puntuación, preparación, seguimiento, informe): registro y errores visibles. */
+export const leadRun = pgTable("lead_run", {
+  id: id(),
+  kind: text("kind").notNull(),
+  trigger: text("trigger", { enum: ["cron", "manual"] }).notNull(),
+  dedupeKey: text("dedupe_key").unique(), // cron: «kind:día» para no repetir un paso diario
+  status: text("status", { enum: ["running", "ok", "partial", "error", "skipped"] }).notNull().default("running"),
+  stats: jsonb("stats").$type<Record<string, unknown>>().notNull().default({}),
+  error: text("error"),
+  actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+  startedAt: now("started_at"),
+  finishedAt: ts("finished_at"),
+}, (t) => [index("lead_run_kind_idx").on(t.kind, t.startedAt)]);
+
+export const leadCampaign = pgTable("lead_campaign", {
+  id: id(),
+  name: text("name").notNull(),
+  channel: text("channel", { enum: ["whatsapp", "email", "instagram", "best"] }).notNull(), // best = el mejor canal publicado de cada gimnasio
+  variant: text("variant").notNull().default("first_contact"),
+  areaIds: jsonb("area_ids").$type<string[]>().notNull().default([]),
+  minScore: integer("min_score").notNull().default(0),
+  maxRecipients: integer("max_recipients").notNull().default(10),
+  dailyLimit: integer("daily_limit").notNull().default(10),
+  status: text("status", { enum: ["draft", "pending_approval", "approved", "paused", "closed"] }).notNull().default("draft"),
+  // Lo que se aprobó, tal cual: destinatarios, textos (hash), canal, cantidad, costo estimado y evidencia de consentimiento.
+  approval: jsonb("approval").$type<{ recipients: string[]; messageIds: string[]; textHash: string; count: number; costNote: string; consentNote: string; sendMode: "manual" | "provider" } | null>(),
+  approvedBy: text("approved_by").references(() => user.id, { onDelete: "set null" }),
+  approvedAt: ts("approved_at"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+});
+
+/** Conversación: salientes (borrador → aprobado → enviado confirmado) y entrantes (respuestas con intención). */
+export const leadMessage = pgTable("lead_message", {
+  id: id(),
+  businessId: text("business_id").notNull().references(() => leadBusiness.id, { onDelete: "cascade" }),
+  campaignId: text("campaign_id").references(() => leadCampaign.id, { onDelete: "set null" }),
+  direction: text("direction", { enum: ["out", "in"] }).notNull(),
+  channel: text("channel").notNull(), // whatsapp | email | instagram | facebook | phone | in_person | other
+  variant: text("variant"),
+  step: integer("step"), // 0 primer mensaje, 1.. seguimientos
+  subject: text("subject"),
+  body: text("body").notNull(),
+  status: text("status", { enum: ["draft", "approved", "sent", "failed", "cancelled", "received"] }).notNull(),
+  generatedBy: text("generated_by", { enum: ["template", "ai", "manual"] }),
+  guardIssues: jsonb("guard_issues").$type<string[]>().notNull().default([]),
+  toAddress: text("to_address"),
+  intent: text("intent"),
+  confidence: doublePrecision("confidence"),
+  needsReview: boolean("needs_review").notNull().default(false),
+  reviewedAt: ts("reviewed_at"),
+  provider: text("provider"), // manual | mailer | whatsapp_cloud
+  providerId: text("provider_id"),
+  error: text("error"),
+  approvedBy: text("approved_by").references(() => user.id, { onDelete: "set null" }),
+  approvedAt: ts("approved_at"),
+  sentAt: ts("sent_at"),
+  confirmedBy: text("confirmed_by").references(() => user.id, { onDelete: "set null" }),
+  actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+}, (t) => [index("lead_message_business_idx").on(t.businessId, t.createdAt), index("lead_message_status_idx").on(t.status, t.direction), index("lead_message_campaign_idx").on(t.campaignId)]);
+
+/** Historia del expediente: cambios de etapa, notas, objeciones, reuniones, consentimientos. Sólo se agrega. */
+export const leadActivity = pgTable("lead_activity", {
+  id: id(),
+  businessId: text("business_id").notNull().references(() => leadBusiness.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  summary: text("summary").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>(),
+  actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+  actorRole: text("actor_role", { enum: ["admin", "rep", "system"] }).notNull(),
+  createdAt: now("created_at"),
+}, (t) => [index("lead_activity_business_idx").on(t.businessId, t.createdAt), index("lead_activity_kind_idx").on(t.kind, t.createdAt)]);
+
+export const leadTask = pgTable("lead_task", {
+  id: id(),
+  businessId: text("business_id").notNull().references(() => leadBusiness.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // followup | callback | meeting | pricing | send_info | find_owner | objection | reply | review | next_step | contact
+  dueOn: text("due_on").notNull(),
+  dueAt: text("due_at"), // reunión: AAAA-MM-DDTHH:MM hora argentina
+  note: text("note"),
+  status: text("status", { enum: ["open", "done", "cancelled"] }).notNull().default("open"),
+  assigneeUserId: text("assignee_user_id").references(() => user.id, { onDelete: "set null" }),
+  dedupeKey: text("dedupe_key").unique(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  doneAt: ts("done_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("lead_task_due_idx").on(t.status, t.dueOn), index("lead_task_business_idx").on(t.businessId)]);
+
+/** Lista de no contactar por canal y valor normalizado: sobrevive a re-descubrimientos y a borrar el expediente. */
+export const leadSuppression = pgTable("lead_suppression", {
+  id: id(),
+  channel: text("channel", { enum: ["email", "phone", "instagram", "domain"] }).notNull(),
+  value: text("value").notNull(),
+  businessId: text("business_id").references(() => leadBusiness.id, { onDelete: "set null" }),
+  reason: text("reason").notNull(),
+  source: text("source").notNull(), // reply | link | manual | import
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+}, (t) => [uniqueIndex("lead_suppression_uq").on(t.channel, t.value)]);
+
+export const leadSetting = pgTable("lead_setting", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<unknown>().notNull(),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: now("updated_at"),
+});

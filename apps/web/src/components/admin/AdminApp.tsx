@@ -6,6 +6,7 @@ import { AdminAnnouncements } from "./AdminAnnouncements";
 import { AdminSite } from "./AdminSite";
 import { AdminCoaching } from "./AdminCoaching";
 import { AdminSales } from "./AdminSales";
+import { AdminLeads } from "./AdminLeads";
 import { Fragment, startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { fmtMoney, isEmail, localDate, parseMoney, type Currency } from "@repi/domain";
@@ -53,12 +54,12 @@ const monthOf = (d: string) => { const [y, m] = d.split("-").map(Number); const 
 // Estado del envío de la bienvenida (D88). "Aceptada por el proveedor" no se muestra: es lo esperado y no prueba entrega.
 const DELIVERY = { pending: "Envío en curso", local_only: "Sólo buzón local", failed: "Envío rechazado · reenviar" } as const;
 
-type Screen = "summary" | "clients" | "leads" | "sales" | "reps" | "site" | "coaching" | "support" | "ideas" | "privacy" | "announcements" | "guide";
-const NAV: readonly (readonly [Screen, string])[] = [["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["sales", "Ventas"], ["reps", "Vendedores"], ["site", "Sitio y QR"], ["coaching", "Coaching IA"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]];
+type Screen = "summary" | "clients" | "leads" | "captacion" | "sales" | "reps" | "site" | "coaching" | "support" | "ideas" | "privacy" | "announcements" | "guide";
+const NAV: readonly (readonly [Screen, string])[] = [["summary", "Resumen"], ["clients", "Clientes"], ["leads", "Contactos"], ["captacion", "Captación"], ["sales", "Ventas"], ["reps", "Vendedores"], ["site", "Sitio y QR"], ["coaching", "Coaching IA"], ["support", "Soporte"], ["ideas", "Sugerencias"], ["privacy", "Privacidad"], ["announcements", "Novedades de REPI"], ["guide", "Guía"]];
 
 export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?: string; tab?: string; deal?: string; rep?: string } }) {
   // D209: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
-  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : "summary");
+  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : initial?.s === "captacion" ? "captacion" : "summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -137,6 +138,7 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
             {k === "site" && <AdminSite />}
             {/* D210: métricas agregadas del asistente REPI y límites de la IA (sin datos de alumnos). */}
             {k === "coaching" && <AdminCoaching flash={flash} orgs={(list.data?.clients ?? []).map((c) => ({ id: c.orgId, name: c.name }))} />}
+            {k === "captacion" && <AdminLeads flash={flash} />}
             {(k === "sales" || k === "reps") && <AdminSales section={k} flash={flash} initial={initial} />}
             {k === "leads" && <Leads rows={list.data?.leads ?? null} flash={flash} reload={list.reload} onCreate={() => { go("clients"); setCreate(true); }} />}
           </>} />

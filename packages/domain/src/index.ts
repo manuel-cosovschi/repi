@@ -47,3 +47,5 @@ export * from "./sales";
 export * from "./personalize";
 export * from "./progress-intel";
 export * from "./chart-view";
+export * from "./leads";
+export * from "./leads-copy";

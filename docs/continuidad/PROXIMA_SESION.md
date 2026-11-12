@@ -1,7 +1,41 @@
 # REPI — Retomar acá
 
-Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**); antes, 09/11/2026 (**REPI Control: la pantalla también registra (D216, 0054): PUBLICADO Y VERIFICADO (#94, `ea37f6a`, smoke 20/20)**; antes, **REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): CONSTRUIDO Y PROBADO EN LOCAL, SIN PUBLICAR** en `claude/tender-cerf-0cm7r9`); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
 
+
+## REPI Sales Intelligence 1.0 — Captación de gimnasios — 12/11/2026 · CONSTRUIDO, SIN PUBLICAR (D218, 0056)
+
+- **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.
+- **Rama:** `claude/tender-cerf-0cm7r9`, al día con `main` `42b0b67`. **Sin publicar.**
+- **Hecho:** Admin › Captación. Spec, guía operativa e informe de pruebas en `docs/comercial/SALES_INTELLIGENCE.md`; decisión en D218.
+  - **Dominio:** `packages/domain/src/leads.ts` (identidad, procedencia, puntaje, intención, cadencia y enlaces) y `leads-copy.ts` (catálogo de afirmaciones, 13 variantes y guarda).
+  - **Servidor:** `apps/web/src/server/leads/*`:
+    - `core`: configuración y zonas;
+    - `store`: alta con deduplicación y exclusiones;
+    - `sources`: OSM y sitio oficial con robots.txt;
+    - `messaging`: borradores, «Lo envié», respuestas y no contactar;
+    - `campaigns`: aprobación con hash;
+    - `pipeline`: pasos y programador `leadsTick`, conectado al job de cada minuto;
+    - `insights`: panel, acciones y agente;
+    - `crm`: ficha, importación, exportación y vendedores;
+    - `routes`: `/api/admin/captacion/*`.
+  - **Baja pública:** `/baja/[token]`.
+  - **Migración 0056:** 10 tablas `lead_*`, aditiva. Aplicación en `scripts/operations/hosted-0056.sql`, reversión en `scripts/rollback/0056_lead_intelligence.down.sql` y ensayo en `verify-0056.sh`, que pasó.
+- **Pruebas:**
+  - dominio 33/33;
+  - integración `tests/lead-intelligence.test.ts` 10/10;
+  - typecheck ✓ y build ✓;
+  - navegador (iPhone oscuro y escritorio) en las 8 pestañas y la ficha, sin errores.
+- **Piloto (base local, nada enviado):**
+  - 95 gimnasios investigados por buscador. El contenedor no abre sitios, así que todo quedó «sin verificar» y con fuente.
+  - En la base: 94 expedientes, 4 a revisar, 49 en la cola de contacto.
+  - Smart Center Gym quedó excluido como posible cliente, pendiente de confirmar.
+  - La campaña con los 10 mejores está pendiente de aprobación.
+  - El listado de los 30 mejores se entregó al titular en Excel. La investigación para importar está en `docs/comercial/captacion/piloto-costa-atlantica-2026-11-12.json`.
+- **Pendiente:**
+  - aprobación del titular para publicar: respaldo, aplicar 0056, integrar, verificar OSM desde producción, importar el piloto y aprobar la campaña;
+  - confirmar Smart;
+  - decidir si se conecta la Gmail API (OAuth) y WhatsApp Business.
 
 ## Personalización y Progress Intelligence 2.0 — 12/11/2026 · PUBLICADO Y VERIFICADO (#100, `bd5da5b`, D217, 0055)
 
