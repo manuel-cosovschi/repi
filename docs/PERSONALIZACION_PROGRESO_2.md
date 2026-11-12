@@ -108,7 +108,7 @@ el objetivo, pocos datos, cambio de objetivo, meta; respetan «menos avisos» y 
 
 El cerebro responde con los mismos cálculos: «¿Cuál es el máximo que levanté…?» (A y, aparte, B), «¿Cuánto podría tirar para 8?»
 (B, aclarando que no es la próxima carga), «¿Qué intento la próxima vez?» (C) y «¿Cuánto me falta para 100 kg?» (contra A y,
-aparte, B). Acepta libras («225 lb»).
+aparte, B). Entiende libras en la pregunta («225 lb») y **responde siempre en kg** (decisión del titular, 12/11/2026).
 
 ## 6. Gráfico
 
@@ -176,7 +176,7 @@ build local (`pi-shots`/`pi-long`), **P** = smoke de producción, **E** = otra p
 | 34–35 | Importado / fecha aproximada | D 34–35; S «historial importado con fecha aproximada»; Q marcador hueco y leyenda |
 | 36–37 | Serie anulada / corregida | S «serie anulada no cuenta; corregida con su valor vigente, sin duplicar» |
 | 38–40 | Tiempo, peso corporal, drop sets | D 38–40 |
-| 41 | kg y lb | D 41 y «con libras elegidas… en lb»; textos del servidor en la unidad elegida |
+| 41 | kg y lb | D 41: los datos se guardan en kg; la pantalla de Progreso muestra la unidad elegida; el chat de REPI responde siempre en kg (decisión del titular) |
 | 42–45 | Zoom in/out, restablecer, desplazamiento | D `chart-view.test.ts`; Q historial largo (botones, «Ver todo», «Antes») |
 | 46 | Pellizco | Q eventos táctiles reales (CDP) en iPhone 13 emulado: pellizco acerca, arrastre desplaza |
 | 47–48 | Dos sesiones el mismo día / una sola | D `chart-view.test.ts` (separación estable); Q demo con 1–2 registros (sin línea ni zoom) |

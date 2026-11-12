@@ -26,14 +26,15 @@ Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0
   demo de alumno 14/14 (perfil y metas sin sesión 401, perfil parcial→completo con procedencia, campo de salud 400, vista
   inteligente con máximo real y 1RM estimado, 404 ajeno, meta propia creada y cerrada, Progreso sin errores). Datos reales:
   45 sesiones iguales, ningún perfil real tocado, la única meta propia es de la demo. Vercel sin errores.
-- **Cierre (mismo día, #103 `b54271e`, smoke 16/16: lo anterior + REPI responde el máximo real en kg y la capacidad en lb):** «Cargar historial anterior» también ofrece el formulario breve; REPI responde máximo,
-  capacidad, próxima carga y distancia en la unidad elegida (lb); marcadores chicos con 60–150 puntos visibles; QA de historial
+- **Cierre (mismo día, #103 `b54271e`, smoke 16/16: lo anterior + REPI responde máximo real y capacidad; la respuesta en lb se revirtió después):** «Cargar historial anterior» también ofrece el formulario breve; REPI responde máximo,
+  capacidad, próxima carga y distancia (en kg: ver ajuste); marcadores chicos con 60–150 puntos visibles; QA de historial
   largo en build local (iPhone 13 emulado, 428 registros, 3 años con hueco de 90 días y tramo con fecha aproximada): zoom,
   alejar, «Ver todo», desplazamiento, pellizco y arrastre con eventos táctiles reales, teclado, tramos punteados, cambio de
   ejercicio sin zoom heredado; vista inteligente 62–75 ms. Mapa de los 64 casos en `docs/PERSONALIZACION_PROGRESO_2.md` §9.
   Inventario: F-CL-06, F-HX-02 y F-CO-03 → probado (evidencia en `docs/IMPLEMENTATION_STATUS.md`).
-- **Límites conocidos:** las demás respuestas del cerebro (última marca, «¿por qué este peso?», tendencia) siguen en kg como
-  antes; los gestos se probaron en Chromium con eventos táctiles reales, no en un teléfono físico.
+- **Ajuste del titular (12/11):** «Todo en kg»: el chat de REPI responde siempre en kg (se revirtió la respuesta en lb de #103);
+  la pantalla de Progreso sigue mostrando la unidad elegida en Perfil.
+- **Límites conocidos:** los gestos se probaron en Chromium con eventos táctiles reales, no en un teléfono físico.
 - **Próxima acción:** ninguna obligatoria.
 
 ## REPI Control: la pantalla de rutinas también registra — 09/11/2026 · PUBLICADO Y VERIFICADO (#94, `ea37f6a`, D216, 0054)
