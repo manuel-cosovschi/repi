@@ -26,9 +26,14 @@ Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0
   demo de alumno 14/14 (perfil y metas sin sesión 401, perfil parcial→completo con procedencia, campo de salud 400, vista
   inteligente con máximo real y 1RM estimado, 404 ajeno, meta propia creada y cerrada, Progreso sin errores). Datos reales:
   45 sesiones iguales, ningún perfil real tocado, la única meta propia es de la demo. Vercel sin errores.
-- **Pendiente / límites:** la importación de historial («Antes de REPI») no ofrece el formulario breve; los textos del cerebro
-  sobre máximo/capacidad/distancia salen en kg aunque la persona use lb (Progreso sí usa su unidad); falta probar en un
-  teléfono real con gestos (pellizco y doble toque se probaron en Chromium).
+- **Cierre (mismo día, PR de cierre):** «Cargar historial anterior» también ofrece el formulario breve; REPI responde máximo,
+  capacidad, próxima carga y distancia en la unidad elegida (lb); marcadores chicos con 60–150 puntos visibles; QA de historial
+  largo en build local (iPhone 13 emulado, 428 registros, 3 años con hueco de 90 días y tramo con fecha aproximada): zoom,
+  alejar, «Ver todo», desplazamiento, pellizco y arrastre con eventos táctiles reales, teclado, tramos punteados, cambio de
+  ejercicio sin zoom heredado; vista inteligente 62–75 ms. Mapa de los 64 casos en `docs/PERSONALIZACION_PROGRESO_2.md` §9.
+  Inventario: F-CL-06, F-HX-02 y F-CO-03 → probado (evidencia en `docs/IMPLEMENTATION_STATUS.md`).
+- **Límites conocidos:** las demás respuestas del cerebro (última marca, «¿por qué este peso?», tendencia) siguen en kg como
+  antes; los gestos se probaron en Chromium con eventos táctiles reales, no en un teléfono físico.
 - **Próxima acción:** ninguna obligatoria.
 
 ## REPI Control: la pantalla de rutinas también registra — 09/11/2026 · PUBLICADO Y VERIFICADO (#94, `ea37f6a`, D216, 0054)

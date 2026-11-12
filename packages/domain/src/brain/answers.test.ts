@@ -243,6 +243,11 @@ describe("D217 · Progreso: cuatro conceptos que no se mezclan", () => {
     expect(compose({ name: "max_lift", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { metric: "reps", max: null, best: null, bestReps: 12 } }).text).toContain("12 repeticiones");
     expect(compose({ name: "max_lift", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: null }).text).toContain("Todavía no tengo registros");
   });
+  it("41 · con libras elegidas, el máximo y la estimación se dicen en lb (los datos siguen en kg)", () => {
+    const r = compose({ name: "max_lift", slots: {}, confidence: 1 }, makeCtx({ person: { unit: "lb" } }), { exercise: ex, progress: base });
+    expect(r.text).toContain("220,5 lb × 3");
+    expect(r.text).toContain("1RM estimado de 251,3 lb");
+  });
   it("capacidad: estimación que aclara que no es la próxima carga de trabajo", () => {
     const r = compose({ name: "capacity", slots: {}, confidence: 1 }, makeCtx(), { exercise: ex, progress: { ...base, capacity: { reps: 8, weightKg: 90, text: "Estimación aproximada: 90 kg × 8." } } });
     expect(r.text).toContain("No es tu próxima carga de trabajo");
