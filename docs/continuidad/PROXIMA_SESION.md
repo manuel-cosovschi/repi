@@ -1,9 +1,31 @@
 # REPI — Retomar acá
 
-Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): CONSTRUIDO Y PROBADO EN LOCAL, SIN PUBLICAR** en `claude/tender-cerf-0cm7r9`); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
 
 
-## REPI Sales Intelligence 1.0 — Captación de gimnasios — 12/11/2026 · CONSTRUIDO, SIN PUBLICAR (D218, 0056)
+## REPI Sales Intelligence 1.0 — Captación de gimnasios — 12/11/2026 · PUBLICADO (D218, 0056, #107, #108)
+
+- **Publicación (aprobada por el titular el 12/11: «Te doy el ok»):**
+  - Respaldo verificado #106 (`backup-20261112-173652`).
+  - `hosted-0056.sql` aplicada: 57 migraciones, 10 tablas `lead_*` con RLS y dueño `repi_app`, sin permisos públicos.
+  - #107 integrada (`75995cc`) y `/api/version` = `75995cc5152c`.
+  - #108 (tope de tiempo de OSM) integrada (`7c9c2b5`) y `/api/version` = `7c9c2b56ea2d`.
+- **Decisiones del titular (D218, ajuste):**
+  - Smart Center Gym es cliente: queda excluido.
+  - Prueba social: «Ya funciona en Smart Center Gym, en Mar del Plata, y estamos en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil.»
+  - El precio se cotiza por socio. Para estimar se usan los tramos del dossier ($200 por debajo de 500 socios, $170 desde 500). La respuesta de precios cita los ejemplos 400 × $200 y 500 × $170 como ilustrativos.
+- **Piloto en producción:** se cargó con `POST /api/cron/leads` desde Supabase (pg_net + `repi_private.cron_bearer()`, rol `repi_app`).
+  - 94 expedientes: 90 nuevos, 1 duplicado unido y 4 a revisar; Smart excluido.
+  - Enriquecimiento desde producción: 7 sitios oficiales, 5 actualizados (Vitalite y RF Fitness no respondieron) y 23 datos verificados.
+  - Arriba quedaron SQUATGIM (74) y Andrea Fusella (73), con WhatsApp y email verificados.
+  - En Nautilus Club el sitio enlazaba el Instagram de una escuela de buceo: se descartó a mano (con nota en su historial) y el enriquecimiento ahora sólo verifica perfiles que coinciden con el nombre o el dominio.
+- **OpenStreetMap desde producción:**
+  - La primera corrida llegó al límite de 60 s; #108 lo corrigió.
+  - La segunda terminó bien, pero el servicio público respondió que estaba saturado («at capacity», 502) y el servidor alternativo no respondió. Quedó registrado y se reintenta en la próxima corrida.
+  - **Pendiente:** confirmar una corrida con resultados (Captación › Procesos › Investigación) cuando Overpass tenga capacidad.
+- **Campaña piloto:** no se creó en producción, porque la arma y aprueba el titular (Campañas › Nueva › «Mejor canal de cada gimnasio» › Armar lista › Enviar a aprobación › Aprobar).
+- **Programación diaria:** apagada; se enciende en Ajustes.
+
 
 - **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.
 - **Rama:** `claude/tender-cerf-0cm7r9`, al día con `main` `42b0b67`. **Sin publicar.**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAutoMove, classifyReply, compose, copyGuard, DEFAULT_CADENCE, DEFAULT_WEIGHTS, factWins, identityKeys, intentPlan, matchLead, nextSequenceStep,
-  normPhoneAR, parseFollowUpDate, unitPriceFor, scoreLead, segmentOf, validateCadence, validateWeights, waLink, igHandle, domainOf, clientsForMrr, VARIANTS, type CopyContext, type ScoreInput,
+  normPhoneAR, parseFollowUpDate, unitPriceFor, handleMatchesBusiness, scoreLead, segmentOf, validateCadence, validateWeights, waLink, igHandle, domainOf, clientsForMrr, VARIANTS, type CopyContext, type ScoreInput,
 } from "./index";
 
 describe("teléfonos argentinos", () => {
@@ -14,6 +14,12 @@ describe("teléfonos argentinos", () => {
     expect(normPhoneAR("15 412-3456", "Mar del Plata")?.national).toBe("2234123456");
     expect(normPhoneAR("43210", "Mar del Plata")).toBeNull();
     expect(normPhoneAR("")).toBeNull();
+  });
+  it("un perfil enlazado desde el sitio es del negocio sólo si coincide con su nombre o dominio", () => {
+    expect(handleMatchesBusiness("nautilusclubmdp", "Nautilus Club", "https://nautilusclub.com.ar")).toBe(true);
+    expect(handleMatchesBusiness("openseaescueladebuceomdq", "Nautilus Club", "https://nautilusclub.com.ar")).toBe(false);
+    expect(handleMatchesBusiness("fusellapilatesandfitness", "Andrea Fusella (gimnasio)", "https://andreafusella.com.ar")).toBe(true);
+    expect(handleMatchesBusiness("sinapgym", "SinapGym", "http://www.sinapgym.com.ar/")).toBe(true);
   });
   it("Instagram y dominio", () => {
     expect(igHandle("https://www.instagram.com/Gym.Fox/")).toBe("gym.fox");

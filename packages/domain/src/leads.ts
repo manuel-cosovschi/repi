@@ -158,6 +158,16 @@ export function matchLead(c: LeadIdentity, existing: (LeadIdentity & { id: strin
   return strong ?? best;
 }
 const sig = (k: string) => ({ ext: "fuente", dom: "dominio", ig: "Instagram", tel: "teléfono", mail: "email", name: "nombre y ciudad" } as Record<string, string>)[k.split(":")[0]] ?? k;
+/**
+ * ¿Este perfil (Instagram, Facebook) es del propio negocio? Un sitio oficial puede enlazar a otros (un inquilino, un sponsor):
+ * sólo se acepta como verificado si el usuario comparte una palabra de 4+ letras con el nombre o el dominio.
+ */
+export function handleMatchesBusiness(handle: string | null | undefined, name: string, website?: string | null): boolean {
+  const h = fold(handle ?? "").replace(/[^a-z0-9]/g, "");
+  if (h.length < 3) return false;
+  const words = [...normName(name).split(" "), ...(domainOf(website)?.split(".")[0].split(/[^a-z0-9]/) ?? [])].filter((w) => w.length >= 4);
+  return words.some((w) => h.includes(w));
+}
 /** Clave de cadena: dominio o Instagram compartidos por varias sedes. */
 export const chainKeyOf = (l: LeadIdentity) => { const d = domainOf(l.website); if (d) return `dom:${d}`; const ig = igHandle(l.instagram); return ig ? `ig:${ig}` : null; };
 
