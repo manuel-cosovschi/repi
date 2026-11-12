@@ -15,6 +15,9 @@ export type Step = (typeof STEPS)[number];
 export const STEP_LABEL: Record<Step, string> = { discovery: "Investigación", enrich: "Enriquecimiento", score: "Calificación", compose: "Preparación comercial", followup: "Seguimiento", report: "Informe diario" };
 
 async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron" | "manual", actorId: string | null, work: () => Promise<T>) {
+  // Una corrida cortada por el límite de la función queda «running» para siempre: pasados 3 minutos se cierra como error.
+  await db.update(leadRun).set({ status: "error", error: "La corrida se cortó por el límite de tiempo de la función", finishedAt: new Date() })
+    .where(and(eq(leadRun.status, "running"), lte(leadRun.startedAt, new Date(Date.now() - 3 * 60_000))));
   const dedupeKey = trigger === "cron" ? `${kind}:${today()}` : null;
   const [r] = await db.insert(leadRun).values({ kind, trigger, dedupeKey, actorUserId: actorId }).onConflictDoNothing().returning();
   if (!r) return { skipped: true as const };
@@ -43,9 +46,10 @@ export async function stepDiscovery(opts: { areaIds?: string[]; budgetMs?: numbe
   const until = Date.now() + (opts.budgetMs ?? 20_000);
   const known = new Set((await db.execute<{ r: string }>(sql`select distinct jsonb_array_elements_text(external_refs) as r from lead_business`)).map((x) => x.r));
   for (const a of areas) {
-    if (Date.now() > until) break;
+    // Una zona necesita margen para la consulta y la carga: si no queda, sigue en la próxima corrida.
+    if (until - Date.now() < 10_000) { out.errors.push(`${a.name}: sin tiempo en esta corrida`); break; }
     try {
-      const cands = await discoverOsm(a);
+      const cands = await discoverOsm(a, fetch, Math.min(22_000, until - Date.now() - 3_000));
       out.found += cands.length;
       let complete = true;
       for (const c of cands.slice(0, 300)) {
