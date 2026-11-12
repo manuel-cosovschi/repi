@@ -2,7 +2,7 @@
 // programación está encendida y es día hábil configurado, corre como mucho UN paso por minuto, el primero cuya hora (Argentina)
 // ya pasó y que hoy no corrió. Cada paso queda en lead_run con estadísticas y error visible. Ningún paso envía mensajes.
 import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { nextSequenceStep, type LeadStage, CLOSED_STAGES, ENGAGED_STAGES } from "@repi/domain";
+import { handleMatchesBusiness, nextSequenceStep, type LeadStage, CLOSED_STAGES, ENGAGED_STAGES } from "@repi/domain";
 import { db } from "@/db";
 import { logError } from "../log";
 import { ensureAreas, getSettings, leadArea, leadBusiness, leadMessage, leadRun, leadTask, leadsAdmin, leadsEnabled, logLead, today } from "./core";
@@ -86,9 +86,13 @@ export async function stepEnrich(opts: { ids?: string[]; budgetMs?: number } = {
       if (!r.ok) { out.skipped.push(`${b.name}: ${r.reason}`); await logLead(db, { businessId: b.id, kind: "enrich", summary: `Sitio oficial no leído: ${r.reason}`, actorRole: "system" }); continue; }
       const f = r.facts; const url = r.pages[0];
       const src = { type: "official_site" as const, url, status: "verified" as const };
+      // Perfiles enlazados desde el sitio: verificados sólo si son del propio negocio (no de un inquilino o sponsor).
+      const own = (h: string | null) => handleMatchesBusiness(h, b.name, b.website);
+      const fbHandle = f.facebook?.match(/facebook\.com\/([^/?#]+)/i)?.[1] ?? null;
       const res = await ingest({
         name: b.name, city: b.city, website: b.website, email: f.emails[0] ?? null, phone: f.phones[0] ?? null, whatsapp: f.whatsapps[0] ?? null, instagram: f.instagram, facebook: f.facebook,
         source: src, externalRef: null,
+        sources: { instagram: { ...src, status: own(f.instagram) ? "verified" : "unverified" }, facebook: { ...src, status: own(fbHandle) ? "verified" : "unverified" } },
       }, { userId: null, role: "system" });
       if (res.outcome !== "unchanged") out.updated++;
       await logLead(db, { businessId: b.id, kind: "enrich", summary: `Sitio oficial leído (${r.pages.length} página${r.pages.length > 1 ? "s" : ""}): ${[f.emails.length && "email", f.phones.length && "teléfono", f.whatsapps.length && "WhatsApp", f.instagram && "Instagram"].filter(Boolean).join(", ") || "sin datos de contacto nuevos"}`, payload: { pages: r.pages }, actorRole: "system" });

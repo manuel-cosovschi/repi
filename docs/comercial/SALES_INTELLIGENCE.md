@@ -1,6 +1,6 @@
 # REPI Sales Intelligence 1.0 — Captación de gimnasios (D218)
 
-Estado: **construido y probado en local; sin publicar.** Para producción hace falta el respaldo, aplicar 0056 y la aprobación del titular (ver «Publicación»).
+Estado: **publicado el 12/11/2026** (#107 y #108, migración 0056, respaldo #106). El piloto está cargado en producción. La programación diaria está apagada hasta que el titular la encienda.
 
 ## Qué es
 
@@ -197,7 +197,17 @@ Entrada interna: `POST /api/cron/leads` con `Authorization: Bearer CRON_SECRET` 
 | IA (pulir mensajes, respuestas ambiguas, preguntas libres al agente) | Usa la OPENAI_API_KEY ya configurada, pero las dos opciones están **apagadas** por defecto. Con o sin IA, la guarda se aplica igual. |
 | n8n | No se usó: el programador propio ya corre con el job de cada minuto que existe en producción, y no hace falta un servicio extra. |
 
-## Publicación (pendiente de aprobación)
+## Publicación
+
+Hecha el 12/11/2026, con la aprobación del titular:
+
+- respaldo #106;
+- `hosted-0056.sql`;
+- #107 y #108;
+- piloto importado por la entrada interna;
+- enriquecimiento verificado en producción (5 de 7 sitios).
+
+OpenStreetMap respondió «at capacity» (502) en la primera corrida desde producción: el error quedó registrado y se reintenta solo. Procedimiento original:
 
 1. Workflow «Respaldo» en verde (`docs/RESPALDOS.md`).
 2. Aplicar `hosted-0056.sql`, que exige 0055 aplicada.
