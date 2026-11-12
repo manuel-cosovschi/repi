@@ -9,12 +9,14 @@ import { today } from "./core";
 
 const UA = "REPI-Captacion/1.0 (+https://repiclub.com/conoce)";
 export const OVERPASS_URL = () => process.env.OVERPASS_URL || "https://overpass-api.de/api/interpreter";
+/** Servidores públicos de Overpass (misma base de OSM): si el principal no responde a tiempo, se prueba el siguiente. */
+export const OVERPASS_URLS = () => process.env.OVERPASS_URL ? [process.env.OVERPASS_URL] : ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 
 type OsmEl = { type: "node" | "way" | "relation"; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
 export function overpassQuery(lat: number, lng: number, radiusKm: number) {
   const r = Math.round(radiusKm * 1000);
   const a = `(around:${r},${lat},${lng})`;
-  return `[out:json][timeout:25];(nwr["leisure"="fitness_centre"]${a};nwr["amenity"="gym"]${a};nwr["sport"~"crossfit|fitness"]["leisure"="sports_centre"]${a};);out center tags;`;
+  return `[out:json][timeout:18];(nwr["leisure"="fitness_centre"]${a};nwr["amenity"="gym"]${a};nwr["sport"~"crossfit|fitness"]["leisure"="sports_centre"]${a};);out center tags;`;
 }
 /** Elemento de OSM → candidato. Sin nombre no hay negocio identificable. */
 export function osmToCandidate(e: OsmEl, area: { name: string; province: string | null }): Candidate | null {
@@ -34,15 +36,28 @@ export function osmToCandidate(e: OsmEl, area: { name: string; province: string 
     externalRef: `osm:${e.type}/${e.id}`, source: { type: "osm", url, observedAt: today() },
   };
 }
-export async function discoverOsm(area: { name: string; province: string | null; lat: number; lng: number; radiusKm: number }, fetcher: typeof fetch = fetch): Promise<Candidate[]> {
-  const res = await fetcher(OVERPASS_URL(), {
-    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": UA },
-    body: `data=${encodeURIComponent(overpassQuery(area.lat, area.lng, area.radiusKm))}`, signal: AbortSignal.timeout(30_000),
-  });
-  if (res.status === 429) throw new Error("Overpass pidió esperar (429): se reintenta en la próxima corrida");
-  if (!res.ok) throw new Error(`Overpass respondió ${res.status}`);
-  const j = (await res.json()) as { elements?: OsmEl[] };
-  return (j.elements ?? []).map((e) => osmToCandidate(e, area)).filter(Boolean) as Candidate[];
+/**
+ * Consulta OSM para una zona. `budgetMs` acota la espera total (la función serverless se corta a los 60 s): cada servidor
+ * recibe lo que queda, y si el primero no responde a tiempo o da error se prueba el siguiente.
+ */
+export async function discoverOsm(area: { name: string; province: string | null; lat: number; lng: number; radiusKm: number }, fetcher: typeof fetch = fetch, budgetMs = 25_000): Promise<Candidate[]> {
+  const until = Date.now() + budgetMs;
+  const errors: string[] = [];
+  for (const url of fetcher === fetch ? OVERPASS_URLS() : [OVERPASS_URL()]) {
+    const left = until - Date.now();
+    if (left < 4000) break;
+    try {
+      const res = await fetcher(url, {
+        method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": UA },
+        body: `data=${encodeURIComponent(overpassQuery(area.lat, area.lng, area.radiusKm))}`, signal: AbortSignal.timeout(Math.min(left, 20_000)),
+      });
+      if (res.status === 429) { errors.push(`${new URL(url).host}: pidió esperar (429)`); continue; }
+      if (!res.ok) { errors.push(`${new URL(url).host}: respondió ${res.status}`); continue; }
+      const j = (await res.json()) as { elements?: OsmEl[] };
+      return (j.elements ?? []).map((e) => osmToCandidate(e, area)).filter(Boolean) as Candidate[];
+    } catch (e) { errors.push(`${new URL(url).host}: ${(e as Error).name === "TimeoutError" ? "no respondió a tiempo" : (e as Error).message}`); }
+  }
+  throw new Error(`OpenStreetMap no respondió (${errors.join("; ") || "sin tiempo"}): se reintenta en la próxima corrida`);
 }
 
 // ── Sitio oficial ────────────────────────────────────────────────────────────
