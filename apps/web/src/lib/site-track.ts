@@ -22,7 +22,9 @@ export function visitContext() {
   if (memo) return memo;
   try { const saved = JSON.parse(sessionStorage.getItem(KEY) ?? "null"); if (saved?.visit) return (memo = saved); } catch { /* */ }
   const q = new URLSearchParams(location.search);
-  const utmSource = q.get("utm_source"), utmMedium = q.get("utm_medium"), utmCampaign = q.get("utm_campaign");
+  // Recortados a lo que aceptan la medición y el formulario: una campaña con nombre largo no puede hacer perder un contacto.
+  const cut = (v: string | null, n: number) => (v ? v.slice(0, n) : null);
+  const utmSource = cut(q.get("utm_source"), 40), utmMedium = cut(q.get("utm_medium"), 40), utmCampaign = cut(q.get("utm_campaign"), 80);
   let ref = "";
   try { ref = document.referrer ? new URL(document.referrer).host : ""; } catch { /* */ }
   const source: Source = utmSource === "qr" ? "qr" : utmSource ? "utm" : ref && ref !== location.host ? "referral" : "direct";

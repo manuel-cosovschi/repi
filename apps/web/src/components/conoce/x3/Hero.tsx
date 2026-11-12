@@ -134,7 +134,7 @@ export function Hero({ variant = "a" }: { variant?: HeroVariant }) {
           <button type="button" className="x3-btn pri" onClick={watch}><Play size={18} weight="fill" aria-hidden="true" />Mirá REPI en acción</button>
           <DemoButton role="member" label="Probá la demo" className="x3-btn ghost" target="hero" />
         </div>
-        <p className="x3-hero-proof"><MapPin size={16} weight="bold" aria-hidden="true" /><span>Ya funciona en gimnasios de Mar del Plata.</span></p>
+        <p className="x3-hero-proof"><MapPin size={16} weight="bold" aria-hidden="true" /><span>Ya funciona en Mar del Plata.</span></p>
       </div>
       <span className="x3-hero-ring" aria-hidden="true" /><span className="x3-hero-ring" aria-hidden="true" />
       {/* El frente de luz del encendido: un círculo fino (el trazo no crece con el radio). */}

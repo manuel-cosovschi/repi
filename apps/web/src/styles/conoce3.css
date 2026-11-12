@@ -64,6 +64,8 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .sala-canvas { width: 100% !important; height: 100% !important; }
 /* Velo frío: la sala «sin REPI» (02) y la toma abierta del entrenamiento (03). Sólo opacidad. */
 .sala-tone { position: absolute; inset: 0; background: #131B26; opacity: 0; }
+/* 4.0 · Atenuación detrás de las secciones con mucho texto (la pide `data-dim`): la sala sigue ahí, más baja. */
+.sala-dim { position: absolute; inset: 0; background: var(--x-navy); opacity: 0; }
 /* Golpe de color del corte de 02: la sala se tiñe de cian un instante cuando se enciende (la persona, viva). Sólo opacidad. */
 .sala-wash { position: absolute; inset: 0; background: var(--x-cyan); opacity: 0; }
 /* Viñeta funcional: asegura contraste del texto sobre la sala (no es decoración). */
