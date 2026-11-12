@@ -54,6 +54,7 @@ export function ProgramImportModal({ title, scope, previewUrl, createUrl, librar
     if (busy) return;
     setBusy(true); setErr(null);
     // `false`: quien recibe lo canceló (por ejemplo, no confirmó reemplazar el borrador): la revisión sigue abierta.
+    review.flush(); // FSA1: borrador con su opId escrito antes de guardar
     try { if ((await onUse({ doc: toProgramDoc(s, "kg", name), opId: s.opId, source: s.preview.source, file: s.preview.file })) !== false) review.clear(); }
     catch (e) { setErr((e as Error).message || "No pudimos usar la importación. Probá de nuevo: no se duplica."); }
     finally { setBusy(false); }

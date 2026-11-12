@@ -24,6 +24,8 @@ import * as guide from "@/server/gym/owner-assistant";
 import * as dc from "@/server/training/day-copy";
 import * as st from "@/server/training/set-types";
 import * as eqp from "@/server/gym/equipment";
+import * as kiosk from "@/server/gym/kiosk";
+import * as staff from "@/server/gym/staff-admin";
 import { CopyChoiceZ, SetTypeZ } from "@/server/training/workflow-schema";
 
 type Ctx = { params: Promise<{ orgId: string; path: string[] }> };
@@ -53,7 +55,9 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "context": {
       const ctx = await gym.gymContext(me, orgId);
       const { allowed } = await gym.scopedLocation(ctx, null);
-      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled };
+      return { org: { id: ctx.org.id, name: ctx.org.name }, name: ctx.name, roles: ctx.roles, caps: ctx.caps, locations: allowed.map((l) => ({ id: l.id, name: l.name })), afterHoursAccess: ctx.afterHoursAccess, connect: connect.connectOn(ctx.org), accessControl: (await ac.policyOf(orgId)).enabled,
+        // REPI Control (D213): quién soy (STF-09 no se gestiona a sí mismo), pantalla de rutinas y planificación supervisada.
+        userId: me, kiosk: ctx.org.kioskEnabled, supervised: ctx.org.routinePolicy === "supervised" };
     }
     case "notices": return notices.myStaffNotices(me, orgId);
     case "equipment": return b === "library" ? eqp.equipmentLibrary(me, orgId, loc(u)) : eqp.listEquipment(me, orgId, loc(u), { archived: u.searchParams.get("archived") === "1" }); // D195
@@ -72,7 +76,8 @@ export const GET = handle<Ctx>(async (req, { params }) => {
       return { ...d, community: await cm.memberCommunitySummary(orgId, b) }; // intentos y logros en la ficha (F-HX-15)
     }
     case "library": return gym.gymLibrary(me, orgId);
-    case "team": return gym.teamList(me, orgId, loc(u));
+    case "team": return b ? staff.staffAccess(me, orgId, b) : gym.teamList(me, orgId, loc(u)); // STF-09: gestionar a una persona
+    case "kiosk": return b === "members" && c ? kiosk.credentialStatus(me, orgId, c) : kiosk.kioskSettings(me, orgId); // D213
     case "shifts": return gym.weekPlan(me, orgId, loc(u) ?? "", u.searchParams.get("week"));
     case "perf":
       if (b === "me") return mt.myPerformance(me, orgId, period(u));
@@ -86,7 +91,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     case "attributions": return rv.myAttributions(me, orgId);
     case "cases": return b ? rv.caseDetail(me, orgId, b) : rv.listCases(me, orgId, loc(u));
     case "access-history": return rv.accessHistory(me, orgId);
-    case "messages": return msg.floorThreads(me, orgId, loc(u) ?? "");
+    case "messages": return msg.floorThreads(me, orgId, loc(u) ?? "", u.searchParams.get("with"));
     case "community": return cm.staffCommunity(me, orgId);
     case "validations": return cm.listValidations(me, orgId);
     case "proposals": return cm.listProposals(me, orgId); // D172
@@ -155,6 +160,17 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "intel-proposals" && b) return gym.decideMemberProposal(me, orgId, b, await body(req, z.object({ status: z.enum(["accepted", "modified", "rejected", "kept"]), note: z.string().max(200).nullable().optional() }))); // D191
   if (a === "members" && b && c === "notes") return gym.addNote(me, orgId, b, await body(req, z.object({ kind: z.enum(["institutional", "personal"]), text: z.string().max(1000) })));
   if (a === "members" && b && c === "conversation") return msg.floorConversationFor(me, orgId, b);
+  // STF-09 (D214): quitar del equipo o cambiar rol y sede.
+  if (a === "team" && b && c === "revoke") return staff.revokeStaff(me, orgId, b, (await body(req, z.object({ reason: z.string().max(200).nullable().optional() }))).reason ?? null);
+  if (a === "team" && b && c === "role") return staff.changeStaffRole(me, orgId, b, await body(req, z.object({ role: z.enum(staff.MANAGEABLE_ROLES), locationId: id.nullable() })));
+  // REPI Control (D213): pantallas de rutinas y credenciales de socios.
+  if (a === "kiosk" && b === "devices" && !c) { const p = await body(req, z.object({ loc: id, name: z.string().max(60) })); return kiosk.createKiosk(me, orgId, p.loc, p.name); }
+  if (a === "kiosk" && b === "devices" && c) { const [, , , d] = path; if (d === "revoke") return kiosk.revokeKiosk(me, orgId, c); }
+  if (a === "kiosk" && b === "members" && c) {
+    const [, , , d] = path;
+    if (d === "issue") return kiosk.issueCredential(me, orgId, c);
+    if (d === "revoke") return kiosk.revokeCredential(me, orgId, c);
+  }
   if (a === "team" && b && c === "after-hours") return gym.setAfterHours(me, orgId, b, (await body(req, z.object({ on: z.boolean() }))).on);
   if (a === "team" && b && c === "private") return gym.tryPrivate(me, orgId, b, (await body(req, z.object({ what: z.string().max(80) }))).what);
   if (a === "shifts") { const p = await body(req, z.object({ loc: id, userId: id, date: z.string().max(10), code: z.string().max(1).nullable() })); return gym.setPlanCell(me, orgId, p.loc, p); }
@@ -193,7 +209,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "accesses" && b && (c === "suspend" || c === "end" || c === "reactivate")) return join.setAccess(me, orgId, b, c);
   if (a === "accesses" && b && c === "report") return join.reportNotMember(me, orgId, b);
   if (a === "assistant") { await limit(`assistant:${me}`, 40, 3_600_000); return guide.askOwnerAssistant(me, orgId, (await body(req, z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2000) })).max(20) }))).messages); }
-  if (a === "library" && !b) return gym.gymCreateExercise(me, orgId, await body(req, z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20) })));
+  if (a === "library" && !b) return gym.gymCreateExercise(me, orgId, await body(req, z.object({ name: z.string().max(80), group: z.string().max(40), kind: z.string().max(20).optional(), profile: z.string().max(20).nullable().optional() })));
   if (a === "alerts" && b && c === "ack") return alerts.ackAlert(me, orgId, b);
   if (a === "access" && b === "policy") return ac.updatePolicy(me, orgId, await body(req, z.object({
     mode: z.enum(["open", "hybrid", "strict"]).optional(), strictActions: z.array(z.enum(["gym.assistance.request", "gym.challenge.attempt"])).max(4).optional(),

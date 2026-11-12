@@ -25,12 +25,15 @@ Cada film usa un fragmento recortado, normalizado a −14 LUFS y sincronizado co
 | `f-progreso` | Clash Defiant | 150,0 → 172,5 s |
 | `f-altas` | Five Armies | 120,0 → 143,5 s |
 | `f-sala` | Clash Defiant | 0,0 → 23,5 s |
+| `modo-completo` y `modo-completo-vertical` | Volatile Reaction | 64,0 → 120,0 s |
+| `modo-control` y `modo-control-vertical` | Clash Defiant | 203,0 → 262,5 s |
 
 Origen: descargas directas de incompetech.com. Los archivos de audio no van a Git (`design/films/*/assets/media/`, ignorado).
 
 ## Efectos — Pixabay Content License
 
-`whoosh`, `whoosh-short`, `whoosh-cinematic`, `pop`, `impact-bass-1`, `impact-bass-2` y `riser`, del paquete de efectos de
+`whoosh`, `whoosh-short`, `whoosh-cinematic`, `pop`, `impact-bass-1`, `impact-bass-2`, `riser` y `key-press` (teclado de la
+pantalla de rutinas en `modo-control`), del paquete de efectos de
 HyperFrames (`media-use/audio/assets/sfx`, origen Pixabay). Licencia: <https://pixabay.com/service/license-summary/> — uso
 comercial sin atribución obligatoria. No van a Git (`assets/sfx/`, ignorado; el generador los copia).
 

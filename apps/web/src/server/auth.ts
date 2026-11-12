@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
+import type { BetterAuthPlugin } from "better-auth";
 import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
@@ -30,6 +31,32 @@ const OTP_WHY = {
   "sign-in": "Pediste entrar a REPI con un código.",
   "change-email": "Pediste usar este email en tu cuenta de REPI.",
 } as const;
+
+// FSA1 (seguridad): el plugin de 2FA sólo pide el segundo paso al entrar con contraseña. Entrar con un código o un enlace
+// por email (o con Google/Apple) dejaba la sesión abierta con un único factor, también para REPI Admin y el dueño. Acá se
+// aplica el mismo desafío del plugin a esos ingresos: con 2FA activa no queda sesión y se pide el código de la app.
+const secondFactor = twoFactor({ issuer: "REPI", trustDeviceMaxAge: 30 * 24 * 60 * 60 });
+const challenge = secondFactor.hooks.after[0].handler;
+const PASSWORDLESS_JSON = new Set(["/sign-in/email-otp", "/email-otp/verify-email"]);
+const PASSWORDLESS_REDIRECT = new Set(["/magic-link/verify", "/verify-email", "/callback/:id", "/oauth2/callback/:id"]);
+type HookCtx = Parameters<typeof challenge>[0] & { path?: string; context: { newSession: { user: { twoFactorEnabled?: boolean | null } } | null } };
+const passwordlessSecondFactor = {
+  id: "repi-passwordless-second-factor",
+  hooks: { after: [{
+    matcher: (c: { path?: string }) => !!c.path && (PASSWORDLESS_JSON.has(c.path) || PASSWORDLESS_REDIRECT.has(c.path)),
+    handler: (async (ctx: HookCtx) => {
+      if (!ctx.context.newSession?.user.twoFactorEnabled) return { response: undefined, headers: undefined };
+      const out = (await challenge(ctx)) as unknown as { response: unknown; headers?: Headers };
+      // Enlaces que abre el navegador: en vez del JSON del desafío, al paso «Código de verificación» de Acceso.
+      if (PASSWORDLESS_REDIRECT.has(ctx.path!) && ctx.context.newSession === null) {
+        const headers = new Headers(out.headers);
+        headers.set("location", "/acceso?step=twofa");
+        return { headers, response: new APIError("FOUND", undefined, new Headers({ location: "/acceso?step=twofa" })) };
+      }
+      return out;
+    }) as unknown as typeof challenge,
+  }] },
+} satisfies BetterAuthPlugin;
 
 const social: Record<string, { clientId: string; clientSecret: string }> = {};
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -104,7 +131,8 @@ export const auth = betterAuth({
         await sendMail({ to: email, subject: "Tu enlace para entrar a REPI", body: `Entrá sin contraseña: ${url}\nVence en 10 minutos.` });
       },
     }),
-    twoFactor({ issuer: "REPI", trustDeviceMaxAge: 30 * 24 * 60 * 60 }),
+    secondFactor,
+    passwordlessSecondFactor,
     nextCookies(),
   ],
 });

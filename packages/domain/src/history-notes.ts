@@ -32,15 +32,29 @@ function readLoad(raw: string): Load | null {
 }
 
 function readReps(raw: string): number[] | null {
-  const value = raw.trim().replace(/\s+(?:reps?|repeticiones)$/i, "");
+  // 09/11 (historial real): «14;12;10;» (separador al final), «17;18;18+drop» o «9;8;8;6+fallo» (la marca no agrega series con
+  // números: se cargan las anotadas), «9;9;9,8» y «4;3:3:3» (separadores mezclados, siempre junto a «;»).
+  let value = raw.trim().replace(/\s+(?:reps?|repeticiones)$/i, "").replace(/\s*[;,]\s*$/, "");
+  value = value.replace(/\s*\+\s*(?:drop\s*set|dropset|drop|fallo|rest[\s-]*pause)(?:[\p{L}\s]*?)(?:\(\d{1,3}\))?(?=\s*(?:[;,:]|$))/giu, "");
   const grouped = /^(\d{1,3})\s*[x×]\s*(\d{1,3})$/i.exec(value);
   if (grouped) {
     const count = Number(grouped[1]), reps = Number(grouped[2]);
     return count >= 1 && count <= 200 && reps <= 200 ? Array<number>(count).fill(reps) : null;
   }
-  if (!/^\d{1,3}(?:\s*;\s*\d{1,3})*$/.test(value)) return null;
-  const reps = value.split(";").map((part) => Number(part.trim()));
+  // «70:8;8;8» puede ser el peso seguido de las series: no se adivina (lo lee el otro lector).
+  if (/^\d{1,3}\s*:/.test(value)) return null;
+  const mixed = value.includes(";");
+  if (!(mixed ? /^\d{1,3}(?:\s*[;,:]\s*\d{1,3})*$/ : /^\d{1,3}$/).test(value)) return null;
+  const reps = value.split(/[;,:]/).map((part) => Number(part.trim()));
   return reps.every((number) => number <= 200) ? reps : null;
+}
+
+/** «13(16kg) 13(8kg)» o «12 (16kg); 12 (8kg)»: cada serie con su propia carga (09/11, historial real). */
+const pairPattern = new RegExp(`(\\d{1,3})\\s*\\((${LOAD})\\)`, "gi");
+function readPairs(raw: string): { rep: number; load: Load }[] | null {
+  if (raw.replace(pairPattern, "").replace(/[;,\s]/g, "")) return null;
+  const out = [...raw.matchAll(pairPattern)].map((m) => ({ rep: Number(m[1]), load: readLoad(m[2]) }));
+  return out.length && out.every((x) => x.load && x.rep <= 200) ? (out as { rep: number; load: Load }[]) : null;
 }
 
 function readPrescription(raw: string): { reps: number[]; load?: Load } | null {
@@ -194,6 +208,11 @@ export function parseHistoryNotes(text: string, today: string): { sets: ImportSe
     const prescription = readPrescription(line);
     if (prescription) {
       if (!add(prescription.reps, prescription.load)) return null;
+      continue;
+    }
+    const pairs = readPairs(line);
+    if (pairs) {
+      for (const pair of pairs) if (!add([pair.rep], pair.load)) return null;
       continue;
     }
     const named = readNamedPrescription(line);

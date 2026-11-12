@@ -65,7 +65,7 @@ export async function generateBatch(actorId: string, p: { repId: string; currenc
     const rows = await availableFor(r.id, p.currency, cutoff, tx);
     const total = rows.reduce((a, x) => a + x.e.amountMinor, 0);
     if (!rows.length || total <= 0) throw new AccessError("nothing", "No hay comisiones disponibles para liquidar hasta ese corte (o el saldo es negativo por reversiones).", 409);
-    const pv = await planVersionAt(r.id, today());
+    const pv = await planVersionAt(r.id, today(), tx);
     const min = pv && (pv.v.rules as CommissionRules).currency === p.currency ? (pv.v.rules as CommissionRules).minPayoutMinor : 0;
     if (total < min && !p.ignoreMinimum) throw new AccessError("below_minimum", `El total (${money(total, p.currency)}) no llega al mínimo de liquidación del plan (${money(min, p.currency)}).`, 409);
     const [b] = await tx.insert(B).values({ repId: r.id, currency: p.currency, cutoffOn: cutoff, frequency: r.payoutFrequency, totalMinor: total, idempotencyKey: p.idempotencyKey, note: p.note?.trim().slice(0, 300) || null, createdBy: actorId }).returning();

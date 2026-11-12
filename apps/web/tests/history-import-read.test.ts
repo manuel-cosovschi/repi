@@ -3,16 +3,18 @@ import { splitHistoryText } from "@repi/domain";
 import { createThreeYearHistory } from "../../../packages/domain/tests/fixtures/three-year-history";
 
 vi.mock("@/server/ai/openai", () => ({ aiJson: vi.fn(), aiOn: vi.fn(() => true) }));
+vi.mock("@/server/log", () => ({ logError: vi.fn() }));
 vi.mock("@/server/access/util", () => ({ AccessError: class extends Error {
   constructor(public code: string, message: string, public status = 400) { super(message); }
 } }));
 import { aiJson, aiOn } from "@/server/ai/openai";
+import { logError } from "@/server/log";
 import { AccessError } from "@/server/access/util";
-import { readHistoryInput, readHistoryWithAi } from "@/server/training/history-import-read";
+import { AI_CHUNK_CHARS, readHistoryInput, readHistoryWithAi } from "@/server/training/history-import-read";
 
 const response = (reps: number) => ({ sessions: [{ date: "2024-03-12", exercises: [{ name: "Press plano", sets: [{ weight_kg: 105, reps: [reps], seconds: [] }] }] }], notes: [] });
 const mockAi = vi.mocked(aiJson);
-beforeEach(() => { mockAi.mockReset(); vi.mocked(aiOn).mockReturnValue(true); });
+beforeEach(() => { mockAi.mockReset(); vi.mocked(aiOn).mockReturnValue(true); vi.mocked(logError).mockReset(); });
 
 describe("lectura completa del historial largo", () => {
   it("lee tres años y 21.900 series completas, sin pedir una transcripción externa", async () => {
@@ -68,7 +70,7 @@ describe("lectura completa del historial largo", () => {
       { weight_kg: null, reps: [], seconds: [60, 45] },
     ] }] }], notes: [] });
     const updates: { stage: string; completed?: number; total?: number }[] = [];
-    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text: "notas complejas" }, "2026-11-06", (p) => updates.push(p));
+    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text: "12/03/2024\nnotas complejas" }, "2026-11-06", (p) => updates.push(p));
     expect(out.sets.map((s) => [s.weightKg, s.reps, s.seconds])).toEqual([
       [105, 5, null], [105, 5, null], [105, 5, null], [105, 4, null], [80, 6, 30], [80, 5, 40], [null, null, 60], [null, null, 45],
     ]);
@@ -83,7 +85,7 @@ describe("lectura completa del historial largo", () => {
   it("envía todo el texto, incluso el último número después de 60.000 caracteres, y reúne las partes en orden", async () => {
     const text = "12/03/2024\n" + "Press plano (105kg)\n5;5;5;4\n".repeat(2700) + "Polea (5 ladrillos)\n17;16;13";
     expect(text.length).toBeGreaterThan(60_000);
-    const chunks = splitHistoryText(text, 12_000);
+    const chunks = splitHistoryText(text, AI_CHUNK_CHARS);
     let active = 0, peak = 0;
     mockAi.mockImplementation(async (p) => {
       const index = mockAi.mock.calls.findIndex(([arg]) => arg === p);
@@ -116,6 +118,48 @@ describe("lectura completa del historial largo", () => {
     expect(sent.join("")).toBe(text);
     expect(out.sets).toHaveLength(sent.length);
     expect(mockAi.mock.calls.at(-1)![0].parts).toContainEqual(expect.objectContaining({ type: "text", text: expect.stringContaining("12/03/2024") }));
+  });
+
+  // Incidente 09/11: un alumno pegó un historial muy largo y denso; cada bloque de 12 000 caracteres agotaba los 60 s de la IA y la
+  // lectura se descartaba entera. Ahora los bloques son más chicos y, si uno tarda demasiado, se relee partido, sin datos parciales.
+  it("si un bloque agota el tiempo de la IA, lo relee partido y completa la lectura sin avisar un error", async () => {
+    const text = "12/03/2024\nPress plano (105kg)\n" + "5;5;5;4\n".repeat(400);
+    expect(text.length).toBeLessThanOrEqual(AI_CHUNK_CHARS);
+    mockAi.mockRejectedValueOnce(new AccessError("ai_timeout", "tardó", 504)).mockResolvedValue(response(5));
+    const out = await readHistoryWithAi({ fileName: "Historial denso", kind: "text", text }, "2026-11-06");
+    expect(mockAi.mock.calls[0][0]).toMatchObject({ splitOnTimeout: true, requireComplete: true });
+    const sent = mockAi.mock.calls.slice(1).map(([p]) => p.parts.filter((part) => part.type === "text").at(-1)!.text.split("\n").slice(1).join("\n"));
+    expect(sent.length).toBeGreaterThanOrEqual(2);
+    expect(sent.join("")).toBe(text); // todo el bloque se relee, nada se pierde ni se repite
+    expect(out.sets).toHaveLength(sent.length);
+    expect(logError).not.toHaveBeenCalled();
+  });
+
+  it("sin tiempo para partir el bloque, falla entera con un mensaje claro y lo registra", async () => {
+    mockAi.mockRejectedValue(new AccessError("ai_timeout", "tardó", 504));
+    const text = "12/03/2024\nPress plano (105kg)\n" + "5;5;5;4\n".repeat(400);
+    await expect(readHistoryWithAi({ fileName: "Historial", kind: "text", text }, "2026-11-06", undefined, "", Date.now() + 10_000))
+      .rejects.toMatchObject({ code: "ai_incomplete", message: expect.stringContaining("Continuar") });
+    expect(logError).toHaveBeenCalledTimes(1);
+  });
+
+  // Incidente 09/11 (segunda parte): el historial no tenía fechas y la lectura le puso a 9135 series la fecha de hoy.
+  it("un historial sin ninguna fecha escrita se rechaza con un mensaje claro y sin gastar la lectura automática", async () => {
+    const text = "Semana 1\nDía A\nPress plano (105kg)\n5;5;5;4\nPolea (5 ladrillos) 17;16;13\n".repeat(50);
+    await expect(readHistoryInput({ fileName: "Sin fechas", kind: "text", text }, "2026-11-09")).rejects.toMatchObject({ code: "no_dates", message: expect.stringContaining("no inventa fechas") });
+    expect(mockAi).not.toHaveBeenCalled();
+  });
+
+  it("descarta las series que la lectura fechó con un día que no está escrito (por ejemplo, hoy) y las informa", async () => {
+    const text = "12/03/2024\nPress plano (105kg)\n5;5;5;4\nSemana de descarga\nCurl 12;10";
+    mockAi.mockResolvedValue({ sessions: [
+      { date: "2024-03-12", exercises: [{ name: "Press plano", sets: [{ weight_kg: 105, reps: [5, 5, 5, 4], seconds: [] }] }] },
+      { date: "2026-11-09", exercises: [{ name: "Curl", sets: [{ weight_kg: null, reps: [12, 10], seconds: [] }] }] },
+    ], notes: ["Se asignó la fecha actual al bloque sin fecha.", "weight_kg es null en Curl."] });
+    const out = await readHistoryWithAi({ fileName: "Notas", kind: "text", text }, "2026-11-09");
+    expect(out.sets.map((x) => x.day)).toEqual(["2024-03-12", "2024-03-12", "2024-03-12", "2024-03-12"]);
+    expect(out.undated).toBe(2);
+    expect(mockAi.mock.calls[0][0].system).toContain("NUNCA uses la fecha de hoy");
   });
 
   it("mantiene la lectura de fotos y PDF en una sola petición", async () => {

@@ -1,0 +1,80 @@
+/* D217 · Progress Intelligence 2.0: tarjetas, estimaciones, metas y análisis por ejercicio.
+   Sólo tokens --ui-* (Claro y Oscuro) y la tipografía de tokens.css (Barlow / Barlow Condensed). */
+
+/* Tarjetas de rendimiento: dos columnas en el teléfono; la próxima sesión ocupa el ancho. */
+.pgi-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pgi-card { background: var(--ui-surface-2); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; scroll-margin: 96px; }
+.pgi-card.wide { grid-column: 1 / -1; }
+.pgi-card h3 { margin: 0; font: 600 12px/1.3 var(--font-ui); color: var(--ui-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; }
+.pgi-card strong { font: 600 22px/1.15 var(--font-display, var(--font-ui)); font-variant-numeric: tabular-nums; color: var(--ui-text); overflow-wrap: anywhere; }
+.pgi-card small { font-size: 12px; line-height: 1.35; color: var(--ui-text-2); }
+.pgi-card:focus, .pp-card:focus { outline: none; }
+.pgi-card:focus-visible, .pp-card:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.pgi-card .linkbtn, .pgi-acts .linkbtn, .pgi-how { min-height: 32px; text-align: left; }
+.pgi-see { font-size: 12px; }
+
+/* Llegar a una tarjeta desde un mensaje de REPI: una marca breve (sin animación con movimiento reducido). */
+.pgi-flash { animation: pgi-flash 1.3s ease-out; }
+@keyframes pgi-flash { from { box-shadow: 0 0 0 3px var(--ui-accent-line); } to { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .pgi-flash { animation: none; box-shadow: 0 0 0 2px var(--ui-accent-line); }
+}
+
+.pgi-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.pgi-badges .hx-chip { margin-left: 0; }
+.pgi-card h3 .hx-chip { margin-left: 6px; }
+.hx-chip.pgi-ok { background: var(--ui-chip-ok-bg); color: var(--ui-chip-ok-ink); }
+.hx-chip.pgi-low { background: var(--ui-surface); color: var(--ui-text-2); }
+
+.pgi-text { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ui-text); }
+.pgi-text.mb-muted { color: var(--ui-muted); }
+/* Explicaciones en el lugar («¿Cómo se calcula?», «¿Por qué?»). */
+.pgi-why { align-self: stretch; background: var(--ui-surface-2); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; color: var(--ui-text-2); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.pgi-card .pgi-why { background: var(--ui-surface); }
+.pgi-why p { margin: 0; }
+.pgi-why ul { margin: 0; padding-left: 18px; }
+.pgi-why .pp-rows { align-self: stretch; }
+.pgi-why .pp-rows li { font-size: 13px; padding: 6px 0; }
+
+.pgi-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; }
+
+/* «¿Cuánto podría levantar?» */
+.pgi-est { border: 1px solid var(--ui-border); border-radius: 12px; padding: 0 12px; }
+.pgi-est[open] { padding-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pgi-est summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font: 600 14px var(--font-ui); color: var(--ui-text); }
+.pgi-est summary:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; border-radius: 8px; }
+.pgi-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pgi-table th { text-align: left; font: 600 12px var(--font-ui); color: var(--ui-muted); padding: 4px 6px 6px 0; border-bottom: 1px solid var(--ui-divider); }
+.pgi-table td { padding: 8px 6px 8px 0; border-bottom: 1px solid var(--ui-divider); }
+.pgi-table tr:last-child td { border-bottom: 0; }
+.pgi-table .hx-chip { margin-left: 0; }
+
+/* Regularidad y esfuerzo */
+.pgi-reg { display: flex; flex-direction: column; gap: 6px; }
+.pgi-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pgi-mini > div { background: var(--ui-surface-2); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pgi-mini strong { font: 600 18px/1.15 var(--font-display, var(--font-ui)); font-variant-numeric: tabular-nums; }
+.pgi-mini span { font-size: 11.5px; line-height: 1.3; color: var(--ui-muted); }
+.pgi-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: 13px; color: var(--ui-text-2); }
+.pgi-line .pgi-why { flex-basis: 100%; }
+.pgi-notes { line-height: 1.45; }
+
+/* Análisis de REPI */
+.pgi-ins { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pgi-ins > li { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--ui-divider); }
+.pgi-ins > li:first-child { padding-top: 0; }
+.pgi-ins > li:last-child { border-bottom: 0; }
+
+/* Metas */
+.pgi-goals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pgi-goals > li { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--ui-divider); }
+.pgi-goals > li:last-child { border-bottom: 0; }
+.pgi-goal-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 15px; }
+.pgi-goal-h .hx-chip { margin-left: 0; }
+.pgi-form { border-top: 1px solid var(--ui-divider); padding-top: 12px; }
+.pgi-form .pgi-acts { gap: 8px; }
+.pgi-supervised { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; background: var(--ui-surface-2); border-radius: 12px; padding: 10px 12px; }
+
+@media (min-width: 560px) {
+  .pgi-cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}

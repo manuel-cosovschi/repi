@@ -7,14 +7,16 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Play } from "@phosphor-icons/react";
 import { PROFILE_CONTENT, VIDEOS, FEATURES } from "@/content/conoce";
-import { CONTACT } from "@/lib/contact";
+import { waLink as wa } from "@/lib/contact";
 import { PROFILES, type Profile } from "@/lib/site-events";
 import { track } from "@/lib/site-track";
 import { stage } from "../sala/store";
 import type { ZoneId } from "../sala/model";
 import { DemoButton } from "../DemoButton";
 import { TrackLink } from "../TrackLink";
-import { gsap, reduced, useGSAP } from "./gsap";
+import { announceInterest as announce } from "../interest";
+import { gsap, MOTION_MQ, reduced, useGSAP } from "./gsap";
+import { Say, splitSay } from "./Say";
 import { useFilm } from "./FilmPlayer";
 
 const ZONE: Record<Profile, ZoneId | null> = { gimnasios: "recepcion", entrenadores: "box", deportistas: "racks", aliados: null };
@@ -24,9 +26,8 @@ const SHOT_IMG: Record<Profile, string[]> = {
   deportistas: ["/conoce/shots/training.webp", "/conoce/shots/progress.webp"],
   aliados: ["/conoce/shots/owner.webp", "/conoce/shots/member.webp"],
 };
-const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 /** El formulario de contacto escucha este evento: tipo de organización, interés y (aliados) pedido de reunión. */
-const announceInterest = (p: Profile, meeting = false) => window.dispatchEvent(new CustomEvent("repi:interest", { detail: { profile: p, meeting } }));
+const announceInterest = (p: Profile, meeting = false) => announce({ profile: p, meeting });
 
 export function Perspectives({ initial }: { initial: Profile | null }) {
   const [p, setP] = useState<Profile>(initial ?? "gimnasios");
@@ -42,13 +43,32 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
     io.observe(el);
     return () => { io.disconnect(); stage.set({ focus: null }); };
   }, [p]);
+  // Entrada al llegar (no al cargar la página): las piezas acompañan al scroll de «top 85%» a «top 45%» y vuelven al subir.
   useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add(MOTION_MQ, () => {
+      const q = gsap.utils.selector(root);
+      gsap.timeline({ defaults: { ease: "none" }, scrollTrigger: { trigger: q(".x3-pv-tabs")[0], start: "top 85%", end: "top 45%", scrub: 0.5 } })
+        .fromTo(q(".x3-pv-tabs, .x3-pv-head"), { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 }, 0)
+        .fromTo(q(".x3-pv-shots"), { clipPath: "inset(0 0 100% 0)" }, { clipPath: "inset(0 0 0% 0)", duration: 0.6 }, 0.2)
+        .fromTo(q(".x3-pv-flow, .x3-pv-side"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.1 }, 0.35);
+    });
+    return () => mm.revert();
+  }, { scope: root });
+  // Cambio de perfil sin remontar el panel: el titular se reescribe palabra por palabra, las capturas se cruzan dentro de su
+  // caja (±24 px) y la lista entra escalonada. Movimiento reducido: el contenido cambia al instante.
+  const first = useRef(true);
+  useGSAP(() => {
+    if (first.current) { first.current = false; return; }
     if (reduced()) return;
     const q = gsap.utils.selector(root);
-    gsap.fromTo(q(".x3-pv-head > *"), { opacity: 0, y: 24, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.7, stagger: 0.06, ease: "expo.out" });
-    gsap.fromTo(q(".x3-pv-shot"), { clipPath: "inset(0 0 100% 0 round 28px)" }, { clipPath: "inset(0 0 0% 0 round 28px)", duration: 0.9, stagger: 0.12, ease: "expo.inOut" });
-    gsap.fromTo(q(".x3-pv-flow li"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.07, delay: 0.2, ease: "power3.out" });
-  }, { scope: root, dependencies: [p], revertOnUpdate: true });
+    gsap.fromTo(q(".x3-pv-head .x3-wi"), { yPercent: 112 }, { yPercent: 0, duration: 0.5, stagger: 0.035, ease: "power3.out" });
+    gsap.fromTo(q(".x3-pv-who, .x3-pv-problem"), { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" });
+    gsap.fromTo(q(".x3-pv-shot"), { opacity: 0, y: (i: number) => (i ? -24 : 24) }, { opacity: (i: number) => (i ? 0.9 : 1), y: 0, duration: 0.55, stagger: 0.08, ease: "power3.out" });
+    gsap.fromTo(q(".x3-pv-flow li, .x3-pv-feat li"), { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.05, ease: "power3.out" });
+  }, { scope: root, dependencies: [p] });
+  /** Puntero o foco sobre una pestaña (escritorio): la zona de ese perfil se pre-ilumina en la sala antes del clic. */
+  const preview = (x: Profile | null) => { if (window.matchMedia("(pointer: fine)").matches || x === null) stage.set({ preview: x ? ZONE[x] : null }); };
   const choose = (x: Profile) => {
     if (x === p) return;
     setP(x);
@@ -67,18 +87,19 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
   return (
     <section ref={root} id="perfiles" className="x3-pv" data-shot={p} data-profile={p} aria-labelledby="cn-pv">
       <div className="x3-wrap">
-        <h2 id="cn-pv" className="x3-h2">Cuatro perspectivas. <em>Una sala.</em></h2>
+        <Say id="cn-pv" className="x3-h2" text="Cuatro perspectivas. *Una sala.*" />
         <div className="x3-pv-tabs" role="tablist" aria-label="Elegí tu perfil" style={{ "--i": PROFILES.indexOf(p) } as React.CSSProperties}>
           <span className="x3-pv-ind" aria-hidden="true" />
           {PROFILES.map((x, i) => (
             <button key={x} ref={(b) => { tabs.current[i] = b; }} role="tab" id={`pv-tab-${x}`} aria-selected={x === p} aria-controls="pv-panel" tabIndex={x === p ? 0 : -1}
-              onClick={() => choose(x)} onKeyDown={(e) => onKey(e, i)}>{PROFILE_CONTENT[x].short}</button>
+              onClick={() => choose(x)} onKeyDown={(e) => onKey(e, i)} onPointerEnter={() => preview(x)} onPointerLeave={() => preview(null)} onFocus={() => preview(x)} onBlur={() => preview(null)}>{PROFILE_CONTENT[x].short}</button>
           ))}
         </div>
-        <div id="pv-panel" role="tabpanel" aria-labelledby={`pv-tab-${p}`} className="x3-pv-panel" key={p}>
+        <div id="pv-panel" role="tabpanel" aria-labelledby={`pv-tab-${p}`} className="x3-pv-panel">
           <div className="x3-pv-head">
             <p className="x3-pv-who">{c.label}</p>
-            <h3>{c.headline}</h3>
+            {/* Titular partido por palabra (cada una en su máscara) para reescribirlo al cambiar de perfil; se lee entero. */}
+            <h3 aria-label={c.headline}><span aria-hidden="true">{splitSay(c.headline).words.map((w, i) => <span key={`${p}${i}`}>{i > 0 && " "}<span className="x3-w"><span className="x3-wi">{w.t}</span></span></span>)}</span></h3>
             <p className="x3-pv-problem">{c.problem}</p>
           </div>
           <div className="x3-pv-body">
@@ -91,6 +112,7 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
             </div>
             <div className="x3-pv-side">
               <ul className="x3-pv-feat">{features.map((f) => <li key={f.id}><b>{f.title}.</b> {f.value}</li>)}</ul>
+              {c.modes && <p className="x3-pv-modes">{c.modes} <a href="#modos" onClick={() => track("feature_click", { profile: p, target: "perfil-modos" })}>Ver las dos modalidades</a></p>}
               <div className="x3-pv-act">
                 {c.leadKind ? <a className="x3-btn pri" href="#contacto" onClick={() => { track("contact_click", { profile: p, target: "perspectivas" }); announceInterest(p, p === "aliados"); if (p === "aliados") track("meeting_request", { profile: p, target: "perspectivas" }); }}>{c.cta} <ArrowRight size={18} weight="bold" aria-hidden="true" /></a>
                   : <TrackLink event="whatsapp_click" profile={p} target="perspectivas" external className="x3-btn pri" href={wa(c.whatsapp)}>{c.cta}</TrackLink>}

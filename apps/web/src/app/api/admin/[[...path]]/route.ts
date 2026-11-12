@@ -8,7 +8,13 @@ import * as sp from "@/server/support/services";
 import * as bp from "@/server/commercial/payments";
 import * as an from "@/server/announcements/services";
 import * as se from "@/server/site/events";
+import * as ab from "@/server/brain/admin";
 import { salesGet, salesPost } from "@/server/sales/admin-routes";
+import { ADMIN_DEADLINE_MS } from "@/server/deadline";
+
+// Incidente 07/11 (corte a los 300 s): REPI Admin responde 503 a los 25 s si algo no termina, y la función se corta a los 60 s.
+export const maxDuration = 60;
+const admin = { deadlineMs: ADMIN_DEADLINE_MS };
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 const NF = () => new AccessError("not_found", "No encontramos lo que buscás.", 404);
@@ -23,6 +29,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "summary") return cm.adminSummary(me);
   if (a === "announcements") return an.adminAnnouncements(me); // D202
   if (a === "site") return se.siteSummary(me, Number(u.searchParams.get("days")) || 30); // D205
+  if (a === "brain" && !b) return ab.brainMetrics(me, { days: Number(u.searchParams.get("days")) || 7 }); // D210: Coaching IA (agregados)
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);
   if (a === "support") { const f = u.searchParams.get("filter"); return sp.listTickets(me, f === "resolved" || f === "all" || f === "ideas" ? f : "active"); }
@@ -32,7 +39,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
     return cm.contractDetail(me, b, start && end && day.safeParse(start).success && day.safeParse(end).success ? { start, end } : undefined);
   }
   throw NF();
-});
+}, admin);
 
 export const POST = handle<Ctx>(async (req, { params }) => {
   const [a, b, c] = (await params).path ?? [];
@@ -77,6 +84,7 @@ export const POST = handle<Ctx>(async (req, { params }) => {
         acceptedRef: z.string().max(200).optional(), acceptedAt: day.optional(), termsVersion: z.string().max(40).optional(), enabledAt: day.optional(),
       })));
       case "access": return cm.setClientAccessControl(me, b, (await body(req, z.object({ on: z.boolean() }))).on);
+      case "control": return cm.setClientControl(me, b, await body(req, z.object({ routinePolicy: z.enum(["open", "supervised"]).optional(), kioskEnabled: z.boolean().optional() })));
       case "connect": return cm.setClientConnect(me, b, (await body(req, z.object({ on: z.boolean() }))).on);
       case "delete": return cm.deleteClient(me, b, (await body(req, z.object({ confirmName: z.string().max(160) }))).confirmName);
       case "responsible": return cm.changeResponsible(me, b, await body(req, z.object({ name: z.string().max(80), email: z.string().max(200) })));
@@ -95,4 +103,13 @@ export const POST = handle<Ctx>(async (req, { params }) => {
   if (a === "leads" && b) return cm.setLeadStatus(me, b, (await body(req, z.object({ status: z.enum(["contacted", "converted", "discarded"]) }))).status);
   if (a === "corrections" && b) return cm.answerCorrection(me, b, (await body(req, z.object({ answer: z.string().max(800) }))).answer);
   throw NF();
-});
+}, admin);
+
+// D210 · Coaching IA: límites de la IA del cerebro (global u organización). Validación estricta en el servicio.
+export const PUT = handle<Ctx>(async (req, { params }) => {
+  const [a, b] = (await params).path ?? [];
+  const me = await sessionUserId();
+  await limit(`admin:${me}`, 60);
+  if (a === "brain" && (!b || b === "policy")) return ab.updateBrainPolicy(me, await body(req, z.object({ scope: z.string().max(80), config: z.record(z.string(), z.unknown()) })));
+  throw NF();
+}, admin);

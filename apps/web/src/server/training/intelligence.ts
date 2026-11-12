@@ -4,14 +4,15 @@
 //
 // Garantías: nunca escribe en set_log ni en el programa; un objetivo emitido no se reescribe (se reemplaza con seq + 1 y
 // queda trazado); una falla acá nunca impide registrar una serie (quien llama la atrapa); no llama a ningún LLM.
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
-  TI_VERSION, TI_WINDOW, adjustAfterSet, labelAt, loadIncrement, fitTargetsToLoads, resolveLadder, type LoadLadder, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
+  TI_VERSION, TI_WINDOW, activityOf, personalizeProposal, personalizeTargets, type PersonalProfile, adjustAfterSet, labelAt, prescriptionText, type MetricsProfile, loadIncrement, fitTargetsToLoads, resolveLadder, type LoadLadder, decisionFor, exerciseKey, exerciseTrend, nextProposal, recommendExercise, rowContext, rowRef, sessionPoints, setTarget,
   type ExCtx, type ExerciseDetail, type HistRow, type IntelEvent, type Proposal, type RowTarget, type SetKind, type Trend,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { requireClientOf, requireCoach, readVersion, trainingSignals, type Signals } from "./services";
+import { exerciseProfiles, rowProfile } from "./library";
 
 const { trainingTarget, trainingProposal, setLog, workoutSession, programExercise, programAssignment, program, historyEntry, sessionExerciseChange, coachClient } = schema;
 type TargetRow = typeof trainingTarget.$inferSelect;
@@ -55,6 +56,8 @@ export async function historyRows(userId: string, exerciseIds: string[], o: { ex
       sessionId: x.session_id, at: new Date(x.at).toISOString(), setLogId: x.id, specId: x.spec_id ?? ref?.id ?? null, kind: ((x.set_kind as SetKind | null) ?? ref?.kind ?? "work"),
       stage: x.stage_index ?? ref?.stage ?? 0, reps: t.reps, durationSec: t.durationSec, w: x.weight_kg == null ? null : Number(x.weight_kg), r: x.reps, rir: x.rir, feel: x.feel,
       unilateral: !!x.pe_detail?.unilateral, source: "repi", label: labelAt(x.pe_detail, x.set_index),
+      // Ejercicios por tiempo: una actividad (cinta, bici…) es por tiempo aunque la fila diga «500 m»; nunca es referencia de kilos.
+      activity: !!activityOf(x.pe_detail),
     };
     out.set(x.exercise_id, [...(out.get(x.exercise_id) ?? []), h]);
   }
@@ -97,7 +100,8 @@ function toRow(userId: string, s: { id: string; versionId: string }, peId: strin
   };
 }
 
-export type SessionEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; detail: ExerciseDetail | null; doing: string; skipped: boolean; logged: Set<number> };
+// `profile` (ejercicios por tiempo): perfil de la fila (`rowProfile`); con una actividad, REPI nunca propone kilos ni repeticiones.
+export type SessionEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; detail: ExerciseDetail | null; doing: string; skipped: boolean; logged: Set<number>; profile?: MetricsProfile | null };
 export type Outlook = { trend: Trend; proposal: Proposal | null } | null;
 
 /**
@@ -110,7 +114,12 @@ export type Outlook = { trend: Trend; proposal: Proposal | null } | null;
 export const ladderFor = (e: Pick<SessionEx, "doing" | "exerciseId" | "detail">, gym?: Map<string, LoadLadder> | null) =>
   resolveLadder(e.doing === e.exerciseId ? e.detail : null, gym?.get(e.doing) ?? null);
 
-export async function ensureTargets(userId: string, s: { id: string; versionId: string; status: string }, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null) {
+/** D217: perfil y dueño del programa para personalizar (sin perfil, los objetivos de siempre). */
+export type PersonalOpts = { profile?: PersonalProfile | null; coachOwned?: boolean };
+const failureReps = (reps: string) => /fallo|failure/i.test(reps);
+const personal = (ts: RowTarget[], e: SessionEx, o?: PersonalOpts) => (o?.profile ? personalizeTargets(ts, o.profile, { coachOwned: o.coachOwned, failure: failureReps(e.reps) }) : ts);
+
+export async function ensureTargets(userId: string, s: { id: string; versionId: string; status: string }, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null, po?: PersonalOpts) {
   const current = await db.select().from(trainingTarget).where(and(eq(trainingTarget.sessionId, s.id), isNull(trainingTarget.supersededAt)));
   const open = s.status === "in_progress" || s.status === "paused";
   const byPe = new Map<string, TargetRow[]>();
@@ -128,7 +137,7 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
         // Sustituto: otro equipo (salto desconocido salvo que la sede lo tenga cargado). D195: con lista de cargas de la sede, el
         // objetivo se ajusta a una carga que existe (nunca la del profe ni una serie hecha).
         const lad = ladderFor(e, gym);
-        const ts = fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad);
+        const ts = personal(fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad), e, po);
         const mine = (byPe.get(e.id) ?? []).filter((r) => !stale.includes(r));
         const missing = ts.filter((t) => !e.logged.has(t.setIndex) && !mine.some((r) => r.setIndex === t.setIndex));
         if (!missing.length) continue;
@@ -143,8 +152,26 @@ export async function ensureTargets(userId: string, s: { id: string; versionId: 
   return { targets: out, history: open ? history : null };
 }
 
+/**
+ * D216: objetivos de REPI para consultar una rutina sin entrenarla (pantalla de rutinas, modo «Consultar»). Es exactamente el
+ * cálculo de `ensureTargets` (mismo historial comparable, mismas señales, `recommendExercise` y cargas reales de la sede), pero
+ * no guarda nada: mirar la rutina no crea una sesión ni objetivos. Al empezar el entrenamiento, `ensureTargets` emite y guarda
+ * los de esa sesión con las mismas reglas.
+ */
+export async function previewTargets(userId: string, exs: SessionEx[], now = new Date(), gym: Map<string, LoadLadder> | null = null, po?: PersonalOpts) {
+  const out = new Map<string, RowTarget[]>();
+  const list = exs.filter((e) => !e.skipped);
+  if (!list.length) return out;
+  const [history, sig] = await Promise.all([historyRows(userId, list.map((e) => e.doing), { now }), trainingSignals(userId, now)]);
+  for (const e of list) {
+    const lad = ladderFor(e, gym);
+    out.set(e.id, personal(fitTargetsToLoads(recommendExercise({ ex: e, history: history.get(e.doing) ?? [], now, signals: safety(sig, e.name), increment: lad.incrementKg }), lad), e, po));
+  }
+  return out;
+}
+
 /** Tendencia y propuesta del ejercicio para la persona (texto breve; nunca cambia la rutina). */
-export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false, increment: number | null = loadIncrement(e.detail)): Outlook {
+export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec" | "detail" | "profile">, rows: HistRow[], now: Date, coachOwned: boolean, fatigue = false, increment: number | null = loadIncrement(e.detail), person: PersonalProfile | null = null): Outlook {
   const plan = Array.from({ length: e.sets }, (_, i) => rowContext(e as ExCtx, i));
   const main = plan.find((c) => c.cls === "main" || c.cls === "top");
   if (!main) return null;
@@ -152,7 +179,7 @@ export function outlookFor(e: Pick<SessionEx, "sets" | "reps" | "rir" | "restSec
   const trend = exerciseTrend(pts);
   const t = setTarget(e as ExCtx, main.index);
   const r = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(t.reps.trim());
-  const proposal = nextProposal(trend, pts, { repsMin: r ? Number(r[1]) : null, repsMax: r ? Number(r[2] ?? r[1]) : null, coachOwned, fatigue, increment });
+  const proposal = personalizeProposal(nextProposal(trend, pts, { repsMin: r ? Number(r[1]) : null, repsMax: r ? Number(r[2] ?? r[1]) : null, coachOwned, fatigue, increment }), trend, person);
   return { trend, proposal };
 }
 
@@ -171,7 +198,8 @@ export async function afterSetLogged(userId: string, sessionId: string, peId: st
   const log = logs.find((l) => l.setIndex === setIndex);
   const mine = cur.find((r) => r.setIndex === setIndex);
   if (!log || !mine || mine.decision) return { event: null, targets: cur.map(toOut) }; // edición de una serie ya decidida: no se recalcula
-  const ex: ExCtx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: pe.detail as ExerciseDetail | null };
+  const profile = rowProfile(pe, mine.exerciseId, await exerciseProfiles([mine.exerciseId, pe.exerciseId])); // una actividad no se ajusta
+  const ex: ExCtx = { sets: pe.sets, reps: pe.reps, rir: pe.rir, restSec: pe.restSec, detail: pe.detail as ExerciseDetail | null, profile };
   const targets: RowTarget[] = Array.from({ length: pe.sets }, (_, i) => { const r = cur.find((x) => x.setIndex === i); return r ? toOut(r) : null; }) as RowTarget[];
   const done = logs.map((l) => ({ index: l.setIndex, w: l.weightKg == null ? null : Number(l.weightKg), r: l.reps, rir: l.rir, feel: l.feel }));
   const gym = s.gymMemberId ? await import("../gym/equipment").then((m) => m.laddersForMember(s.gymMemberId, [mine.exerciseId])).catch(() => null) : null;
@@ -213,6 +241,13 @@ export async function clientIntelligence(actorId: string, orgId: string, coachCl
   return relationIntelligence({ kind: "coach", id: coachClientId, userId: rel.userId }, now);
 }
 
+/**
+ * D210: pedidos del alumno al entrenador hechos desde REPI (propose_to_coach) en training_proposal. Comparten la tabla y el lugar
+ * «abierta por ejercicio y tipo» con Training Intelligence: TI no los toma como propios (ni para «ya decidida» ni para pisarlos).
+ */
+export const STUDENT_REQUEST_VERSION = "brain-1";
+const tiRow = ne(trainingProposal.algoVersion, STUDENT_REQUEST_VERSION);
+
 /** Relación ya autorizada por quien llama: coach privado (`coach_client`) o socio de la sede (`gym_member`). */
 export type IntelRel = { kind: "coach" | "gym"; id: string; userId: string };
 const relCol = (k: IntelRel["kind"]) => ({
@@ -243,9 +278,10 @@ export async function relationIntelligence(rel: IntelRel, now = new Date()) {
   const out = [];
   // D195: en la sala, los saltos del equipo de la sede del socio (si el plan no los indica).
   const gymL = rel.kind === "gym" ? await import("../gym/equipment").then((m) => m.laddersForMember(rel.id, exs.map((e) => e.exerciseId))).catch(() => null) : null;
+  const profiles = await exerciseProfiles(exs.map((e) => e.exerciseId));
   for (const e of exs) {
     const rows = hist.get(e.exerciseId) ?? [];
-    const ex = { sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null };
+    const ex = { sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null, profile: rowProfile(e, e.exerciseId, profiles) };
     const fatigue = rows.slice(0, 12).filter((r) => r.feel === "limite" || r.rir === 0).length >= 4;
     const o = outlookFor(ex, rows, now, true, fatigue, resolveLadder(ex.detail, gymL?.get(e.exerciseId) ?? null).incrementKg);
     const last = rows[0] ? rows.filter((r) => r.sessionId === rows[0].sessionId) : [];
@@ -255,20 +291,24 @@ export async function relationIntelligence(rel: IntelRel, now = new Date()) {
     if (o?.proposal && (o.proposal.requiresCoach || o.proposal.kind === "load" || o.proposal.kind === "review" || o.proposal.kind === "deload")) {
       const pl = { text: o.proposal.text, weightKg: o.proposal.weightKg, reps: o.proposal.reps, basis: o.proposal.basis, trend: o.trend.kind, sessions: o.trend.sessions };
       const relVals = rel.kind === "coach" ? { coachClientId: rel.id } : { gymMemberId: rel.id };
-      // Ya decidida y sin sesiones nuevas desde entonces: se muestra la decisión (no se vuelve a proponer lo mismo).
-      const [lastP] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind)))
+      // Ya decidida y sin sesiones nuevas desde entonces: se muestra la decisión (no se vuelve a proponer lo mismo). Sólo cuentan
+      // las propuestas de TI: un pedido del alumno rechazado no es una decisión sobre la propuesta de TI.
+      const [lastP] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), tiRow))
         .orderBy(sql`${trainingProposal.createdAt} desc`).limit(1);
       if (lastP && lastP.status !== "open" && lastP.decidedAt && rows[0] && lastP.decidedAt.getTime() >= Date.parse(rows[0].at)) {
         proposal = { id: lastP.id, status: lastP.status, ...o.proposal };
       } else {
+        // Un pedido del alumno abierto en el mismo lugar no se pisa (setWhere): mientras esté abierto, TI no abre la suya ahí.
         await db.insert(trainingProposal).values({ ...relVals, exerciseId: e.exerciseId, kind: o.proposal.kind, payload: pl, algoVersion: TI_VERSION })
-          .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`), set: { payload: pl, algoVersion: TI_VERSION } });
-        const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open")));
+          .onConflictDoUpdate({ target: [col.proposal, trainingProposal.exerciseId, trainingProposal.kind], targetWhere: sql.raw(`status = 'open' and ${rel.kind === "coach" ? "coach_client_id" : "gym_member_id"} is not null`),
+            set: { payload: pl, algoVersion: TI_VERSION }, setWhere: sql`${trainingProposal.algoVersion} <> ${STUDENT_REQUEST_VERSION}` });
+        const [row] = await db.select().from(trainingProposal).where(and(eq(col.proposal, rel.id), eq(trainingProposal.exerciseId, e.exerciseId), eq(trainingProposal.kind, o.proposal.kind), eq(trainingProposal.status, "open"), tiRow));
         if (row) proposal = { id: row.id, status: row.status, ...o.proposal };
       }
     }
     out.push({
-      exerciseId: e.exerciseId, name: e.name, prescribed: `${e.sets} × ${e.reps}`,
+      // Ejercicios por tiempo: una actividad se lee «10 min · 5 km/h · incl. 3»; el resto, como siempre.
+      exerciseId: e.exerciseId, name: e.name, prescribed: activityOf(ex.detail) ? prescriptionText(ex) : `${e.sets} × ${e.reps}`,
       last: last.length ? { at: rows[0].at, sets: last.map((r) => ({ w: r.w, r: r.r, rir: r.rir, kind: r.kind, stage: r.stage })) } : null,
       trend: o?.trend ?? null, proposal, targets: counts,
     });
@@ -301,9 +341,12 @@ export async function recordDecision(actorId: string, orgId: string, pr: typeof 
 /** Ejercicios de la sesión con el ejercicio que realmente se hace y las filas ya registradas (para `ensureTargets`). */
 export async function sessionExercises(sessionId: string, exs: (typeof programExercise.$inferSelect)[], logs: { programExerciseId: string; setIndex: number }[]): Promise<SessionEx[]> {
   const changes = await db.select().from(sessionExerciseChange).where(eq(sessionExerciseChange.sessionId, sessionId));
+  const doingOf = (e: (typeof exs)[number]) => changes.find((c) => c.programExerciseId === e.id)?.substituteExerciseId ?? e.exerciseId;
+  const profiles = await exerciseProfiles(exs.flatMap((e) => [e.exerciseId, doingOf(e)]));
   return exs.map((e) => {
     const ch = changes.find((c) => c.programExerciseId === e.id);
+    const doing = doingOf(e);
     return { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: (e.detail as ExerciseDetail | null) ?? null,
-      doing: ch?.substituteExerciseId ?? e.exerciseId, skipped: ch?.kind === "skip", logged: new Set(logs.filter((l) => l.programExerciseId === e.id).map((l) => l.setIndex)) };
+      doing, skipped: ch?.kind === "skip", logged: new Set(logs.filter((l) => l.programExerciseId === e.id).map((l) => l.setIndex)), profile: rowProfile(e, doing, profiles) };
   });
 }

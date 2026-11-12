@@ -50,5 +50,14 @@ test("peso: al abrir queda seleccionado y lo tipeado lo reemplaza; borrar todo n
   // ± sigue funcionando desde el valor escrito.
   await page.getByRole("button", { name: /^Más \d/ }).click();
   await expect(page.getByRole("button", { name: /^50 kg\. Tocá para escribir el peso/ })).toBeVisible();
+
+  // FSA1: todo valor con hasta 2 decimales se acepta («8,2» daba «Peso inválido» por un error de coma flotante).
+  for (const [typed, shown] of [["8,2", "8,2"], ["4,1", "4,1"], ["16,35", "16,35"]]) {
+    await openField(page);
+    await field(page).fill(typed);
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: new RegExp(`^${shown} kg\\. Tocá para escribir el peso`) })).toBeVisible();
+  }
+  await expect(page.getByText(/Peso inválido/)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

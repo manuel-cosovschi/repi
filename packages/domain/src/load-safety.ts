@@ -109,6 +109,7 @@ export const kindAt = (detail: ExerciseDetail | null | undefined, i: number): Se
  * AMRAP o pirámide, una carga única para todas las series sería incorrecta: hasta el modelo de etapas (02/06) no se sugiere.
  */
 export function progressionApplies(detail: ExerciseDetail | null | undefined) {
+  if (detail?.activity) return false; // ejercicios por tiempo: una actividad (cinta, bici…) nunca recibe una carga
   const plan = detail?.setPlan;
   if (!plan?.length) return true;
   if (!plan.every((s) => s.kind === "work" || s.kind === "warmup")) return false;

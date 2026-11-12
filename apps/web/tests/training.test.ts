@@ -7,6 +7,7 @@ import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
 import * as tr from "@/server/training/services";
 import * as cp from "@/server/coachpay/services";
+import { exportMyData } from "@/server/privacy/services";
 import { AccessError, resetRateLimits } from "@/server/access/util";
 
 const emailOf = async (id: string) => (await db.select({ e: schema.user.email }).from(schema.user).where(eq(schema.user.id, id)))[0].e;
@@ -262,6 +263,10 @@ describe("sesión del alumno", () => {
     expect((await tr.sessionAction(user, s2, "finish")).status).toBe("completed");
     expect((await tr.sessionAction(user, s2, "finish")).status).toBe("completed");
     await tr.sessionFeedback(user, s2, { rpe: 8, note: "Hombro bien" });
+    // FSA1: la copia de los datos propios incluye la nota de cada serie (faltaba) y la de la sesión.
+    await tr.logSet(user, s2, { id: randomUUID(), programExerciseId: pe.id, setIndex: 1, weightKg: 80, reps: 9, rir: 1, note: "Me tiró el hombro al final" });
+    const mine = (await exportMyData(user)).training.find((x) => x.note === "Hombro bien")!;
+    expect(mine.sets.map((x) => x.note)).toEqual([null, "Me tiró el hombro al final"]);
     const t2 = await tr.myTraining(user);
     expect(t2.state === "ready" && t2.program.nextDay).toBe(1); // rotación: después de Torso A viene Piernas
     expect(t2.stats.weekDone).toBe(1);

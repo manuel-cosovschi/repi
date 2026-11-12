@@ -325,7 +325,9 @@ describe("métricas desde eventos reales", () => {
       await gym.takeTask(w.t1, w.org, t.id);
       await gym.completeTask(w.t1, w.org, t.id);
     }
-    const pc = await mt.performanceCenter(w.manager, w.org, w.A, "7d");
+    // «Ahora» un segundo después: la ventana es [desde, ahora) y el último pedido puede completarse en el mismo milisegundo
+    // en que se mide (quedaba afuera y la prueba fallaba de vez en cuando en CI).
+    const pc = await mt.performanceCenter(w.manager, w.org, w.A, "7d", new Date(Date.now() + 1000));
     const a = pc.rows.find((r) => r.id === w.t1)!;
     expect(a.hours).toBe(2);
     expect(a.req).toBe(3);
@@ -461,5 +463,205 @@ describe("D206 · pedido de programa con preferencias (gimnasio)", () => {
     expect(await pendingBriefs(w.vale.userId)).toEqual([]);
     expect((await myNotifications(w.vale.userId)).items.some((x) => x.id === `brief:${t.id}`)).toBe(false);
     expect((await err(completeProgramBrief(w.vale.userId, full)))?.code).toBe("no_pending");
+  });
+});
+
+// ── FSA1 · auditoría staff (09/11/2026) ─────────────────────────────────────
+/** Programa institucional mínimo (sin servicios) para sembrar sesiones con números conocidos. */
+async function seedProgram(orgId: string, gymMemberId: string, by: string) {
+  const [p] = await db.insert(schema.program).values({ orgId, kind: "member_copy", gymMemberId, createdBy: by }).returning();
+  const [v] = await db.insert(schema.programVersion).values({ programId: p.id, number: 1, name: "Base", weeks: 4, createdBy: by, locked: true }).returning();
+  await db.update(schema.program).set({ currentVersionId: v.id }).where(eq(schema.program.id, p.id));
+  const [d] = await db.insert(schema.programDay).values({ versionId: v.id, position: 0, name: "Día A" }).returning();
+  const [a] = await db.insert(schema.programAssignment).values({ gymMemberId, programId: p.id, startsOn: "2026-01-01", assignedBy: by }).returning();
+  return { assignmentId: a.id, versionId: v.id, dayId: d.id };
+}
+async function seedSessions(userId: string, gymMemberId: string, prog: { assignmentId: string; versionId: string; dayId: string }, daysAgo: number[], status: "completed" | "abandoned" = "completed", now = Date.now()) {
+  for (const ago of daysAgo) {
+    const end = new Date(now - ago * 86_400_000);
+    await db.insert(schema.workoutSession).values({ id: randomUUID(), userId, gymMemberId, ...prog, dayName: "Día A", status, startedAt: new Date(end.getTime() - 3_600_000), endedAt: end });
+  }
+}
+/** Socios sin cuenta verificada (alta masiva para números grandes): sólo usuario y socio activo. */
+async function bulkMembers(orgId: string, locationId: string, count: number) {
+  const users = Array.from({ length: count }, (_, i) => ({ id: randomUUID(), name: `Socio masivo ${i}`, email: `bulk${i}.${randomUUID()}@test.repi.local`, emailVerified: true }));
+  await db.insert(schema.user).values(users);
+  const ms = await db.insert(schema.gymMember).values(users.map((u) => ({ orgId, locationId, userId: u.id, status: "active" as const }))).returning();
+  return ms.map((m) => ({ memberId: m.id, userId: m.userId }));
+}
+
+describe("FSA1 · gestión no lee datos privados del socio", () => {
+  it("dueño y gerencia: sin series, notas de sesión ni notas del equipo; sala sí, y la asistencia agregada sigue", async () => {
+    const w = await world();
+    await gym.startShift(w.t1, w.org, w.A);
+    await gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC(), reason: "Programa inicial" });
+    const t = await tr.myTraining(w.vale.userId);
+    const sid = randomUUID();
+    await tr.startSession(w.vale.userId, { id: sid, dayId: t.state === "ready" ? t.program.days[0].id : "" });
+    const pe = (await tr.getSession(w.vale.userId, sid)).exercises[0].id;
+    await tr.logSet(w.vale.userId, sid, { id: randomUUID(), programExerciseId: pe, setIndex: 0, weightKg: 40, reps: 8, rir: 2, feel: "molestia", note: "me tira la rodilla" });
+    await tr.sessionAction(w.vale.userId, sid, "finish");
+    await gym.addNote(w.t1, w.org, w.vale.memberId, { kind: "institutional", text: "Prefiere entrenar temprano" });
+    const floor = await gym.memberDetail(w.t2, w.org, w.vale.memberId);
+    expect(floor.log[0].exercises[0].sets[0]).toMatchObject({ feel: "molestia", note: "me tira la rodilla" });
+    expect(floor.notes.map((x) => x.text)).toEqual(["Prefiere entrenar temprano"]);
+    expect(floor.seesTraining).toBe(true);
+    for (const who of [w.owner, w.manager]) {
+      const d = await gym.memberDetail(who, w.org, w.vale.memberId);
+      expect(d.log).toEqual([]);
+      expect(d.notes).toEqual([]);
+      expect(JSON.stringify(d)).not.toContain("rodilla");
+      expect(d.visits30).toBe(1); // asistencia agregada: sí
+      expect(d.seesTraining).toBe(false);
+    }
+  });
+});
+
+describe("FSA1 · casos críticos de sala", () => {
+  it("quien pierde el permiso con la pantalla abierta: las acciones siguientes se rechazan en el servidor", async () => {
+    const w = await world();
+    await gym.startShift(w.t1, w.org, w.A);
+    const t = await gym.createTask(w.manager, w.org, w.A, { gymMemberId: w.vale.memberId, category: "consulta", summary: "Duda de horarios" });
+    const t2 = await gym.createTask(w.manager, w.org, w.A, { gymMemberId: w.vale.memberId, category: "consulta", summary: "Otra duda" });
+    await gym.takeTask(w.t1, w.org, t2.id);
+    const open = await gym.memberDetail(w.t1, w.org, w.vale.memberId); // la pantalla quedó abierta
+    expect(open.canEdit).toBe(true);
+    // Cambio de rol: de sala a recepción (sin «program.edit» ni «floor.work»).
+    await db.update(schema.staffMembership).set({ role: "reception" }).where(and(eq(schema.staffMembership.userId, w.t1), eq(schema.staffMembership.orgId, w.org)));
+    expect((await err(gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC(), reason: "Programa inicial" })))?.code).toBe("forbidden");
+    expect((await err(gym.takeTask(w.t1, w.org, t.id)))?.code).toBe("forbidden");
+    expect((await err(gym.completeTask(w.t1, w.org, t2.id)))?.code).toBe("forbidden");
+    expect((await err(gym.memberDetail(w.t1, w.org, w.vale.memberId)))?.code).toBe("forbidden");
+    // Baja del equipo: ya no existe para él (404, sin revelar el gym).
+    await db.update(schema.staffMembership).set({ status: "revoked" }).where(and(eq(schema.staffMembership.userId, w.t1), eq(schema.staffMembership.orgId, w.org)));
+    const denied = await Promise.all([err(gym.listQueue(w.t1, w.org, w.A)), err(gym.addNote(w.t1, w.org, w.vale.memberId, { kind: "personal", text: "nota" })), err(gym.gymContext(w.t1, w.org))]);
+    expect(denied.map((e) => e?.code)).toEqual(["not_found", "not_found", "not_found"]);
+    expect((await db.select().from(schema.gymTask).where(eq(schema.gymTask.id, t.id)))[0].assigneeUserId).toBeNull();
+    expect(await db.select().from(schema.programAssignment).where(eq(schema.programAssignment.gymMemberId, w.vale.memberId))).toHaveLength(0);
+  });
+
+  it("cambio de sede: pierde la sede anterior y trabaja en la nueva", async () => {
+    const w = await world();
+    const bMember = await w.member(w.B, "Socio Belgrano");
+    const ta = await gym.createTask(w.manager, w.org, w.A, { gymMemberId: w.vale.memberId, category: "consulta", summary: "Pedido en A" });
+    const tb = await gym.createTask(w.tB, w.org, w.B, { gymMemberId: bMember.memberId, category: "consulta", summary: "Pedido en B" });
+    await db.update(schema.staffMembership).set({ locationId: w.B }).where(and(eq(schema.staffMembership.userId, w.t1), eq(schema.staffMembership.orgId, w.org)));
+    expect((await err(gym.startShift(w.t1, w.org, w.A)))?.code).toBe("not_found");
+    expect((await err(gym.memberDetail(w.t1, w.org, w.vale.memberId)))?.code).toBe("not_found");
+    await gym.startShift(w.t1, w.org, w.B);
+    expect((await err(gym.takeTask(w.t1, w.org, ta.id)))?.code).toBe("not_found");
+    await gym.takeTask(w.t1, w.org, tb.id);
+    expect((await gym.memberDetail(w.t1, w.org, bMember.memberId)).name).toBe("Socio Belgrano");
+    expect((await gym.listQueue(w.t2, w.org, w.A)).shared.map((x) => x.id)).toContain(ta.id);
+  });
+
+  it("fin de turno con pendientes: lo traspasado espera aceptación, lo demás sigue asignado y visible para gerencia", async () => {
+    const w = await world();
+    await gym.startShift(w.t1, w.org, w.A);
+    const a = await gym.createTask(w.t1, w.org, w.A, { gymMemberId: w.vale.memberId, category: "tecnica", summary: "Revisar peso muerto", assignToMe: true });
+    const b = await gym.createTask(w.t1, w.org, w.A, { category: "consulta", summary: "Queda conmigo", assignToMe: true });
+    await gym.closeShift(w.t1, w.org, w.A, { toUserId: w.t2, items: [{ taskId: a.id, summary: "Revisar peso muerto, viene a las 18" }] });
+    expect(await gym.activeShift(w.t1)).toBeNull();
+    // Sin turno ni permiso fuera de turno no la completa; gerencia la ve asignada y la devuelve a la cola.
+    expect((await err(gym.completeTask(w.t1, w.org, b.id)))?.code).toBe("no_shift");
+    expect((await gym.managerTasks(w.manager, w.org, w.A, "open")).tasks.find((x) => x.id === b.id)?.assignee?.id).toBe(w.t1);
+    expect((await gym.managerTasks(w.manager, w.org, w.A, "pending")).tasks.map((x) => x.id)).toEqual([a.id]);
+    await gym.reassignTask(w.manager, w.org, b.id, null);
+    expect((await gym.listQueue(w.t2, w.org, w.A)).shared.map((x) => x.id)).toContain(b.id);
+    // Quien recibe el traspaso lo acepta en su turno: la continuidad queda en el historial de la tarea.
+    await gym.startShift(w.t2, w.org, w.A);
+    await gym.acceptHandoff(w.t2, w.org, a.id);
+    await gym.completeTask(w.t2, w.org, a.id);
+    const ev = await db.select().from(schema.gymTaskEvent).where(eq(schema.gymTaskEvent.taskId, a.id));
+    expect(ev.map((e) => e.kind)).toEqual(expect.arrayContaining(["created", "taken", "transferred", "accepted", "resolved"]));
+  });
+
+  it("el socio deja de compartir su entrenamiento: series, últimas marcas e inteligencia dejan de verse al instante", async () => {
+    const w = await world();
+    await gym.startShift(w.t1, w.org, w.A);
+    await gym.saveMemberProgram(w.t1, w.org, w.vale.memberId, { doc: DOC(), reason: "Programa inicial" });
+    const t = await tr.myTraining(w.vale.userId);
+    const sid = randomUUID();
+    await tr.startSession(w.vale.userId, { id: sid, dayId: t.state === "ready" ? t.program.days[0].id : "" });
+    await tr.logSet(w.vale.userId, sid, { id: randomUUID(), programExerciseId: (await tr.getSession(w.vale.userId, sid)).exercises[0].id, setIndex: 0, weightKg: 50, reps: 8, rir: 2, feel: null });
+    await tr.sessionAction(w.vale.userId, sid, "finish");
+    expect((await gym.memberDetail(w.t1, w.org, w.vale.memberId)).log).toHaveLength(1);
+    expect(Object.keys(await gym.memberLastTimes(w.t1, w.org, w.vale.memberId, [EX]))).toEqual([EX]);
+    await db.update(schema.consentGrant).set({ status: "revoked", revokedAt: new Date() }).where(eq(schema.consentGrant.relationId, w.vale.memberId));
+    const d = await gym.memberDetail(w.t1, w.org, w.vale.memberId);
+    expect([d.trainingShared, d.log, d.visits30, d.wishes]).toEqual([false, [], 0, null]);
+    expect(await gym.memberLastTimes(w.t1, w.org, w.vale.memberId, [EX])).toEqual({});
+    expect((await err(gym.memberIntelligence(w.t1, w.org, w.vale.memberId)))?.code).toBe("consent_required");
+    // El programa institucional y el historial no se borran.
+    expect(d.program?.revision).toBe(1);
+    expect(await db.select().from(schema.setLog).where(eq(schema.setLog.sessionId, sid))).toHaveLength(1);
+  });
+});
+
+describe("FSA1 · los números de gestión coinciden con la base", () => {
+  it("panel, participación, ejecutivo y desempeño: conteos exactos con filtro de sede", async () => {
+    const w = await world();
+    const now = Date.now();
+    // Sede A: vale (programa, 3 sesiones en 30 días + 1 vieja + 1 abandonada), m2 sin programa, m3 de baja (con sesión), m4 sin consentir.
+    const pv = await seedProgram(w.org, w.vale.memberId, w.t1);
+    await seedSessions(w.vale.userId, w.vale.memberId, pv, [1, 5, 20, 40]);
+    await seedSessions(w.vale.userId, w.vale.memberId, pv, [2], "abandoned");
+    const m2 = await w.member(w.A, "Socio Sin Programa");
+    const m3 = await w.member(w.A, "Socio De Baja");
+    await db.update(schema.gymMember).set({ status: "ended" }).where(eq(schema.gymMember.id, m3.memberId));
+    await seedSessions(m3.userId, m3.memberId, await seedProgram(w.org, m3.memberId, w.t1), [3]);
+    const m4 = await w.member(w.A, "Socio Pendiente");
+    await db.update(schema.gymMember).set({ status: "pending_consent" }).where(eq(schema.gymMember.id, m4.memberId));
+    // Sede B: un socio con programa que entrena 2+ por semana (9 sesiones en 28 días).
+    const b1 = await w.member(w.B, "Socio Constante");
+    await seedSessions(b1.userId, b1.memberId, await seedProgram(w.org, b1.memberId, w.tB), [1, 3, 6, 9, 12, 15, 18, 21, 24]);
+    // Padrón: 4 en A (uno vinculado), 1 en B.
+    for (const [loc, k] of [[w.A, 4], [w.B, 1]] as const) for (let i = 0; i < k; i++)
+      await db.insert(schema.rosterEntry).values({ orgId: w.org, locationId: loc, dniHmac: randomUUID(), dniLast3: "123", fullName: `Padrón ${i}`, source: "csv" });
+    const [re] = await db.select().from(schema.rosterEntry).where(and(eq(schema.rosterEntry.orgId, w.org), eq(schema.rosterEntry.locationId, w.A))).limit(1);
+    await db.update(schema.gymMember).set({ rosterEntryId: re.id }).where(eq(schema.gymMember.id, w.vale.memberId));
+    // Equipo: tAB trabaja en A y en B; en turno en A, con una tarea en A y otra en B.
+    const tAB = await verified("Tomás Dos Sedes");
+    await db.insert(schema.staffMembership).values([{ userId: tAB, orgId: w.org, locationId: w.A, role: "floor_trainer" }, { userId: tAB, orgId: w.org, locationId: w.B, role: "floor_trainer" }]);
+    await gym.startShift(tAB, w.org, w.A);
+    await gym.createTask(tAB, w.org, w.A, { category: "consulta", summary: "Tarea en A", assignToMe: true });
+    await db.insert(schema.gymTask).values({ number: 99999, orgId: w.org, locationId: w.B, category: "consulta", priority: "media", source: "gerencia", summary: "Tarea en B", createdBy: w.manager, assigneeUserId: tAB });
+    await gym.createTask(w.manager, w.org, w.A, { gymMemberId: m2.memberId, category: "seguimiento", summary: "Seguimiento A", dueAt: new Date(now - 86_400_000).toISOString() });
+
+    const at = new Date(now + 1000);
+    expect(await mt.locationOutcomes([w.A], at)).toEqual({ members: 2, sessions30: 3, withProgram: 50, trained30: 50, twoPerWeek: 0, trainedN: 1 });
+    expect(await mt.locationOutcomes([w.B], at)).toEqual({ members: 1, sessions30: 9, withProgram: 100, trained30: 100, twoPerWeek: 100, trainedN: 1 });
+
+    const panel = await mt.managerPanel(w.manager, w.org, w.A, at);
+    expect(panel.kpis).toMatchObject({ roster: 4, members: 2, adoption: 25, onShift: 1, shared: 1, followOverdue: 1, followOpen: 1 });
+    expect(panel.weeks.reduce((s, x) => s + x.n, 0)).toBe(4); // completadas en 56 días: sin la abandonada ni la del socio de baja
+    expect(panel.onShift.find((o) => o.id === tAB)?.openTasks).toBe(1); // sólo las de esta sede
+    expect(panel.taskBars.find((x) => x.label === "Asignadas")?.n).toBe(1);
+
+    const eng = await mt.engagement(w.manager, w.org, w.A, at);
+    expect(eng.funnel.map((f) => f.n)).toEqual([4, 2, 1, 1, null]);
+    expect([eng.withoutProgram, eng.newThisMonth]).toEqual([1, 2]);
+
+    const ex = await mt.executive(w.owner, w.org, at);
+    expect(ex.kpis).toMatchObject({ roster: 5, members: 3, adoption: 20, sessions30: 12, locations: 2 });
+    const exA = ex.locations.find((l) => l.id === w.A)!, exB = ex.locations.find((l) => l.id === w.B)!;
+    expect([exA.members, exA.sessions30, exA.perMember30, exA.trainers, exA.followOnTime]).toEqual([2, 3, 1.5, 3, 0]); // t1, t2, tAB
+    expect([exB.members, exB.sessions30, exB.perMember30, exB.trainers]).toEqual([1, 9, 9, 2]); // tB, tAB
+    // Filtro de sede del dueño: cada sede por separado suma lo mismo que «Todas».
+    const all = await mt.managerPanel(w.owner, w.org, null, at);
+    const pa = await mt.managerPanel(w.owner, w.org, w.A, at), pbp = await mt.managerPanel(w.owner, w.org, w.B, at);
+    expect(all.kpis.members).toBe(pa.kpis.members + pbp.kpis.members);
+    expect(all.kpis.roster).toBe(pa.kpis.roster + pbp.kpis.roster);
+    expect(all.weeks.reduce((s, x) => s + x.n, 0)).toBe(13);
+    expect((await mt.performanceCenter(w.owner, w.org, w.B, "30d", at)).outcomes).toMatchObject({ members: 1, sessions30: 9 });
+  });
+
+  it("con más de 100 socios, «Entrenaron en 30 días» es la cantidad real (no un porcentaje redondeado)", async () => {
+    const w = await world();
+    const ms = await bulkMembers(w.org, w.B, 150);
+    await seedSessions(ms[0].userId, ms[0].memberId, await seedProgram(w.org, ms[0].memberId, w.tB), [2]);
+    const eng = await mt.engagement(w.owner, w.org, w.B, new Date(Date.now() + 1000));
+    expect(eng.funnel.find((f) => f.label === "Entrenaron en 30 días")?.n).toBe(1);
+    expect(eng.funnel.find((f) => f.label === "Con programa asignado")?.n).toBe(1);
   });
 });

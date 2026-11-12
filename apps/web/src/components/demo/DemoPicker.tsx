@@ -1,7 +1,7 @@
 "use client";
 // Elección de perfil para la demo guiada (D85). Cada opción arma un entorno propio y entra directo, con la guía abierta.
 import { useState } from "react";
-import { Barbell, Buildings, DeviceMobile, UsersThree, CaretRight, type Icon } from "@phosphor-icons/react";
+import { Barbell, Buildings, DeviceMobile, UsersThree, CaretRight, type Icon, Monitor } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
 import { Wordmark } from "@/components/access/Wordmark";
@@ -11,6 +11,7 @@ const ROLES: [string, string, string, Icon][] = [
   ["floor", "Entrenador de sala", "Avisos en vivo de la sala, cola de pedidos y fichas de socios.", UsersThree],
   ["member", "Alumno o socio", "Entrenar desde el teléfono, progreso, chat y el gimnasio en la app.", DeviceMobile],
   ["coach", "Personal trainer", "Alumnos, programas, rendimiento, mensajes y cobros.", Barbell],
+  ["control", "Pantalla de rutinas · REPI Control", "La tablet del gimnasio: el socio consulta su rutina y registra su entrenamiento con código y PIN, sin instalar nada.", Monitor],
 ];
 
 export function DemoPicker() {

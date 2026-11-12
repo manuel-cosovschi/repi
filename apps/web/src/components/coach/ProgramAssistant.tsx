@@ -27,7 +27,9 @@ export function ProgramAssistant({ url, wishes, brief, hasContent, library = [],
     level: (LEVELS.some(([k]) => k === brief.level) ? brief.level : "beginner") as (typeof LEVELS)[number][0], likes: brief.likes, avoid: brief.avoid, limitations: brief.limitations, notes: brief.notes,
   } : {
     goal: goalKey(wishes?.goal), daysPerWeek: wishes?.daysPerWeek && wishes.daysPerWeek <= 6 ? wishes.daysPerWeek : 3, minutes: wishes?.minutes ?? 60 as number | null,
-    level: "beginner" as (typeof LEVELS)[number][0], likes: wishes?.likes ?? "", avoid: wishes?.avoid ?? "", limitations: "", notes: "",
+    // D217: experiencia declarada y restricciones que no son de salud (equipamiento, horarios), si las compartió.
+    level: (LEVELS.find(([, l]) => l === wishes?.experience)?.[0] ?? "beginner") as (typeof LEVELS)[number][0], likes: wishes?.likes ?? "", avoid: wishes?.avoid ?? "", limitations: "",
+    notes: [wishes?.equipment ? `Equipamiento: ${wishes.equipment}.` : "", wishes?.limits ? `Restricciones: ${wishes.limits}.` : ""].filter(Boolean).join(" "),
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);

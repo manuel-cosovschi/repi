@@ -4,11 +4,13 @@
 // el próximo por rotación. La semana muestra días entrenados reales.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TECHNIQUES, kindAt, labelAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
+import { activityOf, isTimedRow, prescriptionText, type ExerciseDetail } from "@repi/domain";
 import { api } from "@/lib/api";
+import { keepSame } from "@/lib/cache";
 import { signOutSafely } from "@/lib/session-cleanup";
-import { allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
+import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, putServerCopy, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
-import { ApiError } from "@/lib/api";
+import { ApiError, SUPERVISED_EVENT } from "@/lib/api";
 import { Wordmark } from "@/components/access/Wordmark";
 import { prefersReducedMotion } from "@/lib/motion";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
@@ -21,7 +23,7 @@ import { Nudges, type Nudge } from "./Nudges";
 import { CommunityChallenges } from "./CommunityChallenges";
 import { BrandIntro } from "@/components/motion/BrandIntro";
 import { ACCESS_ITEMS, INJURY_STATUS, REQUEST_KIND, TASK_CATEGORY, type InjuryStatus, type RequestKind } from "@repi/domain";
-import { kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
+import { activityProfileOf, activityTargetSec, kg, metaTxt, prevTxt, type ProgramUpdate, type Training } from "./types";
 import { UnitContext, useUnit } from "./units";
 import { Sheet } from "./Sheet";
 import { SoloEntry, SoloSheet, type Advice, type Routine } from "./Solo";
@@ -34,14 +36,24 @@ import { resetHints, useHintSeen } from "./Hint";
 import { ProgressTraining } from "./ProgressTraining";
 import { BodyWeight } from "./BodyWeight";
 import { ProgressPhotos } from "./ProgressPhotos";
-import { Wishes } from "./Wishes";
+import { TrainingProfile } from "./TrainingProfile";
+import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
+import { KioskAccess, SupervisedNote } from "./KioskAccess";
 import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
+import { SectionStage } from "@/components/motion/SectionStage";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
+import { Loading, Skel } from "@/components/motion/Skeleton";
+import { TabBar } from "./TabBar";
+import { BrainProvider, useBrain } from "@/components/brain/BrainProvider";
+import { RepiCard, repiCardVisible } from "@/components/brain/RepiCard";
+import { RepiPrefs } from "@/components/brain/RepiPrefs";
+import type { Draft, InterventionView, Navigate } from "@/components/brain/types";
 
 type Tab = "home" | "train" | "prog" | "msgs" | "gym" | "perfil";
 type Inbox = {
@@ -88,10 +100,15 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [privKey, setPrivKey] = useState(0);
   const [solo, setSolo] = useState<"solo" | "coach_absent" | null>(null); // Adaptive Coach fase 1 (D108)
+  // D217: antes de «Entrenar por mi cuenta» o «No vino el profe», el formulario breve si al perfil le falta lo esencial (nunca bloquea).
+  const gate = useProfileGate();
+  // REPI Control (D213): con gimnasio supervisado estas opciones no se ofrecen; si llegara a pedirse, no pasa por el formulario.
+  const supervised = !!t?.supervised;
+  const openSolo = useCallback((v: "solo" | "coach_absent") => (supervised ? setSolo(v) : gate(v, () => setSolo(v))), [gate, supervised]);
   const [connectTick, setConnectTick] = useState(0); // REPI Connect (D126): recarga la tarjeta de pedidos
   // Control de acceso del gimnasio (D127): estado de la validación de ingreso por gimnasio, siempre desde el servidor.
   const [presence, setPresence] = useState<{ gyms: GymPresence[]; demo: boolean } | null>(null);
-  const loadPresence = useCallback(() => api<{ gyms: GymPresence[]; demo: boolean }>("/api/me/gym/presence").then((x) => { setPresence(x); return x; }).catch(() => null), []);
+  const loadPresence = useCallback(() => api<{ gyms: GymPresence[]; demo: boolean }>("/api/me/gym/presence").then((x) => { setPresence((p) => keepSame(p, x)); return x; }).catch(() => null), []);
   // Aviso push de un pedido resuelto → /app?pedido=<id> abre su detalle.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("pedido");
@@ -100,12 +117,14 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     const g = new URLSearchParams(window.location.search).get("gym");
     if (g === "ch" || g === "club") { setTab("gym"); setGymTab(g); window.history.replaceState(null, "", window.location.pathname); }
   }, []);
-  const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then(setInbox).catch(() => setInbox(null)), []);
+  const loadInbox = useCallback(() => api<Inbox>("/api/me/inbox").then((x) => setInbox((p) => keepSame(p, x))).catch(() => setInbox(null)), []);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [gymTab, setGymTab] = useState<GymTab | undefined>(undefined);
   const [openCh, setOpenCh] = useState<string | null>(null); // D168: desafío a abrir desde una invitación
-  const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then(setFeed).catch(() => {}), []);
+  // D210: borrador que REPI dejó para Mensajes (nunca se envía solo: queda en el campo para revisarlo).
+  const [msgDraft, setMsgDraft] = useState<{ text: string; to: Draft["to"]; n: number } | null>(null);
+  const loadFeed = useCallback(() => api<Feed>("/api/me/notifications").then((x) => setFeed((p) => keepSame(p, x))).catch(() => {}), []);
   const [localOpen, setLocalOpen] = useState<LocalSession | null>(null);
   // Online primero; si no hay red, el programa guardado en el teléfono. Antes de mostrar nada se verifica el dueño.
   const load = useCallback(async () => {
@@ -115,7 +134,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       srvOpen = x.openSession;
       await ensureOwner(x.userId).catch(() => {});
       await saveTraining(x).catch(() => {});
-      setT(x); setErr(null); setOfflineAt(null);
+      setT((p) => keepSame(p, x)); setErr(null); setOfflineAt(null); // M06: sin cambios, el mismo objeto (secciones vivas)
       void loadInbox(); void loadFeed(); void loadPresence(); checkTrophies();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403 || e.status === 404)) { await wipeLocal().catch(() => {}); setErr(e.message); return null; }
@@ -129,11 +148,11 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     if (lo && srvOpen !== undefined && srvOpen !== lo.id && lo.synced && !(await pendingFor(lo.id).catch(() => 1))) {
       try {
         const f = fromServer(await api<Parameters<typeof fromServer>[0]>(`/api/me/sessions/${lo.id}`), lo.rest);
-        await putLocal(f);
+        await putServerCopy(f);
         if (f.status !== "in_progress" && f.status !== "paused") lo = null;
       } catch { /* sin conexión: queda como estaba */ }
     }
-    setLocalOpen(lo);
+    setLocalOpen((p) => keepSame(p, lo));
     // Minimización: sesiones terminadas y ya sincronizadas no se guardan en el teléfono más de un día.
     for (const ls of await allLocal().catch(() => [])) {
       if ((ls.status === "completed" || ls.status === "abandoned") && Date.now() - new Date(ls.updatedAt).getTime() > 86_400_000 && !(await pendingFor(ls.id))) await delLocal(ls.id);
@@ -174,22 +193,44 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     return () => { stop = true; clearInterval(id); document.removeEventListener("visibilitychange", vis); };
   }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
   const [histErr, setHistErr] = useState(false);
-  const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist(r.sessions)).catch(() => { setHist(null); setHistErr(true); }); }, []);
+  const loadHist = useCallback(() => { setHistErr(false); api<{ sessions: History }>("/api/me/history").then((r) => setHist((p) => keepSame(p, r.sessions))).catch(() => { setHist(null); setHistErr(true); }); }, []);
   useEffect(() => { if (tab === "prog") loadHist(); }, [tab, loadHist]);
   // Service worker sólo en producción (en desarrollo interfiere con la recarga en caliente).
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(async (reg) => {
       await navigator.serviceWorker.ready;
-      const urls = [location.pathname, ...performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.startsWith(location.origin) && /\/_next\/static\/|\/brand\//.test(u))];
+      // El logo del encabezado es parte de la carcasa: se guarda siempre (puede cargarse antes de que el service worker controle
+      // la página y no figurar en lo ya cargado; sin él, recargar sin conexión mostraba el encabezado sin logo).
+      const urls = [location.pathname, "/brand/wm_full.png", ...performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.startsWith(location.origin) && /\/_next\/static\/|\/brand\//.test(u))];
       (reg.active ?? navigator.serviceWorker.controller)?.postMessage({ type: "cache", urls });
     }).catch(() => {});
   }, []);
+  // REPI Control (D213): si el servidor rechaza algo porque el gimnasio pasó a planificar todo (pantalla vieja), se relee el
+  // entrenamiento para que Inicio y Entrenar dejen de ofrecerlo. El mensaje lo muestra quien hizo el pedido.
+  useEffect(() => {
+    const on = () => { void load(); };
+    window.addEventListener(SUPERVISED_EVENT, on);
+    return () => window.removeEventListener(SUPERVISED_EVENT, on);
+  }, [load]);
   // Cambio de sección (G · Atlética): la barra queda fija, el contenido entra con un fundido de 160 ms (CSS .tab-pane)
   // y cada sección recupera su scroll. Lo no sincronizado vive en IndexedDB y no depende de la pestaña montada.
   const scrolls = useRef<Record<string, number>>({});
-  useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [tab, workout]);
+  useEffect(() => { window.scrollTo(0, workout ? 0 : scrolls.current[tab] ?? 0); }, [workout]); // eslint-disable-line react-hooks/exhaustive-deps -- M06: entre secciones lo restaura SectionStage
 
+  // M06 (QA r2): lo que lee cada sección, también a través de start, begin, startOwn, go, openNotifs y goNudge (tab y workout
+  // no cambian mientras una sección está a la vista; las funciones de carga y los set* son estables). Si nada de su lista
+  // cambió, volver a la sección no la recorre (SectionStage reutiliza su último nodo): el historial que llega al abrir
+  // Progreso, por ejemplo, ya no vuelve a dibujar Inicio ni Entrenar a la vuelta (tareas de ~50 ms con CPU ×4).
+  const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick]
+    : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day]
+    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg]
+    : k === "msgs" ? [offlineAt, msgDraft]
+    : k === "gym" ? [offlineAt, gymTab, openCh]
+    : [t, offlineAt, inbox, privKey];
+  const relKey = t?.relation?.orgId ?? t?.relation?.kind ?? "none"; // el resetKey del escenario: otra relación, todo de nuevo
+  // M06 (QA r2): estado normal en el mismo toque, como en main: la sección se dibuja de un tirón (sin startTransition). Desde
+  // la barra, el indicador ya salió al apoyar el dedo (TabBar).
   const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); setOpenCh(null); };
   const notifs = withProgramNotice(feed, t);
   const openNotifs = () => {
@@ -275,6 +316,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       // D134: el plan serie por serie fija peso o repeticiones de esa serie (top set, back-off, drop).
       const plan = e.detail?.setPlan?.[i];
       const a = aiOf(e.id); // D138: sin plan por serie, el peso y las reps sugeridos por la IA para hoy (ya validados, D182)
+      // Ejercicios por tiempo: una actividad (cinta, bici…; con el reemplazo de la IA, la del reemplazo) arranca con su duración
+      // en segundos y los valores que indicó el profe (velocidad, inclinación, nivel…), como al traerla del servidor.
+      const ap = activityProfileOf({ reps: e.reps, profile: e.profile, detail: e.detail, change: a?.swap ? { kind: "substitute", substitute: { profile: a.swap.profile ?? null } } : null });
+      const actPlan = e.activity ?? activityOf(e.detail);
       // D154: sin plan del profe ni sugerencia del día, la progresión de REPI según la última vez en ese ejercicio.
       const sg = a?.swap || a?.skip ? null : e.suggest ?? null;
       const reps = /^(\d+)/.exec(plan?.reps ?? a?.reps ?? (sg ? String(sg.reps) : e.reps));
@@ -282,15 +327,18 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       const lb = labelAt(e.detail, i); // D192: Load Set y otras etiquetas: su carga, o la elige la persona (no hereda la del ejercicio)
       const st = startWeight({ kind: kindAt(e.detail, i), label: lb, planKg: plan?.weightKg, suggestKg: a?.swap || lb ? null : a?.weightKg ?? sg?.weightKg,
         carriedKg: lb ? null : a?.swap ? a.swap.prev?.weightKg : e.prev?.weightKg });
-      sets[setKey(e.id, i)] = { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}), r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
+      sets[setKey(e.id, i)] = ap
+        ? { id: crypto.randomUUID(), w: 0, r: activityTargetSec(e, ap) ?? 0, m: actPlan && actPlan.profile === ap ? activityDraft(actPlan) : null, rir: null, done: false, revision: 0, at: null }
+        : { id: crypto.randomUUID(), w: st.w, ...(st.pending ? { pend: true } : {}), r: reps ? Number(reps[1]) : 0, rir: null, done: false, revision: 0, at: null };
     }
     const s: LocalSession = {
       id: crypto.randomUUID(), dayId: d.id, dayName: d.name, note: t.program!.note, startedAt: nowIso, status: "in_progress", activeMs: 0, lastResumedAt: nowIso,
       endedAt: null, rpe: null, sessionNote: null, revision: 1, synced: false, rest: null, updatedAt: nowIso, sets,
       exercises: d.exercises.map((e) => {
         const a = aiOf(e.id);
-        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null };
-        if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name } } };
+        const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null,
+          profile: e.profile ?? null, activity: e.activity ?? activityOf(e.detail) }; // ejercicios por tiempo: qué se registra
+        if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name, profile: a.swap.profile ?? null } } };
         if (a?.skip) return { ...base, change: { kind: "skip" as const, reason: a.reason ?? "other", substitute: null } };
         // D182: con la sugerencia de hoy aceptada, la tarjeta muestra esa carga (ya validada contra la regla): nunca dos cargas distintas.
         if (a && a.weightKg != null) return { ...base, suggest: { action: "hold" as const, weightKg: a.weightKg, reps: Number(/^(\d+)/.exec(a.reps)?.[1] ?? e.suggest?.reps ?? 0), text: "",
@@ -306,21 +354,31 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     } catch { flash("Este navegador no permite guardar datos en el teléfono; no se puede entrenar sin conexión."); }
   };
 
+  // D210: a dónde lleva una acción de REPI ya confirmada por el servidor (abrir el entrenamiento, ver el historial).
+  const brainNavigate = (n: Navigate) => {
+    if (n.to === "workout") { if (openId) setWorkout(openId); else if (n.dayKey && t?.program?.days.some((d) => d.id === n.dayKey)) void start(n.dayKey); else go("train"); return; }
+    if (n.to === "history") { go("prog"); setProgSeg("train"); }
+  };
+  const brainDraft = (d: Draft) => { go("msgs"); setMsgDraft({ text: d.draft, to: d.to, n: Date.now() }); };
+  const assistant = featureOn("assistant");
+
   const tabs = ([["home", "Inicio", House], ["train", "Entrenar", Barbell], ["prog", "Progreso", ChartLineUp], ["msgs", "Mensajes", ChatCircle],
     ...(inbox?.gym ? [["gym", "Gym", Storefront] as const] : [])] as const);
 
   workoutRef.current = workout;
   coachFirstRef.current = coachFirst;
   const unit: WeightUnit = t?.weightUnit ?? "kg";
+  // D210: el proveedor de REPI envuelve las dos ramas (misma posición y tipo), así la conversación sigue con el entrenamiento abierto.
+  const brainProps = { enabled: assistant, offline: !!offlineAt, activeKey: workout ? "workout" : tab, onNavigate: brainNavigate, onDraft: brainDraft };
   if (workout) return (
-    <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
+    <UnitContext.Provider value={unit}><BrainProvider {...brainProps}><div className="mb"><div className="mb-col">
       <Workout sessionId={workout} coachFirst={coachFirst} programChanged={changedMidWorkout} onDismissChange={() => setChangedMidWorkout(false)} gym={t?.relation?.kind === "gym"} gymOrgId={t?.relation?.kind === "gym" ? t.relation.orgId : null} demo={!!presence?.demo} connectPlace={t?.relation?.kind === "gym" && inbox?.gym?.connect ? inbox.gym.place : null} flash={flash} onExit={(to) => { setWorkout(null); setChangedMidWorkout(false); setTab(to === "prog" ? "prog" : to === "home" ? "home" : "train"); load(); }}
         onNudge={(n) => { setWorkout(null); setChangedMidWorkout(false); goNudge(n); load(); }} />
-    </div><Toast t={toast} /></div></UnitContext.Provider>
+    </div><Toast t={toast} /></div></BrainProvider></UnitContext.Provider>
   );
 
   return (
-    <UnitContext.Provider value={unit}><div className="mb"><div className="mb-col">
+    <UnitContext.Provider value={unit}><BrainProvider {...brainProps}><div className="mb"><div className="mb-col">
       {/* F-BR-02: intro de marca; con un entrenamiento abierto sale enseguida. */}
       <BrandIntro abort={!!openId} />
       <main className="mb-scroll">
@@ -333,38 +391,36 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
           </button>
         )}
         {!t ? <p className="mb-muted">Cargando…</p> : (
-          <div key={tab} className="tab-pane">
-            {tab === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
+          <SectionStage active={tab} order={["home", "train", "prog", "msgs", "gym"]} resetKey={relKey} paneClass="tab-pane" focus="lost"
+            deps={depsFor} render={(k) => <>
+            {k === "home" && <Home t={{ ...t, openSession: openId, openSessionDay: localOpen?.dayName ?? t.openSessionDay }} coachFirst={coachFirst} onStart={start} onOwn={(id) => void startOwn(id)} go={go}
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
-              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge} />}
-            {tab === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={setSolo}
-              own={t.relation ? <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} /> : null} /></>}
-            {tab === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
-            {tab === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} />}
-            {tab === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
-            {tab === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
-          </div>
+              presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge}
+              onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
+            {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
+              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo}
+              own={t.relation ? (t.supervised ? <SupervisedNote offline={!!offlineAt} onAsk={() => setSheet({ type: "help", kind: "rutina", to: "gym" })} /> : <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} />) : null} /></>}
+            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
+            {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
+            {k === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
+            {k === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
+          </>} />
         )}
       </main>
       {/* Barra Cristal flotante: cápsula con indicador interior; los rótulos quedan para lectores de pantalla. */}
       <div className="tabfade" aria-hidden="true" />
-      <nav className="tabbar" aria-label="Principal" style={{ ["--n" as string]: tabs.length, ["--i" as string]: tabs.findIndex((x) => x[0] === tab) }}>
-        <i className="tab-ind" aria-hidden="true" data-off={tabs.some((x) => x[0] === tab) ? undefined : "1"} />
-        {tabs.map(([k, l, d]) => (
-          <button key={k} type="button" aria-current={tab === k ? "page" : undefined} onClick={() => go(k)} style={{ position: "relative" }}>
-            <Ic i={d} size={24} /><span className="tab-lbl">{l}</span>
+      <TabBar tabs={tabs} active={tab} onGo={go} badge={(k) => <>
             {k === "msgs" && !!inbox?.unreadThreads && <span className="tab-badge" aria-label={`${inbox.unreadThreads} conversaciones sin leer`}>{inbox.unreadThreads}</span>}
             {k === "gym" && !!inbox?.gymUnseen && <span className="tab-dot" aria-label={`${inbox.gymUnseen} ${inbox.gymUnseen === 1 ? "aviso" : "avisos"} del gym`} />}
-          </button>
-        ))}
-      </nav>
+      </>} />
       {sheet?.type === "checkin" && <CheckinSheet flash={flash} standalone={!sheet.dayId}
         onDone={() => { setInbox((x) => (x ? { ...x, checkinToday: true } : x)); if (sheet.dayId) void begin(sheet.dayId); else setSheet(null); }}
         onSkip={() => (sheet.dayId ? void begin(sheet.dayId) : setSheet(null))} />}
       {sheet?.type === "pain" && <PainSheet flash={flash} onClose={() => setSheet(null)} />}
-      {solo && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onStartRoutine={(r) => void startRoutine(r)} onContinue={() => openId && setWorkout(openId)}
+      {/* D217: formulario breve del perfil (lo abre `gate` antes de rutinas, importar, «por mi cuenta», «No vino el profe» e Inicio). */}
+      <ProfileGateHost />
+      {solo && !t?.supervised && <SoloSheet variant={solo} onClose={() => setSolo(null)} onStart={(dayId, ai) => { aiPlan.current = ai ?? null; void start(dayId); }} onStartRoutine={(r) => void startRoutine(r)} onContinue={() => openId && setWorkout(openId)}
         onHelp={() => setSheet({ type: "help", kind: "tecnica", to: t?.relation?.kind === "gym" ? "gym" : undefined })} onMessage={() => go("msgs")} />}
       {sheet?.type === "help" && (inbox?.gym?.connect && (sheet.to ?? (t?.relation?.kind === "gym" || !inbox.coach ? "gym" : "coach")) === "gym"
         ? <ConnectHelpSheet place={inbox.gym.place} coachName={inbox.coach?.name ?? null} onCoach={() => setSheet({ type: "help", kind: sheet.kind, to: "coach" })} flash={flash}
@@ -384,7 +440,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
     </div>
     {/* A11Y-1: el aviso queda fuera de .mb-col, que se vuelve inert con una hoja abierta (si no, el lector no lo anuncia). */}
     {unlocks.length > 0 && <TrophyUnlock items={unlocks} onDone={closeUnlocks} />}
-    <Toast t={toast} /></div></UnitContext.Provider>
+    <Toast t={toast} /></div></BrainProvider></UnitContext.Provider>
   );
 }
 
@@ -471,10 +527,17 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge }: {
+function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge, onCardOpen }: {
   t: Training; coachFirst: string; onStart: (dayId: string) => void; onOwn: (routineId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
+  onCardOpen: (c: InterventionView) => void;
 }) {
+  // D210: la tarjeta de REPI absorbe el aviso de programa actualizado (un solo aviso, resuelto en el servidor), pero sólo mientras
+  // se ve (asistente encendido y con conexión) y con lo mismo que decía el aviso: versión, motivo y «Ver anterior» (revisión AC3
+  // #27/#29: sin conexión no quedaba ninguno de los dos, y la versión anterior ya no se podía abrir desde ningún lado).
+  const brain = useBrain();
+  const progUpdate = t.state === "ready" ? t.program?.update ?? null : null;
+  const repiCoversProgram = !!progUpdate && repiCardVisible(brain) && brain.home?.card?.kind === "program_updated";
   const connect = !!inbox?.gym?.connect;
   const gymRel = t.relation?.kind === "gym";
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
@@ -532,13 +595,23 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         <div className="dashed-card"><strong>Tu programa empieza el {formatDayEs(t.startsOn!)}</strong><span>{cap(coachFirst)} ya te lo asignó. Ese día lo vas a ver acá.</span></div>
       ) : (
         // D162: con rutinas propias, Inicio muestra la que toca hoy; sin ellas, la tarjeta para pedir programa o cargar la propia.
-        <NextOwnRoutine offline={offline} busyOpen={!!t.openSession} onStart={onOwn} fallback={
+        // REPI Control (D213): en un gimnasio supervisado no hay rutinas propias: sólo pedir el programa al equipo.
+        <NextOwnRoutine offline={offline} busyOpen={!!t.openSession} onStart={onOwn} skip={!!t.supervised} fallback={
         <div className="dashed-card"><strong>Todavía no tenés programa</strong>
           <span>{t.relation ? (pendingProgram ? `Ya se lo pediste ${gymRel ? "al equipo de sala" : `a ${coachFirst}`}. Te avisamos cuando lo asigne.` : `${cap(coachFirst)} todavía no te asignó un programa. Podés pedírselo.`) : "Todavía no tenés coach ni gym en REPI."}</span>
           {t.relation && !pendingProgram && !offline && <button type="button" className="cta sm" onClick={askProgram}>Pedir mi programa</button>}
-          {t.relation && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
+          {t.relation && !t.supervised && <button type="button" className="linkbtn" style={{ alignSelf: "flex-start" }} onClick={() => go("train")}>¿Tenés tu propia rutina? Cargala o subí una foto y registrá tus entrenamientos</button>}
+          {t.supervised && <span>Tu gimnasio planifica tus rutinas. Si necesitás un cambio, pedíselo al equipo de sala.</span>}
         </div>} />
       )}
+      {/* D210: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
+      <RepiCard startName={next?.name ?? t.openSessionDay ?? null}
+        onStart={(k) => onStart(k && t.program?.days.some((d) => d.id === k) ? k : next?.id ?? "")}
+        onOpen={onCardOpen}
+        onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }}
+        extra={repiCoversProgram && progUpdate && t.program ? <ProgramUpdateInfo u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} /> : null} />
+      {/* D217: perfil nuevo o incompleto: «Contale a REPI qué buscás» (una vez; nunca con un entrenamiento abierto). */}
+      <ProfileNudge hidden={offline || !!t.openSession} />
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}
@@ -546,7 +619,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       {/* D156: a la vista en la primera pantalla, debajo del entrenamiento de hoy. */}
       {!offline && <Ideas offline={offline} flash={flash} />}
       {!offline && <NextAppointment flash={flash} />}
-      {t.state === "ready" && t.program?.update && <ProgramNotice u={t.program.update} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
+      {progUpdate && t.program && !repiCoversProgram && <ProgramNotice u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} />}
       {inbox?.accessRequests.map((a) => (
         <button key={a.id} type="button" className="hbanner cyan" onClick={() => go("perfil")}>
           <span className="dot" style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
@@ -572,7 +645,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           <span><b>¿Cómo te atendió {i.trainer.split(" ")[0]}?</b><small>Opcional · por {i.kind.toLowerCase()}</small></span>
           <span style={{ display: "flex", gap: 6 }}>
             <button type="button" className="cta sm" style={{ height: 36 }} onClick={() => onSheet({ type: "review", invite: i })}>Opinar</button>
-            <button type="button" className="ghost sm" style={{ height: 36 }} onClick={async () => { await api(`/api/me/gym/reviews/${i.id}/dismiss`, { body: {} }).catch(() => {}); flash("Listo, no te volveremos a preguntar por esta atención."); reloadInbox(); }}>Ahora no</button>
+            <button type="button" className="ghost sm" style={{ height: 36 }} onClick={async () => { try { await api(`/api/me/gym/reviews/${i.id}/dismiss`, { body: {} }); flash("Listo, no te volveremos a preguntar por esta atención."); reloadInbox(); } catch (e) { flash((e as Error).message); } }}>Ahora no</button>
           </span>
         </div>
       ))}
@@ -624,7 +697,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
         <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />Continuar entrenamiento en curso</button>
       )}
       {own}
-      {t.relation && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
+      {t.relation && !t.supervised && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={false} />}
       <div className="restday"><span style={{ fontSize: 22, fontWeight: 600 }}>{t.state === "scheduled" ? `Empieza el ${formatDayEs(t.startsOn!)}` : "Sin programa asignado"}</span><span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>Cuando {coachFirst} te asigne un programa, sus días aparecen acá.</span></div>
     </>
   );
@@ -632,7 +705,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
-      {featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
+      {!t.supervised && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
       {d.exercises.length > 0 && (
@@ -725,9 +798,11 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
       <div className="exlist">
         {d.exercises.map((e, i) => (
           <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">{labels[i] ?? "foto"}</span>
-            <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit)}</em></span>
+            {/* Ejercicios por tiempo: una actividad se lee como la indicó el profe («10 min · 5 km/h · incl. 3») y su «anterior» con
+                duración y valores; sin descanso que mostrar si no lo lleva. */}
+            <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit, isTimedRow(e))}</em></span>
             {e.suggest && <small className="ex-suggest" aria-label={`REPI sugiere hoy ${e.suggest.text}`}>Hoy: {e.suggest.weightKg != null ? `${kg(e.suggest.weightKg, unit)} × ` : ""}{e.suggest.reps}</small>}
-            <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>
+            {activityOf(e.detail) && !e.restSec ? null : <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>}
           </div>
         ))}
         {!d.exercises.length && <span className="mb-muted">Este día no tiene ejercicios todavía.</span>}
@@ -765,6 +840,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Progreso</h1>
       <div className="gtabs" role="tablist" aria-label="Secciones de Progreso">
+        <SlideIndicator />
         {segs.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={cur === k} onClick={() => setSeg(k)}>{l}
             {k === "body" && <NewTag id="new_progress_body" open={cur === "body"} />}{k === "photos" && <NewTag id="new_progress_photos" open={cur === "photos"} />}</button>
@@ -775,7 +851,10 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
           {featureOn("progress") && <ProgressTraining key={trainingRevision} initialRange={trainingRevision > 0 ? "all" : "90d"} onOpenSession={setOpen} offline={offline} />}
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <h2>Volumen por semana</h2>
-            {entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
+            {/* M06 (QA r2): mientras llega el historial, el gráfico en esqueleto con su alto (antes el aviso de datos insuficientes,
+                94 px, y después el gráfico, 180: lo de abajo saltaba). */}
+            {!hist && !err ? <><Loading what="el volumen por semana" /><Skel h={120} r={10} /></>
+              : entries.length < 2 ? <span className="mb-muted" style={{ fontSize: 14 }}>Datos insuficientes: hacen falta al menos dos semanas con sesiones registradas.</span> : (
               <div className="volbars" role="img" aria-label={`Volumen semanal: ${entries.map(([k, v]) => `${k} ${volumeIn(v, unit).toLocaleString("es-AR")} ${unit}`).join(", ")}`}>
                 {entries.map(([k, v]) => <div key={k}><i style={{ height: `${(v / max) * 100}%` }} /><span>{k}</span></div>)}
               </div>
@@ -784,7 +863,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
           </section>
           {!offline && <LevelPanel />}
           <MyGoals />
-          <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} />
+          <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} supervised={!!t.supervised} />
           <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
         </>
       )}
@@ -904,7 +983,12 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         ))}
       </section>
       <MyCharges />
-      <Wishes offline={offline} flash={flash} />
+      {/* D217: perfil de entrenamiento canónico (también para REPI Control: es personal). */}
+      <TrainingProfile offline={offline} flash={flash} />
+      {/* D210: Asistente REPI (avisos, push, silencio, autonomía, tono y lo que recuerda). */}
+      <RepiPrefs offline={offline} flash={flash} />
+      {/* REPI Control (D213/D216): código para consultar y registrar en la pantalla del gimnasio y cambio de PIN. */}
+      <KioskAccess offline={offline} flash={flash} />
       <Settings unit={t.weightUnit ?? "kg"} offline={offline} flash={flash} onChanged={onSettings} />
       <MyData flash={flash} />
       <a className="ghost" href="/instalar" style={{ display: "grid", placeItems: "center" }}>Cómo agregar Repi a inicio</a>
@@ -1044,40 +1128,66 @@ function MyData({ flash }: { flash: (m: string) => void }) {
 
 // F-CL-14: aviso de programa nuevo o actualizado, con autor; la versión anterior queda consultable.
 // Visto por versión en este teléfono (no es un dato de salud ni privado de otra persona).
-type PrevVersion = { number: number; name: string; createdAt: string; days: { name: string; exercises: { name: string; sets: number; reps: string; rir: number | null; restSec: number }[] }[] };
+type PrevVersion = { number: number; name: string; createdAt: string; days: { name: string; exercises: { name: string; sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null }[] }[] };
+/** La versión anterior del programa, para consultar: la abren el aviso y la tarjeta de REPI que lo reemplaza. */
+function usePrevVersion(flash: (m: string) => void) {
+  const [prev, setPrev] = useState<PrevVersion | null>(null);
+  const open = async () => { try { setPrev(await api<PrevVersion>("/api/me/training/previous")); } catch (e) { flash((e as Error).message); } };
+  return { prev, open, close: () => setPrev(null) };
+}
+function PrevVersionSheet({ prev, u, version, onClose }: { prev: PrevVersion; u: ProgramUpdate; version: number; onClose: () => void }) {
+  return (
+    <Sheet title={`Versión ${prev.number} · ${prev.name}`} sub={`Hasta el ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(u.at))}. Sólo para consultar: entrenás con la versión ${version}.`} onClose={onClose}>
+      {prev.days.map((d) => (
+        <div key={d.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <b style={{ fontSize: 15 }}>{d.name}</b>
+          {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {activityOf(e.detail) ? prescriptionText({ ...e, detail: e.detail ?? null }) : `${e.sets} × ${e.reps}${e.rir != null ? ` · RIR ${e.rir}` : ""}`}</span>)}
+        </div>
+      ))}
+    </Sheet>
+  );
+}
+const updateWhen = (u: ProgramUpdate) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(u.at));
+/** «Versión 3 · 5 nov · motivo» (o la fecha, si es un programa nuevo). */
+const updateMeta = (u: ProgramUpdate, version: number) => (u.kind === "new" ? updateWhen(u) : `Versión ${version} · ${updateWhen(u)}${u.reason ? ` · ${u.reason}` : ""}`);
+const canSeePrev = (u: ProgramUpdate, offline: boolean) => u.kind === "updated" && u.hasPrevious && !offline;
+
 function ProgramNotice({ u, version, name, offline, flash }: { u: ProgramUpdate; version: number; name: string; offline: boolean; flash: (m: string) => void }) {
   const key = `repi_prog_seen:${u.key}`;
   const [seen, setSeen] = useState(true);
-  const [prev, setPrev] = useState<PrevVersion | null>(null);
+  const pv = usePrevVersion(flash);
   useEffect(() => { try { setSeen(localStorage.getItem(key) === "1"); } catch { setSeen(false); } }, [key]);
   const done = () => { try { localStorage.setItem(key, "1"); } catch { /* */ } setSeen(true); };
-  const open = async () => { try { setPrev(await api<PrevVersion>("/api/me/training/previous")); } catch (e) { flash((e as Error).message); } };
-  if (seen && !prev) return null;
+  if (seen && !pv.prev) return null;
   const who = u.author?.split(" ")[0] ?? "Tu coach";
-  const when = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(u.at));
   return (
     <>
       {!seen && (
         <div className="hbanner cyan" style={{ flexWrap: "wrap" }} role="status">
           <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--ui-accent)", flex: "none" }} />
           <span><b>{u.kind === "new" ? `${who} te asignó «${name}»` : `${who} actualizó tu programa`}</b>
-            <small>{u.kind === "new" ? when : `Versión ${version} · ${when}${u.reason ? ` · ${u.reason}` : ""}`}</small></span>
+            <small>{updateMeta(u, version)}</small></span>
           <span style={{ display: "flex", gap: 6 }}>
-            {u.kind === "updated" && u.hasPrevious && !offline && <button type="button" className="ghost sm" style={{ height: 36 }} onClick={open}>Ver anterior</button>}
+            {canSeePrev(u, offline) && <button type="button" className="ghost sm" style={{ height: 36 }} onClick={pv.open}>Ver anterior</button>}
             <button type="button" className="cta sm" style={{ height: 36 }} onClick={done}>Ok</button>
           </span>
         </div>
       )}
-      {prev && (
-        <Sheet title={`Versión ${prev.number} · ${prev.name}`} sub={`Hasta el ${new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(new Date(u.at))}. Sólo para consultar: entrenás con la versión ${version}.`} onClose={() => setPrev(null)}>
-          {prev.days.map((d) => (
-            <div key={d.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <b style={{ fontSize: 15 }}>{d.name}</b>
-              {d.exercises.map((e, i) => <span key={i} className="mb-muted" style={{ fontSize: 14 }}>{e.name} · {e.sets} × {e.reps}{e.rir != null ? ` · RIR ${e.rir}` : ""}</span>)}
-            </div>
-          ))}
-        </Sheet>
-      )}
+      {pv.prev && <PrevVersionSheet prev={pv.prev} u={u} version={version} onClose={pv.close} />}
+    </>
+  );
+}
+/** D210: dentro de la tarjeta de REPI «Rutina actualizada», lo que decía el aviso: quién, versión, fecha, motivo y «Ver anterior». */
+function ProgramUpdateInfo({ u, version, name, offline, flash }: { u: ProgramUpdate; version: number; name: string; offline: boolean; flash: (m: string) => void }) {
+  const pv = usePrevVersion(flash);
+  const who = u.author?.split(" ")[0] ?? null;
+  const label = u.kind === "new" ? `Programa nuevo · ${updateWhen(u)}` : `Versión ${version} · ${updateWhen(u)}`;
+  const text = u.kind === "new" ? `${who ?? "Tu coach"} te asignó «${name}».` : [who ? `Lo actualizó ${who}.` : null, u.reason ? `Motivo: ${u.reason}` : null].filter(Boolean).join(" ");
+  return (
+    <>
+      <p className="rp-small"><small>{label}</small>{text || null}</p>
+      {canSeePrev(u, offline) && <button type="button" className="ghost sm" onClick={pv.open}>Ver la versión anterior</button>}
+      {pv.prev && <PrevVersionSheet prev={pv.prev} u={u} version={version} onClose={pv.close} />}
     </>
   );
 }

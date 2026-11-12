@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AccessShell } from "@/components/access/AccessShell";
 import { DemoPicker } from "@/components/demo/DemoPicker";
 import "@/styles/access.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "Probá REPI · Demo guiada" };
 

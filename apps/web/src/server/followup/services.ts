@@ -5,6 +5,7 @@ import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import {
   ACCESS_ITEMS, ACCESS_REQUEST_TTL_DAYS, ORPHAN_VIDEO_HOURS, VIDEO_RETENTION_DAYS, accessRetryAt, INJURY_ZONES, PAIN_ZONES, coachSeesPain, isAccessItem, localDate, resolveGrants,
   gymCan, scale10, scale5, videoOk, type AccessItem, type InjuryStatus, type RequestKind, TERMS_VERSION, CONSENT_CATALOG, briefSummary, briefView,
+  sniff,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { consentOffered } from "@/lib/features";
@@ -54,7 +55,8 @@ export async function todayCheckin(userId: string, now = new Date()) {
   return row ?? null;
 }
 
-export async function reportPain(userId: string, p: { zone: string; level: number; context: "now" | "after" | "out"; exerciseName?: string | null; sessionId?: string | null; note?: string | null; shareThis?: boolean }) {
+/** `o.onSaved`: se llama apenas la molestia quedó guardada (el asistente no reintenta si después falla una lectura). */
+export async function reportPain(userId: string, p: { zone: string; level: number; context: "now" | "after" | "out"; exerciseName?: string | null; sessionId?: string | null; note?: string | null; shareThis?: boolean }, o: { onSaved?: () => void } = {}) {
   if (!(PAIN_ZONES as readonly string[]).includes(p.zone) || !scale10(p.level) || !["now", "after", "out"].includes(p.context)) throw new AccessError("invalid", "Completá los datos marcados.");
   const rel = await myRelation(userId);
   if (p.shareThis && !rel) throw new AccessError("invalid", "No tenés coach con quien compartirla.");
@@ -63,6 +65,7 @@ export async function reportPain(userId: string, p: { zone: string; level: numbe
     userId, zone: p.zone, level: p.level, context: p.context, exerciseName: p.exerciseName?.slice(0, 120) || null, sessionId: p.sessionId ?? null,
     note: p.note?.trim().slice(0, 500) || null, sharedWithRelationId: p.shareThis && rel ? rel.rel.id : null,
   }).returning();
+  o.onSaved?.();
   const healthShared = rel ? (await activeItems(rel.rel.id)).includes("health") : false;
   return { id: row.id, visibleToCoach: !!rel && coachSeesPain(row, rel.rel.id, healthShared), coachName: rel?.coachName ?? null };
 }
@@ -86,7 +89,9 @@ export const myInjuries = (userId: string) =>
 
 // ── Alumno: pedidos y video ─────────────────────────────────────────────────
 export async function uploadRequestVideo(userId: string, f: { mime: string; bytes: Uint8Array }) {
-  if (!videoOk(f.mime, f.bytes.byteLength)) throw new AccessError("invalid_file", "El video tiene que ser MP4, MOV o WebM de hasta 60 MB.");
+  // FSA1: además del tipo declarado, la firma real del archivo (como los videos de intento y la subida directa, D71).
+  const real = sniff(f.bytes.subarray(0, 64)), iso = (m: string | null) => (m === "video/quicktime" ? "video/mp4" : m);
+  if (!videoOk(f.mime, f.bytes.byteLength) || !real || iso(real) !== iso(f.mime)) throw new AccessError("invalid_file", "El video tiene que ser MP4, MOV o WebM de hasta 60 MB.");
   const id = randomUUID();
   const key = `request-video/${userId.replace(/[^a-z0-9]/gi, "")}/${id}`;
   await putObject(key, f.bytes);
@@ -138,7 +143,7 @@ export async function markResolvedSeen(userId: string, id: string) {
 }
 
 async function setItem(tx: Tx, userId: string, rel: { id: string; coachOrgId: string }, item: AccessItem, on: boolean) {
-  const restricted = await minorWithoutGuardian(userId);
+  const restricted = await minorWithoutGuardian(userId, tx);
   if (on && resolveGrants("coach_client", [item], { minorWithoutGuardian: restricted }).indexOf(item) < 0) {
     throw new AccessError("minor", "Este dato se comparte cuando tu adulto responsable lo autorice.", 403);
   }

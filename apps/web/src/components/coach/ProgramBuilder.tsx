@@ -2,7 +2,7 @@
 // Constructor de programas (F-CO-08). Autoguardado real: cada cambio se persiste; si la versión ya fue
 // asignada o usada en una sesión, el servidor crea una versión nueva y el historial no cambia.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatRest, parseRest } from "@repi/domain";
+import { activityOf, formatRest, isActivityProfile, parseRest, type MetricsProfile } from "@repi/domain";
 import { api } from "@/lib/api";
 import { ApprovedSubs, subsLabel, subsRow, useSubsPanel, useSubstitutions } from "./ApprovedSubs";
 import { AssignModal } from "./AssignModal";
@@ -21,8 +21,12 @@ import { CoachDayCopy, DayMenu, readClip, writeClip, type DayClip } from "./DayC
 import { TemplateRollout } from "./TemplateRollout";
 import { ProgramImportModal } from "./ProgramImportModal";
 import { copyDayContent } from "@repi/domain";
+import { Loading, Skel } from "@/components/motion/Skeleton";
+import { ActivityFields, ActivityLast, ConvertToActivity, editorProfile, libMatches, rowDefaults, toActivityRow } from "./ActivityFields";
 
 type Save = { s: "idle" } | { s: "saving" } | { s: "saved"; v: number } | { s: "error"; m: string };
+/** Ejercicios por tiempo: la biblioteca trae el perfil resuelto de cada ejercicio (cinta, bici, remo… o musculación). */
+type Lib = LibEx & { profile?: string | null };
 
 export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, onAssigned }: {
   orgId: string; ov: Overview; pid: string | null; setPid: (id: string | null) => void; flash: (t: string) => void; onNewProgram: () => void; onAssigned: () => void;
@@ -37,7 +41,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const [day, setDay] = useState(0);
   // D201 (Urko): el panel de reemplazos es de este programa y este día; cambiar de programa o de día lo cierra.
   const subsPanel = useSubsPanel(`${orgId}|${prog?.id ?? ""}|${day}`);
-  const [lib, setLib] = useState<LibEx[]>([]);
+  const [lib, setLib] = useState<Lib[]>([]);
   const [libQ, setLibQ] = useState("");
   const [importing, setImporting] = useState(false);
   const [save, setSave] = useState<Save>({ s: "idle" });
@@ -57,11 +61,19 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const [copy, setCopy] = useState<{ from: { programId: string; day: number }; fromLabel: string; to: { programId: string; day: number } | null } | null>(null);
   useEffect(() => { setTiDraft(prog ? readTiDraft({ kind: "coach", programId: prog.id }) : null); }, [prog?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); return r.programs; }), [orgId]);
-  useEffect(() => { loadList().then((ps) => { if (!pid && ps[0]) setPid(ps[0].id); }).catch((e) => flash(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { api<{ exercises: LibEx[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
+  const [listErr, setListErr] = useState(false);
+  const loadList = useCallback(() => api<{ programs: TemplateRow[] }>(`/api/coach/${orgId}/programs`).then((r) => { setList(r.programs); setListErr(false); return r.programs; }), [orgId]);
+  const firstLoad = useCallback(() => { loadList().then((ps) => { if (!pid && ps[0]) setPid(ps[0].id); }).catch((e) => { setListErr(true); flash(e.message); }); }, [loadList, pid]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { firstLoad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { api<{ exercises: Lib[] }>(`/api/coach/${orgId}/library`).then((r) => setLib(r.exercises)).catch(() => {}); }, [orgId]);
   useEffect(() => {
-    if (!pid) { setProg(null); setDoc(null); return; }
+    // FSA1: cambios del programa que se deja (dentro de la espera del autoguardado) se guardan ya, no al volver a abrirlo.
+    if (dirty.current && progRef.current && docRef.current && progRef.current.id !== pid) {
+      const snap = { d: docRef.current, p: progRef.current };
+      clearTimeout(timer.current);
+      void (inflight.current ?? Promise.resolve(true)).then(() => persist(snap)); // en orden, después de un guardado en curso
+    }
+    if (!pid) { dirty.current = false; setProg(null); setDoc(null); return; }
     dirty.current = false; setSave({ s: "idle" }); setAssign(false);
     // Mientras carga el elegido no queda a la vista el anterior: «Asignar» usaría el programa equivocado (F-05).
     if (prog?.id !== pid) { setProg(null); setDoc(null); }
@@ -87,24 +99,29 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   const docRef = useRef(doc); docRef.current = doc;
   const progRef = useRef(prog); progRef.current = prog;
   const inflight = useRef<Promise<boolean> | null>(null);
-  const persist = (): Promise<boolean> => {
-    const d = docRef.current, p = progRef.current;
+  const persist = (snap?: { d: EditableDoc; p: ProgramFull }): Promise<boolean> => {
+    const d = snap?.d ?? docRef.current, p = snap?.p ?? progRef.current;
     if (!d || !p) return Promise.resolve(false);
+    // Sigue a la vista el programa que se guarda (al cambiar de programa se guarda el anterior sin tocar el estado del nuevo).
+    const shown = () => progRef.current?.id === p.id;
     const run = (async () => {
-      setSave({ s: "saving" });
+      if (shown()) setSave({ s: "saving" });
       try {
         const r = await api<{ version: number; created: boolean }>(`/api/coach/${orgId}/programs/${p.id}`, { method: "PUT", body: strip(d) });
-        setSave({ s: "saved", v: r.version });
-        if (r.created) {
+        if (shown()) setSave({ s: "saved", v: r.version });
+        else flash(`Cambios de «${d.name}» guardados${r.created ? ` como versión ${r.version}` : ""}.`);
+        if (r.created && shown()) {
           flash(`Versión ${r.version} guardada. Las sesiones ya registradas y otras asignaciones no cambian.`);
-          setProg((x) => x && { ...x, version: r.version, locked: false });
+          setProg((x) => x && x.id === p.id ? { ...x, version: r.version, locked: false } : x);
         }
         // Si hubo otro cambio mientras se guardaba, sigue pendiente (se guarda en la próxima vuelta).
         if (docRef.current === d) { dirty.current = false; clearDraft(p.id); }
         loadList();
         return true;
       } catch (e) {
-        setSave({ s: "error", m: `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.` });
+        const m = `${e instanceof TypeError ? "Sin conexión con REPI." : (e as Error).message} Tus cambios quedan en este navegador y se guardan solos cuando vuelva la conexión.`;
+        if (!shown()) { flash(`«${d.name}»: ${m.replace(" y se guardan solos cuando vuelva la conexión", "; se guardan al volver a abrirlo")}`); return false; }
+        setSave({ s: "error", m });
         timer.current = setTimeout(() => setRetry((n) => n + 1), 8000);
         return false;
       } finally { inflight.current = null; }
@@ -159,12 +176,14 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
     setDayDoc((x) => ({ ...x, exercises: ok ? sync.exs : next }));
   };
   const issues = cur ? circuitIssues(cur.exercises) : [];
-  const libq = libQ.trim().toLowerCase();
-  const addLib = (l: { id: string; name: string; kind: string }) => {
+  // Ejercicios por tiempo: cada ejercicio entra con los valores de su perfil (una cinta: 10 min a 5 km/h, inclinación 0, sin
+  // series ni RIR; un aguante: 3 × 40 s; la musculación, 3 × 8-12 con RIR 2 como siempre).
+  const addLib = (l: { id: string; name: string; kind: string; group?: string; profile?: string | null }) => {
     if (!cur) return;
-    setDayDoc((x) => ({ ...x, exercises: [...x.exercises, { exerciseId: l.id, name: l.name, sets: 3, reps: l.kind === "time" ? "40 s" : "8-12", rir: l.kind === "time" ? null : 2, restSec: 90 }] }));
+    setDayDoc((x) => ({ ...x, exercises: [...x.exercises, { exerciseId: l.id, name: l.name, ...rowDefaults(editorProfile({ name: l.name }, l)) }] }));
     flash(`${l.name} agregado a ${cur.name}.`);
   };
+  const libById = new Map(lib.map((l) => [l.id, l]));
 
   const duplicate = async () => {
     if (!prog) return;
@@ -204,15 +223,24 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
   // <cliente>» y el profe cargaba las cargas en la plantilla creyendo que le llegaban a su alumno.
   const firsts = prog?.clients.map((c) => c.split(" ")[0]).join(", ") ?? "";
   const forTxt = !prog ? "" : prog.kind === "client_copy" ? `Programa de ${prog.forClient ?? "un cliente"} · versión ${prog.version}` : `Plantilla · ${prog.clients.length ? `base del programa de ${firsts}` : "sin clientes asignados"} · versión ${prog.version}`;
+  // M06 (QA): mientras llega la lista o el programa elegido se ve el editor en esqueleto, nunca el vacío «Creá tu primer
+  // programa» ni un «Cargando programa…» suelto (pasaba por tres diseños). El anterior igual no queda a la vista (F-05).
+  const loading = !doc && (pid != null || (list === null && !listErr));
 
   return (
     <>
       <div className="co-head">
         <div style={{ flex: "1 1 320px" }}>
-          <span className="co-kicker">{forTxt} {saveLabel(save)}</span>
-          {doc ? <input className="pname" value={doc.name} onChange={(e) => edit((d) => ({ ...d, name: e.target.value }))} aria-label="Nombre del programa" maxLength={120} />
-            : <h1 tabIndex={-1}>Programas</h1>}
+          {loading ? <Skel w={240} h={12} style={{ margin: "2px 0" }} /> : <span className="co-kicker">{forTxt} {saveLabel(save)}</span>}
+          {/* El h1 es siempre el mismo elemento (sólo se oculta a la vista cuando está el nombre editable): el foco que le da
+              el escenario al entrar no se pierde cuando llega el programa (QA M06: quedaba en body). */}
+          {/* M06 (QA r2): mientras llega el programa que se va a abrir, el nombre en esqueleto (no «Programas» con el corte de
+              meta y, medio segundo después, el nombre del programa: se leía como un segundo cambio de pantalla). */}
+          <h1 tabIndex={-1} className={doc || loading ? "sr-only" : undefined} style={doc || loading ? undefined : { lineHeight: "31px" }}>Programas</h1>
+          {loading && <Skel w={220} h={24} r={8} style={{ margin: "3.5px 0" }} />}
+          {doc && <input className="pname" value={doc.name} onChange={(e) => edit((d) => ({ ...d, name: e.target.value }))} aria-label="Nombre del programa" maxLength={120} />}
         </div>
+        {loading && <div className="co-actions" aria-hidden="true"><Skel w={85} h={42} r={10} /><Skel w={85} h={42} r={10} /><Skel w={145} h={42} r={10} /></div>}
         {prog && (
           <div className="co-actions">
             <button type="button" className="btn danger" onClick={() => setDel(true)}>Eliminar</button>
@@ -259,6 +287,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             </button>
           ))}
           {list && !list.length && <span className="muted" style={{ padding: 8 }}>Todavía no creaste programas.</span>}
+          {list === null && !listErr && [0, 1].map((i) => <div key={i} className="prow" aria-hidden="true" style={{ cursor: "default" }}><Skel w={`${70 - i * 14}%`} h={14} style={{ margin: "2px 0" }} /><Skel w="80%" h={12} style={{ margin: "2px 0" }} /></div>)}
           <button type="button" className="dashed" onClick={onNewProgram}>+ Programa en blanco</button>
           {/* SI2: un programa que ya existe (foto, PDF, planilla o texto) entra como programa nuevo, sin asignar. */}
           <button type="button" className="dashed" onClick={() => setImporting(true)}>Importar programa</button>
@@ -297,7 +326,7 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             <div className="exhead" aria-hidden="true"><span className="c-name">Ejercicio</span><span className="c-s">Series</span><span className="c-r">Reps</span><span className="c-rir">RIR</span><span className="c-rest">Descanso</span><span className="c-act" /></div>
             {(() => { const labels = groupLabels(cur.exercises); return cur.exercises.map((e, i) => (
               <div key={`${prog?.id}-${prog?.version}-${day}-${i}-${e.exerciseId}`}>
-                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsPanel.isOpen(subsRow(i, e.exerciseId))}
+                <ExRow orgId={orgId} n={i} e={e} group={labels[i]} profile={editorProfile(e, libById.get(e.exerciseId))} subs={subsLabel(subs.filter((x) => x.exerciseId === e.exerciseId).length)} subsOpen={subsPanel.isOpen(subsRow(i, e.exerciseId))}
                   onSubs={() => subsPanel.toggle(subsRow(i, e.exerciseId))}
                   onChange={(patch) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, ...patch } : y)) }))}
                   onDetail={(p) => saveDetail(i, p)}
@@ -305,7 +334,8 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
                   onSeparate={e.detail?.group ? () => setDayDoc((x) => ({ ...x, exercises: separateFromGroup(x.exercises, i) })) : undefined}
                   onMove={(dir) => setDayDoc((x) => { const a = x.exercises.slice(); const j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return { ...x, exercises: a }; })}
                   onRemove={() => setDayDoc((x) => ({ ...x, exercises: x.exercises.filter((_, k) => k !== i) }))} />
-                <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />
+                {activityOf(e.detail) ? <ActivityLast last={lastTimes[e.exerciseId]} />
+                  : <LoadSuggestion e={e} last={lastTimes[e.exerciseId]} profile={editorProfile(e, libById.get(e.exerciseId))} onApply={(detail) => setDayDoc((x) => ({ ...x, exercises: x.exercises.map((y, k) => (k === i ? { ...y, detail } : y)) }))} />}
                 {subsPanel.isOpen(subsRow(i, e.exerciseId)) && <ApprovedSubs orgId={orgId} ex={e} lib={lib} subs={subs} setSubs={setSubs} flash={flash} onAdded={subsPanel.close} />}
               </div>
             )); })()}
@@ -322,14 +352,19 @@ export function ProgramBuilder({ orgId, ov, pid, setPid, flash, onNewProgram, on
             <label className="field">Indicación para el cliente<textarea className="note" rows={2} value={doc.note} maxLength={1000} onChange={(e) => edit((d) => ({ ...d, note: e.target.value }))} /></label>
           </section>
         ) : (
-          <section className="card" style={{ flex: "3 1 480px" }}><div className="empty">{pid ? "Cargando programa…" : list?.length ? "Elegí un programa." : "Creá tu primer programa en blanco."}</div></section>
+          loading ? <EditorSkeleton /> : (
+            <section className="card" style={{ flex: "3 1 480px" }}>
+              {listErr && !list ? <div className="empty">No pudimos cargar tus programas. <button type="button" className="btn sm" onClick={firstLoad}>Reintentar</button></div>
+                : <div className="empty">{list?.length ? "Elegí un programa." : "Creá tu primer programa en blanco."}</div>}
+            </section>
+          )
         )}
         <div className="side-pane" style={{ gap: 6 }}>
           <span className="lbl-up" style={{ padding: "6px 8px" }}>Biblioteca</span>
           <label className="search" style={{ height: 38 }}><input value={libQ} onChange={(e) => setLibQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
           <NewExercise url={`/api/coach/${orgId}/library`} query={libQ} known={lib} disabled={!cur} flash={flash}
-            onCreated={(e) => { setLib((xs) => xs.some((x) => x.id === e.id) ? xs : [...xs, { id: e.id, name: e.name, group: e.group, kind: e.kind, own: e.own }].sort((a, b) => a.name.localeCompare(b.name, "es"))); addLib(e); setLibQ(""); }} />
-          {lib.filter((l) => !libq || (l.name + l.group).toLowerCase().includes(libq)).map((l) => (
+            onCreated={(e) => { setLib((xs) => xs.some((x) => x.id === e.id) ? xs : [...xs, { id: e.id, name: e.name, group: e.group, kind: e.kind, own: e.own, profile: e.profile }].sort((a, b) => a.name.localeCompare(b.name, "es"))); addLib(e); setLibQ(""); }} />
+          {lib.filter((l) => libMatches(l, libQ)).map((l) => (
             <button type="button" key={l.id} className="librow" disabled={!cur} aria-label={`Agregar ${l.name}`} onClick={() => addLib(l)}>
               <span>{l.name}<small>{l.group}{l.own ? " · propio" : ""}</small></span><i aria-hidden="true">+</i>
             </button>
@@ -352,8 +387,22 @@ function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); }
 const strip = (d: EditableDoc) => ({ name: d.name, weeks: d.weeks, note: d.note, days: d.days.map((x) => ({ name: x.name, exercises: x.exercises.map((e) => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note ?? null, ...(e.detail ? { detail: e.detail } : {}) })) })) });
 const saveLabel = (s: Save) => s.s === "saving" ? "· Guardando…" : s.s === "saved" ? "· Guardado" : s.s === "error" ? "· Error al guardar" : "";
 
-function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove, onCombine, onSeparate, nextName }: {
-  orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; subs: string; subsOpen: boolean; onSubs: () => void;
+/** M06: el editor en esqueleto con su forma (asistente, días, nombre del día, dos ejercicios e indicación) mientras carga. */
+function EditorSkeleton() {
+  return (
+    <section className="card" aria-busy="true" style={{ flex: "3 1 480px", minWidth: 0, gap: 14 }}>
+      <Loading what="el programa" />
+      <Skel w={130} h={38} r={10} />
+      <div aria-hidden="true" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}><Skel w={180} h={40} r={10} /><Skel w={190} h={14} /></div>
+      <div aria-hidden="true" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}><Skel w={260} h={44} r={10} /><Skel w={80} h={44} r={10} /></div>
+      {[0, 1].map((i) => <div key={i} aria-hidden="true" className="skel-card" style={{ minHeight: 174 }}><Skel w="38%" h={16} /><Skel h={12} /><Skel w="76%" h={12} /><Skel w="54%" h={12} /></div>)}
+      <div aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 6 }}><Skel w={180} h={13} /><Skel h={56} r={10} /></div>
+    </section>
+  );
+}
+
+function ExRow({ orgId, n, e, group, profile, subs, subsOpen, onSubs, onChange, onDetail, onMove, onRemove, onCombine, onSeparate, nextName }: {
+  orgId: string; n: number; e: EditableDoc["days"][number]["exercises"][number]; group?: string | null; profile: MetricsProfile; subs: string; subsOpen: boolean; onSubs: () => void;
   onCombine?: () => void; onSeparate?: () => void; nextName?: string;
   onChange: (p: Partial<EditableDoc["days"][number]["exercises"][number]>) => void; onMove: (d: 1 | -1) => void; onRemove: () => void;
   onDetail: (p: { detail: EditableDoc["days"][number]["exercises"][number]["detail"]; sets: number }) => void;
@@ -366,15 +415,20 @@ function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail,
   const sum = detailSummary(e, group);
   const custom = !!e.detail?.setPlan && !isStraightPlan(e.detail); // D173: series rectas con peso se editan en la fila
   const row = (p: { sets?: number; reps?: string; rir?: number | null }) => onChange(straightRow(e.detail, p));
+  // Ejercicios por tiempo: una actividad (cinta, bici, remo…) muestra sólo la duración y sus campos, sin series, RIR ni técnica.
+  // Una fila de actividad escrita como texto (programas anteriores) sigue como estaba y ofrece «Configurar por duración».
+  const act = activityOf(e.detail);
+  const convert = !act && isActivityProfile(profile) ? profile : null;
   return (
-    <div className="exrow">
+    <div className={act ? "exrow is-activity" : "exrow"}>
       <span className="c-name"><code>{group ?? String(n + 1).padStart(2, "0")}</code>{e.name}
-        <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>
+        {!act && <button type="button" className="ex-edit" onClick={() => setDetail(true)} aria-label={`Series y técnica de ${e.name}`}>Series y técnica</button>}
         {onCombine && <button type="button" className="subs-btn" onClick={onCombine} aria-label={`Combinar ${e.name} con ${nextName ?? "el siguiente"}`}>Combinar con el siguiente</button>}
         {onSeparate && <button type="button" className="subs-btn" onClick={onSeparate} aria-label={`Separar ${e.name} de su grupo`}>Separar</button>}
         {featureOn("adaptive") && <button type="button" className="subs-btn" aria-expanded={subsOpen} onClick={onSubs} aria-label={`${subs} de ${e.name}`}>{subs}</button>}
         {!noteOpen && !e.note && <NoteButton name={e.name} onOpen={() => setNoteOpen(true)} />}</span>
       {sum && <span className="ex-sum">{sum}</span>}
+      {act ? <ActivityFields e={e} profile={act.profile} onChange={onChange} /> : <>
       <span className="c-s"><small className="c-lbl">Series</small><IntInput disabled={custom} title={custom ? "Las series salen del plan: editalas en «Series y técnica»." : undefined} min={1} max={20} value={custom ? mainSets(e.detail, e.sets) : e.sets} aria-label={`Series de ${e.name}`} onChange={(n) => n != null && row({ sets: n })} /></span>
       <span className="c-r"><small className="c-lbl">Reps</small><input value={reps} aria-label={`Repeticiones de ${e.name}`} aria-invalid={!reps.trim() || undefined} maxLength={40}
         onChange={(ev) => { setReps(ev.target.value); if (ev.target.value.trim()) row({ reps: ev.target.value }); }} /></span>
@@ -382,12 +436,14 @@ function ExRow({ orgId, n, e, group, subs, subsOpen, onSubs, onChange, onDetail,
       <span className="c-rest"><small className="c-lbl">Descanso</small><input value={rest} aria-label={`Descanso de ${e.name}`} aria-invalid={restBad || undefined} placeholder="m:ss"
         onChange={(ev) => { setRest(ev.target.value); const s = parseRest(ev.target.value); if (s != null && s <= 900) onChange({ restSec: s }); }}
         onBlur={() => setRest(formatRest(e.restSec))} /></span>
+      </>}
       <span className="c-act">
         <button type="button" className="ibtn" aria-label={`Subir ${e.name}`} disabled={n === 0} onClick={() => onMove(-1)}>↑</button>
         <button type="button" className="ibtn" aria-label={`Quitar ${e.name}`} onClick={onRemove}>×</button>
       </span>
+      {convert && <ConvertToActivity name={e.name} reps={e.reps} profile={convert} onConvert={() => onChange(toActivityRow(e, convert))} />}
       {(noteOpen || !!e.note) && <NoteField name={e.name} value={e.note ?? ""} who="tu cliente" onChange={(v) => onChange({ note: v })} onEmpty={() => setNoteOpen(false)} />}
-      {detail && <ExerciseDetailEditor e={e} types={{ kind: "coach", orgId }} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
+      {detail && !act && <ExerciseDetailEditor e={e} types={{ kind: "coach", orgId }} onClose={() => setDetail(false)} onSave={(p) => { onDetail(p); setDetail(false); }} />}
     </div>
   );
 }

@@ -16,7 +16,8 @@ export const POST = handle<{ params: Promise<{ orgId: string }> }>(async (req, {
   const f = (await req.formData()).get("file");
   if (!(f instanceof File) || f.size > ATTEMPT_VIDEO_LIMITS.maxBytes || !(ATTEMPT_VIDEO_LIMITS.mimes as readonly string[]).includes(f.type)) throw new AccessError("invalid_file", "El video tiene que ser MP4, MOV o WebM de hasta 80 MB.");
   const bytes = new Uint8Array(await f.arrayBuffer());
-  if (!sniff(bytes.slice(0, 64))) throw new AccessError("invalid_file", "El video tiene que ser MP4, MOV o WebM de hasta 80 MB.");
+  const real = sniff(bytes.slice(0, 64)), iso = (m: string | null) => (m === "video/quicktime" ? "video/mp4" : m);
+  if (!real || iso(real) !== iso(f.type)) throw new AccessError("invalid_file", "El video tiene que ser MP4, MOV o WebM de hasta 80 MB.");
   const id = randomUUID();
   const key = `exercise/${orgId.replace(/[^a-z0-9]/gi, "")}/${id}`;
   await putObject(key, bytes);

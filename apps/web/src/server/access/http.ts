@@ -1,10 +1,11 @@
 import { headers } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { auth } from "../auth";
 import { db } from "@/db";
 import { AccessError, audit, rateLimit } from "./util";
 import { maskPath, logError } from "../log";
+import { DeadlineError, withDeadline } from "../deadline";
 
 export async function sessionUserId(): Promise<string> {
   const s = await auth.api.getSession({ headers: await headers() });
@@ -59,14 +60,28 @@ export function crossSiteWrite(req: Request): boolean {
   return !trusted.includes(o);
 }
 
-export function handle<C = unknown>(fn: (req: Request, ctx: C) => Promise<unknown>) {
+/**
+ * Incidente 07/11: con `deadlineMs`, si el servicio no responde a tiempo se contesta 503 («timeout») en lugar de dejar a la
+ * persona esperando hasta el corte de la función. El trabajo que sigue en curso no se corta a mitad de una transacción: queda
+ * registrado con after() y lo acota el maxDuration de la ruta.
+ */
+export function handle<C = unknown>(fn: (req: Request, ctx: C) => Promise<unknown>, opts: { deadlineMs?: number } = {}) {
   return async (req: Request, ctx: C) => {
     if (crossSiteWrite(req)) return NextResponse.json({ error: "Esta acción tiene que hacerse desde REPI.", code: "cross_site" }, { status: 403 });
+    let work: Promise<unknown> | undefined;
     try {
-      const data = await fn(req, ctx);
+      work = fn(req, ctx);
+      const data = await (opts.deadlineMs ? withDeadline(work, opts.deadlineMs, "api") : work);
       if (data instanceof Response) return data;
       return NextResponse.json(data ?? { ok: true });
     } catch (e) {
+      if (e instanceof DeadlineError && work) {
+        const late = work.then(() => {}, () => {});
+        try { after(() => late); } catch { /* fuera de un pedido (pruebas): sigue suelto */ }
+        logError("api.deadline", e, req);
+        const write = UNSAFE.has(req.method);
+        return NextResponse.json({ error: `REPI tardó demasiado en responder. ${write ? "Recargá para ver si el cambio se aplicó antes de repetirlo." : "Probá de nuevo en un momento."}`, code: "timeout" }, { status: 503 });
+      }
       if (e instanceof AccessError) {
         await recordDenied(req, e);
         return NextResponse.json({ error: e.message, code: e.code, ...(e.data ? { data: e.data } : {}) }, { status: e.status });

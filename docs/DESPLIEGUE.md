@@ -48,9 +48,32 @@ DATABASE_URL="$(grep ^DATABASE_URL_SESSION ~/.repi-secrets/supabase.env | cut -d
 # Seed DEMO: sólo local (repi_dev en localhost). Bloqueado contra Supabase/Vercel desde D87.
 # Primer REPI Admin (una vez; vence en 24 h; el enlace queda en ~/.repi-secrets/primer-admin.txt)
 DATABASE_URL="…sesión…" NEXT_PUBLIC_APP_URL=https://repiclub.com npx tsx scripts/first-admin.ts
-# (Re)programar avisos cada minuto
-DATABASE_URL="…sesión…" APP_URL=https://repi-app.vercel.app CRON_SECRET=… npx tsx scripts/schedule-cron.ts
+# (Re)programar avisos cada minuto: con la URL de sesión del rol dueño de los jobs (repi_app). La clave vive en Vault.
+DATABASE_URL="…sesión repi_app…" APP_URL=https://repiclub.com npx tsx scripts/schedule-cron.ts
 ```
+
+### Clave de los jobs (`CRON_SECRET`) en Vault y rotación
+
+Hasta el 08/11 el comando del job `repi-notifications` llevaba el bearer escrito. pg_cron escribe ese comando en `postgres_logs` en cada corrida, así que la clave quedó en los registros de Supabase. Desde ahora el comando sólo llama a `repi_private.cron_bearer()`, que lee la clave de Supabase Vault (`repi_cron_secret`). Nadie la copia en el chat ni en documentos: la genera la base.
+
+Pasos (una vez; los pasos 2 y 3 seguidos, porque entre ambos los avisos esperan unos minutos en la cola y salen en la corrida siguiente):
+
+1. **Supabase, como postgres** (SQL editor): correr `apps/web/scripts/operations/cron-secret-vault.sql`. Crea la clave nueva al azar en Vault, el esquema `repi_private` y la función, que sólo ejecuta `repi_app`. Es idempotente y no cambia nada visible: las tres columnas del final deben dar `true`.
+2. **Titular:**
+   1. En Supabase → Integrations → Vault, revelar `repi_cron_secret` y copiarla.
+   2. En Vercel → Settings → Environment Variables, poner ese valor en `CRON_SECRET` de Production (sensitive).
+   3. Hacer Redeploy de producción.
+   4. Con esto la clave vieja deja de servir también para `/api/cron/mail-test`, `alert-test` y `mail-domain`.
+3. **Reprogramar** con el rol `repi_app`: el comando de arriba, sin `CRON_SECRET`; o, desde el SQL editor como postgres, `cron.schedule` dentro de una transacción con `set local role repi_app`, con el mismo manejo de roles que `hosted-0052.sql`. El script:
+   - se niega si los jobs son de otro rol, para no dejar el job viejo corriendo;
+   - comprueba la función sin mostrar la clave;
+   - falla si algún job `repi-*` todavía lleva un bearer escrito.
+4. **Verificar:**
+   - La última fila de `net._http_response` da 200.
+   - `select count(*) from cron.job where command ilike '%Bearer %'` da 0.
+   - Al rato, los registros nuevos de Postgres ya no contienen `Bearer`.
+
+Para rotar otra vez: `select vault.update_secret((select id from vault.secrets where name = 'repi_cron_secret'), encode(extensions.gen_random_bytes(32), 'hex'))` como postgres, y repetir el paso 2. No hace falta reprogramar.
 
 Correos: van sólo por Resend. `/dev/mailbox` existe sólo en local y con `REPI_DEPLOY=demo` (hoy 404 en producción).
 

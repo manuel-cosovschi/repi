@@ -53,7 +53,7 @@ html:has(.co), body:has(.co) { background: var(--ui-sidebar-bg); }
 /* Fundido entre secciones de escritorio (G · Atlética): 160 ms sólo en el contenido; la navegación lateral no se anima. */
 .co-content[data-section] { animation: co-section-in var(--dur-section-fade) var(--ease-std); }
 @keyframes co-section-in { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 767px) { .co-content { padding: 18px max(16px, env(safe-area-inset-right)) max(40px, calc(env(safe-area-inset-bottom) + 24px)) max(16px, env(safe-area-inset-left)); } }
+@media (max-width: 767px) { .co-content { padding: 18px max(16px, env(safe-area-inset-right)) calc(max(40px, calc(env(safe-area-inset-bottom) + 24px)) + var(--demo-lane, 0px)) max(16px, env(safe-area-inset-left)); } }
 
 .co-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
 .co-head > div:first-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -84,6 +84,14 @@ html:has(.co), body:has(.co) { background: var(--ui-sidebar-bg); }
 
 /* Clientes: split view */
 .split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+/* Clientes del coach (pedido del titular, 07/11/2026): cuando la lista y la ficha no entran lado a lado, la ficha se abre como
+   página propia («Volver a Clientes») en vez de quedar debajo de toda la lista. */
+.co-clients { container-type: inline-size; }
+.co-clients .co-list-back { display: none; align-self: flex-start; align-items: center; gap: 6px; }
+@container (max-width: 835px) {
+  .co-clients[data-sel="0"] > .detail-pane, .co-clients[data-sel="1"] > .list-pane { display: none; }
+  .co-clients .co-list-back { display: inline-flex; }
+}
 .list-pane { flex: 1 1 300px; max-width: 100%; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .detail-pane { flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .search { display: flex; align-items: center; gap: 8px; height: 42px; border: 1px solid var(--ui-control-border); border-radius: 10px; padding: 0 12px; background: var(--ui-input-bg); color: var(--ui-text); }
@@ -93,7 +101,7 @@ html:has(.co), body:has(.co) { background: var(--ui-sidebar-bg); }
 .pill { height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid var(--ui-border-strong); background: var(--ui-surface); color: var(--ui-text-2); font: 600 12px var(--font-ui); cursor: pointer; }
 .pill[aria-pressed="true"] { background: var(--ui-inverse-bg); border-color: var(--ui-inverse-bg); color: var(--ui-inverse-text); }
 .sorts { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ui-muted); padding: 0 4px; }
-.sorts button { border: 0; background: none; padding: 4px 2px; font: 600 12px var(--font-ui); color: var(--ui-muted); cursor: pointer; }
+.sorts button { border: 0; background: none; padding: 4px 2px; min-height: 24px; font: 600 12px var(--font-ui); color: var(--ui-muted); cursor: pointer; } /* FSA1: área táctil ≥ 24 px (WCAG 2.5.8) */
 .sorts button[aria-pressed="true"] { color: var(--ui-text); text-decoration: underline; }
 .crow { display: flex; gap: 10px; align-items: center; text-align: left; padding: 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--ui-text); width: 100%; font: inherit; }
 .crow:hover { background: var(--ui-selection-bg); }
@@ -290,6 +298,31 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
   .exrow .c-act { flex: 1 1 100%; justify-content: flex-end; }
   .exrow .ex-note { order: 0; padding-left: 0; }
 }
+/* Ejercicios por tiempo (07/11/2026): campos de una actividad en la fila del constructor del coach y del editor de sala. Una cinta
+   muestra sólo duración (min), velocidad (km/h) e inclinación; cada actividad, los suyos. Los rótulos se ven siempre (la cabecera
+   Series/Reps/RIR/Descanso es de la musculación). «Configurar por duración» convierte una fila anterior escrita como texto. */
+.af-row { flex: 1 1 300px; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; }
+.af-cell { flex: 1 1 96px; min-width: 76px; max-width: 160px; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; }
+.af-lbl { font-size: 11px; font-weight: 600; line-height: 1.2; color: var(--ui-muted); overflow-wrap: anywhere; }
+.af-mode { flex: 1 1 100%; display: flex; gap: 6px; flex-wrap: wrap; }
+.af-mode button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--ui-border-strong); background: var(--ui-surface); color: var(--ui-text-2); font: 600 13px var(--font-ui); cursor: pointer; }
+.af-mode button[aria-pressed="true"] { background: var(--ui-inverse-bg); border-color: var(--ui-inverse-bg); color: var(--ui-inverse-text); }
+.af-err { flex: 1 1 100%; margin: 0; font-size: 12px; font-weight: 600; color: var(--ui-error-text); }
+.af-convert { order: 1; flex: 1 1 100%; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 12px; border-radius: 10px; background: var(--ui-selection-bg); border: 1px dashed var(--ui-selection-border); font-size: 13px; line-height: 1.4; color: var(--ui-text); }
+.af-convert span { flex: 1 1 220px; min-width: 0; }
+@container (max-width: 640px) {
+  .exrow .af-row { flex: 1 1 100%; }
+  .exrow .af-cell { flex: 1 1 calc(33% - 10px); max-width: none; }
+  .exrow .af-cell input, .af-mode button, .af-convert .btn { min-height: 44px; }
+  .exrow .af-convert { order: 0; }
+}
+@media (max-width: 720px) {
+  .exrow .af-row { flex: 1 1 100%; }
+  .exrow .af-cell { flex: 1 1 calc(33% - 10px); max-width: none; }
+  .exrow .af-cell input, .af-mode button, .af-convert .btn { min-height: 44px; }
+  .exrow .af-convert { order: 0; }
+}
+@media (pointer: coarse) { .exrow .af-cell input, .af-mode button, .af-convert .btn { min-height: 44px; } }
 /* D154: carga sugerida por REPI al actualizar la rutina de un cliente o socio. */
 .ex-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: -2px 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--ui-selection-bg, var(--ui-selection-bg)); font-size: 13px; color: var(--ui-text); }
 .ex-sug b { color: var(--ui-link, var(--ui-link)); }
@@ -391,3 +424,69 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 /* PP1 · Novedades de REPI (D202) */
 .repinews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
 .repinews .card { padding: 16px 18px; }
+
+/* D210 · «Señales de REPI» (ficha del coach → Rendimiento y ficha del socio en Gym): análisis de REPI, distinto de los datos
+   del alumno; cada señal dice de dónde sale. Sólo tokens --ui-*. */
+.rs-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.rs-tag { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--ui-accent-tint); color: var(--ui-text); font: 600 11px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; }
+.rs-sub, .rs-note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ui-text-2); }
+.rs-status { margin: 0; font-size: 13px; line-height: 1.45; }
+.rs-status:empty { display: none; }
+.rs-retry { align-self: flex-start; }
+.rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rs-item { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--ui-divider); }
+.rs-item:last-child { border-bottom: 0; }
+.rs-n { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--ui-surface-2); border: 1px solid var(--ui-divider); font: 700 18px var(--font-display); color: var(--ui-text); }
+.rs-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rs-text { margin: 0; font-size: 14px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.rs-origin { display: inline-flex; align-items: center; gap: 6px; font: 600 11px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; color: var(--ui-muted); }
+.rs-origin::before { content: ""; width: 6px; height: 6px; border-radius: 3px; background: currentColor; }
+.rs-origin[data-o="calc"] { color: var(--ui-link); }
+.rs-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-why summary, .rs-excluded summary { display: flex; align-items: center; gap: 6px; min-height: 44px; width: fit-content; cursor: pointer; list-style: none; font: 600 13px var(--font-ui); color: var(--ui-link); }
+.rs-why summary::-webkit-details-marker, .rs-excluded summary::-webkit-details-marker { display: none; }
+.rs-why summary::before, .rs-excluded summary::before { content: "▸"; font-size: 12px; transition: transform var(--dur-micro) var(--ease-std); }
+.rs-why[open] summary::before, .rs-excluded[open] summary::before { transform: rotate(90deg); }
+.rs-why p { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--ui-surface-2); font-size: 13px; line-height: 1.5; color: var(--ui-text-2); }
+.rs-excluded { border-top: 1px solid var(--ui-divider); }
+.rs-excluded ul { margin: 0 0 4px; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--ui-text-2); }
+.rs-props { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rs-prop { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ui-divider); background: var(--ui-surface-2); }
+.rs-prop-h { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
+.rs-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--ui-selection-bg); border: 1px solid var(--ui-selection-border); font-size: 13px; line-height: 1.45; }
+@media (pointer: coarse) { .rs .btn.sm, .ac .btn.sm { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .rs-why summary::before, .rs-excluded summary::before { transition: none; } }
+
+/* D210 · REPI Admin › Coaching IA: agregados reales en tablas y barras simples; límites con revisión y confirmación. */
+.ac { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ac h3, .ac-h3 { margin: 4px 0 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--ui-muted); }
+.ac-period { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--ui-muted); }
+.ac-period select { height: 42px; border-radius: 10px; border: 1px solid var(--ui-control-border); padding: 0 10px; font: 500 14px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
+.ac-range { margin: 0; font-size: 13px; }
+.ac-kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }
+.ac-kpi { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ac-kpi span { font-size: 13px; color: var(--ui-muted); }
+.ac-kpi strong { font: 700 30px/1.05 var(--font-display); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.ac-kpi small { font-size: 12px; color: var(--ui-muted); line-height: 1.4; }
+.ac-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
+.ac-grid > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ac-status { display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-note { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ui-text-2); }
+.ac-empty { margin: 0; font-size: 14px; }
+.ac-scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
+.ac-scroll:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.ac-bars { display: flex; flex-direction: column; gap: 12px; }
+.ac-eff { border: 1px solid var(--ui-divider); border-radius: 12px; padding: 12px 14px; background: var(--ui-surface-2); display: flex; flex-direction: column; gap: 8px; }
+.ac-eff dl { margin: 0; display: grid; gap: 8px 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.ac-eff dt { font-size: 12px; color: var(--ui-muted); }
+.ac-eff dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; }
+.ac-scope { max-width: 420px; }
+.ac-form { display: grid; gap: 14px 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); align-items: start; }
+.ac-form small { font-size: 12px; font-weight: 400; line-height: 1.4; }
+.ac-err { color: var(--ui-error-text); }
+.ac-form input[aria-invalid="true"] { border-color: var(--ui-error); }
+.ac-foot { display: flex; gap: 8px; flex-wrap: wrap; }
+.ac-table .num { text-align: right; }
+.ac-table tbody th[scope="row"] { white-space: normal; min-width: 9em; }
+@media (max-width: 560px) { .ac-table th, .ac-table td { padding: 8px 6px; } }

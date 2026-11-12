@@ -7,10 +7,12 @@ import { db, schema } from "@/db";
 import { AccessError, audit } from "../access/util";
 import { requireAdmin } from "../commercial/services";
 import { mySettings } from "../settings/services";
+import { exportBrainData } from "./brain";
 
 const {
   user, coachClient, gymMember, organization, gymLocation, legalAcceptance, consentGrant, workoutSession, setLog, checkin, painReport, injury,
   studentRequest, message, clubPost, mediaObject, privacyRequest, bodyWeightEntry, bodyGoal, progressPhoto,
+  ownRoutine, historyImport, historyEntry, clientGoal, coachAppointment, challengeAttempt, clubComment, review, achievement, exercise,
 } = schema;
 
 export async function exportMyData(userId: string, now = new Date()) {
@@ -34,7 +36,9 @@ export async function exportMyData(userId: string, now = new Date()) {
     sharing: await db.select({ scope: consentGrant.scope, item: consentGrant.item, status: consentGrant.status, grantedAt: consentGrant.grantedAt, revokedAt: consentGrant.revokedAt }).from(consentGrant).where(eq(consentGrant.userId, userId)),
     training: sessions.map((s) => ({
       day: s.dayName, status: s.status, startedAt: s.startedAt, endedAt: s.endedAt, activeMinutes: Math.round(s.activeMs / 60_000), rpe: s.rpe, note: s.note,
-      sets: (setsBySession.get(s.id) ?? []).sort((a, b) => a.setIndex - b.setIndex).map((x) => ({ set: x.setIndex + 1, weightKg: x.weightKg == null ? null : Number(x.weightKg), reps: x.reps, rir: x.rir, feel: x.feel, completedAt: x.completedAt })),
+      // Ejercicios por tiempo: `metrics` = valores reales de una actividad (velocidad en km/h, inclinación, nivel, distancia en m,
+      // ritmo cada 500 m en segundos, cadencia en rpm); en una actividad, `reps` son los segundos.
+      sets: (setsBySession.get(s.id) ?? []).sort((a, b) => a.setIndex - b.setIndex).map((x) => ({ set: x.setIndex + 1, weightKg: x.weightKg == null ? null : Number(x.weightKg), reps: x.reps, rir: x.rir, feel: x.feel, note: x.note, metrics: x.metrics ?? null, completedAt: x.completedAt, voidedAt: x.voidedAt })),
     })),
     checkins: await db.select({ date: checkin.date, energy: checkin.energy, sleep: checkin.sleep, mood: checkin.mood }).from(checkin).where(eq(checkin.userId, userId)),
     pains: await db.select({ zone: painReport.zone, level: painReport.level, context: painReport.context, exercise: painReport.exerciseName, note: painReport.note, createdAt: painReport.createdAt }).from(painReport).where(eq(painReport.userId, userId)),
@@ -48,6 +52,25 @@ export async function exportMyData(userId: string, now = new Date()) {
     bodyGoal: (await db.select({ targetKg: sql<number>`${bodyGoal.targetWeightG}::float / 1000`, targetOn: bodyGoal.targetOn, startSource: bodyGoal.startSource, startKg: sql<number | null>`${bodyGoal.startWeightG}::float / 1000`, startOn: bodyGoal.startOn, updatedAt: bodyGoal.updatedAt }).from(bodyGoal).where(eq(bodyGoal.userId, userId)))[0] ?? null,
     progressPhotos: await db.select({ id: progressPhoto.id, day: progressPhoto.takenOn, pose: progressPhoto.pose, width: progressPhoto.width, height: progressPhoto.height, createdAt: progressPhoto.createdAt }).from(progressPhoto).where(eq(progressPhoto.userId, userId)).orderBy(progressPhoto.takenOn),
     privacyRequests: await db.select({ kind: privacyRequest.kind, status: privacyRequest.status, createdAt: privacyRequest.createdAt, resolvedAt: privacyRequest.resolvedAt }).from(privacyRequest).where(eq(privacyRequest.userId, userId)),
+    // FSA1: lo demás que la persona cargó o que se registró sobre ella (faltaba en la copia): rutinas propias, historial
+    // importado, ejercicios creados, objetivos y sesiones agendadas con su coach (sin las notas internas del coach), intentos
+    // de desafíos, comentarios y reseñas, y logros.
+    ownRoutines: await db.select({ name: ownRoutine.name, exercises: ownRoutine.exercises, origin: ownRoutine.origin, createdAt: ownRoutine.createdAt, updatedAt: ownRoutine.updatedAt }).from(ownRoutine).where(eq(ownRoutine.userId, userId)),
+    importedHistory: {
+      imports: await db.select({ source: historyImport.source, fileName: historyImport.fileName, status: historyImport.status, sessions: historyImport.sessions, sets: historyImport.sets, fromDay: historyImport.fromDay, toDay: historyImport.toDay, createdAt: historyImport.createdAt, confirmedAt: historyImport.confirmedAt }).from(historyImport).where(eq(historyImport.userId, userId)),
+      sets: await db.select({ day: historyEntry.day, exercise: historyEntry.exerciseName, set: historyEntry.setIndex, weightKg: historyEntry.weightKg, reps: historyEntry.reps, seconds: historyEntry.seconds }).from(historyEntry).where(eq(historyEntry.userId, userId)).orderBy(historyEntry.day),
+    },
+    ownExercises: await db.select({ name: exercise.name, group: exercise.muscleGroup, kind: exercise.kind, createdAt: exercise.createdAt }).from(exercise).where(eq(exercise.ownerUserId, userId)),
+    goals: await db.select({ coach: organization.name, kind: clientGoal.kind, title: clientGoal.title, target: clientGoal.target, targetReps: clientGoal.targetReps, unit: clientGoal.unit, baseline: clientGoal.baseline, value: clientGoal.manualValue, dueOn: clientGoal.dueOn, status: clientGoal.status, createdAt: clientGoal.createdAt, closedAt: clientGoal.closedAt })
+      .from(clientGoal).innerJoin(coachClient, eq(coachClient.id, clientGoal.coachClientId)).innerJoin(organization, eq(organization.id, coachClient.coachOrgId)).where(eq(coachClient.userId, userId)),
+    appointments: await db.select({ coach: organization.name, startsAt: coachAppointment.startsAt, durationMin: coachAppointment.durationMin, modality: coachAppointment.modality, place: coachAppointment.place, status: coachAppointment.status, yourResponse: coachAppointment.clientResponse })
+      .from(coachAppointment).innerJoin(coachClient, eq(coachClient.id, coachAppointment.coachClientId)).innerJoin(organization, eq(organization.id, coachClient.coachOrgId)).where(eq(coachClient.userId, userId)),
+    challengeAttempts: await db.select({ status: challengeAttempt.status, method: challengeAttempt.method, division: challengeAttempt.division, newRecord: challengeAttempt.newRecord, createdAt: challengeAttempt.createdAt, decidedAt: challengeAttempt.decidedAt }).from(challengeAttempt).where(eq(challengeAttempt.userId, userId)),
+    clubComments: await db.select({ text: clubComment.text, status: clubComment.status, createdAt: clubComment.createdAt }).from(clubComment).where(eq(clubComment.userId, userId)),
+    reviewsGiven: await db.select({ category: review.category, stars: review.stars, text: review.text, status: review.status, response: review.response, createdAt: review.createdAt }).from(review).where(eq(review.memberUserId, userId)),
+    achievements: await db.select({ kind: achievement.kind, title: achievement.title, detail: achievement.detail, createdAt: achievement.createdAt }).from(achievement).where(eq(achievement.userId, userId)),
+    // D210: REPI (asistente): preferencias, memoria, conversaciones, avisos, acciones y uso de IA (sin contenido).
+    repi: await exportBrainData(userId),
   };
   await audit(db, { actorUserId: userId, action: "privacy.export", resourceType: "user", resourceId: userId });
   return data;

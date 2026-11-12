@@ -107,7 +107,9 @@ export const PUSH_FLOOR = { title: "REPI · Sala", body: "Un socio pidió atenci
 /** Pasos elegibles para el ± del peso (discos y mancuernas de 0,25 a 2,5 kg). */
 export const WEIGHT_STEPS = [0.25, 0.5, 1, 1.25, 2.5] as const;
 /** Peso válido: hasta 2 decimales, entre 0 y 1000 kg. */
-export const weightOk = (w: number) => Number.isFinite(w) && w >= 0 && w <= 1000 && Math.round(w * 100) === w * 100;
+/** Hasta 2 decimales: `w * 100` en coma flotante no siempre da entero exacto (64,1 × 100 = 6409,999…), se tolera el error. */
+export const twoDecimals = (w: number) => Math.abs(Math.round(w * 100) - w * 100) < 1e-6;
+export const weightOk = (w: number) => Number.isFinite(w) && w >= 0 && w <= 1000 && twoDecimals(w);
 export const parseWeight = (s: string): number | null => {
   const n = Number(s.trim().replace(",", "."));
   return s.trim() !== "" && weightOk(n) ? n : null;

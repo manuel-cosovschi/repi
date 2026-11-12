@@ -63,6 +63,11 @@ export type HistoryImportPart = { text: string; context: string };
 export type HistoryImportJobStatus = { id: string; completed: number[]; total: number; phase: "reading" | "review" };
 
 const aborted = () => new DOMException("Lectura cancelada", "AbortError");
+/** Partes en paralelo y su tamaño (09/11): partes más chicas terminan dentro del plazo aunque el historial sea muy denso. */
+export const HISTORY_READ_CONCURRENCY = 6;
+export const HISTORY_PART_CHARS = 4_000;
+/** El servidor tiene hasta 4 min por parte (divide y relee un bloque denso): el teléfono espera un poco más. */
+export const HISTORY_PART_TIMEOUT_MS = 285_000;
 
 /** Cada petición tiene un plazo; el historial completo puede continuar en otras peticiones. */
 async function requestJson<T>(path: string, body: unknown | undefined, signal?: AbortSignal, timeoutMs = 75_000): Promise<T> {
@@ -94,7 +99,7 @@ export class HistoryImportReadJob<T> {
   private finished = false;
   private result: T | undefined;
   private done = new Set<number>();
-  constructor(readonly fileName: string, readonly parts: HistoryImportPart[], private readonly sourceText: string) {}
+  constructor(readonly fileName: string, readonly parts: HistoryImportPart[], private readonly sourceText: string, private readonly approx?: { sessions: number; from: string; to: string }) {}
 
   private status(value: HistoryImportJobStatus): HistoryImportJobStatus {
     if (!value || typeof value.id !== "string" || !value.id || value.total !== this.parts.length || !Array.isArray(value.completed)
@@ -112,7 +117,7 @@ export class HistoryImportReadJob<T> {
       const digest = globalThis.crypto?.subtle ? await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(this.sourceText)) : null;
       if (signal?.aborted) throw aborted();
       const inputHash = digest ? Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("") : undefined;
-      status = this.status(await requestJson<HistoryImportJobStatus>("/api/me/history-import-job", { fileName: this.fileName, parts: this.parts.length, ...(inputHash ? { inputHash } : {}) }, signal));
+      status = this.status(await requestJson<HistoryImportJobStatus>("/api/me/history-import-job", { fileName: this.fileName, parts: this.parts.length, ...(inputHash ? { inputHash } : {}), ...(this.approx ? { approx: this.approx } : {}) }, signal));
       this.id = status.id;
     }
     this.done = new Set(status.completed);
@@ -129,14 +134,14 @@ export class HistoryImportReadJob<T> {
         while (!group.signal.aborted && next < missing.length) {
           const index = missing[next++];
           try {
-            const ack = this.status(await requestJson<HistoryImportJobStatus>(`/api/me/history-import-job/${encodeURIComponent(this.id!)}/part`, { index, ...this.parts[index] }, group.signal));
+            const ack = this.status(await requestJson<HistoryImportJobStatus>(`/api/me/history-import-job/${encodeURIComponent(this.id!)}/part`, { index, ...this.parts[index] }, group.signal, HISTORY_PART_TIMEOUT_MS));
             for (const completed of ack.completed) this.done.add(completed);
             if (!this.done.has(index)) throw incomplete();
             onProgress({ stage: "reading", completed: this.done.size, total: this.parts.length });
           } catch (e) { if (failed === undefined) failed = e; group.abort(); }
         }
       };
-      await Promise.all(Array.from({ length: Math.min(4, missing.length) }, worker));
+      await Promise.all(Array.from({ length: Math.min(HISTORY_READ_CONCURRENCY, missing.length) }, worker));
       if (signal?.aborted) throw aborted();
       if (failed !== undefined) throw failed;
       if (this.done.size !== this.parts.length) throw incomplete();

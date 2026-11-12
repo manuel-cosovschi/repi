@@ -125,7 +125,8 @@ test("fotos: subir, comparar con deslizador por teclado y borrar; el coach y sin
   expect((await op.request.delete(`/api/me/progress/photos/${list.photos[0].id}`)).status()).toBe(404);
   await other.close();
   const anon = await browser.newContext();
-  expect((await anon.request.get(`http://localhost:3000/api/me/photo-file/${list.photos[0].id}`)).status()).toBe(401);
+  // El mismo servidor que la prueba (antes estaba fijo en :3000 y fallaba con otro puerto).
+  expect((await anon.request.get(`${new URL(page.url()).origin}/api/me/photo-file/${list.photos[0].id}`)).status()).toBe(401);
   await anon.close();
 
   await tiles.nth(1).click(); // queda una elegida
@@ -141,7 +142,7 @@ test("novedad de REPI en la campanita: origen REPI, botón y destino exacto (Pro
   const url = process.env.DATABASE_URL ?? "postgres://repi:repi-local-test@127.0.0.1:5432/repi_dev";
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   const [{ db }] = await sql<{ db: string }[]>`select current_database() as db`;
-  expect(["repi_dev"]).toContain(db); // sólo la base local de desarrollo
+  expect(db).toMatch(/^repi_(dev|e2e_[a-z0-9_]+)$/); // sólo la base local de desarrollo o una propia de E2E
   const [a] = await sql<{ id: string }[]>`insert into product_announcement (kind, title, summary, cta_label, destination, audience, status, publish_at)
     values ('feature', 'E2E · ¡Ahora podés seguir tu progreso físico!', 'Registrá tu peso, revisá tus gráficos y compará tus avances desde Progreso.', 'Ver mi progreso', 'member.progress.body', array['member'], 'published', now()) returning id`;
   try {
@@ -206,7 +207,7 @@ test("edad desconocida (D203): Mi cuerpo pide confirmar la fecha una vez; entren
   const url = process.env.DATABASE_URL ?? "postgres://repi:repi-local-test@127.0.0.1:5432/repi_dev";
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   const [{ db }] = await sql<{ db: string }[]>`select current_database() as db`;
-  expect(db).toBe("repi_dev"); // sólo la base local de desarrollo, sobre la persona ficticia de esta demo
+  expect(db).toMatch(/^repi_(dev|e2e_[a-z0-9_]+)$/); // sólo la base local de desarrollo o una propia de E2E, sobre la persona ficticia de esta demo
   try {
     const errors = watchErrors(page);
     await openDemo(page, "member");

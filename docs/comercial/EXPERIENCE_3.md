@@ -61,8 +61,9 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
 | 02 | **Problema → orden** | Sobre las zonas flotan fragmentos sueltos (rutina en papel, planilla, mensaje, consulta, progreso, pedido) que parpadean desconectados. Con el scroll REPI los une con trazos de luz y se ordenan en el teléfono y el panel. «Antes, cada dato en otro lado.» → «Ahora, cada persona con el contexto que necesita.» | ScrollTrigger con *scrub* y *pin*; SVG y DOM |
 | 03 | **El entrenamiento cobra vida** | Zoom de cámara a un rack: aparece el teléfono 3D. Ejercicio → historial → objetivo recomendado → se registra la serie → se actualiza el siguiente objetivo con su explicación. ANTERIOR → RECOMENDADO → REAL con números que se transforman. Después, el simulador real para probarlo. | R3F (teléfono con textura de captura real) y contadores. Valores del motor real (`recommendExercise` / `adjustAfterSet`) |
 | 04 | **Cuatro perspectivas** | Elegir un perfil mueve la cámara a su zona. Gimnasio → recepción (QR) y oficina (panel). Entrenador → box (programas, clientes). Deportista → el teléfono en la mano. Aliados → la cámara sube y la sala entera se vuelve diagrama B2B2C. Cada perfil: problema, qué cambia, interfaz real, video y CTA. `/conoce/<perfil>` preselecciona. | Estado de perfil más transición de cámara; contenido de `PROFILE_CONTENT` |
+| 04b | **Dos formas de entrenar** (D215, `#modos`) | «UN MISMO REPI. DOS FORMAS DE ENTRENAR.» Selector entre **REPI Completo** (entrenamiento inteligente: la app de cada socio) y **REPI Control** (planificación supervisada: el equipo planifica, el socio consulta en una pantalla del gimnasio con código de socio y PIN). No son perfiles: son dos formas de implementar REPI en un gimnasio, con la misma plataforma y otra política. Cambiar de modo cambia texto, funciones, beneficios, el escenario (teléfono del socio o pantalla apaisada del gimnasio, con pantallas reales y pasos), la toma de la sala (`completo` / `control`), el film (si tiene archivo), la demo (`member` / `control`), WhatsApp y el botón al formulario. Debajo, «Qué cambia y qué no» (lo que cambia según la política y lo que es igual en las dos). Sin precios: «Pedí una propuesta personalizada». | `x3/Modes.tsx`, contenido en `MODES` y `MODE_ROWS` (`content/conoce.ts`); pestañas ARIA con flechas, Inicio y Fin; entradas sólo CSS al cambiar de modo y un recorrido corto por las pantallas (nunca en bucle); con movimiento reducido o pausa, cambio instantáneo |
 | 05 | **Producto** | Siete módulos sin grilla de tarjetas: Training Intelligence, Entrenamiento, Progreso, Espacio del coach, Gestión del gimnasio, Comunidad y Body Intelligence (etapa actual). Una lista fija a un lado y un escenario que se transforma: la gráfica de progreso se construye; el pedido «Que venga alguien» viaja del socio al entrenador y vuelve «Voy». | ScrollTrigger con pasos y escenario por módulo |
-| 06 | **Probalo** | «NO TE LO CONTAMOS. PROBALO.» Cuatro puertas grandes (roles) con vista previa que se expande y explica qué se explora; el botón inicia la demo real (`/api/demo`). | Reutiliza `DemoLauncher`/rutas existentes |
+| 06 | **Probalo** | «NO TE LO CONTAMOS. PROBALO.» Una puerta grande por demo (cuatro roles y, desde D215, la pantalla de consulta de REPI Control) con vista previa que se expande y explica qué se explora; el botón inicia la demo real (`/api/demo`). Cinco en fila desde 1280 px; tres y dos entre 900 y 1279 px; acordeón en el teléfono. | `x3/Demos.tsx` con `DemoButton` (POST `/api/demo`) |
 | 07 | **Smart Center** | Momento calmo y creíble, en crema claro: logo autorizado, contexto real, funciones que usa y pedido de demostración. Sin cifras ni testimonios. | Estático, con una entrada sutil |
 | 08 | **Cierre** | La cámara sube y toda la sala converge en el punto cian, que vuelve al logo. «CADA REPETICIÓN CUENTA.» Jerarquía de CTA: QUIERO REPI EN MI GIMNASIO (principal) · SOY ENTRENADOR · PROBAR LA DEMO · HABLAR CON REPI (WhatsApp). Formulario existente. | GSAP y R3F |
 
@@ -70,7 +71,9 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
 
 - Barra superior con «Pedir demo» siempre visible.
 - Índice de escenas en el costado en escritorio.
-- En el teléfono, CTA fijo inferior compacto que se esconde al bajar y aparece al subir. No tapa contenido clave.
+- Sin barra fija inferior en el teléfono (se quitó: tapaba contenido; `e2e/conoce.spec.ts` lo verifica). El encabezado
+  fijo con «Pedir demo» alcanza.
+- En el encabezado (escritorio), «Modalidades» lleva a `#modos`.
 
 ## Sistema de movimiento
 
@@ -88,7 +91,7 @@ Cada escena es un movimiento de cámara a una zona, donde la interfaz real de RE
 - **Escenas fijadas (02 y 03):** `position: sticky` dentro de una sección más alta, con *scrub* de ScrollTrigger sin `pin`
   (el pin de GSAP pasaba a `position: fixed` y Chrome lo medía como salto de diseño: CLS 1,5 en teléfono). Con menos de
   560 px de alto (zoom fuerte, teléfono acostado) se apilan como con movimiento reducido (`PIN_MQ`/`STACK_MQ` en `x3/gsap.ts`).
-- **Pausar animaciones (WCAG 2.2.2):** botón en el encabezado (`x3/motion.tsx`). Detiene las personas de la sala, el pedido en
+- **Pausar animaciones (WCAG 2.2.2):** botón «Pausar animaciones» en el pie, con su nombre escrito (`x3/motion.tsx`). Detiene las personas de la sala, el pedido en
   bucle, el descanso que corre y las animaciones CSS en bucle; la cámara sigue al scroll. Se recuerda en el navegador.
 - **Hero:** el título, los textos y los botones vienen pintados del servidor (LCP) y la animación nunca los oculta: sólo se
   animan el punto de la «ı» y el encendido de la sala.
@@ -126,7 +129,7 @@ Hechos (D208): diez films generados desde `design/films/kit/build.py` (spec, pis
 
 **Reglas para todos los videos:**
 
-- **Audio:** sin voz. Música de Kevin MacLeod (CC BY 4.0, atribución en el reproductor y en `marketing/videos/LICENCIAS.md`) y
+- **Audio:** sin voz. Música de Kevin MacLeod (CC BY 4.0, atribución en `/creditos`, enlazada desde el pie, y en `marketing/videos/LICENCIAS.md`) y
   efectos de Pixabay. Mezcla a −14 LUFS y −1 dBTP.
 - **Capturas:** grabaciones de la demo con datos ficticios, siempre dentro de motion graphics (sala, títulos, paneles con los
   valores de la acción), nunca el video terminado.
@@ -134,19 +137,36 @@ Hechos (D208): diez films generados desde `design/films/kit/build.py` (spec, pis
   web y los pósters.
 - **Reproductor:** diálogo modal, sonido sólo porque la persona tocó «reproducir», `preload="metadata"`; nada se descarga hasta abrirlo.
   La proporción del video está reservada (sin saltos al llegar el póster).
-- **Sin voz, con descripción:** cada film trae su descripción en texto escena por escena («Descripción del video en texto»
-  en el reproductor) y una pista WebVTT `kind="descriptions"` (`<id>.descripcion.vtt`). Se generan desde los guiones con
+- **Sin voz, con descripción:** debajo del reproductor sólo va una línea con lo que muestra el film (`summary`); la descripción
+  escena por escena va en una pista WebVTT `kind="descriptions"` (`<id>.descripcion.vtt`) para lectores de pantalla. Se generan desde los guiones con
   `design/films/kit/tools/describe.py` (también `src/content/film-descriptions.json`).
 - **Atribución:** «Música: «Título», Kevin MacLeod (incompetech.com), licencia CC BY 4.0. Fragmento editado y sincronizado
   con la imagen.» (la licencia pide indicar la modificación).
 
 Pendientes (segunda tanda): registro de cada serie, Mi cuerpo, IA para borradores, gestión de alumnos y comunidad
-(guiones en `VIDEOS_PENDIENTES.md`).
+(guiones en `VIDEOS_PENDIENTES.md`). Modalidades (D215): `modo-completo` y `modo-control` ya están en `VIDEOS` con
+`src: null`; mientras no tengan archivo, la escena 04b no muestra el botón del video (al completar `src`, `poster`, `duration`
+y `summary` aparece solo).
 
 ## Conversión y medición
 
-- **Se conservan:** UTM y QR, eventos de `site_event` (`profile_select`, `video_play` y avance, `demo_start`, `whatsapp_click`, `lead_submit`) y el formulario de leads hacia REPI Admin.
-- **Eventos nuevos:** sólo `scene_view` por escena, una vez por visita, y `film_open`. Sin rastreo del scroll.
+- **Se conservan:** UTM y QR, eventos de `site_event` (`profile_select`, `video_play` y avance, `demo_start`, `whatsapp_click`, `form_submit`) y el formulario de leads hacia REPI Admin.
+- **Eventos nuevos:** `scene_view` por escena, una vez por visita, y `film_open`. Sin rastreo del scroll.
+- **Modalidades (D215):** `mode_select` (target `modo-completo` | `modo-control`, perfil `gimnasios`) cuando la persona elige
+  en el selector; está en la lista cerrada `SITE_EVENTS` y en el embudo de REPI Admin › Sitio y QR («Miraron una
+  modalidad»). Los botones de la escena usan los eventos de siempre con ese target: `contact_click`, `demo_click` /
+  `demo_start`, `whatsapp_click`; los pasos del escenario, `feature_click` (`modo-control-2`…); los enlaces del perfil
+  Gimnasios y del cierre, `feature_click` (`perfil-modos`, `cierre-modo-control`).
+- **Formulario:** con «Un gimnasio» pregunta «¿Qué modalidad te interesa?» (REPI Completo / REPI Control / Todavía no sé,
+  opcional). Lo preseleccionan el botón «Quiero REPI …» de la escena (evento `repi:interest` con `mode`) y `?modo=`. Viaja
+  como `productMode` a `/api/access/lead` (un valor desconocido se guarda vacío; coach y aliados, siempre vacío) y queda en
+  `commercial_lead.product_mode`. REPI Admin lo muestra en Contactos («Interés: REPI Control»), en Sitio y QR («Gimnasios por
+  modalidad») y en las notas del prospecto al pasarlo a ventas.
+- **Enlaces directos:** `/conoce?modo=control` y `/conoce/<perfil>?modo=control` preseleccionan la modalidad, llevan a
+  `#modos` y preparan el formulario; `#modos` sólo lleva (queda Completo). Elegir otra modalidad deja `?modo=` en la URL
+  (con la misma búsqueda y UTM). Los enlaces internos (perfil Gimnasios, cierre) eligen con el evento `repi:mode`.
+- **Sin precios** en toda la escena: nada de montos, cuotas por socio, simuladores ni «más barato». El precio sale de una
+  propuesta personalizada.
 - **A/B:** titular y CTA del hero salen de `content/conoce.ts` (`HERO_VARIANTS`) con un parámetro `?v=` para probar variantes en el futuro, sin plataforma externa.
 
 ## Verificación (07/11, build de producción local)
@@ -165,6 +185,27 @@ Detalle con cifras en la PR. Resumen:
   red: HTML, 3 hojas de estilo, 6 fuentes y ~270 KB de JS antes de la primera pintura. El LCP de campo se verifica después de
   publicar (Speed Insights).
 - **CLS al recorrer la página** (layout-shift con scroll continuo): 0 en teléfono y 0,036 en escritorio.
+
+## Motion 2 · «El punto que ordena» (07/11/2026, sin publicar)
+
+Segunda pasada de movimiento por el comentario del titular («decente… ir más allá» y el logo «raro» al final de 02). Plan,
+decisiones y verificación completos en `EXPERIENCE_3_MOTION_2.md`.
+
+**Sistema de movimiento:**
+
+- **Un hilo, el punto de la «ı»:** cae y se vuelve Valentina (hero), junta el caos y hace nacer el logo real (02), y toda la
+  sala vuelve a él y se acomoda en la «ı» (cierre). El punto es siempre el `<i>` del Wordmark o el impacto sobre la sala.
+- **Afirmaciones cinéticas** (`x3/Say.tsx`): palabra por palabra desde el servidor, la clave se enciende y se subraya.
+- **Sin `filter: blur` animado.** Sólo transform, opacidad, trazo y máscaras cortas (`clip-path`, la luz del hero).
+- **Velo frío** (`tone`) y personas en acero (`cold`) para la sala sin REPI; el paso a cian es un corte.
+- **Cortes de montaje** (barridos) en lugar del mismo fundido; números del motor a tamaño de pantalla (`Roll` v2).
+- **La sala:** zoom del SVG hasta 2,4, personas de tamaño constante, foco de zona en blanco, encuadre corrido hacia el lado
+  libre del texto, el 3D que entra en la misma cenital del SVG, y un director de tomas que no mide el diseño por cuadro.
+- **Veracidad:** el teléfono de 03 es interfaz real compuesta (recortes sin números + `TargetCard` con el motor); el pedido
+  de 05 usa los nombres de la demo (Julián, Sofía).
+
+**Verificación** (local): Lighthouse móvil mediana 86 (TBT 117 ms, A11y/BP/SEO 100, CLS 0); CLS de recorrido 0,0005
+(escritorio) y 0 (teléfono); axe 0 en 32 pasadas; Impeccable 0; e2e 64/64; phone-low ~60 fps en 02, 03 y 08.
 
 ## Criterios de aceptación
 

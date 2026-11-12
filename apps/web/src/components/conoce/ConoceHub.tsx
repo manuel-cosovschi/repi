@@ -2,14 +2,13 @@
 // arriba: un escenario fijo (3D o SVG según el equipo) y escenas que mueven la cámara. Conserva todo lo comercial de D205:
 // perfiles por URL, demos reales, simulador con el motor real, formulario a REPI Admin, WhatsApp, QR/UTM y medición propia.
 import Link from "next/link";
-import { ChatCircle, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ChatCircle, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
 import { Wordmark } from "@/components/access/Wordmark";
 import { SiteFooter } from "@/components/site/PublicSite";
 import { FAQ, type HeroVariant } from "@/content/conoce";
-import { CONTACT } from "@/lib/contact";
+import { CONTACT, waLink as wa } from "@/lib/contact";
 import type { Profile } from "@/lib/site-events";
 import { ContactForm } from "./ContactForm";
-import { StickyCta } from "./StickyCta";
 import { Tracker } from "./Tracker";
 import { TrackLink } from "./TrackLink";
 import { Stage } from "./sala/Stage";
@@ -18,6 +17,7 @@ import { Hero } from "./x3/Hero";
 import { Problem } from "./x3/Problem";
 import { Training } from "./x3/Training";
 import { Perspectives } from "./x3/Perspectives";
+import { Modes } from "./x3/Modes";
 import { Showcase } from "./x3/Showcase";
 import { Demos } from "./x3/Demos";
 import { Proof } from "./x3/Proof";
@@ -25,12 +25,13 @@ import { Finale } from "./x3/Finale";
 import { SceneIndex } from "./x3/SceneIndex";
 import { MotionToggle } from "./x3/motion";
 
-const wa = (t: string) => `${CONTACT.whatsapp}?text=${encodeURIComponent(t)}`;
 
 export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null; variant?: HeroVariant }) {
   return (
     <div className="st cn x3">
       <Tracker profile={profile} />
+      {/* Sin JavaScript no hay encendido del hero: la sala se ve encendida desde el principio. */}
+      <noscript dangerouslySetInnerHTML={{ __html: "<style>.sala-svg{opacity:1!important}</style>" }} />
       <Stage />
       <FilmProvider>
         <a className="st-skip" href="#contenido">Saltar al contenido</a>
@@ -38,12 +39,11 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
           <div className="x3-wrap x3-head-in">
             <Link href="/conoce" aria-label="REPI, presentación"><Wordmark width={64} /></Link>
             <nav className="x3-nav" aria-label="Secciones">
-              <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
+              <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#modos">Modalidades</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
             </nav>
             <div className="x3-head-cta">
-              <MotionToggle />
-              <Link className="x3-btn text sm x3-hide-sm" href="/acceso">Ingresar</Link>
-              <a className="x3-btn pri sm" href="#contacto">Pedir una demo</a>
+              <Link className="x3-head-link" href="/acceso">Ingresar</Link>
+              <a className="x3-btn pri sm" href="#contacto">Pedir demo<ArrowRight size={16} weight="bold" aria-hidden="true" /></a>
             </div>
           </div>
         </header>
@@ -53,6 +53,7 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
           <Problem />
           <Training />
           <Perspectives initial={profile} />
+          <Modes />
           <Showcase />
           <Demos />
           <Proof />
@@ -80,8 +81,8 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
             </div>
           </section>
         </main>
-        <SiteFooter />
-        <StickyCta />
+        {/* La pausa de animaciones (WCAG 2.2.2) va en el pie, con su nombre escrito: arriba era un ícono que no se entendía. */}
+        <SiteFooter><MotionToggle /></SiteFooter>
       </FilmProvider>
     </div>
   );

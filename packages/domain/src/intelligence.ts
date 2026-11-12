@@ -19,7 +19,8 @@
 import type { ExerciseDetail, SetKind } from "./prescription";
 import { labelKey, loadIncrement, setTarget } from "./prescription";
 import { normalizePlan } from "./stages";
-import { epley1rm, parseReps } from "./training";
+import { epley1rm, fmtSeconds, parseReps } from "./training";
+import { activityOf, isActivityProfile, isTimedRow, repsDistance, type MetricsProfile } from "./activity";
 import { BACKOFF_FACTOR, DROP_FACTOR, GUARD_TEXT, floorToStep, loadStep, type GuardCode, type SafetySignals } from "./load-safety";
 import { suggestNext, type LastSet } from "./progression";
 import { goalProgress } from "./goals";
@@ -36,7 +37,11 @@ export const TI_WINDOW = { sessions: 6, days: 180, importDays: 365 } as const;
 export const TREND_MIN = 3;
 
 // ── Contexto de la fila ────────────────────────────────────────────────────
-export type ExCtx = { sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null };
+/**
+ * `profile`: perfil de métricas del ejercicio (`profileOf`), si quien llama lo conoce. Ejercicios por tiempo (07/11/2026): una
+ * actividad (cinta, bici, remo…) nunca recibe kilos ni una progresión de repeticiones, aunque el programa diga «10-12».
+ */
+export type ExCtx = { sets: number; reps: string; rir: number | null; restSec: number; detail?: ExerciseDetail | null; profile?: MetricsProfile | null };
 /** Clase de comparación: dos filas sólo son la misma referencia si tienen la misma clase y la misma etapa. */
 export type RowClass = "main" | "top" | "backoff" | "warmup" | "drop" | "rest_pause" | "cluster" | "amrap" | "amrap_time" | "timed";
 export type RowCtx = {
@@ -45,12 +50,15 @@ export type RowCtx = {
   label: string | null;
   planKg: number | null; rir: number | null; rpe: number | null; restSec: number; durationSec: number | null;
   unilateral: boolean; emom: boolean; technique: string;
+  /** Actividad (cinta, bici, remo…): configurada en el detalle o por el perfil del ejercicio. Nunca recibe kilos. */
+  activity: boolean;
 };
 
-export function rowClass(kind: SetKind | null | undefined, reps: string | null | undefined, durationSec?: number | null): RowClass {
+export function rowClass(kind: SetKind | null | undefined, reps: string | null | undefined, durationSec?: number | null, activity?: boolean | null): RowClass {
   const k = kind ?? "work";
+  if (activity) return "timed"; // una actividad es por tiempo aunque diga «500 m» o, por error, «10-12»
   if (k === "amrap") return durationSec ? "amrap_time" : "amrap";
-  if (reps && parseReps(reps).kind === "time") return "timed";
+  if (isTimedRow({ reps })) return "timed";
   if (k === "work" || k === "failure") return "main";
   return k;
 }
@@ -59,10 +67,11 @@ export function rowContext(e: ExCtx, i: number): RowCtx {
   const t = setTarget(e, i);
   const { rows } = normalizePlan(e.detail?.setPlan);
   const specId = rows[i]?.id ?? `r${i}`;
+  const activity = !!activityOf(e.detail) || isActivityProfile(e.profile);
   return {
-    index: i, specId, kind: t.kind, cls: rowClass(t.kind, t.reps, t.durationSec), block: t.block, stage: t.stage, reps: t.reps, label: labelKey(rows[i]?.label),
-    planKg: t.weightKg ?? null, rir: t.rir ?? e.rir ?? null, rpe: t.rpe ?? null, restSec: t.restSec ?? e.restSec,
-    durationSec: t.durationSec ?? null, unilateral: !!e.detail?.unilateral, emom: !!e.detail?.emomSec, technique: e.detail?.technique ?? "straight",
+    index: i, specId, kind: t.kind, cls: rowClass(t.kind, t.reps, t.durationSec, activity), block: t.block, stage: t.stage, reps: t.reps, label: labelKey(rows[i]?.label),
+    planKg: activity ? null : t.weightKg ?? null, rir: activity ? null : t.rir ?? e.rir ?? null, rpe: activity ? null : t.rpe ?? null, restSec: t.restSec ?? e.restSec,
+    durationSec: t.durationSec ?? null, unilateral: !!e.detail?.unilateral, emom: !!e.detail?.emomSec, technique: e.detail?.technique ?? "straight", activity,
   };
 }
 export const exerciseRows = (e: ExCtx) => Array.from({ length: Math.max(0, e.sets) }, (_, i) => rowContext(e, i));
@@ -75,6 +84,8 @@ export type HistRow = {
   unilateral?: boolean; source: "repi" | "import";
   /** D192: etiqueta del profe en esa fila de la versión registrada (null = nombre de REPI). */
   label?: string | null;
+  /** Ejercicios por tiempo: la fila era de una actividad (cinta, bici, remo…) en esa versión. */
+  activity?: boolean | null;
 };
 export type Match = "exact" | "equivalent" | "general" | "none";
 const LEGACY_ID = /^r\d+$/;
@@ -90,7 +101,7 @@ export function compareRows(cur: RowCtx, past: HistRow): { level: Match; why: st
     return cur.cls === "main" && cur.stage === 0 && past.w != null ? { level: "general", why: "historial importado (sin tipo de serie)" } : { level: "none", why: "historial importado sin etapa" };
   }
   if (!!past.unilateral !== cur.unilateral) return { level: "none", why: "unilateral y bilateral no se comparan" };
-  const pc = rowClass(past.kind, past.reps, past.durationSec);
+  const pc = rowClass(past.kind, past.reps, past.durationSec, past.activity);
   if (pc !== cur.cls) return { level: "none", why: "otro tipo de serie" };
   if (labelKey(past.label) !== cur.label) return { level: "none", why: "otra etiqueta de serie" };
   if ((past.stage ?? 0) !== cur.stage) return { level: "none", why: "otra etapa" };
@@ -204,9 +215,47 @@ function lastOf(c: RowCtx, p: RecommendInput) {
   return { h, s, own, prev, refs };
 }
 
+/** Clave del rango prescripto («8-10», «8–10» y «8 - 10» son el mismo; null si no se conoce). */
+const repsKey = (reps: string | null | undefined) => {
+  if (reps == null) return null;
+  const t = parseReps(reps);
+  return t.kind === "reps" ? `r${t.min}-${t.max}` : t.kind === "time" ? `t${t.seconds}` : `f${t.text.toLowerCase()}`;
+};
+
+/**
+ * AC3 (defecto #1 de la auditoría): filas de la última sesión que son la referencia de una serie principal o top set. Con
+ * series iguales hoy y la vez pasada, todas (la doble progresión mira el conjunto, como siempre). En pirámides o planes con
+ * rangos distintos por fila (hoy o la vez pasada), cada fila compara con su par: la misma fila del plan con el mismo rango;
+ * si no, las filas con el mismo rango prescripto; si no, la misma fila aunque haya cambiado el rango; si no, la de
+ * repeticiones hechas más cercanas al objetivo. Con otro rango, `suggestNext` estima con prudencia (nunca por encima).
+ */
+function pairRows(c: RowCtx, all: RowCtx[], s: HistSession): { rows: HistSession["rows"]; sets: number; own: HistSession["rows"][number] | null; mixed: boolean } {
+  const group = all.filter((x) => x.cls === c.cls && x.stage === 0 && x.label === c.label);
+  const k = repsKey(c.reps);
+  const mixed = new Set(group.map((x) => repsKey(x.reps))).size > 1 || new Set(s.rows.map((r) => repsKey(r.reps)).filter((x) => x != null)).size > 1;
+  if (!mixed) return { rows: s.rows, sets: group.length, own: null, mixed };
+  const exact = s.rows.filter((r) => r.level === "exact");
+  const exactSame = exact.filter((r) => repsKey(r.reps) === k);
+  if (exactSame.length) return { rows: exactSame, sets: 1, own: exactSame[0], mixed };
+  const same = s.rows.filter((r) => r.reps != null && repsKey(r.reps) === k);
+  if (same.length) {
+    const peers = group.filter((x) => repsKey(x.reps) === k);
+    const nth = Math.max(0, peers.findIndex((x) => x.index === c.index));
+    return { rows: same, sets: peers.length, own: same[Math.min(nth, same.length - 1)], mixed };
+  }
+  if (exact.length) return { rows: exact.slice(0, 1), sets: 1, own: exact[0], mixed };
+  const t = parseReps(c.reps);
+  if (t.kind !== "reps") return { rows: s.rows, sets: group.length, own: null, mixed };
+  const goal = (t.min + t.max) / 2;
+  const near = s.rows.reduce((a, b) => (Math.abs((b.r ?? 0) - goal) < Math.abs((a.r ?? 0) - goal) ? b : a));
+  return { rows: [near], sets: 1, own: near, mixed };
+}
+
 function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarget[]): RowTarget {
   if (c.cls === "warmup") return base(c, { status: "not_applicable", why: "Aproximación: elegí la carga según cómo te sientas; no se usa para progresar." });
+  if (c.activity) return activityRow(p, c);
   const { h, s, own, prev, refs } = lastOf(c, p);
+  const prev0 = prev, refs0 = refs;
   const days = s ? Math.floor((p.now.getTime() - Date.parse(s.at)) / 86_400_000) : null;
   const signals: SafetySignals = { ...(p.signals ?? {}), daysSinceLast: days };
   const coach = c.planKg != null;
@@ -232,10 +281,14 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
 
   // Series principales y top sets: doble progresión de D182 con las filas comparables de la última vez.
   if (c.cls === "main" || c.cls === "top") {
-    const sameCls = all.filter((x) => x.cls === c.cls && x.stage === 0 && x.label === c.label).length;
     if (!s) return withCoach(base(c, { why: NO_REF, reasons: ["no_history"] }));
-    const last: LastSet[] = s.rows.map((r) => ({ weightKg: r.w, reps: r.r, rir: r.rir, feel: r.feel, kind: c.cls === "top" ? "top" : "work" }));
-    const sg = suggestNext({ reps: c.reps, sets: sameCls, last, lastReps: s.rows[0]?.reps ?? null, signals });
+    const pair = pairRows(c, all, s);
+    const ref = pair.rows;
+    // En una pirámide, la procedencia y «la vez pasada» son las de la fila par (no las de toda la sesión).
+    const prev = pair.own ? { w: pair.own.w, r: pair.own.r, rir: pair.own.rir, at: s.at, level: pair.own.level, source: s.source } : prev0;
+    const refs = pair.mixed ? ref.map((r) => ({ sessionId: s.sessionId, setLogId: r.setLogId ?? null, at: r.at, w: r.w, r: r.r, rir: r.rir })) : refs0;
+    const last: LastSet[] = ref.map((r) => ({ weightKg: r.w, reps: r.r, rir: r.rir, feel: r.feel, kind: c.cls === "top" ? "top" : "work" }));
+    const sg = suggestNext({ reps: c.reps, sets: pair.sets, last, lastReps: ref[0]?.reps ?? null, signals });
     if (!sg) {
       // «Al fallo» o rango libre: referencia de la última vez, sin progresión automática.
       return withCoach(base(c, { status: "ready", action: "reference", quality: h.quality, prev, refs, weightKg: prev?.w ?? null, repsTarget: prev?.r ?? null,
@@ -244,7 +297,7 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
     let w = sg.weightKg;
     const action = ACTION_OF[sg.action] ?? "hold";
     if (w != null && p.increment) {
-      const top = Math.max(0, ...s.rows.map((r) => r.w ?? 0));
+      const top = Math.max(0, ...ref.map((r) => r.w ?? 0));
       w = action === "increase_load" ? nextLoad(top, p.increment) : fitIncrement(w, p.increment);
     }
     // Una carga nueva (subir, bajar o estimar) sin el salto del equipo es una referencia: puede no existir tal cual.
@@ -303,6 +356,22 @@ function recommendRow(p: RecommendInput, c: RowCtx, all: RowCtx[], done: RowTarg
   }
   return withCoach(base(c, { pending: true, why: `${label}: ${NO_REF.toLowerCase()} Elegí la carga en la serie.`, reasons: ["no_history"] }));
 }
+/**
+ * Ejercicios por tiempo: una actividad (cinta, bici, remo…) nunca recibe kilos ni progresión de repeticiones. Con una duración
+ * indicada, la referencia es lo que hizo la última vez (segundos); si el programa le puso repeticiones («10-12», como cargaba
+ * antes el editor de sala) o una distancia, no aplica: se registra lo que hizo, sin objetivo calculado.
+ */
+function activityRow(p: RecommendInput, c: RowCtx): RowTarget {
+  const none = { weightKg: null, repsMin: null, repsMax: null, rirTarget: null, rpeTarget: null, coach: null };
+  const profile = activityOf(p.ex.detail)?.profile ?? (isActivityProfile(p.ex.profile) ? p.ex.profile : null);
+  if (parseReps(c.reps).kind !== "time" || (profile && repsDistance(profile, c.reps) != null)) {
+    return base(c, { ...none, status: "not_applicable", why: "Actividad: registrá lo que hiciste. REPI no calcula kilos ni repeticiones para una actividad.", reasons: ["activity"] });
+  }
+  const { h, prev, refs } = lastOf(c, p);
+  if (!prev || prev.r == null) return base(c, { ...none, why: NO_REF, reasons: ["no_history", "activity"] });
+  return base(c, { ...none, status: "ready", action: "reference", quality: h.quality, prev: { ...prev, w: null }, refs: refs.map((r) => ({ ...r, w: null })),
+    repsTarget: prev.r, text: fmtSeconds(prev.r), why: `La vez pasada: ${fmtSeconds(prev.r)}. Es tu referencia; en una actividad no se calculan kilos.`, reasons: ["reference_time", "activity"] });
+}
 const parseRepsMax = (reps: string) => { const t = parseReps(reps); return t.kind === "reps" ? t.max : null; };
 const parseRepsMin = (reps: string) => { const t = parseReps(reps); return t.kind === "reps" ? t.min : null; };
 
@@ -322,7 +391,8 @@ export function adjustAfterSet(p: { ex: ExCtx; targets: RowTarget[]; done: DoneR
   const c = ctxs[p.justDone];
   const d = p.done.find((x) => x.index === p.justDone);
   const t = p.targets[p.justDone];
-  if (!c || !d || d.r == null || d.r <= 0 || c.cls === "warmup") return { targets: p.targets, event: null, changed: [] };
+  // Una actividad no ajusta objetivos durante la sesión (no hay kilos ni repeticiones que mantener o bajar).
+  if (!c || !d || d.r == null || d.r <= 0 || c.cls === "warmup" || c.activity) return { targets: p.targets, event: null, changed: [] };
   const doneIdx = new Set(p.done.map((x) => x.index));
   const later = ctxs.filter((x) => x.index > p.justDone && !doneIdx.has(x.index));
   const same = later.filter((x) => x.cls === c.cls && x.stage === c.stage && x.label === c.label);

@@ -7,6 +7,7 @@ import "@/styles/coach.css";
 import "@/styles/method-editor.css";
 import "@/styles/gym.css";
 import "@/styles/sales.css";
+import "@/styles/doc-transitions.css";
 
 export const metadata: Metadata = { title: "REPI Admin" };
 

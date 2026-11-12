@@ -9,7 +9,7 @@ import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { MailError, deliverMail, sendMail } from "../mailer";
 import { logError } from "../log";
-import { AccessError, addDays, audit, dniHmac, dniLast3, invitationProof, newInviteCode, newToken, sameSecret, sha256, todayIso, type Tx } from "./util";
+import { AccessError, addDays, audit, dniHmac, dniLast3, invitationProof, newInviteCode, newToken, rateLimit, sameSecret, sha256, todayIso, type Tx } from "./util";
 
 const { user, organization, gymLocation, staffMembership, coachClient, gymMember, invitation, rosterEntry,
   membershipRequest, guardianConsent, legalAcceptance, consentGrant } = schema;
@@ -309,15 +309,18 @@ export async function pendingInvitations(userId: string) {
   }));
 }
 
-export async function minorWithoutGuardian(userId: string): Promise<boolean> {
-  const [u] = await db.select({ birthDate: user.birthDate }).from(user).where(eq(user.id, userId));
+export async function minorWithoutGuardian(userId: string, q: Tx | typeof db = db): Promise<boolean> {
+  const [u] = await q.select({ birthDate: user.birthDate }).from(user).where(eq(user.id, userId));
   if (!u?.birthDate || classifyAge(u.birthDate, todayIso()) !== "minor") return false;
-  const ok = await db.select({ id: guardianConsent.id }).from(guardianConsent)
+  const ok = await q.select({ id: guardianConsent.id }).from(guardianConsent)
     .where(and(eq(guardianConsent.minorUserId, userId), eq(guardianConsent.status, "approved")));
   return ok.length === 0;
 }
 
 export async function acceptInvitation(userId: string, rawCode: string, requested: string[] = []) {
+  // FSA1: sin tope, una cuenta podía probar códigos de 6 caracteres sin parar: los que existen responden «es para otro email»
+  // con la pista del email. Por persona (la ruta tiene sesión); quien abre su enlace lo acepta en el primer intento.
+  await rateLimit(`invite-accept:${userId}`, 10, 10 * 60_000);
   const u = await getVerifiedUser(userId);
   const code = normalizeCode(rawCode);
   const restricted = await minorWithoutGuardian(userId);

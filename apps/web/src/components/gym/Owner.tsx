@@ -5,6 +5,7 @@ import { OwnerGuide } from "./OwnerGuide";
 import { REVIEW_DIMS } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
+import { SupervisedPolicy } from "./Kiosk";
 import { Head, HBar, LocSelect, Seg, dec, fmt, nf, pct, stars, useAct, useLoad, when, type Shell } from "./shared";
 
 type Agg = { n: number; avg: number | null; lowSample: boolean; dist: { stars: number; n: number }[]; dims: { label: string; n: number; avg: number | null }[] };
@@ -189,7 +190,7 @@ export function LocsScreen({ shell }: { shell: Shell }) {
   );
 }
 
-type Config = { org: { name: string; status: string; trialEndsAt: string | null; reviewResponses: boolean }; steps: { title: string; detail: string; done: boolean; pending?: string }[] };
+type Config = { org: { name: string; status: string; trialEndsAt: string | null; reviewResponses: boolean; routinePolicy?: "open" | "supervised"; kioskEnabled?: boolean }; steps: { title: string; detail: string; done: boolean; pending?: string }[] };
 const GYM_SEES: [boolean, string, string][] = [
   [true, "Asistencia y entrenamientos registrados", "Del programa institucional, para medir uso y adherencia de la sede"],
   [true, "Programa institucional y notas del equipo", "Sólo el equipo de entrenamiento de la sede"],
@@ -230,6 +231,14 @@ export function ConfigScreen({ shell }: { shell: Shell }) {
               <span><b style={{ fontSize: 14 }}>Los entrenadores pueden responder reseñas</b><small className="muted">Una respuesta por reseña; la ven el socio y la gerencia.</small></span>
             </label>
             <div className="trow"><span style={{ flex: 1 }}><b>Publicación externa</b><br /><small className="muted">Deshabilitada: requiere política y consentimiento del socio.</small></span><span className="chip mute">No disponible</span></div>
+          </section>
+          {/* REPI Control (D213): sólo lectura; lo configura REPI para cada gimnasio. */}
+          <section className="card">
+            <h2>Rutinas y pantalla del gimnasio</h2>
+            <SupervisedPolicy on={c.data.org.routinePolicy === "supervised"} />
+            <div className="trow"><span style={{ flex: 1 }}><b>Pantalla de rutinas</b><br /><small className="muted">{c.data.org.kioskEnabled ? "Habilitada: registrá las pantallas y entregá códigos desde «Pantalla de rutinas»." : "No habilitada. La habilita REPI a pedido del gimnasio."}</small></span>
+              <span className={`chip ${c.data.org.kioskEnabled ? "ok" : "mute"}`}>{c.data.org.kioskEnabled ? "Habilitada" : "No habilitada"}</span>
+              {c.data.org.kioskEnabled && <button type="button" className="btn sm" onClick={() => shell.go("kiosk")}>Abrir</button>}</div>
           </section>
         </div>
       )}

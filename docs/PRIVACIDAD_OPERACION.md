@@ -33,3 +33,33 @@ Borrado automatizado con verificación, plazos legales, exportación de archivos
 **Qué queda registrado:** `audit_event` `account.birth_date_declared` con la elegibilidad resultante, sin la fecha.
 
 **Corrección:** si la fecha es incorrecta, la corrige REPI desde soporte, con evidencia y registro. La app no permite reemplazarla, para que una persona menor no pueda pasar como adulta.
+
+## Asistente REPI (Adaptive Coaching 3.0, D210)
+
+- **Qué guarda, sólo de la persona:**
+  - preferencias del asistente;
+  - lo que pidió que recuerde (con vencimiento: lo temporal vence solo; lo revocado se borra a los 30 días);
+  - conversaciones;
+  - avisos que REPI mostró o calló;
+  - acciones que propuso o ejecutó con su resultado;
+  - uso de IA **sin contenido** (sólo tokens, costo y resultado).
+- **Quién lo ve:** sólo la persona.
+  - El entrenador ve «Señales de REPI»: análisis de datos registrados, con origen. Requiere su consentimiento de entrenamiento; en el gimnasio, además `program.edit`.
+  - Ni el entrenador ni la gerencia ven la conversación ni la memoria. REPI Admin ve sólo agregados de uso y costo, sin datos de alumnos.
+- **Autoservicio:**
+  - «Mis datos» exporta todo lo del asistente (`exportBrainData`).
+  - Perfil → Asistente REPI permite ver y borrar lo que recuerda, y apagar avisos y push.
+  - Borrar la cuenta lo elimina por cascada.
+- **Retención diaria** (cron `purge-media` → `purgeBrainRetention`):
+  - mensajes: 180 días;
+  - avisos resueltos, suprimidos o vencidos: 90 días;
+  - uso de IA: 400 días.
+- **Demos:** la purga de demos borra todo por cascada.
+- **IA (OpenAI, gasto aprobado por el titular el 07/11/2026):**
+  - Sólo para conversación libre, con un contexto mínimo: sin emails, nombres de terceros, fotos, notas privadas de otros ni salud sin consentimiento.
+  - Topes: 30 mensajes por persona por día, US$2 por día en total y US$20 por mes por organización. Al tope, o sin clave, responde por reglas.
+  - Se cambia en Admin → Coaching IA.
+- **Salud y menores:**
+  - Ante frases de alarma responde con un texto fijo (parar y llamar al 107/911) y nunca diagnostica.
+  - Con menores o edad desconocida no habla de peso corporal ni de alimentación, y no manda push de coaching.
+

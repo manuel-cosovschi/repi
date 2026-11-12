@@ -56,10 +56,10 @@ export async function coachPasteTargets(actorId: string, orgId: string) {
   return { programs: out.sort((a, b) => (a.client ?? "￿").localeCompare(b.client ?? "￿", "es") || a.name.localeCompare(b.name, "es")) };
 }
 
-async function unavailableIn(orgId: string, day: DayDoc) {
+async function unavailableIn(orgId: string, day: DayDoc, q: Tx | typeof db = db) {
   const ids = [...new Set(day.exercises.map((e) => e.exerciseId))];
   if (!ids.length) return new Set<string>();
-  const ok = await db.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
+  const ok = await q.select({ id: exercise.id }).from(exercise).where(and(inArray(exercise.id, ids), visibleIn(orgId)));
   const okIds = new Set(ok.map((x) => x.id));
   return new Set(ids.filter((x) => !okIds.has(x)));
 }
@@ -67,7 +67,7 @@ async function unavailableIn(orgId: string, day: DayDoc) {
 type Plan = Awaited<ReturnType<typeof plan>>;
 /** Lee origen y destino con permisos y arma la copia (sin escribir). Lo usan la vista previa y la confirmación. */
 async function plan(actorId: string, orgId: string, from: CopyRef, to: PasteTarget, choice: CopyChoice | null, tx: Tx | typeof db = db) {
-  await requireCoach(actorId, orgId);
+  await requireCoach(actorId, orgId, tx);
   const src = await coachProgram(orgId, from.programId, tx);
   const dst = from.programId === to.programId ? src : await coachProgram(orgId, to.programId, tx);
   const srcV = await readVersion(src.p.currentVersionId!, tx);
@@ -76,7 +76,7 @@ async function plan(actorId: string, orgId: string, from: CopyRef, to: PasteTarg
   if (!Number.isInteger(from.day) || !day) throw new AccessError("invalid", "Ese día ya no está en el programa de origen.", 409);
   const samePerson = src.p.id === dst.p.id || (!!src.p.coachClientId && src.p.coachClientId === dst.p.coachClientId);
   const opts: CopyChoice = choice ?? { weights: samePerson ? "keep" : "strip", notes: samePerson };
-  const missing = await unavailableIn(orgId, { name: day.name, exercises: plain({ ...srcV.doc, days: [day] }).days[0].exercises });
+  const missing = await unavailableIn(orgId, { name: day.name, exercises: plain({ ...srcV.doc, days: [day] }).days[0].exercises }, tx);
   const content = copyDayContent(plain({ ...srcV.doc, days: [day] }).days[0], { weights: opts.weights, notes: opts.notes, skip: opts.skipUnavailable ? missing : undefined });
   const dstDoc = plain(dstV.doc);
   const pasted = pasteDay(dstDoc.days, content.day, to.mode, to.day ?? -1);

@@ -12,7 +12,7 @@ function devDb() {
   try { process.loadEnvFile(".env.local"); } catch { /* */ }
   const url = process.env.DATABASE_URL ?? "";
   const u = new URL(url);
-  if (!["localhost", "127.0.0.1"].includes(u.hostname) || u.pathname !== "/repi_dev") throw new Error("Sólo contra la base local repi_dev.");
+  if (!["localhost", "127.0.0.1"].includes(u.hostname) || !/^\/repi_(dev|e2e_[a-z0-9_]+)$/.test(u.pathname)) throw new Error("Sólo contra una base local repi_dev o repi_e2e_*.");
   return postgres(url, { max: 1, onnotice: () => {} });
 }
 const S = (reps: string, weightKg: number | null) => ({ kind: "work", reps, weightKg, pct1rm: null, rir: 1, rpe: null, restSec: 90, note: null });

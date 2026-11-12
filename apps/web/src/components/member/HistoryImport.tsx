@@ -3,21 +3,25 @@
 // leyó y cargarlo al progreso. Una planilla con columnas claras se lee sin IA; lo demás lo lee un servicio de IA (OpenAI).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { HistoryImportReadJob, previewHistoryImport, type HistoryImportProgress } from "@/lib/history-import-stream";
+import { useCached } from "@/lib/cache";
+import { Reveal } from "@/components/motion/Skeleton";
+import { HISTORY_PART_CHARS, HistoryImportReadJob, previewHistoryImport, type HistoryImportProgress } from "@/lib/history-import-stream";
 import { Sheet } from "./Sheet";
-import { buildHistoryReadParts, fmtWeight, IMPORT_MAX_TEXT_LENGTH, localDate, parseHistoryCsv, parseRoutineNotes, type WeightUnit } from "@repi/domain";
+import { buildHistoryReadParts, datedFromUndated, fmtWeight, historyDateEvidence, IMPORT_MAX_TEXT_LENGTH, localDate, NO_DATES_MESSAGE, parseHistoryCsv, undatedSessions, parseRoutineNotes, type WeightUnit } from "@repi/domain";
 import { useUnit } from "./units";
 import { RoutineImportSheet } from "./RoutineImport";
+import { useProfileGate } from "./ProfileGate";
 
 type Preview = {
   id: string; source: "csv" | "notes" | "ai"; summary: { sessions: number; exercises: number; sets: number; from: string | null; to: string | null };
   exercises: { name: string; matched: string | null; sets: number }[]; sample: { day: string; items: { exercise: string; weightKg: number | null; reps: number | null; seconds: number | null }[] }[];
-  notes: string[]; dropped: number; capped: boolean;
+  notes: string[]; dropped: number; capped: boolean; approx?: boolean;
   duplicateOf?: { fileName: string | null; confirmedAt: string | null } | null; overlap?: { sets: number; days: number; from: string | null; to: string | null };
 };
 type Mark = { day: string; weightKg: number | null; reps: number | null; seconds: number | null };
 type Mine = { imports: { id: string; fileName: string | null; sessions: number; sets: number; fromDay: string | null; toDay: string | null }[]; evolution: { exercise: string; sessions: number; first: Mark; best: Mark; last: Mark }[] };
 
+const ROUTINE_NOT_HISTORY = "Esto parece una rutina, no un historial con fechas. En tu gimnasio las rutinas las planifica el equipo: si querés que la tengan en cuenta, pedíselo al equipo de sala. Acá podés cargar entrenamientos que ya hiciste, con su fecha.";
 const textLimitMessage = `El historial supera los ${IMPORT_MAX_TEXT_LENGTH.toLocaleString("es-AR")} caracteres. Dividilo en partes; el texto se conserva completo.`;
 
 const d = (iso: string | null) => (iso ? new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`)) : "—");
@@ -26,13 +30,17 @@ const mark = (m: Mark, unit: WeightUnit) => m.seconds != null && m.weightKg == n
 export { readImportFile, type ImportBody } from "@/lib/import-file";
 import { readImportFile, type ImportBody } from "@/lib/import-file";
 
-export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void }) {
+// REPI Control (D213): con `supervised` (gimnasio que planifica todo) se sigue pudiendo cargar el historial pasado, pero unas notas
+// que describen una rutina no se ofrecen como rutina propia: se avisa y se sugiere pedírsela al equipo.
+export function BeforeRepi({ flash, offline, onChanged, supervised = false }: { flash: (t: string) => void; offline?: boolean; onChanged?: () => void; supervised?: boolean }) {
   const unit = useUnit();
-  const [mine, setMine] = useState<Mine | null>(null);
+  const gate = useProfileGate();
+  // M06: caché en memoria; lo importado entra con alto 0 → real (bloque opcional, nunca de golpe).
+  const c = useCached<Mine>(offline ? null : "/api/me/history-import");
+  const mine = c.data;
   const [open, setOpen] = useState(false);
   const [routineBody, setRoutineBody] = useState<ImportBody | null>(null);
-  const load = useCallback(() => { api<Mine>("/api/me/history-import").then(setMine).catch(() => {}); }, []);
-  useEffect(() => { if (!offline) load(); }, [load, offline]);
+  const load = () => { void c.reload(); };
   const remove = async (id: string) => {
     if (!confirm("¿Quitar esta importación? Se borran esas series del progreso. Lo que registraste en REPI no se toca.")) return;
     try { await api(`/api/me/history-import/${id}/remove`, { body: {} }); flash("Importación quitada."); load(); onChanged?.(); } catch (e) { flash((e as Error).message); }
@@ -40,9 +48,9 @@ export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) =
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <h2>Antes de REPI</h2>
-      {!mine?.imports.length
-        ? <span className="mb-muted" style={{ fontSize: 14 }}>¿Anotabas tus pesos en una planilla, el celular o un cuaderno? Subilo y lo sumamos a tu progreso.</span>
-        : (
+      {!mine?.imports.length && <span className="mb-muted" style={{ fontSize: 14 }}>¿Anotabas tus pesos en una planilla, el celular o un cuaderno? Subilo y lo sumamos a tu progreso.</span>}
+      <Reveal on={!!mine?.imports.length} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {!!mine?.imports.length && (
           <>
             <div className="hist">{mine.evolution.slice(0, 12).map((e) => (
               <div key={e.exercise}><span><b>{e.exercise}</b><br /><small className="mb-muted">{e.sessions} {e.sessions === 1 ? "día" : "días"} · desde {d(e.first.day)}</small></span>
@@ -53,14 +61,16 @@ export function BeforeRepi({ flash, offline, onChanged }: { flash: (t: string) =
             ))}
           </>
         )}
-      <button type="button" className="ghost" disabled={offline} onClick={() => setOpen(true)}>Cargar historial anterior</button>
-      {routineBody && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
-      {open && <ImportSheet flash={flash} onRoutine={(body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}
+      </Reveal>
+      {/* D217: al importar, se ofrece (una vez) completar el perfil; nunca frena la carga. */}
+      <button type="button" className="ghost" disabled={offline} onClick={() => gate("import", () => setOpen(true))}>Cargar historial anterior</button>
+      {routineBody && !supervised && <RoutineImportSheet initialBody={routineBody} flash={flash} onClose={() => setRoutineBody(null)} onDone={() => { setRoutineBody(null); onChanged?.(); }} />}
+      {open && <ImportSheet flash={flash} onRoutine={supervised ? null : (body) => { setOpen(false); setRoutineBody(body); }} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); onChanged?.(); }} />}
     </section>
   );
 }
 
-function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string) => void; onClose: () => void; onDone: () => void; onRoutine: (body: ImportBody) => void }) {
+function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string) => void; onClose: () => void; onDone: () => void; onRoutine: ((body: ImportBody) => void) | null }) {
   const unit = useUnit();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -72,6 +82,11 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
   const activeRead = useRef<AbortController | null>(null);
   const pendingJob = useRef<HistoryImportReadJob<Preview> | null>(null);
   const [hasPendingJob, setHasPendingJob] = useState(false);
+  // 09/11: historial sin fechas → la persona elige el último entrenamiento y la frecuencia; nada se inventa sin su elección.
+  const [undated, setUndated] = useState<{ body: ImportBody; sessions: number } | null>(null);
+  const [lastDay, setLastDay] = useState(() => localDate(new Date()));
+  const [perWeek, setPerWeek] = useState(3);
+  const [newestFirst, setNewestFirst] = useState(false);
   const closing = useRef(false);
   useEffect(() => () => {
     activeRead.current?.abort();
@@ -81,7 +96,7 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
     if (controller.signal.aborted) return;
     pendingJob.current = null; setHasPendingJob(false); setP(preview);
   };
-  const read = async (getBody: () => Promise<ImportBody | string>, preparingFile = false) => {
+  const read = async (getBody: () => Promise<ImportBody | string>, preparingFile = false, approx?: { sessions: number; from: string; to: string }) => {
     if (inFlight.current || pendingJob.current) return;
     inFlight.current = true;
     const controller = new AbortController(); activeRead.current = controller;
@@ -92,11 +107,21 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
       if (typeof body === "string") { setErr(body); return; }
       if (body.kind === "text" && (body.text ?? "").length > IMPORT_MAX_TEXT_LENGTH) { setErr(textLimitMessage); return; }
       // Las notas sin fechas que describen una rutina van a la revisión editable de «Mis rutinas».
-      if (body.kind === "text" && parseRoutineNotes(body.text ?? "")) { onRoutine(body); return; }
+      if (body.kind === "text" && parseRoutineNotes(body.text ?? "")) {
+        if (onRoutine) { onRoutine(body); return; }
+        setErr(ROUTINE_NOT_HISTORY); return;
+      }
       setBusy("read");
+      // Incidente 09/11: sin ninguna fecha escrita, la persona elige cómo ubicar sus entrenamientos (nunca la lectura automática).
+      if (!approx && body.kind === "text" && !parseHistoryCsv(body.text ?? "") && !historyDateEvidence(body.text ?? "").count) {
+        const sessions = undatedSessions(body.text ?? "").length;
+        if (!sessions) { setErr(NO_DATES_MESSAGE); return; }
+        setUndated({ body, sessions }); return;
+      }
+      if (approx) body.approx = approx;
       if (body.kind === "text" && (body.text ?? "").length > 24_000 && !parseHistoryCsv(body.text!)) {
-        const parts = buildHistoryReadParts(body.text!, localDate(new Date()), 12_000);
-        const job = new HistoryImportReadJob<Preview>(body.fileName, parts, body.text!);
+        const parts = buildHistoryReadParts(body.text!, localDate(new Date()), HISTORY_PART_CHARS);
+        const job = new HistoryImportReadJob<Preview>(body.fileName, parts, body.text!, body.approx);
         pendingJob.current = job; setHasPendingJob(true); setText(body.text!);
         acceptPreview(await job.read(setProgress, controller.signal), controller);
       } else acceptPreview(await previewHistoryImport<Preview>(body, setProgress, controller.signal), controller);
@@ -127,6 +152,13 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
   };
   const send = (body: ImportBody) => read(async () => body);
   const pick = (f: File | undefined) => f ? read(() => readImportFile(f), true) : undefined;
+  const readUndated = () => {
+    if (!undated) return;
+    const out = datedFromUndated(undated.body.text ?? "", { last: lastDay, perWeek, newestFirst });
+    const body = { ...undated.body, text: out.text };
+    setUndated(null);
+    void read(async () => body, false, { sessions: out.sessions, from: out.from!, to: out.to! });
+  };
   const readingLabel = progress?.stage === "matching" ? "Relacionando ejercicios…"
     : progress?.stage === "review" ? "Preparando vista previa…"
     : progress?.total ? `Leyendo historial: ${progress.completed ?? 0} de ${progress.total} partes` : "Leyendo historial…";
@@ -151,7 +183,7 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
   };
 
   if (p) return (
-    <Sheet title="Revisá lo que leímos" sub={`${p.summary.sessions} días de entrenamiento, ${p.summary.exercises} ejercicios y ${p.summary.sets} series, del ${d(p.summary.from)} al ${d(p.summary.to)}.`} closeLabel="Cancelar" onClose={() => { if (!inFlight.current) { void discard(); onClose(); } }}
+    <Sheet title="Revisá lo que leímos" sub={`${p.summary.sessions.toLocaleString("es-AR")} ${p.summary.sessions === 1 ? "día" : "días"} de entrenamiento, ${p.summary.exercises} ejercicios y ${p.summary.sets.toLocaleString("es-AR")} series, del ${d(p.summary.from)} al ${d(p.summary.to)}${p.approx ? " (fechas aproximadas)" : ""}.`} closeLabel="Cancelar" onClose={() => { if (!inFlight.current) { void discard(); onClose(); } }}
       action={{ label: p.duplicateOf ? "Listo" : ov ? "Cargar sólo lo nuevo" : "Cargar a mi progreso", ready: !busy && !p.capped, busy: busy === "save", onSubmit: () => void confirmIt(ov ? "new_only" : undefined) }}>
       {p.duplicateOf && <p className="sheet-warn" role="alert">Este historial ya lo cargaste{p.duplicateOf.fileName ? ` («${p.duplicateOf.fileName}»)` : ""}. No se va a sumar dos veces.</p>}
       {ov && <p className="sheet-warn" role="alert">{ov.sets} de estas series ya están en tu historial importado ({ov.days === 1 ? `el ${d(ov.from)}` : `${ov.days} días, del ${d(ov.from)} al ${d(ov.to)}`}). «Cargar sólo lo nuevo» suma lo que falta sin repetir.
@@ -169,9 +201,27 @@ function ImportSheet({ flash, onClose, onDone, onRoutine }: { flash: (t: string)
       <button type="button" className="ghost" disabled={!!busy} onClick={() => void discard()}>Subir otro archivo</button>
     </Sheet>
   );
+  if (undated) return (
+    <Sheet title="Tu historial no tiene fechas" sub={`Encontramos ${undated.sessions.toLocaleString("es-AR")} entrenamientos, uno debajo del otro, pero ninguno tiene fecha. REPI no inventa fechas: decinos cuándo fue el último y cada cuánto entrenabas, y los ubicamos en orden con fechas aproximadas.`}
+      closeLabel="Volver" onClose={() => setUndated(null)}
+      action={{ label: "Seguir con fechas aproximadas", ready: !!lastDay && lastDay <= localDate(new Date()), busy: false, onSubmit: readUndated }}>
+      <label className="sheet-sub" htmlFor="hi-last">¿Cuándo fue el último entrenamiento de la lista?</label>
+      <input id="hi-last" type="date" className="note" max={localDate(new Date())} value={lastDay} onChange={(e) => setLastDay(e.target.value)} />
+      <label className="sheet-sub" htmlFor="hi-week">¿Cuántos días por semana entrenabas?</label>
+      <select id="hi-week" className="note" value={perWeek} onChange={(e) => setPerWeek(Number(e.target.value))}>
+        {[1, 2, 3, 4, 5, 6, 7].map((n) => <option key={n} value={n}>{n} {n === 1 ? "día" : "días"} por semana</option>)}
+      </select>
+      <label className="sheet-sub" htmlFor="hi-order">¿En qué orden están anotados?</label>
+      <select id="hi-order" className="note" value={newestFirst ? "new" : "old"} onChange={(e) => setNewestFirst(e.target.value === "new")}>
+        <option value="old">Del más antiguo (arriba) al más reciente (abajo)</option>
+        <option value="new">Del más reciente (arriba) al más antiguo (abajo)</option>
+      </select>
+      {(() => { try { const o = datedFromUndated(undated.body.text ?? "", { last: lastDay, perWeek, newestFirst }); return <p className="sheet-sub" role="status">Quedaría del {d(o.from)} al {d(o.to)}. Vas a ver la vista previa antes de cargar nada.</p>; } catch { return null; } })()}
+    </Sheet>
+  );
   return (
-    <Sheet title="Cargar historial anterior" sub="Una planilla (Excel, CSV u OpenDocument), una foto de tu cuaderno, una captura o un PDF con fechas, ejercicios, pesos y repeticiones. Antes de guardar te mostramos lo que leímos." closeLabel={busy || hasPendingJob ? "Cancelar lectura" : "Cerrar"} onClose={() => { if (busy || hasPendingJob) void resetRead(true); else onClose(); }}>
-      <input ref={input} type="file" disabled={!!busy || hasPendingJob} hidden accept=".csv,.txt,.tsv,.pdf,image/*,.xlsx,.ods,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+    <Sheet title="Cargar historial anterior" sub="Una planilla (Excel, CSV u OpenDocument), un documento (Word o texto), una foto de tu cuaderno, una captura o un PDF con tus ejercicios, pesos y repeticiones. Si no anotaste fechas, te ayudamos a ubicarlas. Antes de guardar te mostramos lo que leímos." closeLabel={busy || hasPendingJob ? "Cancelar lectura" : "Cerrar"} onClose={() => { if (busy || hasPendingJob) void resetRead(true); else onClose(); }}>
+      <input ref={input} type="file" disabled={!!busy || hasPendingJob} hidden accept=".csv,.txt,.tsv,.md,.markdown,.rtf,.json,.log,.docx,.odt,.pdf,image/*,text/*,.xlsx,.ods,.xls,.numbers" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
       <button type="button" className="cta" aria-busy={busy === "read" || busy === "file" || undefined} disabled={!!busy || hasPendingJob} onClick={() => input.current?.click()}>{busy === "file" ? "Preparando archivo…" : "Elegir archivo o foto"}</button>
       <label className="sheet-sub" htmlFor="hi-text">O pegá el texto (por ejemplo, tus notas del celular):</label>
       <textarea id="hi-text" className="note" rows={5} disabled={!!busy || hasPendingJob} value={text} onChange={(e) => setText(e.target.value)} placeholder={"12/03/2024\nSentadilla 3x10 60 kg\nPress banca 4x8 50 kg"} />

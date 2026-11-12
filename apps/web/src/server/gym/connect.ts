@@ -8,7 +8,7 @@ import {
   CONNECT_ACTIVE, CONNECT_AVAILABILITY, CONNECT_COMMENT_MAX, CONNECT_DUE_SOON_HOURS, CONNECT_FOLLOWUP_DEFAULT_DAYS, CONNECT_NOTE_MAX, CONNECT_REASONS,
   CONNECT_STATE_LABEL, CONNECT_WAIT_ALERT_MIN, TASK_CATEGORY, connectMetrics, connectNext, connectPriority, connectSort, connectState, gymCan, isConnectReason,
   localDate, type ConnectAction, type ConnectAvailability, type ConnectReason, type ConnectStatus, type TaskPriority,
-  briefSummary, briefView,
+  briefSummary, briefView, isTimedRow, type ExerciseDetail, type SetMetrics,
 } from "@repi/domain";
 import { db, schema } from "@/db";
 import { afterBriefSaved, parseBrief } from "../training/program-request";
@@ -314,17 +314,22 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   const [card] = await decorateCards([t], now);
   const ev = await eventsOf([t.id]);
   const c = t.context;
-  let sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null }[] = [];
-  let recent: { at: Date; weightKg: string | null; reps: number | null }[] = [];
+  // Ejercicios por tiempo: con las métricas de una actividad (velocidad, inclinación, nivel…); en una actividad `reps` son segundos.
+  let sets: { setIndex: number; weightKg: string | null; reps: number | null; rir: number | null; feel: string | null; metrics: SetMetrics | null }[] = [];
+  let recent: { at: Date; weightKg: string | null; reps: number | null; metrics: SetMetrics | null }[] = [];
   let privateSession = false;
+  let timed = false;
   if (c?.sessionId && c.programExerciseId) {
-    sets = await db.select({ setIndex: setLog.setIndex, weightKg: setLog.weightKg, reps: setLog.reps, rir: setLog.rir, feel: setLog.feel }).from(setLog)
+    // Ejercicios por tiempo: si la fila es por tiempo (cinta, bici, plancha…), `reps` son segundos (la pantalla no dice «0×720»).
+    const [pe] = await db.select({ reps: schema.programExercise.reps, detail: schema.programExercise.detail }).from(schema.programExercise).where(eq(schema.programExercise.id, c.programExerciseId));
+    timed = !!pe && isTimedRow({ reps: pe.reps, detail: pe.detail as ExerciseDetail | null });
+    sets = await db.select({ setIndex: setLog.setIndex, weightKg: setLog.weightKg, reps: setLog.reps, rir: setLog.rir, feel: setLog.feel, metrics: setLog.metrics }).from(setLog)
       .innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
       .where(and(eq(setLog.sessionId, c.sessionId), eq(setLog.programExerciseId, c.programExerciseId), eq(workoutSession.gymMemberId, t.gymMemberId ?? "-"), isNull(setLog.voidedAt))).orderBy(asc(setLog.setIndex));
   } else if (c?.exerciseId) privateSession = true;
   if (c?.exerciseId && t.gymMemberId) {
     // Últimas series de ese ejercicio en sesiones del programa del gym (nunca las del coach privado).
-    recent = await db.select({ at: setLog.completedAt, weightKg: setLog.weightKg, reps: setLog.reps }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
+    recent = await db.select({ at: setLog.completedAt, weightKg: setLog.weightKg, reps: setLog.reps, metrics: setLog.metrics }).from(setLog).innerJoin(workoutSession, eq(workoutSession.id, setLog.sessionId))
       .where(and(eq(workoutSession.gymMemberId, t.gymMemberId), eq(setLog.exerciseId, c.exerciseId), inArray(workoutSession.status, ["completed", "in_progress", "paused"]), isNull(setLog.voidedAt))).orderBy(desc(setLog.completedAt)).limit(6);
   }
   const prog = t.gymMemberId ? await db.select({ name: programVersion.name, n: programVersion.number }).from(programAssignment)
@@ -335,7 +340,7 @@ export async function staffTask(actorId: string, orgId: string, taskId: string, 
   const can = (a: ConnectAction) => connectNext(t, a, actorId).ok;
   return {
     ...card,
-    context: c && (c.exerciseId || c.exerciseName) ? { exercise: c.exerciseName ?? null, program: c.programName ?? null, setIndex: c.setIndex ?? null, fromSession: !!c.fromSession, sets, recent, privateSession } : null,
+    context: c && (c.exerciseId || c.exerciseName) ? { exercise: c.exerciseName ?? null, program: c.programName ?? null, setIndex: c.setIndex ?? null, fromSession: !!c.fromSession, timed, sets, recent, privateSession } : null,
     program: prog[0] ? `${prog[0].name} · v${prog[0].n}` : null,
     events: ev.map(({ e, actor, to }) => ({ id: e.id, kind: e.kind, at: e.createdAt, by: actor, to, note: e.note, memberNote: e.memberNote, dueAt: e.dueAt, from: e.fromStatus, toStatus: e.toStatus })),
     previous: prev.map((p) => ({ id: p.id, ref: p.ref, label: p.label, stateLabel: p.stateLabel, createdAt: p.createdAt, completedBy: p.completedBy })),
@@ -398,7 +403,7 @@ export async function staffAct(actorId: string, orgId: string, taskId: string, a
         break;
       }
       case "transfer": {
-        if (!p.toUserId || p.toUserId === actorId || !(await floorStaff(orgId, t.locationId)).some((s) => s.userId === p.toUserId)) throw new AccessError("invalid", "Elegí a quién transferir: tiene que trabajar en la sala de esta sede.");
+        if (!p.toUserId || p.toUserId === actorId || !(await floorStaff(orgId, t.locationId, tx)).some((s) => s.userId === p.toUserId)) throw new AccessError("invalid", "Elegí a quién transferir: tiene que trabajar en la sala de esta sede.");
         const text = [p.done && `Hecho: ${clip(p.done, 200)}`, p.pending && `Pendiente: ${clip(p.pending, 200)}`, p.next && `Próximo paso: ${clip(p.next, 200)}`, note].filter(Boolean).join(" · ");
         if (text.length < 3) throw new AccessError("invalid", "Dejá qué se hizo y qué queda para quien sigue.");
         const sh = await activeShift(actorId, tx);
@@ -508,7 +513,16 @@ export async function connectReport(actorId: string, orgId: string, locationId: 
  * 1) pedido sin tomar hace CONNECT_WAIT_ALERT_MIN → a quienes están en turno en la sede, una vez;
  * 2) seguimiento que vence en CONNECT_DUE_SOON_HOURS o vencido → a su responsable (o al turno si quedó libre), uno por día.
  * Respeta la pausa de avisos de cada persona (processOutbox los marca «skipped»). Sin modelos de IA.
+ * FSA1: sin nadie en turno en la sede, el aviso va a la gestión de esa sede (dueño, gerencia y coordinación), como el
+ * escalamiento de las altas por QR; antes no le llegaba a nadie y el pedido sólo se veía si alguien abría «Sala».
  */
+async function sweepRecipients(orgId: string, locationId: string) {
+  const onShift = await floorOnShift(orgId, locationId);
+  if (onShift.length) return onShift;
+  const rows = await db.select({ u: schema.staffMembership.userId, role: schema.staffMembership.role, loc: schema.staffMembership.locationId }).from(schema.staffMembership)
+    .where(and(eq(schema.staffMembership.orgId, orgId), eq(schema.staffMembership.status, "active")));
+  return [...new Set(rows.filter((r) => (!r.loc || r.loc === locationId) && gymCan([r.role], "team.read")).map((r) => r.u))];
+}
 export async function connectSweep(now = new Date()) {
   const orgs = featureOn("connect") ? await db.select({ id: organization.id }).from(organization).where(and(eq(organization.connectEnabled, true), eq(organization.kind, "gym"))) : [];
   if (!orgs.length) return { waiting: 0, due: 0 };
@@ -519,14 +533,14 @@ export async function connectSweep(now = new Date()) {
     .limit(200);
   let w = 0, d = 0;
   for (const t of waiting) {
-    const to = await floorOnShift(t.orgId, t.locationId);
+    const to = await sweepRecipients(t.orgId, t.locationId);
     w += await enqueue(to, { kind: "assist_wait", dedupe: `assistwait:${t.id}`, title: `Pedido esperando · ${t.loc}`, body: `T-${t.number} · ${reasonLabel(t)} · sin tomar hace más de ${CONNECT_WAIT_ALERT_MIN} min`, url: `/gym/${t.orgId}?s=queue&sel=${t.id}` });
   }
   const due = await db.select({ id: gymTask.id, orgId: gymTask.orgId, locationId: gymTask.locationId, number: gymTask.number, reason: gymTask.reason, category: gymTask.category, assignee: gymTask.assigneeUserId, dueAt: gymTask.dueAt })
     .from(gymTask).where(and(inArray(gymTask.orgId, orgIds), eq(gymTask.status, "follow_up"), sql`${gymTask.dueAt} < ${new Date(now.getTime() + CONNECT_DUE_SOON_HOURS * 3_600_000).toISOString()}`)).limit(300);
   const today = localDate(now);
   for (const t of due) {
-    const to = t.assignee ? [t.assignee] : await floorOnShift(t.orgId, t.locationId);
+    const to = t.assignee ? [t.assignee] : await sweepRecipients(t.orgId, t.locationId);
     const late = !!t.dueAt && t.dueAt < now;
     d += await enqueue(to, { kind: "assist_due", dedupe: `assistdue:${t.id}:${today}`, title: late ? "Seguimiento vencido" : "Seguimiento por vencer", body: `T-${t.number} · ${reasonLabel(t)}`, url: `/gym/${t.orgId}?s=queue&sel=${t.id}` });
   }

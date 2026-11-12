@@ -97,11 +97,15 @@ async function main() {
     ["Prensa", "Piernas", "load_reps"], ["Hip thrust", "Glúteos", "load_reps"], ["Curl femoral", "Piernas", "load_reps"],
     ["Curl con barra", "Brazos", "load_reps"], ["Fondos en paralelas", "Brazos", "bodyweight"], ["Plancha", "Core", "time"],
     ["Gemelos de pie", "Piernas", "load_reps"], ["Sentadilla goblet", "Piernas", "load_reps"], ["Flexiones", "Pecho", "bodyweight"],
+    ["Cinta (caminata)", "Cardio", "time"], // ejercicios por tiempo: duración, velocidad e inclinación
   ];
-  for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind }).onConflictDoNothing();
+  const { catalogProfile, emptyDetail } = await import("@repi/domain");
+  for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind, metricsProfile: catalogProfile(name) }).onConflictDoNothing();
   const lib = new Map((await db.select().from(schema.exercise)).map((e) => [e.name, e.id]));
   const rest = (t: string) => { const [m, s2] = t.split(":").map(Number); return m * 60 + s2; };
   const ex = (name: string, sets: number, reps: string, rir: number, r: string) => ({ exerciseId: lib.get(name)!, name, sets, reps, rir, restSec: rest(r) });
+  // Ejercicios por tiempo: la cinta como la pidió el titular (10 min · 5 km/h · inclinación 3), sin series × reps ni RIR.
+  const cinta = { exerciseId: lib.get("Cinta (caminata)")!, name: "Cinta (caminata)", sets: 1, reps: "10 min", rir: null, restSec: 0, detail: { ...emptyDetail(), activity: { profile: "treadmill" as const, speedKmh: 5, incline: 3 } } };
   const existing = await db.select().from(schema.program).where(eq(schema.program.orgId, coachOrg.id));
   if (!existing.length) {
     // Plantillas PG0 de REPI Desktop Coach.dc.html.
@@ -115,7 +119,16 @@ async function main() {
       { name: "Día B", exercises: [ex("Peso muerto rumano", 3, "5", 2, "3:00"), ex("Press militar", 5, "5", 2, "2:30")] },
     ] });
     await createTemplate(coach, coachOrg.id, { name: "Recomposición · 3 días", weeks: 6, note: "Mantené 8.000 pasos diarios.", days: [
-      { name: "Full body A", exercises: [ex("Sentadilla", 3, "10", 2, "1:30"), ex("Remo con barra", 3, "10", 2, "1:30"), ex("Plancha", 3, "40 s", 0, "0:45")] },
+      { name: "Full body A", exercises: [cinta, ex("Sentadilla", 3, "10", 2, "1:30"), ex("Remo con barra", 3, "10", 2, "1:30"), ex("Plancha", 3, "40 s", 0, "0:45")] },
+    ] });
+  }
+  // Ejercicios por tiempo (también en una base ya sembrada): una plantilla con la cinta configurada por duración.
+  const [cardio] = await db.select({ id: schema.programVersion.id }).from(schema.programVersion).innerJoin(schema.program, eq(schema.program.id, schema.programVersion.programId))
+    .where(and(eq(schema.program.orgId, coachOrg.id), eq(schema.programVersion.name, "Cardio y fuerza · 2 días"))).limit(1);
+  if (!cardio) {
+    await createTemplate(coach, coachOrg.id, { name: "Cardio y fuerza · 2 días", weeks: 4, note: "Entrada en calor en la cinta antes de cada día.", days: [
+      { name: "Día A", exercises: [cinta, ex("Sentadilla goblet", 3, "12", 2, "1:30"), ex("Jalón al pecho", 3, "12", 2, "1:30")] },
+      { name: "Día B", exercises: [cinta, ex("Hip thrust", 3, "10", 2, "1:30"), ex("Flexiones", 3, "10", 2, "1:00")] },
     ] });
   }
   // Clienta DEMO con relación aceptada (grant fijo de entrenamientos), sin programa asignado.

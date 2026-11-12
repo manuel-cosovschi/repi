@@ -1,6 +1,6 @@
 // Historial anterior a REPI (D132): vista previa, confirmar, evolución, peso sugerido y quitar. Sin IA en las pruebas.
 import { desc, eq, sql } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, schema } from "@/db";
 import { auth } from "@/server/auth";
 import * as acc from "@/server/access/services";
@@ -161,9 +161,22 @@ describe("historial anterior", () => {
   });
   it("sin IA disponible, lo que no es planilla se explica; vacío o formato raro se rechaza", async () => {
     const u = await verified();
-    expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "lunes sentadilla 3x10 60" })))?.code).toBe("ai_unavailable");
+    // 09/11: sin ninguna fecha escrita se avisa antes de intentar leer (REPI no inventa fechas); con fecha y sin IA, se explica.
+    expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "lunes sentadilla 3x10 60" })))?.code).toBe("no_dates");
+    expect((await err(hi.previewHistoryImport(u, { fileName: "notas.txt", kind: "text", text: "12/03/2024\nsentadilla tres series pesadas" })))?.code).toBe("ai_unavailable");
     expect((await err(hi.previewHistoryImport(u, { fileName: "x.png", kind: "image", dataUrl: "data:text/html;base64,PGgxPg==" })))?.code).toBe("invalid");
     expect((await err(hi.previewHistoryImport(u, { fileName: "v.csv", kind: "text", text: "   " })))?.code).toBe("invalid");
     expect((await err(aiSoloAdvice(u)))?.code).toBe("ai_unavailable"); // D133: sin clave, el plan con reglas sigue y la IA avisa
+  });
+  it("FSA1 · la IA que empareja nombres no cambia la variante: lo importado no suma al progreso de otro ejercicio", async () => {
+    const lib = [{ id: "a", name: "Remo en máquina" }, { id: "b", name: "Press inclinado con mancuernas" }, { id: "c", name: "Sentadilla" }];
+    process.env.OPENAI_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ map: [
+      { written: "Remo", catalog: "Remo en máquina" }, { written: "Press inclinado con barra", catalog: "Press inclinado con mancuernas" }, { written: "Squat trasera", catalog: "Sentadilla" },
+    ] }) } }] }), { status: 200 })));
+    try {
+      const m = await hi.matchExercises(["Remo", "Press inclinado con barra", "Squat trasera"], lib);
+      expect([m["Remo"], m["Press inclinado con barra"], m["Squat trasera"]?.id]).toEqual([null, null, "c"]);
+    } finally { vi.unstubAllGlobals(); delete process.env.OPENAI_API_KEY; }
   });
 });

@@ -79,3 +79,61 @@ button.gy-person:hover b { text-decoration: underline; }
 .og-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .og-form { display: flex; gap: 8px; }
 .og-form input { flex: 1; min-width: 0; height: 42px; border-radius: 10px; border: 1px solid var(--ui-control-border); padding: 0 12px; font: 400 14px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
+/* Ficha del socio como página (07/11/2026): «Volver a Sala» arriba y, en «Socios», la ficha no queda debajo de toda la lista. */
+.gy-back { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: -4px; }
+.gy-back .btn { display: inline-flex; align-items: center; gap: 6px; }
+/* Lista y ficha van lado a lado desde 836 px (300 + 520 + 16, ver .split en coach.css). Más angosto, la ficha quedaba debajo de
+   toda la lista: ahí se ve una cosa por vez (la lista, o la ficha elegida con «Todos los socios» para volver). */
+.gy-members { container-type: inline-size; }
+.gy-members .gy-list-back { display: none; align-self: flex-start; align-items: center; gap: 6px; }
+@container (max-width: 835px) {
+  .gy-members[data-sel="0"] > .detail-pane, .gy-members[data-sel="1"] > .list-pane { display: none; }
+  .gy-members .gy-list-back { display: inline-flex; }
+}
+
+/* REPI Control (D213): pantalla de rutinas (pantallas autorizadas, enlace una sola vez con QR, código y PIN del socio). */
+.kc-policy { display: flex; flex-direction: column; gap: 6px; }
+.kc-policy-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+.kc-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5; }
+.kc-new { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.kc-new select { height: 42px; }
+.kc-link { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; border: 1px solid var(--ui-selection-border); background: var(--ui-chip-info-bg); color: var(--ui-text); border-radius: 14px; padding: 16px; }
+.kc-link:focus-visible { outline: 2px solid var(--ui-focus, var(--ui-accent)); outline-offset: 2px; }
+.kc-link-txt { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5; }
+.kc-url { word-break: break-all; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 10px; padding: 8px 10px; }
+.kc-qr { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.kc-qr .gq-code { border-radius: 10px; padding: 6px; } /* blanco y svg: gym-access.css (.gq-code) */
+.kc-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.kc-cred { display: flex; gap: 6px 14px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.kc-cred > span:first-child { display: flex; flex-direction: column; gap: 2px; }
+.kc-code { font-size: 20px; letter-spacing: .06em; color: var(--ui-text); }
+.kc-inline { border-top: 1px solid var(--ui-divider); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.kc-inline.kc-bare { border-top: 0; padding-top: 0; }
+.kc-print { display: flex; flex-direction: column; gap: 8px; border: 1px dashed var(--ui-control-border); border-radius: 14px; padding: 18px; }
+.kc-print-gym { font-size: 12px; font-weight: 600; color: var(--ui-muted); text-transform: uppercase; letter-spacing: .03em; }
+.kc-print-name { font: 700 24px/1.1 var(--font-display); text-transform: uppercase; }
+.kc-big { display: flex; gap: 12px; flex-wrap: wrap; }
+.kc-big > span { flex: 1 1 150px; display: flex; flex-direction: column; gap: 4px; background: var(--ui-surface-2, var(--ui-surface)); border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px 14px; }
+.kc-big small { font-size: 12px; color: var(--ui-muted); font-weight: 600; }
+.kc-big b { font: 600 34px/1.1 var(--font-mono); letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.kc-print-help { font-size: 13px; line-height: 1.5; color: var(--ui-text-2); }
+.btn.danger.gy-strong { border-color: currentColor; background: var(--ui-error-tint); }
+.kc-results { display: flex; flex-direction: column; max-width: 520px; }
+.kc-sel { display: flex; flex-direction: column; gap: 8px; max-width: 640px; }
+.kc-sel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+/* STF-09 (D214): gestionar el acceso de una persona del equipo. */
+.sa-now { display: flex; flex-direction: column; }
+.sa-box { border: 1px solid var(--ui-border); border-radius: 14px; padding: 14px; margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sa-box legend { font-size: 14px; font-weight: 600; padding: 0 4px; }
+.sa-danger { border-color: var(--ui-error-tint); }
+.sa-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5; }
+.sa-done { display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5; }
+.sa-box .btn:disabled, .sa-foot .btn:disabled, .gy-confirm-foot .btn:disabled, .kc-acts .btn:disabled, .kc-new .btn:disabled, .gy-table .btn.danger:disabled { opacity: .45; cursor: default; }
+/* Imprimir sólo la tarjeta del código y el PIN (IssuedModal). theme-fixed:start (papel: negro sobre blanco en cualquier tema) */
+@media print {
+  body[data-print="kiosk-cred"] > :not(.modal-bg:not([data-ghost])) { display: none !important; }
+  body[data-print="kiosk-cred"] .modal-bg { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
+  body[data-print="kiosk-cred"] .modal { box-shadow: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; animation: none !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
+  body[data-print="kiosk-cred"] .modal > :not(.kc-print) { display: none !important; }
+  body[data-print="kiosk-cred"] .kc-print, body[data-print="kiosk-cred"] .kc-print * { color: #000 !important; background: #fff !important; border-color: #000 !important; }
+} /* theme-fixed:end */

@@ -2,7 +2,7 @@
 // D154: al actualizar la rutina de un cliente o socio, REPI sugiere la carga de cada ejercicio según lo que hizo la última vez
 // (misma regla que ve el alumno al entrenar). El profe la aplica con un toque —queda en el plan serie por serie— o la ignora.
 import { useEffect, useMemo, useState } from "react";
-import { applyLoad, canApplyLoad, fmtWeight, lastSummary, progressionApplies, suggestNext, type ExerciseDetail, type LastSet } from "@repi/domain";
+import { applyLoad, canApplyLoad, fmtWeight, isActivityProfile, lastSummary, progressionApplies, suggestNext, type ExerciseDetail, type LastSet, type MetricsProfile } from "@repi/domain";
 import { api } from "@/lib/api";
 
 export type LastTimes = Record<string, { at: string; sets: LastSet[]; reps?: string | null }>;
@@ -22,12 +22,16 @@ export function useLastTimes(url: string | null, exerciseIds: string[]) {
 
 const day = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(iso));
 
-export function LoadSuggestion({ e, last, onApply }: {
+export function LoadSuggestion({ e, last, onApply, profile }: {
   e: { sets: number; reps: string; detail?: ExerciseDetail | null }; last?: { at: string; sets: LastSet[]; reps?: string | null }; onApply: (detail: ExerciseDetail) => void;
+  /** Ejercicios por tiempo: perfil de la fila. Una actividad (cinta, bici…) nunca recibe kilos ni repeticiones sugeridos. */
+  profile?: MetricsProfile | null;
 }) {
   // D182: misma regla que ve el alumno (rango comparable, sensación y RIR de la última vez). Con top set, back-off, drop o
   // pirámide no hay una carga única para todo el ejercicio: no se sugiere. Las molestias y lesiones (datos de salud) no llegan acá.
-  const sg = useMemo(() => (last && progressionApplies(e.detail) ? suggestNext({ reps: e.reps, sets: e.sets, last: last.sets, lastReps: last.reps }) : null), [e.reps, e.sets, e.detail, last]);
+  // Una cinta vieja indicada como «3 × 10-12» (como la dejaba el editor de sala) tampoco: es una actividad.
+  const activity = isActivityProfile(profile);
+  const sg = useMemo(() => (last && !activity && progressionApplies(e.detail) ? suggestNext({ reps: e.reps, sets: e.sets, last: last.sets, lastReps: last.reps }) : null), [e.reps, e.sets, e.detail, last, activity]);
   if (!last || !last.sets.length) return null;
   const planned = e.detail?.setPlan?.[0]?.weightKg ?? null;
   const applied = sg?.weightKg != null && e.detail?.setPlan?.every((s) => s.weightKg === sg.weightKg);

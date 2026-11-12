@@ -7,6 +7,7 @@ export const SITE_EVENTS = [
   "film_open", // abrió un film en la sala de proyección (target = id del video)
   "qr_scan", // pasó por /qr (lo registra el servidor al redirigir)
   "profile_select", // eligió un perfil en el selector
+  "mode_select", // eligió una modalidad en «Dos formas de entrenar» (target = modo-completo | modo-control)
   "video_play", "video_progress", "video_complete", // centro audiovisual (target = id del video; progress con 25/50/75)
   "demo_click", // tocó una tarjeta de demo (target = perfil de la demo)
   "demo_start", // la demo se creó y se abrió

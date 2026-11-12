@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<title>REPI Control · Dossier comercial</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- ═══════════════════════════════════════════════════════════════════════════════════════════════
+     DATOS EDITABLES — precios y contacto. Es el único lugar donde viven: cambiá acá y volvé a generar
+     (node marketing/dossier/repi-control/render.mjs). Los importes son números sin puntos (30000, no
+     "30.000"); el documento los escribe en formato es-AR ($ 30.000). Son un ESCENARIO ILUSTRATIVO, no
+     una tarifa contractual: no borrar la aclaración que los acompaña.
+     ═══════════════════════════════════════════════════════════════════════════════════════════════ -->
+<script>
+window.DOSSIER = {
+  edicion: "Noviembre 2026",
+  precios: {
+    baseMensual: 30000,          // $ mensuales de base
+    porSocioActivo: 95,          // $ por socio activo, por mes
+    pantallasIncluidas: 1,       // pantallas autorizadas incluidas en la base
+    cambioAMedida: 30000,        // $ por pedido de cambio a medida (soporte, apps/web/src/lib/contact.ts)
+    aclaracion: "Valores de referencia, no contractuales. Sujetos a propuesta personalizada.",
+  },
+  contacto: {
+    web: "repiclub.com/conoce",
+    webUrl: "https://repiclub.com/conoce",
+    whatsapp: "223 538-3082",
+    whatsappUrl: "https://wa.me/5492235383082",
+  },
+};
+</script>
+<!-- ═══════════════════════════════════════ fin de datos editables ═══════════════════════════════ -->
+
+<link rel="stylesheet" href="dossier.css">
+</head>
+<body>
+
+<!-- ─────────────────────────────── PÁGINA 1 ─────────────────────────────── -->
+<section class="page p1">
+  <header class="hero">
+    <div class="hero-top">
+      <img class="wm" src="assets/wm_full.png" alt="REPI">
+      <p class="kicker">Dossier comercial · Para dueños de gimnasios · <span data-bind="edicion"></span></p>
+    </div>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">El modo supervisado de REPI</p>
+        <h1>REPI<br>Control</h1>
+        <p class="lead">Tus socios consultan y registran sus entrenamientos directamente en el gimnasio. Sin descargar nada, sin crear sus propias rutinas y con toda la información disponible para el equipo.</p>
+        <p class="facts"><span>Código y PIN</span><span>Sin email</span><span>Sin contraseña</span></p>
+      </div>
+      <figure class="hero-shot">
+        <img src="assets/04-programa.webp" alt="Pantalla de rutinas con el programa Fuerza base de 3 días: en cada serie de Sentadilla, el objetivo del profesor, la sugerencia de REPI y la última vez">
+        <figcaption>Pantalla de rutinas en la sede: en cada serie, objetivo del profesor, sugerencia de REPI y última vez. Demo con datos ficticios.</figcaption>
+      </figure>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="two ps">
+      <div>
+        <p class="label"><b>01</b>El problema</p>
+        <ul class="problems">
+          <li><strong>Rutinas difíciles de consultar.</strong> En la sala, el socio no tiene a mano qué le toca hoy.</li>
+          <li><strong>Planillas sueltas.</strong> Papel, fotos y mensajes de WhatsApp que se pierden o quedan viejos.</li>
+          <li><strong>Sin control central.</strong> No está claro cuál es la versión vigente ni quién la cambió.</li>
+        </ul>
+      </div>
+      <div class="solution">
+        <p class="label"><b>02</b>La solución</p>
+        <h2>Un solo lugar para planificar. Una pantalla para consultar y registrar.</h2>
+        <p>REPI Control es el modo de planificación supervisada de REPI. El equipo crea, asigna y publica cada programa; en una tablet o un monitor de la sede, el socio lo consulta y registra lo que hizo en cada serie, sin poder cambiar lo programado. Es la misma plataforma que REPI Completo.</p>
+      </div>
+    </div>
+
+    <div class="how">
+      <div class="how-head">
+        <p class="label"><b>03</b>Cómo funciona la pantalla</p>
+        <p class="how-note">Una persona por vez. Se cierra sola sin uso y nada de la persona queda en el equipo.</p>
+      </div>
+      <ol class="steps">
+        <li>
+          <img src="assets/01-bienvenida.webp" alt="Bienvenida de la Pantalla de rutinas con el botón Empezar">
+          <h3><i>1</i>Empezar</h3>
+          <p>En la tablet o el monitor de la sede, el socio toca «Empezar».</p>
+        </li>
+        <li>
+          <img src="assets/02-codigo.webp" alt="Ingreso del código de socio de 6 números en el teclado de la pantalla">
+          <h3><i>2</i>Código de socio</h3>
+          <p>Seis números que da recepción. Sin email ni contraseña.</p>
+        </li>
+        <li>
+          <img src="assets/03-pin.webp" alt="Ingreso del PIN personal, que se muestra con puntos">
+          <h3><i>3</i>PIN personal</h3>
+          <p>Elige «Consultar mi rutina» o «Registrar mi entrenamiento».</p>
+        </li>
+        <li>
+          <img src="assets/06-registro.webp" alt="Registro de la serie 1 de Sentadilla en la pantalla: objetivo del profesor, sugerencia de REPI y el peso y las repeticiones reales, con el botón Confirmar ejercicio">
+          <h3><i>4</i>Registrar y terminar</h3>
+          <p>Confirma peso y repeticiones de cada serie y toca «Terminar».</p>
+        </li>
+      </ol>
+    </div>
+
+    <div class="two staff">
+      <div>
+        <p class="label"><b>04</b>Tu equipo controla los programas</p>
+        <ul class="ticks">
+          <li>Sólo el personal autorizado —coordinación y sala con permiso de programas— crea, edita, asigna y publica rutinas.</li>
+          <li>El socio consulta y registra, pero no crea, importa ni edita rutinas, no cambia ejercicios, series ni descansos y no pide programas a la IA.</li>
+          <li>Cada programa guarda su historial de versiones, con fecha y autor.</li>
+        </ul>
+        <div class="phone">
+          <p class="phone-k">Opcional · REPI en el celular</p>
+          <p>Con un QR de la pantalla, distinto del de ingreso, sigue en su teléfono: misma rutina y mismo historial.</p>
+        </div>
+      </div>
+      <figure class="staff-shot">
+        <img src="assets/05-equipo-programa.webp" alt="Panel del equipo con la ficha de un socio, su programa institucional y el historial de revisiones">
+        <figcaption>Panel del equipo: programa institucional y revisiones. Demo con datos ficticios.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <footer class="folio"><span>REPI Control · Dossier comercial</span><span>1 / 2</span></footer>
+</section>
+
+<!-- ─────────────────────────────── PÁGINA 2 ─────────────────────────────── -->
+<section class="page p2">
+  <div class="body">
+    <header class="p2-head">
+      <p class="p2-title">REPI <span>Control</span></p>
+      <p class="kicker dark">Qué incluye, cómo se implementa y cuánto cuesta</p>
+    </header>
+
+    <div class="features">
+      <p class="label"><b>05</b>Cómo funciona el registro y qué incluye</p>
+      <ol class="cycle">
+        <li><h3><i>1</i>El profesor programa</h3><p>Series, repeticiones, carga, RIR o RPE, descansos y métodos.</p></li>
+        <li><h3><i>2</i>REPI recomienda</h3><p>Un peso según el historial, o «Sin referencia suficiente».</p></li>
+        <li><h3><i>3</i>El socio consulta y registra</h3><p>Peso y repeticiones reales de cada serie.</p></li>
+        <li><h3><i>4</i>El sistema analiza</h3><p>Mismo historial que la app: estadísticas y progresiones.</p></li>
+        <li><h3><i>5</i>El profesor supervisa</h3><p>Ve lo que hizo cada socio y ajusta el programa.</p></li>
+      </ol>
+      <dl class="feat">
+        <div><dt>Planificación supervisada</dt><dd>Sólo el personal con permiso crea, edita, asigna y publica; cada versión queda con fecha y autor.</dd></div>
+        <div><dt>Pantalla de rutinas</dt><dd>Tablet o monitor en la sede; código de socio y PIN para consultar y registrar.</dd></div>
+        <div><dt>Programa por días</dt><dd>Series, repeticiones, RIR o RPE, descansos, métodos y notas del equipo.</dd></div>
+        <div><dt>Registro en el gimnasio</dt><dd>Peso y repeticiones reales por serie, sin duplicados aunque se reintente.</dd></div>
+        <div><dt>Demostraciones</dt><dd>Videos o enlaces de cada ejercicio, si el gimnasio los carga.</dd></div>
+        <div><dt>Permisos y equipo</dt><dd>Cada rol hace sólo lo suyo; si alguien se va, sus pendientes vuelven a la cola.</dd></div>
+        <div><dt>Registro de auditoría</dt><dd>Las acciones del equipo y de las pantallas quedan registradas.</dd></div>
+        <div><dt>Celular, opcional</dt><dd>Misma rutina e historial; puede seguir en el teléfono la sesión empezada.</dd></div>
+      </dl>
+    </div>
+
+    <div class="impl">
+      <div class="impl-head">
+        <p class="label"><b>06</b>Implementación</p>
+        <p class="hw"><b>Hardware a cargo del gimnasio:</b> una tablet o un monitor con navegador, y wifi.</p>
+      </div>
+      <ol class="process">
+        <li><i>1</i><h3>REPI habilita el modo</h3><p>Activamos la planificación supervisada y la Pantalla de rutinas para tu gimnasio.</p></li>
+        <li><i>2</i><h3>El gimnasio registra la pantalla</h3><p>El dueño o la gerencia la registra para su sede y abre el enlace en el equipo.</p></li>
+        <li><i>3</i><h3>Recepción emite los códigos</h3><p>Código y PIN inicial de cada socio, que se muestran una sola vez para entregarlos.</p></li>
+        <li><i>4</i><h3>El equipo carga los programas</h3><p>Coordinación y sala arman, asignan y publican. El socio ya los consulta y registra.</p></li>
+      </ol>
+    </div>
+
+    <div class="two sec">
+      <div>
+        <p class="label"><b>07</b>Seguridad, en simple</p>
+        <ul class="ticks">
+          <li>Sin email, sin contraseña y sin instalar nada: código de socio de 6 números y PIN personal.</li>
+          <li>Una persona por vez. Se cierra con «Terminar» o sola a los 60 segundos sin uso; lo registrado queda guardado para seguir después.</li>
+          <li>La pantalla no guarda datos de nadie. Muestra programa, objetivos y lo registrado; nada de salud, notas personales ni contacto.</li>
+          <li>El gimnasio registra y revoca cada pantalla, y emite o anula cada código.</li>
+          <li>Intentos fallidos: con 5, el código se pausa 15 minutos; con 10, queda anulado hasta que el gimnasio emita otro. Ante intentos repetidos, la pantalla también se pausa.</li>
+        </ul>
+      </div>
+      <div class="support">
+        <p class="label"><b>08</b>Soporte</p>
+        <dl class="sup">
+          <div><dt>Incluido</dt><dd>Avisanos cualquier error o duda de uso, sin costo extra.</dd></div>
+          <div><dt>Urgente</dt><dd>Si la app no funciona o un error te impide trabajar, respondemos dentro de las 24 horas.</dd></div>
+          <div><dt>A medida</dt><dd>Cambios para tu gimnasio: <span data-money="precios.cambioAMedida"></span> por pedido, acordado antes de hacerlo.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <footer class="close">
+    <div class="offer">
+      <p class="label on-dark"><b>09</b>Propuesta económica</p>
+      <p class="tag">Escenario ilustrativo</p>
+      <div class="figures">
+        <p class="fig"><span class="n" data-money="precios.baseMensual"></span><span class="u">mensuales de base</span></p>
+        <p class="plus" aria-hidden="true">+</p>
+        <p class="fig"><span class="n" data-money="precios.porSocioActivo"></span><span class="u">por socio activo</span></p>
+      </div>
+      <p class="terms"><span data-bind="pantallasTxt"></span><span>Hardware a cargo del gimnasio</span></p>
+      <p class="disclaimer" data-bind="precios.aclaracion"></p>
+      <p class="scenario" data-bind="escenario"></p>
+    </div>
+    <div class="contact">
+      <img class="wm" src="assets/wm_full.png" alt="REPI">
+      <p class="cta">Pedí una propuesta para tu gimnasio</p>
+      <p class="ch"><span>Web</span><a data-href="contacto.webUrl" data-bind="contacto.web"></a></p>
+      <p class="ch"><span>WhatsApp</span><a data-href="contacto.whatsappUrl" data-bind="contacto.whatsapp"></a></p>
+    </div>
+    <p class="folio2"><span>REPI Control · Dossier comercial · <span data-bind="edicion"></span></span><span>2 / 2</span></p>
+  </footer>
+</section>
+
+<script>
+// Vuelca DOSSIER en la página. No editar: los valores se cambian arriba.
+(() => {
+  const D = window.DOSSIER;
+  const n = (v) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(v);
+  const money = (v) => `$${n(v)}`;
+  const get = (p) => p.split(".").reduce((o, k) => (o == null ? o : o[k]), D);
+  const P = D.precios;
+  const pantallas = `${n(P.pantallasIncluidas)} ${P.pantallasIncluidas === 1 ? "pantalla autorizada incluida" : "pantallas autorizadas incluidas"}`;
+  D.pantallasTxt = pantallas;
+  D.escenario = `Escenario ilustrativo REPI Control: ${money(P.baseMensual)} mensuales de base + ${money(P.porSocioActivo)} por socio activo · ${pantallas} · hardware a cargo del gimnasio.`;
+  document.querySelectorAll("[data-bind]").forEach((el) => { el.textContent = get(el.dataset.bind) ?? ""; });
+  document.querySelectorAll("[data-money]").forEach((el) => { el.textContent = money(get(el.dataset.money)); });
+  document.querySelectorAll("[data-href]").forEach((el) => { el.href = get(el.dataset.href); });
+  document.documentElement.dataset.ready = "1";
+})();
+</script>
+</body>
+</html>

@@ -440,3 +440,11 @@ Arquitectura, fases y estado de los tests A–Q en `docs/adaptive/ADAPTIVE_COACH
 ## Adaptive Coach · fase 1b parcial: reemplazos aprobados (27/10/2026, D110)
 
 Quien arma programas en la organización (coach dueño o staff del gimnasio con `program.edit`) aprueba reemplazos por ejercicio desde el constructor («Reemplazos»), con una indicación opcional. Valen para toda la organización: en la sesión, al cambiar un ejercicio, los aprobados aparecen primero con «Aprobado por tu coach» / «Aprobado por el gimnasio». Sólo compatibles (mismo tipo de registro), hasta 8 por ejercicio, sin cargas. Tabla `exercise_substitution` (migración 0023), API `/api/substitutions/[orgId]`, auditoría `substitution.add|remove`. Evidencia: `packages/domain/src/session-changes.test.ts` (`withApproved`), `apps/web/tests/substitutions.test.ts`, navegador (constructor del coach y hoja de la sesión a 375 px).
+
+## Personalización y Progress Intelligence 2.0 (12/11/2026, D217)
+
+| Qué | Inventario | Evidencia |
+|---|---|---|
+| Progreso por ejercicio: máximo real, mejor serie, 1RM estimado, estimaciones, próxima carga de Training Intelligence, récords, regularidad, esfuerzo, intervenciones y gráfico con zoom/desplazamiento/pellizco/teclado | F-CL-06 | `packages/domain/src/progress-intel.test.ts`, `chart-view.test.ts`, `apps/web/tests/profile-progress.test.ts`; smoke en producción 14/14 (#100); QA de historial largo (428 registros) en build local |
+| Objetivos acordados con el coach visibles en Progreso del alumno (sólo lectura) junto a las metas propias | F-HX-02 | `apps/web/tests/profile-progress.test.ts` («meta propia… el coach no la ve ni la cambia») |
+| Objetivos del cliente creados por el coach con progreso calculado | F-CO-03 | `apps/web/tests/goals.test.ts` (D97) |

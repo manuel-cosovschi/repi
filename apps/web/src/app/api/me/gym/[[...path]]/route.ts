@@ -94,6 +94,9 @@ export const POST = handle<Ctx>(async (req, { params }) => {
     if (b === "posts" && !c) return club.createClubPost(me, o, await body(req, z.object({ text: z.string().max(600).optional(), achievementId: id.nullable().optional(), progressExerciseId: id.nullable().optional(), sessionId: id.nullable().optional(), imageId: id.nullable().optional() })));
     if (b === "profile") return club.setClubProfile(me, o, await body(req, z.object({ bio: z.string().max(200).optional(), showLevel: z.boolean().optional(), showcase: z.array(id).max(10).optional(), avatarId: id.nullable().optional(), showMaxes: z.boolean().optional() })));
     if (b === "images") { // D169: fotos del Club y de perfil
+      // FSA1: el tamaño se controla antes de leer el cuerpo (como en la comunidad del gym): sin tope se leía entero en memoria.
+      const len = Number(req.headers.get("content-length") ?? "0");
+      if (!len || len > 6 * 1024 * 1024) throw new AccessError("invalid_file", "La imagen tiene que ser JPG, PNG o WebP de hasta 5 MB.", 413);
       const f = (await req.formData()).get("file");
       if (!(f instanceof File)) throw new AccessError("invalid_file", "Elegí una foto.");
       return club.uploadClubImage(me, o, { mime: f.type, bytes: new Uint8Array(await f.arrayBuffer()) });

@@ -3,23 +3,25 @@
 // series, avisos al piso, cobros). Nada se comparte entre visitantes ni toca clientes reales; todo es is_demo y se borra
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
-import { applyMethod, briefSummary, cleanProgramBrief, localDate, rowRef, type ExerciseDetail } from "@repi/domain";
+import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { activityOf, applyMethod, briefSummary, catalogProfile, cleanProgramBrief, localDate, parseReps, rowRef, type ActivityDetail, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
 import { AccessError } from "../access/util";
 import { logError } from "../log";
+import { deleteObject } from "../storage";
 import { assignProgram, createTemplate, logSet, startSession, myTraining, getSession } from "../training/services";
 import { saveMemberProgram, startShift } from "../gym/services";
 import { memberCreate, setAvailability, staffAct } from "../gym/connect";
 import { issueQrToken, policyOf, staffCheckin } from "../gym/access-control";
+import { createKiosk, issueCredential } from "../gym/kiosk";
 import { regenerateJoinLink, requestAccess } from "../join/services";
 import { createRequest } from "../followup/services";
 import { myThreads, sendMessage } from "../messages/services";
 import { createCharge, registerPayment } from "../coachpay/services";
 
-export type DemoRole = "owner" | "floor" | "member" | "coach";
-export const DEMO_ROLES: DemoRole[] = ["owner", "floor", "member", "coach"];
+export type DemoRole = "owner" | "floor" | "member" | "coach" | "control";
+export const DEMO_ROLES: DemoRole[] = ["owner", "floor", "member", "coach", "control"];
 export const SANDBOX_TTL_HOURS = 6;
 const MAX_ACTIVE = 300;
 /** Dominio reservado (.invalid, RFC 2606): nunca resuelve ni recibe correo. Uno por demo: demo-<tag>.invalid. */
@@ -30,7 +32,10 @@ const LIB: [string, string, "load_reps" | "bodyweight" | "time"][] = [
   ["Jalón al pecho", "Espalda", "load_reps"], ["Remo en polea", "Espalda", "load_reps"], ["Press militar", "Hombros", "load_reps"],
   ["Elevaciones laterales", "Hombros", "load_reps"], ["Sentadilla", "Piernas", "load_reps"], ["Peso muerto rumano", "Piernas", "load_reps"],
   ["Prensa", "Piernas", "load_reps"], ["Hip thrust", "Glúteos", "load_reps"], ["Fondos en paralelas", "Brazos", "bodyweight"],
+  ["Cinta (caminata)", "Cardio", "time"], // ejercicios por tiempo: entrada en calor de 10 min · 5 km/h · incl. 3
 ];
+/** Ejercicios por tiempo: la cinta de la demo, como la pidió el titular (duración, velocidad e inclinación, sin series × reps). */
+const CINTA: ActivityDetail = { profile: "treadmill", speedKmh: 5, incline: 3 };
 
 const day = (offset: number, now: Date) => localDate(new Date(now.getTime() + offset * 86_400_000));
 
@@ -40,7 +45,8 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   const active = await db.select({ id: schema.demoSandbox.id }).from(schema.demoSandbox).limit(MAX_ACTIVE + 1);
   if (active.length > MAX_ACTIVE) throw new AccessError("busy", "Hay muchas demos abiertas en este momento. Probá de nuevo en unos minutos.", 503);
   const tag = randomBytes(5).toString("hex");
-  const who = { owner: "martin.sosa", floor: "sofia.ramirez", member: "valentina.gomez", coach: "agustin.perez" }[role];
+  const who = { owner: "martin.sosa", floor: "sofia.ramirez", member: "valentina.gomez", coach: "agustin.perez", control: "laura.mendez" }[role];
+  let controlHref = "";
   const pw = randomBytes(24).toString("base64url"); // sólo para abrir la sesión ahora; nunca se muestra
   const userIds: string[] = [], orgIds: string[] = [], extraOrgs: string[] = [];
   const [box] = await db.insert(schema.demoSandbox).values({ tag, role, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000), userIds, orgIds }).returning();
@@ -55,7 +61,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     return { id: r.user.id, email };
   };
   try {
-    for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind }).onConflictDoNothing();
+    for (const [name, muscleGroup, kind] of LIB) await db.insert(schema.exercise).values({ name, muscleGroup, kind, metricsProfile: catalogProfile(name) }).onConflictDoNothing();
     const lib = new Map((await db.select().from(schema.exercise).where(inArray(schema.exercise.name, LIB.map((l) => l[0])))).filter((e) => !e.orgId && !e.ownerUserId).map((e) => [e.name, e.id]));
     const ex = (name: string, sets: number, reps: string, rir: number, restSec: number) => ({ exerciseId: lib.get(name)!, name, sets, reps, rir, restSec });
     // D183: la última serie con dos drops conectados (muestra las etapas en la demo de coach y de alumno).
@@ -63,6 +69,62 @@ export async function startDemo(role: DemoRole, now = new Date()) {
       const detail = applyMethod(null, { sets, reps, rir }, "drop_set", [sets - 1], { stages: 2 }).detail;
       return { ...ex(name, sets, reps, rir, restSec), sets: detail.setPlan!.length, detail };
     };
+    // Ejercicios por tiempo: una actividad es un bloque de duración (en `reps`) con sus valores; sin RIR ni descanso.
+    const exAct = (name: string, reps: string, activity: ActivityDetail) => ({ exerciseId: lib.get(name)!, name, sets: 1, reps, rir: null, restSec: 0, detail: { activity } as ExerciseDetail });
+
+    // ── REPI Control (D213): gimnasio ficticio con planificación supervisada y una pantalla de rutinas autorizada ──
+    if (role === "control") {
+      const laura = await person("laura.mendez", "Laura Méndez");
+      const diego = await person("diego.ruiz", "Diego Ruiz");
+      const carla = await person("carla.sosa", "Carla Sosa");
+      const ana = await person("ana.perez", "Ana Pérez");
+      const martin = await person("martin.gomez", "Martín Gómez");
+      const sofia = await person("sofia.diaz", "Sofía Díaz");
+      const [atlas] = await db.insert(schema.organization).values({ kind: "gym", name: "Gimnasio Atlas", isDemo: true, status: "active", commercialStatus: "enabled", routinePolicy: "supervised", kioskEnabled: true, createdBy: laura.id }).returning();
+      orgIds.push(atlas.id);
+      const [centro] = await db.insert(schema.gymLocation).values({ orgId: atlas.id, name: "Centro", address: "Av. Colón 1200", receptionHours: "Lun a vie 7 a 23 · sáb 9 a 14" }).returning();
+      await db.insert(schema.staffMembership).values([
+        { userId: laura.id, orgId: atlas.id, role: "owner" },
+        { userId: diego.id, orgId: atlas.id, locationId: centro.id, role: "coordinator" },
+        { userId: carla.id, orgId: atlas.id, locationId: centro.id, role: "floor_trainer" },
+      ]);
+      const mm: Record<string, string> = {};
+      for (const u of [ana, martin, sofia]) {
+        const [m] = await db.insert(schema.gymMember).values({ orgId: atlas.id, locationId: centro.id, userId: u.id, status: "active" }).returning();
+        await db.insert(schema.consentGrant).values({ userId: u.id, scope: "gym_member", relationId: m.id, granteeOrgId: atlas.id, item: "attendance_training", termsVersion: "demo" });
+        mm[u.id] = m.id;
+      }
+      await startShift(diego.id, atlas.id, centro.id, now);
+      await startShift(carla.id, atlas.id, centro.id, now);
+      await saveMemberProgram(diego.id, atlas.id, mm[ana.id], { reason: "Programa inicial", doc: { name: "Fuerza base · 3 días", weeks: 8, note: "Entrada en calor de 10 minutos en cinta antes de cada día.", days: [
+        { name: "Día 1 · Piernas", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8", 2, 120), ex("Prensa", 3, "10-12", 2, 90)] },
+        { name: "Día 2 · Empuje", exercises: [ex("Press de banca", 4, "6-8", 2, 150), ex("Press militar", 3, "8", 2, 120), ex("Fondos en paralelas", 3, "8-10", 2, 90)] },
+        { name: "Día 3 · Tirón", exercises: [ex("Remo con barra", 4, "8", 2, 120), ex("Jalón al pecho", 3, "10", 2, 90), ex("Remo en polea", 3, "12", 1, 75)] },
+      ] } });
+      // Segunda versión de Carla: la pantalla muestra siempre la vigente y el historial queda.
+      await saveMemberProgram(carla.id, atlas.id, mm[ana.id], { reason: "Ajuste de cargas después de la evaluación", doc: { name: "Fuerza base · 3 días", weeks: 8, note: "Entrada en calor de 10 minutos en cinta antes de cada día.", days: [
+        { name: "Día 1 · Piernas", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 4, "5-6", 2, 180), ex("Peso muerto rumano", 3, "8", 2, 120), ex("Hip thrust", 3, "10", 2, 90)] },
+        { name: "Día 2 · Empuje", exercises: [ex("Press de banca", 4, "5-6", 2, 180), ex("Press militar", 3, "8", 2, 120), ex("Fondos en paralelas", 3, "8-10", 2, 90)] },
+        { name: "Día 3 · Tirón", exercises: [ex("Remo con barra", 4, "8", 2, 120), ex("Jalón al pecho", 3, "10", 2, 90), ex("Remo en polea", 3, "12", 1, 75)] },
+      ] } });
+      await saveMemberProgram(carla.id, atlas.id, mm[martin.id], { reason: "Programa inicial", doc: { name: "Hipertrofia · torso y piernas", weeks: 6, note: "Controlá la bajada en cada repetición.", days: [
+        { name: "Torso", exercises: [exDrop("Press inclinado mancuernas", 3, "10-12", 1, 90), ex("Jalón al pecho", 3, "10-12", 1, 90), ex("Elevaciones laterales", 3, "12-15", 1, 60)] },
+        { name: "Piernas", exercises: [ex("Sentadilla", 3, "10", 2, 120), ex("Prensa", 3, "12", 1, 90), ex("Hip thrust", 3, "12", 1, 90)] },
+      ] } });
+      // D216: Ana entrenó las últimas semanas (datos ficticios): REPI recomienda sus cargas con Training Intelligence. Martín
+      // todavía no registró nada: la pantalla muestra lo indicado y «Sin referencia suficiente», sin inventar pesos.
+      await history(ana.id, mm[ana.id], 6, now, 0.9, "gym");
+      const dev = await createKiosk(laura.id, atlas.id, centro.id, "Tablet sala de musculación");
+      const secret = dev.link.split("#k=")[1];
+      const people: { name: string; code: string; pin: string; note: string }[] = [];
+      for (const [u, name, note] of [[ana, "Ana P.", "Programa versión 2 con historial: REPI recomienda cargas"], [martin, "Martín G.", "Otro programa, sin historial todavía"], [sofia, "Sofía D.", "Sin programa todavía"]] as const) {
+        const c = await issueCredential(laura.id, atlas.id, mm[u.id]);
+        people.push({ name, code: c.code, pin: c.pin, note });
+      }
+      await regenerateJoinLink(laura.id, atlas.id, centro.id).catch(() => null); // QR de alta opcional de la sede
+      controlHref = `/rutinas#k=${secret}&d=${encodeURIComponent(Buffer.from(encodeURIComponent(JSON.stringify(people))).toString("base64"))}`;
+      return finishDemo();
+    }
 
     const owner = await person("martin.sosa", "Martín Sosa");
     const floor = await person("sofia.ramirez", "Sofía Ramírez");
@@ -105,7 +167,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     await staffCheckin(floor.id, gym.id, { gymMemberId: members[julian.id], locationId: palermo.id, note: "Validado en sala (demo)" }, new Date(now.getTime() - 20 * 60_000));
     // Valentina también tiene programa del gym: desde casa ve su rutina; para entrenarla en el gimnasio valida el ingreso.
     await saveMemberProgram(floor.id, gym.id, members[vale.id], { reason: "Programa de sala", doc: { name: "Sala · full body", weeks: 4, note: "Entrada en calor de 10 minutos.", days: [
-      { name: "Full body", exercises: [ex("Sentadilla", 3, "10", 2, 90), ex("Jalón al pecho", 3, "10", 2, 90), ex("Press inclinado mancuernas", 3, "10", 2, 90)] },
+      { name: "Full body", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 3, "10", 2, 90), ex("Jalón al pecho", 3, "10", 2, 90), ex("Press inclinado mancuernas", 3, "10", 2, 90)] },
     ] } });
     await accessHistory(gym.id, palermo.id, [members[vale.id], members[julian.id], members[martina.id]], [vale.id, julian.id, martina.id], floor.id, camila.id, now);
     const jt = await myTraining(julian.id, now);
@@ -174,7 +236,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     }
     const hip = await createTemplate(coach.id, coachOrg.id, { name: "Hipertrofia · 3 días", weeks: 6, note: "Semana de carga: RIR 2 en la última serie.", days: [
       { name: "Torso A", exercises: [ex("Press de banca", 4, "8-10", 2, 120), ex("Remo con barra", 4, "8-10", 2, 120), ex("Press militar", 3, "8-12", 2, 90), exDrop("Elevaciones laterales", 3, "12-15", 1, 60)] },
-      { name: "Piernas", exercises: [ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8-10", 2, 120), ex("Prensa", 3, "10-12", 2, 90), exDrop("Hip thrust", 3, "10", 2, 90)] },
+      { name: "Piernas", exercises: [exAct("Cinta (caminata)", "10 min", CINTA), ex("Sentadilla", 4, "6-8", 2, 150), ex("Peso muerto rumano", 3, "8-10", 2, 120), ex("Prensa", 3, "10-12", 2, 90), exDrop("Hip thrust", 3, "10", 2, 90)] },
       { name: "Torso B", exercises: [ex("Jalón al pecho", 4, "10", 2, 120), ex("Press inclinado mancuernas", 3, "10", 2, 120), exDrop("Remo en polea", 3, "12", 2, 90), ex("Fondos en paralelas", 3, "8-10", 1, 90)] },
     ] });
     await createTemplate(coach.id, coachOrg.id, { name: "Fuerza base · 2 días", weeks: 8, note: "Subí 2,5 kg por semana si completás todas las series.", days: [
@@ -200,9 +262,13 @@ export async function startDemo(role: DemoRole, now = new Date()) {
   } finally {
     await db.update(schema.demoSandbox).set({ userIds, orgIds: [...orgIds, ...extraOrgs] }).where(eq(schema.demoSandbox.id, box.id));
   }
-  await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.email, `${who}@${sandboxDomain(tag)}`));
-  const href = role === "owner" ? `/gym/${orgIds[0]}?s=exec` : role === "floor" ? `/gym/${orgIds[0]}?s=shift` : role === "coach" ? `/coach/${orgIds[1]}?s=dash` : "/app";
-  return { href, role, tag, signIn: { email: `${who}@${sandboxDomain(tag)}`, password: pw }, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000).toISOString() };
+  return finishDemo();
+  async function finishDemo() {
+    await db.update(schema.demoSandbox).set({ userIds, orgIds: [...orgIds, ...extraOrgs] }).where(eq(schema.demoSandbox.id, box.id));
+    await db.update(schema.user).set({ twoFactorEnabled: false }).where(eq(schema.user.email, `${who}@${sandboxDomain(tag)}`));
+    const href = role === "control" ? controlHref : role === "owner" ? `/gym/${orgIds[0]}?s=exec` : role === "floor" ? `/gym/${orgIds[0]}?s=shift` : role === "coach" ? `/coach/${orgIds[1]}?s=dash` : "/app";
+    return { href, role, tag, signIn: { email: `${who}@${sandboxDomain(tag)}`, password: pw }, expiresAt: new Date(now.getTime() + SANDBOX_TTL_HOURS * 3_600_000).toISOString() };
+  }
 }
 
 /** Ingresos de la última semana (datos sintéticos de la demo) para el panel «Acceso y presencia». */
@@ -287,8 +353,9 @@ export async function sealDemo(tag: string) {
   if (b) await db.update(schema.user).set({ twoFactorEnabled: true }).where(inArray(schema.user.id, b.userIds as string[]));
 }
 
-async function history(userId: string, relId: string, count: number, now: Date, strength: number) {
-  const [a] = await db.select().from(schema.programAssignment).where(and(eq(schema.programAssignment.coachClientId, relId), eq(schema.programAssignment.status, "active")));
+async function history(userId: string, relId: string, count: number, now: Date, strength: number, kind: "coach" | "gym" = "coach") {
+  const relCol = kind === "gym" ? schema.programAssignment.gymMemberId : schema.programAssignment.coachClientId;
+  const [a] = await db.select().from(schema.programAssignment).where(and(eq(relCol, relId), eq(schema.programAssignment.status, "active")));
   const [p] = await db.select().from(schema.program).where(eq(schema.program.id, a.programId));
   const days = await db.select().from(schema.programDay).where(eq(schema.programDay.versionId, p.currentVersionId!)).orderBy(asc(schema.programDay.position));
   const exs = await db.select().from(schema.programExercise).where(inArray(schema.programExercise.dayId, days.map((d) => d.id))).orderBy(asc(schema.programExercise.position));
@@ -300,10 +367,21 @@ async function history(userId: string, relId: string, count: number, now: Date, 
     const end = new Date(start.getTime() + 55 * 60_000);
     const sid = randomUUID();
     await db.insert(schema.workoutSession).values({
-      id: sid, userId, coachClientId: relId, assignmentId: a.id, versionId: p.currentVersionId!, dayId: d.id, dayName: d.name, status: "completed",
+      id: sid, userId, coachClientId: kind === "coach" ? relId : null, gymMemberId: kind === "gym" ? relId : null, assignmentId: a.id, versionId: p.currentVersionId!, dayId: d.id, dayName: d.name, status: "completed",
       startedAt: start, lastResumedAt: null, activeMs: 52 * 60_000, endedAt: end, rpe: 7 + (i % 2), revision: 2, updatedAt: end,
     });
     for (const e of exs.filter((x) => x.dayId === d.id)) {
+      // Ejercicios por tiempo: la cinta se registra con lo que hizo (segundos en `reps`, velocidad e inclinación en `metrics`).
+      const act = activityOf(e.detail as ExerciseDetail | null);
+      if (act) {
+        const t = parseReps(e.reps);
+        const sec = (t.kind === "time" ? t.seconds : 600) + (i % 3) * 60;
+        const ref = rowRef(e.detail as ExerciseDetail | null, e.sets, 0);
+        await db.insert(schema.setLog).values({ id: randomUUID(), sessionId: sid, programExerciseId: e.id, exerciseId: e.exerciseId, setIndex: 0, weightKg: null, reps: sec, rir: null, feel: "bien",
+          metrics: { speedKmh: (act.speedKmh ?? 5) + (i % 2) * 0.5, incline: (act.incline ?? 0) + (i % 3) }, completedAt: new Date(start.getTime() + 11 * 60_000), revision: 1, updatedAt: end,
+          specId: ref?.id ?? null, setKind: ref?.kind ?? null, blockIndex: ref?.block ?? null, stageIndex: ref?.stage ?? null });
+        continue;
+      }
       const w = base[e.name] == null ? null : Math.round(base[e.name] * strength * (1 + i * 0.02) * 2) / 2;
       for (let k = 0; k < e.sets; k++) {
         // D183: los drops con menos carga (−20 % por etapa) y con la referencia de su serie y etapa.
@@ -322,12 +400,26 @@ export async function purgeSandboxes(now = new Date()) {
   let purged = 0;
   for (const b of old) {
     const orgs = (b.orgIds as string[]) ?? [], users = (b.userIds as string[]) ?? [];
+    // Auditoría FSA1 (09/11): los archivos que subió la demo (fotos de progreso, videos, imágenes del Club) se borran del
+    // almacenamiento. Sus filas (media_object, upload_intent) caen en cascada con la persona y, sin fila, purgeMedia ya no
+    // los ve: quedaban huérfanos para siempre. Las claves se listan dentro de la transacción y los archivos se borran recién
+    // después del commit: si el borrado de filas fallara, nunca queda una fila apuntando a un archivo inexistente.
+    let keys: string[] = [];
     try {
       await db.transaction(async (tx) => {
         if (users.length) {
+          const media = await tx.select({ k: schema.mediaObject.storageKey }).from(schema.mediaObject)
+            .where(and(inArray(schema.mediaObject.ownerUserId, users), isNull(schema.mediaObject.deletedAt)));
+          const intents = await tx.select({ k: schema.uploadIntent.storageKey }).from(schema.uploadIntent)
+            .where(inArray(schema.uploadIntent.ownerUserId, users));
+          keys = [...new Set([...media, ...intents].map((r) => r.k))];
           await tx.delete(schema.workoutSession).where(inArray(schema.workoutSession.userId, users));
           await tx.delete(schema.auditEvent).where(inArray(schema.auditEvent.actorUserId, users));
         }
+        // D210: lo de REPI (brain_*, ai_usage) cae en cascada con la persona y la organización; los límites de IA por
+        // alcance (ai_policy «user:<id>» / «org:<id>») no tienen FK y se borran acá.
+        const scopes = [...users.map((u) => `user:${u}`), ...orgs.map((o) => `org:${o}`)];
+        if (scopes.length) await tx.delete(schema.aiPolicy).where(inArray(schema.aiPolicy.scope, scopes));
         if (orgs.length) {
           // Auditoría 30/10: programas y alumnos antes que la organización. En un solo DELETE en cascada Postgres puede chequear
           // program_exercise → exercise (un ejercicio propio de la demo usado en un programa) antes de borrar el programa, y falla.
@@ -339,6 +431,8 @@ export async function purgeSandboxes(now = new Date()) {
         await tx.delete(schema.demoSandbox).where(eq(schema.demoSandbox.id, b.id));
       });
       purged++;
+      // Un archivo que no se pudo borrar no frena la purga: queda registrado (sin la clave) para revisarlo a mano.
+      for (const k of keys) await deleteObject(k).catch((e) => logError("sandbox.purge.media", e));
     } catch (e) {
       // Una demo que no se puede borrar no frena a las demás ni al resto del job de cada minuto.
       logError("sandbox.purge", e);

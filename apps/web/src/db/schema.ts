@@ -2,7 +2,8 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn, bigint, boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { ImportOrigin, ProgramRequestBrief } from "@repi/domain";
+import type { ImportOrigin, ProgramRequestBrief, SetMetrics } from "@repi/domain";
+import type { ActionProposal, BrainPrefs, Evidence, ReplyCard } from "@repi/domain/brain/types";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 const now = (name: string) => ts(name).notNull().defaultNow();
@@ -89,9 +90,15 @@ export const organization = pgTable("organization", {
   reviewResponses: boolean("review_responses").notNull().default(true),
   // D126: REPI Connect (seguimiento de sala) se activa por gimnasio desde REPI Admin. Apagado no toca rutinas, sesiones ni cuentas.
   connectEnabled: boolean("connect_enabled").notNull().default(false),
+  // REPI Control (D213): «open» = funcionamiento de siempre; «supervised» = sólo el personal con program.edit programa y, en el
+  // contexto de este gimnasio, el socio no crea, importa, edita ni ejecuta rutinas propias ni pide rutinas generadas por IA.
+  // La enciende REPI Admin, gimnasio por gimnasio; apagada no toca rutinas, sesiones ni historial.
+  routinePolicy: text("routine_policy", { enum: ["open", "supervised"] }).notNull().default("open"),
+  // D213: pantalla de consulta de rutinas (kiosco). REPI Admin la habilita; el gimnasio registra y revoca cada pantalla.
+  kioskEnabled: boolean("kiosk_enabled").notNull().default(false),
   createdBy: text("created_by").references(() => user.id),
   createdAt: now("created_at"),
-});
+}, (t) => [check("organization_routine_policy_valid", sql`${t.routinePolicy} in ('open', 'supervised')`)]);
 
 export const gymLocation = pgTable("gym_location", {
   id: id(),
@@ -151,6 +158,9 @@ export const staffMembership = pgTable("staff_membership", {
   status: text("status", { enum: ["active", "revoked"] }).notNull().default("active"),
   afterHoursAccess: boolean("after_hours_access").notNull().default(false), // D08: trabajo autorizado fuera de turno
   createdAt: now("created_at"),
+  // STF-09 (D214): quién y cuándo quitó el acceso. La fila queda (historial y atribución de tareas pasadas).
+  revokedAt: ts("revoked_at"),
+  revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
 }, (t) => [
   index("staff_membership_user_idx").on(t.userId),
   uniqueIndex("staff_membership_unique").on(t.userId, t.orgId, t.role, sql`coalesce(${t.locationId}, '')`),
@@ -338,8 +348,15 @@ export const exercise = pgTable("exercise", {
   kind: text("kind", { enum: ["load_reps", "bodyweight", "time"] }).notNull().default("load_reps"),
   // D163: ejercicio propio de un alumno (org null). Sólo lo ve esa persona; el catálogo es org y dueño null.
   ownerUserId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
+  // Ejercicios por tiempo (07/11/2026): perfil de métricas, es decir, qué se configura y qué registra la persona (cinta: duración,
+  // velocidad e inclinación; bici: nivel…). null = se deduce (catálogo → nombre → `kind`, ver `profileOf` en el dominio). El
+  // catálogo se completa por nombre en 0052; un ejercicio propio lo guarda al crearlo.
+  metricsProfile: text("metrics_profile"),
   createdAt: now("created_at"),
-}, (t) => [uniqueIndex("exercise_org_name_unique").on(sql`coalesce(${t.orgId}, '')`, sql`coalesce(${t.ownerUserId}, '')`, t.name), index("exercise_owner_idx").on(t.ownerUserId)]);
+}, (t) => [
+  uniqueIndex("exercise_org_name_unique").on(sql`coalesce(${t.orgId}, '')`, sql`coalesce(${t.ownerUserId}, '')`, t.name), index("exercise_owner_idx").on(t.ownerUserId),
+  check("exercise_metrics_profile_valid", sql`${t.metricsProfile} is null or ${t.metricsProfile} in ('strength', 'bodyweight', 'hold', 'treadmill', 'bike', 'rower', 'elliptical', 'stair', 'duration')`),
+]);
 
 // Programa: plantilla del coach o copia propia de un cliente (C04: nunca un objeto compartido).
 export const program = pgTable("program", {
@@ -458,8 +475,11 @@ export const workoutSession = pgTable("workout_session", {
   voidedAt: ts("voided_at"),
   voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
   voidReason: text("void_reason"),
+  // REPI Control (D216): entrenamiento empezado en la pantalla de rutinas del gimnasio (equipo autorizado). Null = desde la app.
+  kioskId: text("kiosk_id").references(() => gymKiosk.id, { onDelete: "set null" }),
 }, (t) => [
   index("workout_session_user_idx").on(t.userId, t.startedAt),
+  index("workout_session_kiosk_idx").on(t.kioskId).where(sql`kiosk_id is not null`),
   index("session_relation_idx").on(t.coachClientId, t.startedAt),
   index("session_member_idx").on(t.gymMemberId, t.startedAt),
   uniqueIndex("session_one_open_unique").on(t.userId).where(sql`status in ('in_progress','paused')`),
@@ -490,9 +510,18 @@ export const setLog = pgTable("set_log", {
   voidedAt: ts("voided_at"),
   voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
   voidReason: text("void_reason"),
+  // Ejercicios por tiempo (07/11/2026): valores reales de una actividad (velocidad, inclinación, nivel, distancia, ritmo,
+  // cadencia), validados con `cleanSetMetrics`. La duración sigue en `reps` (segundos). null = no es una actividad o no se
+  // registraron (series anteriores y apps viejas).
+  metrics: jsonb("metrics").$type<SetMetrics>(),
+  // REPI Control (D216): el último valor de esta serie se guardó desde la pantalla de rutinas (equipo autorizado). Null = desde
+  // la app. El detalle de cada escritura (pantalla, credencial) queda en audit_event.
+  kioskId: text("kiosk_id").references(() => gymKiosk.id, { onDelete: "set null" }),
 }, (t) => [
+  index("set_log_kiosk_idx").on(t.kioskId).where(sql`kiosk_id is not null`),
   uniqueIndex("set_log_unique").on(t.sessionId, t.programExerciseId, t.setIndex),
   index("set_log_exercise_idx").on(t.exerciseId, t.completedAt),
+  check("set_log_metrics_object", sql`${t.metrics} is null or jsonb_typeof(${t.metrics}) = 'object'`),
 ]);
 
 // D195: correcciones del historial, sólo agregar (append-only). Cada edición, anulación o restauración de una serie o de una
@@ -767,7 +796,7 @@ export const exerciseMedia = pgTable("exercise_media", {
 export const demoSandbox = pgTable("demo_sandbox", {
   id: id(),
   tag: text("tag").notNull().unique(),
-  role: text("role", { enum: ["owner", "floor", "member", "coach"] }).notNull(),
+  role: text("role", { enum: ["owner", "floor", "member", "coach", "control"] }).notNull(),
   userIds: jsonb("user_ids").notNull().default(sql`'[]'::jsonb`),
   orgIds: jsonb("org_ids").notNull().default(sql`'[]'::jsonb`),
   createdAt: now("created_at"),
@@ -797,10 +826,14 @@ export const coachCharge = pgTable("coach_charge", {
 // Objetivos acordados coach ↔ alumno (F-CO-03 / F-HX-02, D97). Indicadores automáticos (1RM estimado, carga × reps,
 // entrenamientos por semana) se calculan desde las series de la relación; «manual» lo carga el coach con fecha.
 // Decimales como texto exacto, igual que set_log.weight_kg. La línea base es el valor al acordar.
+// D217: también las metas PROPIAS del alumno por ejercicio («origin = self»: `user_id`, sin relación). Mismas columnas y mismo
+// cálculo; nuevos tipos «reps» (peso corporal) y «time» (segundos). Una meta del coach nunca la edita el alumno ni al revés.
 export const clientGoal = pgTable("client_goal", {
   id: id(),
-  coachClientId: text("coach_client_id").notNull().references(() => coachClient.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["e1rm", "load", "frequency", "manual"] }).notNull(),
+  coachClientId: text("coach_client_id").references(() => coachClient.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  origin: text("origin", { enum: ["coach", "self"] }).notNull().default("coach"),
+  kind: text("kind", { enum: ["e1rm", "load", "frequency", "manual", "reps", "time"] }).notNull(),
   title: text("title").notNull(),
   exerciseId: text("exercise_id").references(() => exercise.id),
   target: text("target").notNull(),
@@ -816,7 +849,11 @@ export const clientGoal = pgTable("client_goal", {
   createdAt: now("created_at"),
   updatedAt: now("updated_at"),
   closedAt: ts("closed_at"),
-}, (t) => [index("client_goal_rel_idx").on(t.coachClientId, t.status)]);
+}, (t) => [
+  index("client_goal_rel_idx").on(t.coachClientId, t.status),
+  index("client_goal_self_idx").on(t.userId, t.status).where(sql`user_id is not null`),
+  check("client_goal_owner_valid", sql`(${t.origin} = 'coach' and ${t.coachClientId} is not null and ${t.userId} is null) or (${t.origin} = 'self' and ${t.userId} is not null and ${t.coachClientId} is null)`),
+]);
 
 // Agenda coach ↔ alumno (F-CO-10 / F-HX-07, D98). Turno propio, separado del entrenamiento registrado: el coach marca
 // realizada/no asistió y el alumno confirma o avisa que no puede. Hora guardada en UTC; se muestra en hora argentina.
@@ -1413,6 +1450,8 @@ export const commercialLead = pgTable("commercial_lead", {
   interest: text("interest"),
   // D209: código del vendedor si llegó por su enlace personal (/conoce?ref=V-XXXXXX). Indica origen, no atribuye una venta.
   referralCode: text("referral_code"),
+  // D215: modalidad que le interesa al gimnasio («completo», «control» o «undecided»). Texto libre en la base, como `interest`.
+  productMode: text("product_mode"),
   createdAt: now("created_at"),
 });
 
@@ -1571,7 +1610,7 @@ export const notifyPref = pgTable("notify_pref", {
 export const notificationOutbox = pgTable("notification_outbox", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten", "program_brief"] }).notNull(), // program_brief: D206
+  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten", "program_brief", "brain_coaching"] }).notNull(), // program_brief: D206 · brain_coaching: avisos de REPI (D210), sólo adultos con push de REPI activado
   title: text("title").notNull(),
   body: text("body").notNull(),
   url: text("url").notNull(),
@@ -1627,6 +1666,56 @@ export const gymAccessPolicy = pgTable("gym_access_policy", {
 });
 
 // Pantalla autorizada que muestra el QR de ingreso de una sede (tablet de recepción). Sólo se guarda el hash del secreto.
+// ── REPI Control: pantalla de consulta de rutinas (D213) ─────────────────────
+// Una tablet o monitor del gimnasio, autorizado por el personal. El secreto del equipo (sólo su hash) no sirve para el QR de
+// ingreso ni para el ranking: es otra tabla y otro encabezado. Revocar corta la pantalla en el pedido siguiente.
+export const gymKiosk = pgTable("gym_kiosk", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  locationId: text("location_id").notNull().references(() => gymLocation.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  secretHash: text("secret_hash").notNull().unique(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: now("created_at"),
+  lastSeenAt: ts("last_seen_at"),
+  revokedAt: ts("revoked_at"),
+  revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [index("gym_kiosk_org_idx").on(t.orgId)]);
+
+// Credencial del socio para la pantalla: código de socio (6 dígitos, al azar, único vigente por gimnasio; no es DNI, teléfono ni
+// nombre) y PIN propio guardado con scrypt y una clave del servidor. Intentos fallidos con bloqueo; 10 seguidos la anulan hasta
+// que el personal emita otra. Revocar no borra nada del socio.
+export const kioskCredential = pgTable("kiosk_credential", {
+  id: id(),
+  orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  gymMemberId: text("gym_member_id").notNull().references(() => gymMember.id, { onDelete: "cascade" }),
+  memberCode: text("member_code").notNull(),
+  pinHash: text("pin_hash").notNull(),
+  failedCount: integer("failed_count").notNull().default(0),
+  lockedUntil: ts("locked_until"),
+  issuedBy: text("issued_by").references(() => user.id, { onDelete: "set null" }),
+  issuedAt: now("issued_at"),
+  lastUsedAt: ts("last_used_at"),
+  revokedAt: ts("revoked_at"),
+  revokedReason: text("revoked_reason"),
+}, (t) => [
+  uniqueIndex("kiosk_credential_code_unique").on(t.orgId, t.memberCode).where(sql`revoked_at is null`),
+  uniqueIndex("kiosk_credential_member_unique").on(t.gymMemberId).where(sql`revoked_at is null`),
+  check("kiosk_credential_code_format", sql`${t.memberCode} ~ '^[0-9]{6}$'`),
+]);
+
+// Consulta en curso en una pantalla: una persona por vez, vida corta. El token vive sólo en la memoria de la pantalla.
+export const kioskSession = pgTable("kiosk_session", {
+  id: id(),
+  kioskId: text("kiosk_id").notNull().references(() => gymKiosk.id, { onDelete: "cascade" }),
+  credentialId: text("credential_id").notNull().references(() => kioskCredential.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: now("created_at"),
+  expiresAt: ts("expires_at").notNull(),
+  endedAt: ts("ended_at"),
+  endReason: text("end_reason"),
+}, (t) => [index("kiosk_session_kiosk_idx").on(t.kioskId)]);
+
 export const gymAccessDisplay = pgTable("gym_access_display", {
   id: id(),
   orgId: text("org_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
@@ -1754,6 +1843,173 @@ export const announcementRead = pgTable("announcement_read", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   readAt: now("read_at"),
 }, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index("announcement_read_user_idx").on(t.userId)]);
+
+// ── REPI Intelligence Core («brain», Adaptive Coaching 3.0, D210) ───────────
+// Contrato: docs/adaptive/ADAPTIVE_COACHING_3.md §4. Todo es de la persona: cascada a `user` (y a `organization` donde
+// aplica), entra en exportMyData y en el borrado de la cuenta. Nadie más lo lee: ni el entrenador, ni la gerencia, ni REPI
+// Admin (que sólo ve agregados de ai_usage). Los servicios filtran SIEMPRE por el user_id de la sesión (RLS sin políticas).
+
+// Preferencias de asistencia. Sin fila = DEFAULT_PREFS del dominio (proactivo dentro de la app, push apagado).
+export const brainPref = pgTable("brain_pref", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  proactive: boolean("proactive").notNull().default(true), // avisos dentro de la app
+  push: boolean("push").notNull().default(false), // requiere opt-in (y ser adulto)
+  categories: jsonb("categories").$type<BrainPrefs["categories"]>().notNull()
+    .default({ training: true, progress: true, performance: true, motivation: false, weekly: true }),
+  quietStart: text("quiet_start").notNull().default("22:00"), // HH:MM, hora de Buenos Aires
+  quietEnd: text("quiet_end").notNull().default("08:00"),
+  maxPerDay: integer("max_per_day").notNull().default(2),
+  autonomy: integer("autonomy").notNull().default(1), // 0 informa · 1 propone y confirma · 2 ejecuta lo de bajo riesgo habilitado
+  tone: text("tone", { enum: ["normal", "breve"] }).notNull().default("normal"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  check("brain_pref_autonomy_valid", sql`${t.autonomy} in (0, 1, 2)`),
+  check("brain_pref_tone_valid", sql`${t.tone} in ('normal', 'breve')`),
+  check("brain_pref_max_per_day_range", sql`${t.maxPerDay} between 0 and 10`),
+  check("brain_pref_quiet_valid", sql`${t.quietStart} ~ '^([01]\\d|2[0-3]):[0-5]\\d$' and ${t.quietEnd} ~ '^([01]\\d|2[0-3]):[0-5]\\d$'`),
+]);
+
+// Memoria: preferencias declaradas, decisiones, resultados y contexto temporal. Los hechos NO se guardan (se leen de la
+// base). Procedencia (`source`, `ref`), vencimiento por tipo (`expires_at`) e invalidación (`revoked_at`). La purga diaria
+// borra lo vencido; borrar desde «Lo que REPI recuerda» es definitivo.
+export const brainMemory = pgTable("brain_memory", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["preference", "decision", "outcome", "temporal"] }).notNull(),
+  key: text("key").notNull(), // clave normalizada: "tone", "avoid_exercise", "minutes_today", "rejected:<kind>"…
+  value: jsonb("value").$type<unknown>(),
+  text: text("text").notNull(), // lo que se le muestra a la persona
+  source: text("source", { enum: ["user", "system", "coach"] }).notNull(),
+  ref: jsonb("ref").$type<Record<string, string | number | null>>(), // dato de origen (programa, sesión, ejercicio) para invalidar
+  createdAt: now("created_at"),
+  expiresAt: ts("expires_at"), // null = hasta que se borre (preferencias)
+  revokedAt: ts("revoked_at"),
+}, (t) => [
+  index("brain_memory_user_key_idx").on(t.userId, t.kind, t.key),
+  index("brain_memory_expires_idx").on(t.expiresAt),
+  check("brain_memory_kind_valid", sql`${t.kind} in ('preference', 'decision', 'outcome', 'temporal')`),
+  check("brain_memory_source_valid", sql`${t.source} in ('user', 'system', 'coach')`),
+]);
+
+// Conversación con REPI: una abierta por persona (índice único parcial); cerrarla deja empezar otra.
+export const brainThread = pgTable("brain_thread", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+  closedAt: ts("closed_at"),
+}, (t) => [
+  uniqueIndex("brain_thread_one_open").on(t.userId).where(sql`${t.closedAt} is null`),
+  index("brain_thread_user_idx").on(t.userId, t.createdAt),
+]);
+
+// Mensajes (retención: 180 días). `via` dice de dónde sale cada respuesta de REPI (reglas, IA, sin IA por límite, seguridad).
+// El id puede venir del cliente: un reintento del mismo mensaje no lo duplica.
+export const brainMessage = pgTable("brain_message", {
+  id: id(),
+  threadId: text("thread_id").notNull().references(() => brainThread.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  role: text("role", { enum: ["user", "repi"] }).notNull(),
+  text: text("text").notNull(),
+  cards: jsonb("cards").$type<ReplyCard[]>(),
+  actions: jsonb("actions").$type<ActionProposal[]>(),
+  section: text("section"), // Section del dominio: desde dónde se habló
+  ref: jsonb("ref").$type<Record<string, string | number | null>>(),
+  via: text("via", { enum: ["rules", "ai", "fallback", "safety"] }),
+  feedback: integer("feedback"), // −1 / 1 (sólo respuestas de REPI)
+  createdAt: now("created_at"),
+}, (t) => [
+  index("brain_message_thread_idx").on(t.threadId, t.createdAt),
+  index("brain_message_user_idx").on(t.userId, t.createdAt),
+  check("brain_message_role_valid", sql`${t.role} in ('user', 'repi')`),
+  check("brain_message_via_valid", sql`${t.via} is null or ${t.via} in ('rules', 'ai', 'fallback', 'safety')`),
+  check("brain_message_feedback_valid", sql`${t.feedback} is null or ${t.feedback} in (-1, 1)`),
+]);
+
+// Avisos y tarjetas, también los suprimidos (métricas). (user_id, dedupe_key) único: el cron de cada minuto y sus reintentos
+// no duplican (caso 49). `priority` = rango de la categoría (0 = seguridad). La categoría y el texto van en `payload`.
+export const brainIntervention = pgTable("brain_intervention", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  dedupeKey: text("dedupe_key").notNull(),
+  priority: integer("priority").notNull(),
+  channel: text("channel", { enum: ["card", "inline", "push"] }).notNull(),
+  status: text("status", { enum: ["pending", "shown", "accepted", "dismissed", "never", "expired", "cancelled", "suppressed"] }).notNull().default("pending"),
+  reason: text("reason"), // motivo de supresión o de cierre (SuppressReason, «program_changed»…)
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  evidence: jsonb("evidence").$type<Evidence | null>(),
+  programVersionId: text("program_version_id").references(() => programVersion.id, { onDelete: "set null" }), // vuelve obsoleto el aviso
+  createdAt: now("created_at"),
+  shownAt: ts("shown_at"),
+  resolvedAt: ts("resolved_at"),
+  expiresAt: ts("expires_at"),
+}, (t) => [
+  uniqueIndex("brain_intervention_dedupe_unique").on(t.userId, t.dedupeKey),
+  index("brain_intervention_user_idx").on(t.userId, t.createdAt),
+  index("brain_intervention_status_idx").on(t.status, t.expiresAt),
+  check("brain_intervention_channel_valid", sql`${t.channel} in ('card', 'inline', 'push')`),
+  check("brain_intervention_status_valid", sql`${t.status} in ('pending', 'shown', 'accepted', 'dismissed', 'never', 'expired', 'cancelled', 'suppressed')`),
+]);
+
+// Registro de acciones. (user_id, idempotency_key) único: un reintento devuelve la misma acción (caso 23).
+export const brainAction = pgTable("brain_action", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // ActionKind del dominio (catálogo en código)
+  idempotencyKey: text("idempotency_key").notNull(),
+  status: text("status", { enum: ["proposed", "confirmed", "executed", "failed", "blocked", "cancelled"] }).notNull().default("proposed"),
+  autonomy: integer("autonomy").notNull(),
+  input: jsonb("input").$type<Record<string, unknown>>().notNull().default({}),
+  result: jsonb("result").$type<Record<string, unknown>>(),
+  error: text("error"), // código, nunca contenido
+  createdAt: now("created_at"),
+  executedAt: ts("executed_at"),
+}, (t) => [
+  uniqueIndex("brain_action_idempotency_unique").on(t.userId, t.idempotencyKey),
+  index("brain_action_user_idx").on(t.userId, t.createdAt),
+  check("brain_action_status_valid", sql`${t.status} in ('proposed', 'confirmed', 'executed', 'failed', 'blocked', 'cancelled')`),
+  check("brain_action_autonomy_valid", sql`${t.autonomy} in (0, 1, 2)`),
+]);
+
+// Uso de IA SIN contenido (ni prompt ni respuesta). Retención: 400 días. La fila nace al admitir la llamada con
+// `outcome` null («en curso»: cuenta para la concurrencia por un rato corto) y se completa al terminar. user_id null = sistema.
+export const aiUsage = pgTable("ai_usage", {
+  id: id(),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  orgId: text("org_id").references(() => organization.id, { onDelete: "cascade" }),
+  task: text("task").notNull(),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0), // total de entrada (incluye los cacheados)
+  cachedTokens: integer("cached_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costMicros: integer("cost_micros").notNull().default(0), // micro-dólares estimados según PRICES de server/brain/gateway.ts
+  latencyMs: integer("latency_ms"),
+  outcome: text("outcome", { enum: ["ok", "error", "timeout", "cancelled", "refused", "bad_output", "budget", "quota", "breaker", "concurrency", "cache"] }),
+  createdAt: now("created_at"),
+}, (t) => [
+  index("ai_usage_created_idx").on(t.createdAt),
+  index("ai_usage_user_idx").on(t.userId, t.createdAt),
+  index("ai_usage_org_idx").on(t.orgId, t.createdAt),
+  check("ai_usage_outcome_valid", sql`${t.outcome} is null or ${t.outcome} in ('ok', 'error', 'timeout', 'cancelled', 'refused', 'bad_output', 'budget', 'quota', 'breaker', 'concurrency', 'cache')`),
+  check("ai_usage_counts_valid", sql`${t.inputTokens} >= 0 and ${t.cachedTokens} >= 0 and ${t.outputTokens} >= 0 and ${t.costMicros} >= 0`),
+]);
+
+// Límites configurables desde REPI Admin. Sin fila = valores por defecto del gateway. `scope`: global, org:<id> o user:<id>.
+export const aiPolicy = pgTable("ai_policy", {
+  scope: text("scope").primaryKey(),
+  config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: now("updated_at"),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+}, (t) => [check("ai_policy_scope_valid", sql`${t.scope} = 'global' or ${t.scope} ~ '^(org|user):.+$'`)]);
+
+// Circuit breaker por tarea: 5 fallas seguidas → abierto 10 minutos; después deja pasar (semiabierto) y una falla lo reabre.
+export const aiBreaker = pgTable("ai_breaker", {
+  task: text("task").primaryKey(),
+  failures: integer("failures").notNull().default(0),
+  openedUntil: ts("opened_until"),
+  updatedAt: now("updated_at"),
+});
 
 // ── REPI Sales Force & Commission OS (D209) ─────────────────────────────────
 // Un vendedor es una relación de la misma identidad con REPI: no toca platformRole ni hereda permisos de Admin.

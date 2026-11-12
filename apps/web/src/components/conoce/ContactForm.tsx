@@ -5,10 +5,14 @@
 import { useEffect, useRef, useState } from "react";
 import { isEmail } from "@repi/domain";
 import { api } from "@/lib/api";
+import type { ProductMode } from "@/content/conoce";
 import type { Profile } from "@/lib/site-events";
 import { track, visitContext } from "@/lib/site-track";
+import { INTEREST_EVENT, modeFromUrl, type InterestDetail } from "./interest";
 
 type Kind = "gym" | "coach" | "partner";
+/** D215: modalidad que le interesa a un gimnasio. La preseleccionan el botón de cada modalidad y `?modo=`; es opcional. */
+const MODES: [ProductMode, string][] = [["completo", "REPI Completo"], ["control", "REPI Control"], ["undecided", "Todavía no sé"]];
 // D209: enlace personal de un vendedor (/conoce?ref=V-XXXXXX). Se recuerda en la pestaña; el servidor sólo lo acepta si es de
 // un vendedor activo y lo guarda como origen del contacto, nunca como una venta atribuida.
 const REF_KEY = "repi:ref:v1";
@@ -26,6 +30,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
   const [kind, setKind] = useState<Kind>(initial ? KIND_OF[initial] : "gym");
   const [interest, setInterest] = useState<Profile | null>(initial);
   const [meeting, setMeeting] = useState(false);
+  const [mode, setMode] = useState<ProductMode | null>(null);
   const [f, setF] = useState({ contactName: "", orgName: "", email: "", phone: "", message: "", website: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -34,10 +39,16 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
   const doneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const on = (e: Event) => { const d = (e as CustomEvent<{ profile: Profile; meeting?: boolean }>).detail; setInterest(d.profile); setKind(KIND_OF[d.profile]); setMeeting(!!d.meeting); };
-    window.addEventListener("repi:interest", on);
-    return () => window.removeEventListener("repi:interest", on);
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<InterestDetail>).detail;
+      setInterest(d.profile); setKind(KIND_OF[d.profile]); setMeeting(!!d.meeting);
+      if (d.mode) setMode(d.mode);
+    };
+    window.addEventListener(INTEREST_EVENT, on);
+    return () => window.removeEventListener(INTEREST_EVENT, on);
   }, []);
+  // `/conoce?modo=control`: viene a conocer una modalidad, que es de gimnasios.
+  useEffect(() => { const m = modeFromUrl(); if (m) { setMode(m); setKind("gym"); } }, []);
   useEffect(() => { referral(); }, []);
   useEffect(() => { if (done) { doneRef.current?.focus(); doneRef.current?.scrollIntoView({ block: "center" }); } }, [done]);
 
@@ -58,7 +69,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
         kind, orgName: f.orgName || null, contactName: f.contactName, email: f.email || null, phone: f.phone || null,
         message: [meeting ? "Pide una reunión." : "", f.message].filter(Boolean).join(" ") || null,
         source: attr.source, campaign: attr.utmCampaign ?? attr.campaign, interest, website: f.website, elapsedMs: Date.now() - shown.current,
-        referralCode: referral(),
+        referralCode: referral(), productMode: kind === "gym" ? mode : null,
       } });
       track("form_submit", { profile: interest, target: kind });
       if (meeting || kind === "partner") track("meeting_request", { profile: interest, target: "form" });
@@ -83,6 +94,14 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
           {KINDS.map(([k, l]) => <label key={k} className="cn-seg"><input type="radio" name="kind" checked={kind === k} onChange={() => setKind(k)} /> {l}</label>)}
         </div>
       </fieldset>
+      {kind === "gym" && (
+        <fieldset>
+          <legend>¿Qué modalidad te interesa?</legend>
+          <div className="cn-seg-row">
+            {MODES.map(([k, l]) => <label key={k} className="cn-seg"><input type="radio" name="productMode" value={k} checked={mode === k} onChange={() => setMode(k)} /> {l}</label>)}
+          </div>
+        </fieldset>
+      )}
       <label className="cn-field">Tu nombre<input value={f.contactName} onChange={set("contactName")} maxLength={80} autoComplete="name" required /></label>
       <label className="cn-field">{orgLabel}<input value={f.orgName} onChange={set("orgName")} maxLength={120} autoComplete="organization" required={kind !== "partner"} /></label>
       <div className="cn-two">

@@ -30,7 +30,9 @@ export function arParts(d: Date) {
 export const overlaps = (a: Date, aMin: number, b: Date, bMin: number) =>
   a.getTime() < b.getTime() + bMin * 60_000 && b.getTime() < a.getTime() + aMin * 60_000;
 
-const icsEsc = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+// FSA1: RFC 5545 pide escapar «;» (el reemplazo anterior escribía «;» igual) y un retorno de carro suelto también corta la línea:
+// una nota con «\r» podía agregar propiedades al evento (por ejemplo otra URL o un organizador) en el calendario del alumno.
+const icsEsc = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 const icsTime = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 
 /** Archivo iCalendar (RFC 5545) de un turno, para agregarlo al calendario del teléfono. Sin datos de salud. */

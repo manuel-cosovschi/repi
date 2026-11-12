@@ -103,12 +103,17 @@ export async function coachThreads(actorId: string, orgId: string) {
 }
 
 /** Equipo de sala: hilos de socios de su sede que escribieron o a quienes se les escribió. */
-export async function floorThreads(actorId: string, orgId: string, locationId: string) {
+/**
+ * Conversaciones de la sede con mensajes. `withId`: además, la recién abierta (desde la ficha o «Nuevo mensaje») aunque todavía
+ * no tenga mensajes; si no, la pantalla no tenía dónde escribir el primero. Sólo si es de esta organización y sede.
+ */
+export async function floorThreads(actorId: string, orgId: string, locationId: string, withId: string | null = null) {
   const roles = await db.select({ role: staffMembership.role, loc: staffMembership.locationId }).from(staffMembership)
     .where(and(eq(staffMembership.userId, actorId), eq(staffMembership.orgId, orgId), eq(staffMembership.status, "active")));
   if (!gymCan(roles.filter((r) => !r.loc || r.loc === locationId).map((r) => r.role), "messages.floor")) throw NOT_FOUND();
   const rows = await db.select({ c: conversation, name: user.name, st: gymMember.status }).from(conversation).innerJoin(gymMember, eq(gymMember.id, conversation.relationId)).innerJoin(user, eq(user.id, gymMember.userId))
-    .where(and(eq(conversation.kind, "gym_member"), eq(conversation.orgId, orgId), eq(conversation.locationId, locationId), sql`${conversation.lastMessageAt} is not null`))
+    .where(and(eq(conversation.kind, "gym_member"), eq(conversation.orgId, orgId), eq(conversation.locationId, locationId),
+      withId ? or(sql`${conversation.lastMessageAt} is not null`, eq(conversation.id, withId)) : sql`${conversation.lastMessageAt} is not null`))
     .orderBy(desc(conversation.lastMessageAt)).limit(100);
   return staffList(actorId, rows.map((r) => ({ c: r.c, name: r.name, relId: r.c.relationId, active: r.st === "active" })));
 }

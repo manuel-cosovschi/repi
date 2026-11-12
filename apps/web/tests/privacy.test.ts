@@ -32,6 +32,27 @@ describe("exportar mis datos", () => {
     const logs = await db.select().from(schema.auditEvent).where(and(eq(schema.auditEvent.actorUserId, yo), eq(schema.auditEvent.action, "privacy.export")));
     expect(logs).toHaveLength(1);
   });
+  it("FSA1: incluye rutinas propias, historial importado, ejercicios creados, objetivos y reseñas; nada de otra persona", async () => {
+    const yo = await person("Yo Completa"), otro = await person("Otra Completa");
+    await db.update(schema.user).set({ emailVerified: true }).where(eq(schema.user.id, otro));
+    const [ex] = await db.insert(schema.exercise).values({ name: `Mi ejercicio ${Date.now()}`, muscleGroup: "Core", ownerUserId: yo }).returning();
+    await db.insert(schema.exercise).values({ name: `Ejercicio ajeno ${Date.now()}`, muscleGroup: "Core", ownerUserId: otro });
+    await db.insert(schema.ownRoutine).values({ userId: yo, name: "Mi rutina de casa", exercises: [{ exerciseId: ex.id, sets: 3, reps: "10", weightKg: null, restSec: 60, note: "lento" }] });
+    await db.insert(schema.ownRoutine).values({ userId: otro, name: "Rutina ajena", exercises: [] });
+    const [imp] = await db.insert(schema.historyImport).values({ userId: yo, source: "csv", fileName: "mis-entrenos.csv", parsed: {}, status: "confirmed" }).returning();
+    await db.insert(schema.historyEntry).values({ importId: imp.id, userId: yo, day: "2026-01-10", exerciseName: "Sentadilla", setIndex: 0, weightKg: "100", reps: 5 });
+    const org = await svc.createCoachOrganization(otro, { brand: "Coach Completa" });
+    const [rel] = await db.insert(schema.coachClient).values({ coachOrgId: org.id, userId: yo, status: "active" }).returning();
+    await db.insert(schema.clientGoal).values({ coachClientId: rel.id, kind: "manual", title: "Correr 5 km", target: "5", unit: "km", note: "Nota interna del coach", createdBy: otro });
+    const d = await pv.exportMyData(yo);
+    expect(d.ownRoutines.map((r) => r.name)).toEqual(["Mi rutina de casa"]);
+    expect(d.ownExercises.map((e) => e.name)).toEqual([ex.name]);
+    expect(d.importedHistory.imports[0]).toMatchObject({ fileName: "mis-entrenos.csv", status: "confirmed" });
+    expect(d.importedHistory.sets[0]).toMatchObject({ day: "2026-01-10", exercise: "Sentadilla", reps: 5 });
+    expect(d.goals[0]).toMatchObject({ coach: "Coach Completa", title: "Correr 5 km", unit: "km" });
+    const all = JSON.stringify(d);
+    expect(all).not.toMatch(/Rutina ajena|Ejercicio ajeno|Nota interna del coach/);
+  });
 });
 
 describe("pedido de eliminación", () => {

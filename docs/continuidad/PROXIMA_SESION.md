@@ -1,7 +1,482 @@
 # REPI — Retomar acá
 
-Actualizado: 07/11/2026 (hasta D209; **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**; en curso: REPI — Adaptive Coaching 3.0 en `claude/adaptive-coaching-3`, sin publicar). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
+Actualizado: 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**); antes, 09/11/2026 (**REPI Control: la pantalla también registra (D216, 0054): PUBLICADO Y VERIFICADO (#94, `ea37f6a`, smoke 20/20)**; antes, **REPI Control 1.0 y /conoce con dos modalidades: PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, 0053 aplicada tras el respaldo `backup-20261109-165202-42658629470`)**; antes, **auditoría integral FSA1 publicada y verificada: PR #88, `210bf9e`, sin migraciones; veredicto APTO CON OBSERVACIONES**; antes, el 09/11: clave de cron en Vault (#79) y límites de tiempo de `repi_app` (#86)). 08/11/2026 (hasta D211; **publicados y verificados el 08/11: corte de 300 s en Admin (#80, `47fac4f`), /conoce Motion 2 (#82, `0c30322`) y ejercicios por tiempo (#81, `b8f2c5c`, 0052 aplicada tras el respaldo `backup-20261108-033638`)**; transiciones M06 publicadas y verificadas (#85, `ec54444`, D212) y clave de cron en Vault (#79, completo y verificado el 09/11)). Antes: 07/11/2026 (hasta D210; **Adaptive Coaching 3.0 (#75) publicado y verificado: respaldo #76, 0051 aplicada, merge `ef22c73`**; **Sala · «Nuevo mensaje» (#74) publicado y verificado**; antes: **Sala: combinar ejercicios (#68), guía de demo sólo en las apps (#69), ficha del socio como página (#70) y editor de sala a la par del coach (#71) publicados y verificados**; antes: **REPI Sales Force & Commission OS (#63) publicado: 0050 aplicada tras el respaldo #67, merge `2b5e69f`**; antes: hasta D208; **Experience 3.0 (#64) y «Crear programa» desde la solicitud en Sala (#65) publicados y verificados en producción**). Antes: 07/11/2026 (hasta D207; Smart Program Import 2.0 publicado y verificado).
 
+
+## Personalización y Progress Intelligence 2.0 — 12/11/2026 · PUBLICADO Y VERIFICADO (#100, `bd5da5b`, D217, 0055)
+
+- **Máster:** «REPI Personalization & Progress Intelligence 2.0». Documento: `docs/PERSONALIZACION_PROGRESO_2.md`; decisión D217.
+- **Rama:** `claude/progreso-inteligente` (worktree `/home/user/repi-pi`).
+- **Perfil canónico:** `user_pref.wishes` ampliado (experiencia declarada, distribución, equipamiento, preferidos/no le gustan,
+  restricciones no médicas, procedencia por campo, versión, estado completo/parcial/sin información). `server/settings/profile.ts`,
+  `GET/POST /api/me/profile`. Pedido de programa y Perfil escriben con cambios parciales (ya no pisan el perfil).
+- **Onboarding contextual:** `ProfileGate` (pregunta sólo lo que falta, una vez por lugar: Inicio, Mis rutinas nueva/subir,
+  Entrenar por mi cuenta, No vino el profe, primera consulta a REPI); `TrainingProfile` en Perfil.
+- **Personalización:** `packages/domain/src/personalize.ts` (matriz P1–P12); `ensureTargets`/`outlookFor`/`trendsFor`/avisos con el
+  perfil; nunca cambia cargas; la pantalla del gimnasio no recibe el perfil.
+- **Progreso:** `progress-intel.ts` + `server/progress/insight.ts` (`/api/me/progress/exercises/:id/insight`), metas propias
+  `server/progress/goals.ts` (`/api/me/progress/goals`), intenciones del cerebro `max_lift`, `capacity`, `next_target`,
+  `goal_distance`; gráfico interactivo (`chart-view.ts`, `ProgressChart.tsx`).
+- **0055 (aditiva):** metas propias en `client_goal` (`origin`, `user_id`). `hosted-0055.sql`, `verify-0055.sh` (ensayado OK),
+  `rollback/0055`. Producción antes de aplicar: 55 migraciones, 0 filas en `client_goal` (consulta de sólo lectura).
+- **Pruebas:** dominio 1140/1140; web 850/850 (incluye `tests/profile-progress.test.ts`, 17); typecheck y build OK; CI verde.
+  QA visual en build local con la demo de alumno (390 px claro/oscuro, 820 px): sin errores de consola.
+- **Publicación:** respaldo `backup-20261112-141250-43234402674` (issue #101) → 0055 aplicada (56 migraciones; `coach_client`
+  previo idéntico, 0 metas reales) → integrado `bd5da5b` (`/api/version` `bd5da5b435bf`). Smoke en repiclub.com sólo con la
+  demo de alumno 14/14 (perfil y metas sin sesión 401, perfil parcial→completo con procedencia, campo de salud 400, vista
+  inteligente con máximo real y 1RM estimado, 404 ajeno, meta propia creada y cerrada, Progreso sin errores). Datos reales:
+  45 sesiones iguales, ningún perfil real tocado, la única meta propia es de la demo. Vercel sin errores.
+- **Cierre (mismo día, #103 `b54271e`, smoke 16/16: lo anterior + REPI responde máximo real y capacidad; la respuesta en lb se revirtió después):** «Cargar historial anterior» también ofrece el formulario breve; REPI responde máximo,
+  capacidad, próxima carga y distancia (en kg: ver ajuste); marcadores chicos con 60–150 puntos visibles; QA de historial
+  largo en build local (iPhone 13 emulado, 428 registros, 3 años con hueco de 90 días y tramo con fecha aproximada): zoom,
+  alejar, «Ver todo», desplazamiento, pellizco y arrastre con eventos táctiles reales, teclado, tramos punteados, cambio de
+  ejercicio sin zoom heredado; vista inteligente 62–75 ms. Mapa de los 64 casos en `docs/PERSONALIZACION_PROGRESO_2.md` §9.
+  Inventario: F-CL-06, F-HX-02 y F-CO-03 → probado (evidencia en `docs/IMPLEMENTATION_STATUS.md`).
+- **Ajuste del titular (12/11):** «Todo en kg»: el chat de REPI responde siempre en kg (se revirtió la respuesta en lb de #103);
+  la pantalla de Progreso sigue mostrando la unidad elegida en Perfil.
+- **Límites conocidos:** los gestos se probaron en Chromium con eventos táctiles reales, no en un teléfono físico.
+- **Próxima acción:** ninguna obligatoria.
+
+## REPI Control: la pantalla de rutinas también registra — 09/11/2026 · PUBLICADO Y VERIFICADO (#94, `ea37f6a`, D216, 0054)
+
+- **Pedido:** ampliación del máster REPI Control & Kiosk 1.0: la pantalla compartida muestra objetivos y registra resultados
+  reales, sin que el socio cambie la programación. Reemplaza «sólo consulta».
+- **Objetivos por serie:** profesor (`setTarget`), REPI (Training Intelligence 2.0: `previewTargets` al consultar, sin guardar
+  nada; `ensureTargets` en la sesión, igual que la app) y última vez comparable. Sin datos: «Sin referencia suficiente».
+  Textos de salud neutros (`kioskTarget`).
+- **Registro:** `server/gym/kiosk-training.ts` → `startSession`/`logSet`/`setStageSkip`/`sessionAction` con `KioskVia`. Misma
+  sesión que la app; idempotente por id de serie; conflictos por revisión; se puede salir y seguir. Rutas `GET/POST
+  /api/kiosk/workout`, `workout/sets`, `workout/finish`. La consulta se estira 5 min por pedido (tope 20 min).
+- **Pantalla:** `components/kiosk/KioskApp.tsx` + `KioskTraining.tsx`: Consultar / Registrar, Profesor → REPI → Real, borrador
+  «Sugerido», «Copiar a todas», «No la hice», Reintentar, aviso «¿Seguís ahí?» y borrado total al cerrar. Ficha de sala:
+  chip «Pantalla del gimnasio».
+- **0054 (aditiva):** `workout_session.kiosk_id`, `set_log.kiosk_id` (+ índices parciales). `hosted-0054.sql`, `verify-0054.sh`
+  (ensayado), `rollback/0054`. **Aplicada en producción** tras el respaldo `backup-20261109-185530-42677996245` (issue #95):
+  55 migraciones; huellas de datos reales iguales (una sesión real nueva de la app a las 19:00 UTC, ajena; las 31 previas
+  idénticas); ningún gimnasio real con REPI Control.
+- **Demo control:** Ana con 6 entrenamientos ficticios (REPI recomienda), Martín sin historial.
+- **Comercial:** /conoce («consultan y registran», comparación, demo), film `modo-control` 16:9 y 9:16 con los 7 pasos
+  (59,7 s, grabaciones reales de demo), capturas nuevas y dossier de 2 páginas actualizado. Sin precios.
+- **Pruebas:** `tests/kiosk-log.test.ts` 14 ✓; web 828/828; dominio 1068/1068; E2E integradas 91 ✓ / 3 omitidas / 0 ✗;
+  CI verde.
+- **Publicación:** integrado como `ea37f6a` (`/api/version` `ea37f6a9cf6b`). Smoke en repiclub.com sólo con la demo «control»:
+  20/20 (escritura sin identidad 401, no-store, consultar no escribe, Profesor → REPI → Real, guardado confirmado, 4/4 series
+  con marca de pantalla, reintento sin duplicar, salir cierra la consulta en el servidor, volver sigue el mismo entrenamiento,
+  Martín «Sin referencia suficiente», /conoce sin precios, films publicados). Base: 0 series reales con marca de pantalla,
+  0 gimnasios reales con REPI Control, series reales previas idénticas. Vercel sin errores.
+- **Pendiente del titular:** probar en la tablet real del primer gimnasio; autorizar gimnasio por gimnasio; frase «por socio
+  activo» del dossier (sigue marcada); el paso 1 del film usa la grabación de la demo «sala» (Gym Norte).
+- **Próxima acción:** ninguna obligatoria. REPI Control sigue apagado en todos los gimnasios reales.
+
+## REPI Control 1.0 + /conoce con dos modalidades — 09/11/2026 · PUBLICADO Y VERIFICADO (#91, `3d1aa5c`, D213–D215, 0053)
+
+- **Máster:** «REPI Controlled Gym Mode & Kiosk 1.0» y su ampliación «REPI Control + REPI Completo en /conoce». Documentación:
+  `docs/repi-control/` (README, ACTIVACION, SEGURIDAD, ARQUITECTURA, LIMITACIONES_Y_COSTOS).
+- **Modalidad supervisada por gimnasio:** `organization.routine_policy` («open»/«supervised») y `kiosk_enabled`, que encienden
+  sólo REPI Admin (Clientes › REPI Control). Las dos quedan **apagadas para todas las organizaciones reales**.
+  - **Bloqueos en el servidor (403 `supervised`, auditados):** en el contexto del gimnasio supervisado, rutinas propias (crear,
+    duplicar, importar, entrenar), ejercicios propios, rutinas y ajustes de IA («No vino el profe», «por mi cuenta») y las
+    acciones del cerebro que cambian lo prescrito.
+  - **Lo que sigue permitido:** el socio registra su programa asignado y, con un coach personal, conserva sus rutinas.
+  - **App:** las oculta y muestra «Tu gimnasio planifica tus rutinas».
+- **Pantalla de rutinas `/rutinas` (kiosco):**
+  - El gimnasio registra y revoca cada pantalla. El secreto propio sólo se guarda como hash.
+  - Credencial: código de 6 dígitos al azar + PIN propio (scrypt con clave del servidor). Con 5 fallos se pausa 15 min y con 10
+    se anula hasta que recepción emita otro. La pantalla se pausa ante muchos fallos.
+  - Consulta de una persona por vez, de 5 min como máximo, que se cierra a los 60 s sin uso. Respuestas no-store; sin datos privados.
+  - QR opcional de la app, distinto del QR de ingreso.
+  - Recepción emite y revoca códigos desde la ficha del socio, desde Recepción o desde «Pantalla de rutinas». El socio ve su
+    código y elige su PIN en Perfil.
+- **STF-09 resuelto (D214):** en Equipo › Gestionar acceso, el dueño y la gerencia quitan a alguien del equipo o le cambian
+  rol o sede. El servidor lo aplica en el pedido siguiente, las tareas vuelven a la cola y queda en `staff.revoked` o
+  `staff.role_changed`.
+- **Demo «control»:** Gimnasio Atlas ficticio (`/api/demo {role:"control"}` → `/rutinas`, con los códigos y PIN ficticios en
+  pantalla). Está en /conoce#modos y en /demo.
+- **/conoce (D215):**
+  - Escena «Un mismo REPI. Dos formas de entrenar.» con selector, «Qué cambia y qué no», films `modo-completo` y
+    `modo-control` (16:9 y 9:16; Kevin MacLeod, CC BY 4.0) y capturas reales.
+  - Deep links `?modo=` y `#modos`.
+  - Formulario con modalidad (`commercial_lead.product_mode`, visible en REPI Admin) y WhatsApp con la modalidad.
+  - **Sin precios.**
+- **Dossier:** `marketing/dossier/repi-control/` (HTML editable → PDF de 2 páginas). Precio en el bloque «DATOS EDITABLES»:
+  escenario ilustrativo, no contractual.
+- **Migración 0053 (aditiva):** `hosted-0053.sql`, `verify-0053.sh` (ensayada: huella intacta, todas «open», reintento falla,
+  reversión negada con uso real) y `rollback/0053`.
+- **Pruebas:**
+  - `tests/repi-control.test.ts` 22 ✓ y `sandbox.test.ts` (demo control).
+  - `experience-hub.test.ts` 13 ✓.
+  - Regresión web 812/814: las 2 fallas eran por `STORAGE_DIR` local; sin esa variable pasan.
+  - Dominio 1068 ✓, guardas 26 ✓, typecheck y build ✓.
+  - E2E completa en build integrada (`repi_e2e_int2`): 327 ✓, 0 ✗, 49 omitidas. Después, /conoce con films: 62 ✓.
+- **Para el titular:**
+  - Revisar la frase «por socio activo» del dossier (CLAUDE.md: tarifa por cliente y total acordado).
+  - Probar la pantalla en la tablet real del primer gimnasio.
+  - Autorizar gimnasio por gimnasio antes de activar.
+  - El profesor de los films y la captura del equipo vienen de la demo «floor» (Gym Norte).
+- **Publicación (09/11):**
+  - CI del PR #91 en verde.
+  - Respaldo `backup-20261109-165202-42658629470` verificado (issue #92).
+  - 0053 aplicada con `hosted-0053.sql`: 54 migraciones, tablas con RLS y dueño `repi_app`, sin permisos públicos. Quedó sólo
+    la membresía original de `postgres` (sin SET).
+  - Huella de los datos reales (9 tablas) idéntica antes y después.
+  - Merge `3d1aa5c`; `/api/version` = `3d1aa5c45b5d`.
+  - Ningún error de ejecución en Vercel.
+  - Las 5 organizaciones reales siguen en «open» y sin pantalla; sólo las demos «control» quedan supervisadas.
+- **Smoke de producción con demos: 41/41** (`scratchpad/prod-smoke-ctl.cjs`):
+  - /conoce y perfiles; films y capturas.
+  - `?modo=control` preselecciona la modalidad y el formulario; sin precios.
+  - `/rutinas` no-store; APIs sin sesión → 401.
+  - Demo control: PIN incorrecto con mensaje genérico; Ana ve la versión 2, sin campos ni datos privados; «Terminar»
+    invalida el token en el servidor; Sofía sin programa.
+  - REPI Completo intacto: alumno de Gym Norte con `supervised=false` y rutinas propias.
+- **Próxima acción:** decisiones del titular (lista de arriba); activar REPI Control sólo en el gimnasio que autorice.
+
+## Auditoría integral FSA1 (REPI Full System Audit 1.0) — 09/11/2026 · PUBLICADO Y VERIFICADO (#88, `210bf9e`, sin migraciones)
+
+- **Informe:** `docs/audits/REPI_FULL_SYSTEM_AUDIT_1/` (01–10). Veredicto en 10: **APTO CON OBSERVACIONES**.
+- **Cómo se hizo:**
+  - Seis auditores en paralelo en worktrees: socio, seguridad, personal, interfaz, importación y comunicaciones/IA/admin.
+  - Infraestructura y producción, sólo en lectura.
+  - Cada defecto se reprodujo contra `main`, se le escribió una prueba que falla y se corrigió.
+  - Integración en `claude/full-system-audit-1`, con los duplicados resueltos (2FA, ficha del socio, pesos).
+- **Defectos:** 63 encontrados (P0 2, P1 8, P2 21, P3 32); 51 corregidos.
+  - **P0:** salteo de 2FA por enlace o código por email (SEC-01); serie sin conexión perdida en silencio (MEM-03).
+  - **P1:** la gestión leía series y notas del socio (STF-01); carrera al guardar un programa en uso (STF-02); «Guardado en tu cuenta» sin almacenamiento (MEM-02); series de una sesión cerrada por el servidor (MEM-04); pesos con decimales (MEM-01); IA que daba por leídos números ausentes (IMP-01); avisos sin nadie en turno (COM-02).
+- **Pruebas:**
+  - Dominio 1068 ✓; web 788 ✓; guardas 26/26.
+  - E2E completa en una build local de la rama: 288 ✓ / 5 ✗. Las 5 fallas son 3 pruebas: 2 de portabilidad de la prueba, corregidas, y 1 intermitente que ya fallaba en `main`.
+  - Nuevas: `ui-sweep`, `ui-keyboard`, `ui-failures`, `member-sync-adversarial`, `member-home-flow`, `own-routine-import`, `auth-second-factor`, `twofa-bypass`, `offline-keep-done-client`, `member-late-sets` y bloques FSA1 en una docena de archivos.
+  - Las E2E que siembran aceptan ahora una base `repi_e2e_*` local (antes sólo `repi_dev`, que está en su tope de demos).
+- **Publicación:**
+  - Respaldo `backup-20261109-054319-42568711678` (issue #89).
+  - CI verde y squash `210bf9e`; `/api/version` = `210bf9e8af02` a las 05:53 UTC.
+  - Smoke con demos 25/25 (`scratchpad/prod-smoke-fsa1.cjs`; contra `main` falla justo en lo corregido).
+  - Vercel sin errores, cron en 200.
+  - Huella de los datos reales (16 tablas) idéntica antes y después.
+- **Pendiente del titular (09 §1):**
+  - **D-1:** quitar a alguien del equipo o cambiarle rol o sede (STF-09, P1). Mitigación por SQL en 09 §2.
+  - **D-2:** confirmar qué ve la gestión de las series.
+  - **D-3:** lesiones en «No vino el profe» y en la rutina sin programa (COM-07).
+  - **D-4:** reintento del email transaccional (COM-09).
+  - **D-5:** autorizar el borrado de 5 archivos huérfanos de demos (83 KB) con `scripts/operations/storage-orphans.sql`.
+  - **D-6:** ajustes de diseño (UI-13, UI-14).
+- **No verificado:**
+  - Dispositivos físicos, Safari y Firefox: sólo hay Chromium.
+  - Push, email e IA reales; Admin y Ventas en la UI; carga.
+  - Probar en el iPhone del titular: entrenar con y sin conexión, Mi cuerpo, fotos e importación.
+- **Infraestructura (07):**
+  - El cronograma de respaldos funciona, con 6 a 8 h de demora de GitHub.
+  - El acceso a Vercel funciona.
+  - El `search_path` de 2 triggers queda para la próxima migración.
+  - Las 196 claves foráneas sin índice quedan como riesgo de escala, sin cambios.
+- **Próximo:** decisiones D-1 a D-4 y prueba en un iPhone. Después, nuevos desarrollos.
+
+## M06 «Carril»: navegación fluida en las apps + ficha sola (socio y cliente) — 08/11/2026 · PUBLICADO Y VERIFICADO (#85, `ec54444`, D212)
+
+- **Pedidos del titular:** 06/11 (grabación del iPhone, PWA del alumno): «muy rígido, nada fluido, hasta trabado… es rápido y quiero mantenerlo, pero más fluidez, alguna animación interesante» (todas las apps). 07/11: «Abrir ficha socio» desde Sala debe abrir sólo la ficha, no el listado.
+- **Rama:** `claude/app-transiciones` (worktree `/home/user/repi-tx`, sobre `main` `218cd53`, que ya traía la pantalla «member» de #70). **Sin push, sin PR, sin despliegue.** Plan, decisiones, riesgos y mediciones: `docs/MOTION_NAVEGACION.md`; especificación: `motion.md` §13; contrato: `docs/DESIGN_CONTRACT.md`.
+- **Hecho:**
+  - **Escenario de secciones** (`components/motion/SectionStage.tsx`): secciones vivas con `<Activity>` (LRU 6), salida fija e inerte de 100 ms, entrada de 200 ms en el sentido del viaje (vertical en el escritorio staff), corte de meta en el `h1`, formación, scroll por sección antes de pintar, foco al `h1` si se perdía (staff: siempre), reinicio por relación o sede, entrada «volver» del entrenamiento.
+  - **Alumno:** `TabBar.tsx` (indicador «sprint» que se mueve en el primer cuadro, arranque del ícono, FLIP al aparecer Gym, vuelta arriba, lectura anticipada); `MemberApp.tsx` con 5 bloques mecánicos (~36 líneas) y `Workout.tsx` sin tocar. Primera visita sin blanco ni saltos (caché + esqueletos + `Reveal`) en Tu gym, Progreso, NIVEL, Antes de REPI, rutinas propias, Desafíos, Nudges, Deseos, En sala ahora, Mensajes, chat, Mi cuerpo y Fotos.
+  - **Compartido:** `lib/cache.ts` (memoria, stale-while-revalidate), `lib/ghost.ts` (salidas de hojas, modales y avisos), `components/motion/Skeleton.tsx`, `components/motion/SlideIndicator.tsx` (segmentos, pestañas y menú lateral), `components/ui/FlashToast.tsx`, `styles/motion-nav.css`, tokens nuevos (`section_exit`, `section_enter`, `stagger`, `press`, `exit`).
+  - **Staff:** Gym, Coach y Admin con el escenario; `useLoad` sobre la caché (con `keep` en Socios, Performance Center y Agenda); avisos y novedades como máximo cada 30 s; armazón en esqueleto en la primera carga; esqueletos en ficha, ficha del cliente, contrato y lista de mensajes; cajón con fundido de salida.
+  - **Ficha sola:** Gym `openMember` (título = nombre desde el primer cuadro, `pushState`, «atrás» del sistema y «Volver a …», recarga con `from`, modal del pedido se cierra antes). Coach: pantalla «client» (`?s=client&c=…&from=…`) desde Solicitudes, Panel, Cobros y Mensajes; en Clientes angosto, tocar abre la ficha como página.
+  - **Entre documentos:** `styles/doc-transitions.css` (View Transitions, sólo páginas de las apps; borrar el archivo es el interruptor).
+- **Pruebas** (servidor propio `next start -p 3104`, `repi_dev`, demos; nunca vitest):
+  - `pnpm typecheck` ✓ (ojo: `pnpm -s typecheck` oculta errores), `pnpm build` ✓, `tsx --test tests/theme/theme-tokens.check.ts` ✓.
+  - `e2e/motion-nav.spec.ts` nueva: alumno (recorrido con CPU ×4, cinco toques, foco, movimiento reducido, ids, hojas) y escritorio Gym ✓. Indicador en el primer cuadro, 0 cuadros vacíos, layout-shift 0 al volver y ≤ 0,001 en la primera visita, sin tareas largas al volver.
+  - `e2e/gym-member-page.spec.ts` ampliada (foco, 390×844, atrás, Mi turno, Coach «Ver ficha») ✓.
+  - Suites existentes: ver la tabla de resultados en `docs/MOTION_NAVEGACION.md` §17 y el cierre de esta sesión.
+- **QA independiente (07/11) corregida** (detalle y números en `docs/MOTION_NAVEGACION.md` §18):
+  - ALTA: Sala → «Abrir ficha del socio» abría además un diálogo «Solicitud» con error que quedaba abierto al volver. Causa: la selección `sel` era una sola para todas las pantallas vivas. Ahora **selección por pantalla** en `GymApp` y `CoachApp` (`sels`), y `SectionStage` **congela la sección que sale y las ocultas** (sólo la activa se vuelve a dibujar). Arregla también Coach Mensajes → «Ver perfil →» → «Volver» (la conversación quedaba perdida) y el título «Ficha del socio» durante la salida.
+  - Progreso con latencia (CLS 0,08–0,10 → 0): esqueletos con el alto real en `ProgressTraining.tsx`; ayudas («Nuevo») leídas al abrir la app y síncronas (`Hint.tsx`, `TabBar.tsx`); lectura anticipada del resumen.
+  - Tu gym (contenido → vacío → contenido): `useReveal` en `useLayoutEffect` (`motion/Ambient.tsx`); esqueleto con el aviso para lectores al final (`member/Gym.tsx`). Mensajes del alumno: esqueleto de 2 filas con el alto real.
+  - Coach Programas (CLS 0,67–0,76 → 0, foco en `body` → `h1`): editor en esqueleto, sin vacío falso, `h1` estable (`ProgramBuilder.tsx`).
+  - Salida de sección: opacidad en 70 ms (`M06.fade`), oculta al terminar sin esperar a React (dos títulos legibles: 5 → 1 cuadro). Foco a la sección cuando no hay `h1`; cajón cerrado del staff con `visibility: hidden` (< 768 px).
+  - Pruebas nuevas en `gym-member-page.spec.ts` («con movimiento») y `motion-nav.spec.ts` («primera visita con latencia»). Corridas: 23 + 56 + 47 ✓; sólo los 2 fallos ya conocidos (importar métodos escritos, también en `main`; fotos en el puerto 3000). `tsc` ✓ y `pnpm build` ✓.
+  - Tope de demos en `repi_dev`: se purgaron sólo demos `is_demo` con más de 30 min (`scratchpad/tx-fix/purge-old.ts`, corrige la lectura del valor devuelto del guion anterior).
+- **No hecho / pendiente:** vuelo FLIP del nombre hacia la ficha; videos antes/después y prueba en el iPhone del titular (iOS 26, PWA; lista en §16 del documento); PR. Fase 2 en `MemberApp.tsx` después de fusionar AC3 (§14), que incluye «Volumen por semana» sin el vacío falso (debajo del pliegue en Progreso; no entra en el layout-shift medido).
+- **`main` integrado (merge de `7f30a06`, 07/11):** AC3 #75, «Nuevo mensaje» #74 y el editor de sala #71. Conflictos en 12 archivos resueltos conservando las dos cosas:
+  - **Alumno:** `BrainProvider` sigue por encima de las dos ramas (pestañas y entrenamiento); `RepiPanel` y `RepiWhy` se montan una sola vez ahí, fuera de las secciones vivas. `onCardOpen`, el borrador de Mensajes (`draft`), `RepiAsk` en Progreso y en rutinas propias van dentro de `SectionStage`. Mensajes del alumno: caché M06 más el borrador de REPI.
+  - **Coach:** «Revisar» de «Pendientes» (señales de REPI) abre la **ficha sola** del cliente en Rendimiento (`openClient(id, "rend")`, con «Volver a Panel»). `CoachClients` aplica un pedido de pestaña nuevo aunque la pantalla siga viva. `RepiSignals` en Rendimiento.
+  - **Gym:** «Nuevo mensaje» en `ChatPane` (`includeSelected`, `action`) con la selección por pantalla (`shell.sel`). Esqueleto de la ficha y borrador local del editor (#71), los dos.
+  - **Admin:** «Coaching IA» entra en el menú y en el escenario (verificado con `tsc` y la build; la E2E de Admin necesita una cuenta de administración real y se omite).
+  - **Pruebas:** `pnpm typecheck` ✓; migraciones en `repi_dev` (0051) y `pnpm build` ✓. E2E en 3104:
+    - pasan `brain`, `brain-staff` (Pendientes, con `DATABASE_URL` de `repi_dev`), `gym-new-message`, `gym-editor-parity`, `motion-nav` y `gym-member-page`;
+    - en `gym-new-message`, «Escribir desde la ficha» miraba la fila oculta de Socios (que sigue viva): ahora mira la fila visible;
+    - prueba propia (fuera del repositorio): pestañas, `RepiCard` visible en Inicio, «Hablar con REPI», el panel se reabre con la conversación después de cambiar de pestaña (teléfono) o sigue abierto (escritorio ancho) y sobrevive al entrenamiento. Pedidos del cerebro sin duplicar: un `GET /api/me/brain` y una sola carga del hilo tras muchos cambios de pestaña.
+- **QA independiente, ronda 2 (08/11) corregida** (detalle, números y lo descartado en `docs/MOTION_NAVEGACION.md` §20):
+  - **Velocidad.** Con CPU ×4 el título llegaba legible después que en `main` (Progreso al volver: 61–65 → 166–182 ms). Ahora el indicador sale al apoyar el dedo (`pointerdown` en `TabBar.tsx`; vuelve si el gesto se cancela). La sección se dibuja en el click, sin `startTransition` y de un tirón (`go` en `MemberApp.tsx`).
+  - `SectionStage` suma `deps(k)`: lo que lee cada sección. Al volver sin cambios se reutiliza su último nodo.
+  - `lib/cache.ts` suma `keepSame`: una revalidación con el mismo contenido conserva el mismo objeto. La entrada queda anclada al tiempo del cuadro.
+  - Medido intercalado con `main` en 3114, 10 corridas por lado: el título se lee antes en 9 de 10 cambios (Progreso al volver, 67 contra 62 ms, dentro del ruido). Con un toque de 80 ms, el indicador se mueve 12–28 ms después de apoyar el dedo; en `main`, 127–219.
+  - Descartado con números: el indicador en el click y la sección en el cuadro siguiente, la vuelta en `startTransition` y anticipar secciones ocultas.
+  - **Scroll de Ejecutivo** (600 → 500 al volver): `OwnerGuide.tsx` ya no mueve la ventana. Red de seguridad `holdScroll` en `SectionStage`.
+  - **Cajón del staff:** `components/motion/useDrawer.ts` en Coach, Gym y Admin. Volver a tocar la pantalla actual deja el foco en su título (antes, en `body`). Al abrir, foco al ítem actual y `main` inerte. Escape o el fondo cierran y el foco vuelve a «Abrir menú». A ≥ 768 px se cierra.
+  - **Progreso con latencia, debajo del pliegue:** sin la lista de ejercicios un instante, «Volumen por semana» en esqueleto de 120 px y el lugar de «Preguntale a REPI» reservado (`ProgressTraining.tsx`, `MemberApp.tsx`).
+  - **Coach Programas:** el nombre en esqueleto mientras carga el programa, sin el «PROGRAMAS» que cambiaba medio segundo después (`ProgramBuilder.tsx`).
+  - **Pruebas:** `motion-nav.spec.ts` › «teléfono Gym (dueño)» cubre scroll, red de seguridad, foco al volver a tocar, teclado y 8 toques con CPU ×4. `roles.spec.ts` espera el botón del menú en el teléfono.
+  - **Corridas:** `tsc` ✓, `pnpm build` ✓. E2E en 3104 contra `repi_e2e_tx`: `motion-nav`, `gym-member-page`, `member-workout` y `roles`, 35 ✓. Las 3 de `roles` en escritorio no corrieron por el tope de demos y habían pasado en la corrida anterior, con el mismo código de staff.
+  - **Demos:** `repi_dev` quedó en el tope de 300 demos; no se purgó. El orquestador creó `repi_e2e_tx` (migraciones hasta 0051) y `tx-env.sh` apunta ahí. Al final de la ronda `repi_e2e_tx` también quedó en 301, por las mediciones; tampoco se purgó.
+  - **Sin migraciones**, sin cambios de servidor ni de base.
+- **Próxima acción:** revisar con el titular (videos y su iPhone; ahora también la velocidad en su teléfono) y, con su aprobación, abrir el PR. Pendientes menores: «Tu nivel» crece 25 px al cargar (al final de Progreso); tareas largas del primer dibujo de Entrenar, Progreso y el editor de Programas, como en `main`.
+- **08/11, ronda 3:** QA independiente → se puede publicar (más rápida que main en los 10 cambios de pestaña; axe 0; E2E 40 ✓). Corregidos además: el lugar reservado de «Preparar consulta con REPI» en Mensajes, el indicador que vuelve si el dedo desplaza y el toque largo sin click. Detalle en `docs/MOTION_NAVEGACION.md` §21. Videos para el titular en `scratchpad/tx-qa/owner/`.
+- **Publicado 08/11** (aprobación del titular «Publica todo»): merge `ec54444`, sin migraciones; `/api/version` = `ec54444f1959`. En producción, con demos (iPhone 15):
+  - **Alumno:** recorrió todas las pestañas dos veces; el indicador y el título coinciden en cada toque, CLS 0 y sin errores.
+  - **Sala:** «Abrir ficha del socio» abre la ficha sola (h1 «Martina…») y «Volver a Sala» regresa a Pendientes.
+  - **Coach:** desde el cajón fue a Programas con el foco en el h1, y Escape devuelve el foco a «Abrir menú».
+  - **Queda por probar en el iPhone del titular:** el toque largo sobre una pestaña.
+
+## Incidente «Task timed out after 300 seconds» en /api/admin — 08/11/2026 · PUBLICADO Y VERIFICADO (#80, `47fac4f`)
+
+- **Qué pasó:** 2 cortes de 300 s en REPI Admin (06/11 13:08 y 07/11 21:07 UTC) con la base sin nada raro. El pedido esperaba algo dentro del proceso.
+- **Causas confirmadas en local:**
+  1. **Pool trabado.** 13 transacciones usaban el `db` global dentro de `db.transaction`. En Vercel el pool tiene 3 conexiones, así que 3 pedidos así a la vez se trababan para siempre y colgaban la instancia. Reproducido con 3 aprobaciones simultáneas de una venta y triple clic en «Aprobar».
+  2. **Socket mudo.** postgres-js no pone tiempo máximo a las consultas, así que una consulta en un socket mudo esperaba unos 15 min.
+  - **Cuál fue en producción:** probablemente el 2. En producción hay 0 ventas cargadas (consulta del 08/11), así que el bloqueo por aprobaciones simultáneas (1) no pudo ser la causa. Es un defecto real pero latente. El socket mudo coincide con «1 caso aislado, base limpia» y con que nada quedara registrado. No hay registros de pedidos para confirmarlo (Hobby guarda 1 h).
+- **Corrección (sin migraciones):**
+  - **Transacciones:** pasan `tx` a todas las funciones que llaman (ventas, liquidaciones, inicio de entrenamiento, sala, agenda, privacidad, pegar día, plantillas, invitación del dueño). El push de «brief» se encola después del commit.
+  - **Pool:** `src/db/index.ts` agrega `idle_timeout` de 20 s, `max_lifetime` de 5 min y `connect_timeout` de 10 s.
+  - **Tiempos máximos:** `src/server/deadline.ts` define los tiempos. Con ellos:
+    - Admin responde 503 «timeout» a los 25 s y la función se corta a los 60 s.
+    - El cron comparte un presupuesto de 45 s y se corta a los 60 s.
+    - after() se abandona a los 20 s.
+    - web-push tiene un timeout de 10 s.
+    - El almacenamiento tiene timeouts de 15 y 60 s.
+  - **Interfaz:** «Aprobar», «Rechazar», «Pedir corrección» y «Generar borrador» se bloquean mientras corren. La clave idempotente de la liquidación se mantiene hasta que sale bien.
+- **Guardas y pruebas:**
+  - Guarda estática `tests/safety/transactions.check.ts` (en `test:guards`, corre en CI): falla si una transacción vuelve a pedir otra conexión.
+  - Regresión `tests/pool-deadlock.test.ts` con el pool real de 3 conexiones.
+  - `tests/deadline.test.ts`.
+- **Tiempos en el rol `repi_app` (aprobados por el titular el 09/11):** `scripts/operations/app-role-timeouts.sql`, con el respaldo previo (issue #87).
+  - Valores: `idle_in_transaction_session_timeout` 30 s, `lock_timeout` 15 s, `statement_timeout` 60 s.
+  - Margen: la consulta más lenta registrada de `repi_app` tardó 0,41 s (`pg_stat_statements`).
+  - Ninguna transacción de `src/` llama a un servicio externo dentro del callback (revisión por AST del 09/11).
+  - `ops:retention` no se conecta a la base.
+  - El respaldo usa `repi_backup`, con sus propios límites.
+  - Las migraciones alojadas entran con `set role`, así que no heredan estos valores, y fijan su propio `lock_timeout`.
+  - Rigen para las conexiones nuevas; el pool las renueva a los 300 s como máximo.
+  - Revertir: los tres `alter role repi_app reset …` del script.
+  - **APLICADO Y VERIFICADO el 09/11 (02:59 UTC)**, tras el respaldo verde `backup-20261109-025758-42553560073`:
+    - `pg_db_role_setting` lista los tres valores.
+    - El cron (cada corrida es una sesión nueva de `repi_app`) siguió en 200.
+    - Vercel sin errores de ejecución desde las 02:45.
+    - Supavisor conservaba una conexión de servidor de las 02:15: toma los valores cuando la recicla.
+- **Publicado 08/11:** merge `47fac4f`, sin migraciones. En producción: `/api/version` = `47fac4f44cc3`; `/api/admin/summary` sin sesión → 401; el cron por minuto siguió en 200 (`net._http_response`); Vercel sin errores de ejecución en los 30 min siguientes. Los tiempos del rol `repi_app` se aplicaron el 09/11 (ver arriba).
+- **Límite conocido:** si el peer desaparece del todo y ni siquiera contesta el cierre, `idle_timeout` no libera la conexión. Sólo lo acotan el 503 a los 25 s y el maxDuration.
+
+## Ejercicios por tiempo (D211): cinta con duración, velocidad e inclinación — 08/11/2026 · PUBLICADO Y VERIFICADO (#81, `b8f2c5c`; 0052 aplicada)
+
+- **Pedido del titular:** en «Cinta caminadora» el profe carga duración (min), velocidad (km/h) e inclinación (número, sin «%»). El alumno ve lo mismo y registra lo que hizo de verdad. La fuerza sigue con series/reps/carga/RIR y las demás actividades tienen campos propios. Spec y auditoría en `scratchpad/time-audit.md`, resumida en D211.
+- **Rama:** `claude/ejercicios-por-tiempo`, con main integrado.
+- **Dominio** (`packages/domain/src/activity.ts`, nuevo):
+  - Perfiles: fuerza, peso corporal, isométrico, cinta, bici, remo, elíptico, escaladora y duración.
+  - Rangos y pasos, validación, texto de la prescripción («10 min · 5 km/h · incl. 3») y valores por defecto.
+  - «Cinta caminadora» es sinónimo de «Cinta (caminata)», no una fila nueva.
+  - Training Intelligence no sugiere kilos ni RIR para actividades.
+  - Los reemplazos sólo van entre actividades.
+  - La importación SI2 lee «vel/incl/km/h» sin confundirlos con carga.
+- **Migración 0052 (aditiva):**
+  - `exercise.metrics_profile` (text, CHECK) y `set_log.metrics` (jsonb objeto, CHECK).
+  - Perfil de las filas del catálogo de REPI por nombre y tipo.
+  - Scripts: `hosted-0052.sql` (una transacción), `verify-0052.sh` y rollback `0052_time_metrics.down.sql`.
+  - El código de producción actual es compatible con 0052 aplicada, así que se aplica ANTES de integrar, previo «Respaldo».
+- **Servidor:**
+  - `logSet`, conflictos, historial y corrección aceptan `metrics`.
+  - Las guardas rechazan un editor viejo que perdería la actividad: 409 «Actualizá REPI».
+  - Tope de 200 reps intacto en filas de reps.
+  - Las alertas y tareas de sala muestran «12 min · 5,5 km/h · incl. 4».
+  - La exportación personal incluye las métricas.
+- **Pantallas:**
+  - Editores de coach, sala y Mis rutinas con sólo los campos del perfil.
+  - Entrenamiento del alumno con cronómetro persistente y −/+ por campo.
+  - Historial con tiempo en lugar de «0 kg».
+  - Cola offline con métricas.
+- **Revisión:** 3 lentes independientes y 15 hallazgos, todos corregidos con prueba (`git log`).
+- **Pruebas:**
+  - Dominio: 54 archivos / 1063.
+  - apps/web vitest: 36 archivos, incluidos `time-exercises` y `brain*`. Falla sólo `brain-context` «daysSinceLast», previa y dependiente de la hora (00–03 UTC).
+  - E2E: `timed-exercises` 12/12; regresiones de entrenamiento, sala, offline e importación en verde. `gym-editor-parity` móvil falló una vez y pasó al repetir: es intermitente.
+  - Typecheck y build OK.
+  - Capturas de teléfono para el titular en `scratchpad/time-shots/owner/`.
+- **Local:** `repi_dev` llegó al tope de 300 demos. Las E2E corren contra `repi_e2e_time`/`repi_e2e_tx`, bases locales propias. No se purgó nada.
+- **Publicado 08/11 (aprobación del titular «Publica»):**
+  1. «Respaldo» por issue #83 → release `backup-20261108-033638` verificado.
+  2. `hosted-0052.sql` como postgres en una transacción: 53 migraciones, 2 columnas y 2 CHECK, 191/191 filas del catálogo con perfil (`Cinta (caminata)` = `treadmill`), 0 ejercicios propios tocados; la pertenencia de postgres a `repi_app` volvió a su estado (`set_option` falso).
+  3. Merge `b8f2c5c`; `/api/version` = `b8f2c5c95478`.
+  4. Verificación con demos en producción (iPhone 15): el alumno ve «10 min · 5 km/h · incl. 3» y sólo duración, velocidad e inclinación (sin peso); registró 12 min → `reps 720`, `rir null`, métricas `{speedKmh: 5, incline: 3}`. El coach agrega «Cinta caminadora» y ve sólo los tres campos (sin RIR). Sin errores ni 5xx.
+- **Pruebas que dependían de la hora, corregidas con #80/#81:** `brain-context` (días según Argentina), `brain-coach` caso 52 (sesiones al mediodía de Argentina) y `gym.test` métricas (medir un segundo después; con #82).
+
+## /conoce · Experience 3 Motion 2 «El punto que ordena» — 08/11/2026 · PUBLICADO Y VERIFICADO (#82, `0c30322`)
+
+- **Pedido del titular:** la animación de `/conoce` «está decente… podría mejorarse incluso más… sé creativo y andá más allá»
+  y el logo «raro» que aparecía al final de 02: «o lo sacás o que se genere el logo/nombre real».
+- **Dónde:** worktree `/home/user/repi-cx`, rama `claude/conoce-ajustes` (PR abierto el 08/11, sin publicar). Plan, decisiones y evidencia:
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` (§10: commits y verificación de la ronda 1; §11: ronda 2; §12: ronda 3).
+- **Hecho (un commit por paso, P0–P7 + verificación):**
+  - P0 base: tienda y proyección `stage.project`, personajes (Valentina, Julián, Sofía), tomas nuevas y lente, sala con zoom
+    ≤ 2,4 y foco en blanco, director sin lecturas por cuadro, `Say`, `curves.ts`, `Roll` v2, sin desenfoques animados.
+  - P1 (02): los pedazos mandan trazos curvos al punto de la «ı», el punto se los traga, crece y el logo real se abre desde él;
+    corte de sala fría a viva y las tres pantallas reales (sala, socio, dueño).
+  - P2 (hero): el punto cae en arco sobre el rack de Valentina sin cruzar el texto y la luz se expande desde ahí; el 3D entra
+    después, en la misma cenital del SVG.
+  - P3 (03): la serie como subtítulo enorme con el motor real; teléfono con `TargetCard` real (ningún «53»); repeticiones 1→6.
+  - P4 (cierre): toda la sala vuelve al punto y el punto se acomoda en la «ı».
+  - P5–P7: módulos como tomas y «Que venga alguien → Voy» con el scroll; perspectivas al llegar y sin remontar; «PROBALO.»,
+    puertas sin reflujo, bordes curvos y pasos que se dibujan.
+- **Ronda 2 (revisión independiente, 07/11):** corregidos los 8 puntos (detalle y evidencia en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §11):
+  - cierre sin logo «raro»: no hay logo hasta que el punto llega a la «ı» y después nace entero desde el punto;
+  - el trazo «Voy» ya no queda suelto en el teléfono;
+  - ningún pedazo de 02 pisa el titular en iPhone 15 (nueva prueba e2e);
+  - 3D con equipos ≤ 58 px, personas cian sin luz y sin cuadro vacío en 03;
+  - recortes de 03 enteros, «62,5 kg × 8–10» en una línea y teléfono vertical en escritorio;
+  - el trazo de Gestión rodea el teléfono;
+  - Training Intelligence muestra la misma serie que 03 (`x3/EngineScreen.tsx`, compartido).
+  Más audacia: impacto del hero como evento de luz, 02 sin tiempos muertos y con golpe de cian en el corte, la sala que gira
+  en espiral alrededor del logo en el cierre y la sala que responde al mouse.
+  Pruebas: typecheck ✓; e2e `conoce` + `public` 65 ✓ + 1 omitida; Lighthouse móvil mediana 86 (TBT 98 ms, CLS 0, A11y 100);
+  CLS de recorrido 0,0011 / 0; axe 0 (20 pasadas); Impeccable 0; pausa sin cambios; SwiftShader en SVG.
+  Sin migraciones ni dependencias nuevas.
+- **Ronda 3 (segunda revisión independiente, 08/11).** La revisión encontró problemas sólo con el 3D, que se ve forzando
+  `?sala=high` en escritorio o `?sala=medium` en el teléfono. Todos corregidos; detalle y números en
+  `docs/comercial/EXPERIENCE_3_MOTION_2.md` §12.
+  - **02:** los pedazos ya no saltan cuando entra el 3D. Se ubican con `transform` y, con la escena a la vista, no se
+    reubican; lo hacen al salir de la pantalla. CLS esperando en 02: 0,1395 / 0,2089 → 0. CLS de recorrido con 3D:
+    escritorio ≤ 0,0012 y teléfono 0.
+  - **Hero:** fundido cruzado real del SVG al 3D (`data-svg="off"` recién al terminar), sin el cuadro sin sala.
+  - **Cierre en 3D:** el plano se encoge y se apaga del todo (`planFade`). Queda sólo el punto, sin la sala en miniatura.
+  - **Trazos de 02:** rodean el texto (`route`/`spline`). En el teléfono el párrafo se va antes de los trazos. Los pedazos
+    se apagan sobre el punto (≤ 9 px).
+  - **Teléfono:** sin anillos del impacto sobre el logo y el título. Cierre de 180svh a 230svh.
+  - **Pruebas:**
+    - typecheck ✓.
+    - Lighthouse móvil: 87 / 86 / 86, TBT 52 / 110 / 83 ms, CLS 0, A11y 100.
+    - CLS por defecto: 0,0005 en escritorio y 0 en el teléfono.
+    - Movimiento reducido y pausa: sin cambios.
+    - E2E `conoce` + `public`: 63 ✓, 1 omitida y 2 ✗. Las dos fallas son la misma prueba de demo, en mobile y desktop: la
+      API respondió 503 porque `repi_dev` tiene 301 entornos de demo de otras sesiones (tope 300, purga por cron). No
+      depende de esta ronda y no se tocó la base.
+  - **Videos para el titular:** regrabados en el scratchpad, `cx-motion/owner/`, con los mismos nombres.
+- **Archivos:** `apps/web/src/components/conoce/sala/{store,model,Stage,SalaSvg,SalaCanvas}.ts(x)`,
+  `apps/web/src/components/conoce/x3/{Hero,Problem,Training,Perspectives,Showcase,Demos,Proof,Finale,Say,Roll,curves,gsap,EngineScreen}.ts(x)`,
+  `apps/web/src/components/conoce/ConoceHub.tsx`, `apps/web/src/styles/conoce3.css`, `apps/web/e2e/conoce.spec.ts`.
+  `TargetCard.tsx` no se tocó (sólo se reutiliza).
+- **Pruebas:** typecheck ✓; e2e `conoce` + `public` 64/64 contra `next start` local; axe 0 (32 pasadas); Impeccable 0;
+  Lighthouse móvil mediana 86, TBT 117 ms, CLS 0; CLS de recorrido 0,0005 / 0; pausa sin cambios de píxeles; SwiftShader en
+  SVG. Vitest no se corrió en apps/web (base de pruebas compartida). Sin migraciones, sin dependencias nuevas.
+- **Decisiones:** 3 series en el ejemplo (con 4 el motor no sube la carga sobre un historial de 3); el subtítulo de 03 usa
+  `targetLine` de la tarjeta; los puntos de «escribiendo» pasaron a texto (Impeccable); la prueba e2e de la cabecera acepta el
+  `aria-label` del logo (fallaba igual antes de esta pasada).
+- **Pedidos que siguen en su propio paso:** «Abrir ficha socio» desde Sala debe abrir una página sólo con la ficha de ese
+  socio (tarea #49, pedido del titular del 07/11) y las transiciones de las apps (#45). No se tocaron en esta pasada.
+- **Publicado 08/11** (aprobado por el titular tras ver los videos): merge `0c30322`, sin migraciones. En producción (Playwright, iPhone 15 y escritorio 1440): recorrido completo sin errores de consola ni respuestas 4xx/5xx; CLS 0 (teléfono) y 0,0009 (escritorio); logo real en todo el recorrido.
+- **Próxima acción:** revisar en Speed Insights el LCP de campo de `/conoce` (objetivo ≤ 2,5 s; en laboratorio 3,9 s) cuando junte visitas.
+
+## Adaptive Coaching 3.0 (D210) — 07/11/2026 · PUBLICADO Y VERIFICADO (#75, `ef22c73`; renumerado: D209 y 0050 quedaron para la fuerza de ventas, #63)
+
+- **Pedido:** máster del titular, guardado en `docs/adaptive/AC3_MASTER_PROMPT.md`.
+  - Autoriza el bloque de punta a punta: migraciones aditivas, merge y deploy con respaldo y pruebas críticas en verde.
+  - Prohíbe gastos nuevos sin aprobación, borrar o modificar datos reales, migraciones destructivas y notificaciones masivas sin consentimiento.
+- **Gasto de IA:** aprobado por el titular el 07/11 con los topes previstos: 30 mensajes por persona por día, US$2 por día en total y US$20 por mes por organización. Se cambia en Admin → Coaching IA. Sin IA o al tope, responde por reglas.
+- **Publicación** (en este orden):
+  1. CI en verde sobre `f76a19c`. Antes falló una vez `brain-push`, una prueba intermitente: con más de 1000 avisos pendientes de otras pruebas, la fila quedaba fuera de la tanda. Se corrigió aislando la cola en la prueba, sin tocar código de la aplicación.
+  2. Respaldo `backup-20261107-165801-42393734774` en verde (issue #76).
+  3. `hosted-0051.sql` aplicado en producción y verificado: 52 migraciones, nueve tablas con dueño `repi_app`, RLS activo y ningún permiso público.
+  4. Squash merge `ef22c73`; producción en `ef22c73adb15` desde las 17:26 UTC.
+- **Verificación en producción** (demos ficticias):
+  - **Alumno, en teléfono:**
+    - la tarjeta de Inicio funciona;
+    - «¿Qué me toca hoy?» responde con el día y el atajo;
+    - «me duele mucho el pecho» da la respuesta fija con 107/911;
+    - «me duele la rodilla» propone registrar la molestia, con confirmación.
+  - **Coach:** «Señales de REPI» se ve en Rendimiento.
+  - **Errores:** ninguno, ni 5xx ni errores de ejecución.
+  - **Base:** 0 llamadas de IA. El único hilo es el de la cuenta demo.
+  - El detalle está en §10 del contrato.
+- **Contrato:** `docs/adaptive/ADAPTIVE_COACHING_3.md`.
+- **Matriz de pruebas:** `docs/adaptive/AC3_PRUEBAS.md`.
+- **Decisión:** D210 en `docs/DECISIONS.md`.
+- **Privacidad:** sección «Asistente REPI» en `docs/PRIVACIDAD_OPERACION.md`.
+- **Migración 0051 `brain`** (aditiva, nueve tablas):
+  - Archivos: `hosted-0051.sql`, `verify-0051.sh` y `rollback/0051_brain.down.sql`.
+  - Mismo SQL y mismo sha256 que la 0050 original; `when` nuevo en el journal, posterior al de 0050.
+  - Ensayo local en una copia descartable, todo correcto: aplicación, RLS, restricciones, cascada, reintento, reversión negada con datos y reaplicación.
+- **Revisión independiente y correcciones:**
+  - Confirmados: 8 de dominio, 13 de servidor y 11 de interfaz, más los conocidos K1–K3. Todos corregidos, con pruebas de regresión.
+  - Destacado: alarmas de salud que se escapaban («me duele mucho el pecho», «me bajó la presión»).
+  - Una verificación independiente encontró 5 problemas bajos nuevos, también corregidos:
+    - duración máxima de las rutas frente al reclamo;
+    - una falla después del efecto ya no duplica la acción;
+    - alimentación sin falsos positivos;
+    - una molestia propuesta vale todo el día;
+    - el panel pasa a hoja cuando no entra arriba del dock.
+- **Pruebas (local):**
+  - Suite completa: dominio 978/978 y web 707/707 (95 archivos), sobre `repi_test` descartable.
+  - E2E del asistente y de regresión: 36 en verde y 4 omitidas (corren en un solo formato). Archivos: brain, brain-staff, member-workout, roles, api-auth-sweep, offline-reload y los de sala.
+- **Primera franja proactiva (18 h, 07/11), verificada:**
+  - 60 llamadas del proceso programado, todas con respuesta 200.
+  - 10 personas reales evaluadas y 6 tarjetas dentro de la app.
+  - 0 push, 0 fallas, 0 llamadas de IA.
+  - La corrida más larga tardó 738 ms.
+  - Detalle en §10 del contrato.
+- **Aparte:** un corte por tiempo de 300 s en `/api/admin/[[...path]]` (21:07 UTC). Ya había pasado el 06/11, antes de AC3, y ninguna consulta superó los 5 s en la base. Ver la entrada del incidente (08/11) arriba.
+- **Seguridad, preexistente — RESUELTO el 09/11 (#79)** (no lo introdujo AC3):
+  - **Qué pasaba:** el job de pg_cron `repi-notifications` llevaba el bearer de `CRON_SECRET` escrito en el comando, y pg_cron escribe ese comando en `postgres_logs` cada minuto. Esa clave también habilita `/api/cron/mail-test`, `alert-test` y `mail-domain`.
+  - **Hecho:**
+    - 08/11: `scripts/operations/cron-secret-vault.sql` aplicado como postgres. La clave nueva la generó la base y vive en Vault (`repi_cron_secret`). `repi_private.cron_bearer()` sólo la ejecuta `repi_app` (`anon`, `authenticated` y `service_role` sin acceso).
+    - 09/11: el titular copió la clave de Vault a Vercel `CRON_SECRET` (Production) y volvió a desplegar.
+    - 09/11: `repi-notifications` reprogramado como `repi_app` (permiso temporal `set` concedido y revocado en la misma transacción). El comando ahora llama a `repi_private.cron_bearer()`.
+  - **Verificado en producción el 09/11:**
+    - Ningún job `repi-*` tiene `Bearer ` en el comando (0 filas).
+    - `net._http_response` dio 200 a las 02:51 UTC con la clave de Vault y el despliegue nuevo (`dpl_Ac6HytX6cyvaGkrem4DMe2P1wL3y`, `ddddce8`).
+    - La membresía de postgres en `repi_app` quedó como estaba (admin sí, set no, otorgada por supabase_admin).
+  - **Hueco durante el cambio:** una sola corrida con 404 (02:50 UTC), mientras terminaba el build. El endpoint responde 404 cuando la clave no coincide, y la corrida siguiente retomó lo pendiente.
+  - **La clave vieja** quedó en los registros viejos de Supabase, pero ya no sirve: Vercel sólo acepta la nueva.
+  - **Próxima rotación:** DESPLIEGUE.md, «Clave de los jobs (`CRON_SECRET`) en Vault y rotación».
+- **Queda por ver en producción:**
+  - **Primera respuesta con IA:** la clave de OpenAI ya estaba configurada; aplica los topes de `DEFAULT_POLICY`.
+  - **REPI Admin → Coaching IA:** requiere una cuenta de administración real.
+- **Próximo:** ejercicios por tiempo (cinta: duración, velocidad e inclinación), en `claude/ejercicios-por-tiempo`. Lleva la migración 0052 aditiva, que requiere respaldo antes de aplicarse.
+
+## Sala · Mensajes: «Nuevo mensaje» para elegir un socio y escribirle — 07/11/2026 · PUBLICADO Y VERIFICADO (#74, `38e500c`)
+
+- **Pedido del titular:** «vos deberías poder seleccionar un socio y mandarle mensaje. No le deja al entrenador».
+- **Problema:** «Mensajes» de sala listaba sólo las conversaciones que ya tenían mensajes, y no había forma de empezar una.
+- **Cambio:**
+  - **Botón:** «Nuevo mensaje» (`components/gym/NewMessage.tsx`). Abre un buscador de socios de la sede y abre o crea la conversación (`POST /members/{id}/conversation`).
+  - **Permiso:** el botón sólo aparece con `floor.work`.
+  - **Lista:** `floorThreads(..., withId)` incluye la conversación elegida aunque todavía no tenga mensajes (`ChatPane` con `includeSelected`).
+- **E2E:** `gym-new-message.spec.ts`.
+- **Producción (demo de sala):** se elige un socio, la conversación aparece seleccionada con su caja de texto y no hay errores.
+- **Sin migraciones.**
+
+
+## Sala: combinar, guía de demo, ficha del socio y editor a la par del coach — 07/11/2026 · PUBLICADO Y VERIFICADO (#68–#71)
+
+- **#68 · Combinar ejercicios** (pedido urgente de un entrenador de sala, «hacelo ya… y lanzalo»):
+  - «Combinar con el siguiente» y «Separar» en la fila de cada ejercicio, en el editor de sala y en el constructor del coach. Antes la opción estaba escondida dentro de «Series y técnica».
+  - La lógica está en el dominio (`combineWithNext`, `separateFromGroup`, `combinedWithNext` en `packages/domain/src/prescription.ts`).
+  - «Editar programa» espera la versión nueva después de guardar.
+  - Producción: demo de sala, A1/A2 guardado y reabierto, sin errores.
+- **#69 · Guía de demo:** `DemoTour` (layout raíz) se muestra sólo en `/app`, `/coach` y `/gym`. Antes la píldora «Demo · Guía · Otro perfil» quedaba flotando en /conoce y /demo durante las 6 h de la sesión de demo.
+  - Producción: antes 1 píldora en cada página; después 0.
+  - E2E: `demo-tour-scope.spec.ts`.
+- **#70 · Ficha del socio como página:** pantalla nueva `member` (`?s=member&sel=…`, `MemberPage` en `components/gym/Members.tsx`).
+  - Sala, Mi turno y Tus pendientes abren sólo la ficha, con el nombre como título, «Volver a Sala» y «Todos los socios».
+  - En «Socios», por debajo de 836 px se ve la lista o la ficha, una por vez (container query sobre `.gy-members`).
+  - Producción: escritorio y teléfono, sin lista y con el programa a la vista, sin errores.
+  - E2E: `gym-member-page.spec.ts`.
+- **#71 · Editor de sala a la par del coach** (pedido: «tiene que aparecer ahí también… revisá todo»). La revisión función por función mostró que ya estaban las piezas de Urko: series y técnica, reemplazos, notas, carga sugerida, copiar/pegar días, asistente, importar y TI. Faltaba:
+  - borrador local por socio y revisión: cerrar con ×, Escape o tocando afuera ya no pierde lo armado; «Descartar cambios»; «Cancelar» pregunta antes;
+  - subir ejercicio ↑ y quitar día;
+  - «Indicación para el socio»;
+  - aviso de circuito con «Igualar a N vueltas»;
+  - filas numeradas 01, 02…
+  - E2E: `gym-editor-parity.spec.ts`.
+- **Pruebas locales del conjunto** (servidor de producción local, demos ficticias): 21 E2E en verde y 1 omitida (sólo corre en teléfono). Archivos: gym-editor-parity, gym-member-page, demo-tour-scope, combine-exercises, connect-program y coach-workflow.
+- **Pendiente conocido, no relacionado:** `e2e/mobile-layout.spec.ts` «alumno: importa una rutina con métodos escritos» falla en local (no encuentra «Método: … Drop set» en «Revisá tu rutina»). La E2E no corre en CI; revisar contra SI2.
+- **Sin migraciones.**
 
 ## Sala: «Crear programa» desde la solicitud del socio — 07/11/2026 · PUBLICADO Y VERIFICADO (#65, 6fa1a36)
 

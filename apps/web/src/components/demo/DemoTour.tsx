@@ -2,12 +2,22 @@
 // Recorrido guiado de la demo (D85): aparece sólo en sesiones de demo y va paso a paso sobre la app real, resaltando dónde
 // tocar y por qué le sirve a cada perfil. Navega solo entre pantallas tocando el menú real. Se puede salir y volver a
 // abrir con «Guía». Teclado: flechas para avanzar o volver, Escape para cerrar. Movimiento reducido: sin transiciones.
+// Sólo se muestra dentro de las apps de la demo (/app, /coach, /gym): la sesión de demo dura 6 h y el visitante vuelve a
+// /conoce, /demo o al inicio. Ahí la guía no va (pedido del titular, 07/11: «queda flotando por más que haya salido»).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import type { DemoRole } from "@/server/sandbox/services";
 
 type Step = { t: string; d: string; target?: string; go?: boolean };
 const TOURS: Record<DemoRole, { who: string; steps: Step[] }> = {
+  // REPI Control (D213): la demo empieza en la pantalla de rutinas (/rutinas, sin guía). Si después entra al panel del
+  // gimnasio como Laura, la guía explica quién controla los programas.
+  control: { who: "Dueña de Gimnasio Atlas", steps: [
+    { t: "Gimnasio Atlas · REPI Control", d: "Sos Laura, la dueña. En Atlas los programas los arma y los cambia sólo el equipo de sala: los socios los consultan y registran lo que hicieron en la pantalla del gimnasio o en la app, sin poder modificarlos. Todo es ficticio y se borra solo." },
+    { t: "Pantalla de rutinas", d: "Registrás cada tablet o monitor con un enlace que se usa una vez, y la revocás cuando quieras. Cada socio entra con su código y su PIN, sin email ni contraseña.", target: "Pantalla de rutinas", go: true },
+    { t: "Tu equipo, tus permisos", d: "Si alguien deja el gimnasio, le quitás el acceso desde Equipo: deja de ver socios y programas en el pedido siguiente y sus tareas vuelven a la cola.", target: "Equipo", go: true },
+  ] },
   owner: { who: "Dueño o gerente", steps: [
     { t: "Bienvenido a Gym Norte", d: "Sos Martín, el dueño. En dos minutos te mostramos cómo REPI ordena tu gimnasio. Todo es ficticio y se borra solo: tocá lo que quieras." },
     { t: "Tu gimnasio de un vistazo", d: "Socios activos, asistencia, servicio del equipo y alertas, por sede. Sin planillas.", target: "Ejecutivo", go: true },
@@ -51,14 +61,21 @@ const TOURS: Record<DemoRole, { who: string; steps: Step[] }> = {
   ] },
 };
 
+// M06: las secciones visitadas quedan vivas y ocultas (Activity); se elige el objetivo visible.
+const shownEl = (el: HTMLElement) => (typeof el.checkVisibility === "function" ? el.checkVisibility() : el.getClientRects().length > 0);
 function findTarget(label: string): HTMLElement | null {
-  const byAttr = document.querySelector<HTMLElement>(`button[title="${label}"], [aria-label="${label}"]`);
-  if (byAttr) return byAttr;
-  return [...document.querySelectorAll<HTMLElement>("nav button, button")].find((b) => b.textContent?.trim().startsWith(label)) ?? null;
+  const byAttr = [...document.querySelectorAll<HTMLElement>(`button[title="${label}"], [aria-label="${label}"]`)];
+  const attr = byAttr.find(shownEl) ?? byAttr[0];
+  if (attr) return attr;
+  const byText = [...document.querySelectorAll<HTMLElement>("nav button, button")].filter((b) => b.textContent?.trim().startsWith(label));
+  return byText.find(shownEl) ?? byText[0] ?? null;
 }
+const APP_PATHS = ["/app", "/coach", "/gym"];
+const tourShowsOn = (path: string | null) => !!path && APP_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 const visible = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; };
 
 export function DemoTour() {
+  const inApp = tourShowsOn(usePathname());
   const [role, setRole] = useState<DemoRole | null>(null);
   const [i, setI] = useState(0);
   const [open, setOpen] = useState(true);
@@ -67,19 +84,19 @@ export function DemoTour() {
   const key = role ? `repi:tour:${role}` : "";
 
   useEffect(() => {
-    if (!document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
+    if (!inApp || role || !document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
     fetch("/api/demo/me", { credentials: "same-origin" }).then((r) => r.json()).then((d: { role: DemoRole } | null) => {
       if (!d) return;
       setRole(d.role);
       try { const saved = JSON.parse(sessionStorage.getItem(`repi:tour:${d.role}`) ?? "null"); if (saved) { setI(saved.i ?? 0); setOpen(saved.open ?? true); } } catch { /* */ }
     }).catch(() => {});
-  }, []);
+  }, [inApp, role]);
   useEffect(() => { if (key) try { sessionStorage.setItem(key, JSON.stringify({ i, open })); } catch { /* */ } }, [key, i, open]);
 
   const step = role ? TOURS[role].steps[i] : null;
   // Al entrar a un paso con destino: toca el menú real (navega) y resalta el elemento.
   useEffect(() => {
-    if (!open || !step?.target) { setRect(null); return; }
+    if (!inApp || !open || !step?.target) { setRect(null); return; }
     let tries = 0, done = false;
     const t = setInterval(() => {
       const el = findTarget(step.target!);
@@ -90,19 +107,24 @@ export function DemoTour() {
       if (++tries > 20) clearInterval(t);
     }, 150);
     return () => clearInterval(t);
-  }, [open, step]);
-  useLayoutEffect(() => { if (open) card.current?.focus(); }, [open, i]);
+  }, [inApp, open, step]);
+  useLayoutEffect(() => { if (inApp && open) card.current?.focus(); }, [inApp, open, i]);
   const total = role ? TOURS[role].steps.length : 0;
   const next = useCallback(() => setI((x) => Math.min(total - 1, x + 1)), [total]);
   const prev = useCallback(() => setI((x) => Math.max(0, x - 1)), []);
+  // FSA1 (UI): al cerrar la guía con Esc o «Salir», el foco pasa a «Guía» de la píldora (antes quedaba en <body>).
+  const guide = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+  const close = useCallback(() => { refocus.current = true; setOpen(false); }, []);
+  useEffect(() => { if (!open && refocus.current) { refocus.current = false; guide.current?.focus(); } }, [open]);
   useEffect(() => {
-    if (!open) return;
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") prev(); };
+    if (!inApp || !open) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") close(); if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") prev(); };
     addEventListener("keydown", k);
     return () => removeEventListener("keydown", k);
-  }, [open, next, prev]);
+  }, [inApp, open, next, prev, close]);
 
-  if (!role || !step) return null;
+  if (!inApp || !role || !step) return null;
   const last = i === total - 1;
   return createPortal(
     <>
@@ -118,12 +140,12 @@ export function DemoTour() {
               ? <a className="dt-pri" href="/demo">Probar otro perfil</a>
               : <button type="button" className="dt-pri" onClick={next}>{i === 0 ? "Empezar" : "Siguiente"}</button>}
           </div>
-          <button type="button" className="dt-x" onClick={() => setOpen(false)}>{last ? "Explorar por mi cuenta" : "Salir de la guía"}</button>
+          <button type="button" className="dt-x" onClick={close}>{last ? "Explorar por mi cuenta" : "Salir de la guía"}</button>
         </div>
       ) : (
         <div className="dt-pill">
           <span>Demo</span>
-          <button type="button" onClick={() => setOpen(true)}>Guía</button>
+          <button ref={guide} type="button" onClick={() => setOpen(true)}>Guía</button>
           <a href="/demo">Otro perfil</a>
         </div>
       )}

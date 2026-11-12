@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { Head, Seg, fmt, useLoad, type GymScreen, type Shell } from "./shared";
+import { PushCard } from "./Access";
 
 type Notice = { id: string; kind: string; title: string; body: string; at: string; read: boolean; resolved: boolean; resolution: string; go: { s: GymScreen; sel: string } };
 
@@ -18,6 +19,8 @@ export function NoticesScreen({ shell }: { shell: Shell }) {
       <Head kicker={`Lo que te avisamos en los últimos ${d.data?.windowDays ?? 14} días, llegue o no el push. «Resuelto» lo marca quien atendió.`} title="Avisos">
         {!!d.data?.items.some((n) => !n.read) && <button type="button" className="btn" onClick={async () => { await read(null); d.reload(); }}>Marcar todo como leído</button>}
       </Head>
+      {/* FSA1: la mayoría de los avisos del staff quedaban «skipped» por no tener el push activado; acá también se activa. */}
+      <PushCard flash={shell.flash} who="floor" />
       <Seg label="Filtro" value={f} onChange={setF} options={[["open", "Sin resolver"], ["all", "Todos"]]} />
       {d.err && <p role="alert" className="err-box">{d.err}</p>}
       {!d.data ? <p className="muted">Cargando…</p> : !items.length ? <div className="empty">{f === "open" ? "No hay avisos sin resolver." : "No hay avisos."}</div> : (

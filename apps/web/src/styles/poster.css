@@ -17,4 +17,5 @@ html, body { background: var(--core-navy900); }
 .pst-steps ol { margin: 0; padding-left: 5mm; font-size: 12pt; line-height: 1.5; color: #E2E8F0; }
 .pst-steps b { color: #fff; }
 .pst-foot { margin-top: auto; padding-top: 5mm; font-size: 10.5pt; color: #94A3B8; }
-@media screen and (max-width: 640px) { .pst { width: 100%; height: auto; min-height: 100vh; } .pst-steps { grid-template-columns: 1fr; } .pst h1 { font-size: 38pt; } }
+/* FSA1: el A4 mide 210 mm (≈ 794 px): debajo de ese ancho de pantalla (tabletas en vertical) se adapta en vez de desbordar. */
+@media screen and (max-width: 800px) { .pst { width: 100%; height: auto; min-height: 100vh; } .pst-steps { grid-template-columns: 1fr; } .pst h1 { font-size: 38pt; } }

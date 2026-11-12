@@ -90,7 +90,7 @@ export function ShiftScreen({ shell }: { shell: Shell }) {
             <div key={t.id} className="todo">
               <span className="dot" style={{ background: t.overdue ? "var(--ui-warning)" : "var(--ui-accent)" }} />
               <span><b>{t.member ?? "Sin socio"}</b><small>{TASK_CATEGORY[t.category]} · {SOURCE[t.source] ?? t.source}{t.overdue ? " · vencida" : ""}</small></span>
-              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir socio</button>}
+              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.openMember(t.gymMemberId!, { name: t.member })}>Abrir socio</button>}
             </div>
           ))}
         </section>
@@ -161,7 +161,7 @@ export function QueueScreen({ shell }: { shell: Shell }) {
               {t.status === "pending_acceptance" && <button type="button" className="btn sm pri" onClick={() => act(t, "accept", () => `Aceptaste el traspaso ${t.ref}.`)}>Aceptar</button>}
               {tab === "mine" && t.status === "open" && <button type="button" className="btn sm pri" aria-busy={busy === t.id + "complete" || undefined}
                 onClick={() => act(t, "complete", (r) => (r as { invite: string | null }).invite === "pending" ? `${t.ref} completada. ${t.member?.split(" ")[0] ?? "El socio"} recibirá una invitación opcional para opinar.` : `${t.ref} completada y registrada.`)}>Completar</button>}
-              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.go("members", { sel: t.gymMemberId })}>Abrir socio</button>}
+              {t.gymMemberId && <button type="button" className="btn sm" onClick={() => shell.openMember(t.gymMemberId!, { name: t.member })}>Abrir socio</button>}
             </TaskCard>
           ))}
           {!list.length && <div className="empty">{empty}</div>}

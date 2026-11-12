@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { shrinkImage } from "@/lib/image";
 import { Modal } from "@/components/ui/Modal";
 import { Head, fmt, nf, useAct, useLoad, when, type Shell } from "./shared";
+import { MemberKioskCard } from "./Kiosk";
 
 type Post = { id: string; type: "novedad" | "descuento"; title: string; text: string; badge: string | null; imageId: string | null; validUntil: string | null; sede: string; expired: boolean; createdAt: string };
 type Ch = { id: string; title: string; rule: string; unit: ChallengeUnit; lowerIsBetter: boolean; category: keyof typeof CHALLENGE_CATEGORIES; prize: string; endsOn: string; status: string; sede: string; record: string; holder: string | null; participants: number; pending: number; exercise: string | null };
@@ -38,7 +39,7 @@ function useImage(orgId: string, flash: (t: string) => void) {
 function LocField({ com, value, onChange }: { com: Com; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">Dónde se publica
-      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "400 14px var(--font-ui)" }}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 42, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "400 var(--touch-fs, 14px) var(--font-ui)" }}>
         {com.allLocations && <option value="">Todas las sedes</option>}
         {com.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
@@ -407,6 +408,8 @@ export function DeskCard({ shell }: { shell: Shell }) {
               <button type="button" className="btn sm pri" onClick={() => run(p.id, () => api(`/api/gym/${shell.orgId}/desk/prizes/${p.id}`, { body: {} }), "Premio entregado. El socio recibe el aviso.").then(() => setCard({ ...card, prizes: card.prizes.filter((x) => x.id !== p.id) }))}>Entregar</button></div>
           ))}
           {!card.prizes.length && <span className="muted">Sin premios para retirar.</span>}
+          {/* REPI Control (D213): recepción entrega el código y el PIN de la pantalla de rutinas al verificar el carnet. */}
+          {card.active && shell.ctx.kiosk && <MemberKioskCard key={card.gymMemberId} shell={shell} memberId={card.gymMemberId} name={card.name} inline />}
         </div>
       )}
     </section>

@@ -6,17 +6,21 @@
 // · Error o vacío: lo resuelve quien lo usa con su propia UI y reintento; este componente nunca queda en bucle.
 // · Movimiento reducido: indicador y texto estáticos; resultado inmediato.
 // Listo para Body Intelligence cuando exista su flujo real (hoy no hay endpoint: pendiente en motion.md).
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/motion";
 
 export const AMBIENT_DELAY_MS = 180;
 
-/** Fases del revelado para un recurso que pasa de pendiente a listo (o error). */
+/**
+ * Fases del revelado para un recurso que pasa de pendiente a listo (o error). Va en useLayoutEffect: el cruce («leaving»)
+ * empieza en el mismo cuadro en que llegan los datos. Con useEffect, en un teléfono lento se pintaba un cuadro con el
+ * contenido entero y recién después se apagaba bajo el ambiente y volvía (contenido → vacío → contenido; QA M06, Tu gym).
+ */
 export function useReveal(settled: boolean) {
   const [ambient, setAmbient] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const wasAmbient = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (settled) {
       if (wasAmbient.current) {
         wasAmbient.current = false;

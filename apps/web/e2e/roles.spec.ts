@@ -12,6 +12,9 @@ for (const role of ["coach", "owner", "floor"] as DemoRole[]) {
     // En el teléfono el menú es un panel que se abre con «Abrir menú».
     const menu = page.getByRole("button", { name: "Abrir menú" });
     const openMenu = async () => { if ((await menu.isVisible().catch(() => false)) && (await menu.getAttribute("aria-expanded")) !== "true") await menu.click(); };
+    // M06: el cajón cerrado no se expone (visibility: hidden) y mientras la app carga no hay botón de menú; en el teléfono se
+    // espera ese botón (la app ya cargó) antes de abrirlo.
+    if (info.project.name === "mobile") await expect(menu).toBeVisible();
     await openMenu();
     await expect(nav).toBeVisible();
     const items = await nav.getByRole("button").all();

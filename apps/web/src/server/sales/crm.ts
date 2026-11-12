@@ -6,6 +6,8 @@ import {
   missingOpportunityFields, normalizeEmail, type DupCandidate, type DupSignal, type Stage,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import { PRODUCT_MODE_LABEL } from "@/content/conoce";
+import type { Tx } from "../access/util";
 import { AccessError, NF, audit, clean, isDay, logActivity, notifyAdmins, notifyRep, requireRep, salesAdmin, today, type Rep } from "./core";
 
 const { salesProspect: P, salesOpportunity: O, salesActivity: A, salesRep, salesRequest, organization, clientContract, commercialLead, user } = schema;
@@ -57,9 +59,9 @@ function oppValues(p: Partial<OpportunityInput>) {
 
 // ── Duplicados ──────────────────────────────────────────────────────────────
 type Match = { type: "client" | "prospect" | "lead"; id: string; name: string; ownerRepId: string | null; signals: DupSignal[]; strong: boolean };
-export async function scanDuplicates(c: DupCandidate, excludeProspectId?: string): Promise<Match[]> {
+export async function scanDuplicates(c: DupCandidate, excludeProspectId?: string, q: Tx | typeof db = db): Promise<Match[]> {
   const out: Match[] = [];
-  const orgs = await db.select({ id: organization.id, name: organization.name, cuit: organization.cuit, isDemo: organization.isDemo, legal: clientContract.legalName, email: clientContract.responsibleEmail })
+  const orgs = await q.select({ id: organization.id, name: organization.name, cuit: organization.cuit, isDemo: organization.isDemo, legal: clientContract.legalName, email: clientContract.responsibleEmail })
     .from(organization).leftJoin(clientContract, eq(clientContract.orgId, organization.id));
   for (const o of orgs) {
     if (o.isDemo) continue;
@@ -68,7 +70,7 @@ export async function scanDuplicates(c: DupCandidate, excludeProspectId?: string
     const signals = [...new Set([...s.signals, ...s2.signals])];
     if (signals.length) out.push({ type: "client", id: o.id, name: o.name, ownerRepId: null, signals, strong: s.strong || s2.strong });
   }
-  const pros = await db.select().from(P).where(isNull(P.archivedAt));
+  const pros = await q.select().from(P).where(isNull(P.archivedAt));
   for (const p of pros) {
     if (p.id === excludeProspectId) continue;
     const s = duplicateSignals(c, { name: p.name, cuit: p.cuit, email: p.email, phone: p.phone, website: p.website, city: p.city });
@@ -333,7 +335,9 @@ export async function leadToProspect(actorId: string, leadId: string, p: { repId
   if (ownerId && (!owner || owner.status !== "active")) throw new AccessError("invalid", "Elegí un vendedor activo.");
   return db.transaction(async (tx) => {
     const [row] = await tx.insert(P).values({ kind: l.kind === "coach" ? "coach" : "gym", name: l.orgName === "—" ? l.contactName : l.orgName, email: l.email, phone: l.phone, contactName: l.contactName,
-      notes: l.message, source: ref ? "referral_link" : "web_lead", capturedOn: l.createdAt.toISOString().slice(0, 10), ownerRepId: owner?.id ?? null, originRepId: ref?.id ?? null,
+      // D215: la modalidad que eligió en el formulario viaja con el prospecto (sin columna nueva: va en las notas).
+      notes: [l.message, l.productMode && PRODUCT_MODE_LABEL[l.productMode] ? `Modalidad de interés: ${PRODUCT_MODE_LABEL[l.productMode]}.` : null].filter(Boolean).join("\n") || null,
+      source: ref ? "referral_link" : "web_lead", capturedOn: l.createdAt.toISOString().slice(0, 10), ownerRepId: owner?.id ?? null, originRepId: ref?.id ?? null,
       commercialLeadId: l.id, createdBy: actorId }).returning();
     if (owner) await tx.insert(O).values({ prospectId: row.id, repId: owner.id });
     await tx.update(commercialLead).set({ status: "contacted" }).where(and(eq(commercialLead.id, l.id), eq(commercialLead.status, "new")));

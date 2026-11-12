@@ -267,6 +267,34 @@ describe("REPI Connect · reglas proactivas", () => {
     const notes = await (await import("@/server/gym/notices")).myStaffNotices(w.t1, w.org);
     expect(notes.items.filter((i) => i.go.sel === req.id).map((i) => i.kind).sort()).toEqual(["assist_due", "assist_new", "assist_wait"]);
   });
+
+  it("FSA1: sin nadie en turno, el pedido esperando avisa a la gestión de la sede (y queda en su bandeja aunque no tenga push)", async () => {
+    const w = await world();
+    const old = new Date(Date.now() - 20 * 60_000);
+    const req = await cn.memberCreate(w.vale.userId, { reason: "duda" }, old);
+    const rows = async () => (await db.select({ u: schema.notificationOutbox.userId, k: schema.notificationOutbox.kind, d: schema.notificationOutbox.dedupeKey })
+      .from(schema.notificationOutbox)).filter((x) => x.d.includes(req.id));
+    expect(await rows()).toEqual([]); // nadie en turno: el alta del pedido no tiene a quién avisar
+    await cn.connectSweep();
+    const to = (await rows()).filter((x) => x.k === "assist_wait").map((x) => x.u).sort();
+    // Gerencia y coordinación de la sede A y el dueño; nunca la sala de otra sede ni socios.
+    expect(to).toEqual([w.owner, w.manager, w.coord].sort());
+    const { processOutbox } = await import("@/server/push/services");
+    await processOutbox(200);
+    const [st] = await db.select({ s: schema.notificationOutbox.status, e: schema.notificationOutbox.lastError }).from(schema.notificationOutbox)
+      .where(eq(schema.notificationOutbox.dedupeKey, `assistwait:${req.id}:${w.manager}`));
+    expect(st.s).toBe("skipped"); // sin dispositivos: el push no sale…
+    const notes = await (await import("@/server/gym/notices")).myStaffNotices(w.manager, w.org);
+    expect(notes.items.find((i) => i.go.sel === req.id)).toMatchObject({ kind: "assist_wait", read: false, resolved: false }); // …pero el aviso queda en su bandeja
+    expect(notes.unread).toBeGreaterThanOrEqual(1);
+    // Con alguien en turno, el aviso va sólo a la sala (comportamiento de siempre).
+    await gym.startShift(w.t1, w.org, w.A);
+    const req2 = await cn.memberCreate(w.juli.userId, { reason: "duda" }, old);
+    await cn.connectSweep();
+    const to2 = (await db.select({ u: schema.notificationOutbox.userId, d: schema.notificationOutbox.dedupeKey }).from(schema.notificationOutbox))
+      .filter((x) => x.d.startsWith(`assistwait:${req2.id}`)).map((x) => x.u);
+    expect(to2).toEqual([w.t1]);
+  });
 });
 
 describe("REPI Connect · demo comercial", () => {

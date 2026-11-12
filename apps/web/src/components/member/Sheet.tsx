@@ -1,12 +1,13 @@
 "use client";
 // Hoja inferior de App Alumno v4 (`fbSheet`): título, cierre, grupos de chips, aviso, texto, video y acción.
 // Accesible: diálogo modal, foco inicial y atrapado, Esc cierra, fondo inerte, foco restaurado.
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBackdropClose } from "@/components/ui/backdrop";
 import { Ic } from "@/components/ui/Ic";
 import { VideoCamera } from "@phosphor-icons/react";
 import { useScrollLock } from "@/components/ui/scrollLock";
+import { ghostOut } from "@/lib/ghost";
 
 export type SheetGroup<T extends string | number> = { label: string; minW?: number; opts: [T, string][]; value: T | null | undefined; onPick: (v: T) => void };
 
@@ -24,15 +25,20 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
   close.current = onClose;
   useScrollLock();
   const backdrop = useBackdropClose(onClose);
+  // M06: al cerrar, la hoja deja de existir en el acto (foco, lectores, pruebas) y una copia inerte baja y se desvanece.
+  const bg = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { const n = bg.current; return () => ghostOut(n, "sheet"); }, []);
+  // FSA1 (UI): quien abrió la hoja se toma en el primer render (un autoFocus adentro se adelanta al efecto).
+  const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
+    const prev = opener;
     const root = ref.current!;
     const focusables = () => [...root.querySelectorAll<HTMLElement>("button,[href],input,textarea,[tabindex]:not([tabindex='-1'])")].filter((el) => !el.hasAttribute("disabled"));
     root.focus();
     const onKey = (e: KeyboardEvent) => {
       // D184: con un diálogo encima (el editor de técnica), sólo responde el que tiene el foco.
       const a = document.activeElement;
-      if (document.querySelector(".modal-bg") || (a && a !== document.body && !root.contains(a))) return;
+      if (document.querySelector(".modal-bg:not([data-ghost])") || (a && a !== document.body && !root.contains(a))) return;
       if (e.key === "Escape") { e.preventDefault(); close.current(); return; }
       if (e.key !== "Tab") return;
       const f = focusables(); if (!f.length) return;
@@ -43,9 +49,9 @@ export function Sheet({ title, sub, closeLabel = "Cerrar", onClose, groups = [],
     const col = document.querySelector(".mb-col");
     col?.setAttribute("inert", "");
     return () => { document.removeEventListener("keydown", onKey); col?.removeAttribute("inert"); prev?.focus?.(); };
-  }, []);
+  }, [opener]);
   return createPortal(
-    <div className="sheet-bg" {...backdrop}>
+    <div ref={bg} className="sheet-bg" {...backdrop}>
       <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <span className="sheet-handle" aria-hidden="true" />
         <div className="sheet-head"><h2>{title}</h2><button type="button" className="linkbtn" style={{ height: 44, fontSize: 14 }} onClick={onClose}>{closeLabel}</button></div>

@@ -10,6 +10,7 @@ const Id = z.string().min(1).max(64);
 const Start = z.object({
   fileName: z.string().max(200), parts: z.number().int().min(1).max(jobs.HISTORY_JOB_MAX_PARTS),
   inputHash: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  approx: z.object({ sessions: z.number().int().min(1).max(20_000), from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).optional(),
 });
 const Part = z.object({
   index: z.number().int().min(0).max(jobs.HISTORY_JOB_MAX_PARTS - 1),

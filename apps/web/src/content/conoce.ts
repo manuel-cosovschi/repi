@@ -2,9 +2,9 @@
 // mensajes de contacto. Regla: sólo capacidades presentes en el producto (docs/comercial/ESTADO_Y_LIMITES.md, FEATURE_FLAGS.md).
 // Nada de cifras, clientes, testimonios ni integraciones que no existan. Para sumar un video: completar `src` en VIDEOS.
 import type { Profile } from "@/lib/site-events";
-import FILM_DESCRIPTIONS from "./film-descriptions.json";
 
-export type DemoRole = "owner" | "floor" | "member" | "coach";
+/** «control»: pantalla de rutinas de REPI Control (kiosco del gimnasio para consultar y registrar, sin recorrido guiado). */
+export type DemoRole = "owner" | "floor" | "member" | "coach" | "control";
 
 // ── Videos ──────────────────────────────────────────────────────────────────
 // Un video sólo se muestra si tiene `src` (archivo en /public/conoce/videos o URL propia). Sin `src`, la página muestra la
@@ -17,33 +17,51 @@ export type Video = {
   srcVertical?: string; posterVertical?: string;
   /** Con música. Sin esto, el video es sin audio (con textos en pantalla). */
   audio?: boolean;
-  /** Título de la pista de Kevin MacLeod (CC BY 4.0): la atribución se muestra en el reproductor. */
+  /** Título de la pista de Kevin MacLeod (CC BY 4.0): la atribución está en /creditos, enlazada desde el pie. */
   music?: string;
-  /** Descripción en texto, escena por escena (los films no tienen voz): el reproductor la ofrece y además carga la pista
-   *  WebVTT de descripciones. Generada desde los guiones con design/films/kit/tools/describe.py. */
-  description?: { at: string; text: string }[];
+  /** Qué muestra el video, en una o dos oraciones: es lo único que acompaña al reproductor. */
+  summary?: string;
+  /** Pista WebVTT de descripciones escena por escena (los films no tienen voz): la usan los lectores de pantalla, no se ve.
+   *  Generada desde los guiones con design/films/kit/tools/describe.py. */
   descriptionTrack?: string;
 };
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
-const film = (id: string, title: string, audience: string, duration: string, music: string, extra: Partial<Video> = {}): Video =>
-  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music,
-    description: (FILM_DESCRIPTIONS as Record<string, { at: string; text: string }[]>)[id], descriptionTrack: `/conoce/videos/${id}.descripcion.vtt`, ...extra });
+const film = (id: string, title: string, audience: string, duration: string, music: string, summary: string, extra: Partial<Video> = {}): Video =>
+  ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music, summary,
+    descriptionTrack: `/conoce/videos/${id}.descripcion.vtt`, ...extra });
 export const VIDEOS: Record<string, Video> = {
-  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age"),
-  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies"),
-  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer"),
+  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age",
+    "El socio entrena con su programa en el teléfono y un objetivo para cada serie, el entrenador sabe a quién atender y el gimnasio ve lo que pasa en su sala."),
+  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies",
+    "Altas por QR con aprobación del equipo, el programa de cada socio en su teléfono, pedidos de ayuda en la sala y la vista del dueño por sede."),
+  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer",
+    "Tus alumnos, sus programas y su progreso en un solo lugar, con borradores de la IA para revisar y mensajes con el contexto a mano."),
   "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:40", "Volatile Reaction",
+    "Tu programa en el teléfono, un objetivo concreto para cada serie y tu progreso por ejercicio, armado con lo que registrás.",
     { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
-  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game"),
-  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:33", "Volatile Reaction"),
-  "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant"),
-  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:24", "Five Armies"),
-  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant"),
+  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game",
+    "Una plataforma B2B2C: gimnasios y entrenadores la contratan, sus alumnos la usan todos los días y un motor propio explica cada recomendación."),
+  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:33", "Volatile Reaction",
+    "Propone el peso y las repeticiones de cada serie según tu historial, con la razón a la vista, y se ajusta cuando registrás lo que hiciste."),
+  "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant",
+    "Cargas, repeticiones, volumen y récords de cada ejercicio, armados con las series que registrás."),
+  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:24", "Five Armies",
+    "El socio escanea el QR de su sede y pide acceso; el equipo confirma quién es socio con un toque."),
+  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant",
+    "El socio pide ayuda desde su serie y el entrenador de turno la recibe, la toma y le responde."),
+  // Modalidades (escena «Dos formas de entrenar»): films pendientes. Sin `src` el botón del video no se muestra.
+  // D215: un film por modalidad (16:9 y 9:16), grabados en la demo real (datos ficticios).
+  "modo-completo": film("modo-completo", "REPI Completo · Entrenamiento inteligente", "Gimnasios, entrenadores y socios", "0:56", "Volatile Reaction",
+    "El profesor diseña y asigna el programa, el socio lo recibe y registra cada serie con el objetivo de REPI y su razón, ve su progreso por ejercicio, el profesor consulta su evolución y el gimnasio sigue su sala.",
+    { srcVertical: "/conoce/videos/modo-completo-vertical.mp4", posterVertical: "/conoce/videos/modo-completo-vertical.webp" }),
+  "modo-control": film("modo-control", "REPI Control · Tu equipo planifica. Tus socios consultan y registran.", "Gimnasios", "1:00", "Clash Defiant",
+    "El profesor programa y asigna la rutina; el socio se identifica en la pantalla del gimnasio con su código y su PIN, ve ejercicios, peso sugerido, intensidad y descansos, y registra los pesos y las repeticiones reales. Su historial se actualiza, el profesor ve los resultados y el celular es opcional.",
+    { srcVertical: "/conoce/videos/modo-control-vertical.mp4", posterVertical: "/conoce/videos/modo-control-vertical.webp" }),
 };
 /** Orden del centro audiovisual (sólo se muestran los que tienen archivo). */
-export const VIDEO_ORDER = ["film-marca", "f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados", "f-progreso", "f-altas", "f-sala"];
+export const VIDEO_ORDER = ["film-marca", "f-intelligence", "perfil-deportistas", "perfil-entrenadores", "perfil-gimnasios", "perfil-aliados", "f-progreso", "f-altas", "f-sala", "modo-completo", "modo-control"];
 
 // ── Hero (Experience 3.0) ───────────────────────────────────────────────────
 // Variantes preparadas para probar titulares y propuesta en el futuro (`/conoce?v=b`), sin plataforma externa. «a» es la vigente.
@@ -57,7 +75,8 @@ export const HERO_VARIANTS: Record<HeroVariant, { title: string[]; sub: string; 
 
 // ── Demos reales (POST /api/demo) ───────────────────────────────────────────
 // Los pasos salen del recorrido guiado real (components/demo/DemoTour.tsx). Entorno ficticio propio por visita, se borra a las 6 h.
-export type Demo = { role: DemoRole; title: string; persona: string; forWho: string; sees: string[]; steps: number; shot: string };
+/** `steps`: pasos del recorrido guiado; null si la demo no tiene guía (la pantalla de rutinas se explora sola). */
+export type Demo = { role: DemoRole; title: string; persona: string; forWho: string; sees: string[]; steps: number | null; shot: string };
 export const DEMOS: Demo[] = [
   { role: "owner", title: "Explorá REPI como gimnasio", persona: "Martín, dueño de Gym Norte (dos sedes)", forWho: "Dueños, gerencia y recepción",
     sees: ["Tablero por sede: socios activos, asistencia y alertas", "Altas por QR: aprobás a Camila en un toque", "Ingreso validado con QR que cambia cada 30 s", "Seguimiento de sala, equipo y comunidad"], steps: 10, shot: "/conoce/shots/owner.webp" },
@@ -67,6 +86,8 @@ export const DEMOS: Demo[] = [
     sees: ["Training Intelligence: anterior, recomendado y real en cada serie", "Entrenar con descanso automático, incluso sin señal", "Progreso, chat con el coach y el gimnasio en la app"], steps: 8, shot: "/conoce/shots/member.webp" },
   { role: "coach", title: "Las herramientas del personal trainer", persona: "Agustín, personal trainer con tres alumnos", forWho: "Personal trainers y estudios",
     sees: ["Panel: quién entrenó y qué necesita tu atención", "Ficha con rendimiento, 1RM estimado y volumen", "Programas versionados, pedidos, chat y cobros"], steps: 8, shot: "/conoce/shots/coach.webp" },
+  { role: "control", title: "La pantalla del gimnasio", persona: "un socio frente a la pantalla de rutinas del gimnasio", forWho: "Gimnasios que planifican con REPI Control",
+    sees: ["Te identificás con tu código de socio y tu PIN", "Consultás la rutina que te asignó el equipo o registrás tu entrenamiento", "En cada serie: objetivo del profesor, sugerencia de REPI y resultado real", "Sin email, sin contraseña y sin instalar nada"], steps: null, shot: "/conoce/shots/control-rutina.webp" },
 ];
 
 // ── Funciones (Grupo B del centro audiovisual) ──────────────────────────────
@@ -121,6 +142,8 @@ export type ProfileContent = {
   problem: string; solution: string[]; benefits: { title: string; text: string }[];
   demo: DemoRole; video: string; leadKind: "gym" | "coach" | "partner" | null; whatsapp: string; cta: string;
   meta: { title: string; description: string };
+  /** Mención breve de las modalidades (sólo gimnasios): enlaza a la escena #modos. */
+  modes?: string;
 };
 export const PROFILE_CONTENT: Record<Profile, ProfileContent> = {
   gimnasios: {
@@ -137,7 +160,8 @@ export const PROFILE_CONTENT: Record<Profile, ProfileContent> = {
     ],
     demo: "owner", video: "perfil-gimnasios", leadKind: "gym",
     whatsapp: "Hola, conocí REPI y me interesa implementarlo en mi gimnasio. Quisiera coordinar una demostración.", cta: "Consultar para mi gimnasio",
-    meta: { title: "REPI para gimnasios · Entrenamiento y seguimiento de cada socio", description: "Rutinas en el teléfono, registro de cada serie, Training Intelligence, seguimiento de sala y altas por QR para gimnasios." },
+    modes: "Dos modalidades: REPI Completo, con la app de cada socio, o REPI Control, con planificación supervisada y una pantalla en el gimnasio donde el socio consulta y registra.",
+    meta: { title: "REPI para gimnasios · Entrenamiento y seguimiento de cada socio", description: "REPI Completo, con la app de cada socio y Training Intelligence, o REPI Control, con planificación supervisada y una pantalla en el gimnasio para consultar y registrar el entrenamiento." },
   },
   entrenadores: {
     id: "entrenadores", label: "Soy entrenador personal", short: "Entrenadores", kicker: "Para personal trainers",
@@ -173,21 +197,122 @@ export const PROFILE_CONTENT: Record<Profile, ProfileContent> = {
   },
   aliados: {
     id: "aliados", label: "Soy empresa, inversor o aliado", short: "Aliados", kicker: "Para empresas, inversores y aliados",
-    headline: "Tecnología de entrenamiento que ya funciona en un gimnasio real.",
+    headline: "Tecnología de entrenamiento que ya funciona en gimnasios reales.",
     intro: "REPI es una plataforma B2B2C: gimnasios y entrenadores la contratan y sus alumnos la usan todos los días.",
     problem: "La mayoría de los gimnasios y entrenadores independientes gestionan el entrenamiento con papel, planillas y mensajería, sin datos de lo que pasa en la sala.",
     solution: ["Gimnasios y personal trainers como clientes; socios y alumnos como usuarios", "Suscripción por cliente según socios o alumnos acordados", "Motor propio de recomendaciones explicables (Training Intelligence) más IA generativa para borradores", "Web app instalable: funciona en cualquier teléfono, sin tiendas"],
     benefits: [
-      { title: "Producto en operación", text: "En funcionamiento en Smart Center Gym (Mar del Plata): socios que piden acceso por QR y entrenan con su rutina." },
+      { title: "Producto en operación", text: "En funcionamiento en varios gimnasios de Mar del Plata: socios que piden acceso por QR y entrenan con su rutina." },
       { title: "Diferencial técnico", text: "Recomendaciones deterministas con explicación, registro sin conexión y privacidad por permisos." },
       { title: "Modelo claro", text: "Un acuerdo por cliente con cantidad y precio unitario; no depende de descargas." },
       { title: "Abierto a alianzas", text: "Cadenas, equipamiento, salud y distribución: conversemos cómo sumar valor." },
     ],
     demo: "owner", video: "perfil-aliados", leadKind: "partner",
     whatsapp: "Hola, conocí REPI y me interesa conversar sobre una alianza o inversión. ¿Podemos coordinar una reunión?", cta: "Proponer una alianza",
-    meta: { title: "REPI · Empresa de tecnología para el entrenamiento", description: "Plataforma B2B2C para gimnasios, entrenadores y alumnos, en operación en Smart Center Gym. Alianzas e inversión." },
+    meta: { title: "REPI · Empresa de tecnología para el entrenamiento", description: "Plataforma B2B2C para gimnasios, entrenadores y alumnos, en operación en gimnasios de Mar del Plata. Alianzas e inversión." },
   },
 };
+
+// ── Modalidades: un mismo REPI, dos formas de entrenar (D215) ───────────────
+// No son perfiles: son dos maneras de implementar REPI en un gimnasio, con la misma plataforma y otra política. REPI configura
+// la modalidad de cada gimnasio. Sólo capacidades presentes en el producto (FEATURES de src/lib/features.ts y REPI Control,
+// D213). Nada de precios ni de «más barato»: el precio sale de una propuesta personalizada.
+export const MODE_IDS = ["completo", "control"] as const;
+export type ModeId = (typeof MODE_IDS)[number];
+/** Lo que el formulario manda y se guarda en commercial_lead.product_mode (sólo para gimnasios). */
+export const PRODUCT_MODES = ["completo", "control", "undecided"] as const;
+export type ProductMode = (typeof PRODUCT_MODES)[number];
+/** Cómo se lee la modalidad elegida en REPI Admin (Contactos, Sitio y QR) y en las notas del prospecto de ventas. */
+export const PRODUCT_MODE_LABEL: Record<string, string> = { completo: "REPI Completo", control: "REPI Control", undecided: "Todavía no sabe" };
+export const isModeId = (x: unknown): x is ModeId => typeof x === "string" && (MODE_IDS as readonly string[]).includes(x);
+/** `portrait`: captura de teléfono dentro del marco apaisado (se muestra entera, sin recortar). */
+export type ModeScreen = { src: string; alt: string; label: string; portrait?: boolean };
+export type ModeContent = {
+  id: ModeId; name: string; tag: string; claim: string; pitch: string; features: string[]; benefits: { title: string; text: string }[];
+  /** Equipo principal del escenario: el teléfono del socio (Completo) o la pantalla del gimnasio, apaisada (Control). */
+  device: "phone" | "screen";
+  /** Pantallas reales del escenario, en el orden del recorrido. */
+  screens: ModeScreen[];
+  /** El teléfono que acompaña, con su leyenda. */
+  aside: ModeScreen & { caption: string };
+  film: string; demo: DemoRole; demoLabel: string; cta: string; whatsapp: string;
+};
+export const MODES: Record<ModeId, ModeContent> = {
+  completo: {
+    id: "completo", name: "REPI Completo", tag: "Entrenamiento inteligente", claim: "Toda la experiencia de entrenamiento inteligente.",
+    pitch: "Cada socio tiene REPI en su teléfono: entrena con el programa que le arma el equipo, registra cada serie y ve cómo progresa. Training Intelligence le propone un objetivo para cada serie y el equipo sigue a cada uno.",
+    features: [
+      "Programas diseñados y asignados por el equipo, con cada cambio versionado",
+      "App del socio: programa del día, registro de cada serie y descanso que corre solo",
+      "Historial y progreso por ejercicio",
+      "Training Intelligence y el Asistente REPI, con «No vino el profe»",
+      "Rutinas propias del socio e importación desde planilla, texto, foto o PDF",
+      "Herramientas para profesores, seguimiento de sala y gestión del gimnasio",
+      "Comunidad, desafíos y las demás funciones que el gimnasio active",
+    ],
+    benefits: [
+      { title: "Un servicio que se nota", text: "Programa, progreso y comunidad en el teléfono de cada socio." },
+      { title: "Más autonomía", text: "El socio sabe qué hacer en cada serie, aunque no esté el profe." },
+      { title: "El equipo llega a todos", text: "Ve quién entrenó, cómo rindió y quién pide ayuda." },
+    ],
+    device: "phone",
+    screens: [
+      { src: "/conoce/shots/training.webp", alt: "Sesión de entrenamiento en la app de REPI", label: "Programa del día" },
+      { src: "/conoce/shots/intelligence.webp", alt: "Serie con Anterior, REPI recomienda y Real en la app de REPI", label: "Objetivo por serie" },
+      { src: "/conoce/shots/progress.webp", alt: "Evolución de un ejercicio en REPI", label: "Progreso" },
+      { src: "/conoce/shots/adaptive.webp", alt: "«No vino el profe, dame mi rutina para hoy» en REPI", label: "No vino el profe" },
+    ],
+    aside: { src: "/conoce/shots/programs.webp", alt: "Editor de programas del equipo en REPI", label: "El equipo planifica", caption: "El equipo arma y asigna cada programa" },
+    film: "modo-completo", demo: "member", demoLabel: "Probar la app del socio", cta: "Quiero REPI Completo",
+    whatsapp: "Hola, quiero conocer REPI Completo para mi gimnasio.",
+  },
+  control: {
+    id: "control", name: "REPI Control", tag: "Planificación supervisada", claim: "Tu equipo planifica. Tus socios consultan y registran.",
+    pitch: "Los programas los arma y los cambia sólo el personal autorizado. En una pantalla del gimnasio, con su código de socio y un PIN personal, el socio consulta su rutina y registra lo que hizo en cada serie: sin email, sin contraseña y sin instalar nada. Consulta y registra, pero no modifica lo programado. La app es opcional.",
+    features: [
+      "Programas a cargo exclusivo del personal autorizado, con historial de versiones y permisos por rol",
+      "Pantalla de rutinas en el gimnasio: una tablet o un monitor",
+      "Acceso con código de socio y PIN personal: sin email, sin contraseña y sin instalar nada",
+      "En cada serie: objetivo del profesor, sugerencia de REPI y resultado real",
+      "Lo registrado va al mismo historial: progreso del socio y seguimiento del profesor",
+      "El socio no crea, importa ni modifica rutinas, ni cambia ejercicios, series o descansos, ni le pide a la IA un programa propio",
+      "La IA ayuda al profesor a preparar borradores; nada se asigna solo",
+      "App opcional con el QR del gimnasio",
+    ],
+    benefits: [
+      { title: "Criterio profesional", text: "Cada rutina la arma y la ajusta tu equipo; el socio no la puede cambiar." },
+      { title: "Simple para cualquier socio", text: "Consulta y registra con código y PIN en la pantalla del gimnasio. Sin cuentas ni descargas." },
+      { title: "Datos para tu equipo", text: "Lo que hace cada socio queda en su historial y el profesor lo ve." },
+    ],
+    device: "screen",
+    screens: [
+      { src: "/conoce/shots/control-bienvenida.webp", alt: "Pantalla de rutinas de REPI Control en el gimnasio: bienvenida", label: "Bienvenida" },
+      { src: "/conoce/shots/control-identificar.webp", alt: "El socio ingresa su código de socio y su PIN en la pantalla de rutinas", label: "Código y PIN" },
+      { src: "/conoce/shots/control-rutina.webp", alt: "La rutina del socio en la pantalla de rutinas del gimnasio: en cada serie, el objetivo del profesor, la sugerencia de REPI y la última vez", label: "Su rutina" },
+      { src: "/conoce/shots/control-registro.webp", alt: "El socio carga en la pantalla del gimnasio el peso y las repeticiones reales de su serie de Sentadilla, junto a lo que indicó el profesor y lo que sugiere REPI", label: "Registra lo que hizo" },
+      { src: "/conoce/shots/control-equipo.webp", alt: "El equipo del gimnasio en REPI: ficha del socio con su programa y el historial de versiones", label: "El equipo planifica", portrait: true },
+    ],
+    aside: { src: "/conoce/shots/training.webp", alt: "La rutina del socio en la app de REPI", label: "App opcional", caption: "App opcional: la misma rutina y el mismo historial en el teléfono" },
+    film: "modo-control", demo: "control", demoLabel: "Probar la pantalla del gimnasio", cta: "Quiero REPI Control",
+    whatsapp: "Hola, quiero conocer REPI Control para mi gimnasio.",
+  },
+};
+/** «Qué cambia y qué no»: `same` = igual en las dos (un solo texto); `policy` = cambia según la política del gimnasio. */
+export type ModeRow = { label: string } & ({ kind: "same"; both: string } | { kind: "policy"; completo: string; control: string });
+export const MODE_ROWS: ModeRow[] = [
+  { label: "Quién crea las rutinas", kind: "policy", completo: "El equipo; el socio también puede armar las suyas", control: "Sólo el personal autorizado" },
+  { label: "Quién puede modificarlas", kind: "policy", completo: "El equipo, y cada socio sus rutinas propias", control: "Sólo el personal autorizado; el socio consulta y registra, pero no modifica lo programado" },
+  { label: "Cómo accede el socio", kind: "policy", completo: "Con su cuenta en la app", control: "Código de socio y PIN personal" },
+  { label: "Consulta en pantalla compartida", kind: "policy", completo: "App de cada socio", control: "Pantalla del gimnasio, para consultar y registrar, y app opcional" },
+  { label: "Consulta en la app", kind: "policy", completo: "Sí: es el centro de la experiencia", control: "Opcional, con el QR del gimnasio" },
+  { label: "Registro de entrenamientos", kind: "policy", completo: "Cada serie, desde la app", control: "Cada serie, en la pantalla del gimnasio o en la app opcional, sin cambiar lo programado" },
+  { label: "Rutinas de la IA para el socio, por su cuenta", kind: "policy", completo: "Sí, como propuesta: «No vino el profe» y la rutina del día", control: "No: el socio no genera ni se asigna programas" },
+  { label: "Permisos institucionales", kind: "policy", completo: "Roles del equipo: dueño, gerencia, recepción y entrenadores", control: "Los mismos roles; sólo quien tiene permiso de programar cambia una rutina" },
+  { label: "Seguimiento del progreso", kind: "same", both: "Historial y progreso por ejercicio, con lo que se registra" },
+  { label: "Herramientas para profesores", kind: "same", both: "Programas por días, métodos avanzados, versiones y ficha de cada socio" },
+  { label: "IA asistiendo al profesor", kind: "same", both: "Prepara borradores que el profesor revisa; nada se asigna solo" },
+  { label: "Herramientas de gestión", kind: "same", both: "Equipo, sedes, permisos por rol y seguimiento por sede" },
+];
 
 // ── Implementación (proceso real del anexo comercial) ───────────────────────
 export const STEPS: [string, string][] = [
@@ -203,9 +328,12 @@ export const FAQ: [string, string][] = [
   ["¿Qué es REPI?", "Una plataforma de entrenamiento y gestión para gimnasios, entrenadores personales y sus alumnos. El alumno entrena con su programa en el teléfono y registra cada serie; el entrenador y el gimnasio siguen su progreso y atienden mejor."],
   ["¿Sirve para gimnasios y para entrenadores independientes?", "Sí. Un gimnasio tiene sedes, equipo con permisos por rol, altas por QR y seguimiento de sala. Un personal trainer gestiona sus alumnos, programas, mensajes y cobros. Una misma persona puede entrenar con su coach y con su gimnasio desde la misma cuenta."],
   ["¿Qué necesita un gimnasio para implementarlo?", "Definir las sedes, quién aprueba las altas y la cantidad de socios del acuerdo. REPI habilita el espacio, el equipo se suma con invitación y cada sede tiene su QR. No hace falta cargar el padrón ni instalar equipos."],
+  ["¿Qué diferencia hay entre REPI Completo y REPI Control?", "Es la misma plataforma con otra política. En REPI Completo cada socio usa la app: entrena con su programa, registra cada serie, ve su progreso y también puede armar sus rutinas. En REPI Control los programas los arma y los cambia sólo el personal autorizado; el socio los consulta y registra lo que hizo en una pantalla del gimnasio con su código y su PIN, o en la app si el gimnasio la habilita. Puede registrar su entrenamiento, pero no modificar lo programado."],
+  ["¿El socio tiene que instalar una app en REPI Control?", "No. En la pantalla del gimnasio (una tablet o un monitor), con su código de socio y un PIN personal, consulta su rutina y registra su entrenamiento, sin email ni contraseña. Lo registrado va a su historial y lo ve el profesor. Si el gimnasio quiere, el socio puede usar además la app con el QR del gimnasio."],
+  ["¿Se puede cambiar de modalidad?", "Sí. REPI configura la modalidad de cada gimnasio según lo que acordemos, y se puede cambiar después: cambiarla no borra programas, entrenamientos ni historial. Escribinos y lo vemos con tu caso."],
   ["¿Los alumnos lo usan desde el teléfono?", "Sí, en iPhone y Android. Se agrega a la pantalla de inicio desde el navegador, sin pasar por las tiendas, y el entrenamiento que ya abriste sigue guardándose aunque te quedes sin señal."],
   ["¿Qué hace la inteligencia artificial?", "Hay dos partes. Training Intelligence es un motor de reglas explicables: propone el objetivo de cada serie según tu historial y nunca sube la exigencia a mitad de sesión. Además, la IA arma borradores (un programa para que el profe revise, la rutina del día si no vino el profe) y lee historiales desde una foto o un PDF. No da diagnósticos ni garantiza resultados."],
-  ["¿Cómo conozco los precios?", "No publicamos una lista: el precio por socio o por alumno se acuerda con cada cliente según la cantidad acordada, no según quién descarga la app. Escribinos y te armamos una propuesta."],
+  ["¿Cómo conozco los precios?", "No publicamos una lista: se acuerdan con cada cliente según la modalidad y la cantidad de socios o alumnos acordada, no según quién descarga la app. Pedí una propuesta personalizada."],
   ["¿Puedo pedir una demostración?", "Sí. Podés probar ahora la demo guiada (datos ficticios, sin cuenta) o pedirnos una presentación para tu gimnasio o tu equipo."],
   ["¿Cómo contacto al equipo?", "Por WhatsApp, por email o con el formulario de esta página. Te respondemos para conocer tu operación."],
 ];

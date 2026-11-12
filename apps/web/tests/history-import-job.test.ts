@@ -178,7 +178,7 @@ describe("lectura reanudable del historial largo", () => {
     reader.mockResolvedValueOnce({ sets: [set, set], notes: ["Carga desconocida"], source: "notes" });
     await readHistoryImportJobPart("owner", id, { index: 0, text: "Primera parte" });
     await finishHistoryImportJob("owner", id, now);
-    expect(prepareHistoryPreview).toHaveBeenCalledWith("owner", { fileName: "Tres años de notas", sets: [set, set, { ...set, reps: 13 }], notes: ["Carga desconocida"], source: "ai", model: "model-fast-test" }, now, undefined, id);
+    expect(prepareHistoryPreview).toHaveBeenCalledWith("owner", { fileName: "Tres años de notas", sets: [set, set, { ...set, reps: 13 }], notes: ["Carga desconocida"], undated: 0, approx: null, source: "ai", model: "model-fast-test" }, now, undefined, id);
   });
 
   it("reconcilia el avance y permite reintentar finish cuando ya hay vista previa", async () => {
@@ -191,7 +191,7 @@ describe("lectura reanudable del historial largo", () => {
     await readHistoryImportJobPart("owner", id, { index: 0, text: "Parte original" });
     expect(reader).toHaveBeenCalledTimes(1);
     await finishHistoryImportJob("owner", id, now);
-    expect(prepareHistoryPreview).toHaveBeenCalledWith("owner", { fileName: "Tres años de notas", sets: [set], notes: [], source: "notes", model: null }, now, undefined, id);
+    expect(prepareHistoryPreview).toHaveBeenCalledWith("owner", { fileName: "Tres años de notas", sets: [set], notes: [], undated: 0, approx: null, source: "notes", model: null }, now, undefined, id);
   });
 
   it("no acepta un historial que excede el límite de series entre varias partes", async () => {

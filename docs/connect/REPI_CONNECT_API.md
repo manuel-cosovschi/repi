@@ -35,4 +35,4 @@ Actualizado: 28/10/2026 (D126). Todas las rutas exigen sesión; los errores tien
 
 ## Job
 
-`connectSweep()` en `/api/cron/notifications` (cada minuto) y `pnpm jobs:notifications`: avisa una vez por pedido sin tomar a los 15 minutos (a quienes están en turno) y una vez por día por seguimiento que vence en 24 h o vencido (a su responsable, o al turno si quedó libre). Respeta la pausa de avisos de cada persona.
+`connectSweep()` en `/api/cron/notifications` (cada minuto) y `pnpm jobs:notifications`: avisa una vez por pedido sin tomar a los 15 minutos (a quienes están en turno) y una vez por día por seguimiento que vence en 24 h o vencido (a su responsable, o al turno si quedó libre). Sin nadie en turno en la sede, esos avisos van a la gestión de la sede (dueño, gerencia y coordinación; FSA1). Respeta la pausa de avisos de cada persona; sin dispositivo el push queda `skipped`, pero el aviso sigue en el centro de avisos del staff.

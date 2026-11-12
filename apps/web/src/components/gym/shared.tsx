@@ -1,16 +1,20 @@
 "use client";
 // Piezas comunes del escritorio Gym (REPI Desktop Gym.dc.html): tipos, formato, carga y controles chicos.
-import { useCallback, useEffect, useState } from "react";
-import { TASK_CATEGORY, TASK_PRIORITY } from "@repi/domain";
-import { api } from "@/lib/api";
+import { useState } from "react";
+import { TASK_CATEGORY, TASK_PRIORITY, activityValuesText, fmtSeconds, type SetMetrics } from "@repi/domain";
+import { useCached } from "@/lib/cache";
 import type { BriefViewData } from "@/components/shared/BriefBlock";
+import { SlideIndicator } from "@/components/motion/SlideIndicator";
+import { Modal } from "@/components/ui/Modal";
 
 export type GymScreen =
-  | "shift" | "queue" | "members" | "handoff" | "msgs" | "perf"
+  | "shift" | "queue" | "members" | "member" | "handoff" | "msgs" | "perf"
   | "mdash" | "pc" | "staff" | "tasks" | "reviews" | "shifts" | "engage" | "community" | "validations"
-  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence" | "videos" | "equipment" | "repinews";
+  | "exec" | "locs" | "billing" | "config" | "reception" | "joins" | "accesses" | "notices" | "guide" | "connect" | "presence" | "videos" | "equipment" | "repinews" | "kiosk";
 
-export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean };
+export type GymCtxView = { org: { id: string; name: string }; name: string; roles: string[]; caps: string[]; locations: { id: string; name: string }[]; afterHoursAccess: boolean; connect?: boolean; accessControl?: boolean;
+  /** REPI Control (D213): quién soy, pantalla de rutinas habilitada por REPI y planificación supervisada. */
+  userId?: string; kiosk?: boolean; supervised?: boolean };
 export type Task = {
   id: string; ref: string; member: string | null; gymMemberId: string | null; category: keyof typeof TASK_CATEGORY; priority: keyof typeof TASK_PRIORITY;
   status: "open" | "pending_acceptance" | "in_progress" | "follow_up" | "done" | "cancelled"; source: string; summary?: string; hasVideo?: boolean; videoId?: string | null; brief?: BriefViewData;
@@ -20,6 +24,8 @@ export type Task = {
 export type Shell = {
   orgId: string; loc: string | null; ctx: GymCtxView; flash: (t: string) => void; go: (s: GymScreen, extra?: { sel?: string | null }) => void;
   sel: string | null; setSel: (id: string | null) => void; refreshBadges: () => void;
+  /** Ficha del socio como página propia (pedido del titular, 07/11/2026): el nombre llega desde el botón (título en el primer cuadro). */
+  openMember: (id: string, opts?: { name?: string | null }) => void;
 };
 
 export const can = (ctx: GymCtxView, cap: string) => ctx.caps.includes(cap);
@@ -36,22 +42,33 @@ export const when = (iso: string | null | undefined) => {
   return same ? `Hoy ${hm}` : yest ? `Ayer ${hm}` : `${fmt(iso, { weekday: "short", day: "numeric", month: "short" })} ${hm}`;
 };
 export const nf = (n: number | null | undefined, digits = 0) => (n == null ? "—" : n.toLocaleString("es-AR", { maximumFractionDigits: digits, minimumFractionDigits: digits }));
+/**
+ * Una serie en las pantallas de sala («En sala ahora», tareas de Connect). Ejercicios por tiempo: en una fila por tiempo (cinta,
+ * bici, plancha…) `reps` son segundos: «12 min · 5,5 km/h · incl. 4», nunca «0 kg × 720»; con lastre, «10 kg × 40 s». Si no,
+ * como siempre: «60×10» (PC = peso corporal).
+ */
+export function floorSetText(x: { weightKg: number | string | null; reps: number | null; metrics?: SetMetrics | null }, timed?: boolean): string {
+  if (!timed && !x.metrics) return `${x.weightKg ?? "PC"}×${x.reps ?? "—"}`;
+  const amount = x.reps != null && x.reps > 0 ? fmtSeconds(x.reps) : "—";
+  const vals = activityValuesText(x.metrics);
+  if (vals) return `${amount} · ${vals}`;
+  const w = x.weightKg == null ? 0 : Number(x.weightKg);
+  return w > 0 ? `${w.toLocaleString("es-AR", { maximumFractionDigits: 2 })} kg × ${amount}` : amount;
+}
 export const dec = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 export const pct = (n: number | null | undefined) => (n == null ? "Sin datos" : `${n}%`);
 export const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 export const PRI_CHIP: Record<string, string> = { alta: "bad", media: "warn", baja: "mute" };
 export const SOURCE: Record<string, string> = { app: "Pedido desde la app", sala: "Pedido en sala", traspaso: "Traspaso", gerencia: "Creada por gerencia", recepcion: "Creada por recepción", entrenador: "Creada en sala" };
 
-/** Carga con recarga explícita; los errores se muestran en la pantalla (no se inventan datos). */
-export function useLoad<T>(url: string | null) {
-  const [data, setData] = useState<T | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    if (!url) return;
-    try { setErr(null); setData(await api<T>(url)); } catch (e) { setErr((e as Error).message); }
-  }, [url]);
-  useEffect(() => { setData(null); void load(); }, [load]);
-  return { data, err, reload: load, setData };
+/**
+ * Carga con recarga explícita; los errores se muestran en la pantalla (no se inventan datos).
+ * M06 (docs/MOTION_NAVEGACION.md §5): se apoya en la caché en memoria por URL exacta. Volver a una pantalla muestra lo
+ * último cargado en el primer cuadro y revalida; nunca se muestra el dato de otra URL (otro socio, otro contrato). Con
+ * `keep`, al cambiar la URL (búsqueda, período, sede, semana) queda lo anterior marcado `stale` hasta que llega lo nuevo.
+ */
+export function useLoad<T>(url: string | null, opts?: { keep?: boolean }) {
+  return useCached<T>(url, opts);
 }
 
 export function Head({ kicker, title, children }: { kicker?: string; title: string; children?: React.ReactNode }) {
@@ -66,6 +83,7 @@ export function Head({ kicker, title, children }: { kicker?: string; title: stri
 export function Seg<T extends string>({ value, options, onChange, label }: { value: T; options: [T, string][]; onChange: (v: T) => void; label: string }) {
   return (
     <div className="seg" role="tablist" aria-label={label}>
+      <SlideIndicator />
       {options.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={value === k} onClick={() => onChange(k)}>{l}</button>)}
     </div>
   );
@@ -98,7 +116,7 @@ export function LocSelect({ shell, allowAll, value, onChange }: { shell: Shell; 
   return (
     <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <span>Sede</span>
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} style={{ height: 38, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "500 14px var(--font-ui)", background: "var(--ui-input-bg)" }}>
+      <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} style={{ height: 38, borderRadius: 10, border: "1px solid var(--ui-control-border)", padding: "0 10px", font: "500 var(--touch-fs, 14px) var(--font-ui)", background: "var(--ui-input-bg)" }}>
         {allowAll && <option value="">Todas las sedes</option>}
         {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
@@ -120,4 +138,24 @@ export function useAct(flash: (t: string) => void) {
     finally { setBusy(null); }
   };
   return { busy, run };
+}
+
+/**
+ * Confirmación en un diálogo (REPI Control / STF-09): título, qué pasa y dos botones. Con `busy` los botones quedan quietos y el
+ * error del servidor se muestra adentro. Reemplaza al `confirm()` del navegador cuando la consecuencia necesita explicarse.
+ */
+export function ConfirmDialog({ title, children, confirmLabel, danger, busy, err, onConfirm, onClose }: {
+  title: string; children?: React.ReactNode; confirmLabel: string; danger?: boolean; busy?: boolean; err?: string | null; onConfirm: () => void; onClose: () => void;
+}) {
+  return (
+    <Modal label={title} onClose={() => { if (!busy) onClose(); }}>
+      <div className="mhead"><h2>{title}</h2><button type="button" className="x" aria-label="Cerrar" disabled={busy} onClick={onClose}>×</button></div>
+      {children}
+      {err && <p role="alert" className="err-box" style={{ margin: 0 }}>{err}</p>}
+      <div className="mfoot gy-confirm-foot">
+        <button type="button" className="btn" disabled={busy} onClick={onClose}>Cancelar</button>
+        <button type="button" className={danger ? "btn danger gy-strong" : "btn pri"} disabled={busy} aria-busy={busy || undefined} onClick={onConfirm}>{busy ? "Un momento…" : confirmLabel}</button>
+      </div>
+    </Modal>
+  );
 }

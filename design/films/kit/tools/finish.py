@@ -1,7 +1,8 @@
 """Master → audio a −14 LUFS / −1 dBTP (loudnorm en dos pasadas) + versión web (H.264, faststart) + póster WebP.
-Uso: finish.py <master.mp4> <salida_web.mp4> <poster.webp> <segundo_del_poster>"""
+Uso: finish.py <master.mp4> <salida_web.mp4> <poster.webp> <segundo_del_poster> [ancho_del_poster, 1280]"""
 import sys, subprocess, json, re
 src, web, poster, at = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+pw = sys.argv[5] if len(sys.argv) > 5 else "1280"
 def run(*a): return subprocess.run(a, capture_output=True, text=True)
 m = run("ffmpeg", "-hide_banner", "-nostats", "-i", src, "-af", "loudnorm=I=-14.6:TP=-2.5:LRA=11:print_format=json", "-f", "null", "-").stderr
 j = json.loads(m[m.rindex("{"):m.rindex("}") + 1])
@@ -14,7 +15,7 @@ part = web[:-4] + ".part.mp4"  # se renombra al final: un corte a mitad no deja 
 r = run("ffmpeg", "-v", "error", "-y", "-i", norm, "-c:v", "libx264", "-preset", "slow", "-crf", "24", "-maxrate", "3M", "-bufsize", "6M",
         "-pix_fmt", "yuv420p", "-profile:v", "high", "-movflags", "+faststart", "-c:a", "copy", part)  # audio ya normalizado: recodificar AAC sube el pico
 assert r.returncode == 0, r.stderr
-r = run("ffmpeg", "-v", "error", "-y", "-ss", at, "-i", norm, "-frames:v", "1", "-vf", "scale=1280:-2", "-c:v", "libwebp", "-quality", "80", poster)
+r = run("ffmpeg", "-v", "error", "-y", "-ss", at, "-i", norm, "-frames:v", "1", "-vf", f"scale={pw}:-2", "-c:v", "libwebp", "-quality", "80", poster)
 assert r.returncode == 0, r.stderr
 import os; os.replace(part, web)
 for f in (norm, web):

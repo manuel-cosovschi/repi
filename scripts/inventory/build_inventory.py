@@ -50,7 +50,7 @@ REPO_STATUS = {
     "F-ID-20": "probado", "F-MO-01": "persistente", "F-CO-13": "persistente", "F-GR-01": "persistente",
     # Etapa 2 · núcleo coach→programa→alumno
     "F-CL-01": "probado", "F-CL-02": "probado", "F-CL-03": "probado", "F-CL-04": "probado", "F-CL-05": "probado",
-    "F-CL-06": "persistente", "F-CL-11": "probado", "F-CL-12": "probado", "F-CL-15": "integrado", "F-CL-16": "probado", "F-CL-07": "probado",
+    "F-CL-06": "probado", "F-CL-11": "probado", "F-CL-12": "probado", "F-CL-15": "integrado", "F-CL-16": "probado", "F-CL-07": "probado",
     "F-CO-01": "persistente", "F-CO-02": "probado", "F-CO-05": "probado", "F-CO-08": "probado", "F-CO-09": "integrado",
     "F-HX-04": "probado", "F-HX-05": "integrado",
     # Etapa 4 · seguimiento y consentimiento
@@ -80,6 +80,8 @@ REPO_STATUS = {
     "F-RC-04": "probado",
     # 30/10/2026 · intro de marca (D171): revisada cuadro por cuadro en el navegador; sin prueba automática de la animación
     "F-BR-02": "integrado",
+    # D217 (12/11/2026): evidencia en docs/IMPLEMENTATION_STATUS.md
+    "F-HX-02": "probado", "F-CO-03": "probado",
 }
 
 NEW = [

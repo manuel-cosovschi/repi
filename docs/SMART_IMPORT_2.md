@@ -12,6 +12,8 @@ Cada dato queda en uno de tres estados:
 - **Dudoso:** se marca para revisar y se confirma con «Está bien» o editándolo. Ejemplos: «4x??», «6?», «20 kg por lado», un número suelto en un archivo en libras, o series que la IA dio sin números en el renglón.
 - **Ausente:** queda vacío y marcado.
 
+FSA1 (09/11/2026): en lo que lee la IA, una serie, repetición o carga que no figura en el renglón citado («Leído de: …») o lo contradice queda **dudosa**, nunca como leída. La respuesta de la IA se valida: una estructura distinta de la pedida responde `ai_bad_output` (con lo leído directo como alternativa) y un campo con otro tipo queda ausente. El borrador se escribe también al tocar «Guardar» y al cerrar o recargar.
+
 Nunca se completa con «3 × 10». «Completar lo que falta con 3 × 10 (sugerido)», o «3 × 10 y 90 s» en programas, es un toque explícito. El campo queda punteado y con el texto «Sugerido (no estaba en el documento)».
 
 No hay porcentajes de confianza: no están calibrados.

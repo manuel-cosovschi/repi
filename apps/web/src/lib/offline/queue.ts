@@ -2,8 +2,9 @@
 // Cola de sincronización en IndexedDB (reemplaza la de localStorage de la Etapa 2).
 // Cada ítem guarda sólo QUÉ sincronizar; el cuerpo se arma al enviar con el estado local vigente, así una edición
 // hecha mientras otra viajaba no se pierde ni genera un conflicto falso. Reintentos idempotentes (IDs estables).
+import { sameMetrics, type SetMetrics } from "@repi/domain";
 import { idbAll, idbDel, idbPut } from "./idb";
-import { getLocal, putLocal, setKey, type LocalSession } from "./store";
+import { adoptServerIntel, getLocal, setKey, updateLocal, type LocalSession, type LocalSet } from "./store";
 
 export type Item =
   | { seq?: number; key: string; kind: "start"; sid: string }
@@ -43,14 +44,40 @@ export async function dropSession(sid: string) {
 }
 
 type Built = { url: string; body: unknown; sent?: unknown } | null;
+/** Valores de una serie tal como se enviaron (para saber si cambió mientras viajaba el pedido). */
+export type SentSet = { w: number; r: number; rir: number | null; feel: string | null; note: string | null; m?: SetMetrics | null };
+/**
+ * Cuerpo del registro de una serie y los valores enviados. Ejercicios por tiempo: `metrics` sólo si la serie las tiene definidas
+ * (también `null`, que las borra). Una serie guardada por una versión anterior (sin `m`) no manda el campo: el servidor conserva lo
+ * que tenga (JSON omite `undefined`).
+ */
+export function setRequest(peId: string, idx: number, x: LocalSet): { body: Record<string, unknown>; sent: SentSet } {
+  const body = { id: x.id, programExerciseId: peId, setIndex: idx, weightKg: x.w, reps: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, metrics: x.m, baseRevision: x.revision, at: x.at ?? undefined };
+  return { body, sent: { w: x.w, r: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, m: x.m } };
+}
+/** La serie cambió desde que se envió. Cambiar sólo la velocidad o la inclinación de una actividad también cuenta (se reenvía). */
+export const setChangedSince = (x: LocalSet | undefined, sent: SentSet) => !!x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel
+  || (x.note ?? null) !== sent.note || (x.m !== sent.m && !sameMetrics(x.m, sent.m)));
+
+/**
+ * La serie local después de que el servidor la aceptó: adopta su id y revisión y, si la serie no cambió mientras viajaba el
+ * pedido, también las métricas que guardó el servidor. Ejercicios por tiempo: el servidor valida las métricas con el perfil del
+ * ejercicio con que se registró la serie (deshecho un reemplazo, una serie hecha en la bici sigue siendo de la bici) y descarta lo
+ * que no es de ese perfil; así el teléfono muestra lo que quedó guardado, no un valor que el servidor no tiene.
+ */
+export function acceptedSet(x: LocalSet, data: Record<string, unknown>, changedMeanwhile: boolean): LocalSet {
+  const out: LocalSet = { ...x, id: (data.id as string) ?? x.id, revision: data.revision as number, conflict: undefined };
+  if (!changedMeanwhile && x.m !== undefined && "metrics" in data) out.m = (data.metrics as SetMetrics | null) ?? null;
+  return out;
+}
+
 async function build(it: Item, s: LocalSession): Promise<Built> {
   const base = `/api/me/sessions`;
   if (it.kind === "start") return { url: base, body: { id: s.id, dayId: s.dayId, startedAt: s.startedAt, closeOther: s.closeOther || undefined } };
   if (it.kind === "set") {
     const x = s.sets[setKey(it.peId, it.idx)];
     if (!x?.done) return null;
-    const body = { id: x.id, programExerciseId: it.peId, setIndex: it.idx, weightKg: x.w, reps: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null, baseRevision: x.revision, at: x.at ?? undefined };
-    return { url: `${base}/${s.id}/sets`, body, sent: { w: x.w, r: x.r, rir: x.rir, feel: x.feel ?? null, note: x.note ?? null } };
+    return { url: `${base}/${s.id}/sets`, ...setRequest(it.peId, it.idx, x) };
   }
   if (it.kind === "exchange") {
     const e = s.exercises.find((y) => y.id === it.peId);
@@ -102,12 +129,12 @@ export async function flush(): Promise<void> {
       } catch { offline = true; break; } // sin red o servidor caído: se reintenta solo
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        if (s.rejected) { const cur = await getLocal(it.sid); if (cur) await putLocal({ ...cur, rejected: undefined }); }
+        if (s.rejected) await updateLocal(it.sid, (cur) => ({ ...cur, rejected: undefined }));
         await applyResult(it, b, data);
         continue;
       }
       if (res.status === 409 && data.code === "open_session" && it.kind === "start") {
-        await putLocal({ ...(await getLocal(it.sid))!, conflict: { kind: "open_session", other: data.data.other } });
+        await updateLocal(it.sid, (cur) => ({ ...cur, conflict: { kind: "open_session", other: data.data.other } }));
         blocked.add(it.sid); conflict = true; continue;
       }
       if (res.status >= 500 || res.status === 429) { offline = true; break; }
@@ -116,8 +143,8 @@ export async function flush(): Promise<void> {
       if (res.status === 403 && (data.code === "relation_inactive" || data.code === "presence_required")) {
         const message: string = data.error ?? "Tu acceso no está vigente.";
         hadError = message;
-        const cur = await getLocal(it.sid); // el estado vigente: pudo cambiar mientras viajaba el pedido
-        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code } });
+        // El estado vigente (pudo cambiar mientras viajaba el pedido), leído y escrito en la misma transacción.
+        await updateLocal(it.sid, (cur) => ({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code } }));
         blocked.add(it.sid); continue;
       }
       if (res.status === 401) { hadError = "Tu sesión venció. Ingresá de nuevo para sincronizar (no se borra nada)."; break; }
@@ -126,8 +153,7 @@ export async function flush(): Promise<void> {
       if (it.kind === "start" || it.kind === "set") {
         const message: string = data.error ?? "El servidor no aceptó este entrenamiento.";
         hadError = message;
-        const cur = await getLocal(it.sid);
-        if (cur) await putLocal({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code ?? "rejected" } });
+        await updateLocal(it.sid, (cur) => ({ ...cur, rejected: { message, at: new Date().toISOString(), code: data.code ?? "rejected" } }));
         blocked.add(it.sid); continue;
       }
       // 4xx: el servidor rechazó el dato. Se informa; no se reintenta en silencio.
@@ -142,30 +168,46 @@ export async function flush(): Promise<void> {
   }
 }
 
+/**
+ * FSA1 (MEMBER-03): cada resultado se aplica sobre lo guardado AHORA, leído y escrito en una sola transacción. Antes se leía la
+ * sesión, se esperaba y se escribía la copia leída: una serie registrada (o corregida) en ese instante se pisaba con la copia
+ * vieja y, sin la serie hecha, la cola descartaba su envío (se perdía sin aviso).
+ */
 async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string, unknown>) {
-  const s = await getLocal(it.sid);
-  if (!s) { await idbDel("queue", it.seq!); return; }
-  if (it.kind === "start") { await putLocal({ ...s, synced: true, closeOther: false, conflict: undefined }); await idbDel("queue", it.seq!); return; }
+  let found = false;
+  if (it.kind === "start") { await updateLocal(it.sid, (s) => ({ ...s, synced: true, closeOther: false, conflict: undefined })); await idbDel("queue", it.seq!); return; }
   if (it.kind === "set") {
     const k = setKey(it.peId, it.idx);
-    const x = s.sets[k];
-    const sent = b.sent as { w: number; r: number; rir: number | null; feel: string | null; note: string | null };
-    const changedMeanwhile = x && (x.w !== sent.w || x.r !== sent.r || x.rir !== sent.rir || (x.feel ?? null) !== sent.feel || (x.note ?? null) !== sent.note);
-    if (data.status === "conflict") {
-      s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null }, appliedIsMine: false } };
-    } else {
-      // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras.
-      s.sets[k] = { ...x, id: (data.id as string) ?? x.id, revision: data.revision as number, conflict: undefined };
-      // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
-      const alert = data.alert as { notified: number } | null | undefined;
-      if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
-    }
-    await putLocal(s);
+    let changedMeanwhile = false;
+    await updateLocal(it.sid, (cur) => {
+      found = true;
+      let s: LocalSession = { ...cur, sets: { ...cur.sets } };
+      const x = s.sets[k];
+      changedMeanwhile = setChangedSince(x, b.sent as SentSet);
+      if (data.status === "conflict") {
+        s.sets[k] = { ...x, conflict: { id: data.conflictId as string, other: { weightKg: data.weightKg as number | null, reps: data.reps as number | null, rir: data.rir as number | null, metrics: (data.metrics as SetMetrics | null | undefined) ?? null }, appliedIsMine: false } };
+      } else {
+        // El servidor puede conservar su id (la misma serie creada antes): se adopta para ediciones futuras (y sus métricas).
+        s.sets[k] = acceptedSet(x, data, changedMeanwhile);
+        // D210: el mensaje por serie que calculó el servidor (mismas reglas que el teléfono) entra en ESTA escritura, si el
+        // teléfono no tenía uno y sigue el descanso de esa serie (ver adoptServerIntel). La pantalla lo toma al refrescarse tras
+        // sincronizar; nunca demora la cola.
+        const intel = data.intel as { event?: { code: string; text: string; restPlusSec: number | null } | null } | null | undefined;
+        if (intel?.event) s = adoptServerIntel(s, { peId: it.peId, idx: it.idx, event: intel.event }) ?? s;
+      }
+      return s;
+    });
+    if (!found) { await idbDel("queue", it.seq!); return; }
+    // Aviso al piso (sensación por serie): la pantalla informa si llegó a alguien en turno.
+    const alert = data.status === "conflict" ? null : data.alert as { notified: number } | null | undefined;
+    if (alert && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("repi:floor-alert", { detail: { notified: alert.notified } }));
     if (!changedMeanwhile || data.status === "conflict") await idbDel("queue", it.seq!);
     return;
   }
   if (it.kind === "exchange") {
     // Si la persona volvió a cambiar mientras viajaba el pedido, el ítem queda y se envía el estado nuevo.
+    const s = await getLocal(it.sid);
+    if (!s) { await idbDel("queue", it.seq!); return; }
     const c = s.exercises.find((y) => y.id === it.peId)?.change ?? null;
     const now = JSON.stringify(c ? { kind: c.kind, reason: c.reason, exerciseId: c.substitute?.exerciseId ?? null } : null);
     if (now === b.sent) await idbDel("queue", it.seq!);
@@ -175,27 +217,35 @@ async function applyResult(it: Item, b: NonNullable<Built>, data: Record<string,
     // Si la persona volvió a cambiarla mientras viajaba, queda el ítem y se envía lo nuevo. Si no, lo que dice el servidor
     // manda: otro dispositivo pudo deshacerla después, o la etapa ya tenía un resultado (el resultado gana).
     const k = setKey(it.peId, it.idx);
-    const x = s.sets[k];
-    if (!x) { await idbDel("queue", it.seq!); return; }
-    if (`${!!x.skip && !x.done}|${x.skipAt ?? ""}` !== b.sent) return;
-    if (!x.done && (data.skipped as boolean) !== !!x.skip) { s.sets[k] = { ...x, skip: !!data.skipped, skipAt: (data.changedAt as string | null) ?? x.skipAt }; await putLocal(s); }
-    await idbDel("queue", it.seq!);
+    let drop = true;
+    await updateLocal(it.sid, (s) => {
+      const x = s.sets[k];
+      if (!x) return s;
+      if (`${!!x.skip && !x.done}|${x.skipAt ?? ""}` !== b.sent) { drop = false; return s; }
+      if (!x.done && (data.skipped as boolean) !== !!x.skip) return { ...s, sets: { ...s.sets, [k]: { ...x, skip: !!data.skipped, skipAt: (data.changedAt as string | null) ?? x.skipAt } } };
+      return s;
+    });
+    if (drop) await idbDel("queue", it.seq!);
     return;
   }
   if (it.kind === "interval") {
-    const iv = s.iv ?? null;
-    const now = `${JSON.stringify(iv ? { peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status } : null)}|${s.ivAt ?? ""}`;
-    if (now !== b.sent) return;
-    const skew = typeof data.serverNow === "string" ? Date.parse(data.serverNow) - Date.now() : s.skew ?? 0;
-    // No se aplicó (había un cambio más reciente de otro dispositivo, o el intervalo era viejo): queda el del servidor.
-    if (data.applied === false) {
-      const v = data.interval as { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null;
-      await putLocal({ ...s, skew, iv: v ? { peId: v.peId, block: v.block, start: Date.parse(v.startedAt) - skew, emomSec: v.emomSec, status: v.status } : null, ivAt: v ? new Date(Date.parse(v.at) - skew).toISOString() : s.ivAt });
-    } else await putLocal({ ...s, skew });
-    await idbDel("queue", it.seq!);
+    let drop = true;
+    await updateLocal(it.sid, (s) => {
+      const iv = s.iv ?? null;
+      const now = `${JSON.stringify(iv ? { peId: iv.peId, block: iv.block, startedAt: new Date(iv.start).toISOString(), emomSec: iv.emomSec, status: iv.status } : null)}|${s.ivAt ?? ""}`;
+      if (now !== b.sent) { drop = false; return s; }
+      const skew = typeof data.serverNow === "string" ? Date.parse(data.serverNow) - Date.now() : s.skew ?? 0;
+      // No se aplicó (había un cambio más reciente de otro dispositivo, o el intervalo era viejo): queda el del servidor.
+      if (data.applied === false) {
+        const v = data.interval as { peId: string; block: number; startedAt: string; emomSec: number; status: "running" | "interrupted"; at: string } | null;
+        return { ...s, skew, iv: v ? { peId: v.peId, block: v.block, start: Date.parse(v.startedAt) - skew, emomSec: v.emomSec, status: v.status } : null, ivAt: v ? new Date(Date.parse(v.at) - skew).toISOString() : s.ivAt };
+      }
+      return { ...s, skew };
+    });
+    if (drop) await idbDel("queue", it.seq!);
     return;
   }
-  if (it.kind === "action") { await putLocal({ ...s, revision: (data.revision as number) ?? s.revision }); await idbDel("queue", it.seq!); return; }
+  if (it.kind === "action") { await updateLocal(it.sid, (s) => ({ ...s, revision: (data.revision as number) ?? s.revision })); await idbDel("queue", it.seq!); return; }
   await idbDel("queue", it.seq!);
 }
 

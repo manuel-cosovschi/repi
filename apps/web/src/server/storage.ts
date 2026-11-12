@@ -19,6 +19,17 @@ const checkKey = (key: string) => {
 };
 const safe = (key: string) => path.join(/* turbopackIgnore: true */ root(), checkKey(key)); // carpeta fuera del bundle: no se traza
 
+/**
+ * Incidente 07/11: ningún pedido al almacenamiento espera para siempre. Corta si la respuesta (los encabezados) no llega a
+ * tiempo; el cuerpo de una lectura (videos) sigue sin límite porque el temporizador se apaga al recibir la respuesta.
+ */
+const STORAGE_TIMEOUT_MS = 15_000, STORAGE_PUT_TIMEOUT_MS = 60_000;
+async function timedFetch(url: string, init: RequestInit, ms = STORAGE_TIMEOUT_MS) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(new Error(`almacenamiento: sin respuesta en ${ms / 1000} s`)), ms);
+  try { return await fetch(url, { ...init, signal: ctl.signal }); } finally { clearTimeout(timer); }
+}
+
 function supabase() {
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) return null;
@@ -30,7 +41,7 @@ function proxy() {
   const url = process.env.SUPABASE_STORAGE_PROXY_URL, secret = process.env.STORAGE_PROXY_SECRET;
   if (!url || !secret) return null;
   return (op: "sign_upload" | "sign_read" | "put" | "delete", key: string, body?: BodyInit) =>
-    fetch(`${url}?op=${op}&key=${encodeURIComponent(checkKey(key))}`, { method: "POST", headers: { "x-repi-proxy": secret }, body });
+    timedFetch(`${url}?op=${op}&key=${encodeURIComponent(checkKey(key))}`, { method: "POST", headers: { "x-repi-proxy": secret }, body }, op === "put" ? STORAGE_PUT_TIMEOUT_MS : STORAGE_TIMEOUT_MS);
 }
 /** URL firmada de lectura (60 s) vía proxy; null si el objeto no existe. */
 async function proxyReadUrl(call: NonNullable<ReturnType<typeof proxy>>, key: string) {
@@ -46,9 +57,9 @@ async function expectOk(r: Response, what: string) {
 export async function putObject(key: string, bytes: Uint8Array) {
   const s = supabase();
   if (s) {
-    await expectOk(await fetch(`${s.base}/${s.bucket}/${checkKey(key)}`, {
+    await expectOk(await timedFetch(`${s.base}/${s.bucket}/${checkKey(key)}`, {
       method: "POST", headers: { ...s.headers, "Content-Type": "application/octet-stream", "x-upsert": "true" }, body: new Blob([bytes as Uint8Array<ArrayBuffer>]),
-    }), "subida");
+    }, STORAGE_PUT_TIMEOUT_MS), "subida");
     return;
   }
   const px = proxy();
@@ -83,13 +94,13 @@ export async function readObject(key: string, range?: string | null): Promise<Ob
   const rangeHeader: Record<string, string> = range ? { Range: range } : {};
   const s = supabase();
   if (s) {
-    return remoteRead(await fetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, ...rangeHeader }, cache: "no-store" }));
+    return remoteRead(await timedFetch(`${s.base}/authenticated/${s.bucket}/${checkKey(key)}`, { headers: { ...s.headers, ...rangeHeader }, cache: "no-store" }));
   }
   const px = proxy();
   if (px) {
     const url = await proxyReadUrl(px, key);
     if (!url) throw new Error("almacenamiento: objeto inexistente");
-    return remoteRead(await fetch(url, { headers: rangeHeader, cache: "no-store" }));
+    return remoteRead(await timedFetch(url, { headers: rangeHeader, cache: "no-store" }));
   }
   const p = safe(key);
   const st = await stat(p);
@@ -102,7 +113,7 @@ export async function readObject(key: string, range?: string | null): Promise<Ob
 export async function deleteObject(key: string) {
   const s = supabase();
   if (s) {
-    await expectOk(await fetch(`${s.base}/${s.bucket}`, {
+    await expectOk(await timedFetch(`${s.base}/${s.bucket}`, {
       method: "DELETE", headers: { ...s.headers, "Content-Type": "application/json" }, body: JSON.stringify({ prefixes: [checkKey(key)] }),
     }), "borrado");
     return;
@@ -121,7 +132,7 @@ export async function directUploadTarget(key: string): Promise<{ url: string; me
     if (!px) return null;
     return { url: ((await (await expectOk(await px("sign_upload", key), "firma de subida")).json()) as { url: string }).url, method: "PUT" };
   }
-  const r = await expectOk(await fetch(`${s.base}/upload/sign/${s.bucket}/${checkKey(key)}`, { method: "POST", headers: s.headers }), "firma de subida");
+  const r = await expectOk(await timedFetch(`${s.base}/upload/sign/${s.bucket}/${checkKey(key)}`, { method: "POST", headers: s.headers }), "firma de subida");
   const { url } = (await r.json()) as { url: string };
   return { url: `${s.base.replace(/\/object$/, "")}${url}`, method: "PUT" };
 }

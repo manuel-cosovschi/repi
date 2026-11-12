@@ -202,3 +202,33 @@ test("sala: copiar el día de un socio y pegarlo en el borrador de otro; se guar
   expect(d.program.doc.days.map((x) => x.name)).toEqual(["Full body", "Día A"]);
   expect(errors).toEqual([]);
 });
+
+// FSA1 (09/11/2026): cambiar de programa dentro de la espera del autoguardado (700 ms) dejaba el cambio sólo en este navegador
+// hasta volver a abrir ese programa; el alumno no lo recibía. Ahora se guarda al dejarlo y el otro programa no hereda nada.
+test("cambiar de programa justo después de editar: el cambio llega al servidor y el otro programa no hereda estado", async ({ page }) => {
+  const errors = watchErrors(page);
+  const href = await openDemo(page, "coach");
+  const org = orgOf(href);
+  await page.goto(href.replace(/\?s=\w+/, "?s=builder"));
+  const rows = page.locator(".side-pane .prow");
+  await expect(rows.nth(1)).toBeVisible();
+  const list = await (await page.request.get(`/api/coach/${org}/programs`)).json() as { programs: { id: string; name: string }[] };
+  const [a, b] = list.programs;
+  await rows.filter({ hasText: a.name }).first().click();
+  const name = page.getByRole("textbox", { name: "Nombre del programa" });
+  await expect(name).toHaveValue(a.name);
+  await name.fill(`${a.name} FSA1`);
+  await rows.filter({ hasText: b.name }).first().click(); // antes de los 700 ms del autoguardado
+  await expect(name).toHaveValue(b.name);
+  await expect(page.getByText(`Cambios de «${a.name} FSA1» guardados.`).first()).toBeVisible();
+  const ga = await (await page.request.get(`/api/coach/${org}/programs/${a.id}`)).json() as { doc: { name: string } };
+  expect(ga.doc.name).toBe(`${a.name} FSA1`);
+  const gb = await (await page.request.get(`/api/coach/${org}/programs/${b.id}`)).json() as { doc: { name: string } };
+  expect(gb.doc.name).toBe(b.name);
+  // Recargar: lo guardado sobrevive y no aparece «Recuperamos cambios».
+  await page.reload();
+  await rows.filter({ hasText: `${a.name} FSA1` }).first().click();
+  await expect(name).toHaveValue(`${a.name} FSA1`);
+  await expect(page.getByText(/Recuperamos cambios/)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

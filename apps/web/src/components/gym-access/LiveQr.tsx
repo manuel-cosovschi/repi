@@ -49,12 +49,29 @@ export function QrCode({ url, label, size = 320 }: { url: string; label: string;
 /** QR grande con cuenta regresiva. `onClose` lo muestra como capa a pantalla completa (equipo); sin él, ocupa la página (tablet). */
 export function LiveQrView({ qr, left, err, title, onClose }: { qr: LiveQrData | null; left: number; err: { message: string } | null; title: string; onClose?: () => void }) {
   const frac = qr ? Math.min(1, left / qr.ttlSec) : 0;
+  // FSA1 (UI): como capa (diálogo modal) toma el foco en «Cerrar», Esc la cierra, Tab no se va a la página de atrás y al
+  // cerrar el foco vuelve al botón que la abrió.
+  const closeBtn = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const layer = !!onClose;
+  useEffect(() => {
+    if (!layer) return;
+    const prev = document.activeElement as HTMLElement | null;
+    closeBtn.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); closeRef.current?.(); }
+      else if (e.key === "Tab") { e.preventDefault(); closeBtn.current?.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); if (prev?.isConnected) prev.focus({ preventScroll: true }); };
+  }, [layer]);
   return (
     <div className={onClose ? "gq gq-layer" : "gq"} role={onClose ? "dialog" : undefined} aria-modal={onClose ? true : undefined} aria-label={onClose ? title : undefined}>
       <div className="gq-top">
         <span className="gq-brand">REPI</span>
         <span className="gq-where">{qr ? [qr.gym, qr.location].filter(Boolean).join(" · ") : title}</span>
-        {onClose && <button type="button" className="gq-close" onClick={onClose}>Cerrar</button>}
+        {onClose && <button ref={closeBtn} type="button" className="gq-close" onClick={onClose}>Cerrar</button>}
       </div>
       <h1 className="gq-title">Validá tu ingreso</h1>
       {qr && !err ? (
