@@ -2,7 +2,7 @@
 // Toda la captación vive en REPI Admin (Admin con 2FA). Nada de este módulo envía mensajes por sí solo.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
-import { DEFAULT_CADENCE, DEFAULT_WEIGHTS, localDate, validateCadence, validateWeights, type Cadence, type PriceExample, type PriceTier, type ScoreWeights } from "@repi/domain";
+import { DEFAULT_BOOKING, DEFAULT_CADENCE, DEFAULT_WEIGHTS, localDate, type BookingConfig, validateCadence, validateWeights, type Cadence, type PriceExample, type PriceTier, type ScoreWeights } from "@repi/domain";
 import { db, schema } from "@/db";
 import { AccessError, type Tx } from "../access/util";
 import { requireAdmin } from "../commercial/services";
@@ -19,12 +19,12 @@ export const leadsEnabled = () => process.env.REPI_LEADS !== "off";
 export async function leadsAdmin(actorId: string) { if (!leadsEnabled()) throw NF(); return requireAdmin(actorId); }
 
 // ── Configuración ────────────────────────────────────────────────────────────
-export type Schedule = { enabled: boolean; days: number[]; discovery: string; enrich: string; score: string; compose: string; followup: string; report: string };
+export type Schedule = { enabled: boolean; days: number[]; discovery: string; enrich: string; score: string; compose: string; outreach: string; followup: string; report: string };
 export type Settings = {
   weights: ScoreWeights;
   cadence: Cadence;
   schedule: Schedule;
-  sender: { name: string; company: string; product: string; site: string; whatsapp: string };
+  sender: { name: string; company: string; product: string; site: string; whatsapp: string; replyTo: string };
   /** Texto exacto de prueba social autorizado por el titular. Vacío = no se nombra a ningún cliente. */
   socialProof: string;
   /** Clientes que se pueden nombrar (autorización registrada). */
@@ -38,6 +38,16 @@ export type Settings = {
   aiClassify: boolean;
   customStages: string[];
   /**
+   * Piloto automático (autorizado por el titular el 12/11/2026: «Tiene que estar todo automatizado»). Sólo email: primer
+   * mensaje y un seguimiento, dentro de la franja y el tope diario, con identificación y baja. WhatsApp e Instagram no se
+   * automatizan (las plataformas no permiten mensajes en frío).
+   */
+  autopilot: { enabled: boolean; dailyLimit: number; window: { from: string; to: string }; followups: boolean; minScore: number };
+  /** Agenda pública: el gimnasio elige un horario y llega una invitación de calendario al titular. */
+  booking: BookingConfig & { enabled: boolean; meetingUrl: string };
+  /** Avisos al titular por email (reuniones, recordatorios, resumen diario sólo si hay algo). */
+  notify: { email: boolean; meetingReminderMin: number };
+  /**
    * Precio por socio (dossier comercial 2026): tramos de referencia SÓLO para estimar el valor de las oportunidades, y ejemplos
    * ilustrativos que se citan al responder una consulta de precios. El precio real se acuerda con cada gimnasio: no cotiza.
    */
@@ -46,8 +56,8 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   weights: DEFAULT_WEIGHTS,
   cadence: DEFAULT_CADENCE,
-  schedule: { enabled: false, days: [1, 2, 3, 4, 5], discovery: "08:00", enrich: "08:30", score: "09:00", compose: "09:30", followup: "17:30", report: "18:00" },
-  sender: { name: "Manuel", company: "Sovare", product: "Repi", site: "repiclub.com", whatsapp: "223 538-3082" },
+  schedule: { enabled: false, days: [1, 2, 3, 4, 5], discovery: "08:00", enrich: "08:30", score: "09:00", compose: "09:30", outreach: "10:00", followup: "17:30", report: "18:00" },
+  sender: { name: "Manuel", company: "Sovare", product: "Repi", site: "repiclub.com", whatsapp: "223 538-3082", replyTo: "sovare.studio@gmail.com" },
   // Autorizado por el titular el 12/11/2026 (D218): nombrar a Smart Center Gym y las implementaciones en curso.
   socialProof: "Ya funciona en Smart Center Gym, en Mar del Plata, y estamos en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil.",
   allowedClientNames: ["Smart Center Gym"],
@@ -58,6 +68,9 @@ export const DEFAULT_SETTINGS: Settings = {
   aiCompose: false,
   aiClassify: false,
   customStages: [],
+  autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40 },
+  booking: { ...DEFAULT_BOOKING, enabled: true, meetingUrl: "" },
+  notify: { email: true, meetingReminderMin: 60 },
   // Dossier comercial 2026, p. 6: 400 socios × $200 = $80.000/mes; 500 socios × $170 = $85.000/mes (ejemplos ilustrativos).
   pricing: { currency: "ARS", tiers: [{ minMembers: 0, unitMinor: 20000 }, { minMembers: 500, unitMinor: 17000 }], examples: [{ members: 400, unitMinor: 20000 }, { members: 500, unitMinor: 17000 }] },
 };
@@ -76,7 +89,13 @@ export async function saveSettings(actorId: string, patch: Partial<Settings>) {
   const w = validateWeights(next.weights); if (w) throw bad(w);
   const c = validateCadence(next.cadence); if (c) throw bad(c);
   const sc = next.schedule;
-  for (const k of ["discovery", "enrich", "score", "compose", "followup", "report"] as const) if (!HHMM.test(sc[k])) throw bad("Los horarios van como HH:MM.");
+  for (const k of ["discovery", "enrich", "score", "compose", "outreach", "followup", "report"] as const) if (!HHMM.test(sc[k] ?? "")) throw bad("Los horarios van como HH:MM.");
+  const ap = next.autopilot;
+  if (!HHMM.test(ap.window.from) || !HHMM.test(ap.window.to) || ap.window.from >= ap.window.to) throw bad("La franja del piloto automático va como HH:MM a HH:MM.");
+  if (ap.dailyLimit < 0 || ap.dailyLimit > 30) throw bad("El piloto automático manda entre 0 y 30 emails por día.");
+  const bk = next.booking;
+  if (!HHMM.test(bk.from) || !HHMM.test(bk.to) || bk.from >= bk.to || ![15, 20, 30, 45, 60].includes(bk.slotMin) || bk.horizonDays < 1 || bk.horizonDays > 21) throw bad("Agenda inválida.");
+  if (next.sender.replyTo && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(next.sender.replyTo)) throw bad("El email de respuesta no es válido.");
   if (!Array.isArray(sc.days) || sc.days.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) throw bad("Días inválidos.");
   if (!next.sender.name.trim() || !next.sender.company.trim()) throw bad("Falta el remitente.");
   if (next.limits.emailPerDay > 100 || next.limits.emailPerDay < 0) throw bad("El límite diario de emails va de 0 a 100.");
@@ -146,3 +165,18 @@ export function readUnsubscribeToken(token: string): string | null {
   return a.length === b.length && timingSafeEqual(a, b) ? id : null;
 }
 export const unsubscribeUrl = (businessId: string) => `${appUrl()}/baja/${unsubscribeToken(businessId)}`;
+/** Enlaces firmados por lead para la agenda pública y para «ya me respondió» (desde el aviso al titular). */
+const signed = (purpose: string) => ({
+  token: (id: string) => `${id}.${createHmac("sha256", secret()).update(`lead-${purpose}:${id}`).digest("base64url").slice(0, 22)}`,
+  read(token: string): string | null {
+    const [id, mac] = token.split(".");
+    if (!id || !mac) return null;
+    const want = this.token(id).split(".")[1];
+    const a = Buffer.from(mac), b = Buffer.from(want);
+    return a.length === b.length && timingSafeEqual(a, b) ? id : null;
+  },
+});
+export const bookingSigner = signed("book");
+export const stopSigner = signed("stop");
+export const bookingUrl = (businessId: string) => `${appUrl()}/agenda/${bookingSigner.token(businessId)}`;
+export const stopUrl = (businessId: string) => `${appUrl()}/api/captacion/respondio/${stopSigner.token(businessId)}`;

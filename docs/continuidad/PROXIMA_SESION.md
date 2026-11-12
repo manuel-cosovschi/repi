@@ -25,6 +25,14 @@ Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 005
   - **Pendiente:** confirmar una corrida con resultados (Captación › Procesos › Investigación) cuando Overpass tenga capacidad.
 - **Campaña piloto:** no se creó en producción, porque la arma y aprueba el titular (Campañas › Nueva › «Mejor canal de cada gimnasio» › Armar lista › Enviar a aprobación › Aprobar).
 - **Programación diaria:** apagada; se enciende en Ajustes.
+- **Piloto automático (pedido del titular: «todo automatizado»):**
+  - Por email: primer contacto y un seguimiento.
+  - Agenda pública `/agenda/[token]` con invitación .ics.
+  - Recordatorios y resumen diario al titular, con enlace «ya me respondió».
+  - WhatsApp e Instagram no se automatizan (políticas de las plataformas).
+  - n8n no se usa: sus cuentas de Gmail y WhatsApp son de otros negocios del titular.
+  - Detalle en `SALES_INTELLIGENCE.md` § Piloto automático.
+  - La publicación y la activación en producción se registran abajo, cuando estén hechas.
 
 
 - **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.

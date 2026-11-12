@@ -43,6 +43,21 @@ Scripts de la migración:
 - reversión: `scripts/rollback/0056_lead_intelligence.down.sql`, que se niega si hay datos;
 - ensayo: `verify-0056.sh`.
 
+## Piloto automático (12/11/2026)
+
+Pedido del titular: que todo funcione solo hasta que llegue un WhatsApp, una reunión en el calendario o un recordatorio.
+
+| Qué | Cómo |
+| --- | --- |
+| Primer contacto | Paso `outreach` a las 10:00 de los días hábiles. Envía por email (Resend de REPI) a los gimnasios con mejor puntaje que tienen email, sin exclusiones ni envíos previos. Franja 10:00–17:30, tope 8 por día. |
+| Seguimiento | Uno solo, por email, si no hay respuesta, según la cadencia de Ajustes. Avisa «si ya me respondiste por otro lado, desestimá». |
+| Respuestas | Van a sovare.studio@gmail.com. Cada email invita a escribir por WhatsApp al 223 538-3082. |
+| Reuniones | Agenda pública `/agenda/[token]`, con horarios libres en días hábiles de 10:00 a 18:00 y 18 h de anticipación. Al elegir, se crea la reunión y se frenan los seguimientos. Llega una invitación de calendario al titular (se agrega a Google Calendar) y otra al gimnasio, si dejó email. |
+| Recordatorios | Email al titular 60 min antes de cada reunión, y un resumen diario sólo si hay novedades. El resumen trae, por cada lead, un enlace «ya me respondió» que frena su seguimiento. |
+| No automatizado | WhatsApp e Instagram, porque las plataformas no permiten mensajes en frío. Los leads que sólo tienen esos canales esperan a tener un email (el enriquecimiento diario los busca) o quedan para contacto manual. |
+
+Se apaga en Ajustes › Piloto automático, o pausando la campaña «Piloto automático · email».
+
 ## Reglas que el sistema hace cumplir
 
 - **Datos.**

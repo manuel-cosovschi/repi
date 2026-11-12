@@ -215,15 +215,15 @@ describe("D · vendedores, exportación, baja por enlace y programador", () => {
     expect((await lead(r.id)).doNotContact).toBe(true);
   });
   it("el programador corre un paso por minuto, una vez por día, sólo si está encendido", async () => {
-    expect(await pipe.leadsTick(new Date("2026-11-12T12:30:00Z"))).toEqual({ ran: null }); // apagado
-    await saveSettings(admin, { schedule: { enabled: true, days: [1, 2, 3, 4, 5], discovery: "23:58", enrich: "23:59", score: "09:00", compose: "23:57", followup: "23:56", report: "09:05" } });
+    expect(await pipe.leadsTick(new Date("2026-11-12T12:30:00Z"))).toMatchObject({ ran: null }); // apagado
+    await saveSettings(admin, { schedule: { enabled: true, days: [1, 2, 3, 4, 5], discovery: "23:58", enrich: "23:59", score: "09:00", compose: "23:57", outreach: "23:55", followup: "23:56", report: "09:05" } });
     const t1 = await pipe.leadsTick(new Date("2026-11-12T12:30:00Z")); // 09:30 AR, jueves
     expect(t1.ran).toBe("score");
     const t2 = await pipe.leadsTick(new Date("2026-11-12T12:31:00Z"));
     expect(t2.ran).toBe("report");
     expect((await pipe.leadsTick(new Date("2026-11-12T12:32:00Z"))).ran).toBeNull();
     expect((await pipe.leadsTick(new Date("2026-11-14T12:30:00Z"))).ran).toBeNull(); // sábado
-    await saveSettings(admin, { schedule: { enabled: false, days: [1, 2, 3, 4, 5], discovery: "08:00", enrich: "08:30", score: "09:00", compose: "09:30", followup: "17:30", report: "18:00" } });
+    await saveSettings(admin, { schedule: { enabled: false, days: [1, 2, 3, 4, 5], discovery: "08:00", enrich: "08:30", score: "09:00", compose: "09:30", outreach: "10:00", followup: "17:30", report: "18:00" } });
   });
 });
 
@@ -242,5 +242,57 @@ describe("E · entrada interna con CRON_SECRET", () => {
     const run = await call({ action: "run", step: "score" });
     expect(((await run.json()) as { status: string }).status).toBe("ok");
     delete process.env.CRON_SECRET;
+  });
+});
+
+describe("F · piloto automático por email, agenda pública y recordatorios", () => {
+  it("manda solo, ofrece agenda, agenda con invitación, recuerda y frena con un toque", async () => {
+    const { stepOutreach, bookingView, bookMeeting, meetingReminders, stopByLink, dailyDigest } = await import("@/server/leads/autopilot");
+    const { bookingSigner, stopSigner } = await import("@/server/leads/core");
+    const r = await crm.saveManual(admin, { name: gym("Auto Gym"), city: "Mar del Plata", email: `info@autogym-${tag}.com`, category: "fitness_center", estMembers: 450 });
+    const r2 = await crm.saveManual(admin, { name: gym("Otro Auto"), city: "Mar del Plata", email: `hola@otroauto-${tag}.com`, category: "traditional", estMembers: 320 });
+    const thursday10 = new Date("2026-11-12T13:00:00Z"); // 10:00 AR
+    // Apagado por defecto: no manda nada.
+    expect((await stepOutreach({ now: thursday10 })).reason).toMatch(/apagado/);
+    await saveSettings(admin, { autopilot: { enabled: true, dailyLimit: 30, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 0 }, channels: { emailSend: true, whatsappApi: false } });
+    expect((await stepOutreach({ now: new Date("2026-11-14T13:00:00Z") })).reason).toMatch(/franja/); // sábado
+    const o = await stepOutreach({ now: thursday10 });
+    expect(o.firstContacts).toBeGreaterThanOrEqual(2);
+    const [sent] = await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, r.id), eq(schema.leadMessage.status, "sent")));
+    expect(sent).toMatchObject({ channel: "email", provider: "mailer" });
+    expect(sent.body).toContain("/agenda/");
+    expect(sent.body).toContain("WhatsApp al 223 538-3082");
+    expect(sent.body).toContain("Smart Center Gym");
+    const [box] = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, `info@autogym-${tag}.com`));
+    expect(box.body).toMatch(/\/baja\//);
+    expect((await lead(r.id))).toMatchObject({ stage: "waiting" });
+    // Repetir no duplica envíos.
+    await stepOutreach({ now: thursday10 });
+    expect((await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, r.id), eq(schema.leadMessage.status, "sent")))).length).toBe(1);
+    // Agenda pública: elige horario → reunión, seguimientos cancelados, invitación al titular.
+    const tok = bookingSigner.token(r.id);
+    const v = await bookingView(tok);
+    expect(v?.slots.length).toBeGreaterThan(0);
+    const slot = v!.slots[0];
+    const b1 = await bookMeeting(tok, { slot, name: "Laura", phone: "223 555 1234", email: `laura@autogym-${tag}.com` });
+    expect(b1.ok).toBe(true);
+    expect((await bookMeeting(bookingSigner.token(r2.id), { slot, name: "Otro", phone: "223 555 0000" })).ok).toBe(false); // ya tomado
+    expect((await lead(r.id))).toMatchObject({ stage: "meeting_set", sequenceStopped: true });
+    const invites = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, `${admin}@test.repi.local`));
+    expect(invites.some((m) => /Reunión agendada/.test(m.subject))).toBe(true);
+    const confirm = await db.select().from(schema.devMailbox).where(eq(schema.devMailbox.to, `laura@autogym-${tag}.com`));
+    expect(confirm[0].subject).toMatch(/Reunión con Repi/);
+    expect(await bookingView("x.y")).toBeNull();
+    // Recordatorio: una sola vez, dentro de la ventana previa.
+    const before = new Date(new Date(`${slot}:00-03:00`).getTime() - 30 * 60_000);
+    expect(await meetingReminders(before)).toBe(1);
+    expect(await meetingReminders(before)).toBe(0);
+    // «Ya me respondió»: frena el seguimiento del otro.
+    expect((await stopByLink(stopSigner.token(r2.id)))?.name).toBe(gym("Otro Auto"));
+    expect((await lead(r2.id))).toMatchObject({ sequenceStopped: true });
+    expect(await stopByLink("nope.nope")).toBeNull();
+    const dg = await dailyDigest({ day: "2026-11-12", sent: 2, replies: 0, due: 0, errors: [] });
+    expect(dg.emailed).toBeGreaterThanOrEqual(1);
+    await saveSettings(admin, { autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40 }, channels: { emailSend: false, whatsappApi: false } });
   });
 });

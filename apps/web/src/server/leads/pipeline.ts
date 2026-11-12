@@ -10,9 +10,9 @@ import { discoverOsm, readOfficialSite } from "./sources";
 import { ingest, refreshLead, rescoreAll } from "./store";
 import { createDraft, bestChannel } from "./messaging";
 
-export const STEPS = ["discovery", "enrich", "score", "compose", "followup", "report"] as const;
+export const STEPS = ["discovery", "enrich", "score", "compose", "outreach", "followup", "report"] as const;
 export type Step = (typeof STEPS)[number];
-export const STEP_LABEL: Record<Step, string> = { discovery: "Investigación", enrich: "Enriquecimiento", score: "Calificación", compose: "Preparación comercial", followup: "Seguimiento", report: "Informe diario" };
+export const STEP_LABEL: Record<Step, string> = { discovery: "Investigación", enrich: "Enriquecimiento", score: "Calificación", compose: "Preparación comercial", outreach: "Envío automático (email)", followup: "Seguimiento", report: "Informe diario" };
 
 async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron" | "manual", actorId: string | null, work: () => Promise<T>) {
   // Una corrida cortada por el límite de la función queda «running» para siempre: pasados 3 minutos se cierra como error.
@@ -137,7 +137,10 @@ export async function stepFollowup() {
         const key = `followup:${b.id}:${n.step}`;
         const [t] = await db.insert(leadTask).values({ businessId: b.id, kind: "followup", dueOn: n.dueOn ?? d, note: `Seguimiento ${n.step}: revisar el historial antes de enviar`, dedupeKey: key }).onConflictDoNothing().returning();
         if (t) {
-          await createDraft(null, b.id, { variant: n.step >= 2 ? "followup_2" : "followup_1", step: n.step });
+          // El seguimiento va por el mismo canal que el primer mensaje (el piloto automático contacta por email).
+          const [first] = await db.select({ channel: leadMessage.channel }).from(leadMessage).where(and(eq(leadMessage.businessId, b.id), eq(leadMessage.direction, "out"), eq(leadMessage.status, "sent"))).orderBy(asc(leadMessage.sentAt)).limit(1);
+          const ch = first && ["whatsapp", "email", "instagram"].includes(first.channel) ? first.channel as "whatsapp" | "email" | "instagram" : undefined;
+          await createDraft(null, b.id, { variant: n.step >= 2 ? "followup_2" : "followup_1", step: n.step, channel: ch });
           await db.update(leadBusiness).set({ nextAction: `Seguimiento ${n.step}`, nextActionOn: n.dueOn }).where(eq(leadBusiness.id, b.id));
           out.followups++;
         }
@@ -157,10 +160,13 @@ export async function stepFollowup() {
 /** Informe diario: números del día y las cinco acciones recomendadas (lo arma el agente con datos reales). */
 export async function stepReport() {
   const { dailySummary } = await import("./insights");
-  return dailySummary();
+  const { dailyDigest } = await import("./autopilot");
+  const sum = await dailySummary();
+  const digest = await dailyDigest(sum);
+  return { ...sum, digest };
 }
 
-const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), followup: stepFollowup, report: stepReport };
+const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => (await import("./autopilot")).stepOutreach(), followup: stepFollowup, report: stepReport };
 
 /** Ejecución por el job interno (CRON_SECRET), sin sesión: igual que la manual pero registrada como «cron-manual». */
 export async function runStepSystem(step: Step, opts: { areaIds?: string[]; budgetMs?: number } = {}) {
@@ -185,7 +191,9 @@ export function argClock(d = new Date()) {
 export async function leadsTick(now = new Date()) {
   if (!leadsEnabled()) return { ran: null };
   const s = await getSettings();
-  if (!s.schedule.enabled) return { ran: null };
+  // Recordatorios de reuniones: cada minuto, aunque la programación diaria esté apagada.
+  const reminders = await (await import("./autopilot")).meetingReminders(now).catch((e) => { logError("leads.reminders", e); return 0; });
+  if (!s.schedule.enabled) return { ran: null, reminders };
   const c = argClock(now);
   if (!s.schedule.days.includes(c.day)) return { ran: null };
   const due = STEPS.filter((k) => s.schedule[k] <= c.hhmm);

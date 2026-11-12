@@ -595,7 +595,7 @@ function Agent({ onOpen }: { onOpen: (id: string) => void }) {
 
 // ── Procesos ────────────────────────────────────────────────────────────────
 type RunRow = { id: string; kind: string; trigger: string; status: string; stats: Record<string, unknown>; error: string | null; startedAt: string; finishedAt: string | null };
-const STEP_TXT: Record<string, string> = { discovery: "Investigación (OpenStreetMap)", enrich: "Enriquecimiento (sitios oficiales)", score: "Calificación", compose: "Preparación de borradores", followup: "Seguimientos", report: "Informe diario" };
+const STEP_TXT: Record<string, string> = { discovery: "Investigación (OpenStreetMap)", enrich: "Enriquecimiento (sitios oficiales)", score: "Calificación", compose: "Preparación de borradores", outreach: "Envío automático (email)", followup: "Seguimientos", report: "Informe diario" };
 function Runs({ flash }: { flash: Flash }) {
   const d = useLoad<RunRow[]>(`${B}/runs`);
   const [busy, setBusy] = useState<string | null>(null);
@@ -618,7 +618,10 @@ function Runs({ flash }: { flash: Flash }) {
 
 // ── Ajustes ─────────────────────────────────────────────────────────────────
 type SettingsV = { settings: { weights: Record<string, number>; cadence: { steps: number[]; businessDaysOnly: boolean }; schedule: Record<string, string | boolean | number[]> & { enabled: boolean; days: number[] };
-  sender: { name: string; company: string; product: string; site: string; whatsapp: string }; socialProof: string; allowedClientNames: string[]; presentationUrl: string; demoUrl: string;
+  sender: { name: string; company: string; product: string; site: string; whatsapp: string; replyTo: string }; socialProof: string;
+  autopilot: { enabled: boolean; dailyLimit: number; window: { from: string; to: string }; followups: boolean; minScore: number };
+  booking: { enabled: boolean; days: number[]; from: string; to: string; slotMin: number; horizonDays: number; minNoticeHours: number; meetingUrl: string };
+  notify: { email: boolean; meetingReminderMin: number }; allowedClientNames: string[]; presentationUrl: string; demoUrl: string;
   limits: { discoveryAreasPerRun: number; enrichPerRun: number; composePerRun: number; emailPerDay: number; maxChars: number }; channels: { emailSend: boolean; whatsappApi: boolean }; aiCompose: boolean; aiClassify: boolean; pricing: { currency: "ARS"; tiers: { minMembers: number; unitMinor: number }[]; examples: { members: number; unitMinor: number }[] } };
   areas: { id: string; name: string; province: string | null; tier: number; radiusKm: number; enabled: boolean; lastDiscoveredAt: string | null }[] };
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -640,8 +643,31 @@ function Settings({ flash }: { flash: Flash }) {
       <section className="card"><h2>Programación diaria (hora de Argentina)</h2>
         <label className="sv-note"><input type="checkbox" checked={s.schedule.enabled} onChange={(e) => setS({ ...s, schedule: { ...s.schedule, enabled: e.target.checked } })} /> Encendida (corre con el job de cada minuto ya activo en producción)</label>
         <div className="sv-checks">{DAYS.map((x, i) => <label key={x} className="chip mute"><input type="checkbox" checked={s.schedule.days.includes(i)} onChange={(e) => setS({ ...s, schedule: { ...s.schedule, days: e.target.checked ? [...s.schedule.days, i].sort() : s.schedule.days.filter((y) => y !== i) } })} /> {x}</label>)}</div>
-        <div className="grid-2">{(["discovery", "enrich", "score", "compose", "followup", "report"] as const).map((k) => <label key={k} className="field">{STEP_TXT[k]}<input type="time" value={String(s.schedule[k])} onChange={(e) => setS({ ...s, schedule: { ...s.schedule, [k]: e.target.value } })} /></label>)}</div>
+        <div className="grid-2">{(["discovery", "enrich", "score", "compose", "outreach", "followup", "report"] as const).map((k) => <label key={k} className="field">{STEP_TXT[k]}<input type="time" value={String(s.schedule[k])} onChange={(e) => setS({ ...s, schedule: { ...s.schedule, [k]: e.target.value } })} /></label>)}</div>
         <div className="mfoot"><button type="button" className="btn pri" onClick={() => save({ schedule: s.schedule })}>Guardar programación</button></div>
+      </section>
+      <section className="card"><h2>Piloto automático</h2>
+        <p className="sv-note">Con la programación encendida, cada día hábil manda por email el primer mensaje a los mejores gimnasios con email (y un seguimiento si no hay respuesta), dentro de la franja y el tope. Las respuestas llegan al email de respuesta; cada mensaje invita a WhatsApp y a la agenda. WhatsApp e Instagram no se automatizan: las plataformas no permiten mensajes en frío.</p>
+        <label className="sv-note"><input type="checkbox" checked={s.autopilot.enabled} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, enabled: e.target.checked } })} /> Encendido</label>
+        <label className="sv-note"><input type="checkbox" checked={s.autopilot.followups} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, followups: e.target.checked } })} /> Mandar el seguimiento si no responde</label>
+        <div className="grid-2">
+          <label className="field">Emails por día<input inputMode="numeric" value={s.autopilot.dailyLimit} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, dailyLimit: Number(e.target.value) || 0 } })} /></label>
+          <label className="field">Puntaje mínimo<input inputMode="numeric" value={s.autopilot.minScore} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, minScore: Number(e.target.value) || 0 } })} /></label>
+          <label className="field">Desde<input type="time" value={s.autopilot.window.from} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, window: { ...s.autopilot.window, from: e.target.value } } })} /></label>
+          <label className="field">Hasta<input type="time" value={s.autopilot.window.to} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, window: { ...s.autopilot.window, to: e.target.value } } })} /></label>
+          <label className="field">Email donde llegan las respuestas<input type="email" value={s.sender.replyTo} onChange={(e) => setS({ ...s, sender: { ...s.sender, replyTo: e.target.value } })} /></label>
+        </div>
+        <h3 style={{ fontSize: 15, margin: "12px 0 4px" }}>Agenda pública y avisos</h3>
+        <label className="sv-note"><input type="checkbox" checked={s.booking.enabled} onChange={(e) => setS({ ...s, booking: { ...s.booking, enabled: e.target.checked } })} /> Ofrecer la agenda en los emails (el gimnasio elige horario y te llega la invitación de calendario)</label>
+        <div className="grid-2">
+          <label className="field">Agenda desde<input type="time" value={s.booking.from} onChange={(e) => setS({ ...s, booking: { ...s.booking, from: e.target.value } })} /></label>
+          <label className="field">Agenda hasta<input type="time" value={s.booking.to} onChange={(e) => setS({ ...s, booking: { ...s.booking, to: e.target.value } })} /></label>
+          <label className="field">Duración (min)<select value={s.booking.slotMin} onChange={(e) => setS({ ...s, booking: { ...s.booking, slotMin: Number(e.target.value) } })}>{[15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m}</option>)}</select></label>
+          <label className="field">Enlace de videollamada fijo (opcional)<input value={s.booking.meetingUrl} onChange={(e) => setS({ ...s, booking: { ...s.booking, meetingUrl: e.target.value } })} placeholder="Vacío: llamás al teléfono que dejan" /></label>
+          <label className="field">Recordatorio antes de cada reunión (min)<input inputMode="numeric" value={s.notify.meetingReminderMin} onChange={(e) => setS({ ...s, notify: { ...s.notify, meetingReminderMin: Number(e.target.value) || 60 } })} /></label>
+        </div>
+        <label className="sv-note"><input type="checkbox" checked={s.notify.email} onChange={(e) => setS({ ...s, notify: { ...s.notify, email: e.target.checked } })} /> Avisarme por email (reunión agendada, recordatorio y resumen diario cuando hay novedades)</label>
+        <div className="mfoot"><button type="button" className="btn pri" onClick={() => save({ autopilot: s.autopilot, booking: s.booking, notify: s.notify, sender: s.sender }, "Piloto automático guardado.")}>Guardar</button></div>
       </section>
       <section className="card"><h2>Puntaje: pesos</h2><p className="sv-note">Se normalizan a 100 (suma actual {sumW}). Al guardar se recalculan todos los puntajes.</p>
         <div className="grid-2">{SCORE_FACTORS.map((f) => <label key={f} className="field">{SCORE_FACTOR_LABEL[f]}<input inputMode="numeric" value={s.weights[f]} onChange={(e) => setS({ ...s, weights: { ...s.weights, [f]: Number(e.target.value) || 0 } })} /></label>)}</div>
