@@ -139,6 +139,12 @@ describe("pedido de programa YA RESPONDIDO sin datos (gimnasio)", () => {
     const c = await answeredTask(w4);
     await db.update(schema.gymTask).set({ status: "cancelled" }).where(eq(schema.gymTask.id, c.id));
     expect(await lateBrief(w4.user)).toBeNull();
+    // Una tarea «Programa nuevo» que cargó el equipo (no la pidió la persona) y ya cerró tampoco: no es «tu pedido».
+    const w5 = await gymWorld();
+    const s5 = await answeredTask(w5);
+    await db.update(schema.gymTask).set({ createdBy: w5.trainer, source: "sala" }).where(eq(schema.gymTask.id, s5.id));
+    expect(await lateBrief(w5.user)).toBeNull();
+    expect((await err(completeProgramBrief(w5.user, FULL)))?.code).toBe("no_pending");
   });
 });
 

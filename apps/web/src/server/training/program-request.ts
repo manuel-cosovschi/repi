@@ -54,13 +54,13 @@ export type LateBrief = PendingBrief & {
 type Answered = PendingBrief & { orgId: string; handler: string | null; memberId: string | null };
 
 /**
- * Pedidos de programa YA RESPONDIDOS a los que nunca se les cargaron las preferencias: el último de cada relación vigente,
+ * Pedidos de programa de la persona YA RESPONDIDOS a los que nunca se les cargaron las preferencias: el último de cada relación vigente,
  * sólo si ningún otro pedido de esa relación las tiene (si un pedido posterior las trae, quien arma la rutina ya las recibió)
  * y si no hay uno abierto esperándolas (ése ya tiene su propio aviso).
  */
 async function answeredWithoutBrief(userId: string): Promise<Answered[]> {
   const rels = await myGymRelations(userId);
-  const tasks = rels.length ? await db.select({ id: gymTask.id, ctx: gymTask.context, status: gymTask.status, createdAt: gymTask.createdAt, orgId: gymTask.orgId, memberId: gymTask.gymMemberId, by: gymTask.completedBy, assignee: gymTask.assigneeUserId })
+  const tasks = rels.length ? await db.select({ id: gymTask.id, ctx: gymTask.context, status: gymTask.status, createdAt: gymTask.createdAt, orgId: gymTask.orgId, memberId: gymTask.gymMemberId, by: gymTask.completedBy, assignee: gymTask.assigneeUserId, createdBy: gymTask.createdBy })
     .from(gymTask).where(and(inArray(gymTask.gymMemberId, rels.map((r) => r.m.id)), eq(gymTask.category, "programa_nuevo"), sql`${gymTask.status} <> 'cancelled'`))
     .orderBy(desc(gymTask.createdAt)) : [];
   const reqs = await db.select({ id: studentRequest.id, brief: studentRequest.brief, status: studentRequest.status, createdAt: studentRequest.createdAt, relId: studentRequest.coachClientId, orgId: coachClient.coachOrgId, coach: organization.name, by: studentRequest.resolvedBy })
@@ -71,7 +71,9 @@ async function answeredWithoutBrief(userId: string): Promise<Answered[]> {
   for (const r of rels) {
     const mine = tasks.filter((t) => t.memberId === r.m.id);
     if (mine.some((t) => isCompleteBrief(t.ctx?.brief)) || mine.some((t) => (ACTIVE as readonly string[]).includes(t.status))) continue;
-    const last = mine.find((t) => t.status === "done");
+    // Sólo un pedido que hizo la propia persona («tu pedido»): una tarea que cargó el equipo y ya cerró no es un pedido suyo
+    // (para eso queda la tarjeta general del perfil).
+    const last = mine.find((t) => t.status === "done" && t.createdBy === userId);
     if (last) out.push({ id: last.id, source: "gym", to: `el equipo de ${orgName.get(last.orgId) ?? "tu gimnasio"}`, createdAt: last.createdAt.toISOString(), orgId: last.orgId, handler: last.by ?? last.assignee, memberId: last.memberId });
   }
   for (const relId of [...new Set(reqs.map((x) => x.relId))]) {
