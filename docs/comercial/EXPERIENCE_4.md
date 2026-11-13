@@ -128,7 +128,7 @@ Rutas relativas a `apps/web/src/`.
 **Nuevos**
 - `components/conoce/x4/DataStory.tsx` — «El dato vuelve» (03b). Recibe la serie anterior y la real **del motor**; los seis puntos previos de la curva son un ejemplo y la página lo dice al pie del gráfico («los anteriores, un ejemplo ficticio»).
 - `components/conoce/x4/Connected.tsx` — «La sala conectada» (04c, `id="sala"`). Lista de pestañas «Zonas de la sala» con flechas, Inicio y Fin; botones sobre la sala; una tarjeta por zona con su demo.
-- `components/conoce/referral.ts` — referencia del vendedor (`V-XXXXXX`) para el formulario y los mensajes de WhatsApp.
+- `components/conoce/referral.ts` — enlace personal de un vendedor (`?ref=V-XXXXXX`, D209): viaja oculto con el formulario como origen del contacto. No se muestra en la página ni en los mensajes de WhatsApp.
 - `styles/conoce4.css` — estilos de lo anterior.
 - `e2e/conoce-x4.spec.ts` — 17 pruebas (× 2 proyectos).
 
@@ -144,7 +144,13 @@ Rutas relativas a `apps/web/src/`.
 - **Logo:** `public/brand/wm_full.png` con el punto aparte, como antes. No se redibujó.
 - **Captura del tótem:** `public/conoce/shots/control-rutina.webp` (ya publicada).
 - **Tipografías:** Barlow y Barlow Condensed.
-- **Pendiente (no hecho):** volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` (tienen avisos del entorno de demo) y unificar `training.webp` / `intelligence.webp`, que muestran 53 kg mientras la escena en vivo usa 60 → 62,5 kg.
+- **Capturas rehechas (13/11):** `training`, `intelligence`, `adaptive`, `owner`, `access` y `control-equipo`, con `design/films/kit/tools/shots-conoce.mjs` contra una demo local.
+  - Sin avisos del entorno de demo («Avisos push no están configurados…»), sin la píldora «DEMO · Guía · Otro perfil» y sin la ayuda de primera vez.
+  - `training`, `intelligence` y `adaptive` usan el mismo ejemplo que la escena en vivo: el historial de press de banca de la demo se dejó en 60 kg × 10 y el motor real muestra «Anterior 60 kg × 10 → REPI recomienda 62,5 kg». Ningún número se escribió a mano.
+  - `owner` ahora es «Seguimiento de sala» (pedidos recibidos, resueltos y tiempos); el tablero «Ejecutivo» de la demo está casi en cero.
+  - `access`: el email ficticio de la demo se muestra con un dominio de ejemplo.
+  - `training-piezas.webp` es la captura anterior, que sólo usa `EngineScreen.tsx` para recortar piezas de interfaz sin números (los recortes van por coordenadas).
+  - **Sigue distinto:** la demo que prueba el visitante y los films muestran el ejemplo de la demo (53 kg). Cada uno es coherente por dentro.
 
 ## 9. Veracidad
 
@@ -173,10 +179,10 @@ Fallas encontradas leyendo el código y confirmadas con prueba:
 | Entrar con `?modo=control` y cambiar a Completo dejaba el formulario con la modalidad vieja. | El selector avisa cada cambio; el formulario lo sigue. |
 | «Quiero REPI en mi gimnasio» no preparaba el formulario si antes se había elegido otro perfil. | Ahora lo pone en «gimnasios». |
 | Cambiar de tipo de contacto dejaba el interés y la reunión del tipo anterior. | Se reinician. |
-| La referencia del vendedor no llegaba al WhatsApp. | Se agrega « (Ref. V-XXXXXX)» al mensaje. |
+| La referencia del vendedor no llegaba al WhatsApp. | **Revertido el 13/11 por pedido del titular:** el código ya no se agrega al mensaje. El enlace personal del vendedor (D209) sigue llegando, oculto, sólo con el formulario. |
 | «Pedir demo» de la cabecera no se medía. | Mide `contact_click` con destino `cabecera`. |
 
-**Sin resolver:** la referencia del vendedor no se guarda en los eventos del sitio ni en `/qr`; son cambios de esquema y quedan para decidir.
+**Descartado (13/11):** guardar la referencia del vendedor en los eventos del sitio o en `/qr`. El titular no quiere esa referencia a la vista en `/conoce`.
 
 ## 11. Accesibilidad
 
@@ -282,7 +288,29 @@ Quien entra con WebGL por software ya recibía el plano SVG desde el principio (
 
 Cada film nuevo se revisó en tiras de contacto del archivo publicado (cifras de las tarjetas contra la captura del mismo plano, logo, cierre) antes de reemplazar al anterior.
 
-**Sin tocar:** `perfil-entrenadores`, `perfil-deportistas` (y su vertical), `perfil-aliados`, `f-progreso`, `f-altas` y `f-sala` siguen como estaban, con los defectos de la auditoría (parpadeo del póster dentro del teléfono, logo ampliado, textos chicos).
+**Segunda tanda (13/11/2026, rama `claude/films-6`, sin publicar hasta la revisión).** Los seis films que habían quedado con el kit viejo se rehicieron con el mismo kit corregido. Todos abren con el producto en el primer segundo (aliados, con la marca), sin la placa del punto ni la apertura de tarjetas; el teléfono es grande, con cámara sobre la fila que se nombra; los cortes caen en el pulso; no hay desenfoque de movimiento (ni parpadeo), ni fogonazo cian, y el logo va a 400 px.
+
+| Film | Duración (antes → ahora) | Peso | Sonoridad / pico | Qué cambió |
+| --- | --- | --- | --- | --- |
+| `perfil-entrenadores` | 0:49 → 0:41 | 6,6 MB | −14,0 LUFS / −2,1 dBTP | Sin los 20 s de apertura genérica. Clientes → ficha y registro de sesiones de Valentina («+2,5 kg») en un plano encadenado → programa → asignación → la serie del alumno. Ya no aparece la bandeja «Mensajes» vacía; el resumen dejó de prometer IA y mensajes. Cierre «Usalo con tus alumnos». |
+| `perfil-deportistas` | 0:40 → 0:38 | 6,7 MB | −14,4 / −4,6 | Producto desde el cuadro 0. El check-in se ve con los tres toques (antes, 1 s y congelado); el descanso sigue en el mismo plano que la serie; el progreso muestra Press de banca (antes, cinta); un solo cierre (antes, dos placas de logo seguidas, 8,5 s). |
+| `perfil-deportistas-vertical` | 0:40 → 0:38 | 5,9 MB | −14,4 / −4,6 | Ídem en 1080×1920, teléfono casi a sangre. Póster a 720×1280 (antes 1280×2276, más grande que el video). |
+| `perfil-aliados` | 1:06 → 0:48 | 6,8 MB | −14,6 / −2,2 | Abre con la marca (antes, 16 s de apertura genérica). Las placas de sólo texto bajan de 17 s a 13,8 s. La afirmación del caso es la del sitio («Ya funciona en Mar del Plata») y lleva el logo autorizado de Smart Center Gym, que el film anterior no mostraba. «Funciona sin señal» pasó a «Registra sin señal» (lo que dice `ESTADO_Y_LIMITES.md`). La escena del dueño ya no muestra la guía de primeros pasos ni el cartel de avisos push. |
+| `f-progreso` | 0:23 → 0:23 | 3,7 MB | −14,6 / −3,1 | Sin congelado. Resumen, mejores marcas y evolución de Press de banca (mejor serie, 1RM estimado) en un plano encadenado. Ya no dice «fotos privadas» sin mostrarlas. |
+| `f-altas` | 0:24 → 0:26 | 3,9 MB | −14,6 / −2,6 | Ahora se ve el QR de la sede y lo que abre en el teléfono del socio (antes, sólo la bandeja del dueño). El correo de la solicitud va desenfocado y no aparece el cartel de avisos push. |
+| `f-sala` | 0:24 → 0:27 | 4,4 MB | −14,5 / −2,1 | Un mismo pedido de punta a punta en la misma demo: la socia lo manda, la profesora de sala lo ve y lo toma, la socia ve quién lo tomó; cierra con el Seguimiento de sala del dueño. Antes: diagrama + teléfono chico, con el menú lateral asomando en un parpadeo. |
+
+Cada uno se midió con `ffprobe` y `ebur128` y se miró entero en una tira de un cuadro por segundo del archivo publicado, más cuadros a resolución completa y tiras cuadro a cuadro en entradas de tarjeta y salidas de escena (sin parpadeos de otra pantalla).
+
+**Lo que no se resolvió en estos seis:**
+- El logo sigue saliendo de un original de 315×154 px (a 1,27×).
+- Sólo `perfil-deportistas` tiene 9:16. En 16:9 visto a 360 px de ancho los rótulos de las tarjetas quedan en unos 7 px.
+- `perfil-aliados` conserva tres placas de sólo texto (modelo, técnica y caso): 13,8 de 47,9 s.
+- El QR de `f-altas` es el de la demo local: apunta a `localhost` (no lleva a ningún sitio si alguien lo escanea desde el video).
+- Las horas de la demo local se ven en texto chico («pedida Hoy 02:37 a. m.» en `f-altas`; «Desde Ayer 10:21 p. m.» en `f-sala`): se grabó de madrugada, hora de Buenos Aires.
+- En `perfil-entrenadores` el recuadro del registro de sesiones pisa unos píxeles el título del ejercicio siguiente (igual que en `modo-completo`).
+- Los films que abren con el producto arrancan sobre el piso con el teléfono entrando; el título termina de entrar a ≈ 0,5 s. El póster es otro cuadro.
+- Nadie escuchó los films: la sonoridad está medida, no oída.
 
 **Lo que no se pudo corregir en los cinco:**
 - El logo sólo existe a 315×154 px: se muestra a 1,27×. Para mostrarlo más grande hace falta el original vectorial o de mayor tamaño (no se redibuja).

@@ -4,7 +4,7 @@
 /* ── Perfil ───────────────────────────────────────────────────────────── */
 .tp { gap: 14px; }
 .tp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.mb .tp-h { font-size: 16px; }
+.mb .tp-h { font-size: 18px; }
 .tp-status { flex: none; font: 600 12px var(--font-ui); border-radius: 999px; padding: 4px 10px; line-height: 1.2; }
 .tp-status.tp-complete { background: var(--ui-chip-ok-bg); color: var(--ui-chip-ok-ink); }
 .tp-status.tp-partial { background: var(--ui-chip-warn-bg); color: var(--ui-chip-warn-ink); }

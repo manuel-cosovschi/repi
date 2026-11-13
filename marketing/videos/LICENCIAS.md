@@ -1,4 +1,4 @@
-# Licencias de música y efectos — films de Experience 3.0 (D208)
+# Licencias de música y efectos — films de /conoce (D208; rehechos con el kit 4.0 el 12 y el 13/11/2026)
 
 Los films de `/conoce` no tienen voz ni locución (decisión del titular: nada de ElevenLabs ni TTS). Usan música instrumental con
 licencia que permite uso comercial y efectos de sonido libres. No se usa ninguna canción con copyright sin licencia.
@@ -20,17 +20,20 @@ Cada film usa un fragmento recortado, normalizado a −14 LUFS (AAC 160 kb/s en 
 | --- | --- | --- |
 | `film-marca` y `film-marca-vertical` (films 4.0) | Heroic Age | 45,2 → 83,6 s |
 | `perfil-gimnasios` (film 4.0) | Five Armies | 68,4 → 115,2 s |
-| `perfil-entrenadores` | Exciting Trailer | 4,0 → 53,1 s |
-| `perfil-deportistas` y `perfil-deportistas-vertical` | Volatile Reaction | 24,0 → 64,0 s |
-| `perfil-aliados` | Rising Game | 25,0 → 91,5 s |
+| `perfil-entrenadores` (film 4.0) | Exciting Trailer | 4,0 → 45,2 s |
+| `perfil-deportistas` y `perfil-deportistas-vertical` (films 4.0) | Volatile Reaction | 24,4 → 62,5 s |
+| `perfil-aliados` (film 4.0) | Rising Game | 34,4 → 82,3 s |
 | `f-intelligence` (film 4.0) | Volatile Reaction | 120,6 → 148,7 s |
-| `f-progreso` | Clash Defiant | 150,0 → 172,5 s |
-| `f-altas` | Five Armies | 120,0 → 143,5 s |
-| `f-sala` | Clash Defiant | 0,0 → 23,5 s |
+| `f-progreso` (film 4.0) | Clash Defiant | 150,3 → 173,2 s |
+| `f-altas` (film 4.0) | Five Armies | 120,5 → 146,3 s |
+| `f-sala` (film 4.0) | Clash Defiant | 0,3 → 27,4 s |
 | `modo-completo` y `modo-completo-vertical` (films 4.0) | Volatile Reaction | 64,2 → 117,4 s |
 | `modo-control` y `modo-control-vertical` | Clash Defiant | 203,0 → 262,7 s |
 
 Origen: descargas directas de incompetech.com. Los archivos de audio no van a Git (`design/films/*/assets/media/`, ignorado).
+
+Segunda tanda (13/11/2026): los seis films rehechos usan las mismas seis pistas que ya tenían; sólo cambió el tramo de cada una
+(tabla de arriba). No se descargó ni se compró ningún archivo nuevo, y siguen sin voz ni locución.
 
 ## Efectos — Pixabay Content License
 
@@ -45,6 +48,7 @@ comercial sin atribución obligatoria. No van a Git (`assets/sfx/`, ignorado; el
   resolución para los films 4.0, `design/films/kit/tools/rec-hd.mjs`). Nunca se graba contra producción.
 - Wordmark: el archivo aprobado `wm_full.png` (315×154), mostrado a 400 px (una sola remuestra, `wm_400.png`); no se redibuja.
 - Logo de Smart Center Gym: autorizado por el gimnasio (mismo archivo que `/conoce`, `apps/web/public/conoce/smart-center-gym.webp`).
+  Desde el 13/11/2026 aparece en `perfil-aliados` (placa «Ya funciona en Mar del Plata», 34–38 s); antes ningún film lo mostraba.
 - Barlow y Barlow Condensed: SIL Open Font License (`design/films/*/assets/fonts/*-OFL.txt`).
 
 ## Superado

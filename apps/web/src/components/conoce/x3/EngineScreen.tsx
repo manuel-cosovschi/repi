@@ -1,6 +1,6 @@
 "use client";
 // La pantalla de la serie de Valentina (03 y el módulo Training Intelligence de 05): interfaz real compuesta. Recortes de la
-// captura de la sesión (training.webp) sin ningún número a la vista y el TargetCard real de la app alimentado por el motor
+// captura de la sesión (training-piezas.webp) sin ningún número a la vista y el TargetCard real de la app alimentado por el motor
 // (@repi/domain/intelligence) con un ejemplo fijo: press de banca 3 × 8–10, RIR 2, con 60 kg × 10 la última vez. Así lo que
 // dice el texto y lo que muestra la pantalla es siempre lo mismo, también entre escenas (nunca el «53» de otra captura).
 import { useMemo } from "react";
@@ -26,7 +26,7 @@ export function useEngine() {
 }
 export type Engine = ReturnType<typeof useEngine>;
 
-/** Recortes de la captura real de la sesión (training.webp, 600 × 1298 px), sin ningún número a la vista. Cada uno toma la
+/** Recortes de la captura real de la sesión (training-piezas.webp, 600 × 1298 px; no se recaptura con el resto), sin ningún número a la vista. Cada uno toma la
  *  pieza entera (sin glifos cortados ni pedazos de los botones vecinos). */
 const CROPS = {
   top: { x: 14, y: 26, w: 300, h: 62 },     // ← Torso A

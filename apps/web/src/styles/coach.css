@@ -490,3 +490,10 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 .ac-table .num { text-align: right; }
 .ac-table tbody th[scope="row"] { white-space: normal; min-width: 9em; }
 @media (max-width: 560px) { .ac-table th, .ac-table td { padding: 8px 6px; } }
+
+/* 13/11/2026 · Pantallas táctiles (coach y gimnasio en el teléfono): los botones chicos (32 px: «Voy», «Aceptar», «Asignar
+   programa»), las píldoras (30 px) y los enlaces de sede (28 px) responden en 44 px sin cambiar su dibujo ni mover nada. */
+@media (pointer: coarse) {
+  .btn.sm, .pill, .gy-link { position: relative; }
+  .btn.sm::after, .pill::after, .gy-link::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+}

@@ -294,7 +294,9 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 @keyframes x3-float { from { translate: 0 -6px; } to { translate: 0 6px; } }
 .x3-phone-screen { --ui-surface: #FFFFFF; --ui-text: #0E1726; --ui-text-2: #334155; --ui-muted: #5A6372; --ui-link: #006F8E; --ui-accent-tint: rgba(0, 137, 176, .10); --ui-accent-line: rgba(0, 137, 176, .40); --ui-warning-text: #8A5300;
   display: flex; flex-direction: column; gap: 10px; padding: 22px 14px 16px; border-radius: 34px 34px 22px 22px; background: #F4F1EA; border: 1px solid var(--x-steel); outline: 6px solid #10161F; color: var(--ui-text); font-family: var(--font-ui); overflow: clip; }
-.x3-crop { display: block; flex: none; background-image: url(/conoce/shots/training.webp); background-repeat: no-repeat; }
+/* Piezas de interfaz (título, botones, sensaciones) recortadas de una captura fija: `training-piezas.webp` no se vuelve a
+   capturar junto con `training.webp`, porque los recortes de EngineScreen.tsx van por coordenadas. */
+.x3-crop { display: block; flex: none; background-image: url(/conoce/shots/training-piezas.webp); background-repeat: no-repeat; }
 .x3-phone-foot { display: flex; flex-direction: column; gap: 10px; }
 .x3-crop.links { align-self: center; }
 /* Escritorio: un teléfono de verdad (proporción vertical) con el pie real de la pantalla de la sesión abajo; en el teléfono

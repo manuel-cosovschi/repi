@@ -25,7 +25,9 @@ import { ExerciseChangeSheet } from "./ExerciseChange";
 import { ConnectHelpSheet } from "./Connect";
 import { PresenceSheet } from "./Presence";
 import { Sheet } from "./Sheet";
-import { cancelRestAlert, disableRestAlert, enableRestAlert, restAlertState, scheduleRestAlert, type RestAlertState } from "@/lib/restAlert";
+import { cancelRestAlert, clearRestNotification, restAlertState, scheduleRestAlert, type RestAlertState } from "@/lib/restAlert";
+import { ackRestSound, armRestSound, releaseRestSound, unlockRestSound } from "@/lib/restSound";
+import { RestAlertChips, useRestSound } from "./RestAlerts";
 import { Confetti } from "@/components/motion/Confetti";
 import { StepSlider } from "@/components/motion/StepSlider";
 import { seedOf } from "@/lib/confetti";
@@ -114,6 +116,10 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [restAlert, setRestAlert] = useState<RestAlertState>("unsupported");
   useEffect(() => { setRestAlert(restAlertState()); return cancelRestAlert; }, []);
+  // 13/11: alerta sonora del descanso (opcional, por dispositivo). Al salir del entrenamiento se calla.
+  const sound = useRestSound();
+  useEffect(() => ackRestSound, []);
+  const startSet = () => { ackRestSound(); void clearRestNotification(); };
 
   // FSA1 (MEMBER-02): si el teléfono no puede guardar (sin espacio, almacenamiento bloqueado), el cambio no queda en pantalla
   // como hecho ni se encola: se vuelve a lo que había y se avisa. Antes la serie aparecía registrada y no estaba en ningún lado.
@@ -236,6 +242,12 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     if (!restEnd || restAlert !== "on") { cancelRestAlert(); return; }
     scheduleRestAlert(restEnd, ex ? `Seguí con ${ex.change?.substitute?.name ?? ex.name}.` : "Seguí con la próxima serie.");
   }, [restEnd, restAlert]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sonido: con un descanso corriendo se programa la cuenta regresiva y la señal de fin. Cuando el descanso sale de la pantalla,
+  // `release` decide: si terminó por su hora, sigue sonando hasta que la persona arranca la serie; si se saltó o pausó, se calla.
+  const restTotal = rest?.total ?? 0;
+  useEffect(() => {
+    if (restEnd && sound.on) armRestSound(restEnd, restTotal); else releaseRestSound();
+  }, [restEnd, restTotal, sound.on]);
   const rows = useMemo(() => (s && ex ? Array.from({ length: ex.sets }, (_, i) => s.sets[setKey(ex.id, i)]) : []), [s, ex]);
   const labels = useMemo(() => (s ? groupLabels(s.exercises) : []), [s]); // D134: A1, A2…
   const cur = sel ?? rows.findIndex((r) => !rowResolved(r));
@@ -618,7 +630,10 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const addRest = (sec: number) => rest && commit({ ...s, rest: rest.paused ? { ...rest, left: rest.left + sec, total: rest.total + sec } : { ...rest, end: (rest.end ?? Date.now()) + sec * 1000, total: rest.total + sec },
     intel: s.intel ? { ...s.intel, restPlusSec: null } : null });
   return (
-    <div className="wo" onPointerDownCapture={(e) => { lastAct.current = Date.now(); if (!(e.target as HTMLElement).closest?.("[data-cta]")) completing.current = false; }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}>
+    <div className="wo" onPointerDownCapture={(e) => { lastAct.current = Date.now(); unlockRestSound(); if (!(e.target as HTMLElement).closest?.("[data-cta]")) completing.current = false; }} onKeyDownCapture={() => { lastAct.current = Date.now(); }}
+      // Cualquier toque en el entrenamiento con la alerta sonando la calla (la persona ya volvió). En el click y no al apoyar el
+      // dedo: el aviso desaparece después del toque y nada se corre debajo del dedo.
+      onClickCapture={() => { if (sound.state === "ringing") startSet(); }}>
       <div className="wo-body">
         <div className="wo-head">
           <button type="button" className="mb-icon" aria-label="Volver" style={{ marginLeft: -8 }} onClick={() => (s.rejected ? onExit("train") : setStill("leave"))}><Ic i={ArrowLeft} size={22} color="var(--ui-text)" /></button>
@@ -749,6 +764,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
         )}
       </div>
       <div className="dock">
+        {/* 13/11: el descanso terminó y la alerta sigue sonando hasta que la persona arranca la serie (o toca la pantalla). */}
+        {sound.state === "ringing" && (
+          <div className="rest-ring" role="alert">
+            <span><b>Descanso terminado</b><small>Suena hasta que arranques la serie.</small></span>
+            <button type="button" className="cta sm" onClick={startSet} aria-label="Arrancar la serie y silenciar el aviso">Arrancar serie</button>
+          </div>
+        )}
         {paused ? (
           <>
             <span className="mb-muted" style={{ textAlign: "center", fontSize: 14 }}>Entrenamiento en pausa · {formatClock(elapsed)}</span>
@@ -770,17 +792,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
             </div>
             {s.intel && <p className="ti-rest" role="status">{localizeWeights(s.intel.text, unit)}{s.intel.restPlusSec ? <> <button type="button" className="linkbtn" onClick={() => void addRest(s.intel!.restPlusSec!)}>Sumar {s.intel.restPlusSec} s</button></> : null}</p>}
             <div className="rest-foot"><span>Próxima: {cur >= 0 ? rowName(cur) : "serie"} · {actP ? activityLogTxt(actSec(curRow), actM(curRow)) : <>{curRow?.pend ? "peso por elegir" : kg(curRow?.w ?? 0, unit)} × {curRow?.r}</>}</span><button type="button" className="linkbtn" onClick={() => commit({ ...s, rest: null })}>Saltar descanso</button></div>
-            {restAlert !== "unsupported" && (
-              <div className="rest-alert">
-                {restAlert === "on" ? <>
-                  <span>Te avisamos al terminar si salís de la app. El teléfono puede demorarlo.</span>
-                  <button type="button" className="linkbtn" onClick={() => { disableRestAlert(); setRestAlert("off"); }}>Desactivar</button>
-                </> : restAlert === "denied" ? <span>Las notificaciones están bloqueadas para REPI en este navegador.</span> : <>
-                  <span>¿Salís de la app durante el descanso?</span>
-                  <button type="button" className="linkbtn" onClick={async () => { const st = await enableRestAlert(); setRestAlert(st); flash(st === "on" ? "Listo: te avisamos al terminar el descanso." : "Sin permiso de notificaciones no podemos avisarte."); }}>Avisarme al terminar</button>
-                </>}
-              </div>
-            )}
+            {/* Avisos del descanso: sonido y notificación, opcionales (también en Perfil → Configuración). */}
+            <RestAlertChips flash={flash} onNotif={setRestAlert} />
             {brain.enabled && <div className="wo-tools"><button type="button" className="linkbtn" onClick={askRepi}>Preguntale a REPI</button></div>}
           </>
         ) : exSkipped && sel == null ? (

@@ -99,7 +99,7 @@ export function RepiPrefs({ offline, flash }: { offline: boolean; flash: (m: str
   const off = offline || !p;
   return (
     <section className="rp-prefs" aria-labelledby="rp-prefs-h">
-      <h2 id="rp-prefs-h" style={{ fontSize: 16 }}>Asistente REPI</h2>
+      <h2 id="rp-prefs-h" tabIndex={-1}>Asistente REPI</h2>
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>REPI te acompaña con tus datos. Elegí cuándo y cómo te habla. Tu conversación y lo que recuerda son privados: ni tu profe ni el gimnasio los ven.</span>
       {offline && <p className="mb-note" role="status">Sin conexión: el asistente se ajusta cuando vuelva la conexión. Tu rutina funciona igual.</p>}
       {err && !offline && <p className="mb-muted" style={{ fontSize: 14 }}>No pude traer tus preferencias. <button type="button" className="linkbtn" onClick={load}>Reintentar</button></p>}

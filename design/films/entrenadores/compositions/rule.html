@@ -27,10 +27,10 @@
 </div>
 <script>
 const tl = gsap.timeline({ paused: true });
-tl.fromTo("#rule-floor", { scale: 1.08 }, { scale: 1.0, duration: 5.0, ease: "none" }, 0);
+tl.fromTo("#rule-floor", { scale: 1.08 }, { scale: 1.0, duration: 4.0, ease: "none" }, 0);
 tl.fromTo("#rule-t .w", { opacity: 0, y: 30, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.08 }, 0.15);
 tl.fromTo("#rule-sub", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.25 }, 1.0);
-tl.to("#rule-c", { x: -1920, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 4.68);
+tl.to("#rule-c", { x: -1920, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 3.68);
 window.__timelines["rule"] = tl;
 </script>
 </template>

@@ -27,6 +27,8 @@ export type Video = {
 };
 // Experience 4.0 (D219): se re-renderizaron film-marca (con versión 9:16 nueva), modo-control, modo-completo, perfil-gimnasios
 // y f-intelligence (teléfono grande con cámara sobre la fila que se nombra, sin el parpadeo ni el fogonazo cian).
+// Segunda tanda (13/11/2026): con el mismo kit se rehicieron perfil-entrenadores, perfil-deportistas (16:9 y 9:16),
+// perfil-aliados, f-progreso, f-altas y f-sala: abren con el producto y suman material nuevo de la demo local.
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
@@ -39,21 +41,21 @@ export const VIDEOS: Record<string, Video> = {
     { srcVertical: "/conoce/videos/film-marca-vertical.mp4", posterVertical: "/conoce/videos/film-marca-vertical.webp" }),
   "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "0:47", "Five Armies",
     "Altas por QR con aprobación del equipo, pedidos de ayuda en la sala, un objetivo para cada serie y el Seguimiento de sala del dueño."),
-  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer",
-    "Tus alumnos, sus programas y su progreso en un solo lugar, con borradores de la IA para revisar y mensajes con el contexto a mano."),
-  "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:40", "Volatile Reaction",
-    "Tu programa en el teléfono, un objetivo concreto para cada serie y tu progreso por ejercicio, armado con lo que registrás.",
+  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:41", "Exciting Trailer",
+    "Tus alumnos de un vistazo, cada sesión serie por serie, tu programa armado a tu manera y asignado en la misma pantalla, y cada alumno entrenando con un objetivo para cada serie."),
+  "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:38", "Volatile Reaction",
+    "Tu rutina lista en el teléfono, cómo llegás hoy en tres toques, un objetivo concreto para cada serie, el descanso que corre solo, tu progreso por ejercicio y tu peso con su objetivo, privado.",
     { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
-  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game",
+  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "0:48", "Rising Game",
     "Una plataforma B2B2C: gimnasios y entrenadores la contratan, sus alumnos la usan cada vez que entrenan y un motor propio explica cada recomendación."),
   "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:28", "Volatile Reaction",
     "Propone el peso y las repeticiones de cada serie según tu historial, con la razón a la vista, y se ajusta cuando registrás lo que hiciste."),
   "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant",
-    "Cargas, repeticiones, volumen y récords de cada ejercicio, armados con las series que registrás."),
-  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:24", "Five Armies",
-    "El socio escanea el QR de su sede y pide acceso; el equipo confirma quién es socio con un toque."),
-  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant",
-    "El socio pide ayuda desde su serie y el entrenador de turno la recibe, la toma y le responde."),
+    "Tus mejores marcas, la evolución de cada ejercicio y el 1RM estimado, armados con las series que registrás; y tu peso con su objetivo, privado."),
+  "f-altas": film("f-altas", "Altas por QR con aprobación", "Gimnasios", "0:26", "Five Armies",
+    "El gimnasio muestra el QR de la sede, el socio lo escanea y pide acceso, y el equipo confirma quién es socio."),
+  "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:27", "Clash Defiant",
+    "El socio pide ayuda al equipo de sala desde la app, la profesora de turno ve el pedido y lo toma, el socio ve quién lo tomó y el gimnasio sigue cuántos pedidos se resuelven."),
   // Modalidades (escena «Dos formas de entrenar»). Sin `src` el botón del video no se muestra.
   // D215: un film por modalidad (16:9 y 9:16), grabados en la demo real (datos ficticios).
   "modo-completo": film("modo-completo", "REPI Completo · Entrenamiento inteligente", "Gimnasios, entrenadores y socios", "0:53", "Volatile Reaction",
@@ -133,7 +135,7 @@ export const FEATURES: Feature[] = [
     status: "available", note: "El control de ingreso se activa por gimnasio. REPI no cobra la cuota del gimnasio.", demo: "owner", shot: "/conoce/shots/access.webp", shotAlt: "Solicitudes de acceso por QR en REPI", video: "f-altas", profiles: ["gimnasios"] },
   { id: "tablero", title: "Vista del dueño", value: "Tu gimnasio de un vistazo, por sede.",
     points: ["Socios en REPI, sesiones registradas y satisfacción", "Equipo y servicio: tareas, tiempos y reseñas", "Permisos por rol: dueño, gerencia, recepción y entrenadores"],
-    status: "available", demo: "owner", shot: "/conoce/shots/owner.webp", shotAlt: "Tablero ejecutivo del gimnasio en REPI", profiles: ["gimnasios", "aliados"] },
+    status: "available", demo: "owner", shot: "/conoce/shots/owner.webp", shotAlt: "Seguimiento de sala en REPI: pedidos recibidos, resueltos y tiempos de atención", profiles: ["gimnasios", "aliados"] },
   { id: "comunidad", title: "Comunidad y desafíos", value: "Novedades, descuentos y desafíos que dan motivos para volver.",
     points: ["Desafíos con premio y ranking", "Publicaciones voluntarias con moderación del gimnasio", "Cada socio elige si participa y qué comparte"],
     status: "available", demo: "owner", shot: "/conoce/shots/community.webp", shotAlt: "Comunidad del gimnasio en REPI", profiles: ["gimnasios", "deportistas"] },

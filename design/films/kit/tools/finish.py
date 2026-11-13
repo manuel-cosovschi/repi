@@ -9,8 +9,17 @@ j = json.loads(m[m.rindex("{"):m.rindex("}") + 1])
 af = (f"loudnorm=I=-14.6:TP=-2.5:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:measured_LRA={j['input_lra']}"
       f":measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true,aresample=48000")
 norm = src.replace(".mp4", "-norm.mp4")
+def peak(f):
+    out = run("ffmpeg", "-hide_banner", "-nostats", "-i", f, "-af", "ebur128=peak=true", "-f", "null", "-").stderr
+    return float(re.findall(r"Peak:\s+(-?[\d.]+) dBFS", out)[-1])
 r = run("ffmpeg", "-v", "error", "-y", "-i", src, "-c:v", "copy", "-af", af, "-c:a", "aac", "-b:a", "160k", "-ar", "48000", norm)
 assert r.returncode == 0, r.stderr
+if peak(norm) > -1.5:
+    # loudnorm en modo dinámico puede dejar pasar un pico en el primer golpe (visto en f-progreso: +1,6 dBTP a 0,7 s). Sólo en
+    # ese caso se agrega un limitador de picos después (−3,5 dBFS de muestra, que con el AAC queda por debajo de −1,5 dBTP).
+    print("pico fuera de rango: se agrega limitador")
+    r = run("ffmpeg", "-v", "error", "-y", "-i", src, "-c:v", "copy", "-af", af + ",alimiter=limit=0.668:level=false:attack=2:release=40", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", norm)
+    assert r.returncode == 0, r.stderr
 part = web[:-4] + ".part.mp4"  # se renombra al final: un corte a mitad no deja un archivo web roto
 import os
 top = float(os.environ.get("MAX_MB", "7.1")) * 1e6  # tope de peso del archivo web: se sube el CRF hasta entrar (24 → 28)
