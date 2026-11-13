@@ -27,8 +27,8 @@ export type Video = {
 };
 // Experience 4.0 (D219): se re-renderizaron film-marca (con versión 9:16 nueva), modo-control, modo-completo, perfil-gimnasios
 // y f-intelligence (teléfono grande con cámara sobre la fila que se nombra, sin el parpadeo ni el fogonazo cian).
-// Segunda tanda (13/11/2026): con el mismo kit se rehicieron perfil-deportistas (16:9 y 9:16), perfil-aliados, f-progreso,
-// f-altas y f-sala: abren con el producto y suman material nuevo de la demo local.
+// Segunda tanda (13/11/2026): con el mismo kit se rehicieron perfil-entrenadores, perfil-deportistas (16:9 y 9:16),
+// perfil-aliados, f-progreso, f-altas y f-sala: abren con el producto y suman material nuevo de la demo local.
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
@@ -41,8 +41,8 @@ export const VIDEOS: Record<string, Video> = {
     { srcVertical: "/conoce/videos/film-marca-vertical.mp4", posterVertical: "/conoce/videos/film-marca-vertical.webp" }),
   "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "0:47", "Five Armies",
     "Altas por QR con aprobación del equipo, pedidos de ayuda en la sala, un objetivo para cada serie y el Seguimiento de sala del dueño."),
-  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer",
-    "Tus alumnos, sus programas y su progreso en un solo lugar, con borradores de la IA para revisar y mensajes con el contexto a mano."),
+  "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:41", "Exciting Trailer",
+    "Tus alumnos de un vistazo, cada sesión serie por serie, tu programa armado a tu manera y asignado en la misma pantalla, y cada alumno entrenando con un objetivo para cada serie."),
   "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:38", "Volatile Reaction",
     "Tu rutina lista en el teléfono, cómo llegás hoy en tres toques, un objetivo concreto para cada serie, el descanso que corre solo, tu progreso por ejercicio y tu peso con su objetivo, privado.",
     { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
