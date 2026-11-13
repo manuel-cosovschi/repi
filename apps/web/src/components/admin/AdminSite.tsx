@@ -21,8 +21,9 @@ const PROFILE: Record<string, string> = { gimnasios: "Gimnasio", entrenadores: "
 const DEMO: Record<string, string> = { owner: "Gimnasio", floor: "Entrenador de sala", member: "Alumno", coach: "Personal trainer" };
 const KIND: Record<string, string> = { gym: "Gimnasio", coach: "Coach", partner: "Aliado" };
 
-export function AdminSite() {
-  const [days, setDays] = useState(30);
+export function AdminSite({ today = false }: { today?: boolean }) {
+  // 0 = hoy (desde la medianoche, hora de Argentina). El aviso de cada escaneo del QR abre directo en «Hoy».
+  const [days, setDays] = useState(today ? 0 : 30);
   const d = useLoad<Site>(`/api/admin/site?days=${days}`);
   const s = d.data;
   const views = s?.funnel.find((r) => r.name === "landing_view");
@@ -31,7 +32,7 @@ export function AdminSite() {
       <Head kicker="Presentación comercial (/conoce) y QR permanente (/qr). Conteos anónimos: sin cookies, IP ni cuentas." title="Sitio y QR">
         <label className="muted" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>Período
           <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="input" style={{ minHeight: 40 }}>
-            <option value={7}>7 días</option><option value={30}>30 días</option><option value={90}>90 días</option><option value={365}>Un año</option>
+            <option value={0}>Hoy</option><option value={7}>7 días</option><option value={30}>30 días</option><option value={90}>90 días</option><option value={365}>Un año</option>
           </select>
         </label>
       </Head>
