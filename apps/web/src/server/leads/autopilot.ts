@@ -11,7 +11,7 @@ import { db, schema } from "@/db";
 import { deliverMail } from "../mailer";
 import { logError } from "../log";
 import {
-  appUrl, bookingSigner, getLead, getSettings, leadBusiness, leadCampaign, leadMessage, leadTask, logLead, stopSigner, stopUrl, today, unsubscribeUrl,
+  appUrl, bookingSigner, getLead, getSettings, leadBusiness, leadCampaign, leadMessage, leadTask, logLead, replyAddress, stopSigner, stopUrl, today, unsubscribeUrl,
 } from "./core";
 import { createDraft, sendEmailNow } from "./messaging";
 
@@ -25,7 +25,7 @@ async function adminEmails(): Promise<string[]> {
   return [...new Set(rows.map((r) => r.email).filter((e) => e && !e.endsWith(".invalid")))];
 }
 /** Admin de REPI + email comercial de respuestas (donde está el calendario del titular), sin repetir. */
-async function ownerEmails(): Promise<string[]> {
+export async function ownerEmails(): Promise<string[]> {
   const s = await getSettings();
   return [...new Set([...(await adminEmails()), ...(s.sender.replyTo ? [s.sender.replyTo.toLowerCase()] : [])])];
 }
@@ -219,7 +219,7 @@ export async function bookMeeting(token: string, p: { slot: string; name: string
   const att = [{ filename: "invitacion.ics", content: Buffer.from(ics).toString("base64"), contentType: "text/calendar; method=REQUEST; charset=UTF-8" }];
   await notifyOwner(`Reunión agendada: ${b.name} · ${fmtSlot(p.slot)}`, `${b.name} eligió un horario para hablar de REPI.\n\nCuándo: ${fmtSlot(p.slot)} (${s.booking.slotMin} min)\nContacto: ${name} · ${phone}${email ? ` · ${email}` : ""}${p.note ? `\nNota: ${p.note}` : ""}\n\nLa invitación va adjunta para tu calendario. Te recuerdo ${s.notify.meetingReminderMin} minutos antes.`, att);
   if (email) {
-    try { await deliverMail({ to: email, subject: `Reunión con ${s.sender.product} · ${fmtSlot(p.slot)}`, body: `Hola ${name.split(" ")[0]}, ¡gracias! Quedó agendada la reunión para el ${fmtSlot(p.slot)}.\n\n${s.booking.meetingUrl ? `Enlace: ${s.booking.meetingUrl}` : `${s.sender.name} te llama al ${phone}.`}\n\nSi necesitás cambiarla, respondé este mail o escribí por WhatsApp al ${s.sender.whatsapp}.\n\n${s.sender.name} · ${s.sender.company}`, replyTo: s.sender.replyTo || undefined, attachments: att }); }
+    try { await deliverMail({ to: email, subject: `Reunión con ${s.sender.product} · ${fmtSlot(p.slot)}`, body: `Hola ${name.split(" ")[0]}, ¡gracias! Quedó agendada la reunión para el ${fmtSlot(p.slot)}.\n\n${s.booking.meetingUrl ? `Enlace: ${s.booking.meetingUrl}` : `${s.sender.name} te llama al ${phone}.`}\n\nSi necesitás cambiarla, respondé este mail o escribí por WhatsApp al ${s.sender.whatsapp}.\n\n${s.sender.name} · ${s.sender.company}`, replyTo: (await replyAddress(s)) || undefined, attachments: att }); }
     catch (e) { logError("leads.booking_confirm", e); }
   }
   return { ok: true as const, slot: p.slot };

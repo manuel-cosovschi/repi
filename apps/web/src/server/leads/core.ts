@@ -180,3 +180,20 @@ export const bookingSigner = signed("book");
 export const stopSigner = signed("stop");
 export const bookingUrl = (businessId: string) => `${appUrl()}/agenda/${bookingSigner.token(businessId)}`;
 export const stopUrl = (businessId: string) => `${appUrl()}/api/captacion/respondio/${stopSigner.token(businessId)}`;
+
+// ── Casilla de respuestas (Resend) ───────────────────────────────────────────
+/** Estado de la casilla de respuestas de Captación en Resend. Lo escribe sólo el sistema (inbound.ts), fuera de Ajustes. */
+export type InboundState = { status: "ok" | "error"; address: string | null; inboxId: string | null; webhookId: string | null; error: string | null; checkedAt: string };
+export const INBOUND_KEY = "inbound";
+export async function inboundState(tx: Tx | typeof db = db): Promise<InboundState | null> {
+  const [r] = await tx.select().from(leadSetting).where(eq(leadSetting.key, INBOUND_KEY));
+  return (r?.value as InboundState | undefined) ?? null;
+}
+/**
+ * A dónde responden los gimnasios: la casilla de REPI cuando está activa (registra la respuesta y se la reenvía al
+ * titular); si no, el email comercial de Ajustes.
+ */
+export async function replyAddress(s: Settings): Promise<string | null> {
+  const st = await inboundState().catch(() => null);
+  return st?.status === "ok" && st.address ? st.address : s.sender.replyTo || null;
+}

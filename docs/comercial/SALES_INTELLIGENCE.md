@@ -58,6 +58,8 @@ Pedido del titular: que todo funcione solo hasta que llegue un WhatsApp, una reu
 
 Se apaga en Ajustes › Piloto automático, o pausando la campaña «Piloto automático · email».
 
+**Casilla de respuestas (13/11/2026).** REPI crea sola una casilla en Resend (con reenvío, sin DNS) y un webhook a `/api/captacion/entrante`. Los emails de captación responden a esa casilla; cada respuesta se vuelve a leer en Resend, se registra una vez en la ficha (clasificación, fin de seguimientos, tareas) y se reenvía al email comercial con «responder a» el gimnasio. Estado en Ajustes › Piloto automático. Sin casilla, las respuestas van directo al email comercial.
+
 ## Reglas que el sistema hace cumplir
 
 - **Datos.**

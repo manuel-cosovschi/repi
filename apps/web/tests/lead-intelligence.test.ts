@@ -2,7 +2,7 @@
 // sitio oficial se simulan con un fetch de prueba; ningún mensaje sale a un proveedor.
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { db, schema } from "@/db";
 import { ingest } from "@/server/leads/store";
 import { discoverOsm, readOfficialSite, robotsAllows } from "@/server/leads/sources";
@@ -326,5 +326,70 @@ describe("G · cola de WhatsApp e Instagram y respuestas registradas por las aut
     expect(none.matched).toBe(false);
     delete process.env.CRON_SECRET;
     await saveSettings(admin, { autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40, social: false, socialDailyLimit: 10 } });
+  });
+});
+
+describe("H · casilla de respuestas en Resend", () => {
+  it("separa la respuesta de la cita", async () => {
+    const { replyOnly } = await import("@/server/leads/inbound");
+    expect(replyOnly("Sí, me interesa. Llamame mañana.\n\nEl jue, 12 nov 2026 a las 10:00, Manuel (<hola@repiclub.com>)\nescribió:\n> Hola, soy Manuel")).toBe("Sí, me interesa. Llamame mañana.");
+    expect(replyOnly("Dale\r\n\r\nOn Thu, Nov 12, 2026 at 10:00 AM Manuel <x@y.com> wrote:\r\n> hi")).toBe("Dale");
+    expect(replyOnly("Ahora no, gracias\n\nEnviado desde mi iPhone")).toBe("Ahora no, gracias");
+    expect(replyOnly("Pasame precios\n-----Mensaje original-----\nDe: Manuel")).toBe("Pasame precios");
+  });
+  it("se configura sola, registra la respuesta una vez, la reenvía al titular e ignora avisos ajenos", async () => {
+    const { ensureInbound, handleInbound } = await import("@/server/leads/inbound");
+    const { getSettings, replyAddress } = await import("@/server/leads/core");
+    const sent: { to: string[]; subject: string; reply_to?: string; text: string }[] = [];
+    let fail = false;
+    const routes: Record<string, unknown> = {
+      "GET /inboxes": { data: [] },
+      "POST /inboxes": { id: "inb_test1", name: "REPI Captación", email_address: "respuestas@repiclub.com" },
+      "GET /inboxes/inb_test1": { id: "inb_test1", email_address: "respuestas@repiclub.com", receiving_address: "repi-captacion@abc123.resend.app" },
+      "GET /webhooks": { data: [] },
+      "POST /webhooks": { id: "wh_test1", signing_secret: "whsec_x" },
+      "GET /inboxes/inb_test1/threads/thr_123456/emails/em_abcdef": { id: "em_abcdef", direction: "inbound", from: `Juan Pérez <duenio@resp-${tag}.com>`, to: ["repi-captacion@abc123.resend.app"], subject: "Re: Repi para tu gimnasio", text: "Sí, me interesa. ¿Cuánto sale?\n\nEl jue, 12 nov 2026 a las 10:00, Manuel escribió:\n> Hola", html: null, received_at: "2026-11-13T13:00:00Z" },
+      "GET /emails/receiving/em_abcdef": { id: "em_abcdef", from: `duenio@resp-${tag}.com`, to: ["repi-captacion@abc123.resend.app"], subject: "Re: Repi", text: "Sí", html: null, created_at: "2026-11-13T13:00:00Z" },
+      "GET /emails/receiving/em_other1": { id: "em_other1", from: "x@y.com", to: ["otra@abc123.resend.app"], subject: "x", text: "x", html: null, created_at: "2026-11-13T13:00:00Z" },
+    };
+    vi.stubGlobal("fetch", (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const u = new URL(String(input));
+      const key = `${init?.method ?? "GET"} ${u.pathname}`;
+      if (fail && key.startsWith("GET /inboxes/inb_test1/threads")) return new Response("{}", { status: 503 });
+      if (key === "POST /emails") { sent.push(JSON.parse(String(init?.body))); return Response.json({ id: "out_1" }); }
+      return key in routes ? Response.json(routes[key]) : new Response("{}", { status: 404 });
+    }) as typeof fetch);
+    vi.stubEnv("MAIL_DRIVER", "resend"); vi.stubEnv("RESEND_API_KEY", "re_test_key"); vi.stubEnv("MAIL_FROM", "Repi <hola@repiclub.com>");
+    try {
+      const st = await ensureInbound(new Date(), { force: true });
+      expect(st).toMatchObject({ status: "ok", address: "repi-captacion@abc123.resend.app", inboxId: "inb_test1", webhookId: "wh_test1" });
+      expect(await replyAddress(await getSettings())).toBe("repi-captacion@abc123.resend.app");
+      const r = await crm.saveManual(admin, { name: gym("Resp Gym"), city: "Tandil", email: `duenio@resp-${tag}.com`, category: "traditional" });
+      const ev = { type: "inbox.email.received", data: { inbox_id: "inb_test1", thread_id: "thr_123456", email_id: "em_abcdef" } };
+      fail = true;
+      expect((await handleInbound(ev)).status).toBe(500); // Resend reintenta
+      fail = false;
+      const ok = await handleInbound(ev);
+      expect(ok).toMatchObject({ status: 200, result: "recorded:price" });
+      const [inMsg] = await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, r.id), eq(schema.leadMessage.direction, "in")));
+      expect(inMsg).toMatchObject({ body: "Sí, me interesa. ¿Cuánto sale?", provider: "resend_inbound", providerId: "em_abcdef", intent: "price" });
+      expect((await lead(r.id))).toMatchObject({ stage: "interested" });
+      const fwd = sent.find((m) => m.to.includes(`${admin}@test.repi.local`));
+      expect(fwd).toMatchObject({ reply_to: `duenio@resp-${tag}.com` });
+      expect(fwd!.subject).toMatch(/^Respuesta de .*Resp Gym/);
+      expect(fwd!.text).toMatch(/registró en la ficha/);
+      // El mismo email avisado otra vez (u otro tipo de aviso): una sola respuesta.
+      expect((await handleInbound({ type: "email.received", data: { email_id: "em_abcdef" } })).result).toBe("duplicate");
+      // Avisos ajenos: otra casilla, otra dirección, ids raros o tipos que no son de recepción.
+      expect((await handleInbound({ type: "inbox.email.received", data: { inbox_id: "inb_otra", thread_id: "thr_123456", email_id: "em_abcdef" } })).result).toBe("ignored");
+      expect((await handleInbound({ type: "email.received", data: { email_id: "em_other1" } })).result).toBe("ignored");
+      expect((await handleInbound({ type: "email.received", data: { email_id: "../../domains" } })).result).toBe("ignored");
+      expect((await handleInbound({ type: "email.sent", data: { email_id: "em_abcdef" } })).result).toBe("ignored");
+      expect((await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, r.id), eq(schema.leadMessage.direction, "in")))).length).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+      await db.delete(schema.leadSetting).where(eq(schema.leadSetting.key, "inbound"));
+    }
   });
 });

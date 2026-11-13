@@ -10,7 +10,7 @@ import type { Tx } from "../access/util";
 import { aiJson, aiOn } from "../ai/openai";
 import { deliverMail } from "../mailer";
 import { logError } from "../log";
-import { bad, bookingUrl, getLead, getSettings, leadBusiness, leadCampaign, leadMessage, leadSuppression, leadTask, leadsAdmin, logLead, NF, today, unsubscribeUrl } from "./core";
+import { bad, bookingUrl, getLead, getSettings, leadBusiness, leadCampaign, leadMessage, leadSuppression, leadTask, leadsAdmin, logLead, NF, replyAddress, today, unsubscribeUrl } from "./core";
 import { refreshLead } from "./store";
 
 type Lead = typeof leadBusiness.$inferSelect;
@@ -160,7 +160,7 @@ export async function sendEmailNow(actorId: string | null, messageId: string) {
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(leadMessage).where(and(eq(leadMessage.provider, "mailer"), eq(leadMessage.status, "sent"), gte(leadMessage.sentAt, new Date(`${today()}T00:00:00-03:00`))));
   if (n >= Math.min(s.limits.emailPerDay, c.dailyLimit)) throw bad("Se alcanzó el límite diario de emails. Sigue mañana.");
   try {
-    await deliverMail({ to: m.toAddress, subject: m.subject ?? `${s.sender.product}`, body: m.body + emailFooter(s.sender.company, s.sender.site, unsubscribeUrl(b.id)), replyTo: s.sender.replyTo || undefined });
+    await deliverMail({ to: m.toAddress, subject: m.subject ?? `${s.sender.product}`, body: m.body + emailFooter(s.sender.company, s.sender.site, unsubscribeUrl(b.id)), replyTo: (await replyAddress(s)) || undefined });
   } catch (e) {
     await db.update(leadMessage).set({ status: "failed", error: String((e as Error).message).slice(0, 300), provider: "mailer" }).where(eq(leadMessage.id, m.id));
     await logLead(db, { businessId: b.id, kind: "send_failed", summary: "El proveedor rechazó el email: la campaña sigue pausada para este contacto", actorUserId: actorId, actorRole: actorId ? "admin" : "system" });
@@ -195,7 +195,7 @@ export async function recordReply(actorId: string, businessId: string, p: { chan
   return recordReplyAs(actorId, businessId, p);
 }
 /** Igual que recordReply, sin sesión: lo usan las automatizaciones (Gmail, sesión del Mac) por la entrada interna. */
-export async function recordReplyAs(actorId: string | null, businessId: string, p: { channel: string; text: string; receivedOn?: string | null }) {
+export async function recordReplyAs(actorId: string | null, businessId: string, p: { channel: string; text: string; receivedOn?: string | null; provider?: string; providerId?: string }) {
   const text = p.text.trim().slice(0, 4000);
   if (!text) throw bad("Pegá el texto de la respuesta.");
   const day = p.receivedOn && /^\d{4}-\d{2}-\d{2}$/.test(p.receivedOn) && p.receivedOn <= today() ? p.receivedOn : today();
@@ -205,7 +205,7 @@ export async function recordReplyAs(actorId: string | null, businessId: string, 
     const b = await getLead(businessId, tx);
     const [m] = await tx.insert(leadMessage).values({
       businessId, direction: "in", channel: p.channel.slice(0, 20), body: text, status: "received", intent: r.intent, confidence: r.confidence, needsReview: r.needsReview,
-      sentAt: new Date(`${day}T12:00:00-03:00`), actorUserId: actorId,
+      sentAt: new Date(`${day}T12:00:00-03:00`), actorUserId: actorId, provider: p.provider ?? null, providerId: p.providerId ?? null,
     }).returning();
     await applyIntent(tx, b, r, day, actorId, m.id);
     await refreshLead(tx, businessId);

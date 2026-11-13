@@ -4,7 +4,7 @@ import { INTENTS, LEAD_STAGES, OBJECTIONS, VARIANTS } from "@repi/domain";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { body } from "../access/http";
-import { NF, ensureAreas, getSettings, leadArea, leadsAdmin, saveSettings } from "./core";
+import { NF, ensureAreas, getSettings, inboundState, leadArea, leadsAdmin, saveSettings } from "./core";
 import * as crm from "./crm";
 import * as msg from "./messaging";
 import * as camp from "./campaigns";
@@ -30,7 +30,7 @@ export async function leadsGet(me: string, path: string[], q: URLSearchParams): 
     case "dashboard": return ins.dashboard(me, { days: Number(q.get("days")) || 30 });
     case "campaigns": return b ? camp.campaignDetail(me, b) : camp.listCampaigns(me);
     case "runs": return pipe.runsList(me);
-    case "settings": { await leadsAdmin(me); await ensureAreas(); return { settings: await getSettings(), areas: await db.select().from(leadArea).orderBy(leadArea.tier, leadArea.name) }; }
+    case "settings": { await leadsAdmin(me); await ensureAreas(); return { settings: await getSettings(), areas: await db.select().from(leadArea).orderBy(leadArea.tier, leadArea.name), inbound: await inboundState() }; }
     case "export": {
       if (b === "csv" || b === "xls") {
         const data = b === "csv" ? await crm.exportCsv(me) : await crm.exportXls(me);
