@@ -21,15 +21,15 @@
 <div id="tech-shade"></div>
 <div id="tech-c">
 
-<h2 id="tech-t" class="h"><span class="w">Funciona</span> <span class="w a">sin</span> <span class="w a">señal.</span> <span class="w">Se</span> <span class="w">instala</span> <span class="w a">sin</span> <span class="w a">tiendas.</span></h2>
+<h2 id="tech-t" class="h"><span class="w">Registra</span> <span class="w a">sin</span> <span class="w a">señal.</span> <span class="w">Se</span> <span class="w">instala</span> <span class="w a">sin</span> <span class="w a">tiendas.</span></h2>
 
 </div>
 </div>
 <script>
 const tl = gsap.timeline({ paused: true });
-tl.fromTo("#tech-floor", { scale: 1.08 }, { scale: 1.0, duration: 5.0, ease: "none" }, 0);
+tl.fromTo("#tech-floor", { scale: 1.08 }, { scale: 1.0, duration: 4.24, ease: "none" }, 0);
 tl.fromTo("#tech-t .w", { opacity: 0, y: 30, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.08 }, 0.15);
-tl.to("#tech-c", { x: -1920, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 4.68);
+tl.to("#tech-c", { x: -1920, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 3.9200000000000004);
 window.__timelines["tech"] = tl;
 </script>
 </template>
