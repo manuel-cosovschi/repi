@@ -6,7 +6,7 @@
 // Datos: las dos últimas sesiones son las del motor real de la escena de arriba (la última vez y la serie de hoy); las seis
 // anteriores son un ejemplo ficticio y está dicho. Nada de porcentajes ni promesas: sólo lo que la gráfica muestra.
 // Fijada con sticky y scrub (reversible). Movimiento reducido o pantalla baja: la gráfica completa, quieta.
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { COACH_SCREEN, OFFICE_SCREEN, VALENTINA } from "../sala/model";
 import { pings, stage } from "../sala/store";
 import { quad } from "../x3/curves";
@@ -21,6 +21,36 @@ const eOut = (x: number) => 1 - Math.pow(1 - x, 3), eIO = (x: number) => (x < 0.
 const W = 420, H = 240, X0 = 34, X1 = 392, Y0 = 204, Y1 = 34;
 /** Momento (0–1 del tramo) en que el punto de hoy llega a la gráfica. */
 const LAND = 0.5;
+
+/**
+ * El texto del paso se escribe en .8 s, letra entera por letra y en orden de lectura. Antes lo descubría una máscara de 26
+ * escalones sobre todo el ancho del párrafo: cada escalón cortaba letras por la mitad y mostraba entero el segundo renglón
+ * antes que el primero. El texto no se parte en elementos (cambiaría el espaciado entre letras): se mide dónde termina cada
+ * carácter y la máscara salta de un borde al siguiente. Al terminar no queda nada aplicado. Movimiento reducido: quieto.
+ */
+function Typed({ text, className }: { text: string; className: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current, node = el?.firstChild;
+    if (!el || !(node instanceof Text) || !node.length || !window.matchMedia("(prefers-reduced-motion: no-preference)").matches) return;
+    const box = el.getBoundingClientRect(), r = document.createRange(), W = box.width + 4, H = box.height + 4, B = -4;
+    const ends: [number, number, number][] = [];
+    for (let i = 0; i < node.length; i++) {
+      r.setStart(node, i); r.setEnd(node, i + 1);
+      const rs = r.getClientRects(), q = rs[rs.length - 1];
+      if (q && q.width > 0) ends.push([q.right - box.left, q.top - box.top, q.bottom - box.top]);
+    }
+    if (!ends.length) return;
+    // Mismo número de vértices en todos los cuadros: lo ya escrito (renglones anteriores enteros y el actual hasta la letra).
+    const poly = (x: number, top: number, bottom: number) => `polygon(${B}px ${B}px, ${W}px ${B}px, ${W}px ${top}px, ${x}px ${top}px, ${x}px ${bottom}px, ${B}px ${bottom}px)`;
+    const frames: Keyframe[] = [{ offset: 0, clipPath: poly(B, B, B), easing: "steps(1, end)" }];
+    ends.forEach(([x, top, bottom], i) => frames.push({ offset: (i + 1) / (ends.length + 1), clipPath: poly(x, top, bottom), easing: "steps(1, end)" }));
+    frames.push({ offset: 1, clipPath: poly(W, H, H) });
+    const a = el.animate(frames, { duration: 800, fill: "backwards" });
+    return () => a.cancel();
+  }, [text]);
+  return <p ref={ref} className={className}>{text}</p>;
+}
 
 export function DataStory({ prev, real }: { prev: { w: number; r: number } | null; real: { w: number; r: number } }) {
   const root = useRef<HTMLDivElement>(null);
@@ -119,7 +149,7 @@ export function DataStory({ prev, real }: { prev: { w: number; r: number } | nul
             <div className="x4-data-say" aria-hidden="true">
               <p className="x4-data-k"><Roll value={cur.k} /></p>
               <p className="x4-data-v" data-step={step}><Roll value={cur.v} /></p>
-              <p className="x4-data-d" key={step}>{cur.d}</p>
+              <Typed key={step} className="x4-data-d" text={cur.d} />
             </div>
             <figure className="x4-chart">
               <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Carga de press de banca en ${series.length} sesiones: de ${kg(series[0])} a ${kg(real.w)}. Las dos últimas son la última vez y la serie de hoy; las anteriores, un ejemplo ficticio.`}>

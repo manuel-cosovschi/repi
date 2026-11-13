@@ -114,6 +114,29 @@ test.describe("la sala, con movimiento", () => {
     expect(errors).toEqual([]);
   });
 
+  test("al cambiar de paso, valores y rótulos cambian enteros: sin letras viejas recortadas en cajas ajenas", async ({ page }) => {
+    // Regresión del 13/11 (grabación del titular en un iPhone): «62,5 kg × 6» → «8 sesiones» mostraba letras partidas y
+    // superpuestas porque Roll asignaba cada letra vieja a la caja de la letra nueva de la misma posición.
+    await page.addInitScript(() => { const st = window.setTimeout; window.setTimeout = ((f: () => void, ms?: number, ...a: unknown[]) => st(f, ms === 460 ? 1e9 : ms, ...a)) as typeof window.setTimeout; });
+    await page.goto("/conoce?sala=low");
+    const at = async (f: number) => { await page.evaluate((k) => { const e = document.querySelector(".x4-data")!; const r = e.getBoundingClientRect(); window.scrollTo(0, r.top + window.scrollY + k * (r.height - window.innerHeight)); }, f); };
+    await at(0.2); await expect(page.locator(".x4-data-v")).toHaveAttribute("data-step", "0");
+    await at(0.4); await expect(page.locator(".x4-data-v")).toHaveAttribute("data-step", "1");
+    // En pleno cambio: el valor anterior está entero en su propia pieza y nada se dibuja letra por letra sobre otra caja.
+    for (const sel of [".x4-data-v", ".x4-data-k"]) {
+      const roll = page.locator(sel);
+      await expect(roll.locator(".x3-roll-was")).toHaveCount(1);
+      await expect(roll.locator(".x3-roll-old")).toHaveCount(0);
+      // La máscara mide lo que la pieza más ancha: ninguna se recorta a los costados.
+      const fits = await roll.evaluate((e) => { const m = e.querySelector(".x3-roll-mask")!.getBoundingClientRect(); return [...e.querySelectorAll(".x3-roll-was, .x3-roll-digits")].every((x) => x.getBoundingClientRect().width <= m.width + 0.5); });
+      expect(fits).toBe(true);
+    }
+    await expect(page.locator(".x4-data-v .x3-roll-was")).toHaveText("62,5 kg × 6", { ignoreCase: true });
+    await expect(page.locator(".x4-data-v .x3-roll-digits")).toHaveText("8 sesiones", { ignoreCase: true });
+    // El texto del paso se escribe sin partirse en elementos (el espaciado entre letras queda igual que en reposo).
+    expect(await page.locator(".x4-data-d").evaluate((e) => e.children.length)).toBe(0);
+  });
+
   test("teléfonos de 320 a 430 px: las escenas nuevas no generan scroll lateral", async ({ page }) => {
     for (const [w, h] of [[320, 568], [360, 800], [430, 932]] as const) {
       await page.setViewportSize({ width: w, height: h });

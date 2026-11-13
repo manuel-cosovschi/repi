@@ -21,7 +21,7 @@
 .x4-data-v { margin: 8px 0 0; font: 700 clamp(2.6rem, 5vw, 4.6rem)/.92 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-white); white-space: nowrap; min-height: .92em; }
 .x4-data-v[data-step="0"] { color: var(--x-cyan); }
 .x4-data-v[data-step="2"] { color: var(--x-teal); }
-.x4-data-d { margin: 12px 0 0; max-width: 44ch; min-height: 3.2em; font-size: clamp(.98rem, 1.3vw, 1.08rem); line-height: 1.5; color: var(--x-muted); animation: x3-type .8s steps(26, end) both; }
+.x4-data-d { margin: 12px 0 0; max-width: 44ch; min-height: 3.2em; font-size: clamp(.98rem, 1.3vw, 1.08rem); line-height: 1.5; color: var(--x-muted); }
 .x4-chart { position: relative; margin: 20px 0 0; padding: 16px 16px 12px; border-radius: 18px; background: rgba(20, 29, 42, .9); border: 1px solid var(--x-steel); transform-origin: 100% 50%; will-change: transform; box-shadow: 0 30px 60px -36px rgba(0, 0, 0, .9); }
 .x4-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .x4-chart-grid { stroke: rgba(248, 250, 252, .08); stroke-width: 1; }
