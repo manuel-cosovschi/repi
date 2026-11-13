@@ -194,6 +194,8 @@ export async function leadsTick(now = new Date()) {
   const s = await getSettings();
   // Recordatorios de reuniones: cada minuto, aunque la programación diaria esté apagada.
   const reminders = await (await import("./autopilot")).meetingReminders(now).catch((e) => { logError("leads.reminders", e); return 0; });
+  // Casilla de respuestas en Resend: se crea sola la primera vez y se reintenta cada 6 horas si falla.
+  await (await import("./inbound")).ensureInbound(now).catch((e) => logError("leads.inbound", e));
   if (!s.schedule.enabled) return { ran: null, reminders };
   const c = argClock(now);
   if (!s.schedule.days.includes(c.day)) return { ran: null };

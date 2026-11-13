@@ -41,5 +41,5 @@ En la app **Claude** del Mac:
 ## Qué hace REPI solo, sin el Mac
 
 - **Emails:** primer contacto, un seguimiento, agenda pública e invitación de calendario a sovare.studio@gmail.com.
-- **Respuestas por email:** una tarea programada en la nube revisa sovare.studio@gmail.com tres veces por día hábil y las registra.
+- **Respuestas por email:** entran a la casilla de REPI en Resend, se registran solas en la ficha y llegan reenviadas a sovare.studio@gmail.com (con «responder a» el gimnasio).
 - **Recordatorios:** antes de cada reunión, y un resumen diario cuando hay novedades.

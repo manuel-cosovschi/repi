@@ -623,7 +623,8 @@ type SettingsV = { settings: { weights: Record<string, number>; cadence: { steps
   booking: { enabled: boolean; days: number[]; from: string; to: string; slotMin: number; horizonDays: number; minNoticeHours: number; meetingUrl: string };
   notify: { email: boolean; meetingReminderMin: number }; allowedClientNames: string[]; presentationUrl: string; demoUrl: string;
   limits: { discoveryAreasPerRun: number; enrichPerRun: number; composePerRun: number; emailPerDay: number; maxChars: number }; channels: { emailSend: boolean; whatsappApi: boolean }; aiCompose: boolean; aiClassify: boolean; pricing: { currency: "ARS"; tiers: { minMembers: number; unitMinor: number }[]; examples: { members: number; unitMinor: number }[] } };
-  areas: { id: string; name: string; province: string | null; tier: number; radiusKm: number; enabled: boolean; lastDiscoveredAt: string | null }[] };
+  areas: { id: string; name: string; province: string | null; tier: number; radiusKm: number; enabled: boolean; lastDiscoveredAt: string | null }[];
+  inbound: { status: "ok" | "error"; address: string | null; error: string | null; checkedAt: string } | null };
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 function Settings({ flash }: { flash: Flash }) {
   const d = useLoad<SettingsV>(`${B}/settings`);
@@ -658,6 +659,10 @@ function Settings({ flash }: { flash: Flash }) {
           <label className="field">Hasta<input type="time" value={s.autopilot.window.to} onChange={(e) => setS({ ...s, autopilot: { ...s.autopilot, window: { ...s.autopilot.window, to: e.target.value } } })} /></label>
           <label className="field">Email donde llegan las respuestas<input type="email" value={s.sender.replyTo} onChange={(e) => setS({ ...s, sender: { ...s.sender, replyTo: e.target.value } })} /></label>
         </div>
+        <p className="sv-note">{d.data.inbound?.status === "ok"
+          ? <>Casilla de respuestas activa: los gimnasios responden a <b>{d.data.inbound.address}</b>, REPI registra cada respuesta y te la reenvía a este email.</>
+          : d.data.inbound ? <>Casilla de respuestas sin activar ({d.data.inbound.error}): las respuestas llegan directo a este email. Se reintenta sola.</>
+          : <>La casilla de respuestas se activa sola en el próximo minuto; hasta entonces las respuestas llegan directo a este email.</>}</p>
         <h3 style={{ fontSize: 15, margin: "12px 0 4px" }}>Agenda pública y avisos</h3>
         <label className="sv-note"><input type="checkbox" checked={s.booking.enabled} onChange={(e) => setS({ ...s, booking: { ...s.booking, enabled: e.target.checked } })} /> Ofrecer la agenda en los emails (el gimnasio elige horario y te llega la invitación de calendario)</label>
         <div className="grid-2">
