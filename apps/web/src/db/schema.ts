@@ -1610,7 +1610,7 @@ export const notifyPref = pgTable("notify_pref", {
 export const notificationOutbox = pgTable("notification_outbox", {
   id: id(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten", "program_brief", "brain_coaching"] }).notNull(), // program_brief: D206 · brain_coaching: avisos de REPI (D210), sólo adultos con push de REPI activado
+  kind: text("kind", { enum: ["join_request", "join_escalation", "floor_alert", "join_resolved", "assist_new", "assist_wait", "assist_transfer", "assist_due", "assist_update", "challenge_new", "challenge_beaten", "program_brief", "brain_coaching", "site_qr"] }).notNull(), // program_brief: D206 · brain_coaching: avisos de REPI (D210), sólo adultos con push de REPI activado
   title: text("title").notNull(),
   body: text("body").notNull(),
   url: text("url").notNull(),
