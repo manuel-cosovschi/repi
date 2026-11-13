@@ -102,6 +102,7 @@ test("encendida desde el temporizador: suena al final y sigue hasta «Arrancar s
   await page.getByRole("button", { name: "Volver", exact: true }).click();
   const leave = page.getByRole("button", { name: /Salir un momento/ }); // «¿Seguís entrenando?» (D160), si lo pregunta
   if (await leave.isVisible({ timeout: 3_000 }).catch(() => false)) await leave.click();
+  await page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: /Inicio/ }).click(); // según cómo se salió, queda en Inicio o en Entrenar
   await page.getByRole("button", { name: "Perfil" }).click();
   const row = page.getByRole("switch", { name: /Sonido al terminar el descanso/ });
   await row.scrollIntoViewIfNeeded();
