@@ -59,7 +59,7 @@ const NAV: readonly (readonly [Screen, string])[] = [["summary", "Resumen"], ["c
 
 export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?: string; tab?: string; deal?: string; rep?: string } }) {
   // D209: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
-  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : initial?.s === "captacion" ? "captacion" : "summary");
+  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : initial?.s === "captacion" ? "captacion" : initial?.s === "site" ? "site" : "summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
