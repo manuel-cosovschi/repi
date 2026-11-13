@@ -560,10 +560,12 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
   // 13/11: pedido ya respondido sin datos (y perfil incompleto). `briefsReady`: hasta saberlo no se muestra la tarjeta genérica
   // del perfil (D217), para no ofrecer dos avisos por lo mismo ni mover la pantalla.
   const [late, setLate] = useState<LateBrief | null>(null);
+  const laterTapped = useRef(false);
   const [briefsReady, setBriefsReady] = useState(false);
   const loadBriefs = useCallback(() => {
     if (offline) return;
-    api<ProgramRequestState>("/api/me/program-request").then((s) => { setBriefs(s.pending); setLate(s.late ?? null); }).catch(() => {}).finally(() => setBriefsReady(true));
+    // Si la persona ya tocó «Ahora no» en esta visita, una respuesta pedida antes de ese toque no vuelve a mostrar el aviso.
+    api<ProgramRequestState>("/api/me/program-request").then((s) => { setBriefs(s.pending); setLate(s.late ? { ...s.late, snoozed: s.late.snoozed || laterTapped.current } : null); }).catch(() => {}).finally(() => setBriefsReady(true));
   }, [offline]);
   useEffect(() => { loadBriefs(); }, [loadBriefs, inbox]);
   useEffect(() => {
@@ -574,6 +576,7 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
     }
   }, [briefs, late]);
   const laterBrief = () => {
+    laterTapped.current = true;
     setLate((l) => (l ? { ...l, snoozed: true } : l)); // se esconde ya; si el servidor no respondió, vuelve al recargar
     void api("/api/me/program-request", { body: { later: true } }).catch(() => {});
     flash("Listo. Te lo recordamos más adelante; también podés cargarlo en Perfil.");
