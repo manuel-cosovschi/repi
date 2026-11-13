@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { db, schema } from "@/db";
 import * as acc from "@/server/access/services";
 import { isBot, notifyQrScan, qrScanText } from "@/server/site/qr";
+import { siteSummary, startOfDayAr } from "@/server/site/events";
 
 let n = 0;
 const person = async (name: string) => (await acc.signUpPerson({ name, email: `qr${++n}.${Date.now()}@test.repi.local`, password: "prueba1234", terms: true, birth: "01/01/1990" })).userId!;
@@ -27,11 +28,27 @@ describe("aviso por escaneo del QR", () => {
     expect(await notifyQrScan("Remera REPI · ATICMA Awards 2026 (repiclub.com/qr)")).toBeGreaterThanOrEqual(1);
     const mine = await db.select().from(schema.notificationOutbox).where(and(eq(schema.notificationOutbox.userId, admin), eq(schema.notificationOutbox.kind, "site_qr")));
     expect(mine).toHaveLength(1);
-    expect(mine[0]).toMatchObject({ title: "Escanearon el QR de REPI", url: "/admin?s=site" });
+    expect(mine[0]).toMatchObject({ title: "Escanearon el QR de REPI", url: "/admin?s=site&tab=hoy" });
     expect(mine[0].body).toMatch(/^Remera REPI · ATICMA Awards 2026 · (primer escaneo de hoy|\d+ escaneos hoy)\.$/);
     expect(await db.select().from(schema.notificationOutbox).where(and(eq(schema.notificationOutbox.userId, socio), eq(schema.notificationOutbox.kind, "site_qr")))).toHaveLength(0);
     // Cada escaneo es un aviso propio (no se pisan entre sí).
     await notifyQrScan("Remera REPI · ATICMA Awards 2026 (repiclub.com/qr)");
     expect(await db.select().from(schema.notificationOutbox).where(and(eq(schema.notificationOutbox.userId, admin), eq(schema.notificationOutbox.kind, "site_qr")))).toHaveLength(2);
+  });
+
+  it("«Hoy» en Admin › Sitio cuenta desde la medianoche de Argentina, no las últimas 24 horas", async () => {
+    expect(startOfDayAr(new Date("2026-11-14T02:30:00Z")).toISOString()).toBe("2026-11-13T03:00:00.000Z"); // 23:30 del 13 en Argentina
+    expect(startOfDayAr(new Date("2026-11-14T03:30:00Z")).toISOString()).toBe("2026-11-14T03:00:00.000Z"); // 00:30 del 14
+    const admin = await person("Admin Sitio");
+    await db.update(schema.user).set({ platformRole: "admin", twoFactorEnabled: true }).where(eq(schema.user.id, admin));
+    const tag = `hoy-${Date.now()}`;
+    await db.insert(schema.siteEvent).values([
+      { name: "qr_scan", source: "qr", campaign: tag, path: "/qr", at: new Date(startOfDayAr().getTime() - 60_000) }, // ayer a las 23:59
+      { name: "qr_scan", source: "qr", campaign: tag, path: "/qr" },
+    ]);
+    const today = await siteSummary(admin, 0);
+    expect(today.days).toBe(0);
+    expect(today.scans.find((x) => x.campaign === tag)?.n).toBe(1);
+    expect((await siteSummary(admin, 7)).scans.find((x) => x.campaign === tag)?.n).toBe(2);
   });
 });

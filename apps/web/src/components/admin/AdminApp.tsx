@@ -135,7 +135,7 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
             {k === "privacy" && <PrivacyRequests flash={flash} />}
             {k === "announcements" && <AdminAnnouncements flash={flash} />}
             {k === "guide" && <AdminGuide />}
-            {k === "site" && <AdminSite />}
+            {k === "site" && <AdminSite today={initial?.tab === "hoy"} />}
             {/* D210: métricas agregadas del asistente REPI y límites de la IA (sin datos de alumnos). */}
             {k === "coaching" && <AdminCoaching flash={flash} orgs={(list.data?.clients ?? []).map((c) => ({ id: c.orgId, name: c.name }))} />}
             {k === "captacion" && <AdminLeads flash={flash} />}

@@ -1,6 +1,7 @@
 // D205 · Experience Hub: registro anónimo de eventos del sitio comercial y su resumen para REPI Admin.
 // Nada de lo que se guarda identifica a una persona (ver schema.siteEvent). Registrar nunca rompe la página: si falla, se loguea.
 import { and, desc, gte, lt, sql } from "drizzle-orm";
+import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
 import { logErrorAt } from "../log";
 import { requireAdmin } from "../commercial/services";
@@ -53,10 +54,11 @@ const FUNNEL: SiteEventName[] = ["landing_view", "profile_select", "mode_select"
  * Resumen para REPI Admin (sólo Admin con 2FA). Últimos `days` días: visitas únicas, escaneos del QR por campaña, el embudo
  * por evento separando QR del resto, perfiles elegidos, demos y contactos con su origen. Son conteos, no personas.
  */
-export async function siteSummary(actorId: string, days = 30) {
+export async function siteSummary(actorId: string, days = 30, now = new Date()) {
   await requireAdmin(actorId);
-  const d = Math.min(365, Math.max(1, Math.round(days)));
-  const since = new Date(Date.now() - d * 86_400_000);
+  // `days` 0 = hoy: desde la medianoche de Argentina (UTC−3, sin horario de verano), no las últimas 24 horas.
+  const d = days === 0 ? 0 : Math.min(365, Math.max(1, Math.round(days)));
+  const since = d === 0 ? startOfDayAr(now) : new Date(now.getTime() - d * 86_400_000);
   const w = gte(siteEvent.at, since);
   const fromQr = sql<boolean>`coalesce(${siteEvent.source} = 'qr', false)`;
   const [byEvent, scans, profiles, demos, campaigns, visits, leads] = await Promise.all([
@@ -79,3 +81,6 @@ export async function siteSummary(actorId: string, days = 30) {
   });
   return { days: d, since: since.toISOString(), funnel, scans, profiles, demos, campaigns, visitsByDay: visits, leads };
 }
+
+/** Medianoche de hoy en Argentina (UTC−3 todo el año). */
+export const startOfDayAr = (now = new Date()) => new Date(`${localDate(now)}T00:00:00-03:00`);

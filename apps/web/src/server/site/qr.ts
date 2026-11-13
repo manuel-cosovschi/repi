@@ -62,5 +62,5 @@ export async function notifyQrScan(note: string) {
     eq(schema.siteEvent.name, "qr_scan"),
     sql`(${schema.siteEvent.at} at time zone 'America/Argentina/Buenos_Aires')::date = (now() at time zone 'America/Argentina/Buenos_Aires')::date`,
   ));
-  return enqueue(admins.map((a) => a.id), { kind: "site_qr", dedupe: `qr:${randomUUID()}`, ...qrScanText(note, n), url: "/admin?s=site" });
+  return enqueue(admins.map((a) => a.id), { kind: "site_qr", dedupe: `qr:${randomUUID()}`, ...qrScanText(note, n), url: "/admin?s=site&tab=hoy" });
 }
