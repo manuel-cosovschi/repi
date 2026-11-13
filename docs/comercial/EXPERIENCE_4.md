@@ -248,10 +248,12 @@ Quien entra con WebGL por software ya recibía el plano SVG desde el principio (
 ## 13. Qué se probó y qué no
 
 **Probado**
-- `e2e/conoce.spec.ts` (la suite que ya existía, sin cambiar expectativas) y `e2e/conoce-x4.spec.ts` (17 pruebas nuevas), en los dos proyectos (teléfono y escritorio): 96 pasan y 2 se omiten (las mismas 2 que se omitían antes).
+- `e2e/conoce.spec.ts` (la suite que ya existía) y `e2e/conoce-x4.spec.ts` (17 pruebas nuevas), en los dos proyectos (teléfono y escritorio): 96 pasan y 2 se omiten (las mismas 2 que se omitían antes). En la suite existente se cambió **una** expectativa, a propósito: el film de marca en un teléfono en vertical ahora abre la versión 9:16 nueva (antes sólo existía la 16:9). El resto quedó como estaba.
 - Typecheck, guardas (26 de 26), pruebas unitarias e integración y build de producción, los mismos pasos que corre el CI.
 - Once tamaños, de 320×568 a 1920×1080 más 844×390 apaisado: sin scroll lateral, sin botones cortados, sin errores de consola.
 - Los tres niveles de calidad, con y sin movimiento reducido, y la caída a SVG al perder el contexto WebGL.
+
+**Arreglo de paso (fuera de `/conoce`):** `next start` no arrancaba con `main` porque `/api/agenda/[token]` (reserva de la agenda pública, D218) y `/api/agenda/[id]/ics` (D98) usaban dos nombres para el mismo tramo dinámico. En Vercel funcionaba; en un servidor local, no. La ruta de reserva pasó a la carpeta `[id]` sin cambiar su URL ni su comportamiento (comprobado: POST → 303, `.ics` → 401 sin sesión, igual que en producción).
 
 **Límites de esa evidencia**
 - **Sin dispositivos reales.** Todo es Chromium con emulación de tamaño y de tacto.

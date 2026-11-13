@@ -19,6 +19,8 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): `/cono
 - **Pruebas:**
   - `e2e/conoce.spec.ts` + `e2e/conoce-x4.spec.ts` (17 nuevas): 96 pasan, 2 omitidas (las de antes), en teléfono y escritorio.
   - Typecheck, guardas 26/26, vitest y build en verde.
+  - Una expectativa de la suite existente cambió a propósito: en un teléfono en vertical el film de marca abre la versión 9:16 nueva.
+- **Arreglo de paso:** `/api/agenda/[token]/route.ts` pasó a `/api/agenda/[id]/route.ts` (misma URL): con dos nombres para el mismo tramo dinámico, `next start` no arrancaba en local (en Vercel sí funcionaba).
   - Once tamaños (320×568 a 1920×1080) y 844×390: sin scroll lateral, sin botones cortados, sin errores de consola.
 - **Rendimiento (laboratorio, antes → después):** LCP 1,24–1,38 s → 1,31–1,34 s (teléfono emulado, 3D); CLS 0 → 0; JavaScript 539 → 553 KB (3D) y 298 → 305 KB (plano). Respuesta al tocar las pestañas: 152–328 ms → 168–192 ms con CPU ×4. En dibujo por software la sala nueva cuesta alrededor del doble por cuadro.
 - **Límites declarados:** sin dispositivos reales; sólo Chromium (sin Safari ni Firefox); WebGL por software; grabaciones a ≈ 25 cuadros/s; nadie escuchó los films.
