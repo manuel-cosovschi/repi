@@ -1,12 +1,19 @@
 # REPI — Retomar acá
 
-Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): `/conoce` con sala 3D nueva, dos escenas, captación corregida y cinco films re-renderizados**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: en PR, sin publicar, sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLICADO Y VERIFICADO (#113, `3c119f2`, smoke de producción en verde, sin migración)**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: PUBLICADO Y VERIFICADO (#112, `4c01c5a`), sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
 
 
-## REPI Experience 4.0 · «The Living Gym» (`/conoce`) — 13/11/2026 · D219
+## REPI Experience 4.0 · «The Living Gym» (`/conoce`) — 13/11/2026 · PUBLICADO Y VERIFICADO (#113, `3c119f2`, D219)
 
 - **Pedido:** máster «REPI Experience 4.0 — Cinematic 3D · Interactive Motion · Creative Direction · Full Website Audit» (12/11). Evolucionar `/conoce` sobre Experience 3 / Motion 2, auditar todo y publicar sólo una versión que supere a la anterior.
-- **Rama:** `claude/experience-4`. **Sin** migraciones, variables de entorno ni dependencias nuevas.
+- **Estado:** PR #113 integrado por squash en `main` (`3c119f2`) y desplegado; `https://repiclub.com/api/version` responde `3c119f26367a`. **Sin** migraciones, variables de entorno ni dependencias nuevas (no hizo falta el respaldo).
+- **Smoke de producción (sólo lectura, sin enviar el formulario):** 39 de 40 comprobaciones del script en verde; la restante (el tamaño del `.vtt`, que la respuesta comprimida no informa) se verificó aparte: el archivo servido es idéntico al del repositorio.
+  - Versión, los ocho films con el mismo tamaño que en el repositorio, `/qr`, `sitemap.xml`, `robots.txt`, canonical y ausencia de precios.
+  - Escritorio con plano SVG y con la sala 3D forzada (`?sala=medium`): escenas nuevas, pestañas de zonas, botones sobre la sala, cierre y formulario, sin errores de consola ni de red.
+  - Teléfono 390×844: sin scroll lateral en ninguna escena y el film de marca abre la versión 9:16 (1080×1920, 0:38).
+  - Vercel sin errores de ejecución en la hora posterior al despliegue.
+  - Evidencia de la sesión (no versionada): script `prod-smoke.mjs`, `smoke.log` y capturas.
+- **Arreglo que entró con el PR, fuera de `/conoce`:** el CI falló una vez por `tests/lead-intelligence.test.ts` (de #110), que usa fechas fijas del 12/11: `run()` guardaba la corrida del programador con la fecha real y `leadsTick` la buscaba con la fecha recibida, así que la prueba pasaba sólo mientras ese día era hoy. Ahora ambos usan el mismo reloj (`server/leads/pipeline.ts`). En producción los dos relojes coinciden: no cambia el comportamiento.
 - **Documento:** `docs/comercial/EXPERIENCE_4.md` (dirección, referencias leídas y no leídas, arquitectura 3D, sistema de movimiento, veracidad, captación, rendimiento con sus límites, revisión escena por escena, riesgos y mantenimiento).
 - **Hecho en la web:**
   - **Sala 3D** reescrita (`components/conoce/sala/SalaCanvas.tsx`): paredes, vidrios, seis tipos de equipo instanciados, sombras de contacto, pantallas (el tótem muestra la captura real de REPI Control), red con paquetes y pulsos, barra que sube y baja con el contador de repeticiones, cámara por arcos con `fov` por toma y grúa de apertura «del plano a la sala».
@@ -31,15 +38,15 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): `/cono
   - Manifiesto actualizado en `content/conoce.ts` (duraciones, resúmenes y la variante vertical). Sonoridad entre −14,3 y −14,6 LUFS, medida.
   - Sin tocar: `perfil-entrenadores`, `perfil-deportistas`, `perfil-aliados`, `f-progreso`, `f-altas`, `f-sala`.
 - **Pendiente:**
-  1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Es lo único que no se pudo verificar acá.
+  1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Tampoco se probó en Safari ni Firefox, y nadie escuchó los films.
   2. Re-renderizar los seis films que quedaron con el kit viejo y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
   3. Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` (avisos del entorno de demo) y unificar las capturas que muestran 53 kg con la escena en vivo (60 → 62,5 kg).
   4. Decidir si la referencia del vendedor se guarda también en los eventos del sitio y en `/qr` (cambio de esquema).
 - **Decisiones para el titular:** confirmar el texto de la prueba social en la apertura («Ya funciona en Mar del Plata.») y en el caso.
 
-## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · EN PR, SIN PUBLICAR
+## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · PUBLICADO Y VERIFICADO (#112, `4c01c5a`)
 
-- **Estado:** rama `claude/fix-sandbox-purge` (desde `main` `708b873`), PR abierto contra `main`. Sin integrar ni desplegar. **No hay migración.**
+- **Estado:** PR #112 integrado en `main` (`4c01c5a`) y desplegado el 12/11. Verificado en producción con una consulta de sólo lectura: las demos vencidas pasaron de 3 a 0 después del despliegue. **No hay migración.**
 - **Síntoma:** alerta por email «Error en REPI: sandbox.purge · tarea en segundo plano · código 23503 · Failed query: delete», una por hora (el job falla cada minuto; el aviso está limitado).
 - **Causa (registros de Postgres de producción):** `update or delete on table "user" violates foreign key constraint "client_goal_created_by_user_id_fk" on table "client_goal"`. Desde el 12/11 17:25 (hora argentina), cuando venció la primera demo con una meta propia.
   - Una meta propia (D217, 0055, `client_goal` con `origin = self`) apunta dos veces a la misma persona: `user_id` con cascada y `created_by` sin cascada. Al borrar la persona, Postgres revisa `created_by` antes de que la cascada borre la fila.
@@ -55,7 +62,7 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): `/cono
   - guarda de la clase del error: lee el catálogo de la base migrada y falla si aparece una referencia sin cascada a `user` u `organization` en una tabla que la organización de la demo no arrastra y que la limpieza no borra a mano.
   - typecheck ✓, guardas 26/26, dominio 1177/1177, web 865/865 (110 archivos, sobre `repi_test` local), build ✓.
 - **Límite de la guarda:** cubre las referencias directas a `user` y `organization`. El orden dentro de una cascada (como `program_exercise → exercise`, resuelto el 30/10) sólo lo cubren las pruebas de limpieza de cada perfil.
-- **Próxima acción (titular):** integrar el PR y desplegar. Después, confirmar que no llegan más alertas y que `demo_sandbox` no tiene filas vencidas.
+- **Próxima acción (titular):** confirmar que no llegan más alertas «sandbox.purge» por email. `demo_sandbox` ya no tiene filas vencidas.
 - **Mejora posible, no hecha:** que el aviso incluya el nombre de la restricción (`constraint_name` del error de Postgres, no es un dato personal); hoy el detalle se recorta a «Failed query: delete» y hubo que leer los registros de la base.
 
 
