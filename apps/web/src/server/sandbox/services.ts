@@ -3,7 +3,7 @@
 // series, avisos al piso, cobros). Nada se comparte entre visitantes ni toca clientes reales; todo es is_demo y se borra
 // a las 6 horas. Los emails usan el dominio reservado .invalid: el adaptador de correo nunca los envía.
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { activityOf, applyMethod, briefSummary, catalogProfile, cleanProgramBrief, localDate, parseReps, rowRef, type ActivityDetail, type ExerciseDetail } from "@repi/domain";
 import { db, schema } from "@/db";
 import { auth } from "../auth";
@@ -394,7 +394,11 @@ async function history(userId: string, relId: string, count: number, now: Date, 
   }
 }
 
-/** Borra entornos vencidos: primero las organizaciones (arrastran casi todo), después las personas. */
+/**
+ * Borra entornos vencidos: primero las organizaciones (arrastran casi todo), después las personas.
+ * Una tabla nueva que referencie a user u organization SIN cascada y que la organización no arrastre frena el borrado
+ * (23503): hay que borrarla acá. La guarda de tests/sandbox-purge.test.ts lo detecta leyendo el catálogo.
+ */
 export async function purgeSandboxes(now = new Date()) {
   const old = await db.select().from(schema.demoSandbox).where(lt(schema.demoSandbox.expiresAt, now)).limit(50);
   let purged = 0;
@@ -415,6 +419,11 @@ export async function purgeSandboxes(now = new Date()) {
           keys = [...new Set([...media, ...intents].map((r) => r.k))];
           await tx.delete(schema.workoutSession).where(inArray(schema.workoutSession.userId, users));
           await tx.delete(schema.auditEvent).where(inArray(schema.auditEvent.actorUserId, users));
+          // Incidente 12/11 (23503 en cada corrida): una meta propia (D217, client_goal origin «self») apunta dos veces a la
+          // misma persona: user_id con cascada y created_by SIN cascada. Al borrar la persona, Postgres revisa created_by antes
+          // de que la cascada se lleve la fila y el DELETE de "user" falla: la demo no se borraba nunca. Van a mano, antes.
+          // (Las metas del coach de la demo caen igual con coach_client; se incluyen por created_by para no depender del orden.)
+          await tx.delete(schema.clientGoal).where(or(inArray(schema.clientGoal.userId, users), inArray(schema.clientGoal.createdBy, users)));
         }
         // D210: lo de REPI (brain_*, ai_usage) cae en cascada con la persona y la organización; los límites de IA por
         // alcance (ai_policy «user:<id>» / «org:<id>») no tienen FK y se borran acá.
@@ -425,6 +434,9 @@ export async function purgeSandboxes(now = new Date()) {
           // program_exercise → exercise (un ejercicio propio de la demo usado en un programa) antes de borrar el programa, y falla.
           await tx.delete(schema.program).where(inArray(schema.program.orgId, orgs));
           await tx.delete(schema.coachClient).where(inArray(schema.coachClient.coachOrgId, orgs));
+          // legal_acceptance.org_id tampoco tiene cascada (la fila cae con la persona, que se borra después): una aceptación
+          // ligada al gimnasio de la demo frenaría el borrado de la organización.
+          await tx.delete(schema.legalAcceptance).where(inArray(schema.legalAcceptance.orgId, orgs));
           await tx.delete(schema.organization).where(inArray(schema.organization.id, orgs));
         }
         if (users.length) await tx.delete(schema.user).where(inArray(schema.user.id, users));
