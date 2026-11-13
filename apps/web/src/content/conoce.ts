@@ -133,7 +133,7 @@ export const FEATURES: Feature[] = [
     status: "available", note: "El control de ingreso se activa por gimnasio. REPI no cobra la cuota del gimnasio.", demo: "owner", shot: "/conoce/shots/access.webp", shotAlt: "Solicitudes de acceso por QR en REPI", video: "f-altas", profiles: ["gimnasios"] },
   { id: "tablero", title: "Vista del dueño", value: "Tu gimnasio de un vistazo, por sede.",
     points: ["Socios en REPI, sesiones registradas y satisfacción", "Equipo y servicio: tareas, tiempos y reseñas", "Permisos por rol: dueño, gerencia, recepción y entrenadores"],
-    status: "available", demo: "owner", shot: "/conoce/shots/owner.webp", shotAlt: "Tablero ejecutivo del gimnasio en REPI", profiles: ["gimnasios", "aliados"] },
+    status: "available", demo: "owner", shot: "/conoce/shots/owner.webp", shotAlt: "Seguimiento de sala en REPI: pedidos recibidos, resueltos y tiempos de atención", profiles: ["gimnasios", "aliados"] },
   { id: "comunidad", title: "Comunidad y desafíos", value: "Novedades, descuentos y desafíos que dan motivos para volver.",
     points: ["Desafíos con premio y ranking", "Publicaciones voluntarias con moderación del gimnasio", "Cada socio elige si participa y qué comparte"],
     status: "available", demo: "owner", shot: "/conoce/shots/community.webp", shotAlt: "Comunidad del gimnasio en REPI", profiles: ["gimnasios", "deportistas"] },
