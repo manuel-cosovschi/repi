@@ -3,7 +3,7 @@ import { assertLocalTarget, expectAccessible, expectNoHorizontalOverflow, watchE
 
 // Experience 4.0 «The Living Gym» (docs/comercial/EXPERIENCE_4.md): lo nuevo de /conoce. La sala que se recorre, el dato que
 // viaja a la gráfica, la transformación del equipo entre modalidades, el escenario 3D (monta, se cae y vuelve al plano SVG),
-// las correcciones de captación (modalidad elegida, campaña larga, referencia del vendedor) y la veracidad de lo que se afirma.
+// las correcciones de captación (modalidad elegida, campaña larga, origen del enlace de un vendedor) y la veracidad de lo que se afirma.
 // Como el resto de la suite, corre contra la build local con datos ficticios.
 test.beforeAll(({ baseURL }) => assertLocalTarget(baseURL));
 
@@ -263,19 +263,20 @@ test.describe("captación", () => {
     await expect(page.getByRole("status").filter({ hasText: /Recibimos/ })).toBeVisible(); // el servidor lo aceptó
   });
 
-  test("la referencia de un vendedor viaja en el formulario y en los mensajes de WhatsApp", async ({ page, context }) => {
+  test("el enlace personal de un vendedor queda como origen del formulario y no aparece en la página ni en WhatsApp", async ({ page, context }) => {
     let sent: Record<string, unknown> | null = null;
     await page.route("**/api/access/lead", async (r) => { sent = r.request().postDataJSON(); await r.fulfill({ json: { ok: true } }); });
     await context.route(/wa\.me|whatsapp\.com/, (r) => r.abort());
     await page.goto("/conoce?sala=low&ref=V-ABC123#contacto");
     const wa = page.locator("#contacto a[href*='wa.me']").first();
     const before = new URL((await wa.getAttribute("href"))!).searchParams.get("text")!;
-    expect(before).not.toContain("V-ABC123"); // el HTML no cambia: la referencia se agrega al tocar
     const popup = context.waitForEvent("page").then((p) => p.close(), () => {});
     await wa.click();
     await popup;
-    const after = new URL((await wa.getAttribute("href"))!).searchParams.get("text")!;
-    expect(after).toBe(`${before} (Ref. V-ABC123)`);
+    // Pedido del titular (13/11): el código no se muestra ni viaja en el mensaje; sólo va, oculto, con el formulario.
+    expect(new URL((await wa.getAttribute("href"))!).searchParams.get("text")).toBe(before);
+    expect(before).not.toContain("V-ABC123");
+    await expect(page.locator("body")).not.toContainText("V-ABC123");
     // Cambiar de modalidad o de perfil no la pierde.
     await page.getByRole("tab", { name: /REPI Control/ }).click();
     await page.getByRole("tab", { name: /Entrenadores/ }).click();
