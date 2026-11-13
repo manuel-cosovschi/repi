@@ -162,6 +162,17 @@ export async function assignToRep(actorId: string, id: string, p: { repId: strin
   });
 }
 
+/** Busca el expediente por el contacto de quien respondió (email, número de WhatsApp o usuario de Instagram). */
+export async function findLeadByContact(channel: "email" | "whatsapp" | "instagram", from: string): Promise<string | null> {
+  const { emailNorm, igHandle, normPhoneAR } = await import("@repi/domain");
+  const where = channel === "email" ? (emailNorm(from.match(/[^<\s]+@[^>\s]+/)?.[0] ?? from) ? eq(leadBusiness.email, emailNorm(from.match(/[^<\s]+@[^>\s]+/)?.[0] ?? from) as string) : null)
+    : channel === "instagram" ? (igHandle(from) ? eq(leadBusiness.instagram, igHandle(from) as string) : null)
+    : (normPhoneAR(from) ? eq(leadBusiness.phoneNational, (normPhoneAR(from) as { national: string }).national) : null);
+  if (!where) return null;
+  const [b] = await db.select({ id: leadBusiness.id }).from(leadBusiness).where(where).orderBy(desc(leadBusiness.updatedAt)).limit(1);
+  return b?.id ?? null;
+}
+
 // ── Importación y exportación ───────────────────────────────────────────────
 export type ImportRow = Omit<Candidate, "source" | "sources"> & { sources?: Record<string, { url?: string | null; type?: string; seenAt?: string }> };
 const TYPES: SourceType[] = ["official_site", "osm", "directory", "search_result", "social_profile_listing", "manual", "import", "inbound"];

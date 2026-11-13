@@ -25,7 +25,7 @@ async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron
   try {
     const stats = await work();
     const status = (stats as { errors?: unknown[] }).errors?.length ? "partial" : "ok";
-    await db.update(leadRun).set({ status, stats, finishedAt: new Date(), error: status === "partial" ? String((stats as unknown as { errors: unknown[] }).errors[0]).slice(0, 500) : null }).where(eq(leadRun.id, r.id));
+    await db.update(leadRun).set({ status, stats, finishedAt: new Date(), error: status === "partial" ? firstError((stats as unknown as { errors: unknown[] }).errors[0]) : null }).where(eq(leadRun.id, r.id));
     return { id: r.id, status, stats };
   } catch (e) {
     logError(`leads.run.${kind}`, e);
@@ -167,7 +167,7 @@ export async function stepReport() {
   return { ...sum, digest };
 }
 
-const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => (await import("./autopilot")).stepOutreach(), followup: stepFollowup, report: stepReport };
+const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => { const a = await import("./autopilot"); const email = await a.stepOutreach(); const social = await a.stepSocialQueue(); return { ...email, social }; }, followup: stepFollowup, report: stepReport };
 
 /** Ejecución por el job interno (CRON_SECRET), sin sesión: igual que la manual pero registrada como «cron-manual». */
 export async function runStepSystem(step: Step, opts: { areaIds?: string[]; budgetMs?: number } = {}) {
@@ -212,3 +212,9 @@ export async function runsList(actorId: string) {
 }
 export async function refreshOne(actorId: string, id: string) { await leadsAdmin(actorId); await refreshLead(db, id); return { ok: true }; }
 export type { LeadStage };
+
+/** El primer error de una corrida, legible: los pasos devuelven textos o { kind, error } (el informe diario). */
+function firstError(e: unknown): string {
+  const t = typeof e === "string" ? e : e && typeof e === "object" && "error" in e ? `${(e as { kind?: string }).kind ?? ""}: ${String((e as { error: unknown }).error)}` : JSON.stringify(e);
+  return t.slice(0, 500);
+}

@@ -101,6 +101,13 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLIC
   - OSM sigue saturado y se reintenta cada día hábil a las 08:00.
   - La agenda en producción responde 200 y ofrece 111 horarios desde el 13/11 10:30.
   - **Próxima acción:** ninguna del titular. Revisar `lead_run` y las respuestas si avisa. Si OSM sigue sin responder varios días, evaluar un servidor de Overpass propio o pago (es un gasto: decide el titular).
+- **WhatsApp e Instagram con las cuentas del titular (13/11, pedido: «Usa WhatsApp e Instagram igual, te dejo las cuentas abiertas en la Mac»), PR #115:**
+  - `stepSocialQueue` arma cada día hábil a las 10:00 la campaña «Piloto automático · WhatsApp e Instagram» (envío manual, hasta 10 por día más los seguimientos). Se enciende con `autopilot.social`.
+  - La entrada interna `/api/cron/leads` acepta `{action:"reply"}`: busca el gimnasio por email, WhatsApp o Instagram y registra la respuesta como «system».
+  - La invitación .ics de cada reunión llega también al correo de respuestas.
+  - Runbook y la instrucción para la tarea diaria del Mac: `docs/comercial/captacion/MAC_WHATSAPP_INSTAGRAM.md`. Una sesión en la nube no llega al Mac (no hay carpeta ni navegador del Mac conectados), así que esa tarea se crea una vez desde la app Claude del Mac.
+  - Tarea programada en la nube «REPI Captación · respuestas por email» (`trig_01EUgyTfckXqpN1LYSfu3qE6`, 11:47, 15:47 y 19:47 AR, días hábiles): revisa el correo comercial y registra las respuestas. Se creó sin conectores (esta organización no permite pasarlos desde la sesión); hay que sumarle Gmail y Supabase desde claude.ai › Tareas programadas.
+  - El informe diario guardaba «[object Object]» como error: ahora guarda el texto (`firstError`).
 
 
 - **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.

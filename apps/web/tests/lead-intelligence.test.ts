@@ -254,7 +254,7 @@ describe("F · piloto automático por email, agenda pública y recordatorios", (
     const thursday10 = new Date("2026-11-12T13:00:00Z"); // 10:00 AR
     // Apagado por defecto: no manda nada.
     expect((await stepOutreach({ now: thursday10 })).reason).toMatch(/apagado/);
-    await saveSettings(admin, { autopilot: { enabled: true, dailyLimit: 30, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 0 }, channels: { emailSend: true, whatsappApi: false } });
+    await saveSettings(admin, { autopilot: { enabled: true, dailyLimit: 30, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 0, social: false, socialDailyLimit: 10 }, channels: { emailSend: true, whatsappApi: false } });
     expect((await stepOutreach({ now: new Date("2026-11-14T13:00:00Z") })).reason).toMatch(/franja/); // sábado
     const o = await stepOutreach({ now: thursday10 });
     expect(o.firstContacts).toBeGreaterThanOrEqual(2);
@@ -293,6 +293,38 @@ describe("F · piloto automático por email, agenda pública y recordatorios", (
     expect(await stopByLink("nope.nope")).toBeNull();
     const dg = await dailyDigest({ day: "2026-11-12", sent: 2, replies: 0, due: 0, errors: [] });
     expect(dg.emailed).toBeGreaterThanOrEqual(1);
-    await saveSettings(admin, { autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40 }, channels: { emailSend: false, whatsappApi: false } });
+    await saveSettings(admin, { autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40, social: false, socialDailyLimit: 10 }, channels: { emailSend: false, whatsappApi: false } });
+  });
+});
+
+describe("G · cola de WhatsApp e Instagram y respuestas registradas por las automatizaciones", () => {
+  it("prepara la cola aprobada y registra respuestas por contacto", async () => {
+    const { stepSocialQueue } = await import("@/server/leads/autopilot");
+    const { POST } = await import("@/app/api/cron/leads/route");
+    const w = await crm.saveManual(admin, { name: gym("Wapp Gym"), city: "Balcarce", whatsapp: "+54 9 2266 77-1111", category: "traditional", estMembers: 300 });
+    const ig = await crm.saveManual(admin, { name: gym("Insta Box"), city: "Miramar", instagram: `instabox${tag}`, category: "crossfit" });
+    expect((await stepSocialQueue()).reason).toMatch(/apagada/);
+    await saveSettings(admin, { autopilot: { enabled: true, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 0, social: true, socialDailyLimit: 50 } });
+    const q = await stepSocialQueue();
+    expect(q.queued).toBeGreaterThanOrEqual(2);
+    const [mw] = await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, w.id), eq(schema.leadMessage.status, "approved")));
+    expect(mw).toMatchObject({ channel: "whatsapp" });
+    const [mi] = await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, ig.id), eq(schema.leadMessage.status, "approved")));
+    expect(mi).toMatchObject({ channel: "instagram" });
+    // Repetir no duplica la cola.
+    await stepSocialQueue();
+    expect((await db.select().from(schema.leadMessage).where(and(eq(schema.leadMessage.businessId, w.id), eq(schema.leadMessage.direction, "out")))).length).toBe(1);
+    // La sesión del Mac confirma el envío (como «Lo envié»).
+    await msg.confirmSent(admin, mw.id);
+    // Respuesta por WhatsApp registrada por la entrada interna: encuentra el lead por número y aplica el plan.
+    process.env.CRON_SECRET = "y".repeat(40);
+    const call = (body: unknown) => POST(new Request("http://localhost/api/cron/leads", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${"y".repeat(40)}` }, body: JSON.stringify(body) }));
+    const r = await (await call({ action: "reply", channel: "whatsapp", from: "5492266771111", text: "Hola! Me interesa, ¿cuánto sale?" })).json() as { matched: boolean; intent: string };
+    expect(r).toMatchObject({ matched: true, intent: "price" });
+    expect((await lead(w.id))).toMatchObject({ stage: "interested" });
+    const none = await (await call({ action: "reply", channel: "email", from: "Alguien <nadie@nada.invalid>", text: "hola" })).json() as { matched: boolean };
+    expect(none.matched).toBe(false);
+    delete process.env.CRON_SECRET;
+    await saveSettings(admin, { autopilot: { enabled: false, dailyLimit: 8, window: { from: "10:00", to: "17:30" }, followups: true, minScore: 40, social: false, socialDailyLimit: 10 } });
   });
 });
