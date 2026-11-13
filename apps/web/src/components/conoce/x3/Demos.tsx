@@ -23,7 +23,7 @@ export function Demos() {
   };
   const untilt = (e: React.PointerEvent<HTMLElement>) => { cancelAnimationFrame(raf.current); e.currentTarget.style.transform = ""; };
   return (
-    <section id="demos" className="x3-dm" data-shot="aliados" aria-labelledby="cn-dm">
+    <section id="demos" className="x3-dm" data-dim="0.5" data-shot="aliados" aria-labelledby="cn-dm">
       <div className="x3-wrap">
         <Say id="cn-dm" className="x3-h2 big" text="No te lo contamos. *Probalo.*" snap />
         <p className="x3-lead">Demos guiadas sobre la app real, con un gimnasio y un coach ficticios. Sin cuenta, desde tu teléfono.</p>

@@ -1,5 +1,6 @@
-// REPI Experience 3.0 (/conoce): «La sala en vivo» (docs/comercial/EXPERIENCE_3.md). La página es la sala del gimnasio vista desde
-// arriba: un escenario fijo (3D o SVG según el equipo) y escenas que mueven la cámara. Conserva todo lo comercial de D205:
+// REPI Experience 4.0 (/conoce): «The Living Gym» (docs/comercial/EXPERIENCE_4.md; evoluciona «La sala en vivo», EXPERIENCE_3.md).
+// La página es la sala del gimnasio: un escenario fijo (3D con profundidad real, o el plano SVG según el equipo) y escenas que
+// mueven la cámara, la recorren y la conectan. Conserva todo lo comercial de D205:
 // perfiles por URL, demos reales, simulador con el motor real, formulario a REPI Admin, WhatsApp, QR/UTM y medición propia.
 import Link from "next/link";
 import { ArrowRight, ChatCircle, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
@@ -18,6 +19,7 @@ import { Problem } from "./x3/Problem";
 import { Training } from "./x3/Training";
 import { Perspectives } from "./x3/Perspectives";
 import { Modes } from "./x3/Modes";
+import { Connected } from "./x4/Connected";
 import { Showcase } from "./x3/Showcase";
 import { Demos } from "./x3/Demos";
 import { Proof } from "./x3/Proof";
@@ -39,11 +41,11 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
           <div className="x3-wrap x3-head-in">
             <Link href="/conoce" aria-label="REPI, presentación"><Wordmark width={64} /></Link>
             <nav className="x3-nav" aria-label="Secciones">
-              <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#modos">Modalidades</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
+              <a href="#en-accion">En acción</a><a href="#perfiles">Para quién</a><a href="#modos">Modalidades</a><a href="#sala">La sala</a><a href="#funciones">Producto</a><a href="#demos">Demos</a><a href="#preguntas">Preguntas</a>
             </nav>
             <div className="x3-head-cta">
               <Link className="x3-head-link" href="/acceso">Ingresar</Link>
-              <a className="x3-btn pri sm" href="#contacto">Pedir demo<ArrowRight size={16} weight="bold" aria-hidden="true" /></a>
+              <TrackLink event="contact_click" target="cabecera" className="x3-btn pri sm" href="#contacto">Pedir demo<ArrowRight size={16} weight="bold" aria-hidden="true" /></TrackLink>
             </div>
           </div>
         </header>
@@ -54,6 +56,7 @@ export function ConoceHub({ profile, variant = "a" }: { profile: Profile | null;
           <Training />
           <Perspectives initial={profile} />
           <Modes />
+          <Connected />
           <Showcase />
           <Demos />
           <Proof />

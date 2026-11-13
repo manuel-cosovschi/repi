@@ -8,22 +8,14 @@ import { api } from "@/lib/api";
 import type { ProductMode } from "@/content/conoce";
 import type { Profile } from "@/lib/site-events";
 import { track, visitContext } from "@/lib/site-track";
-import { INTEREST_EVENT, modeFromUrl, type InterestDetail } from "./interest";
+import { INTEREST_EVENT, MODE_CHOSEN_EVENT, modeFromUrl, type InterestDetail } from "./interest";
+import { referral } from "./referral";
 
 type Kind = "gym" | "coach" | "partner";
 /** D215: modalidad que le interesa a un gimnasio. La preseleccionan el botón de cada modalidad y `?modo=`; es opcional. */
 const MODES: [ProductMode, string][] = [["completo", "REPI Completo"], ["control", "REPI Control"], ["undecided", "Todavía no sé"]];
-// D209: enlace personal de un vendedor (/conoce?ref=V-XXXXXX). Se recuerda en la pestaña; el servidor sólo lo acepta si es de
-// un vendedor activo y lo guarda como origen del contacto, nunca como una venta atribuida.
-const REF_KEY = "repi:ref:v1";
-function referral(): string | null {
-  try {
-    const q = new URLSearchParams(location.search).get("ref");
-    if (q && /^V-[A-Z0-9]{6}$/i.test(q)) { sessionStorage.setItem(REF_KEY, q.toUpperCase()); return q.toUpperCase(); }
-    return sessionStorage.getItem(REF_KEY);
-  } catch { return null; }
-}
 const KIND_OF: Record<Profile, Kind> = { gimnasios: "gym", entrenadores: "coach", deportistas: "gym", aliados: "partner" };
+const PROFILE_OF: Record<Kind, Profile> = { gym: "gimnasios", coach: "entrenadores", partner: "aliados" };
 const KINDS: [Kind, string][] = [["gym", "Un gimnasio"], ["coach", "Soy entrenador"], ["partner", "Empresa o alianza"]];
 
 export function ContactForm({ initial }: { initial: Profile | null }) {
@@ -44,14 +36,20 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
       setInterest(d.profile); setKind(KIND_OF[d.profile]); setMeeting(!!d.meeting);
       if (d.mode) setMode(d.mode);
     };
+    // 4.0 · La modalidad que la persona deja elegida en «Dos formas de entrenar» es la que llega con el contacto (antes sólo
+    // la del botón de contacto de esa escena o la de `?modo=` al cargar: si cambiaba de pestaña, quedaba la anterior).
+    const onMode = (e: Event) => { const m = (e as CustomEvent<{ mode: ProductMode }>).detail?.mode; if (m) setMode(m); };
     window.addEventListener(INTEREST_EVENT, on);
-    return () => window.removeEventListener(INTEREST_EVENT, on);
+    window.addEventListener(MODE_CHOSEN_EVENT, onMode);
+    return () => { window.removeEventListener(INTEREST_EVENT, on); window.removeEventListener(MODE_CHOSEN_EVENT, onMode); };
   }, []);
   // `/conoce?modo=control`: viene a conocer una modalidad, que es de gimnasios.
   useEffect(() => { const m = modeFromUrl(); if (m) { setMode(m); setKind("gym"); } }, []);
   useEffect(() => { referral(); }, []);
   useEffect(() => { if (done) { doneRef.current?.focus(); doneRef.current?.scrollIntoView({ block: "center" }); } }, [done]);
 
+  /** Elegir a mano el tipo de consulta: el interés y el pedido de reunión que traía otra escena dejan de valer. */
+  const chooseKind = (k: Kind) => { setKind(k); setInterest(PROFILE_OF[k]); setMeeting(false); };
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const badEmail = !!f.email && !isEmail(f.email);
   const phoneOk = f.phone.replace(/\D/g, "").length >= 8;
@@ -68,7 +66,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
       await api("lead", { body: {
         kind, orgName: f.orgName || null, contactName: f.contactName, email: f.email || null, phone: f.phone || null,
         message: [meeting ? "Pide una reunión." : "", f.message].filter(Boolean).join(" ") || null,
-        source: attr.source, campaign: attr.utmCampaign ?? attr.campaign, interest, website: f.website, elapsedMs: Date.now() - shown.current,
+        source: attr.source, campaign: (attr.utmCampaign ?? attr.campaign)?.slice(0, 80) ?? null, interest, website: f.website, elapsedMs: Date.now() - shown.current,
         referralCode: referral(), productMode: kind === "gym" ? mode : null,
       } });
       track("form_submit", { profile: interest, target: kind });
@@ -91,7 +89,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
       <fieldset>
         <legend>¿Qué te interesa?</legend>
         <div className="cn-seg-row">
-          {KINDS.map(([k, l]) => <label key={k} className="cn-seg"><input type="radio" name="kind" checked={kind === k} onChange={() => setKind(k)} /> {l}</label>)}
+          {KINDS.map(([k, l]) => <label key={k} className="cn-seg"><input type="radio" name="kind" checked={kind === k} onChange={() => chooseKind(k)} /> {l}</label>)}
         </div>
       </fieldset>
       {kind === "gym" && (
@@ -114,7 +112,7 @@ export function ContactForm({ initial }: { initial: Profile | null }) {
       <div className="cn-hp" aria-hidden="true"><label>Sitio web<input tabIndex={-1} autoComplete="off" value={f.website} onChange={set("website")} /></label></div>
       <div aria-live="assertive">{err && <p className="cn-err" role="alert">{err}</p>}</div>
       <button type="submit" className="cn-btn pri wide" aria-busy={busy || undefined} disabled={busy}>{busy ? "Enviando…" : meeting ? "Pedir una reunión" : "Solicitar una demo"}</button>
-      <p className="cn-fine">Usamos tus datos sólo para responderte. <a href="/legal/privacy">Privacidad</a>.</p>
+      <p className="cn-fine">Usamos tus datos para responder tu consulta. <a href="/legal/privacy">Privacidad</a>.</p>
     </form>
   );
 }

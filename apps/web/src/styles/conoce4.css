@@ -1,0 +1,157 @@
+/* REPI Experience 4.0 · «The Living Gym» (docs/comercial/EXPERIENCE_4.md). Se suma a conoce3.css: mismas fuentes (Barlow y
+   Barlow Condensed), mismos tokens --x-*. Sólo transformaciones y opacidad en lo que se anima. */
+
+/* ── Marcas de cámara dentro de una escena fijada: no ocupan lugar; el director de tomas (Stage) lee dónde están.
+   --at: fracción del recorrido de la escena en la que la toma empieza a mezclarse (0 = cuando la escena se fija). */
+.x3-train-track, .x4-data, .x4-con-track { position: relative; }
+.x4-cue { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; top: calc(var(--at, 0) * (100% - 100svh) + 85svh); }
+
+/* ── 03 · La serie: texto a la izquierda, el banco de Valentina (la sala) al centro y el teléfono a la derecha. */
+@media (min-width: 1100px) {
+  .x3-train-grid { grid-template-columns: minmax(0, 1fr) minmax(0, .72fr) minmax(250px, .56fr); }
+  .x3-train-grid > .x3-phone-stage { grid-column: 3; }
+  .x3-train .x3-phone { width: min(330px, 24vw); }
+}
+
+/* ── «El progreso cobra vida» (DataStory) ───────────────────────────────────────────────────────────────────────── */
+.x4-data { padding: clamp(48px, 9vh, 110px) 0 0; }
+.x4-data-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: clamp(24px, 4vw, 64px); align-items: center; }
+.x4-data-h { margin: 0 0 22px; font: 700 clamp(2rem, 4.4vw, 3.6rem)/.94 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); }
+.x4-data-k { margin: 0; font: 600 clamp(1rem, 1.5vw, 1.25rem)/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--x-muted); white-space: nowrap; }
+.x4-data-v { margin: 8px 0 0; font: 700 clamp(2.6rem, 5vw, 4.6rem)/.92 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-white); white-space: nowrap; min-height: .92em; }
+.x4-data-v[data-step="0"] { color: var(--x-cyan); }
+.x4-data-v[data-step="2"] { color: var(--x-teal); }
+.x4-data-d { margin: 12px 0 0; max-width: 44ch; min-height: 3.2em; font-size: clamp(.98rem, 1.3vw, 1.08rem); line-height: 1.5; color: var(--x-muted); animation: x3-type .8s steps(26, end) both; }
+.x4-chart { position: relative; margin: 20px 0 0; padding: 16px 16px 12px; border-radius: 18px; background: rgba(20, 29, 42, .9); border: 1px solid var(--x-steel); transform-origin: 100% 50%; will-change: transform; box-shadow: 0 30px 60px -36px rgba(0, 0, 0, .9); }
+.x4-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.x4-chart-grid { stroke: rgba(248, 250, 252, .08); stroke-width: 1; }
+.x4-chart-line { fill: none; stroke: var(--x-cyan); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+.x4-chart-trend { fill: none; stroke: var(--x-teal); stroke-width: 1.5; stroke-dasharray: 1 1; stroke-dashoffset: 0; opacity: .7; }
+.x4-chart-pt { transform-box: fill-box; }
+.x4-chart-pt circle { fill: #0F1620; stroke: var(--x-muted); stroke-width: 2; }
+.x4-chart-pt circle[data-real] { stroke: var(--x-cyan); }
+.x4-chart-today circle { fill: var(--x-cyan); }
+.x4-chart-today .ring { fill: none; stroke: var(--x-cyan); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; transform: scale(calc(1 + 3.2 * var(--ring, 1))); opacity: calc(.9 * (1 - var(--ring, 1))); }
+.x4-chart-ax { fill: var(--x-dim); font: 500 11px var(--font-ui, inherit); }
+.x4-chart-tag { position: absolute; right: 18px; top: 14px; padding: 5px 10px; border-radius: 8px; background: rgba(93, 230, 216, .12); border: 1px solid rgba(93, 230, 216, .4); color: var(--x-teal); font: 700 14px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
+.x4-chart figcaption { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--x-dim); }
+.x4-data-roles { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.x4-data-roles li { padding: 10px 12px; border-left: 2px solid var(--x-teal); font-size: 13.5px; line-height: 1.35; color: var(--x-muted); }
+.x4-data-roles b { display: block; color: var(--x-white); font-weight: 600; }
+.x4-chip { position: absolute; left: 0; top: 0; z-index: 3; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 10px; border-radius: 999px; background: var(--x-cyan); color: var(--x-navy); font: 700 17px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; white-space: nowrap; opacity: 0; pointer-events: none; will-change: transform, opacity; }
+.x4-chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--x-navy); }
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x4-data { height: 300svh; padding-top: 0; }
+  .x4-data-pin { position: sticky; top: 0; min-height: 100svh; display: flex; align-items: center; padding: 76px 0 24px; }
+  .x4-chart-line, .x4-chart-trend { stroke-dashoffset: 1; }
+  .x4-chart-today, .x4-chart-pt, .x4-chart-tag, .x4-data-roles li { opacity: 0; }
+}
+@media (max-width: 899px) {
+  .x4-data-grid { grid-template-columns: 1fr; }
+  .x4-data-room { display: none; }
+  .x4-data-h { font-size: clamp(1.7rem, 8vw, 2.4rem); margin-bottom: 12px; }
+  .x4-data-v { font-size: clamp(2.2rem, 11vw, 3.4rem); }
+  .x4-data-d { min-height: 4.6em; font-size: 14.5px; }
+  .x4-chart { margin-top: 12px; padding: 12px 12px 10px; }
+  .x4-chart figcaption { font-size: 11px; }
+  .x4-data-roles { margin-top: 10px; gap: 8px; }
+  .x4-data-roles li { padding: 6px 10px; font-size: 12.5px; }
+}
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 899px) {
+  /* Teléfono: la sala arriba (la gráfica y el texto ocupan la mitad de abajo, sobre un fondo que asegura el contraste). */
+  .x4-data-pin { align-items: flex-end; padding: 0 0 14px; }
+  .x4-data-side { padding: 18px 0 0; }
+  .x4-data-pin::before { content: ""; position: absolute; inset: 34svh 0 0; background: linear-gradient(180deg, rgba(11, 15, 20, 0) 0, rgba(11, 15, 20, .94) 12%); pointer-events: none; }
+  .x4-data-grid { position: relative; }
+}
+
+/* ── Modalidades · «Un equipo que se transforma» (WOW 4): el equipo principal lo mueve GSAP (gira de canto y vuelve convertido
+   en el otro), así que no corre la entrada por CSS de 3.0. La pantalla anterior queda encima hasta el canto. */
+.x3-md-main { will-change: transform; backface-visibility: hidden; }
+.x3-md .x3-md-main[data-morph] { animation: none !important; z-index: 3; }
+.x3-md-main[data-morph] .x3-md-glass img[data-on] { animation: none !important; }
+.x3-md-glass .x4-md-ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; z-index: 2; opacity: 1; visibility: visible; transition: none; animation: none !important; }
+
+/* ── «Una sala. Todo conectado.» (Connected) ───────────────────────────────────────────────────────────────────── */
+.x4-con { padding: clamp(80px, 12vh, 140px) 0 0; }
+.x4-con-head .x3-lead { margin-bottom: 8px; }
+.x4-con-in { position: relative; }
+.x4-con-card { width: min(440px, 100%); padding: 18px 20px 20px; border-radius: 18px; background: rgba(14, 20, 29, .88); border: 1px solid var(--x-steel); box-shadow: 0 30px 60px -36px rgba(0, 0, 0, .9); }
+.x4-con-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.x4-con-tabs button { min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--x-steel); background: transparent; color: var(--x-muted); font: 600 14px/1 var(--font-ui, inherit); cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; -webkit-tap-highlight-color: transparent; }
+.x4-con-tabs button:hover { color: var(--x-white); border-color: var(--x-muted); }
+.x4-con-tabs button[aria-selected="true"] { background: var(--x-white); border-color: var(--x-white); color: var(--x-navy); }
+.x4-con-who { margin: 0 0 6px; font: 600 13px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--x-teal); }
+.x4-con-panel h3 { margin: 0; font: 700 clamp(1.7rem, 2.8vw, 2.4rem)/.98 var(--font-display); text-transform: uppercase; letter-spacing: -.01em; color: var(--x-white); text-wrap: balance; }
+.x4-con-text { margin: 12px 0 0; font-size: 15.5px; line-height: 1.5; color: var(--x-muted); }
+.x4-con-panel ul, .x4-con-chain { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.x4-con-panel li { position: relative; padding-left: 18px; font-size: 14.5px; line-height: 1.4; color: var(--x-white); }
+.x4-con-panel ul li::before { content: ""; position: absolute; left: 0; top: .55em; width: 8px; height: 2px; background: var(--x-teal); }
+.x4-con-chain { counter-reset: c; }
+.x4-con-chain li { counter-increment: c; padding-left: 26px; color: var(--x-muted); }
+.x4-con-chain li::before { content: counter(c); position: absolute; left: 0; top: 0; font: 700 15px/1.4 var(--font-display); color: var(--x-cyan); }
+.x4-con-chain b { color: var(--x-white); font-weight: 600; }
+.x4-con-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; }
+.x4-con-spots { position: absolute; inset: 0; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s linear .35s; z-index: 2; }
+.x4-con-spots[data-on] { opacity: 1; visibility: visible; transition: opacity .5s .2s; }
+.x4-spot { position: absolute; translate: -50% -50%; pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 10px; border-radius: 999px; border: 1px solid rgba(248, 250, 252, .5); background: rgba(11, 15, 20, .78); color: var(--x-white); font: 600 14px/1 var(--font-ui, inherit); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .2s, border-color .2s, scale .25s var(--x-ease); }
+.x4-spot i { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--x-cyan); flex: none; }
+.x4-spot i::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid var(--x-cyan); opacity: .7; animation: x4-spot 2.4s var(--x-ease) infinite; }
+.x4-spot:hover, .x4-spot:focus-visible { background: var(--x-white); color: var(--x-navy); border-color: var(--x-white); scale: 1.05; }
+@keyframes x4-spot { 0% { transform: scale(.6); opacity: .8; } 100% { transform: scale(1.7); opacity: 0; } }
+html[data-motion="paused"] .x4-spot i::after { animation: none; opacity: .5; }
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x4-con-track { height: 420svh; }
+  .x4-con-pin { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; padding: 76px 0 24px; }
+  .x4-con-in { width: min(1240px, 100% - 2 * var(--x-gutter)); }
+  .x4-con-panel { animation: x4-panel .45s var(--x-ease) both; }
+  html[data-motion="paused"] .x4-con-panel { animation: none; }
+}
+@keyframes x4-panel { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce), (max-height: 559px) { .x4-con-track { padding: 8px 0 clamp(60px, 10vh, 110px); } .x4-con-card { width: min(640px, 100%); } }
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) {
+  /* Teléfono: la sala arriba y la tarjeta abajo, con las zonas en una fila que se desliza. */
+  .x4-con-pin { align-items: flex-end; padding: 0 0 12px; }
+  .x4-con-card { width: 100%; padding: 12px 14px 14px; min-height: 44svh; background: rgba(11, 15, 20, .93); }
+  .x4-con-tabs { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px 10px; padding: 0 14px 4px; scrollbar-width: none; }
+  .x4-con-tabs::-webkit-scrollbar { display: none; }
+  .x4-con-tabs button { flex: none; min-height: 40px; }
+  .x4-con-panel h3 { font-size: 1.6rem; }
+  .x4-con-text { font-size: 14.5px; margin-top: 8px; }
+  .x4-con-panel ul, .x4-con-chain { margin-top: 10px; gap: 6px; }
+  .x4-con-panel li { font-size: 13.5px; }
+  .x4-con-act { margin-top: 10px; }
+  .x4-spot { min-height: 40px; padding: 0 10px 0 8px; font-size: 12.5px; }
+}
+
+/* ── Cierre: la frase que acompaña a la sala entera mientras la cámara sube (después, todo vuelve al punto). */
+.x3-fin { position: relative; }
+.x4-fin-pre { display: none; }
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) {
+  .x4-fin-pre { display: block; position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; padding: 0 var(--x-gutter); pointer-events: none; will-change: transform, opacity; }
+  .x4-fin-pre p { margin: 0 auto; max-width: 18ch; font: 700 clamp(2.2rem, 5.6vw, 4.6rem)/.94 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; color: var(--x-muted); text-wrap: balance; }
+  .x3-fin-pin { position: sticky; }
+  .x3-fin { height: 230svh; }
+}
+@media (prefers-reduced-motion: no-preference) and (min-height: 560px) and (max-width: 759px) { .x3-fin { height: 260svh; } }
+
+/* ── El plano SVG (nivel liviano y primer pintado) con lo nuevo de 4.0: la red, las pantallas y los pulsos. */
+.sala-links { opacity: 0; transition: opacity .5s; }
+.sala-links polyline { fill: none; stroke: var(--x-cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: .035 .05; opacity: .8; }
+/* El guion sólo corre con la red encendida: apagada (casi toda la página) no hay nada que repintar en cada cuadro. */
+.sala-links[data-on="1"] polyline { animation: sala-flow 2.6s linear infinite; }
+@keyframes sala-flow { to { stroke-dashoffset: -.34; } }
+html[data-motion="paused"] .sala-links polyline, .sala-view.still .sala-links polyline { animation: none; }
+.sala-kiosk { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1.5; transition: fill .4s, stroke .4s; }
+.sala-kiosk[data-on="1"] { fill: var(--x-cyan); stroke: var(--x-white); }
+.sala-screens rect { fill: #24354A; transition: fill .4s; }
+.sala-screens[data-on="1"] rect { fill: var(--x-teal); }
+.sala-ping { fill: none; stroke: var(--x-cyan); stroke-width: 2.5; transform-box: fill-box; transform-origin: center; animation: sala-ping 1.3s cubic-bezier(.16, 1, .3, 1) both; pointer-events: none; }
+.sala-ping.staff { stroke: var(--x-teal); }
+.sala-ping.data { stroke: var(--x-white); }
+@keyframes sala-ping { from { transform: scale(.15); opacity: .9; } to { transform: scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sala-links polyline, .sala-ping { animation: none; } .sala-ping { display: none; } }
+
+/* ── Pantallas muy chicas (≈ 320 × 568): el teléfono de la serie entra con su texto y la cabecera no parte «Pedir demo». */
+.x3-head .x3-btn.sm { white-space: nowrap; }
+@media (max-width: 899px) and (max-height: 640px) { .x3-train .x3-phone-screen { zoom: .84; } }

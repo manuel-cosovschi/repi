@@ -5,7 +5,7 @@ set -euo pipefail
 KIT="$(cd "$(dirname "$0")/.." && pwd)"; FILMS_DIR="$(dirname "$KIT")"
 : "${REPI_MEDIA_SRC:?falta REPI_MEDIA_SRC}"; : "${OUT:?falta OUT}"; mkdir -p "$OUT/web"
 export HYPERFRAMES_NO_TELEMETRY=1 DO_NOT_TRACK=1
-declare -A WEB=([brand]=film-marca [gimnasios]=perfil-gimnasios [entrenadores]=perfil-entrenadores [deportistas]=perfil-deportistas
+declare -A WEB=([brand]=film-marca [brand-vertical]=film-marca-vertical [gimnasios]=perfil-gimnasios [entrenadores]=perfil-entrenadores [deportistas]=perfil-deportistas
   [deportistas-vertical]=perfil-deportistas-vertical [aliados]=perfil-aliados [intelligence]=f-intelligence
   [progreso]=f-progreso [altas]=f-altas [sala]=f-sala
   [modo-completo]=modo-completo [modo-completo-vertical]=modo-completo-vertical [modo-control]=modo-control [modo-control-vertical]=modo-control-vertical)
@@ -16,6 +16,6 @@ for n in "${LIST[@]}"; do
   poster=$(cd "$KIT" && python3 -c "import importlib.util as u; s=u.spec_from_file_location('b','build.py'); b=u.module_from_spec(s); s.loader.exec_module(b); print(b.FILMS['$n'].get('poster', 1))")
   (cd "$FILMS_DIR/$n" && npx --yes hyperframes@0.8.193 render -q delivery --video-frame-format png -w 2 -o "$OUT/$n-master.mp4" --quiet >/dev/null 2>&1)
   echo "== $n: $(python3 -I "$KIT/tools/blank.py" "$OUT/$n-master.mp4")"
-  pw=1280; case "$n" in modo-*-vertical) pw=720;; esac  # póster: 1280 de ancho (los verticales de los modos, 720)
+  pw=1280; case "$n" in modo-*-vertical|brand-vertical) pw=720;; esac  # póster: 1280 de ancho (los verticales de los modos y de la marca, 720)
   python3 -I "$KIT/tools/finish.py" "$OUT/$n-master.mp4" "$OUT/web/${WEB[$n]}.mp4" "$OUT/web/${WEB[$n]}.webp" "$poster" "$pw"
 done

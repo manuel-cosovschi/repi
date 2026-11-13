@@ -34,7 +34,7 @@ const MODS: Mod[] = [
   { id: "coach", title: "El espacio del coach", value: "Alumnos, programas y conversación en un solo lugar.", points: [...f("alumnos").points.slice(0, 1), ...f("programas").points.slice(1, 3), f("mensajes").points[0]], status: "available", demo: "coach", visual: "coach" },
   { id: "gym", title: "La gestión del gimnasio", value: "La sala atendida, las altas sin papeles y el tablero del dueño.", points: [f("sala").points[0], f("altas").points[1], f("tablero").points[0]], status: "per_gym", note: "El seguimiento de sala y el control de ingreso se activan por gimnasio.", demo: "floor", visual: "request" },
   { ...pick("comunidad"), title: "Comunidad y desafíos", visual: "community" },
-  { ...pick("cuerpo"), title: "Body Intelligence", visual: "body" },
+  { ...pick("cuerpo"), title: "Mi cuerpo", visual: "body" },
 ];
 function pick(id: string) { const x = f(id); return { id: x.id, value: x.value, points: x.points, status: x.status, demo: x.demo ?? "member", note: x.note, video: x.video }; }
 
@@ -204,13 +204,13 @@ export function Showcase() {
   }, { scope: root, dependencies: [wide] });
   const m = MODS[active];
   return (
-    <section ref={root} id="funciones" className="x3-sc" data-shot="showcase" aria-labelledby="cn-sc">
+    <section ref={root} id="funciones" className="x3-sc" data-dim="0.4" data-shot="showcase" aria-labelledby="cn-sc">
       <div className="x3-wrap">
         <Say id="cn-sc" className="x3-h2" text="Lo que REPI *ya hace.*" />
         <div className="x3-sc-grid">
           <div className="x3-sc-text">
             {MODS.map((x, i) => (
-              <article key={x.id} ref={(b) => { blocks.current[i] = b; }} data-i={i} data-on={i === active ? "1" : undefined} data-shot={SHOT_OF[x.id] ?? "showcase"} className="x3-sc-mod" aria-labelledby={`sc-${x.id}`}>
+              <article key={x.id} ref={(b) => { blocks.current[i] = b; }} data-i={i} data-on={i === active ? "1" : undefined} data-shot={SHOT_OF[x.id] ?? "showcase"} data-dim="0.4" className="x3-sc-mod" aria-labelledby={`sc-${x.id}`}>
                 <Say as="h3" id={`sc-${x.id}`} text={x.title} />
                 <p className="x3-sc-value">{x.value}</p>
                 <ul>{x.points.map((pt) => <li key={pt}>{pt}</li>)}</ul>

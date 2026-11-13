@@ -35,12 +35,23 @@ export type StageState = {
   hidden: boolean;
   /** La persona pausó las animaciones (botón «Pausar animaciones»): nada se mueve solo; la cámara sigue al scroll. */
   paused: boolean;
+  /** 4.0 · La red de la sala (0–1): cuánto se ven los recorridos por donde viaja lo que se registra y sus pulsos. */
+  flow: number;
+  /** 4.0 · La barra del press de Valentina la mueve la escena (0 = sobre el pecho, 1 = brazos extendidos; −1 = en los
+   *  soportes, descansando); null = entrena sola. */
+  lift: number | null;
+  /** 4.0 · Cuánto se atenúa la sala detrás de una sección con mucho texto (0–1; lo pide `data-dim` y lo mezcla el director). */
+  dim: number;
+  /** 4.0 · Toma que eligió la persona al explorar la sala (zona): tiene prioridad sobre la del scroll hasta que se suelta. */
+  explore: ShotId | null;
+  /** 4.0 · La pantalla de REPI Control de la recepción, encendida (0–1): la modalidad Control o la zona recepción. */
+  kiosk: number;
 };
 
 const state: StageState = {
   // Arranca en la toma del hero, la misma que pinta el HTML del servidor: la sala no «viaja» al cargar.
   a: "hero", b: "hero", t: 1, lit: 0, focus: null, preview: null, request: null, walk: 0, tone: 0, wash: 0, cold: false, gather: 0, origin: [0, 0], dotOut: false,
-  reveal: null, gl: false, hidden: false, paused: false,
+  reveal: null, gl: false, hidden: false, paused: false, flow: 0, lift: null, dim: 0, explore: null, kiosk: 0,
 };
 const subs = new Set<() => void>();
 
@@ -77,13 +88,32 @@ export const pointer = {
   subscribe(f: () => void) { this.subs.add(f); return () => { this.subs.delete(f); }; },
 };
 
+/** 4.0 · Pulsos sobre el piso (una serie registrada, un pedido que llega, un dato que entra a una pantalla): un anillo que se
+ *  abre desde un punto del mundo. Van aparte de la tienda (son eventos, no estado): el 3D y el SVG los dibujan y los olvidan. */
+export type Ping = { x: number; z: number; kind: "member" | "staff" | "data"; at: number };
+export const pings = {
+  list: [] as Ping[],
+  subs: new Set<() => void>(),
+  fire(x: number, z: number, kind: Ping["kind"] = "member") {
+    if (state.paused || state.hidden) return;
+    this.list.push({ x, z, kind, at: typeof performance === "undefined" ? 0 : performance.now() });
+    if (this.list.length > 8) this.list.shift();
+    this.subs.forEach((f) => f());
+  },
+  subscribe(f: () => void) { this.subs.add(f); return () => { this.subs.delete(f); }; },
+};
+
 /** Nivel de calidad del escenario, decidido una vez en el cliente. */
 export type Quality = "high" | "medium" | "low";
+/** Marca de sesión: la sala 3D resultó lenta en este equipo. */
+export const SLOW_KEY = "repi:sala-lenta";
 export function detectQuality(): Quality {
   if (typeof window === "undefined") return "low";
   // Para revisar cada nivel a mano o en pruebas: /conoce?sala=high|medium|low.
   const forced = new URLSearchParams(window.location.search).get("sala");
   if (forced === "high" || forced === "medium" || forced === "low") return forced;
+  // En esta visita la sala 3D ya se dibujó lenta en este equipo (lo anotó la red de seguridad del canvas): directo al plano.
+  try { if (sessionStorage.getItem(SLOW_KEY) === "1") return "low"; } catch { /* sin almacenamiento */ }
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
   if (reduce || nav.connection?.saveData) return "low";

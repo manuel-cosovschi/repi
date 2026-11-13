@@ -1,6 +1,8 @@
-// Experience 3.0 · «La sala en vivo» (docs/comercial/EXPERIENCE_3.md, EXPERIENCE_3_MOTION_2.md). Modelo único de la sala: lo
-// dibujan la escena 3D (SalaCanvas) y la alternativa liviana en SVG (SalaSvg) con las mismas zonas, equipos, personas y tomas.
-// Unidades: metros aproximados; x hacia la derecha, z hacia el frente (la recepción da a la calle), y hacia arriba.
+// Experience 4.0 · «The Living Gym» (docs/comercial/EXPERIENCE_4.md; antes «La sala en vivo», EXPERIENCE_3.md). Modelo único
+// de la sala: lo dibujan la escena 3D (SalaCanvas) y la alternativa liviana en SVG (SalaSvg) con las mismas zonas, equipos,
+// personas y tomas. Unidades: metros; x hacia la derecha, z hacia el frente (la recepción da a la calle), y hacia arriba.
+// En 4.0 la sala deja de ser un plano lejano: los equipos tienen su tamaño real, hay paredes, una pantalla de REPI Control en la
+// recepción y la cámara baja y se acerca (tomas con lente propia). El SVG conserva el plano cenital con las mismas zonas.
 
 export type ZoneId = "recepcion" | "racks" | "maquinas" | "box" | "oficina" | "cardio";
 export type Zone = { id: ZoneId; label: string; x: number; z: number; w: number; d: number };
@@ -28,9 +30,21 @@ export const GEAR: [number, number, number, number, number][] = [
   [-14.5, 9.5, 4.5, 1, 1.1], [-14.5, -5.5, 3, 1.2, 0.8], [14, 8.5, 3.2, 1.4, 0.8],
 ];
 
-/** Medidas de un equipo en 3D: menos de la mitad de su planta (como mucho 0,9 m) y el 30 % del alto. Losas bajas que marcan dónde
- *  está cada cosa sin tapar a las personas ni competir con la interfaz. */
-export const gear3d = ([x, z, w, d, h]: [number, number, number, number, number]) => ({ x, z, w: Math.min(0.9, w * 0.45), d: Math.min(0.9, d * 0.45), h: h * 0.3 });
+/** Qué es cada equipo de `GEAR` (mismo orden): jaulas de sentadilla al fondo, jaulas con banco adelante, máquinas, cintas y
+ *  los tres muebles (mostrador, escritorio del equipo y escritorio de la oficina). */
+export type GearKind = "squat" | "bench" | "machine" | "treadmill" | "counter" | "desk";
+export const GEAR_KIND: GearKind[] = [
+  "squat", "squat", "squat", "bench", "bench", "bench",
+  "machine", "machine", "machine", "machine", "machine", "machine", "machine", "machine",
+  "treadmill", "treadmill", "treadmill", "treadmill", "treadmill",
+  "counter", "desk", "desk",
+];
+
+/** La pantalla de REPI Control (recepción): un tótem con pantalla táctil que mira hacia la sala. */
+export const KIOSK: [number, number] = [-11.6, 6.6];
+/** La pantalla del dueño (oficina) y la del equipo (box de entrenadores): a dónde llega lo que se registra. */
+export const OFFICE_SCREEN: [number, number] = [14, 8.2];
+export const COACH_SCREEN: [number, number] = [-14.5, -5.2];
 
 /** El QR de la sede (recepción). */
 export const QR_SPOT: [number, number] = [-11.5, 10.8];
@@ -109,35 +123,57 @@ export function placePerson(i: number, t: number, s: { walk: number; gather: num
  *  ≈20 px, el tamaño con el que la página lo toma y lo lleva a la «ı». */
 export const gatherGrow = (gather: number) => 1 + 0.45 * smooth((gather - 0.55) / 0.4);
 
-/** Tomas de cámara por escena: posición y punto de mira del 3D, y `svg` (centro x, z y zoom) para la misma toma en el plano.
- *  El zoom del SVG llega hasta 2,4: más cerca, las personas y los equipos dejan de leerse como plano. En 3D las tomas quedan
- *  altas y lejos (≈ 30–40 m): ningún equipo (que en 3D se dibuja bajo y chico, `gear3d`) pasa de ≈ 58 px en ninguna pantalla
- *  entre 393 × 659 y 1920 × 1080 (comprobado con la cámara de destino y su lente), así la sala sigue siendo un plano detrás de
- *  la interfaz y no un decorado. */
-export type Shot = { pos: [number, number, number]; look: [number, number, number]; svg: [number, number, number] };
+/** Tomas de cámara por escena: posición, punto de mira y lente del 3D, y `svg` (centro x, z y zoom) para la misma toma en el
+ *  plano. El zoom del SVG llega hasta 2,4: más cerca, las personas y los equipos dejan de leerse como plano. En 4.0 el 3D baja
+ *  y se acerca (entre 9 y 34 m): la sala tiene profundidad real (paredes, jaulas, pantallas) y cada toma muestra dónde pasa
+ *  lo que cuenta la escena. Los primeros planos (`far: 1`) no se alejan en el teléfono. */
+export type Shot = {
+  pos: [number, number, number]; look: [number, number, number]; svg: [number, number, number];
+  /** Lente (campo vertical en grados). Por defecto 38; los primeros planos cierran un poco. */
+  fov?: number;
+  /** En pantallas angostas (teléfono vertical) el campo horizontal es chico: la cámara se aleja este factor (por defecto 1,3). */
+  far?: number;
+};
+export const FOV = 38;
 export const SVG_ZOOM_MAX = 2.4;
 export const SHOTS = {
   dark: { pos: [22, 34, 34], look: [2, 0, 0], svg: [0, 0, 0.9] },
   /** Cenital del 3D con el mismo encuadre que el SVG del hero: el 3D entra sin cambiar el punto de vista (SalaCanvas la
    *  recalcula en el cliente con el tamaño de la pantalla; estos valores son sólo el respaldo). */
   plan: { pos: [0, 30, 0.01], look: [0, 0, 0], svg: [0, 0, 1] },
-  hero: { pos: [16.4, 24, 28.8], look: [2, 0, 0], svg: [0, 0, 1] },
-  problem: { pos: [-11.6, 26.1, 29], look: [0, 0, 0], svg: [0, 0, 1.15] },
-  training: { pos: [-0.5, 28.8, 23.4], look: [-2, 0.4, -0.4], svg: [-2, 0.4, 2.4] },
-  gimnasios: { pos: [0, 24.8, 30.3], look: [0, 0, 7], svg: [0, 7, 1.6] },
-  entrenadores: { pos: [-8.6, 27, 18], look: [-14, 0, -5], svg: [-13, -4, 2.4] },
-  deportistas: { pos: [0.9, 28.8, 22.2], look: [-2, 0.4, -1], svg: [-2, 0, 2.4] },
-  aliados: { pos: [0, 46, 0.5], look: [0, 0, 0], svg: [0, 0, 0.85] },
+  /** Apertura: la sala entera en diagonal, baja (≈ 27° sobre el piso): se ven las paredes del fondo y las jaulas en altura. */
+  hero: { pos: [15.5, 15.5, 27.5], look: [0.5, 0.6, -1.5], svg: [0, 0, 1], fov: 36 },
+  problem: { pos: [-13, 19, 27], look: [0, 0, -0.5], svg: [0, 0, 1.15] },
+  /** 03 · La serie de Valentina: una toma general del peso libre y tres más, cada vez más cerca (las piden las marcas de la
+   *  escena con el scroll): travelling de acercamiento hasta el banco, a la altura de los ojos, y una vuelta corta alrededor. */
+  training: { pos: [5.5, 9.5, 15.5], look: [-2, 0.8, 0.6], svg: [-2, 0.4, 2.2], fov: 36 },
+  rackMid: { pos: [2.6, 4.6, 9.6], look: [-2, 0.95, 0.9], svg: [-2, 0.6, 2.4], fov: 34, far: 1.15 },
+  rackClose: { pos: [1.5, 2.3, 6.4], look: [-2, 0.95, 0.95], svg: [-2, 0.8, 2.4], fov: 32, far: 1 },
+  rackOrbit: { pos: [-5.4, 2.6, 5.9], look: [-2, 0.95, 0.9], svg: [-2, 0.8, 2.4], fov: 32, far: 1 },
+  /** El dato sale del banco y cruza la sala: plano más abierto y alto, con el box del equipo y la oficina a la vista. */
+  dataOut: { pos: [1, 15, 21], look: [0, 0.4, 0.5], svg: [0, 0.5, 1.3], fov: 38 },
+  gimnasios: { pos: [0, 16, 30], look: [0, 0.4, 2], svg: [0, 7, 1.6] },
+  entrenadores: { pos: [-7.5, 7.5, 6.5], look: [-14.3, 0.8, -5.4], svg: [-13, -4, 2.4], fov: 36, far: 1.1 },
+  deportistas: { pos: [3.4, 5.4, 10.4], look: [-2, 0.9, 0.4], svg: [-2, 0, 2.4], fov: 36, far: 1.1 },
+  aliados: { pos: [0, 40, 13], look: [0, 0, 0], svg: [0, 0, 0.85] },
   /** Modalidades (escena «Dos formas de entrenar»): Completo mira la sala donde se entrena con el teléfono (peso libre y
-   *  máquinas); Control, el box del equipo que planifica y la recepción, donde va la pantalla de rutinas. */
-  completo: { pos: [6, 30, 23], look: [2, 0, -1.5], svg: [2, -1.5, 1.5] },
-  control: { pos: [-7, 30, 26], look: [-13, 0, 1], svg: [-13, 1, 1.3] },
-  showcase: { pos: [20.2, 28, 20.4], look: [9, 0, -2], svg: [9, -2, 2] },
-  rack: { pos: [3.8, 28.8, 22.3], look: [-2, 0.4, -1.2], svg: [-2, -1, 2.2] },
-  box: { pos: [-7, 28, 18.8], look: [-14, 0, -5], svg: [-13, -4, 2.2] },
-  pedido: { pos: [-0.4, 31.4, 23.7], look: [-9.5, 0, -3.5], svg: [-9.5, -3.2, 1.9] },
-  cardio: { pos: [7.2, 21.6, 27.2], look: [0, 0, 8], svg: [0, 7.5, 2] },
-  open: { pos: [0, 26.4, 28.5], look: [0, 0, 1], svg: [0, 0, 1.1] },
+   *  máquinas); Control, la pantalla táctil de la recepción (el tótem de REPI Control), de cerca. */
+  completo: { pos: [8, 8.5, 15], look: [2, 0.8, -2], svg: [2, -1.5, 1.5], fov: 36 },
+  control: { pos: [-6.6, 4.4, 14.4], look: [-12, 1.05, 7], svg: [-13, 6.5, 2], fov: 34, far: 1.05 },
+  showcase: { pos: [20, 9.5, 10.5], look: [10, 0.7, -3], svg: [9, -2, 2], fov: 36 },
+  rack: { pos: [3.4, 5.4, 10.4], look: [-2, 0.9, 0.4], svg: [-2, -1, 2.2], fov: 36, far: 1.1 },
+  box: { pos: [-7.5, 7.5, 6.5], look: [-14.3, 0.8, -5.4], svg: [-13, -4, 2.2], fov: 36, far: 1.1 },
+  pedido: { pos: [-1.5, 9.5, 9.5], look: [-9.4, 0.5, -3.4], svg: [-9.5, -3.2, 1.9], fov: 38 },
+  cardio: { pos: [6.5, 5.6, 18.5], look: [0, 0.8, 8.3], svg: [0, 7.5, 2], fov: 36, far: 1.1 },
+  open: { pos: [0, 15, 29], look: [0, 0.4, 1], svg: [0, 0, 1.1] },
+  /** 05 · «Una sala, todo conectado»: la sala entera y, al elegir una zona, su primer plano. */
+  connected: { pos: [-3, 27, 33], look: [0, 0, 0.8], svg: [0, 0, 1.05], fov: 38 },
+  zRecepcion: { pos: [-6.6, 4.4, 14.4], look: [-12, 1.05, 7], svg: [-13, 7.5, 2], fov: 34, far: 1.05 },
+  zRacks: { pos: [3.4, 5.4, 10.4], look: [-2, 0.9, 0.4], svg: [-2, -1.5, 2], fov: 36, far: 1.1 },
+  zBox: { pos: [-7.5, 7.5, 6.5], look: [-14.3, 0.8, -5.4], svg: [-13, -4.5, 2.2], fov: 36, far: 1.1 },
+  zOficina: { pos: [7.4, 5.2, 16.2], look: [13.8, 0.9, 8.4], svg: [13, 7.5, 2], fov: 34, far: 1.05 },
+  /** Cierre: sube y se aleja hasta ver el plano entero desde arriba (ahí todo vuelve al punto). */
+  finaleWide: { pos: [0, 30, 26], look: [0, 0, 0], svg: [0, 0, 0.95] },
   finale: { pos: [0, 52, 6], look: [0, 0, 0], svg: [0, 0, 0.8] },
 } satisfies Record<string, Shot>;
 export type ShotId = keyof typeof SHOTS;
@@ -145,21 +181,16 @@ export type ShotId = keyof typeof SHOTS;
 /** Encuadre corrido hacia el lado libre del texto, en fracciones de la pantalla: `w` en pantallas anchas (texto a la izquierda:
  *  la sala se corre a la derecha) y `n` en angostas (texto abajo: la sala sube). En el SVG es un desplazamiento; en el 3D,
  *  `camera.setViewOffset`. */
+const SIDE = { w: [0.2, 0] as [number, number], n: [0, -0.2] as [number, number] };
 const LENS: Partial<Record<ShotId, { w: [number, number]; n: [number, number] }>> = {
-  plan: { w: [0.2, 0], n: [0, -0.2] },
-  hero: { w: [0.2, 0], n: [0, -0.2] },
-  training: { w: [0.22, 0], n: [0, -0.26] },
+  plan: SIDE, hero: SIDE,
+  training: { w: [0.2, 0], n: [0, -0.24] }, rackMid: { w: [0.07, 0.03], n: [0, 0.1] }, rackClose: { w: [0.07, 0.05], n: [0, 0.1] }, rackOrbit: { w: [0.07, 0.05], n: [0, 0.1] },
+  dataOut: { w: [-0.2, 0.05], n: [0, -0.26] },
   gimnasios: { w: [0.18, 0.06], n: [0, -0.18] },
   entrenadores: { w: [0.18, 0.06], n: [0, -0.18] },
   deportistas: { w: [0.18, 0.06], n: [0, -0.18] },
-  completo: { w: [0.2, 0], n: [0, -0.2] },
-  control: { w: [0.2, 0], n: [0, -0.2] },
-  showcase: { w: [0.2, 0], n: [0, -0.2] },
-  rack: { w: [0.2, 0], n: [0, -0.2] },
-  box: { w: [0.2, 0], n: [0, -0.2] },
-  pedido: { w: [0.2, 0], n: [0, -0.2] },
-  cardio: { w: [0.2, 0], n: [0, -0.2] },
-  open: { w: [0.2, 0], n: [0, -0.2] },
+  completo: SIDE, control: SIDE, showcase: SIDE, rack: SIDE, box: SIDE, pedido: SIDE, cardio: SIDE, open: SIDE,
+  connected: { w: [0.15, 0.03], n: [0, -0.2] }, zRecepcion: { w: [0.2, 0.02], n: [0, -0.2] }, zRacks: { w: [0.2, 0.02], n: [0, -0.2] }, zBox: { w: [0.2, 0.02], n: [0, -0.2] }, zOficina: { w: [0.2, 0.02], n: [0, -0.2] },
 };
 export const isNarrow = (vw: number) => vw < 760;
 /** Corrimiento del encuadre de una toma en píxeles para una pantalla de vw × vh. */
@@ -167,6 +198,26 @@ export function lensPx(shot: ShotId, vw: number, vh: number): [number, number] {
   const l = LENS[shot]; if (!l) return [0, 0];
   const [fx, fy] = isNarrow(vw) ? l.n : l.w;
   return [fx * vw, fy * vh];
+}
+
+/** La red de la sala: por dónde viaja lo que se registra (del banco de Valentina al equipo y a la oficina; de la recepción a
+ *  la sala). Recorridos sobre el piso, por los pasillos. Los dibujan el 3D (pulsos que viajan) y el SVG (líneas). */
+export const LINKS: [number, number][][] = [
+  [[-2, 2.6], [-2, 4.4], [8, 4.6], [12.6, 6.2], [13.4, 7.6]],                 // peso libre → oficina
+  [[-2, 2.6], [-2, 4.4], [-8.6, 4.4], [-9.6, -1.2], [-12.4, -3.6], [-13.6, -4.6]], // peso libre → equipo (box)
+  [[-11.6, 6.4], [-9.4, 4.6], [-6, 4.4], [-2, 4.4]],                            // recepción (pantalla) → sala
+  [[7, -0.4], [6.2, 2.4], [8, 4.6]],                                             // máquinas → pasillo central
+  [[0, 6.9], [0, 4.6]],                                                          // cardio → pasillo central
+];
+
+/** Largo de un recorrido y punto a la fracción u (0–1) de su largo. */
+export function linkAt(path: [number, number][], u: number): [number, number] {
+  let total = 0; const acc = [0];
+  for (let i = 1; i < path.length; i++) { total += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); acc.push(total); }
+  const target = Math.min(1, Math.max(0, u)) * total;
+  let i = 1; while (i < path.length - 1 && acc[i] < target) i++;
+  const seg = acc[i] - acc[i - 1] || 1, f = (target - acc[i - 1]) / seg;
+  return [path[i - 1][0] + (path[i][0] - path[i - 1][0]) * f, path[i - 1][1] + (path[i][1] - path[i - 1][1]) * f];
 }
 
 // ── Geometría del SVG (compartida con la proyección y la toma cenital del 3D) ─────────────────────────────────

@@ -60,8 +60,11 @@ test("el film de marca se abre con un toque, muestra sólo qué hace REPI y se c
   const dialog = page.getByRole("dialog", { name: /Cada repetición cuenta/ });
   await expect(dialog).toBeVisible();
   const src = await dialog.locator("video source").getAttribute("src");
-  expect(src).toBe("/conoce/videos/film-marca.mp4");
+  // 4.0 (D219): el film de marca tiene versión 9:16; en un teléfono en vertical se abre esa, como en deportistas y en las modalidades.
+  const vp = page.viewportSize()!, portrait = vp.width < 760 && vp.height > vp.width;
+  expect(src).toBe(portrait ? "/conoce/videos/film-marca-vertical.mp4" : "/conoce/videos/film-marca.mp4");
   expect((await page.request.get(src!)).status()).toBe(200);
+  for (const f of ["film-marca.mp4", "film-marca.webp", "film-marca-vertical.mp4", "film-marca-vertical.webp"]) expect((await page.request.get(`/conoce/videos/${f}`)).status(), f).toBe(200);
   // Pedido del titular (07/11): debajo del video, una línea con lo que muestra; nada de licencias ni descripciones largas.
   await expect(dialog.locator(".x3-film-sum")).toContainText("objetivo para cada serie");
   await expect(dialog).not.toContainText("Kevin MacLeod");

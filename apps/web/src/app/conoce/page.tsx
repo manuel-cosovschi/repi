@@ -4,6 +4,7 @@ import { conoceMetadata, conoceViewport } from "./meta";
 import "@/styles/site.css";
 import "@/styles/conoce.css";
 import "@/styles/conoce3.css";
+import "@/styles/conoce4.css";
 
 export const viewport = conoceViewport;
 export const metadata = conoceMetadata({

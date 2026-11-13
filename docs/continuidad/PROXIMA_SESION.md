@@ -1,6 +1,41 @@
 # REPI — Retomar acá
 
-Actualizado: 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: en PR, sin publicar, sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): `/conoce` con sala 3D nueva, dos escenas, captación corregida y cinco films re-renderizados**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: en PR, sin publicar, sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+
+
+## REPI Experience 4.0 · «The Living Gym» (`/conoce`) — 13/11/2026 · D219
+
+- **Pedido:** máster «REPI Experience 4.0 — Cinematic 3D · Interactive Motion · Creative Direction · Full Website Audit» (12/11). Evolucionar `/conoce` sobre Experience 3 / Motion 2, auditar todo y publicar sólo una versión que supere a la anterior.
+- **Rama:** `claude/experience-4`. **Sin** migraciones, variables de entorno ni dependencias nuevas.
+- **Documento:** `docs/comercial/EXPERIENCE_4.md` (dirección, referencias leídas y no leídas, arquitectura 3D, sistema de movimiento, veracidad, captación, rendimiento con sus límites, revisión escena por escena, riesgos y mantenimiento).
+- **Hecho en la web:**
+  - **Sala 3D** reescrita (`components/conoce/sala/SalaCanvas.tsx`): paredes, vidrios, seis tipos de equipo instanciados, sombras de contacto, pantallas (el tótem muestra la captura real de REPI Control), red con paquetes y pulsos, barra que sube y baja con el contador de repeticiones, cámara por arcos con `fov` por toma y grúa de apertura «del plano a la sala».
+  - **Dos escenas nuevas:** «El dato vuelve» (`x4/DataStory.tsx`) y «La sala conectada» (`x4/Connected.tsx`, `#sala`, cuatro zonas con pestañas, botones sobre la sala y scroll).
+  - **Modalidades:** el dispositivo gira entre REPI Completo y REPI Control. **Cierre:** toma amplia + grúa + frase previa.
+  - **Velo por sección** (`data-dim`) y marcas de cámara (`.x4-cue`) dentro de los tramos fijados.
+  - **Red de seguridad** para equipos lentos: baja la densidad de píxel y, si no alcanza, deja el plano SVG (`Guard`; `?sala=medium&guard=0.5` la muestra).
+  - **Veracidad:** prueba social autorizada (D218, ajuste) sin nombrar a Smart Center fuera del panel del caso; tablero del dueño sin «ingresos»; RIR por serie; «Mi cuerpo» sin medidas; REPI Control «la activa REPI por gimnasio».
+  - **Captación:** la modalidad elegida llega al formulario, una campaña de más de 80 caracteres ya no rompe el envío, la referencia del vendedor viaja en el WhatsApp, «Pedir demo» de la cabecera se mide y «Quiero REPI en mi gimnasio» prepara el formulario para gimnasios.
+- **Pruebas:**
+  - `e2e/conoce.spec.ts` + `e2e/conoce-x4.spec.ts` (17 nuevas): 96 pasan, 2 omitidas (las de antes), en teléfono y escritorio.
+  - Typecheck, guardas 26/26, vitest y build en verde.
+  - Una expectativa de la suite existente cambió a propósito: en un teléfono en vertical el film de marca abre la versión 9:16 nueva.
+- **Arreglo de paso:** `/api/agenda/[token]/route.ts` pasó a `/api/agenda/[id]/route.ts` (misma URL): con dos nombres para el mismo tramo dinámico, `next start` no arrancaba en local (en Vercel sí funcionaba).
+  - Once tamaños (320×568 a 1920×1080) y 844×390: sin scroll lateral, sin botones cortados, sin errores de consola.
+- **Rendimiento (laboratorio, antes → después):** LCP 1,24–1,38 s → 1,31–1,34 s (teléfono emulado, 3D); CLS 0 → 0; JavaScript 539 → 553 KB (3D) y 298 → 305 KB (plano). Respuesta al tocar las pestañas: 152–328 ms → 168–192 ms con CPU ×4. En dibujo por software la sala nueva cuesta alrededor del doble por cuadro.
+- **Límites declarados:** sin dispositivos reales; sólo Chromium (sin Safari ni Firefox); WebGL por software; grabaciones a ≈ 25 cuadros/s; nadie escuchó los films.
+- **Films:** auditados los 14 y re-renderizados cinco con el kit corregido (`design/films/kit/build.py`; material nuevo grabado en una demo local):
+  - `film-marca` 0:38, con versión 9:16 nueva (`film-marca-vertical`);
+  - `modo-control` 1:00 y `modo-completo` 0:53, cada uno en 16:9 y 9:16;
+  - `perfil-gimnasios` 0:47 y `f-intelligence` 0:28.
+  - Manifiesto actualizado en `content/conoce.ts` (duraciones, resúmenes y la variante vertical). Sonoridad entre −14,3 y −14,6 LUFS, medida.
+  - Sin tocar: `perfil-entrenadores`, `perfil-deportistas`, `perfil-aliados`, `f-progreso`, `f-altas`, `f-sala`.
+- **Pendiente:**
+  1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Es lo único que no se pudo verificar acá.
+  2. Re-renderizar los seis films que quedaron con el kit viejo y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
+  3. Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` (avisos del entorno de demo) y unificar las capturas que muestran 53 kg con la escena en vivo (60 → 62,5 kg).
+  4. Decidir si la referencia del vendedor se guarda también en los eventos del sitio y en `/qr` (cambio de esquema).
+- **Decisiones para el titular:** confirmar el texto de la prueba social en la apertura («Ya funciona en Mar del Plata.») y en el caso.
 
 ## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · EN PR, SIN PUBLICAR
 
