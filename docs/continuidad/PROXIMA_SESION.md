@@ -1,16 +1,19 @@
 # REPI — Retomar acá
 
-Actualizado: 13/11/2026 (**vista del alumno — aviso de datos del pedido, alerta sonora del descanso, nivel a la vista y mejoras visuales: en la rama `claude/alumno-mejoras`, sin publicar, sin migración**); antes, 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLICADO Y VERIFICADO (#113, `3c119f2`, smoke de producción en verde, sin migración)**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: PUBLICADO Y VERIFICADO (#112, `4c01c5a`), sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 13/11/2026 (**cierre del 13/11: vista del alumno PUBLICADA Y VERIFICADA (#119, `2f6d7c6`), los seis films restantes PUBLICADOS (#118, `cfb6294`) y pulido de `/conoce` PUBLICADO (#116, `1133920`); todo sin migración**); antes, 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLICADO Y VERIFICADO (#113, `3c119f2`, smoke de producción en verde, sin migración)**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: PUBLICADO Y VERIFICADO (#112, `4c01c5a`), sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
 
 
-## Vista del alumno: aviso de datos del pedido, alerta sonora del descanso, nivel a la vista y mejoras visuales — 13/11/2026 · EN RAMA, SIN PUBLICAR
+## Vista del alumno: aviso de datos del pedido, alerta sonora del descanso, nivel a la vista y mejoras visuales — 13/11/2026 · PUBLICADO Y VERIFICADO (#119, `2f6d7c6`)
 
 - **Pedidos del titular (13/11):**
   1. «A algunos alumnos que pidieron rutina cuando no se podían cargar los objetivos no les aparece la notificación para que los carguen y le llegue a REPI».
   2. «En el timer del descanso, que los últimos diez segundos haga un sonido de alerta, que siga sonando hasta que arrancás la serie, y la notificación además. Que tenga que habilitarse».
   3. «Que el nivel de la persona aparezca en la home también, o en la sección de entrenamiento».
   4. «Fijate qué upgrades visuales podés agregar en cada vista. Principalmente la del alumno».
-- **Rama:** `claude/alumno-mejoras` (worktree `/home/user/repi-alumno`), con `main` `301a800` integrado. **Sin PR, sin merge, sin despliegue.** **Sin migraciones** y sin dependencias nuevas.
+- **Estado:** PR #119 integrado por squash en `main` (`2f6d7c6`) y desplegado (aprobación del titular del 13/11: «te doy acceso total y libertad total»). **Sin migraciones** y sin dependencias nuevas.
+- **Verificación en producción (sólo con la demo pública):** Inicio muestra «Te faltan 122 puntos para el nivel 5», Entrenar muestra la píldora de nivel y la lista sin el cuadro «foto», el descanso muestra «Avisarme · Sonido · Notificación», `/api/me/program-request` responde con el campo `late`, sin errores de consola ni respuestas 5xx, y Vercel sin errores de ejecución en la hora posterior.
+- **Revisión antes de publicar:** e2e nuevos y de regresión contra el build de la rama con `main` integrado (`member-brief-late` 16/16 repetido cuatro veces; `member-level`, `member-visual`, `rest-sound`, `member-workout` y `member-home-flow` 20/20). Esa repetición encontró un defecto: tras tocar «Ahora no», una respuesta pedida antes del toque podía volver a mostrar el aviso; corregido (`MemberApp.tsx`, el toque queda firme durante la visita).
+- **Las siete pruebas e2e que fallaban** (`mobile-layout` 2, `personal-progress` 3, `theme-visual` 1, `timed-exercises` 1) fallan igual en `main` sin estos cambios (corrida comparativa: 13 fallas contando teléfono y escritorio): no son regresiones.
 
 ### 1 · Aviso para cargar objetivo y datos del pedido de programa
 - **Causa:** el aviso de D206 (`pendingBriefs`) sólo miraba pedidos de programa **abiertos**. Cuando el profe respondía el pedido, el aviso desaparecía aunque la persona nunca hubiera cargado nada.
@@ -68,7 +71,6 @@ Actualizado: 13/11/2026 (**vista del alumno — aviso de datos del pedido, alert
 - Capturas antes/después: `scratchpad/alumno/t1` … `t4` (fuera del repositorio).
 
 ### Próxima acción
-- El titular revisa y decide la publicación (PR a `main`; no hay migración ni respaldo previo que correr).
 - Probar la alerta del descanso en un Android y en un iPhone reales (pantalla bloqueada, otra app, modo silencio, con música sonando).
 - Si quiere llegar a un iPhone bloqueado: decidir el planificador de push por descanso (ver arriba).
 - Pendiente menor: poner al día las specs que D217 dejó atrás (`mobile-layout`, `personal-progress`, `theme-visual`, `timed-exercises`).
@@ -110,20 +112,21 @@ Actualizado: 13/11/2026 (**vista del alumno — aviso de datos del pedido, alert
   - En esa publicación quedaron sin tocar `perfil-entrenadores`, `perfil-deportistas`, `perfil-aliados`, `f-progreso`, `f-altas` y `f-sala` (rehechos después en `claude/films-6`, ver más abajo).
 - **Pendiente:**
   1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Tampoco se probó en Safari ni Firefox, y nadie escuchó los films.
-  2. Revisar y publicar los seis films rehechos (rama `claude/films-6`) y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
+  2. ~~Publicar los seis films rehechos~~ **Hecho el 13/11 (#118)**. Sigue pendiente conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
   3. ~~Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` y unificar las capturas de 53 kg~~ **Hecho el 13/11** (ver «Pulido» más abajo).
   4. ~~Referencia del vendedor en eventos del sitio y `/qr`~~ **Descartado por el titular el 13/11** (ver «Pulido» más abajo).
 - **Decisiones para el titular:** confirmar el texto de la prueba social en la apertura («Ya funciona en Mar del Plata.») y en el caso.
 - **Pulido del 13/11 (pedido del titular: «hacé todo lo que tengas que hacer para que todo quede perfecto», con libertad total):**
   - **Referencia del vendedor:** el código ya no se agrega al mensaje de WhatsApp («eso no tiene que estar en /conoce en ningún lado»). Queda sólo lo que ya existía desde D209: si alguien entra por el enlace personal de un vendedor (`/conoce?ref=V-XXXXXX`, que el vendedor copia de su panel), el formulario lo manda oculto como origen del contacto. El visitante no lo ve en ningún lado. Si el titular tampoco quiere eso, hay que quitar el enlace personal del panel de vendedores (decisión de negocio de D209, no se tocó).
   - **Capturas rehechas** con `design/films/kit/tools/shots-conoce.mjs` (demo local): `training`, `intelligence`, `adaptive`, `owner` (ahora «Seguimiento de sala»), `access` y `control-equipo`. Sin avisos del entorno de demo ni píldora «DEMO»; las del socio muestran el mismo ejemplo que la escena en vivo (60 kg × 10 → 62,5 kg, calculado por el motor real). Detalle en `docs/comercial/EXPERIENCE_4.md` §8.
-  - **Los seis films restantes: rehechos en la rama `claude/films-6`, SIN publicar (sin PR, merge ni deploy): esperan revisión.**
+  - **Los seis films restantes: PUBLICADOS (#118, `cfb6294`).** Revisados antes con tiras de contacto propias de los siete archivos; en producción los archivos son idénticos a los del repositorio y `perfil-entrenadores` carga y reproduce desde `/conoce/entrenadores` (0:41, sin errores). Ya no queda ningún film con el kit anterior.
     - `perfil-entrenadores` 0:41, `perfil-deportistas` 0:38 (16:9 y 9:16), `perfil-aliados` 0:48, `f-progreso` 0:23, `f-altas` 0:26, `f-sala` 0:27.
     - Archivos: `apps/web/public/conoce/videos/` (mp4, póster y `.descripcion.vtt` de los seis), `apps/web/src/content/conoce.ts` (duraciones y resúmenes), `design/films/kit/` (`build.py`, `tools/rec-hd.mjs`, `finish.py`, `render-all.sh`), fuentes en `design/films/{entrenadores,deportistas,deportistas-vertical,aliados,progreso,altas,sala}`, `design/films/SPEC.md`, `docs/comercial/{EXPERIENCE_4,VIDEOS_PENDIENTES}.md`, `marketing/videos/LICENCIAS.md`.
     - Pruebas: `ffprobe` y sonoridad medidos (−14,0 a −14,6 LUFS; pico ≤ −2,1 dBTP), tira de contacto de cada archivo mirada entera; `pnpm typecheck` y guardas en verde. No se corrió la e2e de `/conoce` ni se escuchó ningún film. Sin migraciones.
     - Decisión para el titular: `perfil-aliados` dice «Ya funciona en Mar del Plata» con el logo de Smart Center Gym (la misma frase del sitio, que sigue pendiente de confirmación).
-    - Próxima acción: revisar la rama (tabla y límites en `docs/comercial/EXPERIENCE_4.md` §14) y, si se aprueba, PR a `main`.
-  - Pruebas: typecheck, guardas 26/26, `e2e/conoce*.spec.ts` 96 pasan y 2 omitidas.
+    - Límites que quedan: nadie escuchó los films; sólo `perfil-deportistas` tiene 9:16; el QR que se ve en `f-altas` es el de la demo local.
+  - Pruebas: typecheck, guardas 26/26, `e2e/conoce*.spec.ts` 96 pasan y 2 omitidas. **Publicado (#116, `1133920`)** y verificado en producción: capturas idénticas a las del repositorio y el código del vendedor ausente de la página y del enlace de WhatsApp.
+  - **Capturas del socio, segunda pasada (después de #119):** `member`, `adaptive` e `intelligence` se volvieron a capturar con la app ya publicada, para que `/conoce` muestre el nivel en Inicio y en Entrenar y la lista de ejercicios nueva. `shots-conoce.mjs` ahora también captura `member`.
 
 ## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · PUBLICADO Y VERIFICADO (#112, `4c01c5a`)
 
