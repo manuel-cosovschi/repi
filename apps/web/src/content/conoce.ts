@@ -25,6 +25,8 @@ export type Video = {
    *  Generada desde los guiones con design/films/kit/tools/describe.py. */
   descriptionTrack?: string;
 };
+// Experience 4.0 (D219): se re-renderizaron film-marca (con versión 9:16 nueva), modo-control, modo-completo, perfil-gimnasios
+// y f-intelligence (teléfono grande con cámara sobre la fila que se nombra, sin el parpadeo ni el fogonazo cian).
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
@@ -32,10 +34,11 @@ const film = (id: string, title: string, audience: string, duration: string, mus
   ({ id, title, audience, src: `/conoce/videos/${id}.mp4`, poster: `/conoce/videos/${id}.webp`, captions: null, duration, audio: true, music, summary,
     descriptionTrack: `/conoce/videos/${id}.descripcion.vtt`, ...extra });
 export const VIDEOS: Record<string, Video> = {
-  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:48", "Heroic Age",
-    "El socio entrena con su programa en el teléfono y un objetivo para cada serie, el entrenador sabe a quién atender y el gimnasio ve lo que pasa en su sala."),
-  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "1:02", "Five Armies",
-    "Altas por QR con aprobación del equipo, el programa de cada socio en su teléfono, pedidos de ayuda en la sala y la vista del dueño por sede."),
+  "film-marca": film("film-marca", "REPI · Cada repetición cuenta", "Todos", "0:38", "Heroic Age",
+    "El socio entrena con su programa en el teléfono y un objetivo para cada serie, el entrenador sabe a quién atender y el gimnasio ve lo que pasa en su sala.",
+    { srcVertical: "/conoce/videos/film-marca-vertical.mp4", posterVertical: "/conoce/videos/film-marca-vertical.webp" }),
+  "perfil-gimnasios": film("perfil-gimnasios", "REPI para gimnasios", "Dueños y gerencia", "0:47", "Five Armies",
+    "Altas por QR con aprobación del equipo, pedidos de ayuda en la sala, un objetivo para cada serie y el Seguimiento de sala del dueño."),
   "perfil-entrenadores": film("perfil-entrenadores", "REPI para entrenadores personales", "Personal trainers", "0:49", "Exciting Trailer",
     "Tus alumnos, sus programas y su progreso en un solo lugar, con borradores de la IA para revisar y mensajes con el contexto a mano."),
   "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:40", "Volatile Reaction",
@@ -43,7 +46,7 @@ export const VIDEOS: Record<string, Video> = {
     { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
   "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game",
     "Una plataforma B2B2C: gimnasios y entrenadores la contratan, sus alumnos la usan cada vez que entrenan y un motor propio explica cada recomendación."),
-  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:33", "Volatile Reaction",
+  "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:28", "Volatile Reaction",
     "Propone el peso y las repeticiones de cada serie según tu historial, con la razón a la vista, y se ajusta cuando registrás lo que hiciste."),
   "f-progreso": film("f-progreso", "Progreso por ejercicio", "Quien entrena", "0:23", "Clash Defiant",
     "Cargas, repeticiones, volumen y récords de cada ejercicio, armados con las series que registrás."),
@@ -51,10 +54,10 @@ export const VIDEOS: Record<string, Video> = {
     "El socio escanea el QR de su sede y pide acceso; el equipo confirma quién es socio con un toque."),
   "f-sala": film("f-sala", "Seguimiento de sala", "Gimnasios", "0:24", "Clash Defiant",
     "El socio pide ayuda desde su serie y el entrenador de turno la recibe, la toma y le responde."),
-  // Modalidades (escena «Dos formas de entrenar»): films pendientes. Sin `src` el botón del video no se muestra.
+  // Modalidades (escena «Dos formas de entrenar»). Sin `src` el botón del video no se muestra.
   // D215: un film por modalidad (16:9 y 9:16), grabados en la demo real (datos ficticios).
-  "modo-completo": film("modo-completo", "REPI Completo · Entrenamiento inteligente", "Gimnasios, entrenadores y socios", "0:56", "Volatile Reaction",
-    "El profesor diseña y asigna el programa, el socio lo recibe y registra cada serie con el objetivo de REPI y su razón, ve su progreso por ejercicio, el profesor consulta su evolución y el gimnasio sigue su sala.",
+  "modo-completo": film("modo-completo", "REPI Completo · Entrenamiento inteligente", "Gimnasios, entrenadores y socios", "0:53", "Volatile Reaction",
+    "El profesor diseña y asigna el programa, el socio lo recibe y registra cada serie con el objetivo de REPI y su razón, ve su progreso por ejercicio, el profesor consulta su evolución y el equipo de sala responde un pedido.",
     { srcVertical: "/conoce/videos/modo-completo-vertical.mp4", posterVertical: "/conoce/videos/modo-completo-vertical.webp" }),
   "modo-control": film("modo-control", "REPI Control · Tu equipo planifica. Tus socios consultan y registran.", "Gimnasios", "1:00", "Clash Defiant",
     "El profesor programa y asigna la rutina; el socio se identifica en la pantalla del gimnasio con su código y su PIN, ve ejercicios, peso sugerido, intensidad y descansos, y registra los pesos y las repeticiones reales. Su historial se actualiza, el profesor ve los resultados y el celular es opcional.",
