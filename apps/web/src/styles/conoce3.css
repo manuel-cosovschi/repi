@@ -6,6 +6,9 @@
   --x-muted: #9AA8BA; --x-dim: #8291A6; --x-line: rgba(248, 250, 252, .12); --x-ink: #0B0F14; --x-ink-2: #3A4757;
   /* Escenario 3D (SalaCanvas los lee al montarse: three.js no entiende variables CSS). */
   --x-floor: #0F1620; --x-plan: #4A5D78; --x-edge: #5A6E8A; --x-gear: #1E2A3A;
+  /* 4.0 · Tonos de la sala 3D (equipos, paredes y pantallas apagadas): three.js los lee de acá al montar. */
+  --x-g-frame: #33455C; --x-g-pad: #1C2838; --x-g-metal: #7C8FA8; --x-g-dark: #141D2A; --x-g-top: #2A3A50; --x-g-wall: #121A26; --x-g-plate: #24344A;
+  --x-g-screen: #24354A; --x-g-kiosk: #3A4D66; --x-g-console: #1F2C3D; --x-g-wall-lo: #1B2636; --x-g-wall-mid: #131C29; --x-g-wall-hi: #0C1118;
   --x-ease: cubic-bezier(.16, 1, .3, 1); --x-gutter: clamp(16px, 4vw, 48px);
   background: var(--x-navy); color: var(--x-white); position: relative; isolation: isolate;
 }

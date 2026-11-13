@@ -20,14 +20,15 @@ import { COACH_SCREEN, FLOOR, FOV, GEAR, GEAR_KIND, JULIAN, KIOSK, LINKS, OFFICE
 import { SLOW_KEY, pings, pointer, stage, type Quality } from "./store";
 
 // Paleta: una sola fuente, los tokens --x-* de styles/conoce3.css. Se lee una vez al montar (three.js no entiende var()).
-const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white", muted: "--x-muted" } as const;
+const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white", muted: "--x-muted",
+  // Tonos de los equipos y de las pantallas apagadas (derivados del acero y el navy de la marca).
+  frame: "--x-g-frame", pad: "--x-g-pad", metal: "--x-g-metal", dark: "--x-g-dark", top: "--x-g-top", wall: "--x-g-wall", plate: "--x-g-plate",
+  screen: "--x-g-screen", kioskOff: "--x-g-kiosk", consoleOff: "--x-g-console", wallLo: "--x-g-wall-lo", wallMid: "--x-g-wall-mid", wallHi: "--x-g-wall-hi" } as const;
 const C = {} as Record<keyof typeof TOKENS, string>;
 function readPalette() {
   const cs = getComputedStyle(document.querySelector(".x3") ?? document.documentElement);
   for (const [k, v] of Object.entries(TOKENS)) C[k as keyof typeof TOKENS] = cs.getPropertyValue(v).trim() || "gray";
 }
-/** Tonos de los equipos, derivados de la paleta (acero y navy): estructura, tapizado, metal y contrapesos. */
-const TONE = { frame: "#33455C", pad: "#1C2838", metal: "#7C8FA8", dark: "#141D2A", top: "#2A3A50", wall: "#121A26" } as const;
 
 // Luces (constantes: las personas calculan con ellas su color para que el lado iluminado sea el cian exacto de la marca).
 const AMBIENT = 0.9, KEY = 1.25;
@@ -91,7 +92,7 @@ function radialTexture(stops: [number, string][]) {
 function wallTexture() {
   const c = document.createElement("canvas"); c.width = 4; c.height = 128;
   const g = c.getContext("2d")!, grad = g.createLinearGradient(0, 128, 0, 0);
-  grad.addColorStop(0, "#1B2636"); grad.addColorStop(0.5, "#131C29"); grad.addColorStop(1, "#0C1118");
+  grad.addColorStop(0, C.wallLo); grad.addColorStop(0.5, C.wallMid); grad.addColorStop(1, C.wallHi);
   g.fillStyle = grad; g.fillRect(0, 0, 4, 128);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; // degradés suaves: sin mipmaps ni filtro trilineal (más barato por píxel)
@@ -104,7 +105,7 @@ const SQUAT_Z = 1.4;
 /** Soportes del banco respecto del centro de quien está acostado (la cabeza queda del lado de los soportes). */
 const BENCH_UP = -0.72;
 function gearGeometry(kind: GearKind, w: number, d: number): THREE.BufferGeometry {
-  const F = TONE.frame, P = TONE.pad, M = TONE.metal, D = TONE.dark, T = TONE.top;
+  const F = C.frame, P = C.pad, M = C.metal, D = C.dark, T = C.top;
   switch (kind) {
     case "squat": {
       const z0 = SQUAT_Z, ps: THREE.BufferGeometry[] = [bx(2.1, 0.05, 2.1, D, 0, 0.025, z0)];
@@ -145,11 +146,11 @@ function gearGeometry(kind: GearKind, w: number, d: number): THREE.BufferGeometr
 }
 /** La barra con sus discos (a lo ancho, eje x), con el centro en el origen. */
 function barbellGeometry() {
-  const ps = [part(new THREE.CylinderGeometry(0.02, 0.02, 2.05, 8), TONE.metal, 0, 0, 0, 0, 0, Math.PI / 2)];
+  const ps = [part(new THREE.CylinderGeometry(0.02, 0.02, 2.05, 8), C.metal, 0, 0, 0, 0, 0, Math.PI / 2)];
   for (const s of [-1, 1]) {
-    ps.push(part(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 20), TONE.dark, s * 0.82, 0, 0, 0, 0, Math.PI / 2));
-    ps.push(part(new THREE.CylinderGeometry(0.17, 0.17, 0.04, 20), "#24344A", s * 0.88, 0, 0, 0, 0, Math.PI / 2));
-    ps.push(part(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 10), TONE.metal, s * 0.94, 0, 0, 0, 0, Math.PI / 2));
+    ps.push(part(new THREE.CylinderGeometry(0.21, 0.21, 0.05, 20), C.dark, s * 0.82, 0, 0, 0, 0, Math.PI / 2));
+    ps.push(part(new THREE.CylinderGeometry(0.17, 0.17, 0.04, 20), C.plate, s * 0.88, 0, 0, 0, 0, Math.PI / 2));
+    ps.push(part(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 10), C.metal, s * 0.94, 0, 0, 0, 0, Math.PI / 2));
   }
   return join(ps);
 }
@@ -184,20 +185,20 @@ function Room() {
   // Paredes del fondo y de los costados con sus pilares, y las divisiones de vidrio del box y de la oficina (una geometría).
   const walls = useMemo(() => {
     const W = FLOOR.w / 2 + 0.3, D = FLOOR.d / 2 + 0.3, H = 3.6, ps: THREE.BufferGeometry[] = [];
-    for (let x = -W; x <= W + 0.01; x += (2 * W) / 10) ps.push(bx(0.22, H, 0.22, TONE.top, x, H / 2, -D + 0.1));
-    for (let z = -D + 5.3; z <= D; z += 5.3) ps.push(bx(0.22, H, 0.22, TONE.top, -W + 0.1, H / 2, z), bx(0.22, H, 0.22, TONE.top, W - 0.1, H / 2, z));
-    ps.push(bx(2 * W, 0.1, 0.14, TONE.frame, 0, H - 0.5, -D + 0.12), bx(0.14, 0.1, 2 * D, TONE.frame, -W + 0.12, H - 0.5, 0), bx(0.14, 0.1, 2 * D, TONE.frame, W - 0.12, H - 0.5, 0));
+    for (let x = -W; x <= W + 0.01; x += (2 * W) / 10) ps.push(bx(0.22, H, 0.22, C.top, x, H / 2, -D + 0.1));
+    for (let z = -D + 5.3; z <= D; z += 5.3) ps.push(bx(0.22, H, 0.22, C.top, -W + 0.1, H / 2, z), bx(0.22, H, 0.22, C.top, W - 0.1, H / 2, z));
+    ps.push(bx(2 * W, 0.1, 0.14, C.frame, 0, H - 0.5, -D + 0.12), bx(0.14, 0.1, 2 * D, C.frame, -W + 0.12, H - 0.5, 0), bx(0.14, 0.1, 2 * D, C.frame, W - 0.12, H - 0.5, 0));
     // Marcos de las divisiones (los vidrios van aparte, transparentes).
     for (const [x0, z0, x1, z1] of GLASS) {
       const len = Math.hypot(x1 - x0, z1 - z0), ry = Math.atan2(-(z1 - z0), x1 - x0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-      ps.push(bx(len, 0.06, 0.06, TONE.frame, cx, 2.3, cz, 0, ry), bx(len, 0.08, 0.08, TONE.frame, cx, 0.04, cz, 0, ry));
-      ps.push(bx(0.07, 2.3, 0.07, TONE.frame, x0, 1.15, z0), bx(0.07, 2.3, 0.07, TONE.frame, x1, 1.15, z1));
+      ps.push(bx(len, 0.06, 0.06, C.frame, cx, 2.3, cz, 0, ry), bx(len, 0.08, 0.08, C.frame, cx, 0.04, cz, 0, ry));
+      ps.push(bx(0.07, 2.3, 0.07, C.frame, x0, 1.15, z0), bx(0.07, 2.3, 0.07, C.frame, x1, 1.15, z1));
     }
     return join(ps);
   }, []);
   const glass = useMemo(() => {
     const ps: THREE.BufferGeometry[] = [];
-    for (const [x0, z0, x1, z1] of GLASS) ps.push(bx(Math.hypot(x1 - x0, z1 - z0), 2.2, 0.02, "#ffffff", (x0 + x1) / 2, 1.15, (z0 + z1) / 2, 0, Math.atan2(-(z1 - z0), x1 - x0)));
+    for (const [x0, z0, x1, z1] of GLASS) ps.push(bx(Math.hypot(x1 - x0, z1 - z0), 2.2, 0.02, C.white, (x0 + x1) / 2, 1.15, (z0 + z1) / 2, 0, Math.atan2(-(z1 - z0), x1 - x0)));
     return join(ps);
   }, []);
   const fade = useFadeMat();
@@ -286,8 +287,8 @@ function Gear() {
       by.get(key)!.at.push([x, z]);
     });
     // El mueble de las mancuernas contra la pared del fondo (peso libre).
-    by.set("dumbbells", { geo: join([bx(5.2, 0.06, 0.5, TONE.frame, 0, 0.42, 0), bx(5.2, 0.06, 0.5, TONE.frame, 0, 0.82, 0), bx(0.08, 0.86, 0.5, TONE.frame, -2.6, 0.43, 0), bx(0.08, 0.86, 0.5, TONE.frame, 2.6, 0.43, 0),
-      ...Array.from({ length: 12 }, (_, k) => bx(0.26, 0.13, 0.36, TONE.dark, -2.3 + k * 0.42, 0.52 + (k % 2) * 0.4, 0))]), at: [[-2, -6.6]] });
+    by.set("dumbbells", { geo: join([bx(5.2, 0.06, 0.5, C.frame, 0, 0.42, 0), bx(5.2, 0.06, 0.5, C.frame, 0, 0.82, 0), bx(0.08, 0.86, 0.5, C.frame, -2.6, 0.43, 0), bx(0.08, 0.86, 0.5, C.frame, 2.6, 0.43, 0),
+      ...Array.from({ length: 12 }, (_, k) => bx(0.26, 0.13, 0.36, C.dark, -2.3 + k * 0.42, 0.52 + (k % 2) * 0.4, 0))]), at: [[-2, -6.6]] });
     return [...by.values()];
   }, []);
   const shadows = useMemo(() => [...GEAR.map(([x, z, w, d], i) => { const k = GEAR_KIND[i], oz = k === "squat" ? SQUAT_Z : k === "bench" ? 1.0 : 0; return [x, z + oz, Math.max(w, 1.6) + 0.9, (k === "bench" ? 2.8 : Math.max(d, 1.6)) + 0.9] as const; }), [-2, -6.6, 6, 1.6] as const], []);
@@ -488,9 +489,9 @@ const KIOSK_RY = 0.52;
 function Screens() {
   const fade = useFadeMat();
   const stand = useMemo(() => join([
-    bx(0.7, 0.05, 0.5, TONE.frame, 0, 0.025, 0), bx(0.1, 1.12, 0.1, TONE.frame, 0, 0.58, -0.04), bx(0.94, 0.62, 0.06, TONE.dark, 0, 1.36, 0, -0.26),
+    bx(0.7, 0.05, 0.5, C.frame, 0, 0.025, 0), bx(0.1, 1.12, 0.1, C.frame, 0, 0.58, -0.04), bx(0.94, 0.62, 0.06, C.dark, 0, 1.36, 0, -0.26),
   ]), []);
-  const monitor = useMemo(() => join([bx(0.3, 0.03, 0.2, TONE.frame, 0, 0.795, 0), bx(0.05, 0.26, 0.05, TONE.frame, 0, 0.92, 0), bx(0.98, 0.6, 0.05, TONE.dark, 0, 1.3, 0)]), []);
+  const monitor = useMemo(() => join([bx(0.3, 0.03, 0.2, C.frame, 0, 0.795, 0), bx(0.05, 0.26, 0.05, C.frame, 0, 0.92, 0), bx(0.98, 0.6, 0.05, C.dark, 0, 1.3, 0)]), []);
   const glow = useMemo(() => radialTexture([[0, "rgba(255,255,255,.9)"], [0.4, "rgba(255,255,255,.28)"], [1, "rgba(255,255,255,0)"]]), []);
   const kioskMat = useRef<THREE.MeshBasicMaterial>(null), kioskGlow = useRef<THREE.MeshBasicMaterial>(null), group = useRef<THREE.Group>(null);
   const officeMat = useRef<THREE.MeshBasicMaterial>(null), coachMat = useRef<THREE.MeshBasicMaterial>(null), qr = useRef<THREE.MeshBasicMaterial>(null), consoles = useRef<THREE.MeshBasicMaterial>(null);
@@ -520,31 +521,31 @@ function Screens() {
     // Encendida con la modalidad Control (su toma), con la zona recepción en foco o cuando una escena lo pide.
     const kiosk = Math.max(s.kiosk, s.focus === "recepcion" ? 1 : 0, s.b === "control" || s.b === "zRecepcion" ? s.t : 0, s.a === "control" || s.a === "zRecepcion" ? 1 - s.t : 0);
     // Con la captura cargada el material es blanco (se ve la interfaz); sin ella, cian liso. Apagada, navy acero.
-    if (kioskMat.current) kioskMat.current.color.copy(cOff.set("#3A4D66")).lerp(cOn.set(kioskMat.current.map ? "#FFFFFF" : C.cyan), (0.45 + 0.55 * kiosk) * lv);
+    if (kioskMat.current) kioskMat.current.color.copy(cOff.set(C.kioskOff)).lerp(kioskMat.current.map ? cOn.setRGB(1, 1, 1) : cOn.set(C.cyan), (0.45 + 0.55 * kiosk) * lv);
     fadeTo(kioskGlow.current, (0.06 + 0.3 * kiosk) * lv * (0.9 + 0.1 * Math.sin(t * 1.7)));
     const flow = Math.max(s.flow, 0);
-    if (officeMat.current) officeMat.current.color.copy(cOff.set("#24354A")).lerp(cOn.set(C.teal), clamp01(0.3 + 0.7 * Math.max(flow, s.focus === "oficina" ? 1 : 0)) * lv);
-    if (coachMat.current) coachMat.current.color.copy(cOff.set("#24354A")).lerp(cOn.set(C.teal), clamp01(0.3 + 0.7 * Math.max(flow, s.focus === "box" ? 1 : 0)) * lv);
-    if (consoles.current) consoles.current.color.copy(cOff.set("#1F2C3D")).lerp(cOn.set(C.cyan), 0.5 * lv);
+    if (officeMat.current) officeMat.current.color.copy(cOff.set(C.screen)).lerp(cOn.set(C.teal), clamp01(0.3 + 0.7 * Math.max(flow, s.focus === "oficina" ? 1 : 0)) * lv);
+    if (coachMat.current) coachMat.current.color.copy(cOff.set(C.screen)).lerp(cOn.set(C.teal), clamp01(0.3 + 0.7 * Math.max(flow, s.focus === "box" ? 1 : 0)) * lv);
+    if (consoles.current) consoles.current.color.copy(cOff.set(C.consoleOff)).lerp(cOn.set(C.cyan), 0.5 * lv);
     fadeTo(qr.current, lv * (0.55 + 0.45 * Math.abs(Math.sin(t * 1.6))));
   });
   return (
     <group ref={group}>
       <group position={[KIOSK[0], 0, KIOSK[1]]} rotation-y={KIOSK_RY}>
         <mesh geometry={stand} material={fade} />
-        <mesh position={[0, 1.36, 0.036]} rotation-x={-0.26}><planeGeometry args={[0.88, 0.55]} /><meshBasicMaterial ref={kioskMat} color="#3A4D66" /></mesh>
+        <mesh position={[0, 1.36, 0.036]} rotation-x={-0.26}><planeGeometry args={[0.88, 0.55]} /><meshBasicMaterial ref={kioskMat} color={C.kioskOff} /></mesh>
         <mesh position={[0, 1.36, 0.3]} rotation-x={-0.26} renderOrder={4}><planeGeometry args={[3.4, 2.6]} /><meshBasicMaterial ref={kioskGlow} map={glow} color={C.cyan} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} /></mesh>
       </group>
       <group position={[OFFICE_SCREEN[0], 0, OFFICE_SCREEN[1]]} rotation-y={-0.5}>
         <mesh geometry={monitor} material={fade} />
-        <mesh position={[0, 1.3, 0.03]}><planeGeometry args={[0.9, 0.52]} /><meshBasicMaterial ref={officeMat} color="#24354A" /></mesh>
+        <mesh position={[0, 1.3, 0.03]}><planeGeometry args={[0.9, 0.52]} /><meshBasicMaterial ref={officeMat} color={C.screen} /></mesh>
       </group>
       <group position={[COACH_SCREEN[0], 0, COACH_SCREEN[1]]} rotation-y={0.6}>
         <mesh geometry={monitor} material={fade} />
-        <mesh position={[0, 1.3, 0.03]}><planeGeometry args={[0.9, 0.52]} /><meshBasicMaterial ref={coachMat} color="#24354A" /></mesh>
+        <mesh position={[0, 1.3, 0.03]}><planeGeometry args={[0.9, 0.52]} /><meshBasicMaterial ref={coachMat} color={C.screen} /></mesh>
       </group>
       <instancedMesh ref={cons} args={[undefined, undefined, treadmills.length]} frustumCulled={false}>
-        <planeGeometry args={[0.6, 0.2]} /><meshBasicMaterial ref={consoles} color="#1F2C3D" />
+        <planeGeometry args={[0.6, 0.2]} /><meshBasicMaterial ref={consoles} color={C.consoleOff} />
       </instancedMesh>
       <mesh position={[QR_SPOT[0], 1.3, QR_SPOT[1]]}>
         <planeGeometry args={[0.5, 0.5]} /><meshBasicMaterial ref={qr} color={C.cyan} transparent opacity={0} side={THREE.DoubleSide} />
