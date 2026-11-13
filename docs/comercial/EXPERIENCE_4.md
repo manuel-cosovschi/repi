@@ -282,7 +282,29 @@ Quien entra con WebGL por software ya recibía el plano SVG desde el principio (
 
 Cada film nuevo se revisó en tiras de contacto del archivo publicado (cifras de las tarjetas contra la captura del mismo plano, logo, cierre) antes de reemplazar al anterior.
 
-**Sin tocar:** `perfil-entrenadores`, `perfil-deportistas` (y su vertical), `perfil-aliados`, `f-progreso`, `f-altas` y `f-sala` siguen como estaban, con los defectos de la auditoría (parpadeo del póster dentro del teléfono, logo ampliado, textos chicos).
+**Segunda tanda (13/11/2026, rama `claude/films-6`, sin publicar hasta la revisión).** Los seis films que habían quedado con el kit viejo se rehicieron con el mismo kit corregido. Todos abren con el producto en el primer segundo (aliados, con la marca), sin la placa del punto ni la apertura de tarjetas; el teléfono es grande, con cámara sobre la fila que se nombra; los cortes caen en el pulso; no hay desenfoque de movimiento (ni parpadeo), ni fogonazo cian, y el logo va a 400 px.
+
+| Film | Duración (antes → ahora) | Peso | Sonoridad / pico | Qué cambió |
+| --- | --- | --- | --- | --- |
+| `perfil-entrenadores` | 0:49 → 0:41 | 6,6 MB | −14,0 LUFS / −2,1 dBTP | Sin los 20 s de apertura genérica. Clientes → ficha y registro de sesiones de Valentina («+2,5 kg») en un plano encadenado → programa → asignación → la serie del alumno. Ya no aparece la bandeja «Mensajes» vacía; el resumen dejó de prometer IA y mensajes. Cierre «Usalo con tus alumnos». |
+| `perfil-deportistas` | 0:40 → 0:38 | 6,7 MB | −14,4 / −4,6 | Producto desde el cuadro 0. El check-in se ve con los tres toques (antes, 1 s y congelado); el descanso sigue en el mismo plano que la serie; el progreso muestra Press de banca (antes, cinta); un solo cierre (antes, dos placas de logo seguidas, 8,5 s). |
+| `perfil-deportistas-vertical` | 0:40 → 0:38 | 5,9 MB | −14,4 / −4,6 | Ídem en 1080×1920, teléfono casi a sangre. Póster a 720×1280 (antes 1280×2276, más grande que el video). |
+| `perfil-aliados` | 1:06 → 0:48 | 6,8 MB | −14,6 / −2,2 | Abre con la marca (antes, 16 s de apertura genérica). Las placas de sólo texto bajan de 17 s a 13,8 s. La afirmación del caso es la del sitio («Ya funciona en Mar del Plata») y lleva el logo autorizado de Smart Center Gym, que el film anterior no mostraba. «Funciona sin señal» pasó a «Registra sin señal» (lo que dice `ESTADO_Y_LIMITES.md`). La escena del dueño ya no muestra la guía de primeros pasos ni el cartel de avisos push. |
+| `f-progreso` | 0:23 → 0:23 | 3,7 MB | −14,6 / −3,1 | Sin congelado. Resumen, mejores marcas y evolución de Press de banca (mejor serie, 1RM estimado) en un plano encadenado. Ya no dice «fotos privadas» sin mostrarlas. |
+| `f-altas` | 0:24 → 0:26 | 3,9 MB | −14,6 / −2,6 | Ahora se ve el QR de la sede y lo que abre en el teléfono del socio (antes, sólo la bandeja del dueño). El correo de la solicitud va desenfocado y no aparece el cartel de avisos push. |
+| `f-sala` | 0:24 → 0:27 | 4,4 MB | −14,5 / −2,1 | Un mismo pedido de punta a punta en la misma demo: la socia lo manda, la profesora de sala lo ve y lo toma, la socia ve quién lo tomó; cierra con el Seguimiento de sala del dueño. Antes: diagrama + teléfono chico, con el menú lateral asomando en un parpadeo. |
+
+Cada uno se midió con `ffprobe` y `ebur128` y se miró entero en una tira de un cuadro por segundo del archivo publicado, más cuadros a resolución completa y tiras cuadro a cuadro en entradas de tarjeta y salidas de escena (sin parpadeos de otra pantalla).
+
+**Lo que no se resolvió en estos seis:**
+- El logo sigue saliendo de un original de 315×154 px (a 1,27×).
+- Sólo `perfil-deportistas` tiene 9:16. En 16:9 visto a 360 px de ancho los rótulos de las tarjetas quedan en unos 7 px.
+- `perfil-aliados` conserva tres placas de sólo texto (modelo, técnica y caso): 13,8 de 47,9 s.
+- El QR de `f-altas` es el de la demo local: apunta a `localhost` (no lleva a ningún sitio si alguien lo escanea desde el video).
+- Las horas de la demo local se ven en texto chico («pedida Hoy 02:37 a. m.» en `f-altas`; «Desde Ayer 10:21 p. m.» en `f-sala`): se grabó de madrugada, hora de Buenos Aires.
+- En `perfil-entrenadores` el recuadro del registro de sesiones pisa unos píxeles el título del ejercicio siguiente (igual que en `modo-completo`).
+- Los films que abren con el producto arrancan sobre el piso con el teléfono entrando; el título termina de entrar a ≈ 0,5 s. El póster es otro cuadro.
+- Nadie escuchó los films: la sonoridad está medida, no oída.
 
 **Lo que no se pudo corregir en los cinco:**
 - El logo sólo existe a 315×154 px: se muestra a 1,27×. Para mostrarlo más grande hace falta el original vectorial o de mayor tamaño (no se redibuja).
