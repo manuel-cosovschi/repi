@@ -66,7 +66,7 @@ export function TrainingProfile({ offline, flash }: { offline: boolean; flash: (
     <Reveal on>
       <section className="tp wishes" aria-labelledby="tp-h">
         <div className="tp-head">
-          <h2 id="tp-h" className="tp-h">Tu perfil de entrenamiento</h2>
+          <h2 id="tp-h" className="tp-h" tabIndex={-1}>Tu perfil de entrenamiento</h2>
           <span className={`tp-status tp-${view.status}`}>{STATUS_CHIP[view.status]}</span>
         </div>
         <p className="tp-p">

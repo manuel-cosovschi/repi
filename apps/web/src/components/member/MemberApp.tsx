@@ -41,7 +41,7 @@ import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
 import { loadProfile } from "./profile-store";
 import { RestAlertSettings } from "./RestAlerts";
 import { Ic } from "@/components/ui/Ic";
-import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
+import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Timer, Warning, type Icon } from "@phosphor-icons/react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
@@ -827,12 +827,12 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
       )}
       <div className="exlist">
         {d.exercises.map((e, i) => (
-          <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">{labels[i] ?? "foto"}</span>
+          <div key={e.id} className="exitem">{/* 13/11: el orden del ejercicio (o su letra en un combinado) en vez del cuadro rayado con la palabra «foto». */}<span className="thumb" aria-hidden="true">{labels[i] ?? i + 1}</span>
             {/* Ejercicios por tiempo: una actividad se lee como la indicó el profe («10 min · 5 km/h · incl. 3») y su «anterior» con
                 duración y valores; sin descanso que mostrar si no lo lleva. */}
             <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit, isTimedRow(e))}</em></span>
             {e.suggest && <small className="ex-suggest" aria-label={`REPI sugiere hoy ${e.suggest.text}`}>Hoy: {e.suggest.weightKg != null ? `${kg(e.suggest.weightKg, unit)} × ` : ""}{e.suggest.reps}</small>}
-            {activityOf(e.detail) && !e.restSec ? null : <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>}
+            {activityOf(e.detail) && !e.restSec ? null : <span className="mb-muted ex-rest" aria-label={`Descanso ${formatRest(e.restSec)}`}><Ic i={Timer} size={14} />{formatRest(e.restSec)}</span>}
           </div>
         ))}
         {!d.exercises.length && <span className="mb-muted">Este día no tiene ejercicios todavía.</span>}
@@ -971,6 +971,9 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Perfil</h1>
+      {/* 13/11: Perfil es una página larga (salud, privacidad, perfil de entrenamiento, REPI, configuración, datos): un índice
+          arriba lleva a cada parte. Los títulos de sección quedaron todos del mismo tamaño. */}
+      <ProfileIndex />
       <div className="coachnote"><span className="av32">{coach[0]?.toUpperCase() ?? "C"}</span><span><small>Tu coach</small><p>{p?.coach ? `${p.coach.name} · ${p.coach.org}` : t.coach ? `${t.coach.name} · ${t.coach.org}` : "Sin coach asignado"}</p></span></div>
       {perr && <p className="mb-err" role="alert">{perr}</p>}
       {!!inbox?.accessRequests.length && (
@@ -985,7 +988,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         </section>
       )}
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2>Salud</h2><button type="button" className="linkbtn" style={{ height: 36 }} onClick={onInjury}>+ Agregar lesión</button></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2 id="pf-salud" tabIndex={-1}>Salud</h2><button type="button" className="linkbtn" style={{ height: 36 }} onClick={onInjury}>+ Agregar lesión</button></div>
         <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>{health?.on ? `La ve ${coach} porque compartiste tu salud.` : "Sólo la ves vos. Compartila en Privacidad si querés que tu coach la tenga en cuenta."}</span>
         <div className="panel">
           {p?.injuries.map((i) => (
@@ -1000,7 +1003,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       </section>
       {p?.coach && (
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2>Privacidad y permisos</h2>
+          <h2 id="pf-priv" tabIndex={-1}>Privacidad y permisos</h2>
           <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Elegí qué puede ver {coach}. Tus entrenamientos siempre se comparten porque son parte del plan.</span>
           <div className="panel">
             {p.items.map((i) => {
@@ -1017,7 +1020,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         </section>
       )}
       <section style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <h2 style={{ fontSize: 16 }}>Historial de accesos</h2>
+        <h2>Historial de accesos</h2>
         {!p?.history.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Sin movimientos todavía.</span> : p.history.map((h, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--ui-divider)", fontSize: 14, gap: 12 }}>
             <span>{h.actor === "Vos" ? `${MINE[h.action] ?? h.action} ${h.label.toLowerCase()} con ${coach}` : `${h.actor} ${HIST[h.action] ?? h.action} tu ${(ACCESS_ITEMS as Record<string, { phrase: string }>)[h.item]?.phrase ?? h.label}`}</span>
@@ -1125,7 +1128,7 @@ function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offli
   };
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <h2 style={{ fontSize: 16 }}>Configuración</h2>
+      <h2 id="pf-config" tabIndex={-1}>Configuración</h2>
       <div className="unitseg" role="radiogroup" aria-label="Unidad de peso" aria-busy={busy || undefined}>
         {(["kg", "lb"] as const).map((u) => (
           <button key={u} type="button" role="radio" aria-checked={unit === u} onClick={() => pick(u)}>{u === "kg" ? "Kilos (kg)" : "Libras (lb)"}</button>
@@ -1137,6 +1140,24 @@ function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offli
       {/* 13/11: sonido y notificación al terminar el descanso (opcionales, por dispositivo; también en el temporizador). */}
       <RestAlertSettings flash={flash} />
     </section>
+  );
+}
+
+/** Índice de Perfil: sólo las partes que están en pantalla (algunas dependen de la cuenta o cargan después). */
+const PROFILE_PARTS: [string, string][] = [["pf-salud", "Salud"], ["pf-priv", "Privacidad"], ["tp-h", "Perfil de entrenamiento"], ["rp-prefs-h", "Asistente REPI"], ["pf-config", "Configuración"], ["pf-datos", "Tus datos"]];
+function ProfileIndex() {
+  const [here, setHere] = useState<string[]>(["pf-salud", "pf-config", "pf-datos"]);
+  useEffect(() => {
+    const look = () => setHere((p) => { const n = PROFILE_PARTS.map(([id]) => id).filter((id) => document.getElementById(id)); return n.join() === p.join() ? p : n; });
+    look();
+    const t = [setTimeout(look, 600), setTimeout(look, 2500)];
+    return () => t.forEach(clearTimeout);
+  }, []);
+  const jump = (id: string) => { const el = document.getElementById(id); if (!el) return; el.scrollIntoView({ block: "start" }); el.focus({ preventScroll: true }); };
+  return (
+    <nav className="pf-index" aria-label="Secciones del perfil">
+      {PROFILE_PARTS.filter(([id]) => here.includes(id)).map(([id, label]) => <button key={id} type="button" onClick={() => jump(id)}>{label}</button>)}
+    </nav>
   );
 }
 
@@ -1156,7 +1177,7 @@ function MyData({ flash }: { flash: (m: string) => void }) {
   };
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <h2 style={{ fontSize: 16 }}>Tus datos</h2>
+      <h2 id="pf-datos" tabIndex={-1}>Tus datos</h2>
       <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>Descargá una copia de lo que cargaste y de lo que se registró sobre vos.</span>
       <a className="ghost" href="/api/me/export" download style={{ display: "grid", placeItems: "center" }}>Descargar mis datos</a>
       {pending ? (
@@ -1246,7 +1267,7 @@ function MyCharges() {
   const day = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <h2 style={{ fontSize: 16 }}>Pagos con tu coach</h2>
+      <h2>Pagos con tu coach</h2>
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Lo registra tu coach. REPI no cobra ni procesa estos pagos.</span>
       {d.coaches.map((c) => c.charges.map((x) => (
         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--ui-divider)", fontSize: 14 }}>

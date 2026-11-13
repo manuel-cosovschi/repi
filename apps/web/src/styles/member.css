@@ -1316,3 +1316,32 @@ body:has(.rp-panel:not([data-place="top"])) .dt-pill { display: none; }
   .act-clock small, .act-reset { display: none; }
   .act-timer .cta.sm, .act-timer .ghost.sm { padding: 0 10px; }
 }
+
+/* ── 13/11/2026 · Mejoras visuales del alumno (auditoría a 390×844 y 360×800) ─────────────────────────────────────────── */
+/* Áreas táctiles: los controles chicos (pestañas de 36 px, rangos y sensaciones de 32, flechas de 36, «Pausar» de 24, la X de
+   los avisos de 32) responden en 44 px sin cambiar su dibujo ni mover nada: el área extra es un pseudo-elemento centrado. */
+.linkbtn, .gtabs button, .pp-ranges button, .nav2 button, .feel button, .ndg-cta, .hbanner .cta.sm, .wstep .wval, .wstep .wsteps { position: relative; }
+.linkbtn::after, .gtabs button::after, .pp-ranges button::after, .nav2 button::after, .feel button::after, .ndg-cta::after, .hbanner .cta.sm::after, .ndg-x::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
+}
+/* El peso (arriba) y su paso (abajo) están pegados: cada uno crece hacia afuera. */
+.wstep .wval::after { content: ""; position: absolute; inset: -10px -6px -1px; }
+.wstep .wsteps::after { content: ""; position: absolute; inset: -1px -6px -8px; }
+/* Las tiras con desplazamiento horizontal recortan lo que sobresale: se les da el alto extra por dentro y se compensa por fuera. */
+.pp-ranges, .feel { padding-block: 6px; margin-block: -6px; }
+
+/* Entrenar · lista de ejercicios: a 360–390 px el nombre se partía en dos renglones y los datos en tres, apretados por la
+   sugerencia de hoy y el descanso a la derecha. Ahora el texto usa todo el ancho, la sugerencia de REPI va en su renglón (se
+   distingue de «Anterior») y el descanso queda a la derecha con su ícono. El cuadro muestra el orden del ejercicio. */
+.exitem { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 6px; padding: 12px; }
+.exitem .thumb { grid-row: 1 / span 2; align-self: start; width: 40px; height: 40px; border-radius: 10px; background: var(--ui-surface); border: 1px solid var(--ui-divider); font: 700 20px/1 var(--font-display); color: var(--ui-text-2); }
+.exitem > span:nth-child(2) { grid-column: 2; }
+.exitem .ex-suggest { grid-column: 2; grid-row: 2; justify-self: start; padding: 3px 8px; border-radius: 8px; background: var(--ui-accent-tint); color: var(--ui-text); font-weight: 600; white-space: normal; }
+.exitem .ex-rest { grid-column: 3; grid-row: 1; align-self: start; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding-top: 2px; white-space: nowrap; }
+
+/* Perfil · índice de secciones (página larga): tira de accesos de 44 px que se desplaza de costado si no entran. Los títulos
+   de sección reciben el foco al llegar, sin marco (no son controles). */
+.pf-index { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 0 20px; scroll-padding-inline: 20px; }
+.pf-index::-webkit-scrollbar { display: none; }
+.pf-index button { flex: none; height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--ui-divider); background: var(--ui-surface); color: var(--ui-text); font: 600 13px var(--font-ui); cursor: pointer; white-space: nowrap; }
+.mb h2[tabindex="-1"] { scroll-margin-top: 16px; outline: none; }
