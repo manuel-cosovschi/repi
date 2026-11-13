@@ -108,7 +108,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
       lightZones();
       // 4.0 · La red de la sala (por dónde viaja lo que se registra), las pantallas a las que llega y la de REPI Control.
       const fl = String(+(s.flow * (1 - g)).toFixed(2));
-      if (fl !== last$.flow) { last$.flow = fl; if (links.current) links.current.style.opacity = fl; if (screens.current) screens.current.dataset.on = s.flow > 0.5 ? "1" : "0"; }
+      if (fl !== last$.flow) { last$.flow = fl; if (links.current) { links.current.style.opacity = fl; links.current.dataset.on = s.flow > 0.01 ? "1" : "0"; } if (screens.current) screens.current.dataset.on = s.flow > 0.5 ? "1" : "0"; }
       const ko = Math.max(s.kiosk, s.focus === "recepcion" ? 1 : 0, b === "control" || b === "zRecepcion" ? k : 0, a === "control" || a === "zRecepcion" ? 1 - k : 0) > 0.5 ? "1" : "0";
       if (ko !== last$.kiosk && kiosk.current) { last$.kiosk = ko; kiosk.current.dataset.on = ko; }
       // Pedido «Que venga alguien»: un cometa cian sobre el piso, de Julián a Sofía (y de vuelta, en turquesa, el «Voy»).

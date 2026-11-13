@@ -190,6 +190,36 @@ test.describe("escenario 3D", () => {
     await expect(form(page)).toBeInViewport();
     expect(errors).toEqual([]);
   });
+
+  test("si la sala 3D se dibuja lenta, baja la resolución y después deja el plano SVG; la visita ya no vuelve a intentarlo", async ({ page }) => {
+    test.setTimeout(90_000);
+    const errors = watchErrors(page);
+    // `guard` fija el umbral en 0,5 ms por cuadro: cualquier equipo «va lento» y la red de seguridad actúa siempre.
+    await page.goto("/conoce?sala=medium&guard=0.5");
+    const sala = page.locator(".sala");
+    const mounted = await sala.locator("canvas").waitFor({ state: "attached", timeout: 20_000 }).then(() => true, () => false);
+    test.skip(!mounted, "este navegador no ofrece WebGL: el nivel 3D no se puede probar acá");
+    await expect(page.locator("html")).toHaveAttribute("data-sala-guard", /dpr|svg/, { timeout: 30_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-sala-guard", "svg", { timeout: 45_000 });
+    await expect(sala).toHaveAttribute("data-3d", "0");
+    await expect(sala.locator("canvas")).toHaveCount(0);
+    await expect(page.locator(".sala-svg")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // En la misma visita, otra página de /conoce va directo al plano (sin volver a cargar el 3D).
+    await page.goto("/conoce/gimnasios");
+    await expect(page.locator("html")).toHaveAttribute("data-sala", "low");
+    await expect(page.locator(".sala canvas")).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("sin el pedido de prueba, forzar un nivel no activa la red de seguridad (modo de revisión)", async ({ page }) => {
+    await page.goto("/conoce?sala=medium");
+    const mounted = await page.locator(".sala canvas").waitFor({ state: "attached", timeout: 20_000 }).then(() => true, () => false);
+    test.skip(!mounted, "este navegador no ofrece WebGL: el nivel 3D no se puede probar acá");
+    await page.waitForTimeout(9000);
+    await expect(page.locator("html")).not.toHaveAttribute("data-sala-guard", /.+/);
+    await expect(page.locator(".sala")).toHaveAttribute("data-3d", "1");
+  });
 });
 
 // ── Modalidades y captación ──────────────────────────────────────────────────────────────────────────────────────────

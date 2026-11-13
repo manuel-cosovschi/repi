@@ -105,11 +105,15 @@ export const pings = {
 
 /** Nivel de calidad del escenario, decidido una vez en el cliente. */
 export type Quality = "high" | "medium" | "low";
+/** Marca de sesión: la sala 3D resultó lenta en este equipo. */
+export const SLOW_KEY = "repi:sala-lenta";
 export function detectQuality(): Quality {
   if (typeof window === "undefined") return "low";
   // Para revisar cada nivel a mano o en pruebas: /conoce?sala=high|medium|low.
   const forced = new URLSearchParams(window.location.search).get("sala");
   if (forced === "high" || forced === "medium" || forced === "low") return forced;
+  // En esta visita la sala 3D ya se dibujó lenta en este equipo (lo anotó la red de seguridad del canvas): directo al plano.
+  try { if (sessionStorage.getItem(SLOW_KEY) === "1") return "low"; } catch { /* sin almacenamiento */ }
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
   if (reduce || nav.connection?.saveData) return "low";

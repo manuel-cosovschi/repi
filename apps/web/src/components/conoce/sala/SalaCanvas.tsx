@@ -17,7 +17,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { COACH_SCREEN, FLOOR, FOV, GEAR, GEAR_KIND, JULIAN, KIOSK, LINKS, OFFICE_SCREEN, PEOPLE, QR_SPOT, SHOTS, SVG_S, VALENTINA, ZONES, gatherGrow, isNarrow, lensPx, linkAt, placePerson, svgFit, type GearKind, type Shot, type ShotId, type ZoneId } from "./model";
-import { pings, pointer, stage, type Quality } from "./store";
+import { SLOW_KEY, pings, pointer, stage, type Quality } from "./store";
 
 // Paleta: una sola fuente, los tokens --x-* de styles/conoce3.css. Se lee una vez al montar (three.js no entiende var()).
 const TOKENS = { navy: "--x-navy", floor: "--x-floor", surface: "--x-surface", steel: "--x-steel", line: "--x-plan", edge: "--x-edge", gear: "--x-gear", cyan: "--x-cyan", teal: "--x-teal", white: "--x-white", muted: "--x-muted" } as const;
@@ -43,6 +43,8 @@ function Clock() {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+/** Opacidad de un material; en cero no se dibuja (three dibuja igual lo transparente del todo, y un plano grande cuesta). */
+const fadeTo = (m: THREE.Material | null | undefined, v: number) => { if (m) { m.opacity = v; m.visible = v > 0.004; } };
 const smooth = (v: number) => { const x = clamp01(v); return x * x * (3 - 2 * x); };
 const easeIO = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const easeOut = (x: number) => 1 - Math.pow(1 - clamp01(x), 3);
@@ -82,6 +84,7 @@ function radialTexture(stops: [number, string][]) {
   stops.forEach(([o, col]) => grad.addColorStop(o, col));
   g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; // degradés suaves: sin mipmaps ni filtro trilineal (más barato por píxel)
   return t;
 }
 /** Degradé vertical de las paredes: algo de luz del piso abajo y navy arriba (se funden con el fondo). */
@@ -91,6 +94,7 @@ function wallTexture() {
   grad.addColorStop(0, "#1B2636"); grad.addColorStop(0.5, "#131C29"); grad.addColorStop(1, "#0C1118");
   g.fillStyle = grad; g.fillRect(0, 0, 4, 128);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; // degradés suaves: sin mipmaps ni filtro trilineal (más barato por píxel)
   return t;
 }
 
@@ -211,13 +215,13 @@ function Room() {
   useFrame(() => {
     const s = stage.get();
     const f = planFade(s.gather), lv = (0.25 + 0.75 * s.lit) * f, rise = build.v;
-    if (gridMat.current) gridMat.current.opacity = 0.5 * lv;
+    fadeTo(gridMat.current, 0.5 * lv);
     if (planMat.current) { planMat.current.opacity = 0.7 * lv * (1 - smooth(rise * 1.6)); planMat.current.visible = rise < 0.7; }
     if (floorMat.current) floorMat.current.color.copy(cBase.set(C.floor)).lerp(cBg.set(C.navy), 1 - f);
-    surfMats.current.forEach((m) => { if (m) m.opacity = 0.7 * f; });
+    surfMats.current.forEach((m) => fadeTo(m, 0.7 * f));
     fade.color.setScalar(f * (0.25 + 0.75 * s.lit));
-    wallMats.current.forEach((m) => { if (m) m.opacity = f * (0.25 + 0.75 * s.lit); });
-    if (glassMat.current) glassMat.current.opacity = 0.09 * f * s.lit;
+    wallMats.current.forEach((m) => fadeTo(m, f * (0.25 + 0.75 * s.lit)));
+    fadeTo(glassMat.current, 0.09 * f * s.lit);
     if (up.current) { const k = easeOut(rise * 1.2); up.current.scale.y = Math.max(0.0001, k); up.current.visible = k > 0.002; }
     // Zona bajo el puntero: el rayo de la cámara (con su lente) contra el piso.
     let near: ZoneId | null = null;
@@ -229,8 +233,8 @@ function Room() {
     zones.forEach((z, i) => {
       const m = zoneMats.current[i], pm = poolMats.current[i];
       const on = s.focus === z.id, pre = !on && (s.preview === z.id || near === z.id);
-      if (m) { m.color.set(on ? C.white : pre ? C.muted : C.edge); m.opacity = lv; }
-      if (pm) { const goal = (on ? 0.34 : pre ? 0.2 : 0.085) * (s.cold ? 0.3 : 1) * lv * rise; pm.opacity += (goal - pm.opacity) * 0.12; }
+      if (m) { m.color.set(on ? C.white : pre ? C.muted : C.edge); fadeTo(m, lv); }
+      if (pm) { const goal = (on ? 0.34 : pre ? 0.2 : 0.085) * (s.cold ? 0.3 : 1) * lv * rise; fadeTo(pm, pm.opacity + (goal - pm.opacity) * 0.12); }
     });
   });
   return (
@@ -294,7 +298,7 @@ function Gear() {
   useEffect(() => () => { blob.dispose(); groups.forEach((g) => g.geo.dispose()); }, [blob, groups]);
   useFrame(() => {
     const s = stage.get(), f = planFade(s.gather);
-    if (shadowMat.current) shadowMat.current.opacity = 0.9 * f * s.lit * smooth(build.v * 1.4);
+    fadeTo(shadowMat.current, 0.9 * f * s.lit * smooth(build.v * 1.4));
     if (build.v === last.current) return;
     last.current = build.v;
     groups.forEach((g, gi) => {
@@ -451,7 +455,7 @@ function People({ count }: { count: number }) {
         }
       }
     });
-    if (shadowMat.current) shadowMat.current.opacity = 0.8 * s.lit * planFade(s.gather) * smooth(build.v * 1.4);
+    fadeTo(shadowMat.current, 0.8 * s.lit * planFade(s.gather) * smooth(build.v * 1.4));
     for (const m of [R.mb, R.mh, R.sb, R.sh, R.hm, R.hs, R.sd]) if (m) m.instanceMatrix.needsUpdate = true;
   });
   const nm = list.filter((p) => p.kind === "member").length, ns = list.length - nm;
@@ -517,12 +521,12 @@ function Screens() {
     const kiosk = Math.max(s.kiosk, s.focus === "recepcion" ? 1 : 0, s.b === "control" || s.b === "zRecepcion" ? s.t : 0, s.a === "control" || s.a === "zRecepcion" ? 1 - s.t : 0);
     // Con la captura cargada el material es blanco (se ve la interfaz); sin ella, cian liso. Apagada, navy acero.
     if (kioskMat.current) kioskMat.current.color.copy(cOff.set("#3A4D66")).lerp(cOn.set(kioskMat.current.map ? "#FFFFFF" : C.cyan), (0.45 + 0.55 * kiosk) * lv);
-    if (kioskGlow.current) kioskGlow.current.opacity = (0.06 + 0.3 * kiosk) * lv * (0.9 + 0.1 * Math.sin(t * 1.7));
+    fadeTo(kioskGlow.current, (0.06 + 0.3 * kiosk) * lv * (0.9 + 0.1 * Math.sin(t * 1.7)));
     const flow = Math.max(s.flow, 0);
     if (officeMat.current) officeMat.current.color.copy(cOff.set("#24354A")).lerp(cOn.set(C.teal), clamp01(0.3 + 0.7 * Math.max(flow, s.focus === "oficina" ? 1 : 0)) * lv);
     if (coachMat.current) coachMat.current.color.copy(cOff.set("#24354A")).lerp(cOn.set(C.teal), clamp01(0.3 + 0.7 * Math.max(flow, s.focus === "box" ? 1 : 0)) * lv);
     if (consoles.current) consoles.current.color.copy(cOff.set("#1F2C3D")).lerp(cOn.set(C.cyan), 0.5 * lv);
-    if (qr.current) qr.current.opacity = lv * (0.55 + 0.45 * Math.abs(Math.sin(t * 1.6)));
+    fadeTo(qr.current, lv * (0.55 + 0.45 * Math.abs(Math.sin(t * 1.6))));
   });
   return (
     <group ref={group}>
@@ -799,6 +803,36 @@ function Pauser() {
   return null;
 }
 
+/** Red de seguridad para equipos donde la sala se dibuja lenta (no se puede saber de antemano: depende de la GPU real). Mide
+ *  el tiempo entre cuadros en ventanas de 2 s; si en dos ventanas seguidas más de la mitad de los cuadros tardó más de 40 ms
+ *  (menos de 25 por segundo; el modo de bajo consumo de iOS, a 30, no cuenta), primero baja la densidad de píxel a 1 y, si
+ *  sigue lenta, deja el plano SVG, igual que cuando se pierde el contexto. Nunca vuelve a subir. Con `?sala=` forzado no actúa
+ *  (es el modo de revisión), salvo que se pida con `?guard=<ms>`, que además fija el umbral (para las pruebas). */
+const GUARD_MS = 40;
+function Guard({ onSlow }: { onSlow: () => void }) {
+  const setDpr = useThree((s) => s.setDpr);
+  const cfg = useMemo(() => { const q = new URLSearchParams(window.location.search), g = q.get("guard"); return { on: g !== null || !q.get("sala"), limit: (g && Number(g)) || GUARD_MS }; }, []);
+  const st = useRef({ d: [] as number[], t: 0, bad: 0, step: 0, wait: 2500, last: 0 });
+  useFrame(() => {
+    const s = st.current;
+    if (!cfg.on || s.step > 1) return;
+    const now = performance.now(), dt = now - s.last; s.last = now;
+    const g = stage.get();
+    if (dt > 1500 || g.paused || g.hidden || document.hidden) { s.d.length = 0; s.t = 0; return; } // vuelve de estar oculta o en pausa
+    if (s.wait > 0) { s.wait -= dt; return; } // la carga y la compilación de materiales no cuentan
+    s.d.push(dt); s.t += dt;
+    if (s.t < 2000) return;
+    const med = s.d.sort((a, b) => a - b)[s.d.length >> 1];
+    s.d = []; s.t = 0;
+    s.bad = med > cfg.limit ? s.bad + 1 : 0;
+    if (s.bad < 2) return;
+    s.bad = 0; s.wait = 1500; s.step++;
+    if (s.step === 1) { setDpr(1); document.documentElement.dataset.salaGuard = "dpr"; }
+    else { document.documentElement.dataset.salaGuard = "svg"; try { sessionStorage.setItem(SLOW_KEY, "1"); } catch { /* sin almacenamiento */ } onSlow(); }
+  });
+  return null;
+}
+
 /** Avisa una sola vez, después del primer cuadro dibujado: recién ahí el 3D reemplaza al SVG. */
 function Ready({ onReady }: { onReady: () => void }) {
   const done = useRef(false);
@@ -827,6 +861,7 @@ export default function SalaCanvas({ quality, onReady, onLost }: { quality: Qual
       </Gather>
       <People count={high ? PEOPLE.length : 9} />
       <Clock />
+      <Guard onSlow={onLost} />
       <Rig parallax={high} />
       <Publish />
       <Pauser />

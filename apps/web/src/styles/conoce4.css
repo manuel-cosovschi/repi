@@ -137,7 +137,9 @@ html[data-motion="paused"] .x4-spot i::after { animation: none; opacity: .5; }
 
 /* ── El plano SVG (nivel liviano y primer pintado) con lo nuevo de 4.0: la red, las pantallas y los pulsos. */
 .sala-links { opacity: 0; transition: opacity .5s; }
-.sala-links polyline { fill: none; stroke: var(--x-cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: .035 .05; opacity: .8; animation: sala-flow 2.6s linear infinite; }
+.sala-links polyline { fill: none; stroke: var(--x-cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: .035 .05; opacity: .8; }
+/* El guion sólo corre con la red encendida: apagada (casi toda la página) no hay nada que repintar en cada cuadro. */
+.sala-links[data-on="1"] polyline { animation: sala-flow 2.6s linear infinite; }
 @keyframes sala-flow { to { stroke-dashoffset: -.34; } }
 html[data-motion="paused"] .sala-links polyline, .sala-view.still .sala-links polyline { animation: none; }
 .sala-kiosk { fill: #1E2A3A; stroke: #5A6E8A; stroke-width: 1.5; transition: fill .4s, stroke .4s; }

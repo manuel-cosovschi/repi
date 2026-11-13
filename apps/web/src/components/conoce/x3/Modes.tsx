@@ -10,7 +10,7 @@
 // `?modo=completo|control` (en /conoce o /conoce/<perfil>) lo preselecciona y lleva hasta acá; `#modos` sólo lleva. Elegir
 // otro modo deja `?modo=` en la URL (compartible). Mide mode_select (target modo-completo | modo-control); el contacto,
 // la demo y WhatsApp miden lo de siempre con ese mismo target. Sin precios: «Pedí una propuesta personalizada».
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowRight, ChatCircle, Play } from "@phosphor-icons/react";
 import { MODES, MODE_IDS, MODE_ROWS, VIDEOS, type ModeId } from "@/content/conoce";
 import { waLink } from "@/lib/contact";
@@ -30,6 +30,9 @@ const STEP_MS = 1100;
 
 export function Modes() {
   const [m, setM] = useState<ModeId>("completo");
+  /** El modo que muestran los paneles. Va un render detrás del elegido: al tocar, primero se pinta la pestaña (respuesta
+   *  inmediata) y recién después se arma el panel nuevo con su equipo, que es lo caro. */
+  const shown = useDeferredValue(m);
   /** Hubo un cambio de modo: recién ahí corren las entradas del panel (al cargar, el panel ya está quieto). */
   const [moved, setMoved] = useState(false);
   const [step, setStep] = useState<Record<ModeId, number>>(DEFAULT_STEP);
@@ -50,7 +53,7 @@ export function Modes() {
   /** Cambia de modo. `user`: lo eligió la persona en el selector (mide y deja la URL compartible). */
   const show = (id: ModeId, user: boolean) => {
     // Antes de cambiar: dónde está y qué muestra el equipo del modo actual (para transformarlo en el del nuevo).
-    const glass = root.current?.querySelector<HTMLElement>(`#md-panel-${m} .x3-md-main .x3-md-glass`);
+    const glass = root.current?.querySelector<HTMLElement>(`#md-panel-${shown} .x3-md-main .x3-md-glass`);
     const img = glass?.querySelector<HTMLImageElement>("img[data-on]");
     morph.current = glass && img && id !== m && !reduced() && !stage.get().paused ? { rect: glass.getBoundingClientRect(), src: img.currentSrc || img.src } : null;
     setM(id); setMoved(true); playTour(id);
@@ -83,12 +86,12 @@ export function Modes() {
   useLayoutEffect(() => {
     const from = morph.current; morph.current = null;
     if (!from) return;
-    const el = root.current?.querySelector<HTMLElement>(`#md-panel-${m} .x3-md-main`), glass = el?.querySelector<HTMLElement>(".x3-md-glass");
+    const el = root.current?.querySelector<HTMLElement>(`#md-panel-${shown} .x3-md-main`), glass = el?.querySelector<HTMLElement>(".x3-md-glass");
     if (!el || !glass) return;
     const to = glass.getBoundingClientRect();
     if (!to.width || !from.rect.width || from.rect.bottom < 0 || from.rect.top > window.innerHeight) return;
     const dx = from.rect.left + from.rect.width / 2 - (to.left + to.width / 2), dy = from.rect.top + from.rect.height / 2 - (to.top + to.height / 2);
-    const sx = from.rect.width / to.width, sy = from.rect.height / to.height, dir = m === "control" ? -1 : 1;
+    const sx = from.rect.width / to.width, sy = from.rect.height / to.height, dir = shown === "control" ? -1 : 1;
     const ghost = document.createElement("img");
     ghost.src = from.src; ghost.alt = ""; ghost.className = "x4-md-ghost"; ghost.setAttribute("aria-hidden", "true");
     glass.appendChild(ghost);
@@ -99,7 +102,7 @@ export function Modes() {
       .add(() => { ghost.style.opacity = "0"; })
       .fromTo(el, { rotateY: -dir * 90 }, { rotateY: 0, x: 0, y: 0, scaleX: 1, scaleY: 1, duration: 0.62, ease: "power3.out", immediateRender: false });
     return () => { tl.kill(); done(); };
-  }, [m]);
+  }, [shown]);
 
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const n = MODE_IDS.length;
@@ -110,7 +113,7 @@ export function Modes() {
   };
 
   return (
-    <section ref={root} id="modos" className="x3-md" data-dim="0.45" data-shot={m} data-mode={m} data-moved={moved ? "1" : undefined} aria-labelledby="cn-md">
+    <section ref={root} id="modos" className="x3-md" data-dim="0.45" data-shot={m} data-mode={shown} data-moved={moved ? "1" : undefined} aria-labelledby="cn-md">
       <div className="x3-wrap">
         <Say id="cn-md" className="x3-h2" text="Un mismo REPI. *Dos formas de entrenar.*" />
         <p className="x3-lead">Cada gimnasio trabaja distinto. REPI se adapta a tu forma de planificar y acompañar a tus socios.</p>
@@ -123,8 +126,8 @@ export function Modes() {
             </button>
           ))}
         </div>
-        {MODE_IDS.map((id) => <Panel key={id} id={id} on={id === m} step={step[id]} setStep={(k) => { stopTour(); setStep((s) => ({ ...s, [id]: k })); track("feature_click", { profile: "gimnasios", target: `modo-${id}-${k + 1}` }); }} onFilm={() => { const v = VIDEOS[MODES[id].film]; if (v?.src) film(v, "gimnasios"); }} />)}
-        <Compare active={m} />
+        {MODE_IDS.map((id) => <Panel key={id} id={id} on={id === shown} step={step[id]} setStep={(k) => { stopTour(); setStep((s) => ({ ...s, [id]: k })); track("feature_click", { profile: "gimnasios", target: `modo-${id}-${k + 1}` }); }} onFilm={() => { const v = VIDEOS[MODES[id].film]; if (v?.src) film(v, "gimnasios"); }} />)}
+        <Compare active={shown} />
       </div>
     </section>
   );
