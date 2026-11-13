@@ -108,6 +108,8 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLIC
   - Runbook y la instrucción para la tarea diaria del Mac: `docs/comercial/captacion/MAC_WHATSAPP_INSTAGRAM.md`. Una sesión en la nube no llega al Mac (no hay carpeta ni navegador del Mac conectados), así que esa tarea se crea una vez desde la app Claude del Mac.
   - Tarea programada en la nube «REPI Captación · respuestas por email» (`trig_01EUgyTfckXqpN1LYSfu3qE6`, 11:47, 15:47 y 19:47 AR, días hábiles): revisa el correo comercial y registra las respuestas. Se creó sin conectores (esta organización no permite pasarlos desde la sesión); hay que sumarle Gmail y Supabase desde claude.ai › Tareas programadas.
   - El informe diario guardaba «[object Object]» como error: ahora guarda el texto (`firstError`).
+  - **Publicado y encendido el 13/11** (#115 `39963ea`; `/api/version` = `39963ea3aec1`): `autopilot.social` = true, 10 por día. Primera cola armada a las 02:28 AR: 10 aprobados (9 por Instagram, 1 por WhatsApp: Push Up! Gym, SinapGym, Mares, Nautilus, Vänner, Enigma, Forzá, Alfa, Animal, Bristol). No se envió nada: los envíos los hace la tarea del Mac.
+  - **Pendiente del titular (una vez):** crear la tarea diaria en la app Claude del Mac con la instrucción del runbook, y sumar Gmail y Supabase a la tarea programada de respuestas.
 
 
 - **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.
