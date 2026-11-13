@@ -16,7 +16,7 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Workout } from "./Workout";
 import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./FollowSheets";
-import { PendingBriefBanner, ProgramRequestSheet, type PendingBrief, type ProgramRequestState } from "./ProgramRequest";
+import { LateBriefCard, PendingBriefBanner, ProgramRequestSheet, type LateBrief, type PendingBrief, type ProgramRequestState } from "./ProgramRequest";
 import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
 import { Nudges, type Nudge } from "./Nudges";
@@ -38,6 +38,7 @@ import { BodyWeight } from "./BodyWeight";
 import { ProgressPhotos } from "./ProgressPhotos";
 import { TrainingProfile } from "./TrainingProfile";
 import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
+import { loadProfile } from "./profile-store";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
@@ -544,17 +545,29 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
   const next = t.program?.days[t.program.nextDay];
   const v = t.stats.volumeLastWeek ? Math.round(((t.stats.volumeThisWeek - t.stats.volumeLastWeek) / t.stats.volumeLastWeek) * 100) : null;
   // D206: el pedido de programa lleva objetivo, días, experiencia y lesiones; sin eso el profe no sabe qué armar.
-  const [briefSheet, setBriefSheet] = useState<null | "new" | "complete">(null);
+  const [briefSheet, setBriefSheet] = useState<null | "new" | "complete" | "late">(null);
   const [briefs, setBriefs] = useState<PendingBrief[]>([]);
-  const loadBriefs = useCallback(() => { if (!offline) api<ProgramRequestState>("/api/me/program-request").then((s) => setBriefs(s.pending)).catch(() => {}); }, [offline]);
+  // 13/11: pedido ya respondido sin datos (y perfil incompleto). `briefsReady`: hasta saberlo no se muestra la tarjeta genérica
+  // del perfil (D217), para no ofrecer dos avisos por lo mismo ni mover la pantalla.
+  const [late, setLate] = useState<LateBrief | null>(null);
+  const [briefsReady, setBriefsReady] = useState(false);
+  const loadBriefs = useCallback(() => {
+    if (offline) return;
+    api<ProgramRequestState>("/api/me/program-request").then((s) => { setBriefs(s.pending); setLate(s.late ?? null); }).catch(() => {}).finally(() => setBriefsReady(true));
+  }, [offline]);
   useEffect(() => { loadBriefs(); }, [loadBriefs, inbox]);
   useEffect(() => {
     // Desde el push o la campanita (/app?completar=programa): abre el formulario si hay un pedido esperando datos.
-    if (briefs.length && new URLSearchParams(location.search).get("completar") === "programa") {
-      setBriefSheet("complete");
+    if ((briefs.length || late) && new URLSearchParams(location.search).get("completar") === "programa") {
+      setBriefSheet(briefs.length ? "complete" : "late");
       try { const u = new URL(location.href); u.searchParams.delete("completar"); history.replaceState(history.state, "", u); } catch { /* */ }
     }
-  }, [briefs]);
+  }, [briefs, late]);
+  const laterBrief = () => {
+    setLate((l) => (l ? { ...l, snoozed: true } : l)); // se esconde ya; si el servidor no respondió, vuelve al recargar
+    void api("/api/me/program-request", { body: { later: true } }).catch(() => {});
+    flash("Listo. Te lo recordamos más adelante; también podés cargarlo en Perfil.");
+  };
   const askProgram = () => setBriefSheet(briefs.length ? "complete" : "new");
   const toWho = gymRel ? "el equipo de sala" : coachFirst;
   const pendingProgram = gymRel ? inbox?.gymRequests.some((r) => r.category === "programa_nuevo" && r.status !== "done") : inbox?.requests.some((r) => r.kind === "programa" && r.status === "open");
@@ -573,9 +586,11 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       </div>
       <RelationPicker t={t} offline={offline} busyOpen={!!t.openSession} onChange={onRelation} flash={flash} />
       {!offline && <PendingBriefBanner pending={briefs} onOpen={() => setBriefSheet("complete")} />}
+      {/* 13/11: pidió su programa sin datos y ya se lo respondieron: el aviso sigue hasta que los completa (nunca entrenando). */}
+      {!offline && !t.openSession && !briefs.length && <LateBriefCard late={late} onOpen={() => setBriefSheet("late")} onLater={laterBrief} />}
       {briefSheet && (
-        <ProgramRequestSheet mode={briefSheet} to={briefSheet === "complete" && briefs[0] ? briefs[0].to : toWho} url={gymRel ? "/api/me/gym/requests" : "/api/me/requests"} offline={offline}
-          onClose={() => setBriefSheet(null)} onDone={(msg) => { setBriefSheet(null); flash(msg); reloadInbox(); loadBriefs(); }} />
+        <ProgramRequestSheet mode={briefSheet} to={briefSheet === "complete" && briefs[0] ? briefs[0].to : briefSheet === "late" && late ? late.to : toWho} url={gymRel ? "/api/me/gym/requests" : "/api/me/requests"} offline={offline}
+          onClose={() => setBriefSheet(null)} onDone={(msg) => { setBriefSheet(null); flash(msg); reloadInbox(); loadBriefs(); void loadProfile(true).catch(() => {}); }} />
       )}
       {presence && !offline && t.program && <PresenceChip p={presence} onValidate={() => onSheet({ type: "presence" })} />}
       {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
@@ -611,7 +626,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }}
         extra={repiCoversProgram && progUpdate && t.program ? <ProgramUpdateInfo u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} /> : null} />
       {/* D217: perfil nuevo o incompleto: «Contale a REPI qué buscás» (una vez; nunca con un entrenamiento abierto). */}
-      <ProfileNudge hidden={offline || !!t.openSession} />
+      {/* 13/11: con un aviso del pedido de programa (abierto o ya respondido, aunque esté en pausa) no se suma este otro. */}
+      <ProfileNudge hidden={offline || !!t.openSession || !briefsReady || briefs.length > 0 || !!late} />
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}

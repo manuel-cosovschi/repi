@@ -15,7 +15,7 @@ import { myThreads } from "../messages/services";
 import { myCharges } from "../coachpay/services";
 import { myAppointments } from "../training/agenda";
 import { markAnnouncementsRead, myAnnouncements } from "../announcements/services";
-import { pendingBriefs } from "../training/program-request";
+import { lateBrief, pendingBriefs } from "../training/program-request";
 import { activeInterventions } from "../brain/store";
 import { assistantOn, getPrefs } from "../brain/prefs";
 
@@ -59,13 +59,14 @@ const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 export async function myNotifications(userId: string, now = new Date()) {
   const since = addDays(now, -WINDOW_DAYS);
-  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts, ann, briefs] = await Promise.all([
+  const [[pref], inbox, gymRels, tasks, invites, threads, charges, notices, appts, ann, briefs, late] = await Promise.all([
     db.select({ seenAt: userPref.notificationsSeenAt }).from(userPref).where(eq(userPref.userId, userId)),
     myInbox(userId), myGymRelations(userId), myGymTasks(userId), myReviewInvites(userId), myThreads(userId), myCharges(userId, now),
     db.select().from(memberNotice).where(and(eq(memberNotice.userId, userId), gte(memberNotice.createdAt, since))).orderBy(desc(memberNotice.createdAt)).limit(20),
     myAppointments(userId, now),
     myAnnouncements(userId, "member", { now }),
     pendingBriefs(userId).catch(() => []),
+    lateBrief(userId, now).catch(() => null),
   ]);
   const assistant = await assistantItems(userId, now).catch(() => [] as Notif[]); // una falla del Asistente no rompe el centro
   const posts = gymRels.length ? await db.select({ p: communityPost }).from(communityPost).where(and(
@@ -135,6 +136,10 @@ export async function myNotifications(userId: string, now = new Date()) {
   // D206: pedido de programa sin preferencias. Es algo para hacer: queda sin leer hasta que se completa.
   const briefItems: Notif[] = briefs.map((x) => ({ id: `brief:${x.id}`, title: "Completá tu pedido de programa", body: `Contale ${toWhom(x.to)} tu objetivo, cuántos días podés entrenar y si tenés alguna lesión. Sin eso no puede armarlo.`,
     at: x.createdAt, tone: "cyan", dest: { tab: "home" }, unread: true, cta: "Completar" }));
+  // 13/11: pedido ya respondido sin datos (y perfil incompleto). Mismo trato, salvo que «Ahora no» lo saca de acá 14 días.
+  if (!briefs.length && late && !late.snoozed) briefItems.push({ id: `brief-late:${late.id}`, title: "Contale a REPI qué buscás",
+    body: `Tu pedido de programa salió sin tu objetivo, tus días ni tu experiencia. Cargalos para que REPI y ${late.to} los tengan en cuenta.`,
+    at: late.createdAt, tone: "cyan", dest: { tab: "home" }, unread: true, cta: "Completar" });
   const list = [...briefItems, ...[...items.map((x) => ({ ...x, unread: !seen || new Date(x.at) > seen })), ...annItems, ...assistant].sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX - briefItems.length)];
   return { items: list, unread: list.filter((x) => x.unread).length, seenAt: seen ? seen.toISOString() : null };
 }

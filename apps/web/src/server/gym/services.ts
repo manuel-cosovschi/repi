@@ -452,6 +452,14 @@ export async function reassignTask(actorId: string, orgId: string, taskId: strin
   });
 }
 
+/** Preferencias que el socio cargó después de que le respondieran el pedido de programa (el último pedido resuelto). */
+async function lateProgramBrief(gymMemberId: string) {
+  const [t] = await db.select({ ctx: gymTask.context, completedAt: gymTask.completedAt }).from(gymTask)
+    .where(and(eq(gymTask.gymMemberId, gymMemberId), eq(gymTask.category, "programa_nuevo"), eq(gymTask.status, "done"))).orderBy(desc(gymTask.createdAt)).limit(1);
+  const b = t?.ctx?.brief;
+  return isCompleteBrief(b) && t.completedAt && new Date(b.at) > t.completedAt ? b : null;
+}
+
 /** Tareas para gerencia: sólo metadatos (sin resumen ni video). */
 export async function managerTasks(actorId: string, orgId: string, locationId: string | null, filter: string) {
   const ctx = await gymContext(actorId, orgId);
@@ -650,7 +658,12 @@ export async function memberDetail(actorId: string, orgId: string, gymMemberId: 
     id: m.m.id, name: m.name, since: m.m.createdAt, status: memberStatus(m.m.createdAt, lastAt, now), trainingShared: !!g, seesTraining: team,
     wishes: builds ? sharedWishes(pref?.wishes as TrainingWishes | null) : null,
     // D206: lo que pidió el socio en su pedido de programa (se lo mandó al equipo): precarga «Armar con REPI».
-    programBrief: gymCan(rolesAt(ctx, m.m.locationId), "program.edit") ? (() => { const b = [...tasks].reverse().find((t) => t.category === "programa_nuevo" && isCompleteBrief(t.context?.brief))?.context?.brief; return b ? briefToAssistant(b) : null; })() : null,
+    // 13/11: si no hay pedido abierto, también lo que el socio completó DESPUÉS de recibir el programa (pidió sin datos y los
+    // cargó más tarde): son datos que el equipo todavía no usó para armarle la rutina.
+    programBrief: gymCan(rolesAt(ctx, m.m.locationId), "program.edit") ? await (async () => {
+      const b = [...tasks].reverse().find((t) => t.category === "programa_nuevo" && isCompleteBrief(t.context?.brief))?.context?.brief ?? await lateProgramBrief(m.m.id);
+      return b ? briefToAssistant(b) : null;
+    })() : null,
     lastSessionAt: lastAt, visits30: sessions.filter((s) => s.endedAt! >= addDays(now, -30)).length, weeks,
     // D216: «Registrado en la pantalla del gimnasio» cuando el entrenamiento se empezó en la pantalla de rutinas.
     log: recent.map((x) => ({ id: x.id, dayName: x.dayName, status: x.status, startedAt: x.startedAt, endedAt: x.endedAt, rpe: x.rpe, note: x.note, atKiosk: !!x.kioskId, exercises: logs.get(x.id) ?? [] })),
