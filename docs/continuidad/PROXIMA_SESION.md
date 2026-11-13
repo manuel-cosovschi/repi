@@ -36,17 +36,22 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLIC
   - `modo-control` 1:00 y `modo-completo` 0:53, cada uno en 16:9 y 9:16;
   - `perfil-gimnasios` 0:47 y `f-intelligence` 0:28.
   - Manifiesto actualizado en `content/conoce.ts` (duraciones, resúmenes y la variante vertical). Sonoridad entre −14,3 y −14,6 LUFS, medida.
-  - Sin tocar: `perfil-entrenadores`, `perfil-deportistas`, `perfil-aliados`, `f-progreso`, `f-altas`, `f-sala`.
+  - En esa publicación quedaron sin tocar `perfil-entrenadores`, `perfil-deportistas`, `perfil-aliados`, `f-progreso`, `f-altas` y `f-sala` (rehechos después en `claude/films-6`, ver más abajo).
 - **Pendiente:**
   1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Tampoco se probó en Safari ni Firefox, y nadie escuchó los films.
-  2. Re-renderizar los seis films que quedaron con el kit viejo y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
+  2. Revisar y publicar los seis films rehechos (rama `claude/films-6`) y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
   3. ~~Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` y unificar las capturas de 53 kg~~ **Hecho el 13/11** (ver «Pulido» más abajo).
   4. ~~Referencia del vendedor en eventos del sitio y `/qr`~~ **Descartado por el titular el 13/11** (ver «Pulido» más abajo).
 - **Decisiones para el titular:** confirmar el texto de la prueba social en la apertura («Ya funciona en Mar del Plata.») y en el caso.
 - **Pulido del 13/11 (pedido del titular: «hacé todo lo que tengas que hacer para que todo quede perfecto», con libertad total):**
   - **Referencia del vendedor:** el código ya no se agrega al mensaje de WhatsApp («eso no tiene que estar en /conoce en ningún lado»). Queda sólo lo que ya existía desde D209: si alguien entra por el enlace personal de un vendedor (`/conoce?ref=V-XXXXXX`, que el vendedor copia de su panel), el formulario lo manda oculto como origen del contacto. El visitante no lo ve en ningún lado. Si el titular tampoco quiere eso, hay que quitar el enlace personal del panel de vendedores (decisión de negocio de D209, no se tocó).
   - **Capturas rehechas** con `design/films/kit/tools/shots-conoce.mjs` (demo local): `training`, `intelligence`, `adaptive`, `owner` (ahora «Seguimiento de sala»), `access` y `control-equipo`. Sin avisos del entorno de demo ni píldora «DEMO»; las del socio muestran el mismo ejemplo que la escena en vivo (60 kg × 10 → 62,5 kg, calculado por el motor real). Detalle en `docs/comercial/EXPERIENCE_4.md` §8.
-  - **Los seis films restantes:** en producción en la rama `claude/films-6` (un agente); se publican aparte cuando estén revisados.
+  - **Los seis films restantes: rehechos en la rama `claude/films-6`, SIN publicar (sin PR, merge ni deploy): esperan revisión.**
+    - `perfil-entrenadores` 0:41, `perfil-deportistas` 0:38 (16:9 y 9:16), `perfil-aliados` 0:48, `f-progreso` 0:23, `f-altas` 0:26, `f-sala` 0:27.
+    - Archivos: `apps/web/public/conoce/videos/` (mp4, póster y `.descripcion.vtt` de los seis), `apps/web/src/content/conoce.ts` (duraciones y resúmenes), `design/films/kit/` (`build.py`, `tools/rec-hd.mjs`, `finish.py`, `render-all.sh`), fuentes en `design/films/{entrenadores,deportistas,deportistas-vertical,aliados,progreso,altas,sala}`, `design/films/SPEC.md`, `docs/comercial/{EXPERIENCE_4,VIDEOS_PENDIENTES}.md`, `marketing/videos/LICENCIAS.md`.
+    - Pruebas: `ffprobe` y sonoridad medidos (−14,0 a −14,6 LUFS; pico ≤ −2,1 dBTP), tira de contacto de cada archivo mirada entera; `pnpm typecheck` y guardas en verde. No se corrió la e2e de `/conoce` ni se escuchó ningún film. Sin migraciones.
+    - Decisión para el titular: `perfil-aliados` dice «Ya funciona en Mar del Plata» con el logo de Smart Center Gym (la misma frase del sitio, que sigue pendiente de confirmación).
+    - Próxima acción: revisar la rama (tabla y límites en `docs/comercial/EXPERIENCE_4.md` §14) y, si se aprueba, PR a `main`.
   - Pruebas: typecheck, guardas 26/26, `e2e/conoce*.spec.ts` 96 pasan y 2 omitidas.
 
 ## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · PUBLICADO Y VERIFICADO (#112, `4c01c5a`)
