@@ -39,6 +39,7 @@ import { ProgressPhotos } from "./ProgressPhotos";
 import { TrainingProfile } from "./TrainingProfile";
 import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
 import { loadProfile } from "./profile-store";
+import { RestAlertSettings } from "./RestAlerts";
 import { Ic } from "@/components/ui/Ic";
 import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
@@ -1107,6 +1108,8 @@ function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offli
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Cambia cómo ves y cargás los pesos. Tus registros no se modifican; tu coach los sigue viendo en kg.</span>
       {/* D188: apariencia de la cuenta; funciona sin conexión y se sincroniza después. */}
       <div style={{ marginTop: 10 }}><ThemePicker /></div>
+      {/* 13/11: sonido y notificación al terminar el descanso (opcionales, por dispositivo; también en el temporizador). */}
+      <RestAlertSettings flash={flash} />
     </section>
   );
 }

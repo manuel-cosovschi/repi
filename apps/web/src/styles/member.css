@@ -214,8 +214,26 @@
 .plates-warm li span { color: var(--ui-muted); }
 .plates-warm li strong { font-variant-numeric: tabular-nums; }
 .plates-note { font-size: 12px !important; }
-.rest-alert { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--ui-muted); line-height: 1.4; }
+.rest-alert { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ui-muted); line-height: 1.4; }
 .rest-alert .linkbtn { flex: none; height: 44px; }
+.rest-alert-l { flex: none; margin-right: auto; }
+/* 13/11 · Avisos del descanso: interruptores compactos de 44 px; el estado se lee en el texto («Sí»/«No») y en el ícono. */
+.rest-chip { flex: none; height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-muted); font: 500 13px var(--font-ui); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.rest-chip b { font-weight: 600; }
+.rest-chip[aria-checked="true"] { border-color: var(--ui-accent-line); background: var(--ui-accent-tint); color: var(--ui-text); }
+.rest-chip[aria-disabled="true"] { opacity: .6; }
+/* El descanso terminó y la alerta sigue sonando: aviso con el botón para arrancar la serie. */
+.rest-ring { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 14px; border-radius: 14px; border: 1px solid var(--ui-accent-line); background: var(--ui-accent-tint); }
+.rest-ring > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rest-ring b { font-size: 15px; font-weight: 600; }
+.rest-ring small { font-size: 12px; color: var(--ui-muted); line-height: 1.35; }
+.rest-ring .cta.sm { align-self: center; height: 44px; flex: none; }
+@media (prefers-reduced-motion: no-preference) { .rest-ring { animation: rest-ring-in var(--dur-toast) var(--ease-out) both; } }
+@keyframes rest-ring-in { from { opacity: 0; transform: translateY(6px); } }
+.rest-set { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.rest-set h3 { margin: 0; font: 600 14px var(--font-ui); }
+.rest-set-try { align-self: flex-start; height: 44px; }
+.rest-set-note { margin: 0; font-size: 13px; line-height: 1.45; }
 .solo-card { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
 .solo-card .ghost { min-height: 48px; }
 .solo-card .linkbtn { height: 44px; }
