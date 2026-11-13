@@ -9,19 +9,23 @@ H.264 con `faststart` y póster WebP en `apps/web/public/conoce/videos/`. Master
 
 **Films 4.0 (12/11/2026):** `film-marca`, `modo-control`, `modo-completo`, `perfil-gimnasios` y `f-intelligence` se rehicieron con
 el teléfono grande y cámara (acercamiento a la fila exacta, tarjeta con el valor de esa fila), grabaciones en alta resolución,
-cortes en el pulso de la música y cierre con el wordmark a su tamaño nítido. Los demás siguen en la versión 3.0.
+cortes en el pulso de la música y cierre con el wordmark a su tamaño nítido.
+
+**Segunda tanda 4.0 (13/11/2026, rama `claude/films-6`):** `perfil-entrenadores`, `perfil-deportistas` (16:9 y 9:16), `perfil-aliados`,
+`f-progreso`, `f-altas` y `f-sala` se rehicieron con el mismo kit. Abren con el producto en el primer segundo (aliados, con la
+marca), usan material nuevo grabado en una demo local y ya no queda ningún film en la versión 3.0.
 
 | Id | Duración | Qué cuenta |
 | --- | --- | --- |
 | `film-marca` (+ `-vertical`) | 0:38 | Apertura de 7 s (cada dato en otro lado hasta que todo se conecta) y la marca; el objetivo de cada serie (REPI recomienda 53 kg × 8; hizo 5 de 8 → 50 kg × 8–10); la profesora de sala toca «Voy» en el pedido de Julián; el dueño ve Seguimiento de sala (12 de 16 pedidos resueltos en 30 días, pedidos y resueltos por semana); la red; «Cada repetición cuenta» |
 | `perfil-gimnasios` | 0:47 | La sala a ciegas → altas por QR con aprobación (Camila Ruiz: «Lo conozco» → acceso aprobado), el pedido de Julián → «Voy», el objetivo por serie, Seguimiento de sala del dueño (12 de 16 resueltos; pedidos y resueltos por semana) y la red de socios, equipo y gerencia |
-| `perfil-entrenadores` | 0:49 | Cada alumno en otro chat → clientes (Julián sin programa; Training Intelligence que dice «sin tendencia aún» en lugar de inventar), el programa versionado, la serie del alumno y «REPI propone. Vos decidís» |
-| `perfil-deportistas` (+ `-vertical`) | 0:40 | Rutina lista (Torso A), check-in, objetivo por serie, descanso de 2:00, progreso por ejercicio y Mi cuerpo privado |
-| `perfil-aliados` | 1:06 | La sala sin datos, el modelo B2B2C, recomendaciones que se explican, entrenadores independientes y gimnasios por sede, sin señal y sin tiendas, en operación en Smart Center Gym (logo autorizado). Reemplaza al video con locución |
+| `perfil-entrenadores` | 0:41 | Clientes de un vistazo (Julián Ortiz, sin programa) → ficha de Valentina (última sesión, hace 3 días) y su registro de sesiones (Remo en polea «+2,5 kg vs. la vez anterior») → el programa «Hipertrofia · 3 días», versión 1 (Torso A · Press de banca 4 × 8–10 · RIR 2) → lo asigna a Valentina y Julián → la serie del alumno (REPI recomienda 53 kg × 8; hizo 5 de 8 → 50 kg × 8–10) → «REPI propone. Vos decidís»; «Usalo con tus alumnos» |
+| `perfil-deportistas` (+ `-vertical`) | 0:38 | Rutina lista (Torso A) → «¿Cómo llegás hoy?» con los tres toques (energía 4, sueño 3, ánimo 4) → objetivo por serie (53 kg × 8 → 50 kg × 8–10) → el descanso corre solo → evolución de Press de banca (mejor serie 53 kg × 9) → Mi cuerpo (80,4 kg, objetivo 76 kg; «sólo lo ves vos»); «Probá la demo» |
+| `perfil-aliados` | 0:48 | La marca («Tecnología para entrenar») → el modelo B2B2C (gimnasios y entrenadores la contratan; socios y alumnos la usan) → recomendaciones que se explican → entrenadores independientes (clientes y ficha) → gimnasios por sede (Seguimiento de sala: 12 de 16 resueltos) → «Registra sin señal. Se instala sin tiendas» → «Ya funciona en Mar del Plata» con el logo autorizado de Smart Center Gym → la red; «Proponé una alianza» |
 | `f-intelligence` | 0:28 | Un solo plano sobre la fila de la serie: Anterior 53 kg × 9 → REPI recomienda 53 kg × 8 → Real 53 kg × 5 → la próxima 50 kg × 8–10, con la razón escrita; «Nunca sube a mitad de la sesión» |
-| `f-progreso` | 0:23 | Progreso por ejercicio calculado desde lo que registrás y Mi cuerpo privado |
-| `f-altas` | 0:24 | Un QR por sede; el socio pide acceso y el equipo confirma; «Identidad no es pertenencia» |
-| `f-sala` | 0:24 | El socio pide ayuda desde su serie, el equipo responde; «una señal para acercarse, no un diagnóstico» |
+| `f-progreso` | 0:23 | Progreso (90 días: 6 sesiones, 82 series) → mejores marcas → evolución de Press de banca (mejor serie 53 kg × 9; 1RM estimado 68,9 kg, «una estimación») → Mi cuerpo (80,4 kg, objetivo 76 kg; privado); «Mirá tu progreso» |
+| `f-altas` | 0:26 | El gimnasio muestra el QR de la sede (QR para sumarse · Palermo) → lo que abre en el teléfono del socio («Pedí tu acceso a REPI · Gym Norte · Palermo») → el equipo aprueba a Camila Ruiz («Lo conozco» → acceso aprobado); «Identidad no es pertenencia» |
+| `f-sala` | 0:27 | Un mismo pedido de punta a punta, en la misma demo: Valentina pide «Ayuda con un ejercicio» al equipo de sala → la profesora Sofía Ramírez lo ve en «Sala › Pendientes» (T-1115, sin responsable) y lo toma → Valentina ve «Tu pedido: asignada · Sofía» → el dueño ve Seguimiento de sala (12 de 16 resueltos); «Quiero REPI en mi gimnasio» |
 
 ### Modos de REPI (D213, rama `claude/repi-control-films`)
 
