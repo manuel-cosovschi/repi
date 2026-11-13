@@ -708,6 +708,24 @@
 .lv-num { font: 700 56px/0.9 var(--font-display); color: var(--ui-text); display: flex; align-items: flex-end; gap: 8px; }
 .lv-num small { font: 600 13px/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--ui-accent-2); padding-bottom: 6px; }
 .lv-xp { font-size: 13px; color: var(--ui-muted); }
+/* 13/11 · Nivel a la vista: fila en Inicio y píldora junto al título de Entrenar. Áreas de 44 px o más; el avance se lee en
+   el texto además de la barra. */
+.lv-anchor { scroll-margin-top: 16px; outline: none; display: flex; flex-direction: column; }
+.lvchip-bar { display: block; height: 6px; border-radius: 3px; background: var(--ui-chart-track); overflow: hidden; }
+.lvchip-bar i { display: block; height: 100%; border-radius: 3px; background: var(--ui-accent); }
+.lvrow { width: 100%; min-height: 68px; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 14px; border: 1px solid var(--ui-divider); background: var(--ui-surface); color: var(--ui-text); font: inherit; text-align: left; cursor: pointer; }
+.lvrow-n { flex: none; width: 46px; height: 46px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: linear-gradient(120deg, var(--ui-hero-from), var(--ui-hero-alt)); border: 1px solid var(--ui-hero-line); color: var(--ui-text); }
+.lvrow-n small { font: 600 9px/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--ui-accent-2); }
+.lvrow-n b { font: 700 24px/0.9 var(--font-display); }
+.lvrow-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.lvrow-t { font-size: 14px; font-weight: 600; line-height: 1.25; text-wrap: balance; }
+.tr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.tr-head h1 { margin: 0; min-width: 0; }
+.lvpill { flex: none; height: 44px; padding: 0 10px 0 14px; border-radius: 22px; border: 1px solid var(--ui-divider); background: var(--ui-surface); color: var(--ui-text); font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.lvpill-t { display: inline-flex; align-items: baseline; gap: 5px; }
+.lvpill-t small { font: 600 11px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--ui-muted); }
+.lvpill-t b { font: 700 22px/1 var(--font-display); }
+.lvpill .lvchip-bar { width: 34px; }
 .lv-xp b { color: var(--ui-text); font-weight: 600; font-size: 15px; }
 .lv-how { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .lv-how > div { display: flex; justify-content: space-between; }

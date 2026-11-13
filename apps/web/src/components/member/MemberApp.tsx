@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { TECHNIQUES, kindAt, labelAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { activityOf, isTimedRow, prescriptionText, type ExerciseDetail } from "@repi/domain";
 import { api } from "@/lib/api";
-import { keepSame } from "@/lib/cache";
+import { keepSame, peek, setCached } from "@/lib/cache";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, putServerCopy, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
@@ -47,7 +47,7 @@ import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
 import { KioskAccess, SupervisedNote } from "./KioskAccess";
-import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
+import { LevelChip, LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
 import { SectionStage } from "@/components/motion/SectionStage";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
 import { Loading, Skel } from "@/components/motion/Skeleton";
@@ -89,10 +89,16 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // D166: trofeos nuevos se muestran con su desbloqueo 3D al abrir la app o al volver de entrenar. En la demo no salta
   // solo (taparía la guía): se ve tocando un trofeo de la vitrina.
   const [unlocks, setUnlocks] = useState<Unlock[]>([]);
+  // 13/11: el nivel también va a la vista en Inicio y en Entrenar (estaba sólo al final de Progreso y en Tu gym). Es la misma
+  // lectura que ya se hacía al abrir la app y al volver de entrenar: queda en el estado (y en la caché de Progreso).
+  const [level, setLevel] = useState<LevelData | null | false>(() => peek<LevelData>("/api/me/level") ?? null);
   const checkTrophies = useCallback(() => {
-    if (typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
-    api<LevelData>("/api/me/level").then((l) => { if (l.unseen.length) setUnlocks(l.unseen); }).catch(() => {});
+    const demo = typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith("repi_demo="));
+    api<LevelData>("/api/me/level").then((l) => { setCached("/api/me/level", l); setLevel((p) => keepSame(p, l)); if (!demo && l.unseen.length) setUnlocks(l.unseen); })
+      .catch(() => setLevel((p) => p || false));
   }, []);
+  // Tocar el nivel abre Progreso en su detalle (nivel, cómo se suman puntos y trofeos).
+  const [levelFocus, setLevelFocus] = useState(0);
   const closeUnlocks = useCallback(() => { setUnlocks([]); void api("/api/me/level", { body: {} }).catch(() => {}); }, []);
   const [err, setErr] = useState<string | null>(null);
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -224,9 +230,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // no cambian mientras una sección está a la vista; las funciones de carga y los set* son estables). Si nada de su lista
   // cambió, volver a la sección no la recorre (SectionStage reutiliza su último nodo): el historial que llega al abrir
   // Progreso, por ejemplo, ya no vuelve a dibujar Inicio ni Entrenar a la vuelta (tareas de ~50 ms con CPU ×4).
-  const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick]
-    : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day]
-    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg]
+  const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick, level]
+    : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day, level]
+    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg, levelFocus]
     : k === "msgs" ? [offlineAt, msgDraft]
     : k === "gym" ? [offlineAt, gymTab, openCh]
     : [t, offlineAt, inbox, privKey];
@@ -234,6 +240,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // M06 (QA r2): estado normal en el mismo toque, como en main: la sección se dibuja de un tirón (sin startTransition). Desde
   // la barra, el indicador ya salió al apoyar el dedo (TabBar).
   const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); setOpenCh(null); };
+  const openLevel = () => { setProgSeg("train"); setLevelFocus((n) => n + 1); go("prog"); };
   const notifs = withProgramNotice(feed, t);
   const openNotifs = () => {
     setNotifOpen(true);
@@ -399,11 +406,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge}
+              level={offlineAt && !level ? false : level} onLevel={openLevel}
               onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
             {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo}
+              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo} level={offlineAt && !level ? false : level} onLevel={openLevel}
               own={t.relation ? (t.supervised ? <SupervisedNote offline={!!offlineAt} onAsk={() => setSheet({ type: "help", kind: "rutina", to: "gym" })} /> : <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} />) : null} /></>}
-            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
+            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} focusLevel={levelFocus} />}
             {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
             {k === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {k === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
@@ -529,7 +537,8 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge, onCardOpen }: {
+function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge, onCardOpen, level, onLevel }: {
+  level: LevelData | null | false; onLevel: () => void;
   t: Training; coachFirst: string; onStart: (dayId: string) => void; onOwn: (routineId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
   onCardOpen: (c: InterventionView) => void;
@@ -620,6 +629,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           {t.supervised && <span>Tu gimnasio planifica tus rutinas. Si necesitás un cambio, pedíselo al equipo de sala.</span>}
         </div>} />
       )}
+      {/* 13/11: el nivel a la vista (antes sólo al final de Progreso y en Tu gym), en la primera pantalla; lleva a su detalle. */}
+      <LevelChip level={level} variant="row" onOpen={onLevel} />
       {/* D210: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
       <RepiCard startName={next?.name ?? t.openSessionDay ?? null}
         onStart={(k) => onStart(k && t.program?.days.some((d) => d.id === k) ? k : next?.id ?? "")}
@@ -705,10 +716,12 @@ function RelationPicker({ t, offline, busyOpen, onChange, flash }: { t: Training
   );
 }
 
-function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void; own: React.ReactNode }) {
+function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own, level, onLevel }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void; own: React.ReactNode; level: LevelData | null | false; onLevel: () => void }) {
+  // 13/11: el nivel junto al título (compacto); lleva al detalle en Progreso.
+  const head = <div className="tr-head"><h1 tabIndex={-1}>Entrenar</h1><LevelChip level={level} variant="pill" onOpen={onLevel} /></div>;
   if (t.state !== "ready" || !t.program) return (
     <>
-      <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
+      {head}
       <WeekStrip t={t} />
       {t.openSession && (
         <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />Continuar entrenamiento en curso</button>
@@ -721,7 +734,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
   const d = t.program.days[sel] ?? t.program.days[0];
   return (
     <>
-      <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
+      {head}
       {!t.supervised && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
@@ -837,11 +850,24 @@ function NewTag({ id, open }: { id: "new_progress_body" | "new_progress_photos";
   return <span className="pp-new">Nuevo</span>;
 }
 
-function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg }: { t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
+function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg, focusLevel = 0 }: { focusLevel?: number; t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
   const [open, setOpen] = useState<string | null>(null);
   const [trainingRevision, setTrainingRevision] = useState(0);
+  // 13/11: desde el nivel de Inicio o de Entrenar se llega directo a «Tu nivel y trofeos». Una vez por toque: la referencia
+  // sobrevive a que la sección quede oculta, así volver a Progreso por la barra no vuelve a desplazar.
+  const lvRef = useRef<HTMLDivElement>(null);
+  const lvSeen = useRef(0);
+  useEffect(() => {
+    if (!focusLevel || focusLevel === lvSeen.current) return;
+    lvSeen.current = focusLevel;
+    const show = () => { const el = lvRef.current; if (!el) return; el.scrollIntoView({ block: "start" }); el.focus({ preventScroll: true }); };
+    // Sin limpieza a propósito: al mostrarse una sección React vuelve a correr sus efectos y una limpieza cancelaría el
+    // desplazamiento recién pedido. Si la persona ya se fue de Progreso, el destino está oculto y no pasa nada.
+    requestAnimationFrame(show);
+    setTimeout(show, 450); // lo de arriba (gráficos, listas) puede terminar de llegar un instante después
+  }, [focusLevel]);
   const importedChanged = () => { setTrainingRevision((n) => n + 1); onChanged(); };
   // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico. Lo anulado no cuenta (D195).
   const weeks = new Map<string, number>();
@@ -878,7 +904,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
             )}
             <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
           </section>
-          {!offline && <LevelPanel />}
+          {!offline && <div ref={lvRef} id="nivel" tabIndex={-1} className="lv-anchor"><LevelPanel /></div>}
           <MyGoals />
           <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} supervised={!!t.supervised} />
           <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
