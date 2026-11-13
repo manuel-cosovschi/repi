@@ -85,7 +85,7 @@ export function Perspectives({ initial }: { initial: Profile | null }) {
   };
   const features = FEATURES.filter((f) => f.profiles.includes(p)).slice(0, 3);
   return (
-    <section ref={root} id="perfiles" className="x3-pv" data-shot={p} data-profile={p} aria-labelledby="cn-pv">
+    <section ref={root} id="perfiles" className="x3-pv" data-dim="0.5" data-shot={p} data-profile={p} aria-labelledby="cn-pv">
       <div className="x3-wrap">
         <Say id="cn-pv" className="x3-h2" text="Cuatro perspectivas. *Una sala.*" />
         <div className="x3-pv-tabs" role="tablist" aria-label="Elegí tu perfil" style={{ "--i": PROFILES.indexOf(p) } as React.CSSProperties}>

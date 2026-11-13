@@ -6,6 +6,9 @@
   --x-muted: #9AA8BA; --x-dim: #8291A6; --x-line: rgba(248, 250, 252, .12); --x-ink: #0B0F14; --x-ink-2: #3A4757;
   /* Escenario 3D (SalaCanvas los lee al montarse: three.js no entiende variables CSS). */
   --x-floor: #0F1620; --x-plan: #4A5D78; --x-edge: #5A6E8A; --x-gear: #1E2A3A;
+  /* 4.0 · Tonos de la sala 3D (equipos, paredes y pantallas apagadas): three.js los lee de acá al montar. */
+  --x-g-frame: #33455C; --x-g-pad: #1C2838; --x-g-metal: #7C8FA8; --x-g-dark: #141D2A; --x-g-top: #2A3A50; --x-g-wall: #121A26; --x-g-plate: #24344A;
+  --x-g-screen: #24354A; --x-g-kiosk: #3A4D66; --x-g-console: #1F2C3D; --x-g-wall-lo: #1B2636; --x-g-wall-mid: #131C29; --x-g-wall-hi: #0C1118;
   --x-ease: cubic-bezier(.16, 1, .3, 1); --x-gutter: clamp(16px, 4vw, 48px);
   background: var(--x-navy); color: var(--x-white); position: relative; isolation: isolate;
 }
@@ -64,6 +67,8 @@ html:has(.x3) { scrollbar-color: var(--x-steel) var(--x-navy); }
 .sala-canvas { width: 100% !important; height: 100% !important; }
 /* Velo frío: la sala «sin REPI» (02) y la toma abierta del entrenamiento (03). Sólo opacidad. */
 .sala-tone { position: absolute; inset: 0; background: #131B26; opacity: 0; }
+/* 4.0 · Atenuación detrás de las secciones con mucho texto (la pide `data-dim`): la sala sigue ahí, más baja. */
+.sala-dim { position: absolute; inset: 0; background: var(--x-navy); opacity: 0; }
 /* Golpe de color del corte de 02: la sala se tiñe de cian un instante cuando se enciende (la persona, viva). Sólo opacidad. */
 .sala-wash { position: absolute; inset: 0; background: var(--x-cyan); opacity: 0; }
 /* Viñeta funcional: asegura contraste del texto sobre la sala (no es decoración). */

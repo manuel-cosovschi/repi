@@ -14,11 +14,12 @@ export const STEPS = ["discovery", "enrich", "score", "compose", "outreach", "fo
 export type Step = (typeof STEPS)[number];
 export const STEP_LABEL: Record<Step, string> = { discovery: "Investigación", enrich: "Enriquecimiento", score: "Calificación", compose: "Preparación comercial", outreach: "Envío automático (email)", followup: "Seguimiento", report: "Informe diario" };
 
-async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron" | "manual", actorId: string | null, work: () => Promise<T>) {
+async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron" | "manual", actorId: string | null, work: () => Promise<T>, now = new Date()) {
   // Una corrida cortada por el límite de la función queda «running» para siempre: pasados 3 minutos se cierra como error.
   await db.update(leadRun).set({ status: "error", error: "La corrida se cortó por el límite de tiempo de la función", finishedAt: new Date() })
     .where(and(eq(leadRun.status, "running"), lte(leadRun.startedAt, new Date(Date.now() - 3 * 60_000))));
-  const dedupeKey = trigger === "cron" ? `${kind}:${today()}` : null;
+  // La clave del día usa el mismo reloj con el que `leadsTick` decide qué falta: con relojes distintos el paso se repetía.
+  const dedupeKey = trigger === "cron" ? `${kind}:${today(now)}` : null;
   const [r] = await db.insert(leadRun).values({ kind, trigger, dedupeKey, actorUserId: actorId }).onConflictDoNothing().returning();
   if (!r) return { skipped: true as const };
   try {
@@ -201,7 +202,7 @@ export async function leadsTick(now = new Date()) {
   const done = await db.select({ kind: leadRun.kind }).from(leadRun).where(inArray(leadRun.dedupeKey, due.map((k) => `${k}:${today(now)}`)));
   const next = due.find((k) => !done.some((x) => x.kind === k));
   if (!next) return { ran: null };
-  const r = await run(next, "cron", null, STEP_FN[next]);
+  const r = await run(next, "cron", null, STEP_FN[next], now);
   return { ran: next, status: "status" in r ? r.status : "skipped" };
 }
 

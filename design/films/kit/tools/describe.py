@@ -2,7 +2,7 @@
 Lee los guiones de build.py sin renderizar nada: reemplaza las funciones de escena por otras que anotan qué se ve y qué
 texto aparece. Escribe, por film, una pista WebVTT de descripciones (<id>.descripcion.vtt, junto al video web) para lectores
 de pantalla. El reproductor de /conoce muestra sólo el resumen de cada film (content/conoce.ts), pedido del titular 07/11.
-Uso: python3 tools/describe.py   (desde design/films/kit; no necesita los medios)"""
+Uso: python3 tools/describe.py [film ...]   (sin argumentos, los 11; no necesita los medios)"""
 import importlib.util, os, re
 
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,13 +24,15 @@ def panel(p): return f"{plain(p['k'])}: {plain(p['v'])}." + (f" {plain(p['why'])
 
 R = {
     "s_dot": lambda sid, dur, line: f"Un punto cian sobre el plano de la sala, vista desde arriba. Texto: {q(line)}",
-    "s_scatter": lambda sid, dur, t1, t2, connect_at, frags_def=None, calls=5.0, appear=1.05, waves=3: (
+    "s_scatter": lambda sid, dur, t1, t2, connect_at, frags_def=None, **k: (
         "Notas sueltas por la sala: " + "; ".join(plain(f[4]) for f in (frags_def or b.FRAGS_SALA)) + f". Texto: {q(t1)} "
         f"Las notas se conectan con líneas hacia el centro. Texto: {q(t2)}"),
     "s_logo": lambda sid, dur, claim: f"Logo de REPI. {q(claim)}",
-    "s_device": lambda sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=False, desc=None: (
+    "s_device": lambda sid, dur, clips, title, sub=None, panels=(), desc=None, **k: (
         f"{DEMO}. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + (f" {desc}" if desc else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
-    "s_network": lambda sid, dur, title: f"Las personas de la sala, unidas por líneas. Texto: {q(title)}",
+    "s_shot": lambda sid, dur, clips, title, cam=(), panels=(), sub=None, desc=None, **k: (
+        f"{DEMO}; la cámara se acerca a la parte de la pantalla de la que habla el título. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + (f" {desc}" if desc else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
+    "s_network": lambda sid, dur, title, **k: f"La sala vista desde arriba, con socios y equipo como puntos: un socio pide «Que venga alguien» y alguien del equipo responde «Voy». Texto: {q(title)}",
     "s_end": lambda sid, dur, claim, url, kicker=None: f"Logo de REPI.{f' {kicker}.' if kicker else ''} {q(claim)} Dirección: {url}",
     "s_tablet": lambda sid, dur, clips, title, sub=None, panels=(), focus=None, keys=(), still=None, desc=None: (
         f"{KIOSK}. Título: {q(title)}" + (f" {q(sub)}" if sub else "") + (f" {desc}" if desc else "") + "".join(f" Recuadro: {panel(p)}" for p in panels)),
@@ -42,8 +44,11 @@ for k, f in R.items(): setattr(b, k, f)
 
 def ts(s): return f"{int(s // 60):02d}:{s % 60:06.3f}"
 
+import sys
+only = sys.argv[1:]
 out = {}
 for name, web in WEB.items():
+    if only and name not in only: continue
     f = b.FILMS[name]; t = 0.0; cues = []
     for sid, dur, fn in f["scenes"]:
         cues.append((t, t + dur, fn(sid, dur))); t += dur

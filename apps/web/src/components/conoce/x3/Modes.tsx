@@ -10,7 +10,7 @@
 // `?modo=completo|control` (en /conoce o /conoce/<perfil>) lo preselecciona y lleva hasta acá; `#modos` sólo lleva. Elegir
 // otro modo deja `?modo=` en la URL (compartible). Mide mode_select (target modo-completo | modo-control); el contacto,
 // la demo y WhatsApp miden lo de siempre con ese mismo target. Sin precios: «Pedí una propuesta personalizada».
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowRight, ChatCircle, Play } from "@phosphor-icons/react";
 import { MODES, MODE_IDS, MODE_ROWS, VIDEOS, type ModeId } from "@/content/conoce";
 import { waLink } from "@/lib/contact";
@@ -18,8 +18,8 @@ import { track } from "@/lib/site-track";
 import { stage } from "../sala/store";
 import { DemoButton } from "../DemoButton";
 import { TrackLink } from "../TrackLink";
-import { MODE_EVENT, announceInterest, modeFromUrl } from "../interest";
-import { reduced } from "./gsap";
+import { MODE_EVENT, announceInterest, announceMode, modeFromUrl } from "../interest";
+import { gsap, reduced } from "./gsap";
 import { Say } from "./Say";
 import { useFilm } from "./FilmPlayer";
 
@@ -30,12 +30,18 @@ const STEP_MS = 1100;
 
 export function Modes() {
   const [m, setM] = useState<ModeId>("completo");
+  /** El modo que muestran los paneles. Va un render detrás del elegido: al tocar, primero se pinta la pestaña (respuesta
+   *  inmediata) y recién después se arma el panel nuevo con su equipo, que es lo caro. */
+  const shown = useDeferredValue(m);
   /** Hubo un cambio de modo: recién ahí corren las entradas del panel (al cargar, el panel ya está quieto). */
   const [moved, setMoved] = useState(false);
   const [step, setStep] = useState<Record<ModeId, number>>(DEFAULT_STEP);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const timers = useRef<number[]>([]);
   const film = useFilm();
+  const root = useRef<HTMLElement>(null);
+  /** 4.0 · De dónde sale la transformación del equipo (el teléfono se vuelve la pantalla del gimnasio y al revés). */
+  const morph = useRef<{ rect: DOMRect; src: string } | null>(null);
 
   const stopTour = () => { timers.current.forEach((t) => clearTimeout(t)); timers.current = []; };
   const playTour = (id: ModeId) => {
@@ -46,7 +52,12 @@ export function Modes() {
   };
   /** Cambia de modo. `user`: lo eligió la persona en el selector (mide y deja la URL compartible). */
   const show = (id: ModeId, user: boolean) => {
+    // Antes de cambiar: dónde está y qué muestra el equipo del modo actual (para transformarlo en el del nuevo).
+    const glass = root.current?.querySelector<HTMLElement>(`#md-panel-${shown} .x3-md-main .x3-md-glass`);
+    const img = glass?.querySelector<HTMLImageElement>("img[data-on]");
+    morph.current = glass && img && id !== m && !reduced() && !stage.get().paused ? { rect: glass.getBoundingClientRect(), src: img.currentSrc || img.src } : null;
     setM(id); setMoved(true); playTour(id);
+    announceMode(id); // el formulario toma la modalidad que queda elegida, venga de donde venga el cambio
     if (!user) return;
     track("mode_select", { profile: "gimnasios", target: `modo-${id}` });
     try {
@@ -69,6 +80,30 @@ export function Modes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 4.0 · «Un equipo que se transforma» (WOW 4): el equipo anterior gira sobre su eje hasta quedar de canto y vuelve convertido
+  // en el otro (el teléfono del socio ↔ la pantalla del gimnasio), viajando de un lugar al otro. Mientras gira muestra todavía
+  // su pantalla anterior; de canto se cambia por la nueva. Sólo transformaciones; reducido o en pausa, el cambio es directo.
+  useLayoutEffect(() => {
+    const from = morph.current; morph.current = null;
+    if (!from) return;
+    const el = root.current?.querySelector<HTMLElement>(`#md-panel-${shown} .x3-md-main`), glass = el?.querySelector<HTMLElement>(".x3-md-glass");
+    if (!el || !glass) return;
+    const to = glass.getBoundingClientRect();
+    if (!to.width || !from.rect.width || from.rect.bottom < 0 || from.rect.top > window.innerHeight) return;
+    const dx = from.rect.left + from.rect.width / 2 - (to.left + to.width / 2), dy = from.rect.top + from.rect.height / 2 - (to.top + to.height / 2);
+    const sx = from.rect.width / to.width, sy = from.rect.height / to.height, dir = shown === "control" ? -1 : 1;
+    const ghost = document.createElement("img");
+    ghost.src = from.src; ghost.alt = ""; ghost.className = "x4-md-ghost"; ghost.setAttribute("aria-hidden", "true");
+    glass.appendChild(ghost);
+    el.dataset.morph = "1";
+    const done = () => { ghost.remove(); delete el.dataset.morph; gsap.set(el, { clearProps: "transform" }); };
+    const tl = gsap.timeline({ onComplete: done })
+      .fromTo(el, { x: dx, y: dy, scaleX: sx, scaleY: sy, rotateY: 0, transformPerspective: 1400 }, { rotateY: dir * 90, duration: 0.34, ease: "power2.in" })
+      .add(() => { ghost.style.opacity = "0"; })
+      .fromTo(el, { rotateY: -dir * 90 }, { rotateY: 0, x: 0, y: 0, scaleX: 1, scaleY: 1, duration: 0.62, ease: "power3.out", immediateRender: false });
+    return () => { tl.kill(); done(); };
+  }, [shown]);
+
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const n = MODE_IDS.length;
     const j = e.key === "ArrowRight" ? (i + 1) % n : e.key === "ArrowLeft" ? (i - 1 + n) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
@@ -78,7 +113,7 @@ export function Modes() {
   };
 
   return (
-    <section id="modos" className="x3-md" data-shot={m} data-mode={m} data-moved={moved ? "1" : undefined} aria-labelledby="cn-md">
+    <section ref={root} id="modos" className="x3-md" data-dim="0.45" data-shot={m} data-mode={shown} data-moved={moved ? "1" : undefined} aria-labelledby="cn-md">
       <div className="x3-wrap">
         <Say id="cn-md" className="x3-h2" text="Un mismo REPI. *Dos formas de entrenar.*" />
         <p className="x3-lead">Cada gimnasio trabaja distinto. REPI se adapta a tu forma de planificar y acompañar a tus socios.</p>
@@ -91,8 +126,8 @@ export function Modes() {
             </button>
           ))}
         </div>
-        {MODE_IDS.map((id) => <Panel key={id} id={id} on={id === m} step={step[id]} setStep={(k) => { stopTour(); setStep((s) => ({ ...s, [id]: k })); track("feature_click", { profile: "gimnasios", target: `modo-${id}-${k + 1}` }); }} onFilm={() => { const v = VIDEOS[MODES[id].film]; if (v?.src) film(v, "gimnasios"); }} />)}
-        <Compare active={m} />
+        {MODE_IDS.map((id) => <Panel key={id} id={id} on={id === shown} step={step[id]} setStep={(k) => { stopTour(); setStep((s) => ({ ...s, [id]: k })); track("feature_click", { profile: "gimnasios", target: `modo-${id}-${k + 1}` }); }} onFilm={() => { const v = VIDEOS[MODES[id].film]; if (v?.src) film(v, "gimnasios"); }} />)}
+        <Compare active={shown} />
       </div>
     </section>
   );
@@ -116,6 +151,7 @@ function Panel({ id, on, step, setStep, onFilm }: { id: ModeId; on: boolean; ste
           <TrackLink event="whatsapp_click" profile="gimnasios" target={target} external className="x3-btn text" href={waLink(c.whatsapp)}><ChatCircle size={18} weight="bold" aria-hidden="true" />Consultar por WhatsApp</TrackLink>
           {video?.src && <button type="button" className="x3-btn text" onClick={onFilm}><Play size={16} weight="fill" aria-hidden="true" />Ver el video{video.duration ? ` · ${video.duration}` : ""}</button>}
         </div>
+        {c.availability && <p className="x3-sc-status x3-md-avail" data-s="per_gym" style={{ "--d": 5 } as React.CSSProperties}>{c.availability}</p>}
         <p className="x3-fine x3-md-price" style={{ "--d": 5 } as React.CSSProperties}>¿Precio? <a href="#contacto" onClick={contact}>Pedí una propuesta personalizada</a> para tu gimnasio.</p>
       </div>
       <Stage id={id} step={step} setStep={setStep} />

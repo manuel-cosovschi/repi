@@ -6,7 +6,7 @@ import { track } from "@/lib/site-track";
 
 /** Secciones claras: el índice (tinta clara) no se lee encima y se retira mientras están a la vista. */
 const LIGHT = new Set(["caso", "contacto"]);
-const SCENES: [string, string][] = [["cn-hero", "Inicio"], ["problema", "El problema"], ["en-accion", "En acción"], ["perfiles", "Perspectivas"], ["modos", "Modalidades"], ["funciones", "Producto"], ["demos", "Demos"], ["caso", "En gimnasios"], ["contacto", "Contacto"]];
+const SCENES: [string, string][] = [["cn-hero", "Inicio"], ["problema", "El problema"], ["en-accion", "En acción"], ["perfiles", "Perspectivas"], ["modos", "Modalidades"], ["sala", "La sala"], ["funciones", "Producto"], ["demos", "Demos"], ["caso", "En gimnasios"], ["cierre", "Cierre"], ["contacto", "Contacto"]];
 
 export function SceneIndex() {
   const [on, setOn] = useState("cn-hero");
