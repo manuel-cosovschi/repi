@@ -351,6 +351,10 @@ html[data-motion="paused"] .x3 *, html[data-motion="paused"] .x3 *::before, html
 }
 
 /* ── Roll v2: cada dígito rueda en su máscara (sólo translateY y opacidad) ── */
+.x3-roll-mask { display: inline-grid; overflow: clip; padding: .08em 0; margin: -.08em 0; font-variant-numeric: tabular-nums; }
+.x3-roll-mask > * { grid-area: 1 / 1; justify-self: start; }
+.x3-roll-was { white-space: pre; animation: x3-out .42s var(--x-ease) both; }
+.x3-roll-digits[data-in] { animation: x3-in .42s var(--x-ease) both; }
 .x3-roll-digits { display: inline-flex; font-variant-numeric: tabular-nums; }
 .x3-roll-d { position: relative; display: inline-block; overflow: clip; padding: .08em 0; margin: -.08em 0; }
 .x3-roll-new, .x3-roll-old { display: inline-block; white-space: pre; }

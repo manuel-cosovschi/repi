@@ -150,6 +150,7 @@ Rutas relativas a `apps/web/src/`.
   - `owner` ahora es «Seguimiento de sala» (pedidos recibidos, resueltos y tiempos); el tablero «Ejecutivo» de la demo está casi en cero.
   - `access`: el email ficticio de la demo se muestra con un dominio de ejemplo.
   - `training-piezas.webp` es la captura anterior, que sólo usa `EngineScreen.tsx` para recortar piezas de interfaz sin números (los recortes van por coordenadas).
+  - **Segunda pasada (13/11, después de publicar la vista del alumno, #119):** `member`, `adaptive` e `intelligence` se volvieron a capturar con el nivel a la vista en Inicio y en Entrenar y la lista de ejercicios nueva.
   - **Sigue distinto:** la demo que prueba el visitante y los films muestran el ejemplo de la demo (53 kg). Cada uno es coherente por dentro.
 
 ## 9. Veracidad

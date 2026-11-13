@@ -59,7 +59,7 @@ const NAV: readonly (readonly [Screen, string])[] = [["summary", "Resumen"], ["c
 
 export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?: string; tab?: string; deal?: string; rep?: string } }) {
   // D209: los avisos de Ventas abren /admin?s=sales&tab=…&deal=… o ?s=sales&rep=…
-  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : initial?.s === "captacion" ? "captacion" : "summary");
+  const [screen, setScreen] = useState<Screen>(initial?.s === "sales" ? (initial.rep ? "reps" : "sales") : initial?.s === "captacion" ? "captacion" : initial?.s === "site" ? "site" : "summary");
   const [drawer, setDrawer] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -135,7 +135,7 @@ export function AdminApp({ me, initial }: { me: { name: string }; initial?: { s?
             {k === "privacy" && <PrivacyRequests flash={flash} />}
             {k === "announcements" && <AdminAnnouncements flash={flash} />}
             {k === "guide" && <AdminGuide />}
-            {k === "site" && <AdminSite />}
+            {k === "site" && <AdminSite today={initial?.tab === "hoy"} />}
             {/* D210: métricas agregadas del asistente REPI y límites de la IA (sin datos de alumnos). */}
             {k === "coaching" && <AdminCoaching flash={flash} orgs={(list.data?.clients ?? []).map((c) => ({ id: c.orgId, name: c.name }))} />}
             {k === "captacion" && <AdminLeads flash={flash} />}
