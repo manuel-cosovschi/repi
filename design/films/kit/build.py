@@ -701,17 +701,17 @@ def entrenadores():
                 desc="«Clientes»: Julián Ortiz, sin programa; Martina López y Valentina Gómez, con «Hipertrofia · 3 días». Abre la ficha de Valentina: última sesión, hace 3 días.", panels=[
                 dict(at=1.1, k="Julián Ortiz", v="Sin programa", cls="a", out=2.75),
                 dict(at=3.6, k="Valentina Gómez · última sesión", v="Hace 3 días", cls="t")])),
-            ("sesiones", D[1], lambda s, d: s_shot(s, d, [("c-clientes.mp4", 4.6, 0, d)], "Cada sesión, *serie* *por* *serie.*", enter=False, drift=False,
-                cam=[(0, 1.7, 0.80), (0.05, 1.6, 0.45, 0.9), (1.9, 1.95, 0.36, 0.8)], rings=[(3.0, d - 0.35, 0.238, 0.433, 0.03, 0.97)],
+            ("sesiones", D[1], lambda s, d: s_shot(s, d, [("c-clientes.mp4", 5.6, 0, d)], "Cada sesión, *serie* *por* *serie.*", enter=False, drift=False,
+                cam=[(0, 1.7, 0.80), (0.05, 1.6, 0.45, 0.85), (0.95, 1.95, 0.36, 0.85)], rings=[(2.1, d - 0.35, 0.238, 0.433, 0.03, 0.97)],
                 desc="En la ficha baja al registro de sesiones: en Torso B, Remo en polea figura con «+2,5 kg vs. la vez anterior», serie por serie.", panels=[
-                dict(at=2.9, k="Valentina · Remo en polea", v="+2,5 kg", cls="a", why="Contra la vez anterior.")])),
+                dict(at=2.0, k="Valentina · Remo en polea", v="+2,5 kg", cls="a", why="Contra la vez anterior.")])),
             ("programs", D[2], lambda s, d: s_shot(s, d, [("c-programa.mp4", 1.7, 0, 1.9), ("c-programa.mp4", 5.9, 1.9, round(d - 1.9, 2))], "Tu programa, *a* *tu* *manera.*", side="left",
                 cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.7, 0.33, 0.8), (2.0, 1.9, 0.66, 1.0)], rings=[(3.6, d - 0.35, 0.675, 0.838, 0.03, 0.97)],
                 desc="Abre su plantilla «Hipertrofia · 3 días», versión 1, y baja hasta el día Torso A: Press de banca, 4 series de 8 a 10 repeticiones, RIR 2 y 2 minutos de descanso.", panels=[
                 dict(at=1.0, k="Programa · versión 1", v="Hipertrofia · 3 días", cls="a", out=3.1),
                 dict(at=3.5, k="Torso A · Press de banca", v="4 × 8–10 · RIR 2", cls="t")])),
             ("asigna", D[3], lambda s, d: s_shot(s, d, [("c-asigna.mp4", 2.6, 0, d)], "Y lo *asignás.*",
-                cam=[(0, 1.5, 0.5, 0.7), (3.45, 1.7, 0.72, 0.7)], rings=[(4.0, d - 0.35, 0.875, 0.988, 0.03, 0.97)],
+                cam=[(0, 1.5, 0.5, 0.7), (0.9, 1.5, 0.5, 0.5), (3.45, 1.7, 0.72, 0.7)], rings=[(4.0, d - 0.35, 0.875, 0.988, 0.03, 0.97)],
                 desc="En «Asignar Hipertrofia · 3 días» marca a Valentina Gómez y a Julián Ortiz y confirma. Aviso: «Programa asignado a Valentina, Julián. Lo verá en la app desde hoy».", panels=[
                 dict(at=3.7, k="Programa asignado a", v="Valentina y Julián", cls="t")])),
             ("serie", D[4], lambda s, d: shot_serie(s, d, "Cada alumno entrena *con* *objetivo.*", side="left")),
@@ -806,8 +806,8 @@ def sala():
                 dict(at=0.9, k="Valentina Gómez · Ayuda con un ejercicio", v="Sin responsable", cls="a")])),
             ("toma", D[2], lambda s, d: s_shot(s, d, [("s-mio.mp4", 0.1, 0, d)], "Y lo *toma.*", side="left", enter=False, drift=False,
                 cam=[(0, 1.9, 0.52)], rings=[(0.3, d - 0.35, 0.44, 0.60, 0.03, 0.97)],
-                desc="El mismo pedido T-1115 en «Para vos»: asignado, a nombre de Sofía Ramírez.", panels=[
-                dict(at=0.25, k="Asignado · T-1115", v="Sofía Ramírez", cls="t")])),
+                desc="El mismo pedido T-1115 en «Para vos»: asignada, a nombre de Sofía Ramírez.", panels=[
+                dict(at=0.25, k="Asignada · T-1115", v="Sofía Ramírez", cls="t")])),
             ("sabe", D[3], lambda s, d: s_shot(s, d, [("m-pedido.mp4", 0.2, 0, d, 0.57)], "Y el socio *ve* *quién* lo tomó.",
                 cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.9, 0.41, 0.8)], rings=[(1.5, d - 0.35, 0.375, 0.45, 0.03, 0.97)],
                 desc="De vuelta en la app de Valentina: «Tu pedido: asignada · Ayuda con un ejercicio · Sofía».", panels=[

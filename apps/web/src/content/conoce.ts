@@ -27,8 +27,8 @@ export type Video = {
 };
 // Experience 4.0 (D219): se re-renderizaron film-marca (con versión 9:16 nueva), modo-control, modo-completo, perfil-gimnasios
 // y f-intelligence (teléfono grande con cámara sobre la fila que se nombra, sin el parpadeo ni el fogonazo cian).
-// Segunda tanda (13/11/2026): con el mismo kit se rehicieron perfil-deportistas (16:9 y 9:16), f-progreso, f-altas y f-sala:
-// abren con el producto y suman material nuevo de la demo local.
+// Segunda tanda (13/11/2026): con el mismo kit se rehicieron perfil-deportistas (16:9 y 9:16), perfil-aliados, f-progreso,
+// f-altas y f-sala: abren con el producto y suman material nuevo de la demo local.
 // Experience 3.0 (D208): films de motion graphics con la interfaz real de la demo (datos ficticios), música instrumental con
 // licencia comercial y efectos; sin voz ni locución. Se entienden sin sonido. Generados con design/films/kit/build.py
 // (HyperFrames); licencias en marketing/videos/LICENCIAS.md. Los masters no van a Git.
@@ -46,7 +46,7 @@ export const VIDEOS: Record<string, Video> = {
   "perfil-deportistas": film("perfil-deportistas", "REPI para alumnos y deportistas", "Quien entrena", "0:38", "Volatile Reaction",
     "Tu rutina lista en el teléfono, cómo llegás hoy en tres toques, un objetivo concreto para cada serie, el descanso que corre solo, tu progreso por ejercicio y tu peso con su objetivo, privado.",
     { srcVertical: "/conoce/videos/perfil-deportistas-vertical.mp4", posterVertical: "/conoce/videos/perfil-deportistas-vertical.webp" }),
-  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "1:06", "Rising Game",
+  "perfil-aliados": film("perfil-aliados", "REPI, empresa de tecnología deportiva", "Empresas, inversores y aliados", "0:48", "Rising Game",
     "Una plataforma B2B2C: gimnasios y entrenadores la contratan, sus alumnos la usan cada vez que entrenan y un motor propio explica cada recomendación."),
   "f-intelligence": film("f-intelligence", "Training Intelligence en una serie", "Todos", "0:28", "Volatile Reaction",
     "Propone el peso y las repeticiones de cada serie según tu historial, con la razón a la vista, y se ajusta cuando registrás lo que hiciste."),
