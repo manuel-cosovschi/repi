@@ -1,4 +1,4 @@
-// Capturas reales de la app para /conoce (apps/web/public/conoce/shots/): training, intelligence, adaptive, owner, access y
+// Capturas reales de la app para /conoce (apps/web/public/conoce/shots/): member, training, intelligence, adaptive, owner, access y
 // control-equipo. Demo LOCAL con datos ficticios; nunca contra producción (el script se niega si la base no es local).
 // Uso: DATABASE_URL=postgres://…@127.0.0.1/… REPI_BASE=http://localhost:3280 node shots-conoce.mjs <carpeta de salida> [tarea]
 //
@@ -43,7 +43,7 @@ const top = async (p, re, off = 70) => { await p.getByText(re).first().evaluate(
 const shot = async (p, name, w = 600) => { await p.screenshot({ path: `${OUT}/${name}.png` }); webp(name, w); };
 
 const tasks = {
-  // Socio: Entrenar (adaptive), la serie en curso (training) y la tabla del objetivo (intelligence).
+  // Socio: Inicio (member), Entrenar (adaptive), la serie en curso (training) y la tabla del objetivo (intelligence).
   async member() {
     const { ctx, p, href } = await demo("member", async () => {
       const u = sql(`select id from "user" where name ilike 'Valentina%' order by created_at desc limit 1`);
@@ -54,6 +54,8 @@ const tasks = {
       sql(`update set_log set weight_kg='60', reps=10 where ${bench(ss.at(-1))}`);
     });
     await open(p, href);
+    await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(500);
+    await shot(p, "member"); // Inicio: el entrenamiento de hoy y el nivel
     await nav(p, "Entrenar");
     await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(500);
     await shot(p, "adaptive");
