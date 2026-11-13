@@ -665,7 +665,7 @@ def deportistas(size):
     en el corte al check-in (pulso 14) y la pista afloja en el corte al cierre (pulso 84). Frases de 7 pulsos."""
     D = beats(0.3871, [14, 14, 21, 7, 14, 14, 13], tail=0.6)
     return dict(
-        title="REPI para deportistas", dur=round(sum(D), 2), size=size, music=("volatile-reaction.mp3", 24.371), sfx="auto", poster=14.5,
+        title="REPI para deportistas", dur=round(sum(D), 2), size=size, music=("volatile-reaction.mp3", 24.371), sfx="auto", poster=13.4,
         scenes=[
             ("home", D[0], lambda s, d: s_shot(s, d, [("m-home.mp4", 0.2, 0, d, 0.6)], "Tu rutina, *lista.*",
                 cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.38, 0.8), (3.75, 1.6, 0.42, 1.3)], rings=[(1.5, 3.6, 0.305, 0.483, 0.045, 0.955)],
@@ -694,7 +694,7 @@ def entrenadores():
     3 pulsos); el pico de la pista cae en la serie (24–32 s) y afloja en el corte a «REPI propone. Vos decidís»."""
     D = beats(0.6667, [9, 9, 9, 9, 12, 6, 7], tail=0.5)
     return dict(
-        title="REPI para entrenadores", dur=round(sum(D), 2), music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=21.5,
+        title="REPI para entrenadores", dur=round(sum(D), 2), music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=22.6,
         scenes=[
             ("clients", D[0], lambda s, d: s_shot(s, d, [("c-clientes.mp4", 0.2, 0, 2.8, 0.75), ("c-clientes.mp4", 2.3, 2.8, round(d - 2.8, 2), 0.72)], "Todos tus alumnos, *de* *un* *vistazo.*", leave=False, drift=False,
                 cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.52, 0.7), (2.9, 1.7, 0.80, 0.8)], rings=[(1.4, 2.55, 0.405, 0.485, 0.03, 0.97), (3.9, d - 0.3, 0.805, 0.935, 0.03, 0.97)],
@@ -725,7 +725,7 @@ def aliados():
     Mar del Plata»). Pulso 0,531 s (113 bpm); el tramo arranca en 34,425 s y las frases son de 8 pulsos."""
     D = beats(0.531, [6, 10, 16, 12, 12, 8, 8, 8, 9], tail=0.6)
     return dict(
-        title="REPI · Tecnología para el entrenamiento", dur=round(sum(D), 2), music=("rising-game.mp3", 34.425), sfx="auto", poster=13.0,
+        title="REPI · Tecnología para el entrenamiento", dur=round(sum(D), 2), music=("rising-game.mp3", 34.425), sfx="auto", poster=10.9,
         scenes=[
             ("logo", D[0], lambda s, d: s_logo(s, d, "Tecnología *para* *entrenar.*")),
             ("model", D[1], lambda s, d: s_statement(s, d, "Gimnasios y entrenadores *la* *contratan.*", sub="Sus socios y alumnos la usan cada vez que entrenan.")),
