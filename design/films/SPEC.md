@@ -42,13 +42,13 @@ QA:      snapshot de cada beat; tira de cortes; lectura a 360 px; audio medido (
 | --- | --- | --- | --- | --- |
 | `brand` / `brand-vertical` (4.0) | `film-marca` / `-vertical` (1080×1920) | 38,4 s | Heroic Age | 45,2 → 83,6 s |
 | `gimnasios` (4.0) | `perfil-gimnasios` | 46,8 s | Five Armies | 68,4 → 115,2 s |
-| `entrenadores` | `perfil-entrenadores` | 49,1 s | Exciting Trailer | 4,0 → 53,1 s |
-| `deportistas` / `deportistas-vertical` | `perfil-deportistas` / `-vertical` (1080×1920) | 40,0 s | Volatile Reaction | 24,0 → 64,0 s |
-| `aliados` | `perfil-aliados` | 66,5 s | Rising Game | 25,0 → 91,5 s |
+| `entrenadores` (4.0) | `perfil-entrenadores` | 41,2 s | Exciting Trailer | 4,0 → 45,2 s |
+| `deportistas` / `deportistas-vertical` (4.0) | `perfil-deportistas` / `-vertical` (1080×1920) | 38,2 s | Volatile Reaction | 24,4 → 62,5 s |
+| `aliados` (4.0) | `perfil-aliados` | 47,9 s | Rising Game | 34,4 → 82,3 s |
 | `intelligence` (4.0) | `f-intelligence` | 28,1 s | Volatile Reaction | 120,6 → 148,7 s |
-| `progreso` | `f-progreso` | 22,5 s | Clash Defiant | 150,0 → 172,5 s |
-| `altas` | `f-altas` | 23,5 s | Five Armies | 120,0 → 143,5 s |
-| `sala` | `f-sala` | 23,5 s | Clash Defiant | 0,0 → 23,5 s |
+| `progreso` (4.0) | `f-progreso` | 22,8 s | Clash Defiant | 150,3 → 173,2 s |
+| `altas` (4.0) | `f-altas` | 25,8 s | Five Armies | 120,5 → 146,3 s |
+| `sala` (4.0) | `f-sala` | 27,1 s | Clash Defiant | 0,3 → 27,4 s |
 | `modo-completo` / `modo-completo-vertical` (4.0) | `modo-completo` / `-vertical` (1080×1920) | 53,1 s | Volatile Reaction | 64,2 → 117,4 s |
 | `modo-control` / `modo-control-vertical` | `modo-control` / `-vertical` (1080×1920) | 59,7 s | Clash Defiant | 203,0 → 262,7 s |
 
@@ -75,7 +75,7 @@ sesión de la dueña, que por permisos ve la asistencia pero no las series, así
 - **`s_shot`** (plano de producto con cámara): teléfono grande (hasta ≈ 45 % del ancho en 16:9 y casi a sangre en 9:16), entrada
   inclinada en 3D que se asienta, `cam=[(en_s, zoom, fy, duración)]` para acercarse a la fila exacta, `rings` para recuadrarla y
   tarjetas con el valor que muestra esa fila. Las fracciones (`fy`, `rings`) se miden sobre la grabación: si se regraba, se
-  vuelven a medir. `s_device` (teléfono chico, plano) queda sólo para los films todavía no rehechos.
+  vuelven a medir. `s_device` (teléfono chico, plano) se retiró del kit el 13/11/2026: ya no lo usa ningún film.
 - **Grabaciones HD**: `tools/rec-hd.mjs` (capturas a 3× → 1170×2532, un MP4 por tramo, con marcas en `<tramo>.json`). Oculta sólo
   ruido de entorno (píldora y tarjetas de la demo guiada, cartel de avisos push no configurados, correos `.invalid` desenfocados).
 - **Sin desenfoque de movimiento del render** en ningún film (`motion_blur` apagado por defecto): con él se veía ≈ 0,3 s el póster
@@ -90,6 +90,30 @@ sesión de la dueña, que por permisos ve la asistencia pero no las series, así
 - `build.py` falla con un error claro si falta una grabación o la pista (antes seguía en silencio).
 - `tools/finish.py`: audio AAC 160 kb/s y tope de peso del archivo web (7,1 MB por defecto, `MAX_MB`): si el CRF 24 se pasa,
   sube a 26, 27 o 28 hasta entrar. `tools/describe.py [film ...]` regenera sólo las pistas de los films indicados.
+
+## Segunda tanda 4.0 (13/11/2026): los seis films que seguían con el kit 3.0
+
+`perfil-entrenadores`, `perfil-deportistas` (16:9 y 9:16), `perfil-aliados`, `f-progreso`, `f-altas` y `f-sala` se rehicieron con
+`s_shot`. Qué cambia respecto de los cinco primeros:
+
+- **Abren con el producto** (sin la placa del punto ni la apertura de tarjetas): el teléfono y el título entran en el cuadro 0.
+  `perfil-aliados` abre con la marca (`s_logo`) y el modelo en una placa.
+- **Planos encadenados** (`enter=False` / `leave=False`) en `entrenadores` (clientes → sesiones), `deportistas` (serie → descanso),
+  `progreso` (resumen y marcas → evolución) y `sala` (el equipo lo ve → lo toma): el teléfono no sale, cambian el título, el
+  recuadro y la tarjeta.
+- **Grabaciones nuevas** (`tools/rec-hd.mjs`, sesiones `member2` y `owner2`): `m-checkin`, `m-prog2`, `m-cuerpo`, `m-ayuda`,
+  `m-pedido`, `s-sala`, `s-mio`, `o-qr`, `o-alta2` y `j-unirse` (lo que abre el QR de la sede: página pública `/unirse/<enlace>`).
+  `s-sala` y `s-mio` son la profesora de sala de **la misma demo** que la socia (el pedido que toma es el que la socia acaba de
+  mandar): como la demo sólo abre la sesión del perfil elegido, la de la profesora se abre con una fila `session` en la base
+  local descartable (`sameDemo` en `rec-hd.mjs`; pide `DATABASE_URL` local `repi_e2e_*` y `BETTER_AUTH_SECRET` del servidor
+  local). Nunca contra dev ni producción.
+- El QR de `f-altas` es el que dibuja el producto en la demo local: apunta a `http://localhost:<puerto>/unirse/<enlace>` (no
+  lleva a ningún sitio real si alguien lo escanea desde el video).
+- `tools/finish.py`: si después de `loudnorm` queda un pico por encima de −1,5 dBTP (pasó en `f-progreso`: +1,6 dBTP en el
+  primer golpe), repite la pasada con un limitador de picos. Si el pico ya está en rango no cambia nada.
+- `build.py` borra de `compositions/` las escenas de un guion anterior; el póster de todos los verticales sale a 720 px.
+- `c-clientes.mp4`: entre 4,6 y 6,5 s la ficha queda quieta arriba (el primer scroll no se movió); los planos de sesiones
+  arrancan después.
 
 ## Producción
 

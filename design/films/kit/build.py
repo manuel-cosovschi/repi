@@ -247,50 +247,6 @@ PHONE_CSS = f""".phone {{ position: absolute; width: 470px; height: 1017px; bord
 .panel b.t {{ color: {C['teal']}; }}
 .panel p {{ margin: 14px 0 0; font: 600 34px/1.3 "Barlow"; color: {C['muted']}; max-width: 620px; }}"""
 
-def s_device(sid, dur, clips, title, sub=None, panels=(), side="left", still=None, exit_panels=True, desc=None):
-    """La app real: grabación (o captura) en el teléfono, con título al costado y paneles con los valores reales
-    de la acción a tamaño grande. `clips`: [(archivo, media_start, inicio, duración)] cortados dentro del teléfono.
-    `desc`: qué pasa en la grabación, para la pista de descripción (tools/describe.py); no se ve."""
-    KIND[sid] = "device"
-    vertical = H > W
-    if vertical:  # título arriba, panel en el medio, teléfono abajo
-        css = PHONE_CSS + f"""#{sid}-ph {{ left: {(W-470)/2}px; top: {H-1017-90}px; }}
-#{sid}-t {{ position: absolute; left: 70px; top: 170px; width: {W-140}px; }}
-#{sid}-sub {{ position: absolute; left: 70px; top: 430px; width: {W-140}px; }}"""
-        panels = [dict(p, x=70, y=p.get("vy", 440)) for p in panels]  # `vy`: más abajo si el título ocupa tres líneas
-    else:
-        px = 1260 if side == "left" else 190
-        tx = 150 if side == "left" else 760
-        css = PHONE_CSS + f"""#{sid}-ph {{ left: {px}px; top: 32px; }}
-#{sid}-t {{ position: absolute; left: {tx}px; top: 300px; width: 980px; }}
-#{sid}-sub {{ position: absolute; left: {tx}px; top: 560px; width: 900px; }}"""
-    for p in panels: HINTS.append((sid, p["at"]))
-    # Un único video por escena, precortado con ffmpeg (build → precut): con varios <video> o clips que arrancan a mitad
-    # de escena, el render deja el teléfono en blanco unos cuadros. El póster (primer cuadro) queda debajo.
-    PRECUTS.append((sid, clips, dur, (780, 1688)))
-    vids = [f'<img src="assets/media/cut-{sid}.jpg" alt="">',
-            f'<video id="{sid}-v" class="clip" src="assets/media/cut-{sid}.mp4" muted playsinline data-start="0" data-duration="{dur}" data-track-index="2"></video>']
-    if still: vids = [f'<img src="assets/media/{still}" alt="">']
-    pnl = []
-    for j, p in enumerate(panels):
-        cls = p.get("cls", "")
-        pnl.append(f'<div id="{sid}-p{j}" class="panel" style="left:{p["x"]}px;top:{p["y"]}px"><small>{p["k"]}</small><b class="{cls}">{p["v"]}</b>{f"<p>{p["why"]}</p>" if p.get("why") else ""}</div>')
-    body = f"""{floor_svg(sid, draw=False)}
-<div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,15,20,.92) 0%, rgba(11,15,20,.6) 55%, rgba(11,15,20,.35) 100%)"></div>
-<div id="{sid}-ph" class="phone"><div class="scr">{"".join(vids)}</div></div>
-<h2 id="{sid}-t" class="h clip" data-start="0" data-duration="{dur}">{words(title)}</h2>
-{f'<p id="{sid}-sub" class="s clip" data-start="0" data-duration="{dur}">{sub}</p>' if sub else ""}
-{"".join(pnl)}"""
-    js = [f'tl.fromTo("#{sid}-ph", {{ x: 900, filter: "blur(14px)" }}, {{ x: 0, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }}, 0);',
-          f'tl.fromTo("#{sid}-t .w", {{ opacity: 0, filter: "blur(6px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.08 }}, 0.25);']
-    if sub: js.append(f'tl.fromTo("#{sid}-sub", {{ opacity: 0, filter: "blur(8px)" }}, {{ opacity: 1, filter: "blur(0px)", duration: 0.2 }}, 0.9);')
-    for j, p in enumerate(panels):
-        js.append(f'tl.fromTo("#{sid}-p{j}", {{ opacity: 0, x: {"-80" if side == "left" or vertical else "80"}, scale: 0.9 }}, {{ opacity: 1, x: 0, scale: 1, duration: 0.55, ease: "expo.out" }}, {p["at"]});')
-        if p.get("out"): js.append(f'tl.to("#{sid}-p{j}", {{ opacity: 0, filter: "blur(8px)", duration: 0.2 }}, {p["out"]});')
-    out = "".join(f", #{sid}-p{j}" for j in range(len(panels))) if exit_panels else ""  # con exit_panels, los paneles salen con el teléfono
-    js.append(f'tl.to("#{sid}-ph, #{sid}-t, #{sid}-sub{out}", {{ x: {-W if side == "left" or vertical else W}, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }}, {dur - 0.32});')
-    return scene(sid, dur, css, body, "\n".join(js))
-
 # ── Plano de producto 4.0: teléfono grande con cámara ────────────────────────────────────────────────────────────────────
 SRC_HD = (936, 2026)  # precorte de las grabaciones HD (1170×2532, tools/rec-hd.mjs) al tamaño máximo en pantalla
 def shot_geo():
@@ -634,8 +590,8 @@ ROW_REC = (0.276, 0.321, 0.06, 0.94)  # fila «REPI recomienda»
 CARD_REC = dict(at=1.4, k="REPI recomienda", v="53 kg × 8", cls="a", out=3.55)
 CARD_ADJ = dict(at=4.4, k="Hizo 5 de 8. La próxima", v="50 kg × 8–10", cls="t", why="Bajá un poco la carga y priorizá completar el rango.")
 
-def shot_serie(s, d, title, side="right"):
-    return s_shot(s, d, M_SERIE, title, side=side,
+def shot_serie(s, d, title, side="right", leave=True, drift=True):
+    return s_shot(s, d, M_SERIE, title, side=side, leave=leave, drift=drift,
         cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.9, 0.33, 0.85), (2.7, 1.75, 0.52, 0.6), (4.0, 1.85, 0.40, 0.7)],
         rings=[(1.6, 2.7, *ROW_REC), (4.6, d - 0.35, *ROW_REC)], panels=[CARD_REC, CARD_ADJ],
         desc="Press de banca, serie 1: la fila «REPI recomienda» dice 53 kg × 8 y «Anterior», 53 kg × 9. El socio baja las repeticiones a 5 y completa la serie; la recomendación pasa a 50 kg × 8–10, con la razón escrita, y arranca el descanso de 2 minutos.")
@@ -680,35 +636,187 @@ FRAGS_GYM = [("paper", 130, 90, -5, "<small>Recepción</small>Alta: Camila R.<br
              ("", 1300, 790, -2, "<small>planilla_altas.xlsx</small>Sin actualizar"),
              ("alert", 200, 800, 4, "<small>Pedido de ayuda</small>Nadie lo vio"),
              ("", 760, 60, -3, "<small>Seguimiento de sala</small>— sin datos —")]
-FRAGS_COACH = [("paper", 130, 90, -5, "<small>Rutina_Julian_v4.pdf</small>Sentadilla 4×8<br>Press 3×10<br><s>Remo ¿?</s>"),
-               ("chat", 1330, 120, 3, "<small>Alumno · 21:15</small>Profe, ¿qué peso pongo?"),
-               ("", 1300, 790, -2, "<small>cargas_alumnos.xlsx</small>Semana sin completar"),
-               ("alert", 200, 800, 4, "<small>Alumna nueva</small>Sin programa"),
-               ("", 760, 60, -3, "<small>Progreso</small>— sin datos —")]
-
-# Paneles reutilizados: los valores son los que muestra la grabación de la demo (datos ficticios).
-P_REC = dict(at=0.9, x=150, y=620, k="REPI recomienda", v="53 kg × 8", cls="a", out=3.4)
-P_ADJ = dict(at=3.7, x=150, y=620, k="Serie difícil: 5 de 8. La próxima", v="50 kg × 8–10", cls="t", why="Baja un poco la carga y prioriza completar el rango.")
-SERIE = [("f-intelligence.mp4", 5.8, 0, 3.5), ("f-intelligence.mp4", 16.2, 3.5, 3.5)]
 END = lambda claim, url: (lambda s, d: s_end(s, d, claim, url))
 LOGO = lambda s, d: s_logo(s, d, "_Cada_ _repetición_ cuenta.")
 
+# ── Segunda tanda 4.0 (13/11/2026): perfiles y funciones que seguían con el kit 3.0 ─────────────────────────────────────
+# Grabaciones HD nuevas (tools/rec-hd.mjs, sesiones `member2` y `owner2`, demo local con datos ficticios):
+#   m-checkin  «¿Cómo llegás hoy?»: energía 4, sueño 3, ánimo 4 y «Empezar entrenamiento».
+#   m-prog2    Progreso (90 días: 6 sesiones, 82 series, 716 repeticiones) → mejores marcas → Evolución por ejercicio de
+#              Press de banca (mayor carga 53 kg, mejor serie 53 kg × 9, 1RM estimado 68,9 kg) → el gráfico.
+#   m-cuerpo   Mi cuerpo: 84 kg inicial, 80,4 kg actual, objetivo 76 kg → Evolución del peso.
+#   m-ayuda    La socia (Valentina) pide «Ayuda con un ejercicio» al equipo de sala de Gym Norte, con «¿Me miran la técnica?».
+#   s-sala     La profesora de sala (Sofía Ramírez) de ESA MISMA demo ve el pedido T-1115 en «Sala › Pendientes» y toca «Tomar».
+#   s-mio      El pedido en «Para vos», asignado a Sofía Ramírez.      m-pedido  La socia ve «Tu pedido: asignada · Sofía».
+#   o-qr       «Solicitudes de acceso» → «Mostrar QR de la sede» (QR para sumarse · Palermo).
+#   o-alta2    En esa misma demo, la aprobación de Camila Ruiz (igual que o-altas, con el mismo código de solicitud que o-qr).
+#   j-unirse   Lo que abre ese QR en el teléfono del socio: «Pedí tu acceso a REPI · Gym Norte · Palermo».
+# Fracciones de pantalla (cam, rings) y tiempos medidos sobre esas grabaciones: si se regraban, se vuelven a medir.
+def shot_cuerpo(s, d, title, side="right"):
+    return s_shot(s, d, [("m-cuerpo.mp4", 0.6, 0, d)], title, side=side,
+        cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.27, 0.8), (2.45, 1.7, 0.47, 0.9)], rings=[(1.5, 2.4, 0.19, 0.29, 0.03, 0.97)],
+        panels=[dict(at=1.0, k="Peso actual · objetivo 76 kg", v="80,4 kg", cls="a", out=3.25),
+                dict(at=3.5, k="Privado", v="Sólo lo ves vos", cls="t")],
+        desc="Progreso › Mi cuerpo. «Objetivo»: 84 kg inicial, 80,4 kg actual y 76 kg de objetivo. Baja a «Evolución del peso», con la línea del objetivo. Arriba, la pantalla aclara: «Privado: sólo lo ves vos».")
+
 def deportistas(size):
+    """Perfil deportistas 4.0 (≈ 38 s, 16:9 y 9:16): abre con el producto en el primer segundo (sin placa previa), seis planos con
+    cámara y un solo cierre. Pulso 0,3871 s (155 bpm); el tramo arranca en 24,371 s (pulso 0 en el cuadro 0), la banda entra
+    en el corte al check-in (pulso 14) y la pista afloja en el corte al cierre (pulso 84). Frases de 7 pulsos."""
+    D = beats(0.3871, [14, 14, 21, 7, 14, 14, 13], tail=0.6)
     return dict(
-        title="REPI para deportistas", dur=40.0, size=size, music=("volatile-reaction.mp3", 24.0), sfx="auto", poster=16.2,
+        title="REPI para deportistas", dur=round(sum(D), 2), size=size, music=("volatile-reaction.mp3", 24.371), sfx="auto", poster=13.4,
         scenes=[
-            ("dot", 3.0, lambda s, d: s_dot(s, d, "Llegás al gimnasio.")),
-            ("home", 4.5, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 0.0, 0, 4.5)], "Tu rutina, *lista.*", panels=[
-                dict(at=0.9, x=150, y=620, k="Próximo entrenamiento", v="Torso A", cls="a")])),
-            ("checkin", 4.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 4.2, 0, 2.0)], "¿Cómo *llegás* hoy?", side="right", panels=[
-                dict(at=0.9, x=760, y=620, k="Antes de empezar", v="Energía, sueño y ánimo", cls="t")])),
-            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Un objetivo para *cada* serie.", panels=[P_REC, P_ADJ])),
-            ("rest", 4.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 11.0, 0, 4.0)], "El descanso, *a* *tiempo.*", side="right", panels=[
-                dict(at=0.9, x=760, y=620, k="Descanso indicado", v="2:00", cls="t")])),
-            ("progress", 5.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 19.0, 0, 5.0)], "Tu progreso, *a* *la* *vista.*", sub="Fuerza, cargas, repeticiones, volumen y récords.")),
-            ("body", 4.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 24.0, 0, 3.1)], "Tu cuerpo, *con* *tus* *datos.*", side="right", sub="Peso y objetivo, privados.")),
-            ("logo", 4.0, LOGO),
-            ("end", 4.5, END("Probá *la* *demo.*", "repiclub.com/conoce/deportistas")),
+            ("home", D[0], lambda s, d: s_shot(s, d, [("m-home.mp4", 0.2, 0, d, 0.6)], "Tu rutina, *lista.*",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.38, 0.8), (3.75, 1.6, 0.42, 1.3)], rings=[(1.5, 3.6, 0.305, 0.483, 0.045, 0.955)],
+                desc="Inicio de la app de Valentina: «Próximo entrenamiento: Torso A, 4 ejercicios, 16 series». Baja hasta lo que REPI le propone.", panels=[
+                dict(at=1.2, k="Próximo entrenamiento", v="Torso A", cls="a")])),
+            ("checkin", D[1], lambda s, d: s_shot(s, d, [("m-checkin.mp4", 0.9, 0, d, 1.25)], "¿Cómo *llegás* hoy?", side="left",
+                cam=[(0, 1.0, 0.5, 0.6), (0.7, 1.7, 0.74, 0.7), (4.3, 1.25, 0.42, 0.7)],
+                desc="Toca «Comenzar entrenamiento». Antes de empezar, tres toques: energía 4, sueño 3 y ánimo 4. Toca «Empezar entrenamiento» y se abre Torso A.", panels=[
+                dict(at=1.3, k="Antes de empezar, tres toques", v="Energía, sueño y ánimo", cls="t", out=4.35)])),
+            ("serie", D[2], lambda s, d: shot_serie(s, d, "Un objetivo para *cada* serie.", leave=False, drift=False)),
+            ("rest", D[3], lambda s, d: s_shot(s, d, [("m-serie.mp4", round(10.3 + D[2] - 3.3, 2), 0, d)], "El descanso *corre* *solo.*", enter=False, drift=False,
+                cam=[(0, 1.85, 0.40), (0.12, 1.85, 0.62, 0.6)], rings=[(0.75, d - 0.35, 0.565, 0.665, 0.03, 0.97)],
+                desc="Al completar la serie, el descanso de 2 minutos ya está corriendo en la misma pantalla.", panels=[
+                dict(at=0.6, k="Al completar la serie", v="Descanso en marcha", cls="t")])),
+            ("progress", D[4], lambda s, d: s_shot(s, d, [("m-prog2.mp4", 4.2, 0, d)], "Tu progreso, *a* *la* *vista.*", side="left",
+                cam=[(0, 1.0, 0.5, 0.7), (0.95, 1.8, 0.27, 0.8), (4.3, 1.7, 0.42, 0.8)], rings=[(1.9, 4.25, 0.175, 0.325, 0.04, 0.97)],
+                desc="Progreso › Evolución por ejercicio de Press de banca: mayor carga registrada 53 kg, mejor serie 53 kg × 9 y 1RM estimado 68,9 kg. Baja al gráfico.", panels=[
+                dict(at=1.6, k="Press de banca · mejor serie", v="53 kg × 9", cls="a")])),
+            ("body", D[5], lambda s, d: shot_cuerpo(s, d, "Tu cuerpo, *con* *tus* *datos.*")),
+            ("end", D[6], END("Probá *la* *demo.*", "repiclub.com/conoce/deportistas")),
+        ])
+
+def entrenadores():
+    """Perfil entrenadores 4.0 (≈ 41 s): abre con la lista de clientes (sin la apertura de tarjetas ni placa de logo), cinco
+    planos con cámara sobre la app del entrenador y la serie del alumno. Pulso 0,6667 s (90 bpm, compás de 3: cortes cada
+    3 pulsos); el pico de la pista cae en la serie (24–32 s) y afloja en el corte a «REPI propone. Vos decidís»."""
+    D = beats(0.6667, [9, 9, 9, 9, 12, 6, 7], tail=0.5)
+    return dict(
+        title="REPI para entrenadores", dur=round(sum(D), 2), music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=22.6,
+        scenes=[
+            ("clients", D[0], lambda s, d: s_shot(s, d, [("c-clientes.mp4", 0.2, 0, 2.8, 0.75), ("c-clientes.mp4", 2.3, 2.8, round(d - 2.8, 2), 0.72)], "Todos tus alumnos, *de* *un* *vistazo.*", leave=False, drift=False,
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.52, 0.7), (2.9, 1.7, 0.80, 0.8)], rings=[(1.4, 2.55, 0.405, 0.485, 0.03, 0.97), (3.9, d - 0.3, 0.805, 0.935, 0.03, 0.97)],
+                desc="«Clientes»: Julián Ortiz, sin programa; Martina López y Valentina Gómez, con «Hipertrofia · 3 días». Abre la ficha de Valentina: última sesión, hace 3 días.", panels=[
+                dict(at=1.1, k="Julián Ortiz", v="Sin programa", cls="a", out=2.75),
+                dict(at=3.6, k="Valentina Gómez · última sesión", v="Hace 3 días", cls="t")])),
+            ("sesiones", D[1], lambda s, d: s_shot(s, d, [("c-clientes.mp4", 5.6, 0, d)], "Cada sesión, *serie* *por* *serie.*", enter=False, drift=False,
+                cam=[(0, 1.7, 0.80), (0.05, 1.6, 0.45, 0.85), (0.95, 1.95, 0.36, 0.85)], rings=[(2.1, d - 0.35, 0.238, 0.433, 0.03, 0.97)],
+                desc="En la ficha baja al registro de sesiones: en Torso B, Remo en polea figura con «+2,5 kg vs. la vez anterior», serie por serie.", panels=[
+                dict(at=2.0, k="Valentina · Remo en polea", v="+2,5 kg", cls="a", why="Contra la vez anterior.")])),
+            ("programs", D[2], lambda s, d: s_shot(s, d, [("c-programa.mp4", 1.7, 0, 1.9), ("c-programa.mp4", 5.9, 1.9, round(d - 1.9, 2))], "Tu programa, *a* *tu* *manera.*", side="left",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.7, 0.33, 0.8), (2.0, 1.9, 0.66, 1.0)], rings=[(3.6, d - 0.35, 0.675, 0.838, 0.03, 0.97)],
+                desc="Abre su plantilla «Hipertrofia · 3 días», versión 1, y baja hasta el día Torso A: Press de banca, 4 series de 8 a 10 repeticiones, RIR 2 y 2 minutos de descanso.", panels=[
+                dict(at=1.0, k="Programa · versión 1", v="Hipertrofia · 3 días", cls="a", out=3.1),
+                dict(at=3.5, k="Torso A · Press de banca", v="4 × 8–10 · RIR 2", cls="t")])),
+            ("asigna", D[3], lambda s, d: s_shot(s, d, [("c-asigna.mp4", 2.6, 0, d)], "Y lo *asignás.*",
+                cam=[(0, 1.5, 0.5, 0.7), (0.9, 1.5, 0.5, 0.5), (3.45, 1.7, 0.72, 0.7)], rings=[(4.0, d - 0.35, 0.875, 0.988, 0.03, 0.97)],
+                desc="En «Asignar Hipertrofia · 3 días» marca a Valentina Gómez y a Julián Ortiz y confirma. Aviso: «Programa asignado a Valentina, Julián. Lo verá en la app desde hoy».", panels=[
+                dict(at=3.7, k="Programa asignado a", v="Valentina y Julián", cls="t")])),
+            ("serie", D[4], lambda s, d: shot_serie(s, d, "Cada alumno entrena *con* *objetivo.*", side="left")),
+            ("rule", D[5], lambda s, d: s_statement(s, d, "REPI propone. *Vos* *decidís.*", sub="Nada se asigna solo.")),
+            ("end", D[6], END("Usalo *con* *tus* *alumnos.*", "repiclub.com/conoce/entrenadores")),
+        ])
+
+def aliados():
+    """Perfil aliados 4.0 (≈ 48 s, antes 66,5): abre con la marca en el primer segundo, el modelo en una placa y tres planos de
+    producto con cámara; el caso real lleva el logo autorizado de Smart Center Gym y la misma frase que /conoce («Ya funciona en
+    Mar del Plata»). Pulso 0,531 s (113 bpm); el tramo arranca en 34,425 s y las frases son de 8 pulsos."""
+    D = beats(0.531, [6, 10, 16, 12, 12, 8, 8, 8, 9], tail=0.6)
+    return dict(
+        title="REPI · Tecnología para el entrenamiento", dur=round(sum(D), 2), music=("rising-game.mp3", 34.425), sfx="auto", poster=10.9,
+        scenes=[
+            ("logo", D[0], lambda s, d: s_logo(s, d, "Tecnología *para* *entrenar.*")),
+            ("model", D[1], lambda s, d: s_statement(s, d, "Gimnasios y entrenadores *la* *contratan.*", sub="Sus socios y alumnos la usan cada vez que entrenan.")),
+            ("serie", D[2], lambda s, d: shot_serie(s, d, "Recomendaciones *que* *se* *explican.*")),
+            ("coach", D[3], lambda s, d: s_shot(s, d, [("c-clientes.mp4", 0.2, 0, 2.8, 0.75), ("c-clientes.mp4", 2.3, 2.8, round(d - 2.8, 2), 0.64)], "Para entrenadores *independientes.*", side="left",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.52, 0.7), (2.9, 1.7, 0.80, 0.8)], rings=[(1.4, 2.55, 0.405, 0.485, 0.03, 0.97), (3.9, d - 0.35, 0.805, 0.935, 0.03, 0.97)],
+                desc="App del entrenador, «Clientes»: Julián Ortiz, sin programa; Martina López y Valentina Gómez, con «Hipertrofia · 3 días». Abre la ficha de Valentina: última sesión, hace 3 días.", panels=[
+                dict(at=1.1, k="Julián Ortiz", v="Sin programa", cls="a", out=2.75),
+                dict(at=3.6, k="Valentina Gómez · última sesión", v="Hace 3 días", cls="t")])),
+            ("owner", D[4], lambda s, d: shot_seguimiento(s, d, "Y para gimnasios, *por* *sede.*")),
+            ("tech", D[5], lambda s, d: s_statement(s, d, "Registra *sin* *señal.* Se instala *sin* *tiendas.*")),
+            ("proof", D[6], lambda s, d: s_statement(s, d, "Ya funciona *en* *Mar* *del* *Plata.*", img="smart-center-gym.webp")),
+            ("network", D[7], lambda s, d: s_network(s, d, "Gimnasios, entrenadores y alumnos. *Conectados.*", t1=0.7, t2=1.9)),
+            ("end", D[8], END("Proponé *una* *alianza.*", "repiclub.com/conoce/aliados")),
+        ])
+
+def progreso():
+    """Progreso por ejercicio 4.0 (≈ 23 s): abre con el producto; un plano encadenado sobre Progreso (el resumen, las mejores
+    marcas y la evolución de Press de banca) y Mi cuerpo. Pulso 0,3529 s (170 bpm); el tramo arranca en 150,338 s."""
+    D = beats(0.3529, [16, 16, 18, 13], tail=0.6)
+    return dict(
+        title="Progreso por ejercicio", dur=round(sum(D), 2), music=("clash-defiant.mp3", 150.338), sfx="auto", poster=7.6,
+        scenes=[
+            ("prog", D[0], lambda s, d: s_shot(s, d, [("m-prog2.mp4", 0.2, 0, 2.6, 0.62), ("m-prog2.mp4", 1.81, 2.6, round(d - 2.6, 2))], "Tu progreso, *por* *ejercicio.*", leave=False, drift=False,
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.36, 0.8), (2.7, 1.7, 0.40, 0.7)], rings=[(1.5, 2.6, 0.31, 0.39, 0.04, 0.96), (3.8, 5.1, 0.20, 0.56, 0.03, 0.97)],
+                desc="Progreso, últimos 90 días: 6 sesiones, 82 series y 716 repeticiones. Baja a «Tus mejores marcas del período», ejercicio por ejercicio.", panels=[
+                dict(at=1.2, k="Últimos 90 días", v="6 sesiones · 82 series", cls="a", out=2.75),
+                dict(at=3.7, k="Tus mejores marcas", v="Ejercicio por ejercicio", cls="t")])),
+            ("evol", D[1], lambda s, d: s_shot(s, d, [("m-prog2.mp4", round(1.81 + D[0] - 2.6, 2), 0, d)], "Calculado con *lo* *que* registrás.", enter=False, drift=False,
+                cam=[(0, 1.7, 0.40), (0.1, 1.8, 0.27, 0.6), (2.5, 1.8, 0.40, 0.6), (3.7, 1.7, 0.42, 0.9)], rings=[(0.9, 2.45, 0.175, 0.325, 0.42, 0.97), (2.9, 3.65, 0.34, 0.52, 0.03, 0.50)],
+                desc="«Evolución por ejercicio» de Press de banca: mayor carga registrada 53 kg, mejor serie 53 kg × 9 y 1RM estimado 68,9 kg, con la aclaración «Estimación (Epley), no es una repetición que hiciste». Baja al gráfico.", panels=[
+                dict(at=0.8, k="Press de banca · mejor serie", v="53 kg × 9", cls="a", out=2.6),
+                dict(at=2.8, k="1RM estimado", v="68,9 kg", cls="t", why="Una estimación, no una repetición que hiciste.")])),
+            ("body", D[2], lambda s, d: shot_cuerpo(s, d, "Tu cuerpo, *con* *tus* *datos.*", side="left")),
+            ("end", D[3], END("Mirá *tu* *progreso.*", "repiclub.com/conoce/deportistas")),
+        ])
+
+def altas():
+    """Altas por QR 4.0 (≈ 26 s): ahora se ve el QR de la sede y el lado del socio (lo que abre ese QR), y después la aprobación
+    del equipo. Pulso 0,7895 s (76 bpm); el tramo arranca en 120,526 s y los cortes caen en los golpes (pulsos 6, 12, 22, 26)."""
+    D = beats(0.7895, [6, 6, 10, 4, 6], tail=0.5)
+    return dict(
+        title="Altas por QR", dur=round(sum(D), 2), music=("five-armies.mp3", 120.526), sfx="auto", poster=3.9,
+        scenes=[
+            ("qr", D[0], lambda s, d: s_shot(s, d, [("o-qr.mp4", 0.9, 0, d)], "Un QR *por* *sede.*",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.6, 0.30, 0.6), (1.8, 1.75, 0.47, 0.8)], rings=[(2.8, d - 0.35, 0.325, 0.645, 0.18, 0.82)],
+                desc="«Solicitudes de acceso», con el pedido pendiente de Camila Ruiz. Quien atiende toca «Mostrar QR de la sede»: se abre «QR para sumarse · Palermo», con Belgrano al lado. El correo de la solicitud está desenfocado.", panels=[
+                dict(at=2.5, k="QR para sumarse", v="Palermo", cls="a")])),
+            ("pide", D[1], lambda s, d: s_shot(s, d, [("j-unirse.mp4", 0.2, 0, d, 0.7)], "El socio lo escanea y *pide* *acceso.*", side="left",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.28, 0.8), (3.0, 1.8, 0.40, 0.7)], rings=[(1.6, 2.9, 0.295, 0.395, 0.03, 0.97)],
+                desc="Lo que abre el QR en el teléfono del socio: «Pedí tu acceso a REPI», Gym Norte, Palermo, con los botones «Crear mi cuenta» y «Ya tengo cuenta REPI».", panels=[
+                dict(at=1.3, k="Pedí tu acceso a REPI", v="Gym Norte · Palermo", cls="a")])),
+            ("ok", D[2], lambda s, d: s_shot(s, d, [("o-alta2.mp4", 1.2, 0, d + 0.2)], "El equipo *confirma* quién es socio.",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.8, 0.40, 0.7), (1.75, 1.6, 0.50, 0.6), (5.1, 1.8, 0.66, 0.8)], rings=[(6.0, d - 0.35, 0.66, 0.768, 0.03, 0.97)],
+                desc="«Solicitudes de acceso»: Camila Ruiz pidió el alta con el QR de la sede. Quien atiende toca «Aprobar», elige «Lo conozco: es socio/a» y confirma. La solicitud pasa a «Resueltas», aprobada, en Palermo. El correo de la solicitud está desenfocado.", panels=[
+                dict(at=0.9, k="Pedido de acceso", v="Camila Ruiz", cls="a", out=4.9),
+                dict(at=5.5, k="El equipo confirmó · Palermo", v="Acceso aprobado", cls="t")])),
+            ("rule", D[3], lambda s, d: s_statement(s, d, "Identidad *no* *es* pertenencia.", sub="El acceso siempre lo aprueba una persona.")),
+            ("end", D[4], END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
+        ])
+
+def sala():
+    """Seguimiento de sala 4.0 (≈ 27 s): un solo pedido seguido de punta a punta en la misma demo: la socia lo manda, la
+    profesora de sala lo ve en «Pendientes» y lo toma, la socia ve quién lo tomó; y el gimnasio mide la respuesta.
+    Pulso 0,3529 s (170 bpm); el tramo arranca en 0,338 s."""
+    D = beats(0.3529, [20, 10, 8, 10, 14, 13], tail=0.6)
+    return dict(
+        title="Seguimiento de sala", dur=round(sum(D), 2), music=("clash-defiant.mp3", 0.338), sfx="auto", poster=9.3,
+        scenes=[
+            ("pide", D[0], lambda s, d: s_shot(s, d, [("m-ayuda.mp4", 1.3, 0, d, 1.15)], "El socio *pide* *ayuda* desde la app.",
+                cam=[(0, 1.0, 0.5, 0.7), (0.8, 1.7, 0.42, 0.7), (3.2, 1.6, 0.78, 0.6), (5.4, 1.7, 0.62, 0.6)], rings=[(6.0, d - 0.35, 0.66, 0.74, 0.03, 0.97)],
+                desc="Inicio de la app de Valentina. Toca «Pedir ayuda», elige «Equipo de sala · Gym Norte» y «Ayuda con un ejercicio», escribe «¿Me miran la técnica?» y toca «Enviar pedido». Aviso: «Pedido enviado al equipo de sala de Gym Norte». En su inicio queda «Tu pedido: pendiente».", panels=[
+                dict(at=2.0, k="Para el equipo de sala · Gym Norte", v="Ayuda con un ejercicio", cls="a", out=5.2),
+                dict(at=5.8, k="Tu pedido", v="Pendiente", cls="t")])),
+            ("ve", D[1], lambda s, d: s_shot(s, d, [("s-sala.mp4", 0.0, 0, d, 0.73)], "El equipo *lo* *ve* en la sala.", side="left", leave=False, drift=False,
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.9, 0.52, 0.8)], rings=[(1.45, d - 0.25, 0.44, 0.61, 0.03, 0.97)],
+                desc="App del gimnasio, «Sala › Pendientes», en la sesión de la profesora de sala Sofía Ramírez: el pedido T-1115 de Valentina Gómez, «Ayuda con un ejercicio», «¿Me miran la técnica?», sin responsable. Toca «Tomar».", panels=[
+                dict(at=0.9, k="Valentina Gómez · Ayuda con un ejercicio", v="Sin responsable", cls="a")])),
+            ("toma", D[2], lambda s, d: s_shot(s, d, [("s-mio.mp4", 0.1, 0, d)], "Y lo *toma.*", side="left", enter=False, drift=False,
+                cam=[(0, 1.9, 0.52)], rings=[(0.3, d - 0.35, 0.44, 0.60, 0.03, 0.97)],
+                desc="El mismo pedido T-1115 en «Para vos»: asignada, a nombre de Sofía Ramírez.", panels=[
+                dict(at=0.25, k="Asignada · T-1115", v="Sofía Ramírez", cls="t")])),
+            ("sabe", D[3], lambda s, d: s_shot(s, d, [("m-pedido.mp4", 0.2, 0, d, 0.57)], "Y el socio *ve* *quién* lo tomó.",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.9, 0.41, 0.8)], rings=[(1.5, d - 0.35, 0.375, 0.45, 0.03, 0.97)],
+                desc="De vuelta en la app de Valentina: «Tu pedido: asignada · Ayuda con un ejercicio · Sofía».", panels=[
+                dict(at=1.2, k="Tu pedido: asignada", v="Sofía", cls="t")])),
+            ("mide", D[4], lambda s, d: s_shot(s, d, [("o-sala.mp4", 0.4, 0, d, 0.45)], "Y el gimnasio *mide* la respuesta.", side="left",
+                cam=[(0, 1.0, 0.5, 0.7), (0.75, 1.9, 0.33, 0.85)], rings=[(1.7, d - 0.35, 0.325, 0.595, 0.03, 0.97)],
+                desc="Vista del dueño «Seguimiento de sala», 30 días, todas las sedes: 16 pedidos recibidos y 12 resueltos.", panels=[
+                dict(at=1.3, k="Seguimiento de sala · 30 días", v="12 de 16 resueltos", cls="a")])),
+            ("end", D[5], END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
         ])
 
 def gimnasios():
@@ -764,71 +872,14 @@ def intelligence():
 
 FILMS.update({
     "gimnasios": gimnasios(),
-    "entrenadores": dict(
-        title="REPI para entrenadores", dur=49.1, music=("exciting-trailer.mp3", 4.0), sfx="auto", poster=21.0,
-        scenes=[
-            ("dot", 3.6, lambda s, d: s_dot(s, d, "Un entrenador, muchos alumnos.")),
-            ("scatter", 12.0, lambda s, d: s_scatter(s, d, "Cada alumno, _en_ _otro_ _chat._", "Hasta que *tu* *método* se ordena.", 6.8, FRAGS_COACH)),
-            ("logo", 4.0, LOGO),
-            ("clients", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 3.0, 0, 3.0), ("perfil-entrenadores.mp4", 9.0, 3.0, 3.5)], "Todos tus alumnos, *de* *un* *vistazo.*", panels=[
-                dict(at=0.9, x=150, y=620, k="Julián Ortiz", v="Sin programa", cls="a", out=3.0),
-                dict(at=3.3, x=150, y=620, k="Training Intelligence · Valentina", v="Sin tendencia aún", cls="t", why="Con pocas sesiones comparables, REPI lo dice en lugar de inventar.")])),
-            ("programs", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 14.0, 0, 4.0), ("perfil-entrenadores.mp4", 18.0, 4.0, 1.3)], "Tu programa, *a* *tu* *manera.*", side="right", panels=[
-                dict(at=1.0, x=760, y=620, k="Programa · versión 1", v="Fuerza base · 2 días", cls="a")])),
-            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Y cada alumno, *serie* *por* *serie.*", panels=[P_REC, P_ADJ])),
-            ("rule", 5.0, lambda s, d: s_statement(s, d, "REPI propone. *Vos* *decidís.*", sub="Nada se asigna solo.")),
-            ("end", 4.5, END("Soy *entrenador.*", "repiclub.com/conoce/entrenadores")),
-        ]),
+    "entrenadores": entrenadores(),
     "deportistas": deportistas((1920, 1080)),
     "deportistas-vertical": deportistas((1080, 1920)),
-    "aliados": dict(
-        title="REPI · Tecnología para el entrenamiento", dur=66.5, music=("rising-game.mp3", 25.0), sfx="auto", poster=31.2,
-        scenes=[
-            ("dot", 4.0, lambda s, d: s_dot(s, d, "Gimnasios y entrenadores, con papel, planillas y mensajes.")),
-            ("scatter", 12.0, lambda s, d: s_scatter(s, d, "La sala, _sin_ _datos._", "REPI la *conecta.*", 6.8, FRAGS_GYM)),
-            ("logo", 4.0, LOGO),
-            ("model", 6.0, lambda s, d: s_statement(s, d, "Gimnasios y entrenadores *la* *contratan.*", sub="Sus socios y alumnos la usan cada vez que entrenan.")),
-            ("serie", 7.0, lambda s, d: s_device(s, d, SERIE, "Recomendaciones *que* *se* *explican.*", panels=[P_REC, P_ADJ])),
-            ("coach", 6.5, lambda s, d: s_device(s, d, [("perfil-entrenadores.mp4", 3.0, 0, 3.0), ("perfil-entrenadores.mp4", 14.0, 3.0, 3.5)], "Para entrenadores *independientes.*", side="right")),
-            ("owner", 6.5, lambda s, d: s_device(s, d, [("gym-owner.mp4", 0.0, 0, 3.0), ("gym-owner.mp4", 6.0, 3.0, 3.5)], "Y para gimnasios, *por* *sede.*")),
-            ("tech", 5.0, lambda s, d: s_statement(s, d, "Funciona *sin* *señal.* Se instala *sin* *tiendas.*")),
-            ("proof", 6.0, lambda s, d: s_statement(s, d, "En operación en *gimnasios* *reales.*", sub="Mar del Plata, Argentina.")),
-            ("network", 5.0, lambda s, d: s_network(s, d, "Gimnasios, entrenadores y alumnos. *Conectados.*")),
-            ("end", 4.5, END("Proponé *una* *alianza.*", "repiclub.com/conoce/aliados")),
-        ]),
+    "aliados": aliados(),
     "intelligence": intelligence(),
-    "progreso": dict(
-        title="Progreso por ejercicio", dur=22.5, music=("clash-defiant.mp3", 150.0), sfx="auto", poster=4.5,
-        scenes=[
-            ("dot", 3.0, lambda s, d: s_dot(s, d, "Cada serie que registrás, suma.")),
-            ("prog", 6.0, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 19.0, 0, 5.0)], "Tu progreso, *por* *ejercicio.*", sub="Fuerza, cargas, repeticiones, volumen y récords.")),
-            ("calc", 3.5, lambda s, d: s_statement(s, d, "Calculado desde *lo* *que* *registrás.*")),
-            ("body", 5.5, lambda s, d: s_device(s, d, [("perfil-deportistas.mp4", 24.0, 0, 3.1)], "Tu cuerpo, *con* *tus* *datos.*", side="right", sub="Peso, objetivo y fotos privadas, sólo para vos.")),
-            ("end", 4.5, END("Mirá *tu* *progreso.*", "repiclub.com/conoce/deportistas")),
-        ]),
-    "altas": dict(
-        title="Altas por QR", dur=23.5, music=("five-armies.mp3", 120.0), sfx="auto", poster=12.5,
-        scenes=[
-            ("dot", 3.0, lambda s, d: s_dot(s, d, "Un QR por sede.")),
-            ("req", 7.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 6.0, 0, 3.5), ("gym-owner.mp4", 10.0, 3.5, 3.5)], "Cada socio *pide* *acceso.*", panels=[
-                dict(at=1.0, x=150, y=620, k="Pedido de acceso", v="Camila Ruiz", cls="a", out=3.4),
-                dict(at=3.8, x=150, y=620, k="Confirmación del equipo", v="Lo conozco", cls="t")])),
-            ("ok", 5.0, lambda s, d: s_device(s, d, [("gym-owner.mp4", 13.0, 0, 3.8)], "El equipo *confirma* quién es socio.", side="right", panels=[
-                dict(at=1.0, x=760, y=620, k="Resueltas · 7 días", v="Acceso aprobado", cls="t")])),
-            ("rule", 4.0, lambda s, d: s_statement(s, d, "Identidad *no* *es* pertenencia.", sub="El acceso siempre lo aprueba una persona.")),
-            ("end", 4.5, END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
-        ]),
-    "sala": dict(
-        title="Seguimiento de sala", dur=23.5, music=("clash-defiant.mp3", 0.0), sfx="auto", poster=13.0,
-        scenes=[
-            ("dot", 3.0, lambda s, d: s_dot(s, d, "En plena serie.")),
-            ("net", 5.0, lambda s, d: s_network(s, d, "El socio *pide* *ayuda* desde su serie.")),
-            ("floor", 7.0, lambda s, d: s_device(s, d, [("gym-floor.mp4", 1.0, 0, 4.0), ("gym-floor.mp4", 5.0, 4.0, 3.0)], "El equipo *responde.*", panels=[
-                dict(at=0.9, x=150, y=620, k="Julián · Sentadilla", v="Que venga alguien", cls="a", out=3.8),
-                dict(at=4.2, x=150, y=620, k="Sofía · equipo de sala", v="Voy", cls="t")])),
-            ("rule", 4.0, lambda s, d: s_statement(s, d, "Una señal para acercarse, *no* *un* *diagnóstico.*")),
-            ("end", 4.5, END("Quiero REPI *en* *mi* *gimnasio.*", "repiclub.com/conoce/gimnasios")),
-        ]),
+    "progreso": progreso(),
+    "altas": altas(),
+    "sala": sala(),
 })
 
 # ── Modos de REPI (D213): Completo y Control, 16:9 y 9:16 ────────────────────────────────────────────────────────────────
@@ -847,11 +898,6 @@ KIOSK = "ctl-kiosk-reg.mp4"
 SP = 10.3 / 5.5  # código y PIN, de 3,75 a 14,05 s de la grabación, en 5,5 s de pantalla
 ID_KEYS = [round((t - 3.75) / SP, 2) for t in (5.75, 6.43, 7.11, 7.80, 8.48, 9.17, 10.55, 11.30, 12.04, 12.80, 14.0)]
 REG_SP = 1.1  # registro de Sentadilla, de 29,3 a 37,0 s de la grabación
-
-def dev(*a, **k):
-    """s_device de los modos: los paneles salen con el teléfono (no quedan solos en el último instante)."""
-    k.setdefault("exit_panels", True)
-    return s_device(*a, **k)
 
 def modo_completo(size):
     """Modo Completo 4.0: tres actos con cámara (el profesor diseña y asigna → el socio recibe, registra con el objetivo de REPI
@@ -1033,6 +1079,9 @@ def build(name):
     PRECUTS.clear()
     for sid, dur, fn in f["scenes"]:
         open(os.path.join(d, "compositions", f"{sid}.html"), "w").write(fn(sid, dur))
+    keep = {f"{sid}.html" for sid, _, _ in f["scenes"]}
+    for fn in os.listdir(os.path.join(d, "compositions")):  # escenas de un guion anterior que ya no existen
+        if fn.endswith(".html") and fn not in keep: os.remove(os.path.join(d, "compositions", fn))
     sfx_list = auto_sfx(f["scenes"]) if f["sfx"] == "auto" else f["sfx"]
     if MEDIA_SRC:
         for pc in PRECUTS: precut(d, *pc)
