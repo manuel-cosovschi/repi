@@ -2,7 +2,7 @@
 // la persona completa estas preferencias; sin ellas el pedido llegaba vacío («Quiero que me armen un programa.») y el profe
 // no sabía qué armar. Las lesiones o limitaciones son obligatorias como decisión («No tengo» o cuáles): las ve sólo quien
 // atiende el pedido, viajan con el pedido y no se publican en otro lado. No es un diagnóstico.
-import { TRAINING_WISH_GOALS, type TrainingWishGoal } from "./wishes";
+import { ESSENTIAL_FIELDS, TRAINING_WISH_GOALS, goalAllowed, type ProfileField, type TrainingWishGoal, type TrainingWishes } from "./wishes";
 
 export const BRIEF_LEVELS = {
   beginner: "Principiante (menos de 6 meses entrenando)",
@@ -123,3 +123,45 @@ export function briefView(isProgram: boolean, b: unknown): { rows: { label: stri
 
 /** «a» + destinatario sin «a el» (F-15): «al equipo de sala», «a Agustín». */
 export const toWhom = (to: string) => (to.startsWith("el ") ? `al ${to.slice(3)}` : `a ${to}`);
+
+// ── Pedidos ya respondidos sin datos (13/11/2026) ───────────────────────────
+// Quien pidió su programa antes de D206 no cargó objetivo, días, experiencia ni lesiones. Mientras el pedido seguía abierto
+// veía «Completá tu pedido de programa»; cuando el profe lo respondía (le asignaba el programa) el aviso desaparecía y los
+// datos no llegaban nunca: ni a REPI (perfil de entrenamiento) ni a quien arma la rutina.
+
+/** «Ahora no» en el aviso de un pedido ya respondido: no vuelve a mostrarse hasta pasados estos días. */
+export const LATE_BRIEF_SNOOZE_DAYS = 14;
+/** ¿Sigue en pausa el aviso? `at`: cuándo tocó «Ahora no» (ISO). Una fecha inválida o futura no lo esconde para siempre. */
+export function lateBriefSnoozed(at: string | null | undefined, now = new Date()): boolean {
+  if (!at) return false;
+  const t = Date.parse(at);
+  if (!Number.isFinite(t)) return false;
+  const age = now.getTime() - t;
+  return age >= 0 && age < LATE_BRIEF_SNOOZE_DAYS * 86_400_000;
+}
+
+/**
+ * Lo que el pedido aporta al perfil de entrenamiento (Training Profile). El objetivo sólo si la política de edad lo permite:
+ * antes, un objetivo corporal sin edad adulta confirmada hacía fallar el guardado entero y se perdían también días, minutos
+ * y experiencia. Las lesiones nunca van al perfil (viajan sólo con el pedido).
+ */
+export function briefProfilePatch(b: ProgramRequestBrief, age: "adult" | "minor" | "unknown"): Partial<TrainingWishes> {
+  return {
+    ...(goalAllowed(b.goal, age) ? { goal: b.goal } : {}),
+    daysPerWeek: b.daysPerWeek, minutes: Math.min(240, b.minutes), experience: b.level,
+    ...(b.likes ? { likes: b.likes.slice(0, 200) } : {}), ...(b.avoid ? { avoid: b.avoid.slice(0, 200) } : {}),
+  };
+}
+
+/**
+ * Lo esencial que el perfil no tiene y un pedido anterior de la persona sí (p. ej. la experiencia de los pedidos anteriores a
+ * D217, que no se copiaba). Sólo completa huecos: nunca pisa lo que la persona declaró después.
+ */
+export function briefProfileGaps(b: ProgramRequestBrief, w: TrainingWishes | null | undefined, age: "adult" | "minor" | "unknown"): Partial<TrainingWishes> {
+  const from = briefProfilePatch(b, age) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const f of ESSENTIAL_FIELDS as readonly ProfileField[]) {
+    if ((w as Record<string, unknown> | null | undefined)?.[f] == null && from[f] != null) out[f] = from[f];
+  }
+  return out as Partial<TrainingWishes>;
+}

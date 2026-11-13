@@ -32,7 +32,7 @@ export function KioskAccess({ offline, flash }: { offline: boolean; flash: (m: s
     <Reveal on={on}>
       {on && (
         <section className="wishes kiosk-me" aria-labelledby="kiosk-me-h">
-          <h2 id="kiosk-me-h" style={{ fontSize: 16 }}>Pantalla de rutinas del gimnasio</h2>
+          <h2 id="kiosk-me-h">Pantalla de rutinas del gimnasio</h2>
           <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Con este código y tu PIN consultás tu rutina y registrás tu entrenamiento en la pantalla del gimnasio. Lo que registres ahí queda en tu historial.</span>
           {items!.map((i) => <KioskItemCard key={i.id} item={i} multi={items!.length > 1} offline={offline} flash={flash} onSaved={load} />)}
         </section>

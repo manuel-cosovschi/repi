@@ -5,7 +5,7 @@
 // desde el fondo con expo.out, un brillo la cruza y el titular sube por máscara palabra por palabra. Se puede girar con el
 // dedo. Con «reducir movimiento», sólo fundidos.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Barbell, CalendarCheck, PersonSimple, Shuffle, Stack, Trophy, type Icon } from "@phosphor-icons/react";
+import { Barbell, CalendarCheck, CaretRight, PersonSimple, Shuffle, Stack, Trophy, type Icon } from "@phosphor-icons/react";
 import { CHALLENGE_DIFFICULTY, TIER_LABEL, XP, type TrophyTier } from "@repi/domain";
 import { api } from "@/lib/api";
 import { Ic } from "@/components/ui/Ic";
@@ -39,6 +39,35 @@ export function Medal({ k, tier, size = 88, spin }: { k: string; tier: TrophyTie
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Nivel a la vista (13/11/2026: «todas esas partes están muy escondidas»). El mismo nivel de Progreso y de Tu gym, con lo
+ * que la app ya calcula (nivel, puntos que faltan y avance hacia el siguiente): `row` en Inicio, `pill` junto al título de
+ * Entrenar. Lleva al detalle (nivel, cómo se suman puntos y trofeos). `level`: null mientras carga (reserva el lugar),
+ * false si no se pudo leer (no se muestra nada).
+ */
+export function LevelChip({ level, variant, onOpen }: { level: LevelData | null | false; variant: "row" | "pill"; onOpen: () => void }) {
+  if (level === false) return null;
+  if (!level) return variant === "row" ? <Skel h={68} r={14} /> : <Skel w={112} h={44} r={22} />;
+  const next = level.level + 1;
+  const left = level.xp === 0 ? `Tu primer entrenamiento suma ${XP.day} puntos` : `Te falta${level.toNext === 1 ? "" : "n"} ${level.toNext.toLocaleString("es-AR")} punto${level.toNext === 1 ? "" : "s"} para el nivel ${next}`;
+  const bar = <span className="lvchip-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, Math.max(4, level.pct))}%` }} /></span>;
+  if (variant === "pill") return (
+    <button type="button" className="lvpill" onClick={onOpen} aria-label={`Nivel ${level.level}. ${left}. Ver nivel y trofeos`}>
+      <span className="lvpill-t"><small>Nivel</small><b>{level.level}</b></span>{bar}<Ic i={CaretRight} size={14} />
+    </button>
+  );
+  return (
+    <button type="button" className="lvrow" onClick={onOpen} aria-label={`Nivel ${level.level}. ${left}. Ver nivel y trofeos`}>
+      <span className="lvrow-n ui-dark" aria-hidden="true"><small>Nivel</small><b>{level.level}</b></span>
+      <span className="lvrow-m" aria-hidden="true">
+        <span className="lvrow-t">{left}</span>
+        {bar}
+      </span>
+      <Ic i={CaretRight} size={18} color="var(--ui-muted)" />
+    </button>
   );
 }
 

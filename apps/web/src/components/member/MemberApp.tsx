@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { TECHNIQUES, kindAt, labelAt, startWeight, fmtMoney, formatClock, formatRest, formatDayEs, groupLabels, volumeIn, WEEK_LETTERS, type Currency, type WeightUnit } from "@repi/domain";
 import { activityOf, isTimedRow, prescriptionText, type ExerciseDetail } from "@repi/domain";
 import { api } from "@/lib/api";
-import { keepSame } from "@/lib/cache";
+import { keepSame, peek, setCached } from "@/lib/cache";
 import { signOutSafely } from "@/lib/session-cleanup";
 import { activityDraft, allLocal, delLocal, ensureOwner, fromServer, loadTraining, openLocal, putLocal, putServerCopy, saveTraining, setKey, wipeLocal, type LocalSession } from "@/lib/offline/store";
 import { enqueue, pendingFor } from "@/lib/offline/queue";
@@ -16,7 +16,7 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { Ambient, useReveal } from "@/components/motion/Ambient";
 import { Workout } from "./Workout";
 import { CheckinSheet, HelpSheet, InjurySheet, PainSheet, ReviewSheet } from "./FollowSheets";
-import { PendingBriefBanner, ProgramRequestSheet, type PendingBrief, type ProgramRequestState } from "./ProgramRequest";
+import { LateBriefCard, PendingBriefBanner, ProgramRequestSheet, type LateBrief, type PendingBrief, type ProgramRequestState } from "./ProgramRequest";
 import { MemberMessages } from "./Messages";
 import { GymTabView, type GymTab } from "./Gym";
 import { Nudges, type Nudge } from "./Nudges";
@@ -38,14 +38,16 @@ import { BodyWeight } from "./BodyWeight";
 import { ProgressPhotos } from "./ProgressPhotos";
 import { TrainingProfile } from "./TrainingProfile";
 import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
+import { loadProfile } from "./profile-store";
+import { RestAlertSettings } from "./RestAlerts";
 import { Ic } from "@/components/ui/Ic";
-import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Warning, type Icon } from "@phosphor-icons/react";
+import { Barbell, Bell, ChartLineUp, ChatCircle, Check, CheckCircle, House, Play, Question, Storefront, Timer, Warning, type Icon } from "@phosphor-icons/react";
 import { ThemePicker } from "@/components/theme/ThemePicker";
 import { featureOn } from "@/lib/features";
 import { Ideas } from "./Ideas";
 import { NextOwnRoutine, OwnRoutines } from "./OwnRoutines";
 import { KioskAccess, SupervisedNote } from "./KioskAccess";
-import { LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
+import { LevelChip, LevelPanel, TrophyUnlock, type LevelData, type Unlock } from "./Trophies";
 import { SectionStage } from "@/components/motion/SectionStage";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
 import { Loading, Skel } from "@/components/motion/Skeleton";
@@ -87,10 +89,16 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // D166: trofeos nuevos se muestran con su desbloqueo 3D al abrir la app o al volver de entrenar. En la demo no salta
   // solo (taparía la guía): se ve tocando un trofeo de la vitrina.
   const [unlocks, setUnlocks] = useState<Unlock[]>([]);
+  // 13/11: el nivel también va a la vista en Inicio y en Entrenar (estaba sólo al final de Progreso y en Tu gym). Es la misma
+  // lectura que ya se hacía al abrir la app y al volver de entrenar: queda en el estado (y en la caché de Progreso).
+  const [level, setLevel] = useState<LevelData | null | false>(() => peek<LevelData>("/api/me/level") ?? null);
   const checkTrophies = useCallback(() => {
-    if (typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith("repi_demo="))) return;
-    api<LevelData>("/api/me/level").then((l) => { if (l.unseen.length) setUnlocks(l.unseen); }).catch(() => {});
+    const demo = typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith("repi_demo="));
+    api<LevelData>("/api/me/level").then((l) => { setCached("/api/me/level", l); setLevel((p) => keepSame(p, l)); if (!demo && l.unseen.length) setUnlocks(l.unseen); })
+      .catch(() => setLevel((p) => p || false));
   }, []);
+  // Tocar el nivel abre Progreso en su detalle (nivel, cómo se suman puntos y trofeos).
+  const [levelFocus, setLevelFocus] = useState(0);
   const closeUnlocks = useCallback(() => { setUnlocks([]); void api("/api/me/level", { body: {} }).catch(() => {}); }, []);
   const [err, setErr] = useState<string | null>(null);
   const tt = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -222,9 +230,9 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // no cambian mientras una sección está a la vista; las funciones de carga y los set* son estables). Si nada de su lista
   // cambió, volver a la sección no la recorre (SectionStage reutiliza su último nodo): el historial que llega al abrir
   // Progreso, por ejemplo, ya no vuelve a dibujar Inicio ni Entrenar a la vuelta (tareas de ~50 ms con CPU ×4).
-  const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick]
-    : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day]
-    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg]
+  const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick, level]
+    : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day, level]
+    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg, levelFocus]
     : k === "msgs" ? [offlineAt, msgDraft]
     : k === "gym" ? [offlineAt, gymTab, openCh]
     : [t, offlineAt, inbox, privKey];
@@ -232,6 +240,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // M06 (QA r2): estado normal en el mismo toque, como en main: la sección se dibuja de un tirón (sin startTransition). Desde
   // la barra, el indicador ya salió al apoyar el dedo (TabBar).
   const go = (x: Tab) => { if (!workout) scrolls.current[tab] = window.scrollY; setTab(x); setWorkout(null); setGymTab(undefined); setOpenCh(null); };
+  const openLevel = () => { setProgSeg("train"); setLevelFocus((n) => n + 1); go("prog"); };
   const notifs = withProgramNotice(feed, t);
   const openNotifs = () => {
     setNotifOpen(true);
@@ -397,11 +406,12 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
               bell={{ unread: notifs.filter((x) => x.unread).length, onOpen: openNotifs }}
               inbox={inbox} offline={!!offlineAt} onSheet={setSheet} flash={flash} reloadInbox={loadInbox} onRelation={load} connectTick={connectTick}
               presence={t.relation?.kind === "gym" ? presence?.gyms.find((x) => x.orgId === t.relation!.orgId) ?? null : null} onNudge={goNudge}
+              level={offlineAt && !level ? false : level} onLevel={openLevel}
               onCardOpen={(c) => { if (c.kind === "program_updated" || c.kind === "import_unknowns") go("train"); else { go("prog"); setProgSeg(c.kind === "session_review" ? "hist" : "train"); } }} />}
             {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
-              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo}
+              {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo} level={offlineAt && !level ? false : level} onLevel={openLevel}
               own={t.relation ? (t.supervised ? <SupervisedNote offline={!!offlineAt} onAsk={() => setSheet({ type: "help", kind: "rutina", to: "gym" })} /> : <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} />) : null} /></>}
-            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} />}
+            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} focusLevel={levelFocus} />}
             {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
             {k === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {k === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
@@ -527,7 +537,8 @@ function WeekStrip({ t }: { t: Training }) {
   );
 }
 
-function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge, onCardOpen }: {
+function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet, flash, reloadInbox, onRelation, connectTick, presence, onNudge, onCardOpen, level, onLevel }: {
+  level: LevelData | null | false; onLevel: () => void;
   t: Training; coachFirst: string; onStart: (dayId: string) => void; onOwn: (routineId: string) => void; go: (x: Tab) => void; bell: { unread: number; onOpen: () => void }; inbox: Inbox | null; offline: boolean;
   onSheet: (s: SheetState) => void; flash: (x: string) => void; reloadInbox: () => void; onRelation: () => void; connectTick: number; presence: GymPresence | null; onNudge: (n: Nudge) => void;
   onCardOpen: (c: InterventionView) => void;
@@ -544,17 +555,32 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
   const next = t.program?.days[t.program.nextDay];
   const v = t.stats.volumeLastWeek ? Math.round(((t.stats.volumeThisWeek - t.stats.volumeLastWeek) / t.stats.volumeLastWeek) * 100) : null;
   // D206: el pedido de programa lleva objetivo, días, experiencia y lesiones; sin eso el profe no sabe qué armar.
-  const [briefSheet, setBriefSheet] = useState<null | "new" | "complete">(null);
+  const [briefSheet, setBriefSheet] = useState<null | "new" | "complete" | "late">(null);
   const [briefs, setBriefs] = useState<PendingBrief[]>([]);
-  const loadBriefs = useCallback(() => { if (!offline) api<ProgramRequestState>("/api/me/program-request").then((s) => setBriefs(s.pending)).catch(() => {}); }, [offline]);
+  // 13/11: pedido ya respondido sin datos (y perfil incompleto). `briefsReady`: hasta saberlo no se muestra la tarjeta genérica
+  // del perfil (D217), para no ofrecer dos avisos por lo mismo ni mover la pantalla.
+  const [late, setLate] = useState<LateBrief | null>(null);
+  const laterTapped = useRef(false);
+  const [briefsReady, setBriefsReady] = useState(false);
+  const loadBriefs = useCallback(() => {
+    if (offline) return;
+    // Si la persona ya tocó «Ahora no» en esta visita, una respuesta pedida antes de ese toque no vuelve a mostrar el aviso.
+    api<ProgramRequestState>("/api/me/program-request").then((s) => { setBriefs(s.pending); setLate(s.late ? { ...s.late, snoozed: s.late.snoozed || laterTapped.current } : null); }).catch(() => {}).finally(() => setBriefsReady(true));
+  }, [offline]);
   useEffect(() => { loadBriefs(); }, [loadBriefs, inbox]);
   useEffect(() => {
     // Desde el push o la campanita (/app?completar=programa): abre el formulario si hay un pedido esperando datos.
-    if (briefs.length && new URLSearchParams(location.search).get("completar") === "programa") {
-      setBriefSheet("complete");
+    if ((briefs.length || late) && new URLSearchParams(location.search).get("completar") === "programa") {
+      setBriefSheet(briefs.length ? "complete" : "late");
       try { const u = new URL(location.href); u.searchParams.delete("completar"); history.replaceState(history.state, "", u); } catch { /* */ }
     }
-  }, [briefs]);
+  }, [briefs, late]);
+  const laterBrief = () => {
+    laterTapped.current = true;
+    setLate((l) => (l ? { ...l, snoozed: true } : l)); // se esconde ya; si el servidor no respondió, vuelve al recargar
+    void api("/api/me/program-request", { body: { later: true } }).catch(() => {});
+    flash("Listo. Te lo recordamos más adelante; también podés cargarlo en Perfil.");
+  };
   const askProgram = () => setBriefSheet(briefs.length ? "complete" : "new");
   const toWho = gymRel ? "el equipo de sala" : coachFirst;
   const pendingProgram = gymRel ? inbox?.gymRequests.some((r) => r.category === "programa_nuevo" && r.status !== "done") : inbox?.requests.some((r) => r.kind === "programa" && r.status === "open");
@@ -573,9 +599,11 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
       </div>
       <RelationPicker t={t} offline={offline} busyOpen={!!t.openSession} onChange={onRelation} flash={flash} />
       {!offline && <PendingBriefBanner pending={briefs} onOpen={() => setBriefSheet("complete")} />}
+      {/* 13/11: pidió su programa sin datos y ya se lo respondieron: el aviso sigue hasta que los completa (nunca entrenando). */}
+      {!offline && !t.openSession && !briefs.length && <LateBriefCard late={late} onOpen={() => setBriefSheet("late")} onLater={laterBrief} />}
       {briefSheet && (
-        <ProgramRequestSheet mode={briefSheet} to={briefSheet === "complete" && briefs[0] ? briefs[0].to : toWho} url={gymRel ? "/api/me/gym/requests" : "/api/me/requests"} offline={offline}
-          onClose={() => setBriefSheet(null)} onDone={(msg) => { setBriefSheet(null); flash(msg); reloadInbox(); loadBriefs(); }} />
+        <ProgramRequestSheet mode={briefSheet} to={briefSheet === "complete" && briefs[0] ? briefs[0].to : briefSheet === "late" && late ? late.to : toWho} url={gymRel ? "/api/me/gym/requests" : "/api/me/requests"} offline={offline}
+          onClose={() => setBriefSheet(null)} onDone={(msg) => { setBriefSheet(null); flash(msg); reloadInbox(); loadBriefs(); void loadProfile(true).catch(() => {}); }} />
       )}
       {presence && !offline && t.program && <PresenceChip p={presence} onValidate={() => onSheet({ type: "presence" })} />}
       {/* Un entrenamiento abierto siempre se puede retomar, aunque el programa ya no esté disponible (p. ej. acceso pausado):
@@ -604,6 +632,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
           {t.supervised && <span>Tu gimnasio planifica tus rutinas. Si necesitás un cambio, pedíselo al equipo de sala.</span>}
         </div>} />
       )}
+      {/* 13/11: el nivel a la vista (antes sólo al final de Progreso y en Tu gym), en la primera pantalla; lleva a su detalle. */}
+      <LevelChip level={level} variant="row" onOpen={onLevel} />
       {/* D210: Asistente REPI, una sola prioridad del día, debajo del próximo entrenamiento. */}
       <RepiCard startName={next?.name ?? t.openSessionDay ?? null}
         onStart={(k) => onStart(k && t.program?.days.some((d) => d.id === k) ? k : next?.id ?? "")}
@@ -611,7 +641,8 @@ function Home({ t, coachFirst, onStart, onOwn, go, bell, inbox, offline, onSheet
         onResolved={(c) => { if (c.kind === "program_updated" && t.program?.update) try { localStorage.setItem(`repi_prog_seen:${t.program.update.key}`, "1"); } catch { /* */ } }}
         extra={repiCoversProgram && progUpdate && t.program ? <ProgramUpdateInfo u={progUpdate} version={t.program.version} name={t.program.name} offline={offline} flash={flash} /> : null} />
       {/* D217: perfil nuevo o incompleto: «Contale a REPI qué buscás» (una vez; nunca con un entrenamiento abierto). */}
-      <ProfileNudge hidden={offline || !!t.openSession} />
+      {/* 13/11: con un aviso del pedido de programa (abierto o ya respondido, aunque esté en pausa) no se suma este otro. */}
+      <ProfileNudge hidden={offline || !!t.openSession || !briefsReady || briefs.length > 0 || !!late} />
       {/* D168: invitaciones a rankings, desafíos y trofeos con lo que ya entrena. */}
       {!offline && !t.openSession && <Nudges go={onNudge} flash={flash} />}
       {/* D172: desafíos que proponen los socios y aprueba un profe; validarlos suma puntos al nivel. */}
@@ -688,10 +719,12 @@ function RelationPicker({ t, offline, busyOpen, onChange, flash }: { t: Training
   );
 }
 
-function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void; own: React.ReactNode }) {
+function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own, level, onLevel }: { t: Training; sel: number; setSel: (i: number) => void; coachFirst: string; onStart: (dayId: string) => void; onSolo: (v: "solo" | "coach_absent") => void; own: React.ReactNode; level: LevelData | null | false; onLevel: () => void }) {
+  // 13/11: el nivel junto al título (compacto); lleva al detalle en Progreso.
+  const head = <div className="tr-head"><h1 tabIndex={-1}>Entrenar</h1><LevelChip level={level} variant="pill" onOpen={onLevel} /></div>;
   if (t.state !== "ready" || !t.program) return (
     <>
-      <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
+      {head}
       <WeekStrip t={t} />
       {t.openSession && (
         <button type="button" className="cta" onClick={() => onStart("")}><Ic i={Play} size={18} weight="fill" color="var(--ui-on-primary)" />Continuar entrenamiento en curso</button>
@@ -704,7 +737,7 @@ function Train({ t, sel, setSel, coachFirst, onStart, onSolo, own }: { t: Traini
   const d = t.program.days[sel] ?? t.program.days[0];
   return (
     <>
-      <h1 tabIndex={-1} style={{ marginTop: 6 }}>Entrenar</h1>
+      {head}
       {!t.supervised && featureOn("adaptive") && <SoloEntry onOpen={onSolo} prefetch={t.ai !== false} />}
       <DayTabs t={t} sel={sel} setSel={setSel} />
       <DayDetail t={t} d={d} coachFirst={coachFirst} />
@@ -797,12 +830,12 @@ function DayBody({ t, d, coachFirst }: { t: Training; d: Day; coachFirst: string
       )}
       <div className="exlist">
         {d.exercises.map((e, i) => (
-          <div key={e.id} className="exitem"><span className="thumb" aria-hidden="true">{labels[i] ?? "foto"}</span>
+          <div key={e.id} className="exitem">{/* 13/11: el orden del ejercicio (o su letra en un combinado) en vez del cuadro rayado con la palabra «foto». */}<span className="thumb" aria-hidden="true">{labels[i] ?? i + 1}</span>
             {/* Ejercicios por tiempo: una actividad se lee como la indicó el profe («10 min · 5 km/h · incl. 3») y su «anterior» con
                 duración y valores; sin descanso que mostrar si no lo lleva. */}
             <span><b>{e.name}</b>{e.detail && (labels[i] || e.detail.technique !== "straight") && <small className="ex-combo">{[labels[i] ? `${labels[i]} · ${e.detail.groupKind === "circuit" ? "circuito" : "combinado, sin descanso entre medio"}` : null, e.detail.technique !== "straight" ? TECHNIQUES[e.detail.technique].label : null].filter(Boolean).join(" · ")}</small>}<small>{metaTxt(e)}{e.rir != null ? ` · RIR ${e.rir}` : ""}</small><em>Anterior: {prevTxt(e.prev, unit, isTimedRow(e))}</em></span>
             {e.suggest && <small className="ex-suggest" aria-label={`REPI sugiere hoy ${e.suggest.text}`}>Hoy: {e.suggest.weightKg != null ? `${kg(e.suggest.weightKg, unit)} × ` : ""}{e.suggest.reps}</small>}
-            {activityOf(e.detail) && !e.restSec ? null : <span className="mb-muted" style={{ fontSize: 13, paddingRight: 4 }} aria-label={`Descanso ${formatRest(e.restSec)}`}>{formatRest(e.restSec)}</span>}
+            {activityOf(e.detail) && !e.restSec ? null : <span className="mb-muted ex-rest" aria-label={`Descanso ${formatRest(e.restSec)}`}><Ic i={Timer} size={14} />{formatRest(e.restSec)}</span>}
           </div>
         ))}
         {!d.exercises.length && <span className="mb-muted">Este día no tiene ejercicios todavía.</span>}
@@ -820,11 +853,24 @@ function NewTag({ id, open }: { id: "new_progress_body" | "new_progress_photos";
   return <span className="pp-new">Nuevo</span>;
 }
 
-function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg }: { t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
+function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg, focusLevel = 0 }: { focusLevel?: number; t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
   const [open, setOpen] = useState<string | null>(null);
   const [trainingRevision, setTrainingRevision] = useState(0);
+  // 13/11: desde el nivel de Inicio o de Entrenar se llega directo a «Tu nivel y trofeos». Una vez por toque: la referencia
+  // sobrevive a que la sección quede oculta, así volver a Progreso por la barra no vuelve a desplazar.
+  const lvRef = useRef<HTMLDivElement>(null);
+  const lvSeen = useRef(0);
+  useEffect(() => {
+    if (!focusLevel || focusLevel === lvSeen.current) return;
+    lvSeen.current = focusLevel;
+    const show = () => { const el = lvRef.current; if (!el) return; el.scrollIntoView({ block: "start" }); el.focus({ preventScroll: true }); };
+    // Sin limpieza a propósito: al mostrarse una sección React vuelve a correr sus efectos y una limpieza cancelaría el
+    // desplazamiento recién pedido. Si la persona ya se fue de Progreso, el destino está oculto y no pasa nada.
+    requestAnimationFrame(show);
+    setTimeout(show, 450); // lo de arriba (gráficos, listas) puede terminar de llegar un instante después
+  }, [focusLevel]);
   const importedChanged = () => { setTrainingRevision((n) => n + 1); onChanged(); };
   // Volumen por semana de las últimas sesiones registradas (Σ peso × reps). Sin datos, sin gráfico. Lo anulado no cuenta (D195).
   const weeks = new Map<string, number>();
@@ -861,7 +907,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg 
             )}
             <span className="mb-muted" style={{ fontSize: 12 }}>Volumen = series completadas × peso × repeticiones.</span>
           </section>
-          {!offline && <LevelPanel />}
+          {!offline && <div ref={lvRef} id="nivel" tabIndex={-1} className="lv-anchor"><LevelPanel /></div>}
           <MyGoals />
           <BeforeRepi flash={flash} offline={offline} onChanged={importedChanged} supervised={!!t.supervised} />
           <a className="ghost" href="/app/informe" style={{ display: "grid", placeItems: "center" }}>Informe mensual</a>
@@ -928,6 +974,9 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
   return (
     <>
       <h1 tabIndex={-1} style={{ marginTop: 6 }}>Perfil</h1>
+      {/* 13/11: Perfil es una página larga (salud, privacidad, perfil de entrenamiento, REPI, configuración, datos): un índice
+          arriba lleva a cada parte. Los títulos de sección quedaron todos del mismo tamaño. */}
+      <ProfileIndex />
       <div className="coachnote"><span className="av32">{coach[0]?.toUpperCase() ?? "C"}</span><span><small>Tu coach</small><p>{p?.coach ? `${p.coach.name} · ${p.coach.org}` : t.coach ? `${t.coach.name} · ${t.coach.org}` : "Sin coach asignado"}</p></span></div>
       {perr && <p className="mb-err" role="alert">{perr}</p>}
       {!!inbox?.accessRequests.length && (
@@ -942,7 +991,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         </section>
       )}
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2>Salud</h2><button type="button" className="linkbtn" style={{ height: 36 }} onClick={onInjury}>+ Agregar lesión</button></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2 id="pf-salud" tabIndex={-1}>Salud</h2><button type="button" className="linkbtn" style={{ height: 36 }} onClick={onInjury}>+ Agregar lesión</button></div>
         <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>{health?.on ? `La ve ${coach} porque compartiste tu salud.` : "Sólo la ves vos. Compartila en Privacidad si querés que tu coach la tenga en cuenta."}</span>
         <div className="panel">
           {p?.injuries.map((i) => (
@@ -957,7 +1006,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
       </section>
       {p?.coach && (
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2>Privacidad y permisos</h2>
+          <h2 id="pf-priv" tabIndex={-1}>Privacidad y permisos</h2>
           <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Elegí qué puede ver {coach}. Tus entrenamientos siempre se comparten porque son parte del plan.</span>
           <div className="panel">
             {p.items.map((i) => {
@@ -974,7 +1023,7 @@ function Perfil({ t, inbox, reloadInbox, flash, onInjury, onSettings, offline }:
         </section>
       )}
       <section style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <h2 style={{ fontSize: 16 }}>Historial de accesos</h2>
+        <h2>Historial de accesos</h2>
         {!p?.history.length ? <span className="mb-muted" style={{ fontSize: 14 }}>Sin movimientos todavía.</span> : p.history.map((h, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--ui-divider)", fontSize: 14, gap: 12 }}>
             <span>{h.actor === "Vos" ? `${MINE[h.action] ?? h.action} ${h.label.toLowerCase()} con ${coach}` : `${h.actor} ${HIST[h.action] ?? h.action} tu ${(ACCESS_ITEMS as Record<string, { phrase: string }>)[h.item]?.phrase ?? h.label}`}</span>
@@ -1082,7 +1131,7 @@ function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offli
   };
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <h2 style={{ fontSize: 16 }}>Configuración</h2>
+      <h2 id="pf-config" tabIndex={-1}>Configuración</h2>
       <div className="unitseg" role="radiogroup" aria-label="Unidad de peso" aria-busy={busy || undefined}>
         {(["kg", "lb"] as const).map((u) => (
           <button key={u} type="button" role="radio" aria-checked={unit === u} onClick={() => pick(u)}>{u === "kg" ? "Kilos (kg)" : "Libras (lb)"}</button>
@@ -1091,7 +1140,27 @@ function Settings({ unit, offline, flash, onChanged }: { unit: WeightUnit; offli
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Cambia cómo ves y cargás los pesos. Tus registros no se modifican; tu coach los sigue viendo en kg.</span>
       {/* D188: apariencia de la cuenta; funciona sin conexión y se sincroniza después. */}
       <div style={{ marginTop: 10 }}><ThemePicker /></div>
+      {/* 13/11: sonido y notificación al terminar el descanso (opcionales, por dispositivo; también en el temporizador). */}
+      <RestAlertSettings flash={flash} />
     </section>
+  );
+}
+
+/** Índice de Perfil: sólo las partes que están en pantalla (algunas dependen de la cuenta o cargan después). */
+const PROFILE_PARTS: [string, string][] = [["pf-salud", "Salud"], ["pf-priv", "Privacidad"], ["tp-h", "Perfil de entrenamiento"], ["rp-prefs-h", "Asistente REPI"], ["pf-config", "Configuración"], ["pf-datos", "Tus datos"]];
+function ProfileIndex() {
+  const [here, setHere] = useState<string[]>(["pf-salud", "pf-config", "pf-datos"]);
+  useEffect(() => {
+    const look = () => setHere((p) => { const n = PROFILE_PARTS.map(([id]) => id).filter((id) => document.getElementById(id)); return n.join() === p.join() ? p : n; });
+    look();
+    const t = [setTimeout(look, 600), setTimeout(look, 2500)];
+    return () => t.forEach(clearTimeout);
+  }, []);
+  const jump = (id: string) => { const el = document.getElementById(id); if (!el) return; el.scrollIntoView({ block: "start" }); el.focus({ preventScroll: true }); };
+  return (
+    <nav className="pf-index" aria-label="Secciones del perfil">
+      {PROFILE_PARTS.filter(([id]) => here.includes(id)).map(([id, label]) => <button key={id} type="button" onClick={() => jump(id)}>{label}</button>)}
+    </nav>
   );
 }
 
@@ -1111,7 +1180,7 @@ function MyData({ flash }: { flash: (m: string) => void }) {
   };
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <h2 style={{ fontSize: 16 }}>Tus datos</h2>
+      <h2 id="pf-datos" tabIndex={-1}>Tus datos</h2>
       <span className="mb-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>Descargá una copia de lo que cargaste y de lo que se registró sobre vos.</span>
       <a className="ghost" href="/api/me/export" download style={{ display: "grid", placeItems: "center" }}>Descargar mis datos</a>
       {pending ? (
@@ -1201,7 +1270,7 @@ function MyCharges() {
   const day = (iso: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <h2 style={{ fontSize: 16 }}>Pagos con tu coach</h2>
+      <h2>Pagos con tu coach</h2>
       <span className="mb-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>Lo registra tu coach. REPI no cobra ni procesa estos pagos.</span>
       {d.coaches.map((c) => c.charges.map((x) => (
         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--ui-divider)", fontSize: 14 }}>

@@ -39,6 +39,17 @@ async function fire(body: string) {
   if (document.visibilityState === "visible") { navigator.vibrate?.(200); return; }
   try {
     const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification("Descanso terminado", { body, tag: "repi-rest", icon: "/icons/icon-192.png", data: { url: "/app", focusOnly: true } });
+    // 13/11: con vibración propia y avisando aunque quede un aviso anterior sin tocar (el sonido es el del sistema).
+    const extra = { renotify: true, vibrate: [200, 100, 200] } as NotificationOptions;
+    await reg.showNotification("Descanso terminado", { body, tag: "repi-rest", icon: "/icons/icon-192.png", data: { url: "/app", focusOnly: true }, ...extra });
   } catch { /* sin permiso vigente o sin service worker: queda el aviso en pantalla al volver */ }
+}
+
+/** Saca de la bandeja el aviso de descanso (la persona ya volvió a la app o arrancó la serie). */
+export async function clearRestNotification() {
+  if (!supported() || Notification.permission !== "granted") return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    for (const n of await reg.getNotifications({ tag: "repi-rest" })) n.close();
+  } catch { /* sin service worker */ }
 }
