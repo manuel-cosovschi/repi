@@ -40,9 +40,14 @@ Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLIC
 - **Pendiente:**
   1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Tampoco se probó en Safari ni Firefox, y nadie escuchó los films.
   2. Re-renderizar los seis films que quedaron con el kit viejo y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
-  3. Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` (avisos del entorno de demo) y unificar las capturas que muestran 53 kg con la escena en vivo (60 → 62,5 kg).
-  4. Decidir si la referencia del vendedor se guarda también en los eventos del sitio y en `/qr` (cambio de esquema).
+  3. ~~Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` y unificar las capturas de 53 kg~~ **Hecho el 13/11** (ver «Pulido» más abajo).
+  4. ~~Referencia del vendedor en eventos del sitio y `/qr`~~ **Descartado por el titular el 13/11** (ver «Pulido» más abajo).
 - **Decisiones para el titular:** confirmar el texto de la prueba social en la apertura («Ya funciona en Mar del Plata.») y en el caso.
+- **Pulido del 13/11 (pedido del titular: «hacé todo lo que tengas que hacer para que todo quede perfecto», con libertad total):**
+  - **Referencia del vendedor:** el código ya no se agrega al mensaje de WhatsApp («eso no tiene que estar en /conoce en ningún lado»). Queda sólo lo que ya existía desde D209: si alguien entra por el enlace personal de un vendedor (`/conoce?ref=V-XXXXXX`, que el vendedor copia de su panel), el formulario lo manda oculto como origen del contacto. El visitante no lo ve en ningún lado. Si el titular tampoco quiere eso, hay que quitar el enlace personal del panel de vendedores (decisión de negocio de D209, no se tocó).
+  - **Capturas rehechas** con `design/films/kit/tools/shots-conoce.mjs` (demo local): `training`, `intelligence`, `adaptive`, `owner` (ahora «Seguimiento de sala»), `access` y `control-equipo`. Sin avisos del entorno de demo ni píldora «DEMO»; las del socio muestran el mismo ejemplo que la escena en vivo (60 kg × 10 → 62,5 kg, calculado por el motor real). Detalle en `docs/comercial/EXPERIENCE_4.md` §8.
+  - **Los seis films restantes:** en producción en la rama `claude/films-6` (un agente); se publican aparte cuando estén revisados.
+  - Pruebas: typecheck, guardas 26/26, `e2e/conoce*.spec.ts` 96 pasan y 2 omitidas.
 
 ## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · PUBLICADO Y VERIFICADO (#112, `4c01c5a`)
 

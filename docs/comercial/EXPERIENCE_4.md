@@ -128,7 +128,7 @@ Rutas relativas a `apps/web/src/`.
 **Nuevos**
 - `components/conoce/x4/DataStory.tsx` — «El dato vuelve» (03b). Recibe la serie anterior y la real **del motor**; los seis puntos previos de la curva son un ejemplo y la página lo dice al pie del gráfico («los anteriores, un ejemplo ficticio»).
 - `components/conoce/x4/Connected.tsx` — «La sala conectada» (04c, `id="sala"`). Lista de pestañas «Zonas de la sala» con flechas, Inicio y Fin; botones sobre la sala; una tarjeta por zona con su demo.
-- `components/conoce/referral.ts` — referencia del vendedor (`V-XXXXXX`) para el formulario y los mensajes de WhatsApp.
+- `components/conoce/referral.ts` — enlace personal de un vendedor (`?ref=V-XXXXXX`, D209): viaja oculto con el formulario como origen del contacto. No se muestra en la página ni en los mensajes de WhatsApp.
 - `styles/conoce4.css` — estilos de lo anterior.
 - `e2e/conoce-x4.spec.ts` — 17 pruebas (× 2 proyectos).
 
@@ -144,7 +144,13 @@ Rutas relativas a `apps/web/src/`.
 - **Logo:** `public/brand/wm_full.png` con el punto aparte, como antes. No se redibujó.
 - **Captura del tótem:** `public/conoce/shots/control-rutina.webp` (ya publicada).
 - **Tipografías:** Barlow y Barlow Condensed.
-- **Pendiente (no hecho):** volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` (tienen avisos del entorno de demo) y unificar `training.webp` / `intelligence.webp`, que muestran 53 kg mientras la escena en vivo usa 60 → 62,5 kg.
+- **Capturas rehechas (13/11):** `training`, `intelligence`, `adaptive`, `owner`, `access` y `control-equipo`, con `design/films/kit/tools/shots-conoce.mjs` contra una demo local.
+  - Sin avisos del entorno de demo («Avisos push no están configurados…»), sin la píldora «DEMO · Guía · Otro perfil» y sin la ayuda de primera vez.
+  - `training`, `intelligence` y `adaptive` usan el mismo ejemplo que la escena en vivo: el historial de press de banca de la demo se dejó en 60 kg × 10 y el motor real muestra «Anterior 60 kg × 10 → REPI recomienda 62,5 kg». Ningún número se escribió a mano.
+  - `owner` ahora es «Seguimiento de sala» (pedidos recibidos, resueltos y tiempos); el tablero «Ejecutivo» de la demo está casi en cero.
+  - `access`: el email ficticio de la demo se muestra con un dominio de ejemplo.
+  - `training-piezas.webp` es la captura anterior, que sólo usa `EngineScreen.tsx` para recortar piezas de interfaz sin números (los recortes van por coordenadas).
+  - **Sigue distinto:** la demo que prueba el visitante y los films muestran el ejemplo de la demo (53 kg). Cada uno es coherente por dentro.
 
 ## 9. Veracidad
 
@@ -173,10 +179,10 @@ Fallas encontradas leyendo el código y confirmadas con prueba:
 | Entrar con `?modo=control` y cambiar a Completo dejaba el formulario con la modalidad vieja. | El selector avisa cada cambio; el formulario lo sigue. |
 | «Quiero REPI en mi gimnasio» no preparaba el formulario si antes se había elegido otro perfil. | Ahora lo pone en «gimnasios». |
 | Cambiar de tipo de contacto dejaba el interés y la reunión del tipo anterior. | Se reinician. |
-| La referencia del vendedor no llegaba al WhatsApp. | Se agrega « (Ref. V-XXXXXX)» al mensaje. |
+| La referencia del vendedor no llegaba al WhatsApp. | **Revertido el 13/11 por pedido del titular:** el código ya no se agrega al mensaje. El enlace personal del vendedor (D209) sigue llegando, oculto, sólo con el formulario. |
 | «Pedir demo» de la cabecera no se medía. | Mide `contact_click` con destino `cabecera`. |
 
-**Sin resolver:** la referencia del vendedor no se guarda en los eventos del sitio ni en `/qr`; son cambios de esquema y quedan para decidir.
+**Descartado (13/11):** guardar la referencia del vendedor en los eventos del sitio o en `/qr`. El titular no quiere esa referencia a la vista en `/conoce`.
 
 ## 11. Accesibilidad
 
