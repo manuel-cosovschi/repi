@@ -410,6 +410,49 @@ export function calendarLink(title: string, startLocal: string, minutes: number,
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${f(start)}/${f(end)}&details=${encodeURIComponent(details)}&ctz=America/Argentina/Buenos_Aires`;
 }
 
+// ── Agenda pública y calendario ──────────────────────────────────────────────
+export type BookingConfig = { days: number[]; from: string; to: string; slotMin: number; horizonDays: number; minNoticeHours: number };
+export const DEFAULT_BOOKING: BookingConfig = { days: [1, 2, 3, 4, 5], from: "10:00", to: "18:00", slotMin: 30, horizonDays: 7, minNoticeHours: 18 };
+const hm = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+const fmtHM = (n: number) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+/**
+ * Horarios libres (hora argentina, «AAAA-MM-DDTHH:MM») en los próximos días hábiles configurados. `now` en UTC; `taken`,
+ * los horarios ya ocupados (reuniones abiertas). Nunca ofrece algo antes del aviso mínimo.
+ */
+export function bookingSlots(now: Date, cfg: BookingConfig, taken: string[]): string[] {
+  const ar = new Date(now.getTime() - 3 * 3600_000);
+  const minStart = new Date(now.getTime() + cfg.minNoticeHours * 3600_000);
+  const busy = new Set(taken);
+  const out: string[] = [];
+  for (let d = 0; d <= cfg.horizonDays + 7 && out.length < 200; d++) {
+    const day = new Date(Date.UTC(ar.getUTCFullYear(), ar.getUTCMonth(), ar.getUTCDate() + d));
+    if (!cfg.days.includes(day.getUTCDay())) continue;
+    const iso = day.toISOString().slice(0, 10);
+    for (let t = hm(cfg.from); t + cfg.slotMin <= hm(cfg.to); t += cfg.slotMin) {
+      const slot = `${iso}T${fmtHM(t)}`;
+      if (new Date(`${slot}:00-03:00`) < minStart || busy.has(slot)) continue;
+      out.push(slot);
+    }
+    if (out.length && new Set(out.map((s) => s.slice(0, 10))).size >= cfg.horizonDays) break;
+  }
+  return out;
+}
+/** Invitación iCalendar (METHOD:REQUEST): Gmail y Google Calendar la agregan solas al calendario del invitado. */
+export function icsInvite(p: { uid: string; startLocal: string; minutes: number; title: string; description: string; organizerEmail: string; organizerName: string; attendees: { email: string; name?: string }[]; location?: string | null }) {
+  const start = new Date(`${p.startLocal}:00-03:00`);
+  const end = new Date(start.getTime() + p.minutes * 60_000);
+  const f = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  return [
+    "BEGIN:VCALENDAR", "PRODID:-//REPI//Captacion//ES", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:REQUEST", "BEGIN:VEVENT",
+    `UID:${p.uid}`, `DTSTAMP:${f(new Date())}`, `DTSTART:${f(start)}`, `DTEND:${f(end)}`, `SUMMARY:${esc(p.title)}`, `DESCRIPTION:${esc(p.description)}`,
+    ...(p.location ? [`LOCATION:${esc(p.location)}`] : []),
+    `ORGANIZER;CN=${esc(p.organizerName)}:mailto:${p.organizerEmail}`,
+    ...p.attendees.map((a) => `ATTENDEE;CN=${esc(a.name ?? a.email)};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a.email}`),
+    "STATUS:CONFIRMED", "SEQUENCE:0", "BEGIN:VALARM", "TRIGGER:-PT30M", "ACTION:DISPLAY", "DESCRIPTION:Reunión REPI", "END:VALARM", "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+}
+
 // ── Métricas ────────────────────────────────────────────────────────────────
 /** Clientes que hacen falta para un MRR objetivo con un ticket mensual promedio (socios × precio). Precio = supuesto a validar. */
 export function clientsForMrr(targetMinor: number, currentMinor: number, avgMembers: number, unitMinor: number) {

@@ -2,7 +2,11 @@ import { db, schema } from "@/db";
 import { isDemoDeploy } from "./deploy";
 import { renderMailHtml } from "./mail-template";
 
-export type Mail = { to: string; subject: string; body: string };
+export type Mail = {
+  to: string; subject: string; body: string;
+  /** D218: respuesta a otra dirección (captación) y adjuntos (invitación de calendario .ics). Opcionales: el resto no cambia. */
+  replyTo?: string; attachments?: { filename: string; content: string; contentType?: string }[];
+};
 
 // Adaptador de correo (T05, D24, D70). Drivers:
 // · "resend": API HTTP de Resend con MAIL_FROM y RESEND_API_KEY (proveedor y dominio remitente los define el titular).
@@ -11,7 +15,7 @@ export type Mail = { to: string; subject: string; body: string };
 // Nunca se registra el cuerpo: lleva códigos y enlaces personales.
 export async function sendMail(mail: Mail): Promise<void> {
   // Dominio reservado (demo guiada, D85): nunca sale a un proveedor; queda en el buzón DEV.
-  if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(mail); return; }
+  if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(box(mail)); return; }
   const resend = resendConfig();
   // Con proveedor nunca se copia al buzón DEV, tampoco en DEMO (D111): los correos llevan códigos y enlaces personales y
   // el buzón lo lee REPI Admin. Un rechazo del proveedor es un error visible, no un envío fingido.
@@ -19,8 +23,10 @@ export async function sendMail(mail: Mail): Promise<void> {
   if (process.env.NODE_ENV === "production" && !isDemoDeploy()) {
     throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
   }
-  await db.insert(schema.devMailbox).values(mail);
+  await db.insert(schema.devMailbox).values(box(mail));
 }
+/** El buzón DEV guarda sólo destinatario, asunto y texto. */
+const box = (m: Mail) => ({ to: m.to, subject: m.subject, body: m.body });
 
 export type Delivery = "submitted" | "local_only";
 /**
@@ -28,7 +34,7 @@ export type Delivery = "submitted" | "local_only";
  * presenta como enviados (bienvenida comercial). "submitted" sólo significa que el proveedor lo aceptó, no que llegó.
  */
 export async function deliverMail(mail: Mail): Promise<Delivery> {
-  if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(mail); return "local_only"; }
+  if (mail.to.toLowerCase().endsWith(".invalid")) { await db.insert(schema.devMailbox).values(box(mail)); return "local_only"; }
   const resend = resendConfig();
   if (resend) {
     await sendResend(resend, mail);
@@ -37,7 +43,7 @@ export async function deliverMail(mail: Mail): Promise<Delivery> {
   if (process.env.NODE_ENV === "production" && !isDemoDeploy()) {
     throw new Error("No hay proveedor de email configurado (docs/DECISIONS.md D24)");
   }
-  await db.insert(schema.devMailbox).values(mail);
+  await db.insert(schema.devMailbox).values(box(mail));
   return "local_only";
 }
 
@@ -93,7 +99,10 @@ async function sendResend(c: ResendConfig, m: Mail) {
     method: "POST",
     headers: { Authorization: `Bearer ${c.key}`, "Content-Type": "application/json" },
     // D149: versión HTML con la estética de REPI y la de texto de siempre (clientes sin HTML, lectores de pantalla).
-    body: JSON.stringify({ from: c.from, to: [m.to], subject: m.subject, text: m.body, html: renderMailHtml(m), ...(c.replyTo ? { reply_to: c.replyTo } : {}) }),
+    body: JSON.stringify({
+      from: c.from, to: [m.to], subject: m.subject, text: m.body, html: renderMailHtml(m), ...((m.replyTo ?? c.replyTo) ? { reply_to: m.replyTo ?? c.replyTo } : {}),
+      ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ filename: a.filename, content: a.content, ...(a.contentType ? { content_type: a.contentType } : {}) })) } : {}),
+    }),
     signal: AbortSignal.timeout(10_000),
   }).catch((e: unknown) => { throw new MailError(`email: sin respuesta del proveedor (${e instanceof Error ? e.name : "error"})`, 0, true); });
   if (!res.ok) throw new MailError(`email: el proveedor rechazó el envío (${res.status})`, res.status, res.status === 429 || res.status >= 500);
