@@ -9,7 +9,9 @@
 // Movimiento reducido o pantalla baja: tabla quieta con los valores.
 import { useEffect, useRef, useState } from "react";
 import { targetLine } from "@/components/member/TargetCard";
-import { stage } from "../sala/store";
+import { pings, stage } from "../sala/store";
+import { VALENTINA } from "../sala/model";
+import { DataStory } from "../x4/DataStory";
 import { gsap, PIN_MQ, ScrollTrigger, STACK_MQ, useGSAP } from "./gsap";
 import { Roll } from "./Roll";
 import { Say } from "./Say";
@@ -58,7 +60,15 @@ export function Training() {
             const st = AT.reduce((a, v, i) => (p >= v ? i : a), 0);
             const r = st === 3 ? Math.min(real.r, 1 + Math.floor(Math.max(0, (p - REPS[0]) / (REPS[1] - REPS[0])) * real.r)) : st > 3 ? real.r : 0;
             const key = `${st}|${r}`;
-            if (key !== last) { last = key; setStep(st); setRep(r); }
+            if (key !== last) {
+              // Cada repetición completa y la serie registrada dejan un pulso en el piso, donde entrena Valentina.
+              if (st === 4 && last.startsWith("3|")) pings.fire(VALENTINA[0], VALENTINA[1], "data");
+              last = key; setStep(st); setRep(r);
+            }
+            // 4.0 · La barra de Valentina en la sala sigue la serie: en los soportes mientras REPI muestra el objetivo, baja y sube
+            // una vez por repetición durante la serie y vuelve a los soportes al registrarla.
+            if (st === 3) { const f = Math.max(0, (p - REPS[0]) / (REPS[1] - REPS[0])) * real.r, u = f >= real.r ? 1 : f - Math.floor(f); stage.set({ lift: +(0.5 + 0.5 * Math.cos(2 * Math.PI * u)).toFixed(3) }); }
+            else stage.set({ lift: -1 });
           },
         },
       });
@@ -70,8 +80,10 @@ export function Training() {
         .fromTo(q(".x3-train-say"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.25);
       tl.fromTo(q(".x3-phone"), { rotateY: -6 }, { rotateY: 6, duration: 1 }, 0);
       // La sala, con el velo frío a .5 mientras se cuenta la serie (el teléfono y los números al frente).
-      const veil = ScrollTrigger.create({ trigger: track, start: "top 40%", end: "bottom 60%", onToggle: (s) => stage.set({ tone: s.isActive ? 0.5 : 0 }) });
-      return () => { veil.kill(); entry.scrollTrigger?.kill(); entry.kill(); stage.set({ tone: 0 }); };
+      // 4.0 · La sala es parte de la toma (la cámara se acerca al banco de Valentina): apenas un velo, y al salir de la escena
+      // Valentina vuelve a entrenar sola.
+      const veil = ScrollTrigger.create({ trigger: track, start: "top 40%", end: "bottom 60%", onToggle: (s) => { stage.set({ tone: s.isActive ? 0.12 : 0 }); if (!s.isActive) stage.set({ lift: null }); } });
+      return () => { veil.kill(); entry.scrollTrigger?.kill(); entry.kill(); stage.set({ tone: 0, lift: null }); };
     });
     return () => mm.revert();
   }, { scope: root });
@@ -87,6 +99,11 @@ export function Training() {
     <section ref={root} id="en-accion" className="x3-train" data-shot="training" aria-labelledby="cn-train">
       <div className="x3-wrap"><Say id="cn-train" className="x3-h2" text="El entrenamiento *cobra vida.*" /></div>
       <div className="x3-train-track">
+        {/* 4.0 · Marcas de cámara: travelling de acercamiento hasta el banco de Valentina (general → medio → primer plano) y
+            una vuelta corta alrededor cuando la próxima serie se ajusta. Las lee el director de tomas (Stage). */}
+        <i className="x4-cue" data-shot="rackMid" data-span="0.9" style={{ "--at": 0 } as React.CSSProperties} aria-hidden="true" />
+        <i className="x4-cue" data-shot="rackClose" data-span="0.8" style={{ "--at": 0.2 } as React.CSSProperties} aria-hidden="true" />
+        <i className="x4-cue" data-shot="rackOrbit" data-span="0.7" style={{ "--at": 0.72 } as React.CSSProperties} aria-hidden="true" />
         <div className="x3-train-pin">
           <div className="x3-wrap x3-train-grid">
             {/* Lo que leen los lectores de pantalla: los cinco pasos con sus valores; el paso actual marcado. */}
@@ -120,6 +137,7 @@ export function Training() {
         <p>{t0.why}</p>
         {after.event?.text && <p>{after.event.text}</p>}
       </div>
+      <DataStory prev={t0.prev?.w != null ? { w: t0.prev.w, r: t0.prev.r ?? 0 } : null} real={real} />
       <div className="x3-wrap x3-train-try">
         <h3>Probalo vos, con el motor real.</h3>
         <IntelSim />

@@ -5,28 +5,30 @@ licencia que permite uso comercial y efectos de sonido libres. No se usa ninguna
 
 ## Música — Kevin MacLeod (incompetech.com), Creative Commons Atribución 4.0
 
-Licencia: <https://creativecommons.org/licenses/by/4.0/>. Permite uso comercial con atribución. La atribución se muestra en el
-reproductor de `/conoce` debajo de cada film (`Video.music` en `apps/web/src/content/conoce.ts`) y en este archivo.
+Licencia: <https://creativecommons.org/licenses/by/4.0/>. Permite uso comercial con atribución. La atribución se muestra en la
+página `/creditos` del sitio (enlazada desde el pie; toma la pista de `Video.music` en `apps/web/src/content/conoce.ts`) y en este
+archivo. Los MP4 no llevan el crédito incrustado: si un film se comparte fuera del sitio, hay que acompañarlo con el texto de
+atribución.
 
 Texto de atribución: «[Título]» Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License.
 
-Cada film usa un fragmento recortado, normalizado a −14 LUFS y sincronizado con la imagen: para CC BY 4.0 es material adaptado
-(§1(a)) y hay que indicar la modificación (§3(a)(1)(B)). El reproductor lo dice así: «Música: «[Título]», Kevin MacLeod
+Cada film usa un fragmento recortado, normalizado a −14 LUFS (AAC 160 kb/s en los films 4.0) y sincronizado con la imagen: para CC BY 4.0 es material adaptado
+(§1(a)) y hay que indicar la modificación (§3(a)(1)(B)). `/creditos` lo dice así: «Música: «[Título]», Kevin MacLeod
 (incompetech.com, con enlace), licencia CC BY 4.0 (con enlace). Fragmento editado y sincronizado con la imagen.»
 
 | Film (archivo web) | Pista | Tramo usado |
 | --- | --- | --- |
-| `film-marca` | Heroic Age | 30,0 → 78,0 s |
-| `perfil-gimnasios` | Five Armies | 68,0 → 129,6 s |
+| `film-marca` y `film-marca-vertical` (films 4.0) | Heroic Age | 45,2 → 83,6 s |
+| `perfil-gimnasios` (film 4.0) | Five Armies | 68,4 → 115,2 s |
 | `perfil-entrenadores` | Exciting Trailer | 4,0 → 53,1 s |
 | `perfil-deportistas` y `perfil-deportistas-vertical` | Volatile Reaction | 24,0 → 64,0 s |
 | `perfil-aliados` | Rising Game | 25,0 → 91,5 s |
-| `f-intelligence` | Volatile Reaction | 120,0 → 153,0 s |
+| `f-intelligence` (film 4.0) | Volatile Reaction | 120,6 → 148,7 s |
 | `f-progreso` | Clash Defiant | 150,0 → 172,5 s |
 | `f-altas` | Five Armies | 120,0 → 143,5 s |
 | `f-sala` | Clash Defiant | 0,0 → 23,5 s |
-| `modo-completo` y `modo-completo-vertical` | Volatile Reaction | 64,0 → 120,0 s |
-| `modo-control` y `modo-control-vertical` | Clash Defiant | 203,0 → 262,5 s |
+| `modo-completo` y `modo-completo-vertical` (films 4.0) | Volatile Reaction | 64,2 → 117,4 s |
+| `modo-control` y `modo-control-vertical` | Clash Defiant | 203,0 → 262,7 s |
 
 Origen: descargas directas de incompetech.com. Los archivos de audio no van a Git (`design/films/*/assets/media/`, ignorado).
 
@@ -39,7 +41,9 @@ comercial sin atribución obligatoria. No van a Git (`assets/sfx/`, ignorado; el
 
 ## Imagen y tipografía
 
-- Interfaz: grabaciones de la demo guiada local de REPI con datos ficticios (`design/films/kit/tools/rec-raw.mjs`).
+- Interfaz: grabaciones de la demo guiada local de REPI con datos ficticios (`design/films/kit/tools/rec-raw.mjs` y, en alta
+  resolución para los films 4.0, `design/films/kit/tools/rec-hd.mjs`). Nunca se graba contra producción.
+- Wordmark: el archivo aprobado `wm_full.png` (315×154), mostrado a 400 px (una sola remuestra, `wm_400.png`); no se redibuja.
 - Logo de Smart Center Gym: autorizado por el gimnasio (mismo archivo que `/conoce`, `apps/web/public/conoce/smart-center-gym.webp`).
 - Barlow y Barlow Condensed: SIL Open Font License (`design/films/*/assets/fonts/*-OFL.txt`).
 

@@ -1,6 +1,69 @@
 # REPI — Retomar acá
 
-Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLICADO Y VERIFICADO (#113, `3c119f2`, smoke de producción en verde, sin migración)**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: PUBLICADO Y VERIFICADO (#112, `4c01c5a`), sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+
+
+## REPI Experience 4.0 · «The Living Gym» (`/conoce`) — 13/11/2026 · PUBLICADO Y VERIFICADO (#113, `3c119f2`, D219)
+
+- **Pedido:** máster «REPI Experience 4.0 — Cinematic 3D · Interactive Motion · Creative Direction · Full Website Audit» (12/11). Evolucionar `/conoce` sobre Experience 3 / Motion 2, auditar todo y publicar sólo una versión que supere a la anterior.
+- **Estado:** PR #113 integrado por squash en `main` (`3c119f2`) y desplegado; `https://repiclub.com/api/version` responde `3c119f26367a`. **Sin** migraciones, variables de entorno ni dependencias nuevas (no hizo falta el respaldo).
+- **Smoke de producción (sólo lectura, sin enviar el formulario):** 39 de 40 comprobaciones del script en verde; la restante (el tamaño del `.vtt`, que la respuesta comprimida no informa) se verificó aparte: el archivo servido es idéntico al del repositorio.
+  - Versión, los ocho films con el mismo tamaño que en el repositorio, `/qr`, `sitemap.xml`, `robots.txt`, canonical y ausencia de precios.
+  - Escritorio con plano SVG y con la sala 3D forzada (`?sala=medium`): escenas nuevas, pestañas de zonas, botones sobre la sala, cierre y formulario, sin errores de consola ni de red.
+  - Teléfono 390×844: sin scroll lateral en ninguna escena y el film de marca abre la versión 9:16 (1080×1920, 0:38).
+  - Vercel sin errores de ejecución en la hora posterior al despliegue.
+  - Evidencia de la sesión (no versionada): script `prod-smoke.mjs`, `smoke.log` y capturas.
+- **Arreglo que entró con el PR, fuera de `/conoce`:** el CI falló una vez por `tests/lead-intelligence.test.ts` (de #110), que usa fechas fijas del 12/11: `run()` guardaba la corrida del programador con la fecha real y `leadsTick` la buscaba con la fecha recibida, así que la prueba pasaba sólo mientras ese día era hoy. Ahora ambos usan el mismo reloj (`server/leads/pipeline.ts`). En producción los dos relojes coinciden: no cambia el comportamiento.
+- **Documento:** `docs/comercial/EXPERIENCE_4.md` (dirección, referencias leídas y no leídas, arquitectura 3D, sistema de movimiento, veracidad, captación, rendimiento con sus límites, revisión escena por escena, riesgos y mantenimiento).
+- **Hecho en la web:**
+  - **Sala 3D** reescrita (`components/conoce/sala/SalaCanvas.tsx`): paredes, vidrios, seis tipos de equipo instanciados, sombras de contacto, pantallas (el tótem muestra la captura real de REPI Control), red con paquetes y pulsos, barra que sube y baja con el contador de repeticiones, cámara por arcos con `fov` por toma y grúa de apertura «del plano a la sala».
+  - **Dos escenas nuevas:** «El dato vuelve» (`x4/DataStory.tsx`) y «La sala conectada» (`x4/Connected.tsx`, `#sala`, cuatro zonas con pestañas, botones sobre la sala y scroll).
+  - **Modalidades:** el dispositivo gira entre REPI Completo y REPI Control. **Cierre:** toma amplia + grúa + frase previa.
+  - **Velo por sección** (`data-dim`) y marcas de cámara (`.x4-cue`) dentro de los tramos fijados.
+  - **Red de seguridad** para equipos lentos: baja la densidad de píxel y, si no alcanza, deja el plano SVG (`Guard`; `?sala=medium&guard=0.5` la muestra).
+  - **Veracidad:** prueba social autorizada (D218, ajuste) sin nombrar a Smart Center fuera del panel del caso; tablero del dueño sin «ingresos»; RIR por serie; «Mi cuerpo» sin medidas; REPI Control «la activa REPI por gimnasio».
+  - **Captación:** la modalidad elegida llega al formulario, una campaña de más de 80 caracteres ya no rompe el envío, la referencia del vendedor viaja en el WhatsApp, «Pedir demo» de la cabecera se mide y «Quiero REPI en mi gimnasio» prepara el formulario para gimnasios.
+- **Pruebas:**
+  - `e2e/conoce.spec.ts` + `e2e/conoce-x4.spec.ts` (17 nuevas): 96 pasan, 2 omitidas (las de antes), en teléfono y escritorio.
+  - Typecheck, guardas 26/26, vitest y build en verde.
+  - Una expectativa de la suite existente cambió a propósito: en un teléfono en vertical el film de marca abre la versión 9:16 nueva.
+- **Arreglo de paso:** `/api/agenda/[token]/route.ts` pasó a `/api/agenda/[id]/route.ts` (misma URL): con dos nombres para el mismo tramo dinámico, `next start` no arrancaba en local (en Vercel sí funcionaba).
+  - Once tamaños (320×568 a 1920×1080) y 844×390: sin scroll lateral, sin botones cortados, sin errores de consola.
+- **Rendimiento (laboratorio, antes → después):** LCP 1,24–1,38 s → 1,31–1,34 s (teléfono emulado, 3D); CLS 0 → 0; JavaScript 539 → 553 KB (3D) y 298 → 305 KB (plano). Respuesta al tocar las pestañas: 152–328 ms → 168–192 ms con CPU ×4. En dibujo por software la sala nueva cuesta alrededor del doble por cuadro.
+- **Límites declarados:** sin dispositivos reales; sólo Chromium (sin Safari ni Firefox); WebGL por software; grabaciones a ≈ 25 cuadros/s; nadie escuchó los films.
+- **Films:** auditados los 14 y re-renderizados cinco con el kit corregido (`design/films/kit/build.py`; material nuevo grabado en una demo local):
+  - `film-marca` 0:38, con versión 9:16 nueva (`film-marca-vertical`);
+  - `modo-control` 1:00 y `modo-completo` 0:53, cada uno en 16:9 y 9:16;
+  - `perfil-gimnasios` 0:47 y `f-intelligence` 0:28.
+  - Manifiesto actualizado en `content/conoce.ts` (duraciones, resúmenes y la variante vertical). Sonoridad entre −14,3 y −14,6 LUFS, medida.
+  - Sin tocar: `perfil-entrenadores`, `perfil-deportistas`, `perfil-aliados`, `f-progreso`, `f-altas`, `f-sala`.
+- **Pendiente:**
+  1. Mirar `/conoce` en un iPhone y en un Android de gama media (fluidez de la sala y giro del dispositivo). Tampoco se probó en Safari ni Firefox, y nadie escuchó los films.
+  2. Re-renderizar los seis films que quedaron con el kit viejo y conseguir el logo en vectorial o más grande (hoy 315×154 px) para los cierres.
+  3. Volver a capturar `access.webp`, `owner.webp` y `control-equipo.webp` (avisos del entorno de demo) y unificar las capturas que muestran 53 kg con la escena en vivo (60 → 62,5 kg).
+  4. Decidir si la referencia del vendedor se guarda también en los eventos del sitio y en `/qr` (cambio de esquema).
+- **Decisiones para el titular:** confirmar el texto de la prueba social en la apertura («Ya funciona en Mar del Plata.») y en el caso.
+
+## Arreglo: limpieza de demos vencidas (alerta «sandbox.purge», código 23503) — 12/11/2026 · PUBLICADO Y VERIFICADO (#112, `4c01c5a`)
+
+- **Estado:** PR #112 integrado en `main` (`4c01c5a`) y desplegado el 12/11. Verificado en producción con una consulta de sólo lectura: las demos vencidas pasaron de 3 a 0 después del despliegue. **No hay migración.**
+- **Síntoma:** alerta por email «Error en REPI: sandbox.purge · tarea en segundo plano · código 23503 · Failed query: delete», una por hora (el job falla cada minuto; el aviso está limitado).
+- **Causa (registros de Postgres de producción):** `update or delete on table "user" violates foreign key constraint "client_goal_created_by_user_id_fk" on table "client_goal"`. Desde el 12/11 17:25 (hora argentina), cuando venció la primera demo con una meta propia.
+  - Una meta propia (D217, 0055, `client_goal` con `origin = self`) apunta dos veces a la misma persona: `user_id` con cascada y `created_by` sin cascada. Al borrar la persona, Postgres revisa `created_by` antes de que la cascada borre la fila.
+  - Antes de 0055 toda meta colgaba de `coach_client` (obligatoria), que la limpieza borra antes que a las personas; 0055 la volvió opcional.
+  - La limpieza de esa demo se deshace entera y se reintenta cada minuto: la demo queda para siempre. Las demás demos se siguen borrando.
+- **En producción al diagnosticar (sólo lectura):** 3 demos vencidas sin borrar (las tres de perfil socio, una meta propia cada una). Se borran solas en la primera corrida del job después de publicar el arreglo.
+- **Arreglo:** `apps/web/src/server/sandbox/services.ts` (`purgeSandboxes`), dentro de la misma transacción:
+  - borra las metas (`client_goal` por `user_id` o `created_by`) antes que a las personas;
+  - borra `legal_acceptance` de las organizaciones de la demo antes que la organización (misma clase: `org_id` sin cascada; hoy ninguna pantalla de la demo la crea).
+- **Pruebas:** `apps/web/tests/sandbox-purge.test.ts` (3):
+  - la demo de socio con metas propias y un objetivo del coach se borra entera (fallaba con 23503 antes del arreglo);
+  - los cinco perfiles de la demo se borran completos, también con una aceptación legal ligada a la organización (fallaba antes);
+  - guarda de la clase del error: lee el catálogo de la base migrada y falla si aparece una referencia sin cascada a `user` u `organization` en una tabla que la organización de la demo no arrastra y que la limpieza no borra a mano.
+  - typecheck ✓, guardas 26/26, dominio 1177/1177, web 865/865 (110 archivos, sobre `repi_test` local), build ✓.
+- **Límite de la guarda:** cubre las referencias directas a `user` y `organization`. El orden dentro de una cascada (como `program_exercise → exercise`, resuelto el 30/10) sólo lo cubren las pruebas de limpieza de cada perfil.
+- **Próxima acción (titular):** confirmar que no llegan más alertas «sandbox.purge» por email. `demo_sandbox` ya no tiene filas vencidas.
+- **Mejora posible, no hecha:** que el aviso incluya el nombre de la restricción (`constraint_name` del error de Postgres, no es un dato personal); hoy el detalle se recorta a «Failed query: delete» y hubo que leer los registros de la base.
 
 
 ## REPI Sales Intelligence 1.0 — Captación de gimnasios — 12/11/2026 · PUBLICADO (D218, 0056, #107, #108)
@@ -38,6 +101,13 @@ Actualizado: 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 005
   - OSM sigue saturado y se reintenta cada día hábil a las 08:00.
   - La agenda en producción responde 200 y ofrece 111 horarios desde el 13/11 10:30.
   - **Próxima acción:** ninguna del titular. Revisar `lead_run` y las respuestas si avisa. Si OSM sigue sin responder varios días, evaluar un servidor de Overpass propio o pago (es un gasto: decide el titular).
+- **WhatsApp e Instagram con las cuentas del titular (13/11, pedido: «Usa WhatsApp e Instagram igual, te dejo las cuentas abiertas en la Mac»), PR #115:**
+  - `stepSocialQueue` arma cada día hábil a las 10:00 la campaña «Piloto automático · WhatsApp e Instagram» (envío manual, hasta 10 por día más los seguimientos). Se enciende con `autopilot.social`.
+  - La entrada interna `/api/cron/leads` acepta `{action:"reply"}`: busca el gimnasio por email, WhatsApp o Instagram y registra la respuesta como «system».
+  - La invitación .ics de cada reunión llega también al correo de respuestas.
+  - Runbook y la instrucción para la tarea diaria del Mac: `docs/comercial/captacion/MAC_WHATSAPP_INSTAGRAM.md`. Una sesión en la nube no llega al Mac (no hay carpeta ni navegador del Mac conectados), así que esa tarea se crea una vez desde la app Claude del Mac.
+  - Tarea programada en la nube «REPI Captación · respuestas por email» (`trig_01EUgyTfckXqpN1LYSfu3qE6`, 11:47, 15:47 y 19:47 AR, días hábiles): revisa el correo comercial y registra las respuestas. Se creó sin conectores (esta organización no permite pasarlos desde la sesión); hay que sumarle Gmail y Supabase desde claude.ai › Tareas programadas.
+  - El informe diario guardaba «[object Object]» como error: ahora guarda el texto (`firstError`).
 
 
 - **Pedido:** máster «REPI Sales Intelligence 1.0», un sistema de prospección, contacto y seguimiento B2B que funcione, con una primera campaña piloto en la Costa Atlántica. Pide no enviar nada ni gastar sin aprobación.

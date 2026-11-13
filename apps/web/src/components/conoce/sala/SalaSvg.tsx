@@ -8,8 +8,8 @@
 // alcanza y los equipos se aclaran al pasar el frente. Con el mouse (escritorio), las personas cerca del puntero se agrandan
 // y la zona de abajo se marca.
 import { useEffect, useRef } from "react";
-import { BESIDE_JULIAN, FLOOR, GEAR, JULIAN, PEOPLE, QR_SPOT, SHOTS, SVG_D, SVG_S, SVG_W, ZONES, along, gatherGrow, lensPx, placePerson, svgFit, svgProject, svgX, svgZ, type ZoneId } from "./model";
-import { pointer, stage } from "./store";
+import { BESIDE_JULIAN, COACH_SCREEN, FLOOR, GEAR, JULIAN, KIOSK, LINKS, OFFICE_SCREEN, PEOPLE, QR_SPOT, SHOTS, SVG_D, SVG_S, SVG_W, ZONES, along, gatherGrow, lensPx, placePerson, svgFit, svgProject, svgX, svgZ, type ZoneId } from "./model";
+import { pings, pointer, stage } from "./store";
 
 const X = svgX, Z = svgZ;
 /** Radio de las personas en px de pantalla (no crece con el zoom: siempre son puntos). */
@@ -33,6 +33,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
   const zones = useRef<(SVGRectElement | null)[]>([]);
   const gear = useRef<(SVGRectElement | null)[]>([]);
   const req = useRef<SVGPathElement>(null);
+  const links = useRef<SVGGElement>(null), kiosk = useRef<SVGRectElement>(null), screens = useRef<SVGGElement>(null), pingLayer = useRef<SVGGElement>(null);
   useEffect(() => {
     let raf = 0;
     let vw = window.innerWidth, vh = window.innerHeight, fit = svgFit(vw, vh);
@@ -41,7 +42,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     let zoomNow = 1, lens: [number, number] = [0, 0], cxNow = 0, czNow = 0;
     let clock = 0, last = 0;
     let reqTo: [number, number] | null = null;
-    const last$ = { view: "", lens: "", op: "", plan: "", cold: "" };
+    const last$ = { view: "", lens: "", op: "", plan: "", cold: "", flow: "", kiosk: "" };
     /** Coloca las personas (recorridos + pedido + vuelta al punto) y su tamaño constante en pantalla. */
     // Cada atributo se escribe sólo si cambió (el encendido del hero y el scroll llaman seguido; casi nada cambia).
     const memo = new Map<Element, Record<string, string>>();
@@ -82,9 +83,11 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     };
     const apply = () => {
       const s = stage.get();
-      const A = SHOTS[s.a].svg, B = SHOTS[s.b].svg, t = clamp01(s.t), k = still ? (t < 0.5 ? 0 : 1) : t;
+      // 4.0 · Si la persona eligió una zona al explorar la sala (`explore`), esa toma manda sobre la del scroll.
+      const a = s.explore ?? s.a, b = s.explore ?? s.b;
+      const A = SHOTS[a].svg, B = SHOTS[b].svg, t = clamp01(s.t), k = still ? (t < 0.5 ? 0 : 1) : t;
       cxNow = A[0] + (B[0] - A[0]) * k; czNow = A[1] + (B[1] - A[1]) * k; zoomNow = A[2] + (B[2] - A[2]) * k;
-      const la = lensPx(s.a, vw, vh), lb = lensPx(s.b, vw, vh);
+      const la = lensPx(a, vw, vh), lb = lensPx(b, vw, vh);
       lens = [la[0] + (lb[0] - la[0]) * k, la[1] + (lb[1] - la[1]) * k];
       const v = `translate(${SVG_W / 2}px, ${SVG_D / 2}px) scale(${zoomNow.toFixed(4)}) translate(${-X(cxNow)}px, ${-Z(czNow)}px)`;
       if (v !== last$.view && view.current) { view.current.style.transform = v; last$.view = v; }
@@ -103,10 +106,15 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
         else { const ox = X(s.origin[0]), oz = Z(s.origin[1]); plan.current.style.transform = `translate(${ox}px, ${oz}px) scale(${Math.max(0.02, 1 - 0.95 * g).toFixed(4)}) translate(${-ox}px, ${-oz}px)`; plan.current.style.opacity = String(+(1 - g).toFixed(3)); }
       }
       lightZones();
+      // 4.0 · La red de la sala (por dónde viaja lo que se registra), las pantallas a las que llega y la de REPI Control.
+      const fl = String(+(s.flow * (1 - g)).toFixed(2));
+      if (fl !== last$.flow) { last$.flow = fl; if (links.current) { links.current.style.opacity = fl; links.current.dataset.on = s.flow > 0.01 ? "1" : "0"; } if (screens.current) screens.current.dataset.on = s.flow > 0.5 ? "1" : "0"; }
+      const ko = Math.max(s.kiosk, s.focus === "recepcion" ? 1 : 0, b === "control" || b === "zRecepcion" ? k : 0, a === "control" || a === "zRecepcion" ? 1 - k : 0) > 0.5 ? "1" : "0";
+      if (ko !== last$.kiosk && kiosk.current) { last$.kiosk = ko; kiosk.current.dataset.on = ko; }
       // Pedido «Que venga alguien»: un cometa cian sobre el piso, de Julián a Sofía (y de vuelta, en turquesa, el «Voy»).
       if (req.current) {
         // Sólo en la toma del pedido y nunca durante la vuelta al punto (aunque un disparador tardío deje `request` escrito).
-        if (s.request == null || s.gather > 0 || (s.a !== "pedido" && s.b !== "pedido")) { req.current.style.opacity = "0"; reqTo = null; }
+        if (s.request == null || s.gather > 0 || ![a, b].some((x) => x === "pedido" || x === "zBox")) { req.current.style.opacity = "0"; reqTo = null; }
         else {
           if (!reqTo) { const sofia = PEOPLE.findIndex((p) => p.id === "sofia"); reqTo = along(PEOPLE[sofia], clock); req.current.setAttribute("d", requestPath(reqTo)); }
           const u = s.request;
@@ -161,6 +169,16 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     const off = stage.subscribe(() => { apply(); wake(); });
     // El puntero sólo cambia personas y zonas (no el encuadre): sin el bucle (nivel «low» o pausa), se dibuja acá.
     const offPt = pointer.subscribe(() => { lightZones(); if (!raf) place(); });
+    // 4.0 · Pulsos de evento: un anillo que se abre desde un punto del plano (animación CSS; se retira al terminar).
+    const offPing = pings.subscribe(() => {
+      const p = pings.list[pings.list.length - 1], layer = pingLayer.current;
+      if (!p || !layer || still) return;
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", X(p.x).toFixed(1)); c.setAttribute("cy", Z(p.z).toFixed(1)); c.setAttribute("r", "34"); c.setAttribute("class", `sala-ping ${p.kind}`);
+      c.addEventListener("animationend", () => c.remove(), { once: true });
+      layer.appendChild(c);
+      window.setTimeout(() => c.remove(), 1600);
+    });
     const onResize = () => { vw = window.innerWidth; vh = window.innerHeight; fit = svgFit(vw, vh); last$.lens = ""; apply(); };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("resize", onResize);
@@ -169,7 +187,7 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
     root.current?.classList.add("snap");
     apply(); wake();
     const id = requestAnimationFrame(() => { view.current?.classList.remove("snap"); root.current?.classList.remove("snap"); });
-    return () => { off(); offPt(); unpublish(); cancelAnimationFrame(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
+    return () => { off(); offPt(); offPing(); unpublish(); cancelAnimationFrame(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
   }, [animate, still]);
   const W = SVG_W, D = SVG_D, S = SVG_S;
   return (
@@ -183,7 +201,12 @@ export function SalaSvg({ animate, still }: { animate: boolean; still: boolean }
           {ZONES.map((z, i) => <rect key={z.id} ref={(r) => { zones.current[i] = r; }} className="sala-zone" x={X(z.x - z.w / 2)} y={Z(z.z - z.d / 2)} width={z.w * S} height={z.d * S} rx={6} />)}
           {GEAR.map(([x, z, w, d], i) => <rect key={i} ref={(r) => { gear.current[i] = r; }} className="sala-gear" x={X(x - w / 2)} y={Z(z - d / 2)} width={w * S} height={d * S} rx={3} />)}
           <rect className="sala-qr" x={X(QR_SPOT[0]) - 11} y={Z(QR_SPOT[1]) - 11} width={22} height={22} rx={3} />
+          {/* 4.0 · La pantalla de REPI Control (recepción), las pantallas del equipo y de la oficina, y la red de la sala. */}
+          <rect ref={kiosk} className="sala-kiosk" x={X(KIOSK[0]) - 9} y={Z(KIOSK[1]) - 6} width={18} height={12} rx={2} />
+          <g ref={screens} className="sala-screens">{[OFFICE_SCREEN, COACH_SCREEN].map(([x, z]) => <rect key={x} x={X(x) - 9} y={Z(z) - 3} width={18} height={6} rx={2} />)}</g>
+          <g ref={links} className="sala-links">{LINKS.map((path, i) => <polyline key={i} points={path.map(([x, z]) => `${X(x).toFixed(0)},${Z(z).toFixed(0)}`).join(" ")} pathLength={1} />)}</g>
         </g>
+        <g ref={pingLayer} />
         <path ref={req} className="sala-req" pathLength={1} d={requestPath(BESIDE_JULIAN)} />
         <circle ref={ring} className="sala-ring" cx={X(PEOPLE[0].path[0][0])} cy={Z(PEOPLE[0].path[0][1])} r={15} />
         {PEOPLE.map((p, i) => { const [x, z] = along(p, 0); return <circle key={i} ref={(c) => { dots.current[i] = c; }} cx={X(x)} cy={Z(z)} r={p.kind === "member" ? 4 : 4.5} className={p.kind === "member" ? "sala-member" : "sala-staff"} />; })}

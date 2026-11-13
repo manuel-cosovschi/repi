@@ -1,5 +1,6 @@
 "use client";
-// Escena 07 · En gimnasios reales. Pedido del titular (07/11): REPI se presenta por lo que hace en varios gimnasios de la zona y
+// Escena 07 · En gimnasios reales. Pedido del titular (07/11), con la prueba social que autorizó el 12/11 (D218, ajuste): funciona
+// en Smart Center Gym (nombrado una sola vez, en el panel del caso) y está en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil. Además,
 // Smart Center Gym (logo autorizado por el gimnasio el 07/11/2026) aparece una sola vez, como caso de éxito, en un panel oscuro
 // donde su logo (blanco y verde) se ve. Sin cifras ni testimonios: cuando un gimnasio comparta resultados, se suman acá.
 // Motion 2 (P7): el crema entra con un borde curvo (no una línea recta); la línea de «Cómo se empieza» se dibuja con el scroll
@@ -34,9 +35,9 @@ export function Proof() {
       <svg className="x3-curve up" viewBox="0 0 1440 56" preserveAspectRatio="none" aria-hidden="true"><path d="M0,56 C360,6 1080,6 1440,56 Z" /></svg>
       <div className="x3-wrap x3-proof-grid">
         <div>
-          <h2 id="cn-caso" className="x3-h2 ink">Ya funciona en <em>gimnasios de la zona.</em></h2>
+          <h2 id="cn-caso" className="x3-h2 ink">Ya funciona en <em>Mar del Plata.</em></h2>
           <div className="x3-proof-text">
-            <p>REPI está en funcionamiento en varios gimnasios de Mar del Plata. Los socios piden acceso con el QR de su sede, el equipo los aprueba y entrenan con su rutina en el teléfono, incluida la que ya tenían. El equipo de sala recibe los pedidos de ayuda y los profes ven cómo entrena cada uno.</p>
+            <p>REPI ya funciona en Mar del Plata y estamos en proceso de implementación en varios gimnasios más de Mar del Plata, Balcarce y Tandil. Los socios piden acceso con el QR de su sede, el equipo los aprueba y entrenan con su rutina en el teléfono, incluida la que ya tenían. El equipo de sala recibe los pedidos de ayuda y los profes ven cómo entrena cada uno.</p>
           </div>
         </div>
         <figure className="x3-case">

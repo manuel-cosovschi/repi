@@ -14,17 +14,18 @@ export const STEPS = ["discovery", "enrich", "score", "compose", "outreach", "fo
 export type Step = (typeof STEPS)[number];
 export const STEP_LABEL: Record<Step, string> = { discovery: "Investigación", enrich: "Enriquecimiento", score: "Calificación", compose: "Preparación comercial", outreach: "Envío automático (email)", followup: "Seguimiento", report: "Informe diario" };
 
-async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron" | "manual", actorId: string | null, work: () => Promise<T>) {
+async function run<T extends Record<string, unknown>>(kind: Step, trigger: "cron" | "manual", actorId: string | null, work: () => Promise<T>, now = new Date()) {
   // Una corrida cortada por el límite de la función queda «running» para siempre: pasados 3 minutos se cierra como error.
   await db.update(leadRun).set({ status: "error", error: "La corrida se cortó por el límite de tiempo de la función", finishedAt: new Date() })
     .where(and(eq(leadRun.status, "running"), lte(leadRun.startedAt, new Date(Date.now() - 3 * 60_000))));
-  const dedupeKey = trigger === "cron" ? `${kind}:${today()}` : null;
+  // La clave del día usa el mismo reloj con el que `leadsTick` decide qué falta: con relojes distintos el paso se repetía.
+  const dedupeKey = trigger === "cron" ? `${kind}:${today(now)}` : null;
   const [r] = await db.insert(leadRun).values({ kind, trigger, dedupeKey, actorUserId: actorId }).onConflictDoNothing().returning();
   if (!r) return { skipped: true as const };
   try {
     const stats = await work();
     const status = (stats as { errors?: unknown[] }).errors?.length ? "partial" : "ok";
-    await db.update(leadRun).set({ status, stats, finishedAt: new Date(), error: status === "partial" ? String((stats as unknown as { errors: unknown[] }).errors[0]).slice(0, 500) : null }).where(eq(leadRun.id, r.id));
+    await db.update(leadRun).set({ status, stats, finishedAt: new Date(), error: status === "partial" ? firstError((stats as unknown as { errors: unknown[] }).errors[0]) : null }).where(eq(leadRun.id, r.id));
     return { id: r.id, status, stats };
   } catch (e) {
     logError(`leads.run.${kind}`, e);
@@ -166,7 +167,7 @@ export async function stepReport() {
   return { ...sum, digest };
 }
 
-const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => (await import("./autopilot")).stepOutreach(), followup: stepFollowup, report: stepReport };
+const STEP_FN: Record<Step, () => Promise<Record<string, unknown>>> = { discovery: () => stepDiscovery(), enrich: () => stepEnrich(), score: stepScore, compose: () => stepCompose(), outreach: async () => { const a = await import("./autopilot"); const email = await a.stepOutreach(); const social = await a.stepSocialQueue(); return { ...email, social }; }, followup: stepFollowup, report: stepReport };
 
 /** Ejecución por el job interno (CRON_SECRET), sin sesión: igual que la manual pero registrada como «cron-manual». */
 export async function runStepSystem(step: Step, opts: { areaIds?: string[]; budgetMs?: number } = {}) {
@@ -201,7 +202,7 @@ export async function leadsTick(now = new Date()) {
   const done = await db.select({ kind: leadRun.kind }).from(leadRun).where(inArray(leadRun.dedupeKey, due.map((k) => `${k}:${today(now)}`)));
   const next = due.find((k) => !done.some((x) => x.kind === k));
   if (!next) return { ran: null };
-  const r = await run(next, "cron", null, STEP_FN[next]);
+  const r = await run(next, "cron", null, STEP_FN[next], now);
   return { ran: next, status: "status" in r ? r.status : "skipped" };
 }
 
@@ -211,3 +212,9 @@ export async function runsList(actorId: string) {
 }
 export async function refreshOne(actorId: string, id: string) { await leadsAdmin(actorId); await refreshLead(db, id); return { ok: true }; }
 export type { LeadStage };
+
+/** El primer error de una corrida, legible: los pasos devuelven textos o { kind, error } (el informe diario). */
+function firstError(e: unknown): string {
+  const t = typeof e === "string" ? e : e && typeof e === "object" && "error" in e ? `${(e as { kind?: string }).kind ?? ""}: ${String((e as { error: unknown }).error)}` : JSON.stringify(e);
+  return t.slice(0, 500);
+}

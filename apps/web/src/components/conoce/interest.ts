@@ -11,6 +11,9 @@ export const INTEREST_EVENT = "repi:interest";
 export const MODE_EVENT = "repi:mode";
 
 export const announceInterest = (d: InterestDetail) => window.dispatchEvent(new CustomEvent<InterestDetail>(INTEREST_EVENT, { detail: d }));
+/** «repi:mode-chosen»: la persona dejó elegida una modalidad en «Dos formas de entrenar» (el formulario la toma). */
+export const MODE_CHOSEN_EVENT = "repi:mode-chosen";
+export const announceMode = (mode: ModeId) => window.dispatchEvent(new CustomEvent<{ mode: ModeId }>(MODE_CHOSEN_EVENT, { detail: { mode } }));
 export const pickMode = (mode: ModeId) => window.dispatchEvent(new CustomEvent<{ mode: ModeId }>(MODE_EVENT, { detail: { mode } }));
 
 /** La modalidad pedida en la URL (`?modo=`), o null. */

@@ -183,7 +183,8 @@ export function Problem() {
         // Sala: fría mientras la escena entra y hasta el corte (.52); viva después. En el corte, un golpe de cian que se apaga.
         const cut = p >= 0.52;
         const wash = cut ? 0.16 * (1 - eOut(seg(p, 0.52, 0.64))) : 0;
-        stage.set({ tone: +(cut ? 0.45 * (1 - seg(p, 0.52, 0.535)) : 0.45 * enter).toFixed(3), cold: enter > 0.5 && !cut, wash: +wash.toFixed(3) });
+        // 4.0 · Con el corte, la red de la sala se enciende: lo que antes estaba en otro lado ahora viaja entre las zonas.
+        stage.set({ tone: +(cut ? 0.45 * (1 - seg(p, 0.52, 0.535)) : 0.45 * enter).toFixed(3), cold: enter > 0.5 && !cut, wash: +wash.toFixed(3), flow: cut ? +eOut(seg(p, 0.54, 0.7)).toFixed(3) : 0 });
         // Caos vivo (0–.10): los pedazos se asientan. Después, escalonados, los trazos y el viaje de cada pedazo (TL_WIDE/TL_NARROW).
         let absorbed = 0;
         order.forEach((i, rank) => {
@@ -273,7 +274,7 @@ export function Problem() {
       const idle = whenIdle(setup);
       return () => {
         idle(); trig?.kill(); enter?.kill(); io.disconnect(); seen.disconnect();
-        stage.set({ tone: 0, cold: false, wash: 0 });
+        stage.set({ tone: 0, cold: false, wash: 0, flow: 0 });
         for (const el of [...frags, ...shots, ...roles, ...phones, ...restA, ...restB, slotA, slotB, para, dot, ring, under, keyB]) { el.style.transform = ""; el.style.opacity = ""; }
         frags.forEach((f) => { delete f.dataset.drop; });
         img.style.clipPath = "";

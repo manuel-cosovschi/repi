@@ -16,10 +16,11 @@ import { stage } from "../sala/store";
 import { gatherGrow } from "../sala/model";
 import { DemoButton } from "../DemoButton";
 import { TrackLink } from "../TrackLink";
-import { pickMode } from "../interest";
+import { announceInterest, pickMode } from "../interest";
 import { MODES } from "@/content/conoce";
 import { quad } from "./curves";
 import { gsap, PIN_MQ, ScrollTrigger, useGSAP, whenIdle } from "./gsap";
+import { Say } from "./Say";
 
 const ORIGIN: [number, number] = [0, 0];
 /** Tamaño (px) del punto de la sala al final de la vuelta: una persona (14 px) que creció con todo lo que se tragó. */
@@ -39,7 +40,7 @@ export function Finale() {
       const sec = root.current!, pin = q(".x3-fin-pin")[0] as HTMLElement;
       const wm = q(".x3-fin-wm")[0] as HTMLElement, img = wm.querySelector("img") as HTMLElement, dot = wm.querySelector("i") as HTMLElement;
       const ring = q(".x3-fin-ring")[0] as HTMLElement, lines = q(".x3-fin-h .ln > span") as HTMLElement[], acts = q(".x3-fin-act > :not(.cn-demo-act), .x3-fin-act > .cn-demo-act > *") as HTMLElement[];
-      const under = q(".x3-fin-under")[0] as HTMLElement;
+      const under = q(".x3-fin-under")[0] as HTMLElement, pre = q(".x4-fin-pre")[0] as HTMLElement;
       // Medición (en el refresh): el centro del punto de la «ı» y el punto de la sala donde todo converge, en la toma final.
       let path = quad([0, 0], [0, 0], [0, 0]), dotPx = 24, cx = 0, cy = 0, R = 1;
       let p = 0, last = -1;
@@ -64,7 +65,11 @@ export function Finale() {
         last = p;
         // .12–.50: la sala vuelve al punto en espiral. .56: el punto pasa de la sala a la página.
         const out = p >= 0.56;
-        stage.set({ gather: +seg(p, 0.12, 0.5).toFixed(4), origin: ORIGIN, dotOut: out });
+        stage.set({ gather: +seg(p, 0.16, 0.5).toFixed(4), origin: ORIGIN, dotOut: out, flow: +(1 - seg(p, 0.1, 0.34)).toFixed(3) });
+        // 4.0 · Mientras la cámara sube y la sala todavía está entera (con su red encendida), una frase la nombra; se va cuando
+        // todo empieza a volver al punto (antes, esos cuadros quedaban sólo con el plano apagado).
+        const po = 1 - eOut(seg(p, 0.14, 0.28));
+        pre.style.opacity = String(+po.toFixed(3)); pre.style.transform = `translateY(${(-26 * (1 - po)).toFixed(1)}px)`; pre.style.visibility = po <= 0 ? "hidden" : "";
         // El punto viajero es el <i> real del logo: sale del centro de la sala con el tamaño que tenía ahí, sube en arco y se
         // acomoda (.56–.72) con un aplaste breve.
         const u = seg(p, 0.56, LAND);
@@ -93,19 +98,23 @@ export function Finale() {
       };
       // El disparador y la primera medición, en un momento libre (no en el cuadro de la hidratación); después, cada refresh.
       let trig: ScrollTrigger | null = null;
-      const idle = whenIdle(() => { trig = ScrollTrigger.create({ trigger: sec, start: "top top", end: "bottom bottom", scrub: 0.6, onRefreshInit: measure, onUpdate: (s) => { p = s.progress; render(); } }); measure(); });
+      const idle = whenIdle(() => { trig = ScrollTrigger.create({ trigger: sec, start: "top top", end: "bottom bottom", scrub: 0.6, onRefreshInit: measure, onUpdate: (s) => { p = s.progress; render(); }, onLeaveBack: () => stage.set({ flow: 0 }) }); measure(); });
       return () => {
         idle(); trig?.kill(); tw?.kill();
-        stage.set({ gather: 0, dotOut: false });
-        for (const el of [dot, img, ring, under, ...lines, ...acts]) { el.style.transform = ""; el.style.opacity = ""; }
+        stage.set({ gather: 0, dotOut: false, flow: 0 });
+        pre.style.visibility = "";
+        for (const el of [dot, img, ring, under, pre, ...lines, ...acts]) { el.style.transform = ""; el.style.opacity = ""; }
         img.style.clipPath = "";
       };
     });
     return () => mm.revert();
   }, { scope: root });
   return (
-    <section ref={root} id="cierre" className="x3-fin" data-shot="finale" aria-labelledby="cn-fin">
+    <section ref={root} id="cierre" className="x3-fin" data-shot="finaleWide" aria-labelledby="cn-fin">
+      {/* 4.0 · La cámara sube en grúa de la sala entera a la cenital, donde todo vuelve al punto. */}
+      <i className="x4-cue" data-shot="finale" data-span="0.5" style={{ "--at": 0.02 } as React.CSSProperties} aria-hidden="true" />
       <div className="x3-fin-pin">
+        <div className="x4-fin-pre"><Say as="p" text="Socios, entrenadores y gimnasio. *Un mismo sistema.*" /></div>
         <div className="x3-wrap x3-fin-in">
           <span className="wm x3-fin-wm" role="img" aria-label="repi">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -115,7 +124,7 @@ export function Finale() {
           </span>
           <h2 id="cn-fin" className="x3-fin-h"><span className="ln"><span>Cada repetición</span></span> <span className="ln"><span>cuenta.</span></span></h2>
           <div className="x3-fin-act">
-            <a className="x3-btn pri lg" href="#contacto" onClick={() => track("contact_click", { profile: "gimnasios", target: "cierre" })}><span className="x3-fin-under" aria-hidden="true" />Quiero REPI en mi gimnasio <ArrowRight size={20} weight="bold" aria-hidden="true" /></a>
+            <a className="x3-btn pri lg" href="#contacto" onClick={() => { track("contact_click", { profile: "gimnasios", target: "cierre" }); announceInterest({ profile: "gimnasios" }); }}><span className="x3-fin-under" aria-hidden="true" />Quiero REPI en mi gimnasio <ArrowRight size={20} weight="bold" aria-hidden="true" /></a>
             <TrackLink event="whatsapp_click" profile="entrenadores" target="cierre" external className="x3-btn ghost" href={wa("Hola, soy entrenador personal y quiero usar REPI con mis alumnos. ¿Me cuentan cómo empezar?")}>Soy entrenador</TrackLink>
             <DemoButton role="member" label="Probar la demo" className="x3-btn ghost" target="cierre" />
             <TrackLink event="whatsapp_click" target="cierre-hablar" external className="x3-btn text" href={wa("Hola, conocí REPI y quiero hablar con el equipo.")}><ChatCircle size={18} weight="bold" aria-hidden="true" />Hablar con REPI</TrackLink>

@@ -4,8 +4,10 @@ import { limit } from "@/server/access/http";
 import { logError } from "@/server/log";
 
 export const maxDuration = 30;
-export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+// La carpeta se llama [id] porque comparte nivel con /api/agenda/[id]/ics (D98): Next no admite dos nombres distintos para el
+// mismo tramo dinámico («different slug names… 'id' !== 'token'» al arrancar `next start`). Acá ese tramo es el token público.
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: token } = await params;
   const back = (q: string) => Response.redirect(new URL(`/agenda/${encodeURIComponent(token)}?${q}`, req.url), 303);
   try {
     await limit("agenda", 10);
