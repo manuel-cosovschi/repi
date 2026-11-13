@@ -10,7 +10,7 @@ Actualizado: 13/11/2026 (**vista del alumno — aviso de datos del pedido, alert
   2. «En el timer del descanso, que los últimos diez segundos haga un sonido de alerta, que siga sonando hasta que arrancás la serie, y la notificación además. Que tenga que habilitarse».
   3. «Que el nivel de la persona aparezca en la home también, o en la sección de entrenamiento».
   4. «Fijate qué upgrades visuales podés agregar en cada vista. Principalmente la del alumno».
-- **Rama:** `claude/alumno-mejoras` (worktree `/home/user/repi-alumno`), con `main` `39963ea` integrado. **Sin PR, sin merge, sin despliegue.** **Sin migraciones** y sin dependencias nuevas.
+- **Rama:** `claude/alumno-mejoras` (worktree `/home/user/repi-alumno`), con `main` `301a800` integrado. **Sin PR, sin merge, sin despliegue.** **Sin migraciones** y sin dependencias nuevas.
 
 ### 1 · Aviso para cargar objetivo y datos del pedido de programa
 - **Causa:** el aviso de D206 (`pendingBriefs`) sólo miraba pedidos de programa **abiertos**. Cuando el profe respondía el pedido, el aviso desaparecía aunque la persona nunca hubiera cargado nada.
@@ -54,12 +54,16 @@ Actualizado: 13/11/2026 (**vista del alumno — aviso de datos del pedido, alert
 - `/api/agenda`: desde #110 convivían `[id]/ics` y `[token]`, y `next dev` no arrancaba. #113 lo resolvió en `main` (todo bajo `[id]`); la rama quedó con la versión de `main`.
 - `e2e/mobile-layout.spec.ts` › «arma su rutina con un drop set» e «importa una rutina»: fallan antes de llegar a nada de esta rama, porque en la demo se abre «Antes de armar tu rutina» (formulario breve de D217). Sin tocar.
 
-### Pruebas (13/11, rama con `main` `39963ea` integrado)
+### Pruebas (13/11, rama con `main` `301a800` integrado)
 - `pnpm typecheck` ✓ · `pnpm --filter @repi/web test:guards` 26/26 ✓ · `pnpm build` ✓.
 - `pnpm test` completo, con la base `repi_test` y su candado: dominio 60 archivos / 1191 pruebas ✓; web 112 archivos / 876 pruebas ✓.
   - Nuevas: `packages/domain/src/rest-alarm.test.ts` (reloj falso), `program-request.test.ts` (ampliada), `apps/web/tests/program-brief-late.test.ts`, `tests/rest-sound.test.ts`.
-- E2E contra la build de producción local (`next start -p 3290`, base descartable `repi_e2e_alumno`, demos): nuevas `member-brief-late`, `rest-sound`, `member-level` y `member-visual` ✓; existentes `member-home-flow`, `member-workout`, `motion-nav` (incluye CPU ×4) y `mobile-layout` › pantallas chicas ✓.
+- E2E contra la build de producción local (`next start -p 3290`, base descartable `repi_e2e_alumno`, demos): nuevas `member-brief-late`, `rest-sound`, `member-level` y `member-visual` ✓; existentes `member-home-flow`, `member-workout`, `motion-nav` y `mobile-layout` › pantallas chicas ✓ (22 ✓ en la corrida final).
+  - `motion-nav` › «recorrido con CPU ×4» mide tareas largas: con la máquina cargada por otro trabajo dio 94 ms en Mensajes (tope 50); repetida con la máquina libre, pasa.
   - Los 2 fallos de `mobile-layout` descritos arriba son anteriores a la rama.
+  - Corrida amplia de specs existentes (ui-sweep, ui-keyboard, theme, theme-visual, personal-progress, roles, brain, training-intelligence, weight-edit, timed-exercises, prescribed-weights, gym-member-page): 64 ✓ y 5 fallos, todos anteriores a la rama y sin relación con ella:
+    - `personal-progress` (3): esperan el título «Tu período» y puntos `data-pt`, que D217 (#100) cambió.
+    - `theme-visual` (1) y `timed-exercises` › «Mis rutinas» (1): el formulario breve de D217 se abre antes del editor de rutina.
 - Audio: en Chromium se midió la señal que sale al parlante (analizador): 7 tonos de 880 Hz y 3 de 1175 Hz a un segundo de distancia, las tres notas del fin a la hora exacta del descanso, repetición a los 3 s y silencio tras «Arrancar serie».
 - Capturas antes/después: `scratchpad/alumno/t1` … `t4` (fuera del repositorio).
 
@@ -67,7 +71,7 @@ Actualizado: 13/11/2026 (**vista del alumno — aviso de datos del pedido, alert
 - El titular revisa y decide la publicación (PR a `main`; no hay migración ni respaldo previo que correr).
 - Probar la alerta del descanso en un Android y en un iPhone reales (pantalla bloqueada, otra app, modo silencio, con música sonando).
 - Si quiere llegar a un iPhone bloqueado: decidir el planificador de push por descanso (ver arriba).
-- Pendiente menor: actualizar `e2e/mobile-layout.spec.ts` para el formulario breve de D217.
+- Pendiente menor: poner al día las specs que D217 dejó atrás (`mobile-layout`, `personal-progress`, `theme-visual`, `timed-exercises`).
 
 
 ## REPI Experience 4.0 · «The Living Gym» (`/conoce`) — 13/11/2026 · PUBLICADO Y VERIFICADO (#113, `3c119f2`, D219)
