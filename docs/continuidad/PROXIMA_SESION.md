@@ -3,6 +3,16 @@
 Actualizado: 14/11/2026 (**REPI Exercise Motion 1.0 (D220): implementado y probado en la rama `claude/exercise-motion`; publicación en curso (ver la sección). Después, según el pedido del titular, sigue «REPI Nutrition Intelligence 1.0»**); antes, 13/11/2026
 
 
+## Inicio = /conoce — 14/11/2026 · pedido del titular
+
+- **Pedido:** «Quiero que repiclub.com y repiclub.com/conoce sean lo mismo… sin eliminar /conoce» (levanta la restricción
+  anterior de no cambiar la página principal).
+- **Hecho:** `app/page.tsx` muestra `ConoceHub` (la misma presentación comercial de /conoce, con sus estilos y metadatos;
+  canónica `/`) a quien no tiene sesión. Sin cambios: con sesión sigue yendo directo a su espacio o al selector, y el ícono
+  instalado (`/?source=pwa`) sigue yendo a Acceso. /conoce y /conoce/[perfil] siguen igual. Sitemap: `/` primero.
+  El componente viejo `PublicSite` queda en el código (su pie `SiteFooter` lo usan /conoce, /legal y /creditos).
+- **Pruebas:** e2e `public`, `conoce` y `join-pending-staff` 86/86 contra un servidor local; typecheck limpio.
+
 ## REPI Nutrition Intelligence 1.0 — 14/11/2026 · PUBLICADO Y VERIFICADO (D221, 0057, #127 `3163a4b`, piloto en la demo)
 
 - **Pedido:** máster «SUPER MASTER PROMPT — REPI NUTRITION INTELLIGENCE 1.0» (14/11/2026), después de Exercise Motion.
