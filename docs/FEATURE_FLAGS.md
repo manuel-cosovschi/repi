@@ -17,7 +17,8 @@ Un módulo apagado no se muestra: no hay botones hacia pantallas vacías ni capa
 | `calories` | encendido (06/11) | Calorías estimadas al terminar y en el historial (D199): rango con MET del Compendium, sólo adultos confirmados con peso registrado; sin peso o sin edad no se estima | Metodología revisada en la publicación (§7) |
 | `progress_photos` | encendido (06/11) | Progreso › Fotos: galería privada y comparador (D200). La API responde 404 apagado. Tope de Storage: 800 MB de archivos vigentes (`REPI_STORAGE_BUDGET_BYTES`) y 150 MB por persona | Permisos comprobados en producción; respaldo en partes (LB-11) |
 | `announcements` | encendido (06/11) | Novedades de REPI en la campanita, coach y gimnasio; publicar desde REPI Admin (D202). Sin novedades publicadas no aparece nada | Audiencia y campanita comprobadas en producción sin publicar a personas reales |
-| `exercise_video` | apagado | Recuadro de video en la sesión activa | Faltan medios licenciados |
+| `exercise_video` | encendido (D164) | «Ver cómo se hace»: video o enlace cargado por el gimnasio o el coach; si no hay ni demostración oficial, búsqueda en YouTube | Medios propios de cada organización |
+| `exercise_motion` | encendido (14/11, D220) | REPI Exercise Motion: demostración oficial animada con técnica y músculos en el entrenamiento, REPI Control («Ver ejecución»), panel del coach, REPI Admin › Demostraciones y la respuesta «cómo se hace» del asistente. Apagado, todo vuelve a D164 | Contenido propio revisado internamente; pruebas de unidad, servidor y navegador (`docs/exercise-motion/`) |
 
 ## Cambiar sin tocar código
 

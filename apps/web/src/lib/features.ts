@@ -15,6 +15,7 @@ export const FEATURES = {
   progress_photos: { on: true, what: "Fotos de progreso privadas con comparador, sólo adultos confirmados; tope de Storage 800 MB y 150 MB por persona (D200, LB-11)" },
   announcements: { on: true, what: "Novedades de REPI en la campanita y en coach/gimnasio, publicadas desde REPI Admin (D202)" },
   assistant: { on: true, what: "Asistente REPI (Adaptive Coaching 3.0, D210): tarjeta de Inicio, conversación, briefing en el entrenamiento, cierre y preferencias. El servidor decide y valida todo; sin IA responde por reglas" },
+  exercise_motion: { on: true, what: "REPI Exercise Motion 1.0 (D220): demostraciones oficiales animadas, técnica escrita y músculos de los ejercicios más usados, en el entrenamiento, el kiosco y el panel del coach. Revisión interna de REPI; el video del gimnasio o del coach se sigue ofreciendo" },
   exercise_video: { on: true, what: "Cómo se hace cada ejercicio en la sesión: video o enlace del gimnasio o del coach (D164); si no hay, búsqueda en YouTube" },
 } as const;
 export type Feature = keyof typeof FEATURES;

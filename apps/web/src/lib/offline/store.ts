@@ -6,6 +6,7 @@ import {
   type ActivityDetail, type ExerciseChangeReason, type ExerciseDetail, type MetricsProfile, type Proposal, type RowTarget, type SessionStatus, type SetKind, type SetMetrics, type Suggestion, type Trend, type LoadLadder,
 } from "@repi/domain";
 import { idbAll, idbClear, idbDel, idbGet, idbMerge, idbPut } from "./idb";
+import type { MotionRef } from "@/lib/exercise-motion/ref";
 
 // `pend` (D182): serie reducida (aproximación, back-off, drop) sin carga en el plan: el peso está por elegir (no se precarga el del top set).
 // `skip` (D183): etapa conectada (drop, mini serie) que la persona decidió no hacer: queda resuelta y no es un resultado.
@@ -25,6 +26,9 @@ export type LocalEx = { id: string; exerciseId: string; name: string; sets: numb
   change?: ExChange | null; origPrev?: LocalEx["prev"];
   suggest?: Suggestion | null; // D154: carga y reps sugeridas por REPI para hoy (sin carga indicada por el profe)
   media?: { kind: "video" | "link"; url: string } | null; // D164: cómo se hace (video o enlace del gimnasio o del coach)
+  // D220: demostración oficial de REPI del ejercicio indicado y la del reemplazo que conocía el servidor (ver `motionOf`).
+  motion?: MotionRef | null;
+  motionSub?: { exerciseId: string; ref: MotionRef | null } | null;
   // D191: objetivo de REPI por fila (del servidor; durante la sesión se ajusta acá con las mismas reglas, también sin conexión).
   // Nunca es un resultado: lo registrado está en `sets`.
   targets?: (RowTarget & { id?: string })[] | null;
@@ -36,6 +40,12 @@ export type LocalEx = { id: string; exerciseId: string; name: string; sets: numb
   profile?: MetricsProfile | null;
   activity?: ActivityDetail | null;
 };
+/** Demostración que corresponde a lo que se hace hoy: la del reemplazo si hay uno (y el servidor la conoce), si no la del indicado. */
+export function motionOf(e: Pick<LocalEx, "change" | "motion" | "motionSub">): MotionRef | null {
+  const sub = e.change?.kind === "substitute" ? e.change.substitute : null;
+  if (sub) return e.motionSub?.exerciseId === sub.exerciseId ? e.motionSub.ref : null;
+  return e.motion ?? null;
+}
 export type LocalSession = {
   id: string; dayId: string; dayName: string; note: string; startedAt: string; status: SessionStatus; activeMs: number;
   lastResumedAt: string | null; endedAt: string | null; rpe: number | null; sessionNote: string | null; revision: number;
@@ -112,9 +122,18 @@ export function adoptServerIntel(s: LocalSession, d: ServerSetIntel, now = Date.
  * los ejercicios sin objetivos, con objetivos, tendencia y escalera de cargas del equipo. Nunca toca series, borradores,
  * descanso ni intervalo; si el servidor no trae escalera se conserva la que ya había.
  */
-export function mergeIntel(c: LocalSession, srv: { exercises: { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"]; ladder?: LocalEx["ladder"] }[] }): LocalSession {
+export type IntelEx = { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"]; ladder?: LocalEx["ladder"]; media?: LocalEx["media"]; motion?: LocalEx["motion"]; motionSub?: LocalEx["motionSub"] };
+export function mergeIntel(c: LocalSession, srv: { exercises: IntelEx[] }): LocalSession {
   const by = new Map(srv.exercises.map((e) => [e.id, e]));
-  return { ...c, exercises: c.exercises.map((e) => (e.targets != null ? e : { ...e, targets: by.get(e.id)?.targets ?? [], outlook: by.get(e.id)?.outlook ?? null, ladder: by.get(e.id)?.ladder ?? e.ladder ?? null })) };
+  return { ...c, exercises: c.exercises.map((e) => {
+    const x = by.get(e.id);
+    let out = e.targets != null ? e : { ...e, targets: x?.targets ?? [], outlook: x?.outlook ?? null, ladder: x?.ladder ?? e.ladder ?? null };
+    // D164/D220: la sesión creada en el teléfono no trae el video del gimnasio ni la demostración del reemplazo: se completan acá.
+    // Sólo si el servidor trae esos campos: un ejercicio que el servidor no completa queda tal cual.
+    if (out.media === undefined && x && "media" in x) out = { ...out, media: x.media ?? null };
+    if (out.motionSub === undefined && x && "motionSub" in x) out = { ...out, motion: out.motion ?? x.motion ?? null, motionSub: x.motionSub ?? null };
+    return out;
+  }) };
 }
 
 
@@ -218,7 +237,7 @@ export function fromServer(x: {
     endedAt: x.endedAt, rpe: x.rpe, sessionNote: x.sessionNote, revision: x.revision, synced: true, rest: keepRest ?? null, updatedAt: new Date().toISOString(),
     skew, ivAt: x.interval?.at ? new Date(Date.parse(x.interval.at) - skew).toISOString() : null,
     iv: x.interval ? { peId: x.interval.peId, block: x.interval.block, start: Date.parse(x.interval.startedAt) - skew, emomSec: x.interval.emomSec, status: x.interval.status } : null,
-    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null, ladder: (e as { ladder?: LoadLadder | null }).ladder ?? null,
+    exercises: x.exercises.map((e) => ({ id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, prev: e.prev, change: e.change ?? null, detail: e.detail ?? null, suggest: e.suggest ?? null, media: e.media ?? null, motion: e.motion ?? null, motionSub: e.motionSub ?? null, targets: e.targets ?? null, outlook: e.outlook ?? null, ladder: (e as { ladder?: LoadLadder | null }).ladder ?? null,
       profile: e.profile ?? null, activity: e.activity ?? activityOf(e.detail) })),
     sets,
   };

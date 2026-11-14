@@ -55,7 +55,8 @@ export async function listExerciseMedia(actorId: string, orgId: string, p: { q?:
   const rows = await db.select({ id: exercise.id, name: exercise.name, group: exercise.muscleGroup }).from(exercise)
     .where(and(visibleIn(orgId), q ? ilike(exercise.name, `%${q}%`) : undefined, p.only ? inArray(exercise.id, media.length ? [...byEx.keys()] : [""]) : undefined))
     .orderBy(asc(exercise.name)).limit(80);
-  return { total: media.length, exercises: rows.map((r) => ({ ...r, media: view(byEx.get(r.id)) })) };
+  const motions = await import("./exercise-motion").then((m) => m.motionFor(rows.map((r) => r.id))).catch(() => new Map()); // D220
+  return { total: media.length, exercises: rows.map((r) => ({ ...r, media: view(byEx.get(r.id)), motion: motions.get(r.id) ?? null })) };
 }
 
 async function upsert(actorId: string, orgId: string, exerciseId: string, v: { mediaId: string | null; url: string | null }) {

@@ -13,7 +13,7 @@ import { SetGuide } from "./SetGuide";
 import { syncInk, syncView } from "./SyncBadge";
 import { Hint } from "./Hint";
 import { api } from "@/lib/api";
-import { getLocal, putLocal, putServerCopy, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, rowResolved, setKey, activityDraft, type ExChange, type LocalEx, type LocalInterval, type LocalSession, type LocalSet } from "@/lib/offline/store";
+import { getLocal, putLocal, putServerCopy, delLocal, fromServer, keepLocalOnly, localAction, mergeIntel, motionOf, rowResolved, type IntelEx, setKey, activityDraft, type ExChange, type LocalEx, type LocalInterval, type LocalSession, type LocalSet } from "@/lib/offline/store";
 import { dropSession, enqueue, flush, pendingFor, subscribe, type SyncState } from "@/lib/offline/queue";
 import { activityDoneTxt, activityLogTxt, activityProfileOf, activityTargetSec, kg, metaTxt, type Summary } from "./types";
 import { ActivityInputs } from "./ActivitySet";
@@ -29,6 +29,7 @@ import { cancelRestAlert, clearRestNotification, restAlertState, scheduleRestAle
 import { ackRestSound, armRestSound, releaseRestSound, unlockRestSound } from "@/lib/restSound";
 import { RestAlertChips, useRestSound } from "./RestAlerts";
 import { Confetti } from "@/components/motion/Confetti";
+import { ExerciseMotion, loadMotion } from "@/components/exercise-motion/ExerciseMotion";
 import { StepSlider } from "@/components/motion/StepSlider";
 import { seedOf } from "@/lib/confetti";
 import { prefersReducedMotion } from "@/lib/motion";
@@ -174,6 +175,13 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
     setExIdx(firstOpen < 0 ? Math.max(0, x.exercises.length - 1) : firstOpen);
   }, [sessionId, showSummary]);
   useEffect(() => { load().catch((e) => setErr((e as Error).message)); }, [load]);
+  // D220: con demostraciones en el entrenamiento, la biblioteca se baja apenas se abre (queda en caché para usarla sin conexión).
+  const hasMotion = !!s?.exercises.some((e) => e.motion || e.motionSub?.ref);
+  useEffect(() => {
+    if (!hasMotion || !featureOn("exercise_motion")) return;
+    const t = setTimeout(() => { loadMotion().catch(() => {}); }, 1200);
+    return () => clearTimeout(t);
+  }, [hasMotion]);
   useEffect(() => subscribe(async (st) => {
     setSync(st);
     // Tras sincronizar, el estado local (revisiones, conflictos) puede haber cambiado.
@@ -201,11 +209,11 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
   // D191: el entrenamiento se crea primero en el teléfono; cuando el inicio ya llegó al servidor (cola vacía), se traen los
   // objetivos de REPI. Sólo completa objetivos, tendencia y cargas del equipo: nunca toca series, borradores, descanso ni intervalo.
-  const needIntel = !!s && (s.status === "in_progress" || s.status === "paused") && s.exercises.some((e) => e.targets == null);
+  const needIntel = !!s && (s.status === "in_progress" || s.status === "paused") && s.exercises.some((e) => e.targets == null || e.motionSub === undefined);
   useEffect(() => {
     if (!needIntel || sync.pending > 0 || sync.kind === "offline") return;
     let off = false;
-    api<{ exercises: { id: string; targets?: LocalEx["targets"]; outlook?: LocalEx["outlook"]; ladder?: LocalEx["ladder"] }[] }>(`/api/me/sessions/${sessionId}`).then((srv) => {
+    api<{ exercises: IntelEx[] }>(`/api/me/sessions/${sessionId}`).then((srv) => {
       if (off) return;
       setS((c) => {
         if (!c) return c;
@@ -608,6 +616,8 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
   const nextEx = s.exercises.findIndex((_, i) => i > exIdx && !resolved(i));
   const anyOpen = s.exercises.some((_, i) => !resolved(i));
   const sub = ex.change?.kind === "substitute" ? ex.change.substitute : null;
+  const exMotion = featureOn("exercise_motion") ? motionOf(ex) : null; // D220
+  const orgMedia = featureOn("exercise_video") ? ex.media ?? null : null;
   const anyDone = Object.values(s.sets).some((x) => x.done);
   // D195: dónde están los datos, según la cola (en el teléfono no es «en tu cuenta»).
   const sv = syncView(sync, { anyDone, conflicts: conflicts.length, rejected: !!s.rejected });
@@ -703,8 +713,9 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
               <button type="button" aria-label="Ejercicio siguiente" disabled={exIdx === s.exercises.length - 1} onClick={() => { setExIdx(exIdx + 1); setSel(null); setRir(null); setNoteDraft(null); }}><Ic i={CaretRight} size={16} /></button>
             </div>
           </div>
-          {/* D164: video del gimnasio o del coach; si no cargaron uno, búsqueda en YouTube (provisoria). */}
-          {featureOn("exercise_video") && (ex.media?.kind === "video"
+          {/* D220: demostración oficial de REPI (con técnica y músculos, y el video del gimnasio o del coach si hay). D164: si no
+              hay demostración, el video del gimnasio o del coach; si tampoco, búsqueda en YouTube (provisoria). */}
+          {(exMotion || featureOn("exercise_video")) && (exMotion || ex.media?.kind === "video"
             ? <button type="button" className="wo-howto" onClick={() => setHowto(true)}><Ic i={PlayCircle} size={18} /> Ver cómo se hace</button>
             : <a className="wo-howto" href={ex.media?.url ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${sub ? sub.name : ex.name} técnica`)}`} target="_blank" rel="noopener noreferrer">
               <Ic i={PlayCircle} size={18} /> {ex.media ? "Ver cómo se hace" : "Buscar cómo se hace en YouTube"}</a>)}
@@ -919,7 +930,14 @@ export function Workout({ sessionId, coachFirst, gym, gymOrgId = null, demo = fa
           </ol>
         </Sheet>
       )}
-      {howto && ex.media?.kind === "video" && (
+      {howto && exMotion && (
+        <Sheet title={sub ? sub.name : ex.name} sub="Cómo se hace: demostración de REPI." closeLabel="Cerrar" onClose={() => setHowto(false)}>
+          <ExerciseMotion motion={exMotion} name={sub ? sub.name : ex.name} org={orgMedia}
+            orgVideo={orgMedia?.kind === "video" ? <video className="wo-howto-video" src={orgMedia.url} controls playsInline muted preload="metadata" />
+              : orgMedia ? <a className="wo-howto" href={orgMedia.url} target="_blank" rel="noopener noreferrer"><Ic i={PlayCircle} size={18} /> Abrir el video que cargó tu gimnasio o coach</a> : null} />
+        </Sheet>
+      )}
+      {howto && !exMotion && ex.media?.kind === "video" && (
         <Sheet title={sub ? sub.name : ex.name} sub="Cómo se hace, según tu gimnasio o tu coach." closeLabel="Cerrar" onClose={() => setHowto(false)}>
           <video className="wo-howto-video" src={ex.media.url} controls playsInline autoPlay muted loop preload="metadata" />
         </Sheet>

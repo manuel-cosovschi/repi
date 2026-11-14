@@ -6,8 +6,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PAIN_ZONES } from "@repi/domain";
-import { ArrowsInSimple, ArrowsOutSimple, PaperPlaneRight, ThumbsDown, ThumbsUp, X } from "@phosphor-icons/react";
+import { ArrowsInSimple, ArrowsOutSimple, PaperPlaneRight, PlayCircle, ThumbsDown, ThumbsUp, X } from "@phosphor-icons/react";
 import { Ic } from "@/components/ui/Ic";
+import { Sheet } from "@/components/member/Sheet";
+import { ExerciseMotion } from "@/components/exercise-motion/ExerciseMotion";
+import { featureOn } from "@/lib/features";
+import type { MotionRef } from "@/lib/exercise-motion/ref";
 import { useUnit } from "@/components/member/units";
 import { usePanel, type ActionState, type Item } from "./BrainProvider";
 import { OFFLINE_NOTE, contextLine, panelPlace, presentMessage, type ActionVM, type CardVM, type PanelPlace, type ReplyVM } from "./presenter";
@@ -165,6 +169,7 @@ function Card({ c }: { c: CardVM }) {
     </div>
   );
   if (c.type === "evidence") return <EvidenceInline e={c.evidence} />;
+  if (c.type === "motion") return <MotionCard name={c.name} motion={c.motion} />;
   if (c.type === "alternatives") return (
     <ul className="rp-alts" aria-label="Alternativas">
       {c.options.map((o) => <li key={o.id}><b>{o.name}</b>{o.approvedByCoach && <span className="rp-ok">Aprobado por tu profe</span>}<small>{o.why}</small></li>)}
@@ -176,6 +181,18 @@ function Card({ c }: { c: CardVM }) {
       {c.skip.length > 0 && <p><small>Queda para otro día</small>{c.skip.join(", ")}</p>}
       {c.note && <p className="rp-plan-note">{c.note}</p>}
     </div>
+  );
+}
+
+/** D220: la demostración oficial del ejercicio, en una hoja (la misma del entrenamiento). */
+function MotionCard({ name, motion }: { name: string; motion: MotionRef }) {
+  const [open, setOpen] = useState(false);
+  if (!featureOn("exercise_motion")) return null;
+  return (
+    <>
+      <button type="button" className="wo-howto" onClick={() => setOpen(true)}><Ic i={PlayCircle} size={18} /> Ver demostración</button>
+      {open && <Sheet title={name} sub="Cómo se hace: demostración de REPI." closeLabel="Cerrar" onClose={() => setOpen(false)}><ExerciseMotion motion={motion} name={name} /></Sheet>}
+    </>
   );
 }
 

@@ -1,0 +1,61 @@
+/* REPI Exercise Motion 1.0 (D220) — «Motion Lab». El escenario es siempre oscuro (como una pantalla de laboratorio), en los dos
+   temas: la figura clara se lee igual de bien y el cian de la zona que trabaja es el mismo de la marca. Colores sólo con tokens. */
+.mo-stage { position: relative; background: radial-gradient(120% 90% at 70% 0%, var(--dark-surface) 0%, var(--core-navy900) 62%); border-radius: 16px; overflow: hidden; color: var(--dark-ink); }
+.mo-svg { display: block; width: 100%; height: auto; }
+.mo-floor { stroke: var(--core-navy700); stroke-width: 1.2; }
+.mo-grid { stroke: var(--core-navy800); stroke-width: .6; }
+.mo-shadow { fill: var(--core-navy900); opacity: .7; }
+.mo-body { fill: color-mix(in oklab, var(--dark-ink-2) 86%, var(--core-navy700)); }
+.mo-body-far { fill: color-mix(in oklab, var(--dark-muted) 62%, var(--core-navy800)); }
+.mo-hot { fill: var(--core-cyan); }
+.mo-warm { fill: color-mix(in oklab, var(--core-turquoise) 55%, var(--dark-muted)); }
+.mo-visor { stroke: var(--core-navy800); stroke-linecap: round; }
+.mo-steel { fill: color-mix(in oklab, var(--dark-muted) 45%, var(--core-navy700)); }
+.mo-steel-line { stroke: color-mix(in oklab, var(--dark-muted) 70%, var(--core-navy700)); stroke-linecap: round; }
+.mo-frame { fill: var(--core-navy800); stroke: var(--core-navy700); stroke-width: 1; }
+.mo-pad { fill: var(--core-navy700); stroke: color-mix(in oklab, var(--core-navy700) 60%, var(--dark-muted)); stroke-width: .8; }
+.mo-plate { fill: var(--core-navy800); stroke: color-mix(in oklab, var(--dark-muted) 55%, var(--core-navy700)); stroke-width: 1.2; }
+.mo-plate-ring { fill: none; stroke: var(--core-navy700); stroke-width: 1; }
+.mo-hub { fill: color-mix(in oklab, var(--dark-muted) 75%, var(--core-navy700)); }
+.mo-cable { stroke: var(--dark-muted); stroke-linecap: round; }
+.mo-rope { stroke: color-mix(in oklab, var(--semantic-warning) 50%, var(--dark-muted)); stroke-linecap: round; }
+.mo-mat { fill: var(--core-navy700); }
+.mo-sel { fill: var(--core-cyan); stroke: var(--core-white); stroke-width: 1; }
+/* Visor */
+.em { display: flex; flex-direction: column; gap: 12px; }
+.em-stage { display: flex; flex-direction: column; margin: 0; }
+.em-stage .mo-svg { aspect-ratio: 4 / 3; max-height: 52dvh; }
+.em-loading { aspect-ratio: 4 / 3; background: var(--core-navy900); }
+.em-phase { position: absolute; top: 10px; left: 14px; font: 700 15px var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: var(--core-cyan); }
+.em-ctrl { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
+.em-btn, .em-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--core-navy700); background: color-mix(in oklab, var(--core-navy800) 80%, transparent); color: var(--dark-ink); font: 600 13px var(--font-ui); cursor: pointer; }
+.em-btn[aria-pressed="true"] { border-color: var(--core-cyan); }
+.em-phases { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.em-chip { min-height: 32px; font-weight: 500; }
+.em-variant { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--ui-chip-warn-bg); color: var(--ui-chip-warn-ink); font: 500 14px/1.4 var(--font-ui); }
+.em-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ui-border); }
+.em-tabs button { min-height: 44px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--ui-muted); font: 600 14px var(--font-ui); cursor: pointer; }
+.em-tabs button.on { color: var(--ui-text); border-bottom-color: var(--ui-accent); }
+.em-panel { color: var(--ui-text); font: 400 15px/1.45 var(--font-ui); }
+.em-tech h3 { margin: 12px 0 4px; font: 700 13px var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--ui-muted); }
+.em-tech ul, .em-tech ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.em-tech .em-cues { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.em-tech .em-cues li { padding: 4px 10px; border-radius: 999px; background: var(--ui-accent-tint); color: var(--ui-text); font-weight: 600; font-size: 14px; }
+.em-tech p { margin: 0; }
+.em-eq { margin-top: 10px !important; color: var(--ui-muted); font-size: 14px; }
+.em-src, .em-note { margin: 0; color: var(--ui-muted); font: 400 13px/1.4 var(--font-ui); }
+.em-map-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.em-map-fig { margin: 0; padding: 8px 0 6px; text-align: center; }
+.em-map-fig .mo-svg { max-height: 280px; margin: 0 auto; width: auto; }
+.em-map-fig figcaption { font: 600 12px var(--font-ui); color: var(--dark-muted); }
+.em-map-fig path.mo-hot, .em-map-fig path.mo-warm, .em-map-fig path.mo-sel { cursor: pointer; }
+.em-map-legend { display: flex; align-items: center; gap: 6px; margin: 8px 0; font-size: 13px; color: var(--ui-muted); }
+.em-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.em-dot.hot { background: var(--core-cyan); }
+.em-dot.warm { background: color-mix(in oklab, var(--core-turquoise) 55%, var(--dark-muted)); margin-left: 8px; }
+.em-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.em-map .em-chip { border-color: var(--ui-border); background: var(--ui-surface); color: var(--ui-text); }
+.em-map .em-chip.on { border-color: var(--ui-accent); background: var(--ui-accent-tint); }
+.em-chips.sec .em-chip { font-weight: 400; }
+.em-map-note { margin: 4px 0 0; font-size: 14px; color: var(--ui-muted); }
+@media (prefers-reduced-motion: reduce) { .em * { transition: none !important; } }

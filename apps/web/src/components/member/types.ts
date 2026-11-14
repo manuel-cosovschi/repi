@@ -1,3 +1,4 @@
+import type { MotionRef } from "@/lib/exercise-motion/ref";
 import {
   activityOf, activityValuesText, fmtSeconds, fmtWeight, isActivityProfile, isTimedRow, mainSets, parseDistance, parseReps, prescriptionText, repsDistance, repsText,
   type ActivityDetail, type ActivityProfile, type MetricsProfile, type SetMetrics, type WorkMetrics, type ExerciseChangeReason, type ExerciseDetail, type Suggestion, type WeightUnit,
@@ -7,7 +8,7 @@ export type PrevSet = { weightKg: number | null; reps: number | null; metrics?: 
 // Ejercicios por tiempo: `profile` (cinta, bici, remo… o fuerza) y la actividad indicada (velocidad, inclinación, nivel…). Sin
 // ellos (servidor anterior), se muestra como siempre.
 export type TrainEx = { id: string; exerciseId: string; name: string; sets: number; reps: string; rir: number | null; restSec: number; prev: PrevSet; detail?: ExerciseDetail | null; suggest?: Suggestion | null;
-  profile?: MetricsProfile | null; activity?: ActivityDetail | null };
+  profile?: MetricsProfile | null; activity?: ActivityDetail | null; motion?: MotionRef | null };
 export type Training = {
   userId: string; firstName: string; coach: { name: string; org: string } | null; today: string; week: string[]; weightUnit?: WeightUnit;
   ai?: boolean; // D184: la sugerencia de REPI está disponible en el servidor
