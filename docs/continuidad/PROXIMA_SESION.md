@@ -3,15 +3,17 @@
 Actualizado: 14/11/2026 (**REPI Exercise Motion 1.0 (D220): implementado y probado en la rama `claude/exercise-motion`; publicación en curso (ver la sección). Después, según el pedido del titular, sigue «REPI Nutrition Intelligence 1.0»**); antes, 13/11/2026
 
 
-## REPI Exercise Motion 1.0 · biblioteca de demostraciones — 14/11/2026 · EN PUBLICACIÓN (D220, sin migración)
+## REPI Exercise Motion 1.0 · biblioteca de demostraciones — 14/11/2026 · PUBLICADO Y VERIFICADO (D220, sin migración; #125, `6cea673`)
 
 - **Pedido:** máster «SUPER MASTER PROMPT — REPI EXERCISE MOTION 1.0 — THE MOVEMENT LIBRARY» (14/11/2026).
 - **Qué se hizo:** motor de animación vectorial propio (`apps/web/src/lib/exercise-motion/`: esqueleto con cinemática inversa, vistas lateral/frontal/cenital, flexión de columna, equipamiento genérico), 44 demostraciones con técnica en voseo, músculos y mapeo exacto al catálogo (+15 variantes compatibles), resolver único, visor accesible (`components/exercise-motion/ExerciseMotion.tsx`), integración en el entrenamiento («Ver cómo se hace»), REPI Control («Ver ejecución»), panel del coach/gimnasio («Videos de ejercicios»), REPI Admin › Demostraciones y el asistente (intención `how_to`). Interruptor `exercise_motion` (encendido). Docs: `docs/exercise-motion/EXERCISE_MOTION_1.md` y `COBERTURA.md`.
 - **Cobertura:** 59 de 191 ejercicios del catálogo global (44 exactos + 15 compatibles); en producción, 83,2 % de las series registradas sobre el catálogo global con demostración exacta (87,9 % con variantes).
-- **Arreglo de paso:** una sesión creada en el teléfono (sin conexión primero) no recibía el video del gimnasio (D164) hasta recargar; ahora `mergeIntel` completa video y demostración (`lib/offline/store.ts`).
+- **Arreglo de paso:** una sesión creada en el teléfono (sin conexión primero) no recibía el video del gimnasio (D164) hasta recargar; ahora `mergeIntel` completa video y demostración (`lib/offline/store.ts`), sólo cuando la respuesta del servidor trae esos campos (así no altera ejercicios ya completos: regresión del hotfix #26 cubierta por `tests/workout-ladder-client.test.ts`).
 - **Revisión de contenido:** las 44 se revisaron en hojas de contactos; se rehicieron aperturas con mancuernas y pájaros con cámara cenital, y los dos crunches con flexión de columna (antes el tronco rígido giraba sobre la cadera, que es el error técnico). Todas quedan «revisión interna»; ninguna validada por un profesional externo.
-- **Pruebas:** `tests/exercise-motion.test.ts` (18), `packages/domain/src/brain/howto.test.ts` (5; dominio 1196/1196), `e2e/exercise-motion.spec.ts` (8/8: teléfono y escritorio), typecheck limpio.
-- **Próxima acción:** PR, CI, merge, despliegue y verificación en producción con la demo pública; después Nutrition Intelligence 1.0 desde `main` actualizado.
+- **Pruebas:** `tests/exercise-motion.test.ts` (18), `packages/domain/src/brain/howto.test.ts` (5; dominio 1196/1196), `e2e/exercise-motion.spec.ts` (8/8: teléfono y escritorio), suite web completa 902/902, typecheck limpio, CI verde.
+- **Publicación:** squash `6cea673` (14/11, 05:10 UTC); sin migración, por eso sin respaldo. Producción sirve `6cea67309f42`. Smoke con demos públicas (`prod-smoke.mjs`): el programa del socio trae demostraciones (press de banca, remo, press militar, elevaciones laterales), la hoja abre con escenario animado, técnica y mapa muscular, REPI Control muestra «Ver ejecución»; sin errores de consola ni 5xx. Vercel: sin errores de ejecución en los 30 min posteriores.
+- **Pendiente:** validación por un profesional externo de las 44 demostraciones; ampliar cobertura (patada de glúteo en polea, curl alternado, extensión de tríceps en máquina, hiperextensiones con peso, press francés, abducción con banda; cardio y movilidad).
+- **Próxima acción:** Nutrition Intelligence 1.0 desde `main` actualizado (máster del 14/11, interruptor `nutrition` apagado).
 
 
 ## Pulidos publicados el 13/11 (#122–#124)
