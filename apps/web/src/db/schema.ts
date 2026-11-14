@@ -2575,3 +2575,118 @@ export const leadSetting = pgTable("lead_setting", {
   updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
   updatedAt: now("updated_at"),
 });
+
+// ── REPI Nutrition Intelligence 1.0 (D221) ─────────────────────────────────────────────────────────────────────────────
+// Datos alimentarios personales: pertenecen a la persona. Ninguna tabla tiene org_id: el gimnasio no los ve por relación
+// comercial y REPI Admin no tiene vista por persona. Acceso sólo por el servidor (RLS activado sin políticas, como el resto).
+// Todo se borra en cascada con la cuenta. Los valores de cada registro son una copia (snapshot) de la fuente usada.
+
+/** Perfil nutricional voluntario: objetivo general, preferencias y objetivos propios o indicados por un profesional. */
+export const nutritionProfile = pgTable("nutrition_profile", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  goal: text("goal"), // habits | organize | track | protein | strength | sport | professional (null = no eligió)
+  prefs: jsonb("prefs").$type<Record<string, unknown>>().notNull().default({}),
+  targets: jsonb("targets").$type<Record<string, unknown>>().notNull().default({}),
+  targetSource: text("target_source"), // self | professional
+  targetsSetAt: ts("targets_set_at"),
+  reminders: boolean("reminders").notNull().default(false), // recordatorio de registro: sólo si la persona lo pide
+  proactive: boolean("proactive").notNull().default(false), // información nutricional proactiva: apagada por defecto
+  onboardedAt: ts("onboarded_at"),
+  revision: integer("revision").notNull().default(1),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  check("nutrition_profile_goal_valid", sql`${t.goal} is null or ${t.goal} in ('habits','organize','track','protein','strength','sport','professional')`),
+  check("nutrition_profile_source_valid", sql`${t.targetSource} is null or ${t.targetSource} in ('self','professional')`),
+]);
+
+/** Alimentos propios (carga manual o producto con código de barras completado a mano). Valores para una base declarada. */
+export const nutritionFood = pgTable("nutrition_food", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  brand: text("brand"),
+  barcode: text("barcode"),
+  basisAmount: doublePrecision("basis_amount").notNull(),
+  basisUnit: text("basis_unit").notNull(), // g | ml | unidad | porcion
+  basisGrams: doublePrecision("basis_grams"),
+  values: jsonb("values").$type<Record<string, number | null>>().notNull(),
+  revision: integer("revision").notNull().default(1),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  index("nutrition_food_user_idx").on(t.userId),
+  check("nutrition_food_basis_valid", sql`${t.basisUnit} in ('g','ml','unidad','porcion') and ${t.basisAmount} > 0`),
+]);
+
+/** Recetas propias: ingredientes con su copia de valores, porciones y peso final si se conoce. */
+export const nutritionRecipe = pgTable("nutrition_recipe", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  ingredients: jsonb("ingredients").$type<unknown[]>().notNull(),
+  servings: doublePrecision("servings"),
+  finalWeightG: doublePrecision("final_weight_g"),
+  revision: integer("revision").notNull().default(1),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  index("nutrition_recipe_user_idx").on(t.userId),
+  check("nutrition_recipe_yield_valid", sql`(${t.servings} is null or ${t.servings} > 0) and (${t.finalWeightG} is null or ${t.finalWeightG} > 0)`),
+]);
+
+/**
+ * Diario: un registro por alimento consumido. El id lo genera el teléfono (idempotencia sin conexión); la edición sube la
+ * revisión y el borrado deja una marca (deleted_at) para que la sincronización no lo resucite.
+ */
+export const nutritionEntry = pgTable("nutrition_entry", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  day: text("day").notNull(), // AAAA-MM-DD, fecha local elegida por la persona
+  meal: text("meal").notNull(),
+  food: jsonb("food").$type<Record<string, unknown>>().notNull(), // FoodSnapshot
+  qtyAmount: doublePrecision("qty_amount").notNull(),
+  qtyUnit: text("qty_unit").notNull(),
+  grams: doublePrecision("grams"),
+  nutrients: jsonb("nutrients").$type<Record<string, number | null>>().notNull(),
+  revision: integer("revision").notNull().default(1),
+  deletedAt: ts("deleted_at"),
+  createdAt: now("created_at"),
+  updatedAt: now("updated_at"),
+}, (t) => [
+  index("nutrition_entry_user_day_idx").on(t.userId, t.day),
+  check("nutrition_entry_day_valid", sql`${t.day} ~ '^\\d{4}-\\d{2}-\\d{2}$'`),
+  check("nutrition_entry_meal_valid", sql`${t.meal} in ('desayuno','almuerzo','merienda','cena','colacion','otra')`),
+  check("nutrition_entry_qty_valid", sql`${t.qtyAmount} > 0`),
+]);
+
+/** Día marcado completo por la persona: sólo esos días cuentan para promedios de ingesta. */
+export const nutritionDay = pgTable("nutrition_day", {
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  day: text("day").notNull(),
+  complete: boolean("complete").notNull().default(false),
+  updatedAt: now("updated_at"),
+}, (t) => [primaryKey({ columns: [t.userId, t.day] }), check("nutrition_day_valid", sql`${t.day} ~ '^\\d{4}-\\d{2}-\\d{2}$'`)]);
+
+/** Comidas favoritas: una lista de alimentos con cantidades para repetir en pocos toques. */
+export const nutritionFavorite = pgTable("nutrition_favorite", {
+  id: id(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  meal: text("meal"),
+  items: jsonb("items").$type<unknown[]>().notNull(),
+  uses: integer("uses").notNull().default(0),
+  lastUsedAt: ts("last_used_at"),
+  createdAt: now("created_at"),
+}, (t) => [index("nutrition_favorite_user_idx").on(t.userId)]);
+
+/**
+ * Caché de productos de Open Food Facts (ODbL), separada de la biblioteca propia: no se mezcla con `nutrition_food` ni con la
+ * biblioteca de REPI. Guarda sólo los campos usados, sin imágenes; se reconsulta pasados 30 días.
+ */
+export const offProductCache = pgTable("off_product_cache", {
+  barcode: text("barcode").primaryKey(),
+  status: text("status").notNull(), // found | not_found
+  product: jsonb("product").$type<Record<string, unknown> | null>(),
+  fetchedAt: now("fetched_at"),
+}, (t) => [check("off_product_status_valid", sql`${t.status} in ('found','not_found')`)]);
