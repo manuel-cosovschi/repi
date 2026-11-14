@@ -129,8 +129,9 @@ export function mergeIntel(c: LocalSession, srv: { exercises: IntelEx[] }): Loca
     const x = by.get(e.id);
     let out = e.targets != null ? e : { ...e, targets: x?.targets ?? [], outlook: x?.outlook ?? null, ladder: x?.ladder ?? e.ladder ?? null };
     // D164/D220: la sesión creada en el teléfono no trae el video del gimnasio ni la demostración del reemplazo: se completan acá.
-    if (out.media === undefined) out = { ...out, media: x?.media ?? null };
-    if (out.motionSub === undefined) out = { ...out, motion: out.motion ?? x?.motion ?? null, motionSub: x?.motionSub ?? null };
+    // Sólo si el servidor trae esos campos: un ejercicio que el servidor no completa queda tal cual.
+    if (out.media === undefined && x && "media" in x) out = { ...out, media: x.media ?? null };
+    if (out.motionSub === undefined && x && "motionSub" in x) out = { ...out, motion: out.motion ?? x.motion ?? null, motionSub: x.motionSub ?? null };
     return out;
   }) };
 }
