@@ -55,13 +55,13 @@ export function presentCard(c: ReplyCard, unit: WeightUnit = "kg"): CardVM | nul
 
 // ── Acciones ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 /** Qué tipo de acción es, para diferenciarla visualmente de una respuesta (y para avisar cuando toca salud o la sesión). */
-export type ActionTone = "health" | "session" | "coach" | "pref" | "nav";
+export type ActionTone = "health" | "session" | "coach" | "pref" | "nav" | "food";
 const TONE: Record<ActionKind, ActionTone> = {
   open_workout: "nav", show_history: "nav", propose_substitution: "nav", propose_short_session: "nav", draft_coach_message: "coach",
   apply_substitution: "session", apply_short_session: "session", floor_help: "session", report_discomfort: "health", propose_to_coach: "coach",
-  save_preference: "pref", delete_memory: "pref", update_prefs: "pref", record_feedback: "pref",
+  save_preference: "pref", delete_memory: "pref", update_prefs: "pref", record_feedback: "pref", log_food: "food",
 };
-const KICKER: Record<ActionTone, string> = { health: "Registro de salud · privado", session: "Cambio sólo por hoy", coach: "Para tu entrenador", pref: "Preferencia", nav: "Atajo" };
+const KICKER: Record<ActionTone, string> = { health: "Registro de salud · privado", session: "Cambio sólo por hoy", coach: "Para tu entrenador", pref: "Preferencia", nav: "Atajo", food: "Diario de comidas · privado" };
 export type ActionVM = {
   key: string; kind: ActionKind; label: string; preview: string; mode: ProposedAction["mode"]; reason: string | null; tone: ActionTone; kicker: string;
   /** Botón principal: «Confirmar» cuando la acción cambia algo; el nombre de la acción cuando sólo navega o deja un borrador. */

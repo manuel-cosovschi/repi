@@ -25,6 +25,7 @@ export const ACTIONS: Record<ActionKind, ActionSpec> = {
   update_prefs: { kind: "update_prefs", risk: "low", autoAt: null, scope: "pref" },
   floor_help: { kind: "floor_help", risk: "medium", autoAt: null, scope: "record" },
   report_discomfort: { kind: "report_discomfort", risk: "medium", autoAt: null, health: true, scope: "record" },
+  log_food: { kind: "log_food", risk: "low", autoAt: null, adultOnly: true, scope: "record" },
 };
 export const isActionKind = (x: unknown): x is ActionKind => typeof x === "string" && Object.prototype.hasOwnProperty.call(ACTIONS, x);
 
@@ -209,6 +210,15 @@ const SCHEMAS: Record<ActionKind, { fields: string[]; check: (i: Record<string, 
   floor_help: { fields: ["exerciseId", "note"], check: (i, c, err) => {
     if (i.exerciseId != null && (!isId(i.exerciseId) || ![...(c.session?.pending ?? []), ...(c.session?.done ?? [])].includes(i.exerciseId))) err("El ejercicio no está en tu sesión.");
     return { exerciseId: i.exerciseId ?? null, note: cleanText(i.note, 120) || null };
+  } },
+  // D221: un alimento de la biblioteca de REPI, una cantidad (gramos o porción documentada), la comida y el día.
+  log_food: { fields: ["foodSlug", "amount", "unit", "meal", "day"], check: (i, _c, err) => {
+    if (typeof i.foodSlug !== "string" || !/^[a-z0-9-]{2,80}$/.test(i.foodSlug)) err("Alimento inválido.");
+    if (!isNum(i.amount, 0.01, 5000)) err("La cantidad está fuera de rango.");
+    if (typeof i.unit !== "string" || !/^(g|portion:\d{1,2})$/.test(i.unit)) err("Unidad inválida.");
+    if (!["desayuno", "almuerzo", "merienda", "cena", "colacion", "otra"].includes(i.meal as string)) err("Comida inválida.");
+    if (typeof i.day !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(i.day)) err("Fecha inválida.");
+    return { foodSlug: i.foodSlug, amount: i.amount, unit: i.unit, meal: i.meal, day: i.day };
   } },
   report_discomfort: { fields: ["exerciseId", "area", "note"], check: (i, c, err) => {
     if (i.exerciseId != null && (!isId(i.exerciseId) || !(c.exercises ?? []).includes(i.exerciseId))) err("El ejercicio no está entre los tuyos.");

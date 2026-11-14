@@ -207,7 +207,9 @@ export type IntentName =
   // D217 · Progreso: máximo real, capacidad estimada, próxima carga y distancia a una meta (cuatro conceptos separados).
   | "max_lift" | "capacity" | "next_target" | "goal_distance"
   // D220 · Exercise Motion: cómo se hace un ejercicio (técnica oficial de REPI y su demostración).
-  | "how_to";
+  | "how_to"
+  // D221 · Nutrition Intelligence: consultas y registro sobre el diario de comidas de la persona.
+  | "nutrition";
 export type Intent = { name: IntentName; slots: Record<string, string | number | null>; confidence: number };
 
 export type ReplyCard =
@@ -216,7 +218,9 @@ export type ReplyCard =
   | { type: "alternatives"; options: { exerciseId: string; name: string; why: string; approvedByCoach: boolean }[] }
   | { type: "plan"; keep: string[]; skip: string[]; note: string }
   // D220: abre la demostración oficial (animación, técnica y músculos) del ejercicio.
-  | { type: "motion"; exerciseId: string; name: string; motion: { id: string; v: number; match: "exact" | "compatible"; difference?: string } };
+  | { type: "motion"; exerciseId: string; name: string; motion: { id: string; v: number; match: "exact" | "compatible"; difference?: string } }
+  // D221: abre Nutrición (el día o el progreso).
+  | { type: "nutrition"; to: "day" | "progress"; day?: string };
 
 export type Reply = {
   text: string;
@@ -236,7 +240,9 @@ export type Reply = {
 export type ActionKind =
   | "open_workout" | "show_history" | "propose_substitution" | "apply_substitution" | "propose_short_session" | "apply_short_session"
   | "save_preference" | "delete_memory" | "draft_coach_message" | "floor_help" | "report_discomfort" | "record_feedback"
-  | "propose_to_coach" | "update_prefs";
+  | "propose_to_coach" | "update_prefs"
+  // D221 · Nutrición: registrar un alimento en el diario (siempre con confirmación).
+  | "log_food";
 export type Risk = "none" | "low" | "medium" | "high";
 export type ActionProposal = {
   kind: ActionKind;

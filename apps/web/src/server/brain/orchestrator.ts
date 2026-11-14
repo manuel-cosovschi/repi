@@ -30,6 +30,9 @@ import { exMeta, isSection, loadContext, sessionEx, timedReps, type ExMeta, type
 import { appendMessage, listMessages, MESSAGE_MAX, type MessageView } from "./conversation";
 import { callAi, INFLIGHT_TTL_MS, type AiFailReason } from "./gateway";
 import { requireAssistant } from "./prefs";
+import { nutritionReply } from "./nutrition";
+import { classifyNutrition } from "@repi/domain";
+import { nutritionEnabledFor } from "../nutrition/gate";
 import { alternativesFor, altReason, cancelAction, confirmAction, isFoodPreference, isFoodTalk, isFoodTalkAnyIntent, registerProposals, type AltCache, type ProposedAction } from "./actions";
 
 const { brainMessage, workoutSession, setLog, trainingTarget, historyEntry, ownRoutine, aiUsage } = schema;
@@ -185,6 +188,12 @@ async function decide(sc: ServerContext, text: string, t: Turn): Promise<Built> 
   const foodish = intent.name === "set_preference" ? isFoodPreference(intent.slots) : isFoodTalkAnyIntent(text);
   if (!canTalkBody(ctx.person.age.value) && (intent.name === "body_goal" || foodish || (intent.name === "unknown" && BODY_DIET.test(norm(text))))) {
     return { reply: reply(AGE_REPLY[ctx.person.age.value === "minor" ? "minor" : "unknown"]), ref: { intent: "age_policy" } };
+  }
+  // D221 · Nutrition Intelligence: con adultos y el módulo encendido, el diario de comidas se consulta y se registra por reglas
+  // (sin IA: nada del diario sale de REPI). Registrar siempre se confirma.
+  if (canTalkBody(ctx.person.age.value) && intent.name !== "set_preference") {
+    const nq = classifyNutrition(text);
+    if (nq && (await nutritionEnabledFor(sc.userId))) return nutritionReply(sc, nq, t);
   }
   // Con adultos tampoco se guarda la alimentación como preferencia de entrenamiento (ni se refuerza una conducta alimentaria).
   if (intent.name === "set_preference" && foodish) {

@@ -6,3 +6,4 @@ export * from "./nutrition/progress";
 export * from "./nutrition/policy";
 export * from "./nutrition/catalog";
 export * from "./nutrition/parse";
+export * from "./nutrition/assistant";

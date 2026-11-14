@@ -194,7 +194,7 @@ describe("búsqueda e interpretación de texto [1, 17, 44]", () => {
   it("[17] texto ambiguo: cantidades caseras sólo con porción documentada; ml sin densidad no se convierte", () => {
     const p = parseFoodText(CAT, "desayuné 2 huevos, media taza de arroz cocido y 200 ml de yogur");
     expect(p.meal).toBe("desayuno");
-    expect(p.items[0].quantity).toEqual({ amount: 2, unit: "portion:0" });
+    expect(p.items[0].quantity).toEqual({ amount: 2, unit: "portion:1" }); // «2 huevos»: la unidad mediana documentada
     expect(p.items[1].quantity).toEqual({ amount: 0.5, unit: "portion:0" });
     expect(p.items[1].candidates[0].slug).toBe("arroz-cocido");
     expect(p.items[2].quantity).toBeNull();

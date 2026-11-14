@@ -35,6 +35,8 @@ const stem = (t: string) => {
 };
 
 export type SearchHit = { food: CatalogFood; score: number };
+/** Ante un empate (p. ej. «pollo»), primero lo más habitual en Argentina. Sólo ordena: crudo/cocido se sigue preguntando. */
+const PREFERRED = ["pollo-pechuga", "leche-entera", "pan-frances", "carne-picada-comun", "arroz-blanco", "fideos-secos", "papa-hervida", "huevo-entero", "queso-cremoso", "yogur-natural-entero", "avena-cruda", "lentejas"];
 
 /**
  * Búsqueda local y determinística. Puntaje: alias exacto > nombre que empieza igual > todas las palabras presentes > prefijos.
@@ -55,7 +57,7 @@ export function searchFoods(catalog: readonly CatalogFood[], query: string, limi
       const pre = qt.filter((t) => [...words].some((w) => w.startsWith(t) && t.length >= 3)).length;
       if (all) s = 70; else if (pre === qt.length) s = 55; else if (pre > 0 && qt.length > 1) s = 30 * (pre / qt.length);
     }
-    if (s > 0) hits.push({ food: f, score: s + (f.match === "exact" ? 1 : 0) });
+    if (s > 0) hits.push({ food: f, score: s + (f.match === "exact" ? 1 : 0) + (PREFERRED.some((p) => f.slug.startsWith(p)) ? 0.5 : 0) });
   }
   return hits.sort((a, b) => b.score - a.score || a.food.name.localeCompare(b.food.name, "es")).slice(0, limit);
 }

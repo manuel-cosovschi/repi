@@ -22,6 +22,13 @@ const config: NextConfig = {
       source: "/api/kiosk/:path*",
       headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }, { key: "X-Robots-Tag", value: "noindex" }],
     }, {
+      // Nutrición (D221): datos alimentarios personales; ninguna respuesta queda en una caché (revocar corta al instante).
+      source: "/api/me/nutrition/:path*",
+      headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+    }, {
+      source: "/api/coach/:orgId/clients/:relId/nutrition",
+      headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+    }, {
       source: "/rutinas",
       headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }, { key: "X-Robots-Tag", value: "noindex" }],
     }];

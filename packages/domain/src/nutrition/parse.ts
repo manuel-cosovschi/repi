@@ -28,7 +28,7 @@ const UNIT_WORDS: [RegExp, "g" | "kg" | "ml" | "l" | "household"][] = [
 ];
 const HOUSE: Record<string, string[]> = {
   taza: ["taza", "cup"], vaso: ["vaso", "taza", "cup"], cucharada: ["cucharada", "tbsp"], cucharadita: ["cucharadita", "tsp"], rebanada: ["rebanada", "feta", "slice"],
-  feta: ["feta", "rebanada", "slice"], porcion: ["porcion", "porción"], plato: ["plato"], unidad: ["unidad", "mediana", "mediano", "grande", "chica"],
+  feta: ["feta", "rebanada", "slice"], porcion: ["porcion", "porción"], plato: ["plato"], unidad: ["mediana", "mediano", "unidad", "grande", "chica"],
   filete: ["filete"], pechuga: ["pechuga", "unidad"], lata: ["lata"], pote: ["pote", "envase"], rodaja: ["rodaja", "rebanada"],
 };
 const singular = (w: string) => w.replace(/es$/, "").replace(/s$/, "").replace("porcion", "porcion");
@@ -36,7 +36,7 @@ const singular = (w: string) => w.replace(/es$/, "").replace(/s$/, "").replace("
 /** Divide la frase en ítems: comas, «y», «con», «+», «más». */
 export function splitItems(text: string): string[] {
   const plain = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/(\d),(\d)/g, "$1.$2");
-  return plain.replace(/\b(desayun\w*|almorz\w*|almorc\w*|merend\w*|cene\w*|comi|tome|me (comi|tome))\b/gi, ",")
+  return plain.replace(/\b(a|al|en|para|de)( mi| el| la)? (desayuno|almuerzo|merienda|cena|colacion)( de (hoy|ayer))?\b/gi, ",").replace(/\b(de|para) (hoy|ayer)\b/gi, " ").replace(/\b(desayun\w*|almorz\w*|almorc\w*|merend\w*|cene\w*|comi|tome|me (comi|tome))\b/gi, ",")
     .split(/,|;|\+|\by\b|\bcon\b|\bm[aá]s\b|\be\b/i).map((s) => s.trim()).filter((s) => s.length > 1);
 }
 
@@ -66,7 +66,8 @@ function readQuantity(chunk: string): { amount: number | null; unit: "g" | "ml" 
 /** Busca una porción de la fuente cuya etiqueta corresponda a la medida casera escrita. Si no hay, no inventa gramos. */
 function portionIndex(food: CatalogFood, house: string): number {
   const keys = HOUSE[house] ?? [house];
-  return food.portions.findIndex((p) => keys.some((k) => normalize(p.label).includes(normalize(k))));
+  for (const k of keys) { const i = food.portions.findIndex((p) => normalize(p.label).includes(normalize(k))); if (i >= 0) return i; }
+  return -1;
 }
 
 export function parseFoodText(catalog: readonly CatalogFood[], text: string): ParsedText {
