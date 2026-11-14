@@ -18,6 +18,8 @@ import {
   ACTIONS, KEY_RE, arDay, decideExecution, isActionKind, listEs, makeKey, norm, rankAlternatives, validateAction,
   type ActionKind, type ActionProposal, type AltContext, type Alternative, type ExecContext, type ValidationCtx,
 } from "@repi/domain/brain";
+import { addEntry } from "../nutrition/services";
+import { MEAL_LABEL, type Meal } from "@repi/domain";
 import { db, schema } from "@/db";
 import { logError } from "../log";
 import { AccessError, audit } from "../access/util";
@@ -345,6 +347,14 @@ const RUN: Record<ActionKind, Run> = {
     };
   },
 
+  // D221: registra el alimento confirmado en el diario. El id sale de la clave de la acción (un reintento no duplica) y los
+  // valores los calcula el servicio de Nutrición desde la biblioteca (nunca los que vinieron en la propuesta).
+  log_food: async (sc, input, a, _d, now) => {
+    const id = `b${a.idempotencyKey.split(":")[1]}`;
+    const r = await addEntry(sc.userId, { id, day: str(input.day)!, meal: str(input.meal)!, ref: { kind: "catalog", id: str(input.foodSlug)! }, quantity: { amount: input.amount as number, unit: str(input.unit) as "g" } }, now);
+    return { text: r.duplicate ? "Ya estaba registrado: no lo dupliqué." : `Listo: lo registré en ${MEAL_LABEL[str(input.meal) as Meal].toLowerCase()}.`, entryId: id, duplicate: r.duplicate };
+  },
+
   report_discomfort: async (sc, input, _a, details, _now, commit) => {
     const se = sessionEx(sc, str(input.exerciseId));
     const m = exMeta(sc, str(input.exerciseId));
@@ -404,13 +414,13 @@ export const ACTION_TEXT: Record<ActionKind, string> = {
   propose_substitution: "ver reemplazos", propose_short_session: "una versión corta de la sesión", apply_substitution: "un reemplazo sólo por hoy",
   apply_short_session: "acortar la sesión de hoy", draft_coach_message: "preparar una consulta para tu entrenador", propose_to_coach: "dejarle una propuesta a tu entrenador",
   save_preference: "guardar una preferencia", delete_memory: "borrar un recuerdo", update_prefs: "cambiar tus avisos", floor_help: "pedir ayuda en sala",
-  report_discomfort: "registrar una molestia",
+  report_discomfort: "registrar una molestia", log_food: "registrar un alimento",
 };
 const failText = (kind: ActionKind, e: unknown) => {
   const msg = e instanceof AccessError && e.status < 500 ? ` ${e.message}` : " Probá de nuevo en un rato.";
   const what: Partial<Record<ActionKind, string>> = {
     apply_substitution: "aplicar el reemplazo", apply_short_session: "acortar la sesión", save_preference: "guardar la preferencia", delete_memory: "borrar el recuerdo",
-    update_prefs: "cambiar tus preferencias", floor_help: "avisar a la sala", report_discomfort: "registrar la molestia", propose_to_coach: "dejarle la propuesta a tu entrenador",
+    update_prefs: "cambiar tus preferencias", floor_help: "avisar a la sala", log_food: "registrar el alimento", report_discomfort: "registrar la molestia", propose_to_coach: "dejarle la propuesta a tu entrenador",
   };
   return `No pude ${what[kind] ?? "hacerlo"}: no se cambió nada.${msg}`;
 };

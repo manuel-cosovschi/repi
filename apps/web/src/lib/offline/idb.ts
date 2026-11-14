@@ -41,7 +41,8 @@ export const idbMerge = <T>(store: StoreName, key: IDBValidKey, merge: (cur: T |
   const t = d.transaction(store, "readwrite");
   const os = t.objectStore(store);
   const g = os.get(key);
-  g.onsuccess = () => { const v = merge(g.result as T | undefined); if (v !== undefined) os.put(v); };
+  // `kv` guarda con clave aparte (sin keyPath): sin pasarle la clave, put() falla (DataError) y la cola de Nutrición no se escribía.
+  g.onsuccess = () => { const v = merge(g.result as T | undefined); if (v === undefined) return; if (os.keyPath == null) os.put(v, key); else os.put(v); };
   t.oncomplete = () => res();
   t.onerror = () => rej(t.error);
   t.onabort = () => rej(t.error);

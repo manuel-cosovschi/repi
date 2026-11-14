@@ -7,6 +7,7 @@ import { ACCESS_ST } from "./CoachInbox";
 import { fmtDate } from "./types";
 import { Ic } from "@/components/ui/Ic";
 import { Lock } from "@phosphor-icons/react";
+import { CoachNutrition } from "./CoachNutrition";
 
 type Health = {
   granted: boolean;
@@ -17,7 +18,7 @@ type Health = {
 };
 const INJ_CHIP: Record<InjuryStatus, string> = { active: "bad", monitoring: "warn", resolved: "ok" };
 
-function LockCard({ orgId, relId, item, first, status, retryAt, onRequested, flash }: { orgId: string; relId: string; item: AccessItem; first: string; status: string; retryAt: string | null; onRequested: () => void; flash: (t: string) => void }) {
+export function LockCard({ orgId, relId, item, first, status, retryAt, onRequested, flash }: { orgId: string; relId: string; item: AccessItem; first: string; status: string; retryAt: string | null; onRequested: () => void; flash: (t: string) => void }) {
   const [busy, setBusy] = useState(false);
   const label = ACCESS_ITEMS[item].label;
   const ask = async () => {
@@ -56,6 +57,7 @@ export function SensitiveTab({ orgId, relId, name, item, flash }: { orgId: strin
   if (!h) return <p className="muted">Cargando…</p>;
   const status = h.access[item]?.status ?? "none";
   const retryAt = h.access[item]?.retryAt ?? null;
+  if (item === "nutrition") return <CoachNutrition orgId={orgId} relId={relId} name={name} flash={flash} />; // D221
   if (item !== "health") {
     return h.granted
       ? <div className="empty">{ACCESS_ITEMS[item].label}: {first} lo comparte, pero la carga desde la app todavía no está disponible.</div>

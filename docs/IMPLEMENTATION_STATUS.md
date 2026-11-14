@@ -1,5 +1,11 @@
 # REPI — Estado de implementación
 
+## REPI Nutrition Intelligence 1.0 (14/11/2026, D221)
+
+- **Hecho:** diario de comidas (alta, edición, borrado, copiar de ayer, favoritas, recetas, día completo), biblioteca de 225 alimentos (USDA SR Legacy), alimentos propios, código de barras (Open Food Facts), texto natural por reglas, progreso con días parciales/completos y entrenamientos del período, asistente sobre el diario (consultas y registro con confirmación), pestaña Nutrición del coach con dos permisos, exportación y borrado, cola sin conexión. Migración aditiva 0057.
+- **Estado:** interruptor `nutrition` apagado para personas reales; piloto en las cuentas de la demo guiada. Encendido general: decisión del titular (`docs/nutrition/NUTRITION_INTELLIGENCE_1.md` §14).
+- **No construido:** fotos con IA, texto con IA, estimador de requerimientos, recordatorios enviados, rol de nutricionista.
+
 ## REPI Exercise Motion 1.0 · biblioteca de demostraciones (14/11/2026, D220)
 
 - **Implementado y probado:** 44 demostraciones animadas propias (pecho, espalda, hombros, brazos, piernas, glúteos y core) que cubren 44 ejercicios exactos y 15 variantes compatibles del catálogo global; técnica escrita, mapa muscular de frente y espalda, resolver único, visor accesible (pausa, velocidad, fases, reducir movimiento) y sin conexión. Integrado en el entrenamiento, REPI Control, panel del coach y del gimnasio, REPI Admin › Demostraciones y el asistente (`how_to`). Sin migración.

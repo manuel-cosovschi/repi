@@ -8,6 +8,7 @@ import { AccessError, audit } from "../access/util";
 import { requireAdmin } from "../commercial/services";
 import { mySettings } from "../settings/services";
 import { exportBrainData } from "./brain";
+import { exportNutrition } from "../nutrition/services";
 
 const {
   user, coachClient, gymMember, organization, gymLocation, legalAcceptance, consentGrant, workoutSession, setLog, checkin, painReport, injury,
@@ -71,6 +72,8 @@ export async function exportMyData(userId: string, now = new Date()) {
     achievements: await db.select({ kind: achievement.kind, title: achievement.title, detail: achievement.detail, createdAt: achievement.createdAt }).from(achievement).where(eq(achievement.userId, userId)),
     // D210: REPI (asistente): preferencias, memoria, conversaciones, avisos, acciones y uso de IA (sin contenido).
     repi: await exportBrainData(userId),
+    // D221: todo lo de Nutrición (perfil, diario con la copia de valores usada, días, alimentos propios, recetas, favoritas).
+    nutrition: await exportNutrition(userId),
   };
   await audit(db, { actorUserId: userId, action: "privacy.export", resourceType: "user", resourceId: userId });
   return data;

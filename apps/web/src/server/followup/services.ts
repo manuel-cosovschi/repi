@@ -7,6 +7,8 @@ import {
   gymCan, scale10, scale5, videoOk, type AccessItem, type InjuryStatus, type RequestKind, TERMS_VERSION, CONSENT_CATALOG, briefSummary, briefView,
   sniff,
 } from "@repi/domain";
+import { ageOf, isNutritionItem, nutritionEnabledFor } from "../nutrition/gate";
+import * as nutri from "../nutrition/services";
 import { db, schema } from "@/db";
 import { consentOffered } from "@/lib/features";
 import { AccessError, addDays, audit, type Tx } from "../access/util";
@@ -143,6 +145,11 @@ export async function markResolvedSeen(userId: string, id: string) {
 }
 
 async function setItem(tx: Tx, userId: string, rel: { id: string; coachOrgId: string }, item: AccessItem, on: boolean) {
+  // D221: compartir nutrición exige el módulo encendido para la persona y edad adulta confirmada (revocar, siempre).
+  if (on && isNutritionItem(item)) {
+    if (!(await nutritionEnabledFor(userId, tx))) throw new AccessError("invalid", "Ese dato no está disponible.");
+    if ((await ageOf(userId, new Date(), tx)) !== "adult") throw new AccessError("minor", "Nutrición es sólo para mayores de 18 años con fecha de nacimiento registrada.", 403);
+  }
   const restricted = await minorWithoutGuardian(userId, tx);
   if (on && resolveGrants("coach_client", [item], { minorWithoutGuardian: restricted }).indexOf(item) < 0) {
     throw new AccessError("minor", "Este dato se comparte cuando tu adulto responsable lo autorice.", 403);
@@ -190,12 +197,13 @@ export async function myPrivacy(userId: string) {
   const rel = await myRelation(userId);
   const restricted = await minorWithoutGuardian(userId);
   const items = rel ? await activeItems(rel.rel.id) : [];
+  const nutriOn = await nutritionEnabledFor(userId);
   const logs = await db.select({ l: dataAccessLog, actor: user.name, org: organization.name }).from(dataAccessLog)
     .leftJoin(user, eq(user.id, dataAccessLog.actorUserId)).leftJoin(organization, eq(organization.id, dataAccessLog.orgId))
     .where(eq(dataAccessLog.subjectUserId, userId)).orderBy(desc(dataAccessLog.at)).limit(30);
   return {
     coach: rel ? { name: rel.coachName, org: rel.org.name } : null,
-    items: CONSENT_CATALOG.coach_client.filter((c) => consentOffered(c.key) || items.includes(c.key)).map((c) => ({
+    items: CONSENT_CATALOG.coach_client.filter((c) => consentOffered(c.key) || items.includes(c.key) || (isNutritionItem(c.key) && nutriOn)).map((c) => ({
       key: c.key, title: c.title, desc: c.desc, locked: !!c.locked, on: c.locked ? true : items.includes(c.key),
       restricted: restricted && !!c.minorRestricted,
     })),
@@ -265,6 +273,7 @@ export async function requestAccess(actorId: string, orgId: string, relId: strin
   if (!isAccessItem(item)) throw new AccessError("invalid", "Tipo de dato inválido.");
   const r = await coachRelation(actorId, orgId, relId);
   if (r.rel.status !== "active") throw new AccessError("invalid", "La relación no está activa.");
+  if (isNutritionItem(item) && !(await nutritionEnabledFor(r.rel.userId))) throw new AccessError("invalid", "Ese dato no está disponible.");
   if ((await activeItems(relId)).includes(item)) throw new AccessError("already", "Ya tenés acceso a este dato.", 409);
   await expireOld();
   const [pending] = await db.select().from(accessRequest).where(and(eq(accessRequest.coachClientId, relId), eq(accessRequest.item, item), eq(accessRequest.status, "pending")));
@@ -415,4 +424,28 @@ export async function purgeMedia(now = new Date()) {
   }
   if (all.length) await audit(db, { action: "media.purged", resourceType: "media_object", meta: { retention: expired.length, orphans: orphans.length } });
   return { retention: expired.length, orphans: orphans.length };
+}
+
+/**
+ * D221: Nutrición en la ficha del coach. Dos permisos separados que decide el alumno:
+ * - «nutrition» (resumen): días registrados, promedios de días completos, objetivos declarados y consistencia. Sin comidas.
+ * - «nutrition_journal» (diario): cada registro de los últimos 14 días.
+ * Se comprueba en cada pedido (revocar corta al instante); la lectura queda en el historial del alumno, una vez por día.
+ * Nunca incluye el peso corporal (D199) ni datos sensibles del perfil (preferencias).
+ */
+export async function clientNutrition(actorId: string, orgId: string, relId: string, now = new Date()) {
+  const r = await coachRelation(actorId, orgId, relId);
+  if (!(await nutritionEnabledFor(r.rel.userId))) throw NOT_FOUND();
+  const items = await activeItems(relId);
+  const summary = items.includes("nutrition"), journal = items.includes("nutrition_journal");
+  const access = await accessStates(actorId, orgId, relId);
+  if (!summary && !journal) return { granted: false as const, summary: false, journal: false, access, summaryView: null, journalView: null };
+  const today = new Date(now); today.setUTCHours(0, 0, 0, 0);
+  for (const item of [summary && "nutrition", journal && "nutrition_journal"].filter(Boolean) as string[]) {
+    const [already] = await db.select({ id: dataAccessLog.id }).from(dataAccessLog)
+      .where(and(eq(dataAccessLog.subjectUserId, r.rel.userId), eq(dataAccessLog.actorUserId, actorId), eq(dataAccessLog.item, item), eq(dataAccessLog.action, "read"), gte(dataAccessLog.at, today)));
+    if (!already) await log(db, { subjectUserId: r.rel.userId, actorUserId: actorId, orgId, item, action: "read" });
+  }
+  const view = await nutri.coachNutritionView(r.rel.userId, { summary, journal }, now);
+  return { granted: true as const, summary, journal, access, ...view };
 }

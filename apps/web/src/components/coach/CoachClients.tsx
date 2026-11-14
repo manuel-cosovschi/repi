@@ -22,15 +22,17 @@ import { Skel } from "@/components/motion/Skeleton";
 import { SlideIndicator } from "@/components/motion/SlideIndicator";
 
 type Detail = {
-  id: string; name: string; status: string; since: string; grants: string[];
+  id: string; name: string; status: string; since: string; grants: string[]; nutrition?: boolean;
   program: { programId: string; startsOn: string; version: number; doc: ProgramDoc } | null;
   wishes?: SharedWishesView | null;
   sessions: { id: string; dayName: string; status: string; startedAt: string; endedAt: string | null; rpe: number | null; note: string | null; durationSec: number; sets: number; volumeKg: number;
     changes?: { exercise: string; kind: "skip" | "substitute"; reason: ExerciseChangeReason; substitute: string | null }[]; exercises: LoggedExercise[] }[];
 };
-// Nutrición y Mi cuerpo sólo con su módulo encendido (FEATURE_FLAGS.md): sin carga del alumno serían pantallas vacías.
+// Nutrición y Mi cuerpo sólo con su módulo encendido (FEATURE_FLAGS.md). D221: Nutrición también si el servidor dice que el
+// módulo está encendido para ese alumno (piloto de la demo); los datos siguen exigiendo su permiso.
 const TABS: [string, string][] = ([["res", "Resumen"], ["rend", "Rendimiento"], ["prog", "Rutinas"], ["progreso", "Progreso"], ["salud", "Salud"], ["nutri", "Nutrición"], ["body", "Mi cuerpo"], ["pay", "Pagos"]] as [string, string][])
-  .filter(([k]) => (k !== "nutri" || featureOn("nutrition")) && (k !== "body" || featureOn("body")));
+  .filter(([k]) => k !== "body" || featureOn("body"));
+const tabsFor = (nutrition: boolean | undefined) => TABS.filter(([k]) => k !== "nutri" || featureOn("nutrition") || !!nutrition);
 const FILTERS: [string, string][] = [["all", "Todos"], ["active", "Activos"], ["noprog", "Sin programa"], ["paused", "En pausa"]];
 const SORTS: [string, string][] = [["name", "Nombre"], ["adh", "Adherencia"], ["last", "Actividad"]];
 
@@ -102,7 +104,7 @@ export function CoachClients({ orgId, ov, sel, setSel, initialTab, onInvite, onI
           </div>
         </section>
       )}
-      {current && <div className="tabs" role="tablist" aria-label="Ficha del cliente"><SlideIndicator variant="line" />{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>}
+      {current && <div className="tabs" role="tablist" aria-label="Ficha del cliente"><SlideIndicator variant="line" />{tabsFor(det?.nutrition).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>}
       {current && (!det ? <ClientSkeleton /> : <Tab tab={tab} det={det} row={current} orgId={orgId} flash={flash} go={go} />)}
     </div>
   );

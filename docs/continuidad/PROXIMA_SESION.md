@@ -3,6 +3,33 @@
 Actualizado: 14/11/2026 (**REPI Exercise Motion 1.0 (D220): implementado y probado en la rama `claude/exercise-motion`; publicación en curso (ver la sección). Después, según el pedido del titular, sigue «REPI Nutrition Intelligence 1.0»**); antes, 13/11/2026
 
 
+## REPI Nutrition Intelligence 1.0 — 14/11/2026 · EN PUBLICACIÓN (D221, migración 0057, piloto en la demo)
+
+- **Pedido:** máster «SUPER MASTER PROMPT — REPI NUTRITION INTELLIGENCE 1.0» (14/11/2026), después de Exercise Motion.
+- **Qué se hizo:** diario de comidas, biblioteca de 225 alimentos (USDA SR Legacy, dominio público), alimentos propios,
+  código de barras (Open Food Facts, ODbL, caché aparte), texto natural por reglas, recetas, favoritas, progreso (días
+  parciales/completos, promedios sólo de días completos, entrenamientos del período), asistente sobre el diario (consultas
+  y registro con confirmación, sin IA), pestaña Nutrición del coach con dos permisos (resumen / diario), exportación y
+  borrado, cola sin conexión. Detalle: `docs/nutrition/NUTRITION_INTELLIGENCE_1.md` y `FUENTES_Y_LICENCIAS.md`.
+- **Archivos:** `packages/domain/src/nutrition/*`, `apps/web/src/server/nutrition/*`, `server/brain/nutrition.ts`,
+  `app/api/me/nutrition`, `app/api/coach/[orgId]/clients/[relId]/nutrition`, `components/member/nutrition/*`,
+  `components/coach/CoachNutrition.tsx`, `lib/offline/nutrition.ts`, `styles/nutrition.css`, `server/sandbox/nutrition-demo.ts`,
+  `scripts/nutrition/*` (curaduría de la biblioteca).
+- **Migración 0057 (aditiva):** 7 tablas (`nutrition_*`, `off_product_cache`). `hosted-0057.sql`, `verify-0057.sh` (ensayado
+  OK con `TEMPLATE=` una copia migrada de repi_dev, porque repi_dev local está en 53), `rollback/0057_nutrition.down.sql`.
+- **Interruptores:** `nutrition` apagado para personas reales; **piloto** en las cuentas de la demo guiada (`demo_sandbox`).
+  `nutrition_scan` encendido (sólo donde `nutrition` lo está). `nutrition_photo` apagado (no construido).
+- **Decisiones técnicas (D221):** sólo adultos con fecha registrada; objetivos nunca automáticos (energía < 1200 kcal sólo
+  indicada por profesional); el permiso `nutrition` se dividió en resumen y `nutrition_journal`; el servidor bloquea pedir o
+  conceder con el módulo apagado; el peso corporal sigue fuera del permiso (D199).
+- **Pruebas:** dominio 1221/1221 (25 de nutrición); servidor `tests/nutrition.test.ts` 28/28; suite web completa 928/929
+  (la que falló, `connect.test.ts` «FSA1 sin nadie en turno», pasa sola y en `main`: dependiente del horario, ajena);
+  guardas 26/26; e2e `nutrition.spec.ts` 16/16 (teléfono y escritorio, con el interruptor apagado como en producción).
+  `personal-progress.spec.ts` tiene 6 fallas **también en `main`** (espera «Tu período» y un marcador del gráfico): pendiente
+  aparte.
+- **Próxima acción:** PR, CI, respaldo, aplicar 0057, integrar, verificar despliegue y smoke con demos
+  (`scratchpad/nutrition/prod-smoke.mjs`). Encendido general: decisión del titular (§14 del documento).
+
 ## REPI Exercise Motion 1.0 · biblioteca de demostraciones — 14/11/2026 · PUBLICADO Y VERIFICADO (D220, sin migración; #125, `6cea673`)
 
 - **Pedido:** máster «SUPER MASTER PROMPT — REPI EXERCISE MOTION 1.0 — THE MOVEMENT LIBRARY» (14/11/2026).

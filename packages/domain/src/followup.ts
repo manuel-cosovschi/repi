@@ -12,7 +12,9 @@ export type RequestKind = keyof typeof REQUEST_KIND;
 /** Tipos de dato que el coach puede pedir (los que el alumno controla en Privacidad). */
 export const ACCESS_ITEMS = {
   health: { label: "Salud", phrase: "información de salud (lesiones y molestias)", reason: "Para adaptar ejercicios a tus molestias." },
-  nutrition: { label: "Nutrición", phrase: "registro de nutrición", reason: "Para ajustar tu alimentación al bloque actual." },
+  // D221: nutrición en dos niveles. El resumen (semana, objetivos y tendencias) no habilita leer cada comida.
+  nutrition: { label: "Nutrición (resumen)", phrase: "resumen de nutrición (semana, objetivos y tendencias)", reason: "Para acompañar tu entrenamiento con una mirada general de tu alimentación." },
+  nutrition_journal: { label: "Diario de comidas", phrase: "diario de comidas con cada registro", reason: "Para revisar juntos tus comidas registradas." },
   measurements: { label: "Medidas corporales", phrase: "medidas corporales", reason: "Para seguir tu progreso corporal." },
   progress_photos: { label: "Fotos de progreso", phrase: "fotos de progreso", reason: "Para comparar tu evolución." },
 } as const;

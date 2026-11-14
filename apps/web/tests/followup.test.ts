@@ -102,18 +102,19 @@ describe("molestias y salud", () => {
   it("rechazo visible al coach; puede volver a pedir; otra organización no", async () => {
     const { coach, orgId, user, relId } = await pair();
     const other = await pair();
-    const r = await fu.requestAccess(coach, orgId, relId, "nutrition");
+    // D221: «nutrition» ya no sirve de ejemplo: con el módulo apagado el servidor no deja pedirlo (ver nutrition.test.ts).
+    const r = await fu.requestAccess(coach, orgId, relId, "measurements");
     await fu.decideAccess(user, r.id, false);
-    const st = (await fu.accessStates(coach, orgId, relId)).nutrition;
+    const st = (await fu.accessStates(coach, orgId, relId)).measurements;
     expect(st.status).toBe("denied");
     expect(st.retryAt).not.toBeNull();
     // D38: no se puede volver a pedir antes de 7 días…
-    const cd = await err(fu.requestAccess(coach, orgId, relId, "nutrition"));
+    const cd = await err(fu.requestAccess(coach, orgId, relId, "measurements"));
     expect(cd?.code).toBe("cooldown");
     expect(cd?.data?.retryAt).toBe(st.retryAt);
     // …pero sí después.
     await db.update(schema.accessRequest).set({ decidedAt: new Date(Date.now() - 8 * 86_400_000) }).where(eq(schema.accessRequest.id, r.id));
-    expect((await fu.requestAccess(coach, orgId, relId, "nutrition")).duplicate).toBe(false);
+    expect((await fu.requestAccess(coach, orgId, relId, "measurements")).duplicate).toBe(false);
     expect((await err(fu.requestAccess(other.coach, other.orgId, relId, "health")))?.code).toBe("not_found");
     expect((await err(fu.clientHealth(other.coach, other.orgId, relId)))?.code).toBe("not_found");
     expect((await err(fu.decideAccess(other.user, r.id, true)))?.code).toBe("not_found");

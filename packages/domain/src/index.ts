@@ -50,3 +50,4 @@ export * from "./chart-view";
 export * from "./leads";
 export * from "./leads-copy";
 export * from "./rest-alarm";
+export * from "./nutrition";

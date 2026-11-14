@@ -35,6 +35,8 @@ import { HistoryList, HistorySession, type HistoryItem } from "./History";
 import { resetHints, useHintSeen } from "./Hint";
 import { ProgressTraining } from "./ProgressTraining";
 import { BodyWeight } from "./BodyWeight";
+import { Nutrition } from "./nutrition/Nutrition";
+import { loadNutritionState, type NutriState } from "./nutrition/lib";
 import { ProgressPhotos } from "./ProgressPhotos";
 import { TrainingProfile } from "./TrainingProfile";
 import { ProfileGateHost, ProfileNudge, useProfileGate } from "./ProfileGate";
@@ -69,8 +71,8 @@ type Inbox = {
   gymUnseen: number;
 };
 // Centro de notificaciones (F-NT-01, D94). El servidor arma la lista; el aviso de programa se suma acá desde el programa.
-type ProgSeg = "train" | "body" | "photos" | "hist";
-type NotifDest = { tab: "home" | "msgs" | "perfil" | "train" } | { tab: "prog"; seg?: "train" | "body" | "photos" } | { tab: "gym"; gymTab: "news" | "ch" | "logros" } | { tab: "review"; invite: Inbox["reviewInvites"][number] };
+type ProgSeg = "train" | "body" | "nutrition" | "photos" | "hist";
+type NotifDest = { tab: "home" | "msgs" | "perfil" | "train" } | { tab: "prog"; seg?: "train" | "body" | "nutrition" | "photos" } | { tab: "gym"; gymTab: "news" | "ch" | "logros" } | { tab: "review"; invite: Inbox["reviewInvites"][number] };
 // origin «repi»: novedad del producto (D202), distinta de los avisos del gimnasio o del coach.
 type Notif = { id: string; title: string; body: string; at: string; tone: "cyan" | "turq" | "ok" | "bad" | "mute"; dest: NotifDest; unread: boolean; origin?: "repi"; cta?: string | null };
 type Feed = { items: Notif[]; unread: number; seenAt: string | null };
@@ -85,6 +87,10 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   const [workout, setWorkout] = useState<string | null>(null);
   const [hist, setHist] = useState<History | null>(null);
   const [progSeg, setProgSeg] = useState<ProgSeg>("train"); // PP1: sección de Progreso (también desde una novedad)
+  // D221: Nutrición se muestra sólo si el servidor dice que está encendida para esta persona (piloto de la demo incluido).
+  const [nutri, setNutri] = useState<NutriState | null>(null);
+  const loadNutri = useCallback(() => { void loadNutritionState((p) => api(p)).then((x) => setNutri((prev) => keepSame(prev, x))); }, []);
+  useEffect(() => { loadNutri(); }, [loadNutri]);
   const [toast, setToast] = useState<string | null>(null);
   // D166: trofeos nuevos se muestran con su desbloqueo 3D al abrir la app o al volver de entrenar. En la demo no salta
   // solo (taparía la guía): se ve tocando un trofeo de la vitrina.
@@ -232,7 +238,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
   // Progreso, por ejemplo, ya no vuelve a dibujar Inicio ni Entrenar a la vuelta (tareas de ~50 ms con CPU ×4).
   const depsFor = (k: Tab): readonly unknown[] => k === "home" ? [t, localOpen, offlineAt, presence, inbox, feed, connectTick, level]
     : k === "train" ? [t, localOpen, offlineAt, presence, inbox, day, level]
-    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg, levelFocus]
+    : k === "prog" ? [t, hist, histErr, offlineAt, progSeg, levelFocus, nutri]
     : k === "msgs" ? [offlineAt, msgDraft]
     : k === "gym" ? [offlineAt, gymTab, openCh]
     : [t, offlineAt, inbox, privKey];
@@ -412,7 +418,7 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
             {k === "train" && <><RelationPicker t={t} offline={!!offlineAt} busyOpen={!!openId} onChange={load} flash={flash} />
               {t.relation?.kind === "gym" && t.program && (() => { const p = presence?.gyms.find((x) => x.orgId === t.relation!.orgId); return p ? <PresenceChip p={p} onValidate={() => setSheet({ type: "presence" })} /> : null; })()}{t.relation?.kind === "gym" && <FloorNow orgId={t.relation.orgId} flash={flash} offline={!!offlineAt} />}<Train t={{ ...t, openSession: openId }} sel={selDay} setSel={setDay} coachFirst={coachFirst} onStart={start} onSolo={openSolo} level={offlineAt && !level ? false : level} onLevel={openLevel}
               own={t.relation ? (t.supervised ? <SupervisedNote offline={!!offlineAt} onAsk={() => setSheet({ type: "help", kind: "rutina", to: "gym" })} /> : <OwnRoutines offline={!!offlineAt} flash={flash} busyOpen={!!openId} onStart={(id) => void startOwn(id)} />) : null} /></>}
-            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} focusLevel={levelFocus} />}
+            {k === "prog" && <Progress t={t} hist={hist} err={histErr} retry={loadHist} onChanged={() => { loadHist(); void load(); }} flash={flash} offline={!!offlineAt} seg={progSeg} setSeg={setProgSeg} focusLevel={levelFocus} nutri={nutri} reloadNutri={loadNutri} />}
             {k === "msgs" && <MemberMessages offline={!!offlineAt} onSeen={loadInbox} draft={msgDraft} onDraftUsed={() => setMsgDraft(null)} />}
             {k === "gym" && <GymTabView key={gymTab ?? "news"} initialTab={gymTab} openChallenge={openCh} offline={!!offlineAt} flash={flash} onSeen={loadInbox} />}
             {k === "perfil" && <Perfil key={privKey} t={t} inbox={inbox} reloadInbox={loadInbox} flash={flash} onInjury={() => setSheet({ type: "injury" })} onSettings={load} offline={!!offlineAt} />}
@@ -854,7 +860,7 @@ function NewTag({ id, open }: { id: "new_progress_body" | "new_progress_photos";
   return <span className="pp-new">Nuevo</span>;
 }
 
-function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg, focusLevel = 0 }: { focusLevel?: number; t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
+function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg, focusLevel = 0, nutri, reloadNutri }: { nutri?: NutriState | null; reloadNutri?: () => void; focusLevel?: number; t: Training; hist: History | null; err: boolean; retry: () => void; onChanged: () => void; flash: (t: string) => void; offline?: boolean; seg: ProgSeg; setSeg: (s: ProgSeg) => void }) {
   const unit = useUnit();
   const rv = useReveal(!!hist || err);
   const [open, setOpen] = useState<string | null>(null);
@@ -881,7 +887,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg,
   }
   const entries = [...weeks.entries()].reverse().slice(-8);
   const max = Math.max(1, ...entries.map((e) => e[1]));
-  const segs = ([["train", "Entrenamiento"], ...(featureOn("body_weight") ? [["body", "Mi cuerpo"]] : []), ...(featureOn("progress_photos") ? [["photos", "Fotos"]] : []), ["hist", "Historial"]] as [ProgSeg, string][]);
+  const segs = ([["train", "Entrenamiento"], ...(featureOn("body_weight") ? [["body", "Mi cuerpo"]] : []), ...(nutri?.enabled ? [["nutrition", "Nutrición"]] : []), ...(featureOn("progress_photos") ? [["photos", "Fotos"]] : []), ["hist", "Historial"]] as [ProgSeg, string][]);
   const cur = segs.some(([k]) => k === seg) ? seg : "train";
   return (
     <>
@@ -915,6 +921,7 @@ function Progress({ t, hist, err, retry, onChanged, flash, offline, seg, setSeg,
         </>
       )}
       {cur === "body" && <BodyWeight flash={flash} offline={offline} />}
+      {cur === "nutrition" && nutri?.enabled && <Nutrition state={nutri} reloadState={reloadNutri ?? (() => {})} offline={offline} />}
       {cur === "photos" && <ProgressPhotos flash={flash} offline={offline} />}
       {cur === "hist" && (
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>

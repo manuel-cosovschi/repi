@@ -151,7 +151,8 @@ export const CONSENT_CATALOG: Record<ConsentScope, ConsentItem[]> = {
     { key: "training", title: "Entrenamientos y progreso", desc: "Siempre: son parte del plan.", locked: true },
     { key: "measurements", title: "Medidas corporales", desc: "Peso, circunferencias.", sensitive: true },
     { key: "health", title: "Salud", desc: "Lesiones, molestias, condiciones.", sensitive: true, minorRestricted: true },
-    { key: "nutrition", title: "Nutrición", desc: "Comidas e hidratación.", sensitive: true },
+    { key: "nutrition", title: "Nutrición (resumen)", desc: "Resumen semanal, objetivos y tendencias. No incluye cada comida.", sensitive: true, minorRestricted: true },
+    { key: "nutrition_journal", title: "Diario de comidas", desc: "Cada comida que registrás, con cantidades.", sensitive: true, minorRestricted: true },
     { key: "progress_photos", title: "Fotos de progreso", desc: "Cifradas, solo lectura.", sensitive: true, minorRestricted: true },
   ],
   gym_member: [

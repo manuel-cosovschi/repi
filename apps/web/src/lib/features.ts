@@ -7,7 +7,9 @@ export const FEATURES = {
   connect: { on: true, what: "REPI Connect · seguimiento de sala. Interruptor general: además cada gimnasio lo activa REPI Admin (piloto)" },
   gym_access: { on: true, what: "Control de acceso del gimnasio (membresía, QR dinámico de ingreso, pase presencial). Interruptor general: además cada gimnasio lo activa REPI Admin" },
   club: { on: true, what: "Repi Club del gimnasio: publicaciones voluntarias, ranking y moderación" },
-  nutrition: { on: false, what: "Pestaña Nutrición en la ficha del coach: falta la carga desde la app del alumno" },
+  nutrition: { on: false, what: "REPI Nutrition Intelligence 1.0 (D221): diario de comidas, biblioteca de alimentos, recetas, progreso nutricional, asistente y vista del coach con permiso. Apagado para personas reales hasta completar la activación (docs/nutrition/NUTRITION_INTELLIGENCE_1.md §Activación); las cuentas de la demo guiada lo tienen como piloto" },
+  nutrition_scan: { on: true, what: "Nutrición: consulta de productos envasados por código de barras en Open Food Facts (ODbL, caché aparte). Sólo actúa donde Nutrición está encendida" },
+  nutrition_photo: { on: false, what: "Nutrición: interpretación de fotos de platos con IA. No construida en 1.0: requiere validar exactitud, costos y privacidad" },
   body: { on: false, what: "Mi cuerpo (Body Intelligence): faltan registro de medidas y fotos, y el visor" },
   progress: { on: true, what: "Progreso 1.0: resumen del período y evolución por ejercicio (fuerza, cargas, repeticiones, volumen y récords) desde el historial (D199)" },
   body_weight: { on: true, what: "Mi cuerpo: peso corporal, objetivo y su gráfico. Privado del alumno; no se ofrece a menores (D199)" },
@@ -40,5 +42,5 @@ export const featureOn = (f: Feature) => {
 
 // Consentimientos que dependen de un módulo (D117): con el módulo apagado no se ofrecen. Lo ya compartido se sigue mostrando
 // donde el alumno administra su privacidad, para que pueda revocarlo.
-const CONSENT_FEATURE: Partial<Record<string, Feature>> = { measurements: "body", progress_photos: "body", nutrition: "nutrition" };
+const CONSENT_FEATURE: Partial<Record<string, Feature>> = { measurements: "body", progress_photos: "body", nutrition: "nutrition", nutrition_journal: "nutrition" };
 export const consentOffered = (key: string) => { const f = CONSENT_FEATURE[key]; return !f || featureOn(f); };

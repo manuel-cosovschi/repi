@@ -1,0 +1,145 @@
+/* REPI Nutrition Intelligence 1.0 (D221) · Progreso › Nutrición del alumno. Sólo tokens (claro y oscuro), Barlow / Barlow
+   Condensed (var(--font-ui) / var(--font-display)). Colores tranquilos: el progreso hacia un objetivo nunca usa rojo ni
+   colores de alarma. */
+.nu { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.nu-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.nu-small { font-size: 13px; line-height: 1.45; margin: 0; }
+.nu-h { margin: 6px 0 0; font: 600 15px var(--font-ui); color: var(--ui-text); }
+.nu-name { font: 600 17px var(--font-ui); overflow-wrap: anywhere; }
+.nu-link { color: var(--ui-link); font-weight: 600; }
+.nu-note { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--ui-accent-tint); color: var(--ui-text); font-size: 13px; line-height: 1.45; }
+.nu-sentence { margin: 0; font-size: 14.5px; line-height: 1.5; }
+
+/* Subsecciones Hoy / Progreso / Ajustes */
+.nu-sub { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 12px; border: 1px solid var(--ui-border); background: var(--ui-surface); }
+.nu-sub button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--ui-muted); font: 600 14px var(--font-ui); cursor: pointer; }
+.nu-sub button[aria-selected="true"] { background: var(--ui-text); color: var(--ui-surface); }
+.nu-offline { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--ui-warning-tint); color: var(--ui-warning-text); font-size: 13px; line-height: 1.45; }
+
+/* Navegación de días */
+.nu-daynav { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; }
+.nu-daynav h2 { margin: 0; text-align: center; font: 700 22px/1.1 var(--font-display); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.nu-daynav h2 small { font: 500 12.5px var(--font-ui); color: var(--ui-muted); }
+.nu-navbtn { width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text); font: 600 24px/1 var(--font-ui); cursor: pointer; display: grid; place-items: center; }
+.nu-navbtn:disabled { opacity: .35; cursor: default; }
+
+/* Chips de estado */
+.nu-chip { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 7px; font: 600 12px/1.3 var(--font-ui); white-space: normal; }
+.nu-chip.info { background: var(--ui-chip-info-bg); color: var(--ui-chip-info-ink); }
+.nu-chip.ok { background: var(--ui-chip-ok-bg); color: var(--ui-chip-ok-ink); }
+.nu-chip.warn { background: var(--ui-chip-warn-bg); color: var(--ui-chip-warn-ink); }
+.nu-chip.mute { background: var(--ui-chip-mute-bg); color: var(--ui-chip-mute-ink); }
+.nu-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Totales */
+.nu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.nu-grid > div { background: var(--ui-surface-2); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nu-grid dt { font-size: 12px; color: var(--ui-muted); }
+.nu-grid dd { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.nu-grid strong { font: 600 22px var(--font-display); font-variant-numeric: tabular-nums; }
+.nu-grid.sm strong, .nu-grid.sm dd { font-size: 15px; }
+.nu-target { font-size: 12px; color: var(--ui-text-2); }
+.nu-target small { color: var(--ui-muted); font-size: 11.5px; }
+.nu-bar { display: block; height: 6px; border-radius: 3px; background: var(--ui-fill-strong); overflow: hidden; }
+.nu-bar i { display: block; height: 100%; border-radius: 3px; background: var(--ui-accent-2); }
+@media (prefers-reduced-motion: no-preference) { .nu-bar i { transition: width var(--dur-contextual) var(--ease-out); } }
+
+.nu-switch { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; line-height: 1.4; }
+.nu-switch input { flex: none; width: 44px; height: 26px; margin: 0; appearance: none; -webkit-appearance: none; border-radius: 13px; background: var(--ui-fill-strong); border: 1px solid var(--ui-control-border); position: relative; cursor: pointer; }
+.nu-switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 10px; background: var(--ui-surface); box-shadow: 0 1px 2px var(--ui-line-subtle); }
+.nu-switch input:checked { background: var(--ui-accent-2); border-color: var(--ui-accent-2); }
+.nu-switch input:checked::after { left: 20px; }
+.nu-switch input:disabled { opacity: .5; cursor: default; }
+@media (prefers-reduced-motion: no-preference) { .nu-switch input::after { transition: left var(--dur-micro) var(--ease-std); } }
+.nu-switch span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nu-switch small { color: var(--ui-muted); font-size: 12.5px; }
+.nu-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4; cursor: pointer; color: var(--ui-text); }
+.nu-check input, .pp-form .nu-check input { width: 20px; height: 20px; min-width: 0; padding: 0; flex: none; margin: 0; border-radius: 4px; accent-color: var(--ui-accent); }
+.pp-form .nu-check { flex-direction: row; font-size: 14px; color: var(--ui-text); }
+.nu-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Comidas y registros */
+.nu-empty { display: flex; flex-direction: column; gap: 10px; }
+.nu-empty p { margin: 0; }
+.nu-meal { gap: 6px; }
+.nu-meal h3 { font: 700 19px var(--font-display); }
+.nu-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.nu-entries li + li { border-top: 1px solid var(--ui-divider); }
+.nu-entry { width: 100%; min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 2px; border: 0; background: transparent; color: var(--ui-text); text-align: left; cursor: pointer; font: inherit; border-radius: 8px; }
+.nu-entry:hover { background: var(--ui-fill-subtle); }
+.nu-entry-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nu-entry-main b { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.nu-entry-main small, .nu-entry-val small { color: var(--ui-muted); font-size: 12.5px; }
+.nu-entry-val { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; flex: none; max-width: 48%; }
+.nu-actions { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.nu-act { min-height: 44px; font-size: 13.5px; text-align: left; }
+.nu-act:disabled { opacity: .5; cursor: default; }
+.nu-quick, .nu-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.nu-pill { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text); font: 600 13.5px var(--font-ui); cursor: pointer; }
+.nu-pill:disabled { opacity: .5; cursor: default; }
+.nu-ask { display: flex; }
+
+/* Hoja de registro */
+.nu-back { align-self: flex-start; min-height: 40px; font-size: 14px; }
+.nu-meals div { gap: 6px; }
+.nu-search input { width: 100%; box-sizing: border-box; height: 48px; border-radius: 12px; border: 1px solid var(--ui-control-border); background: var(--ui-input-bg); color: var(--ui-text); padding: 0 14px; font: 500 16px var(--font-ui); }
+.nu-search input::placeholder { color: var(--ui-placeholder); }
+.nu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.nu-food { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text); text-align: left; cursor: pointer; font: inherit; min-height: 48px; }
+.nu-food b { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.nu-food small { color: var(--ui-muted); font-size: 12.5px; }
+.nu-food:disabled { opacity: .6; cursor: default; }
+.nu-food .nu-foodinfo p { color: var(--ui-text-2); }
+.nu-recent { display: flex; gap: 8px; align-items: center; }
+.nu-recent .nu-food { flex: 1; min-width: 0; }
+.nu-recent .nu-act { flex: none; }
+.nu-foodinfo { display: flex; flex-direction: column; gap: 4px; }
+.nu-foodinfo p { margin: 0; font-size: 12.5px; line-height: 1.45; }
+
+.nu-qty { gap: 8px; }
+.nu-qty-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.nu-qty-row > input { width: 112px; flex: none; }
+.nu-units { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 200px; min-width: 0; }
+.nu-units button { min-height: 40px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text); font: 600 13px/1.25 var(--font-ui); cursor: pointer; text-align: left; max-width: 100%; }
+.nu-units button[aria-checked="true"] { background: var(--ui-primary); border-color: var(--ui-accent); color: var(--ui-on-primary); }
+.nu-preview { min-height: 44px; }
+.nu-preview dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.nu-preview dl > div { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 10px; padding: 6px 8px; min-width: 0; }
+.nu-preview dt { font-size: 11px; color: var(--ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nu-preview dd { margin: 0; font: 600 14px var(--font-ui); font-variant-numeric: tabular-nums; }
+.nu-amt { flex: 0 0 110px; }
+.nu-unitsel { flex: 1 1 160px; min-width: 0; }
+
+.nu-parse { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.nu-parse > li { background: var(--ui-surface); gap: 8px; }
+.nu-cands { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.nu-cands legend { padding: 0; margin-bottom: 4px; color: var(--ui-text-2); }
+.nu-radio { display: flex; gap: 10px; align-items: flex-start; min-height: 40px; padding: 6px 0; font-size: 14px; line-height: 1.35; cursor: pointer; }
+.nu-radio input { width: 20px; height: 20px; flex: none; margin: 0; accent-color: var(--ui-accent); }
+.nu-radio small { display: block; color: var(--ui-muted); font-size: 12px; }
+
+.nu-cam { display: flex; flex-direction: column; gap: 8px; }
+.nu-cam video { width: 100%; max-height: 260px; border-radius: 12px; background: var(--ui-inverse-bg); object-fit: cover; }
+.nu-nutgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.nu-nutgrid input::placeholder { color: var(--ui-placeholder); }
+.nu-rowbtns { display: flex; gap: 10px; flex: none; }
+.nu-recipe { background: var(--ui-surface); gap: 4px; }
+.nu-recipe small { color: var(--ui-muted); font-size: 12.5px; }
+.nu-ing { background: var(--ui-surface); gap: 6px; }
+.nu-details summary { cursor: pointer; font: 600 14px var(--font-ui); min-height: 32px; display: flex; align-items: center; }
+
+/* Progreso y ajustes */
+.nu-cons { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+.nu-howto { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; line-height: 1.5; }
+.nu-trow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.nu-onb h2 { font: 700 26px/1.1 var(--font-display); }
+.nu-onb h2:focus { outline: none; }
+.nu-onb h2:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.nu-step { margin: 0; font: 600 12px var(--font-ui); color: var(--ui-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Aviso con «Deshacer» arriba (como los avisos de la app): abajo lo tapan la barra de pestañas y la de la demo */
+.nu-toast { position: fixed; left: 50%; transform: translateX(-50%); top: max(16px, var(--safe-top, 0px)); width: calc(100% - 32px); max-width: 448px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-radius: 14px; z-index: 30;
+  background: var(--ui-surface-raised); color: var(--ui-text); border: 1px solid var(--ui-border-strong); font-size: 14px; line-height: 1.4; box-shadow: var(--ui-shadow-pop); }
+.nu-toast .linkbtn { color: var(--ui-link); min-height: 44px; min-width: 44px; padding: 0 8px; font-size: 14px; flex: none; }
+@media (prefers-reduced-motion: no-preference) { .nu-toast { animation: mb-in var(--dur-toast) var(--ease-out); } }
