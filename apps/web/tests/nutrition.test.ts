@@ -4,7 +4,7 @@ process.env.NEXT_PUBLIC_REPI_FEATURES = "nutrition";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { localDate } from "@repi/domain";
 import { db, schema } from "@/db";
@@ -348,5 +348,24 @@ describe("rendimiento [73]", () => {
     const p = await nu.myProgress(u.id, localDate(new Date(Date.now() - 364 * 86_400_000)), today());
     expect(Date.now() - t).toBeLessThan(3000);
     expect(p.summary.loggedDays).toBe(365);
+  });
+});
+
+describe("demo guiada (piloto)", () => {
+  it("la socia ficticia tiene una semana de registros y su coach ve sólo el resumen", async () => {
+    process.env.NEXT_PUBLIC_REPI_FEATURES = "-nutrition";
+    const { startDemo } = await import("@/server/sandbox/services");
+    await startDemo("member");
+    const [box] = await db.select().from(schema.demoSandbox).orderBy(desc(schema.demoSandbox.createdAt)).limit(1);
+    const ids = box.userIds as string[];
+    const [vale] = await db.select().from(schema.user).where(and(inArray(schema.user.id, ids), eq(schema.user.name, "Valentina Gómez")));
+    expect(await nutritionState(vale.id)).toMatchObject({ enabled: true, eligible: true });
+    const p = await nu.myProgress(vale.id, localDate(new Date(Date.now() - 6 * 86_400_000)), today());
+    expect(p.summary).toMatchObject({ loggedDays: 7, completeDays: 5, partialDays: 2 }); // ayer y hoy (sólo desayuno) sin marcar
+    expect(p.summary.trends.proteinG.average).not.toBeNull();
+    const [rel] = await db.select().from(schema.coachClient).where(eq(schema.coachClient.userId, vale.id));
+    const [coach] = await db.select().from(schema.staffMembership).where(eq(schema.staffMembership.orgId, rel.coachOrgId));
+    const v = await fu.clientNutrition(coach.userId, rel.coachOrgId, rel.id);
+    expect(v).toMatchObject({ granted: true, summary: true, journal: false, journalView: null });
   });
 });

@@ -17,6 +17,7 @@ import { issueQrToken, policyOf, staffCheckin } from "../gym/access-control";
 import { createKiosk, issueCredential } from "../gym/kiosk";
 import { regenerateJoinLink, requestAccess } from "../join/services";
 import { createRequest } from "../followup/services";
+import { seedNutritionDemo } from "./nutrition-demo";
 import { myThreads, sendMessage } from "../messages/services";
 import { createCharge, registerPayment } from "../coachpay/services";
 
@@ -248,6 +249,7 @@ export async function startDemo(role: DemoRole, now = new Date()) {
     await db.insert(schema.userPref).values({ userId: vale.id, activeRelationId: rels[vale.id] }).onConflictDoNothing(); // la demo de socio arranca con su coach
     await history(vale.id, rels[vale.id], 6, now, 1);
     await history(martina.id, rels[martina.id], 2, now, 0.8);
+    await seedNutritionDemo(vale.id, { relationId: rels[vale.id], orgId: coachOrg.id }, now); // D221: diario ficticio y resumen compartido
     await createRequest(martina.id, { kind: "tecnica", text: "¿Me revisás la sentadilla? Siento la espalda baja al bajar." });
     const threads = await myThreads(vale.id);
     const conv = threads.find((t) => t.kind === "coach_client");
