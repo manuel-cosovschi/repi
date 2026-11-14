@@ -66,13 +66,13 @@ export async function nutritionReply(sc: ServerContext, ask: NutritionAsk, t: { 
       return { reply: reply(answerPlanTomorrow({ mealsPerDay: prof.prefs.mealsPerDay as number | null, cooking: prof.prefs.cooking as string | null, nextDay: sc.ctx.program.nextDay?.name ?? null, favorites: favs.favorites.map((f) => f.name) })), ref };
     }
     case "log": {
-      const parsed = parseFoodText(FOODS, ask.text.replace(/^\s*(agreg\w*|anot\w*|sum\w*|registr\w*|carg\w*|pon\w*)\s+/i, ""));
+      const parsed = parseFoodText(FOODS, ask.text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/^\s*(agreg\w*|anot\w*|sum\w*|registr\w*|carg\w*|pon\w*)\s+/i, ""));
       const item = parsed.items.find((i) => i.candidates.length);
       if (!item) return { reply: reply("No encontré ese alimento en la biblioteca. Podés buscarlo con otro nombre o cargarlo a mano en Nutrición."), ref };
       const food = item.candidates[0];
       if (item.issues.some((x) => x.includes("ambiguous_state"))) return { reply: reply(`¿${food.name.split(",")[0]} crudo o cocido? El peso y los valores cambian mucho. Decime, por ejemplo, «agregá 150 g de ${item.query} cocido».`), ref };
       if (!item.quantity) {
-        const p = food.portions[0];
+        const p = food.portions.find((x) => /unidad|mediana/i.test(x.label)) ?? food.portions[0];
         return { reply: reply(`¿Cuánto? Decime los gramos${p ? ` o una porción (por ejemplo «${p.label}»)` : ""}. No registro una cantidad que no me dijiste.`), ref };
       }
       const meal = ask.meal ?? parsed.meal ?? mealByHour(now);

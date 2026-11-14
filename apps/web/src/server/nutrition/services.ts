@@ -146,21 +146,20 @@ export async function addEntry(userId: string, p: { id: string; day: string; mea
   const food = await resolveFood(userId, p.ref);
   const nutrients = calc(() => nutrientsFor(food, p.quantity));
   const grams = gramsOf(food, p.quantity);
-  return db.transaction(async (tx) => {
-    const [prev] = await tx.select().from(nutritionEntry).where(eq(nutritionEntry.id, p.id)).for("update");
-    if (prev && prev.userId !== userId) throw new AccessError("conflict", "Ese registro ya existe.", 409);
-    if (prev) {
-      if (prev.deletedAt) return { entry: null, deleted: true, duplicate: true };
-      return { entry: entryView(prev), duplicate: true };
-    }
-    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(nutritionEntry).where(and(eq(nutritionEntry.userId, userId), eq(nutritionEntry.day, p.day), isNull(nutritionEntry.deletedAt)));
-    if (n >= MAX_ENTRIES_PER_DAY) throw new AccessError("limit", "Llegaste al máximo de registros de un día.", 409);
-    const [row] = await tx.insert(nutritionEntry).values({
-      id: p.id, userId, day: p.day, meal: p.meal, food: food as unknown as Record<string, unknown>, qtyAmount: p.quantity.amount, qtyUnit: p.quantity.unit, grams, nutrients,
-    }).returning();
-    await audit(tx, { actorUserId: userId, action: "nutrition.entry.added", resourceType: "nutrition_entry", resourceId: row.id });
-    return { entry: entryView(row), duplicate: false };
-  });
+  const existing = async () => {
+    const [prev] = await db.select().from(nutritionEntry).where(eq(nutritionEntry.id, p.id));
+    if (!prev || prev.userId !== userId) throw new AccessError("conflict", "Ese registro ya existe.", 409);
+    return prev.deletedAt ? { entry: null, deleted: true, duplicate: true } : { entry: entryView(prev), duplicate: true };
+  };
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(nutritionEntry).where(and(eq(nutritionEntry.userId, userId), eq(nutritionEntry.day, p.day), isNull(nutritionEntry.deletedAt)));
+  if (n >= MAX_ENTRIES_PER_DAY) throw new AccessError("limit", "Llegaste al máximo de registros de un día.", 409);
+  // Alta atómica: con dos pedidos simultáneos con el mismo id (doble toque, reintento), uno inserta y el otro ve el existente.
+  const [row] = await db.insert(nutritionEntry).values({
+    id: p.id, userId, day: p.day, meal: p.meal, food: food as unknown as Record<string, unknown>, qtyAmount: p.quantity.amount, qtyUnit: p.quantity.unit, grams, nutrients,
+  }).onConflictDoNothing().returning();
+  if (!row) return existing();
+  await audit(db, { actorUserId: userId, action: "nutrition.entry.added", resourceType: "nutrition_entry", resourceId: row.id });
+  return { entry: entryView(row), duplicate: false };
 }
 
 /**
