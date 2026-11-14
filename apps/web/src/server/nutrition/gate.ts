@@ -8,24 +8,24 @@ import { eq, sql } from "drizzle-orm";
 import { ageEligibility, localDate, nutritionEligibility } from "@repi/domain";
 import { db, schema } from "@/db";
 import { featureOn } from "@/lib/features";
-import { AccessError } from "../access/util";
+import { AccessError, type Tx } from "../access/util";
 
 export const NUTRITION_ITEMS = ["nutrition", "nutrition_journal"] as const;
 export const isNutritionItem = (x: string) => (NUTRITION_ITEMS as readonly string[]).includes(x);
 
 /** ¿La persona pertenece a un entorno de la demo guiada? (cuentas ficticias, se borran a las 6 h) */
-export async function isSandboxUser(userId: string) {
-  const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.demoSandbox).where(sql`${schema.demoSandbox.userIds} @> ${JSON.stringify([userId])}::jsonb`);
+export async function isSandboxUser(userId: string, q: Tx | typeof db = db) {
+  const [r] = await q.select({ n: sql<number>`count(*)::int` }).from(schema.demoSandbox).where(sql`${schema.demoSandbox.userIds} @> ${JSON.stringify([userId])}::jsonb`);
   return (r?.n ?? 0) > 0;
 }
 
 /** Módulo encendido para esta persona: general o piloto de demo. */
-export async function nutritionEnabledFor(userId: string) {
-  return featureOn("nutrition") || (await isSandboxUser(userId));
+export async function nutritionEnabledFor(userId: string, q: Tx | typeof db = db) {
+  return featureOn("nutrition") || (await isSandboxUser(userId, q));
 }
 
-export async function ageOf(userId: string, now = new Date()) {
-  const [u] = await db.select({ birth: schema.user.birthDate }).from(schema.user).where(eq(schema.user.id, userId));
+export async function ageOf(userId: string, now = new Date(), q: Tx | typeof db = db) {
+  const [u] = await q.select({ birth: schema.user.birthDate }).from(schema.user).where(eq(schema.user.id, userId));
   if (!u) throw new AccessError("unauthorized", "Ingresá para continuar.", 401);
   return ageEligibility(u.birth, localDate(now));
 }

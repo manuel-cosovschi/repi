@@ -147,8 +147,8 @@ export async function markResolvedSeen(userId: string, id: string) {
 async function setItem(tx: Tx, userId: string, rel: { id: string; coachOrgId: string }, item: AccessItem, on: boolean) {
   // D221: compartir nutrición exige el módulo encendido para la persona y edad adulta confirmada (revocar, siempre).
   if (on && isNutritionItem(item)) {
-    if (!(await nutritionEnabledFor(userId))) throw new AccessError("invalid", "Ese dato no está disponible.");
-    if ((await ageOf(userId)) !== "adult") throw new AccessError("minor", "Nutrición es sólo para mayores de 18 años con fecha de nacimiento registrada.", 403);
+    if (!(await nutritionEnabledFor(userId, tx))) throw new AccessError("invalid", "Ese dato no está disponible.");
+    if ((await ageOf(userId, new Date(), tx)) !== "adult") throw new AccessError("minor", "Nutrición es sólo para mayores de 18 años con fecha de nacimiento registrada.", 403);
   }
   const restricted = await minorWithoutGuardian(userId, tx);
   if (on && resolveGrants("coach_client", [item], { minorWithoutGuardian: restricted }).indexOf(item) < 0) {
