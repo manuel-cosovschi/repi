@@ -183,7 +183,41 @@ No se contrató nada ni se creó una dependencia paga.
   diario / revocación / otra organización, gimnasio, REPI Admin, kiosco, exportación y borrado, módulo apagado y piloto de demo,
   historial largo.
 - Interfaz: `apps/web/e2e/nutrition.spec.ts` (recorridos en teléfono y escritorio).
-- Resultados de la última corrida: ver `docs/continuidad/PROXIMA_SESION.md`.
+- Interfaz: `apps/web/e2e/nutrition.spec.ts`, 8 recorridos × teléfono (Pixel 7) y escritorio: A (primera vez), registro rápido
+  y edición, D (sin conexión), E (receta), F (día parcial y REPI), progreso y ajustes, C (coach) y G (REPI Control).
+
+### Mapa de las 78 pruebas del máster (§24)
+
+| # | Dónde | Estado |
+|---|---|---|
+| 1–7 buscar, elegir, cantidad, porción, agregar, editar, eliminar | servidor «[1–7]», e2e «hoy» | verificado |
+| 8–9 duplicar comida, copiar de ayer | servidor «[8–9]», e2e «hoy» | verificado |
+| 10 receta | servidor «[10, 29]», e2e E | verificado |
+| 11 alimento propio · 12 sin datos · 13 incompletos | servidor «[11–13]», e2e «hoy» | verificado |
+| 14 duplicado · 18 reintento · 19 doble toque | servidor «[14, 18, 19]», e2e «hoy» | verificado |
+| 15 escaneo inválido | servidor «[15]» (dígito verificador, no encontrado, encontrado) | verificado; cámara no probada (Chromium sin `BarcodeDetector`) |
+| 16 foto ambigua | — | no aplica: fotos no construidas (`nutrition_photo` apagado) |
+| 17 texto ambiguo | dominio «[17]», servidor «[17]», asistente | verificado |
+| 20 sin conexión · 77 pérdida de conexión | e2e D (registrar, recargar sin red, sincronizar una vez) | verificado |
+| 21–31 cálculos | dominio «[21–31]» | verificado |
+| 32–34 corrección histórica, proveedor, versión | dominio y servidor «[32–34]» | verificado |
+| 35–37 perfil completo, parcial, sin perfil | servidor «[35–37]» | verificado |
+| 38–43 sin comidas, parcial, completo, semana, entrenamiento sin datos, evidencia insuficiente | dominio «[38–43]», servidor «[39–41]», «[42, 16]» | verificado |
+| 44–45 lenguaje natural y acción confirmada | servidor «[44–45]», e2e F | verificado |
+| 46–47 respuesta errónea o modelo no disponible | — | no aplica: Nutrición no usa IA (respuestas por reglas, también sin clave de IA) |
+| 48–50 edad desconocida, menor, caso sensible | dominio y servidor «[48–50]» | verificado |
+| 51–58 alumno A/B, coach sin/limitado/diario, revocación, otro gimnasio, dueño, REPI Admin | servidor «[51]» a «[58]», e2e C | verificado |
+| 59–61 exportación, eliminación, archivos | servidor «[59–61]» (sin archivos en 1.0) | verificado |
+| 62–63 REPI Control y kiosco | servidor «[57, 62]», «[63]», e2e G | verificado |
+| 64–67 iPhone, Android, tablet, escritorio | e2e en Pixel 7 (Chromium) y 1366 px; capturas 390 px | Android y escritorio emulados; iPhone (WebKit) y tablet no probados |
+| 68–69 tema claro y oscuro | capturas 390 px claras y oscuras | revisado visualmente |
+| 70 movimiento reducido | e2e con `reducedMotion: reduce` | verificado |
+| 71–72 teclado y lector de pantalla | axe en cada recorrido | parcial: sin prueba con lector real |
+| 73 historial largo | servidor «[73]» (un año en < 3 s) | verificado |
+| 74 búsqueda lenta | búsqueda con espera de 300 ms y estado de carga | sin prueba automatizada |
+| 75 proveedor caído | servidor «[75]» | verificado |
+| 76 zoom de gráficos | componente de Progreso ya probado (D217) | reutilizado, sin prueba nueva |
+| 78 recarga durante edición | servidor «[20, 78]», e2e «hoy» (edición vieja) | verificado |
 
 ## 14. Activación
 
