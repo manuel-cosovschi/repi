@@ -346,7 +346,8 @@ export function MemberApp({ initialTab }: { initialTab?: string }) {
       exercises: d.exercises.map((e) => {
         const a = aiOf(e.id);
         const base = { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: null, prev: e.prev, detail: e.detail ?? null, suggest: e.suggest ?? null,
-          profile: e.profile ?? null, activity: e.activity ?? activityOf(e.detail) }; // ejercicios por tiempo: qué se registra
+          profile: e.profile ?? null, activity: e.activity ?? activityOf(e.detail), // ejercicios por tiempo: qué se registra
+          motion: e.motion ?? null }; // D220: demostración oficial del ejercicio indicado
         if (a?.swap) return { ...base, suggest: null, prev: a.swap.prev ?? null, origPrev: e.prev, change: { kind: "substitute" as const, reason: a.reason ?? "other", substitute: { exerciseId: a.swap.exerciseId, name: a.swap.name, profile: a.swap.profile ?? null } } };
         if (a?.skip) return { ...base, change: { kind: "skip" as const, reason: a.reason ?? "other", substitute: null } };
         // D182: con la sugerencia de hoy aceptada, la tarjeta muestra esa carga (ya validada contra la regla): nunca dos cargas distintas.

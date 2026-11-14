@@ -20,6 +20,8 @@ import { getSession, logSet, nextDayOf, readVersion, sessionAction, setStageSkip
 import { previewTargets, type SessionEx } from "../training/intelligence";
 import { exerciseProfiles, rowProfile } from "../training/library";
 import { mediaFor } from "../training/exercise-media";
+import { motionFor } from "../training/exercise-motion";
+import type { MotionRef } from "@/lib/exercise-motion/ref";
 import { KIOSK_IDLE_SEC, liveSession, personOf, signMedia } from "./kiosk";
 
 const { workoutSession, programAssignment, program, programExercise, setLog } = schema;
@@ -75,6 +77,8 @@ export type KioskExercise = {
   /** Reemplazo de hoy (hecho en la app; la pantalla no reemplaza). */
   doing: string | null;
   demo: { kind: "video" | "link"; url: string } | null;
+  /** D220: demostración oficial de REPI (animación propia; no guarda nada del socio). */
+  motion: MotionRef | null;
   rows: KioskRow[];
   done: number; total: number;
 };
@@ -99,7 +103,7 @@ const signedDemo = (live: Live, m: Media | null | undefined) =>
 
 type LogRow = { id: string; setIndex: number; weightKg: number | null; reps: number | null; rir: number | null; metrics: unknown; revision: number };
 function exerciseView(live: Live, e: PlanEx, o: {
-  group: string | null; targets: RowTarget[]; profile: MetricsProfile; media: Media | null | undefined; doing?: string | null;
+  group: string | null; targets: RowTarget[]; profile: MetricsProfile; media: Media | null | undefined; motion: MotionRef | null | undefined; doing?: string | null;
   logs?: LogRow[]; kioskLogged?: Set<string>; skips?: number[];
 }): KioskExercise {
   const d = e.detail;
@@ -126,7 +130,7 @@ function exerciseView(live: Live, e: PlanEx, o: {
     unilateral: !!d?.unilateral, emomSec: d?.emomSec ?? null, restSec: e.restSec || null, note: e.note, progression: d?.progression ?? null,
     prescription: prescriptionText({ sets: e.sets, reps: e.reps, rir: e.rir, detail: d }, { rir: true }),
     activity: profile ? { profile, fields: PROFILE_FIELDS[profile].map((k) => ({ key: k, ...ACTIVITY_FIELD_SPEC[k], plan: (act?.[k as keyof typeof act] as number | null | undefined) ?? null })) } : null,
-    doing: o.doing ?? null, demo: signedDemo(live, o.media), rows, done, total: rows.length,
+    doing: o.doing ?? null, demo: signedDemo(live, o.media), motion: o.motion ?? null, rows, done, total: rows.length,
   };
 }
 
@@ -151,8 +155,9 @@ export async function programView(d: Live["d"], s: Live["s"], now: Date) {
   const { version, doc } = await readVersion(a.p.currentVersionId);
   const all = doc.days.flatMap((x) => x.exercises) as (PlanEx & { id?: string })[];
   const ids = [...new Set(all.map((e) => e.exerciseId))];
-  const [media, profiles, gym] = await Promise.all([mediaFor(d.k.orgId, ids), exerciseProfiles(ids),
-    import("./equipment").then((m) => m.laddersForMember(s.m.id, ids)).catch(() => null)]);
+  const [media, profiles, gym, motions] = await Promise.all([mediaFor(d.k.orgId, ids), exerciseProfiles(ids),
+    import("./equipment").then((m) => m.laddersForMember(s.m.id, ids)).catch(() => null),
+    motionFor(ids).catch(() => new Map<string, MotionRef>())]);
   const sx: SessionEx[] = all.map((e) => ({ id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir ?? null, restSec: e.restSec, detail: e.detail ?? null,
     doing: e.exerciseId, skipped: false, logged: new Set<number>(), profile: rowProfile(e, e.exerciseId, profiles) }));
   // D216: la misma recomendación que la sesión emitiría (sin guardarla). Si el motor falla, la pantalla igual muestra lo indicado.
@@ -168,7 +173,7 @@ export async function programView(d: Live["d"], s: Live["s"], now: Date) {
         return {
           name: day.name,
           exercises: day.exercises.map((e, j) => exerciseView(live, { ...e, id: e.id!, rir: e.rir ?? null, note: e.note ?? null, detail: e.detail ?? null }, {
-            group: g[j], targets: targets.get(e.id!) ?? [], profile: rowProfile(e, e.exerciseId, profiles), media: media.get(e.exerciseId),
+            group: g[j], targets: targets.get(e.id!) ?? [], profile: rowProfile(e, e.exerciseId, profiles), media: media.get(e.exerciseId), motion: motions.get(e.exerciseId),
           })),
         };
       }),
@@ -193,7 +198,7 @@ async function workoutView(live: Live, sessionId: string, now: Date) {
     const group = e.kept ? null : labels[gi++] ?? null;
     const sub = e.change?.kind === "substitute" && e.change.substitute ? e.change.substitute : null;
     return exerciseView(live, { id: e.id, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, note: e.note, detail: e.detail }, {
-      group, targets: e.targets, profile: sub?.profile ?? e.profile, media: e.media, doing: sub?.name ?? null,
+      group, targets: e.targets, profile: sub?.profile ?? e.profile, media: e.media, motion: sub ? e.motionSub?.ref ?? null : e.motion, doing: sub?.name ?? null,
       logs: e.logs.map((l) => ({ ...l, revision: l.revision })), kioskLogged: atKiosk, skips: e.skips.filter((k) => k.skipped).map((k) => k.setIndex),
     });
   });

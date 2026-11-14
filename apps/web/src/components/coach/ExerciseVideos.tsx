@@ -7,9 +7,11 @@ import { MagnifyingGlass } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
 import { uploadVideo } from "@/lib/upload";
 import { Ic } from "@/components/ui/Ic";
+import { ExerciseMotion } from "@/components/exercise-motion/ExerciseMotion";
+import type { MotionRef } from "@/lib/exercise-motion/ref";
 
 type Media = { kind: "video" | "link"; url: string } | null;
-type Row = { id: string; name: string; group: string; media: Media };
+type Row = { id: string; name: string; group: string; media: Media; motion?: MotionRef | null };
 type List = { total: number; exercises: Row[] };
 
 export function ExerciseVideos({ orgId, flash }: { orgId: string; flash: (t: string) => void }) {
@@ -18,6 +20,7 @@ export function ExerciseVideos({ orgId, flash }: { orgId: string; flash: (t: str
   const [data, setData] = useState<List | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [linkFor, setLinkFor] = useState<string | null>(null);
+  const [demoFor, setDemoFor] = useState<string | null>(null); // D220: vista previa de la demostración oficial
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState<{ id: string; p: number | null } | null>(null);
   const file = useRef<HTMLInputElement>(null);
@@ -61,7 +64,7 @@ export function ExerciseVideos({ orgId, flash }: { orgId: string; flash: (t: str
     <section className="card" style={{ gap: 14 }} aria-labelledby="xv-h">
       <div>
         <h2 id="xv-h" style={{ margin: 0 }}>Videos de ejercicios</h2>
-        <p className="muted" style={{ margin: "4px 0 0", fontSize: 14 }}>Subí un video corto de cómo se hace cada ejercicio (MP4, MOV o WebM de hasta 80 MB) o pegá un enlace de YouTube, TikTok o Instagram. Lo ven tus alumnos y socios con «Ver cómo se hace» mientras entrenan. {data ? `Cargados: ${data.total}.` : ""}</p>
+        <p className="muted" style={{ margin: "4px 0 0", fontSize: 14 }}>Subí un video corto de cómo se hace cada ejercicio (MP4, MOV o WebM de hasta 80 MB) o pegá un enlace de YouTube, TikTok o Instagram. Los ejercicios marcados «Demostración REPI» ya traen una animación oficial con técnica y músculos; si cargás tu video, se ofrece además. Lo ven tus alumnos y socios con «Ver cómo se hace» mientras entrenan. {data ? `Cargados: ${data.total}.` : ""}</p>
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <label className="search" style={{ flex: "1 1 240px" }}><Ic i={MagnifyingGlass} size={16} color="var(--ui-muted)" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" /></label>
@@ -76,14 +79,17 @@ export function ExerciseVideos({ orgId, flash }: { orgId: string; flash: (t: str
           <li key={r.id}>
             <div className="xv-name"><b>{r.name}</b><small className="muted">{r.group}</small></div>
             <span className={`xv-state${r.media ? " on" : ""}`}>{r.media?.kind === "video" ? "Video" : r.media?.kind === "link" ? "Enlace" : "Sin video"}</span>
+            {r.motion && <span className="xv-state on" title={r.motion.match === "compatible" ? r.motion.difference : undefined}>{r.motion.match === "exact" ? "Demostración REPI" : "Variante REPI"}</span>}
             <div className="xv-acts">
               {busy?.id === r.id ? <span className="muted" role="status">{busy.p != null ? `Subiendo ${Math.round(busy.p * 100)} %` : "Guardando…"}</span> : <>
+                {r.motion && <button type="button" className="btn" aria-expanded={demoFor === r.id} onClick={() => setDemoFor(demoFor === r.id ? null : r.id)}>{demoFor === r.id ? "Ocultar demostración" : "Ver demostración"}</button>}
                 {r.media && <a className="btn" href={r.media.url} target="_blank" rel="noopener noreferrer">Ver</a>}
                 <button type="button" className="btn" onClick={() => { target.current = r.id; file.current?.click(); }}>Subir video</button>
                 <button type="button" className="btn" aria-expanded={linkFor === r.id} onClick={() => { setLinkFor(linkFor === r.id ? null : r.id); setLink(r.media?.kind === "link" ? r.media.url : ""); }}>Enlace</button>
                 {r.media && <button type="button" className="btn danger" onClick={() => void remove(r)}>Quitar</button>}
               </>}
             </div>
+            {demoFor === r.id && r.motion && <div className="xv-demo"><ExerciseMotion motion={r.motion} name={r.name} variant="preview" /></div>}
             {linkFor === r.id && (
               <div className="xv-link">
                 <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" aria-label={`Enlace del video de ${r.name}`} />

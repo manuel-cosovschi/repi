@@ -242,6 +242,15 @@ async function alternativesReply(sc: ServerContext, name: string, exerciseRef: s
   return { reply: r, ref: { intent: name, exerciseId: se.peId, primary } };
 }
 
+/** D220: técnica oficial (claves y músculos principales) y la demostración que le corresponde al ejercicio. */
+async function howToFor(exerciseId: string): Promise<AnswerData["howTo"]> {
+  const ref = (await import("../training/exercise-motion").then((x) => x.motionFor([exerciseId]))).get(exerciseId);
+  if (!ref) return null;
+  const [{ getMotionEntry }, { MUSCLES }] = await Promise.all([import("@/lib/exercise-motion/resolve"), import("@/lib/exercise-motion/muscles")]);
+  const e = getMotionEntry(ref.id);
+  return e ? { cues: e.technique.cues.slice(0, 3), primary: e.anatomy.primary.map((k) => MUSCLES[k].label), motion: ref } : null;
+}
+
 async function rulesReply(sc: ServerContext, intent: Intent, text: string, t: Turn, d: AnswerData): Promise<Built> {
   const ctx = sc.ctx, uid = sc.userId;
   // Consultas al entrenador y pedidos en sala no son intenciones «de ejercicio» en el clasificador: el ejercicio se busca igual
@@ -274,6 +283,7 @@ async function rulesReply(sc: ServerContext, intent: Intent, text: string, t: Tu
     }
     case "count": data.count = { n: await countFor(uid, (intent.slots.period as string | null) ?? null, m?.exerciseId ?? null, t.now), period: (intent.slots.period as string | null) ?? null, what: m?.name ?? null }; break;
     case "explain_method": data.method = (intent.slots.method as AnswerData["method"]) ?? null; break;
+    case "how_to": if (m) data.howTo = await howToFor(m.exerciseId).catch(() => null); break; // D220
     case "body_goal": if (sc.bodyRaw) data.body = bodyGoalProgress({ startG: sc.bodyRaw.goal?.startG ?? sc.bodyRaw.firstG, currentG: sc.bodyRaw.lastG, targetG: sc.bodyRaw.goal?.targetG ?? null }); data.bodyUnit = ctx.person.unit; break;
     case "import_explain": data.imported = await importedFor(sc); break;
     case "weekly_plan": data.week = { done: await countFor(uid, "week", null, t.now), target: ctx.person.weeklyTarget.value, programDays: ctx.program.days.filter((x) => x.exercises > 0).length || null }; data.days = (intent.slots.days as number | null) ?? null; break;

@@ -191,6 +191,9 @@ const RULES: Rule[] = [
   ["weekly_plan", 0.86, /\b(quiero|voy a|pienso|me gustaria|puedo) (entrenar|ir|venir) (\d|uno|una|dos|tres|cuatro|cinco|seis|siete) (dias|veces)\b|\b(dias|veces) (por|a la|en la) semana\b|\bplan (de la semana|semanal)\b|\besta semana\b.{0,25}\b(entrenar|entreno|dias)\b|\bcuantos dias (me toca|tengo que|deberia)\b/],
   ["body_goal", 0.88, /\b(objetivo|meta) de peso\b|\bpeso corporal\b|\b(bajar|subir|perder|ganar) (de )?peso\b|\b(adelgazar|engordar)\b|\bcuanto (baje|subi|adelgace|engorde|cambie|pese|peso yo)\b|\bmi peso( actual)?\b|\bcomo viene mi peso\b|\bbalanza\b|\bkilos de mas\b/],
   ["import_explain", 0.88, /\b(rutina|programa|plan) importad[oa]\b|\b(lo|la) que importe\b|\bimporte (una|la|mi) rutina\b|\b(explicame|entender|entiendo|explica|que significa|como funciona) (la |mi |esta |esa )?(rutina|programa)\b|\bque (falta|le falta|quedo sin completar) (en |a )?(la |mi |esta )?rutina\b|\bque se sugirio\b|\bque decia (el|la) (documento|planilla|foto|rutina)\b/],
+  // D220: «cómo se hace la sentadilla», «técnica del remo», «qué músculos trabaja el hip thrust». Un método («cómo se hace un
+  // drop set») gana por peso (explain_method 0,9).
+  ["how_to", 0.86, /\bcomo (se hace|hago|se ejecuta|ejecuto|tengo que hacer|se realiza|realizo|es la tecnica)\b|\b(la )?tecnica (de|del|para)\b|\bque musculos? (trabaja|trabajan|usa|uso|se trabaja|se trabajan)\b|\bmostrame (como|la tecnica)\b|\bver (la )?(demostracion|ejecucion)\b/],
   ["explain_method", 0.9, /\b(que es|que son|que significa|como (funciona|se hace|hago|es)|explicame|explica|no entiendo|para que sirve|en que consiste)\b.{0,25}\b(drop ?sets?|drops?|rest ?pause|rest ?pausa|myo ?reps?|mio ?reps?|clusters?|emom|amrap|super ?series?|bi ?series?|tri ?series?|top ?sets?|back ?offs?|piramides?|circuitos?|aproximacion(es)?|al fallo|rir|rpe|tempo|cadencia|entrada en calor|calentamiento)\b/],
   ["today", 0.9, /\bque (me )?(toca|toco|tengo|hago|entreno|hay) (hoy|para hoy|ahora)\b|\bque me toca\b|\brutina de hoy\b|\b(entrenamiento|sesion) de hoy\b|\bque dia (me )?toca\b|\bque sigue\b|\bproximo ejercicio\b|\bno (vino|esta|viene) (mi |el )?(profe|entrenador)\b|\bque entreno\b|\bque hago hoy\b/],
   ["greeting", 0.6, /^(hola|holis|buenas|buen dia|buenos dias|buenas tardes|buenas noches|que tal|como andas|como estas|hey|ey|hello|hi)( repi)?( que tal| como andas| como estas| como va)?$/],
@@ -199,7 +202,7 @@ const RULES: Rule[] = [
 const YES = /^(si|sip|dale|ok|okey|okay|de una|bueno|listo|obvio|claro|va|vamos|perfecto|hacelo|confirmo|confirmar|correcto|exacto|eso|por favor)(( |, ?)(si|dale|gracias|por favor|esa|ese|eso|la primera|la segunda|el primero|el segundo|hacelo|claro))*$/;
 const NO = /^(no|nop|nope|para nada|mejor no|dejalo|deja|cancelar|cancela|ni ahi|negativo|todavia no|ahora no)(( |, ?)(no|gracias|por ahora|todavia|dejalo|mejor))*$/;
 const CHOICE: [RegExp, number][] = [[/\b(la|el) (primera|primero|1)\b|\bopcion (1|uno)\b/, 1], [/\b(la|el) (segunda|segundo|2)\b|\bopcion (2|dos)\b/, 2]];
-const EXERCISE_INTENTS: ReadonlySet<IntentName> = new Set<IntentName>(["last_mark", "why_weight", "trend", "count", "busy_machine", "change_exercise", "progress_general", "pain", "max_lift", "capacity", "next_target", "goal_distance"]);
+const EXERCISE_INTENTS: ReadonlySet<IntentName> = new Set<IntentName>(["last_mark", "why_weight", "trend", "count", "busy_machine", "change_exercise", "progress_general", "pain", "max_lift", "capacity", "next_target", "goal_distance", "how_to"]);
 
 const WHEN = /\s+(la ultima vez|la vez pasada|el otro dia|hoy|ahora|este mes|esta semana|este ano|el mes pasado|la semana pasada)$/;
 /** Lo que viene después del último «en», «de» o «del» (o artículo) de la frase («última marca en press banca» → «press banca»). */
@@ -267,9 +270,9 @@ export function classify(text: string, ctx: IntentCtx = {}): Intent {
     slots.exercise = ex?.name ?? null;
     if (!ex) {
       const q = tailQuery(t);
-      if (q && (name === "last_mark" || name === "why_weight" || name === "count" || name === "trend" || name === "max_lift" || name === "next_target")) slots.exerciseQuery = q;
+      if (q && (name === "last_mark" || name === "why_weight" || name === "count" || name === "trend" || name === "max_lift" || name === "next_target" || name === "how_to")) slots.exerciseQuery = q;
     } else conf = Math.min(1, conf + 0.05);
-    if ((name === "busy_machine" || name === "change_exercise") && !ex && ctx.current) { slots.exerciseId = ctx.current.id; slots.exercise = ctx.current.name; slots.assumed = 1; }
+    if ((name === "busy_machine" || name === "change_exercise" || name === "how_to") && !ex && ctx.current && !slots.exerciseQuery) { slots.exerciseId = ctx.current.id; slots.exercise = ctx.current.name; slots.assumed = 1; }
   }
   switch (name) {
     case "short_time": { const m = minutesOf(text); slots.minutes = m.minutes; if (m.raw != null && m.minutes == null) slots.outOfRange = m.raw; break; }

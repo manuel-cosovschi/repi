@@ -9,6 +9,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { renderSVG } from "uqr";
 import { fmtSeconds, repsText } from "@repi/domain";
 import type { KioskExercise, KioskRow, KioskTarget } from "@/server/gym/kiosk-training";
+import { ExerciseMotion } from "@/components/exercise-motion/ExerciseMotion";
+import { featureOn } from "@/lib/features";
 
 export type Ex = KioskExercise;
 export type Row = KioskRow;
@@ -95,9 +97,31 @@ export function ConsultExercise({ e, i, onTouch }: { e: Ex; i: number; onTouch: 
         {diffs.map((d) => <p key={d} className="kq-diff">{d}</p>)}
         {whys.map((w) => <p key={w} className="kq-why">{w}</p>)}
       </div>
-      {e.demo && <Demo d={e.demo} name={e.name} onTouch={onTouch} />}
+      <ExecDemo e={e} name={e.name} onTouch={onTouch} />
     </li>
   );
+}
+
+/**
+ * D220: «Ver ejecución». Con demostración oficial de REPI: la animación, la técnica y los músculos (no guarda nada del socio:
+ * es contenido fijo); el video del gimnasio, si hay, queda en su pestaña. Sin demostración: el video o el QR del gimnasio.
+ */
+export function ExecDemo({ e, name, onTouch }: { e: Pick<Ex, "demo" | "motion">; name: string; onTouch: () => void }) {
+  const [open, setOpen] = useState(false);
+  const motion = featureOn("exercise_motion") ? e.motion : null;
+  if (!motion) return e.demo ? <Demo d={e.demo} name={name} onTouch={onTouch} /> : null;
+  return (
+    <div className="kq-ex-demo" onPointerDown={onTouch} onKeyDown={onTouch}>
+      <button type="button" className="kq-ghost" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? "Ocultar ejecución" : "Ver ejecución"}</button>
+      {open && <div className="kq-motion"><ExerciseMotion motion={motion} name={name} variant="kiosk" org={e.demo} orgVideo={e.demo ? <DemoMedia d={e.demo} name={name} onTouch={onTouch} /> : null} /></div>}
+    </div>
+  );
+}
+function DemoMedia({ d, name, onTouch }: { d: { kind: "video" | "link"; url: string }; name: string; onTouch: () => void }) {
+  const qr = useMemo(() => (d.kind === "link" ? renderSVG(d.url, { border: 1, ecc: "M" }) : ""), [d]);
+  return d.kind === "video"
+    ? <video src={d.url} controls playsInline muted preload="metadata" aria-label={`Video del gimnasio: ${name}`} onPlay={onTouch} />
+    : <div className="kq-linkqr"><div aria-hidden="true" dangerouslySetInnerHTML={{ __html: qr }} /><small>Escaneá para ver el video del gimnasio en tu celular</small></div>;
 }
 
 /** Demostración del ejercicio: un video del gimnasio se reproduce acá; un enlace externo se abre en el celular con un QR. */
@@ -226,7 +250,7 @@ export function RegisterPanel({ ex, drafts, update, setAll, onConfirm, onBack, s
           {ex.note && <p className="kq-exnote"><b>Nota del profe:</b> {ex.note}</p>}
           {diffs.map((d) => <p key={d} className="kq-diff">{d}</p>)}
         </div>
-        {ex.demo && <Demo d={ex.demo} name={ex.name} onTouch={onTouch} />}
+        <ExecDemo e={ex} name={ex.doing ?? ex.name} onTouch={onTouch} />
       </section>
 
       <div className="kq-strip" aria-hidden="true"><span /><span>Profesor</span><span>REPI</span><span>Real</span></div>

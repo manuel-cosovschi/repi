@@ -348,6 +348,7 @@ textarea.note { border: 1px solid var(--ui-control-border); border-radius: 10px;
 .xv-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .xv-acts .btn { height: 34px; padding: 0 10px; font-size: 13px; }
 .xv-link { grid-column: 1 / -1; display: flex; gap: 8px; }
+.xv-demo { grid-column: 1 / -1; max-width: 560px; }
 .xv-link input { flex: 1; height: 38px; border-radius: 8px; border: 1px solid var(--ui-control-border); padding: 0 10px; font: 400 14px var(--font-ui); background: var(--ui-input-bg); color: var(--ui-text); }
 /* D165: validación en sala, sin video */
 .vl-live { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 140px; padding: 18px; border-radius: 12px; background: var(--ui-surface); border: 1px dashed var(--ui-border-strong); color: var(--ui-text-2); font-size: 14px; line-height: 1.5; }

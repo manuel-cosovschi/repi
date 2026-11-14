@@ -33,7 +33,8 @@ export type CardVM =
   | { type: "fact"; title: string; rows: { label: string; value: string }[]; origin: Origin }
   | { type: "evidence"; evidence: EvidenceVM }
   | { type: "alternatives"; options: { id: string; name: string; why: string; approvedByCoach: boolean }[] }
-  | { type: "plan"; keep: string[]; skip: string[]; note: string };
+  | { type: "plan"; keep: string[]; skip: string[]; note: string }
+  | { type: "motion"; name: string; motion: { id: string; v: number; match: "exact" | "compatible"; difference?: string } };
 
 export function presentEvidence(e: Evidence, unit: WeightUnit = "kg"): EvidenceVM {
   return {
@@ -47,6 +48,7 @@ export function presentCard(c: ReplyCard, unit: WeightUnit = "kg"): CardVM | nul
     case "evidence": return c.evidence ? { type: "evidence", evidence: presentEvidence(c.evidence, unit) } : null;
     case "alternatives": return { type: "alternatives", options: c.options.slice(0, 3).map((o) => ({ id: o.exerciseId, name: o.name, why: localizeWeights(o.why, unit), approvedByCoach: !!o.approvedByCoach })) };
     case "plan": return { type: "plan", keep: c.keep, skip: c.skip, note: localizeWeights(c.note, unit) };
+    case "motion": return { type: "motion", name: c.name, motion: c.motion }; // D220
     default: return null;
   }
 }

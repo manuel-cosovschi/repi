@@ -39,6 +39,8 @@ export type AnswerData = {
   minutesOutOfRange?: number | null;
   feel?: string | null;
   preference?: MemoryDraft | null;
+  /** D220: técnica oficial de REPI del ejercicio (null = no hay demostración para ese ejercicio). */
+  howTo?: { cues: string[]; primary: string[]; motion: { id: string; v: number; match: "exact" | "compatible"; difference?: string } } | null;
   memory?: MemoryItem[];
   forgetTarget?: string | null;
   prefs?: BrainPrefs;
@@ -234,6 +236,18 @@ export const METHOD_GLOSSARY: Record<MethodKey, string> = {
 export function answerExplainMethod(_ctx: BrainContext, d: AnswerData): Reply {
   if (!d.method) return reply("¿Qué método querés que te explique? Puedo contarte drop set, rest-pause, myo-reps, cluster, EMOM, AMRAP, superserie, top set, back-off o pirámide.");
   return reply(METHOD_GLOSSARY[d.method], { cards: [evCard({ basis: "Definición del método tal como lo usa REPI.", via: "rules" })] });
+}
+
+// ── Cómo se hace (D220) ────────────────────────────────────────────────────────────────────────────────────────────────
+/** Técnica oficial de REPI, nunca inventada: sin demostración para ese ejercicio, se dice y se deriva al profe. */
+export function answerHowTo(_ctx: BrainContext, d: AnswerData): Reply {
+  if (!d.exercise) return askExercise(d);
+  const name = d.exercise.name;
+  const h = d.howTo;
+  if (!h) return reply(`Todavía no tengo una demostración de ${name}. Pedile a tu profe que te la muestre o, si tu gimnasio cargó un video, lo ves con «Ver cómo se hace» en el entrenamiento.`, { suggestions: [`¿Qué músculos trabaja ${name}?`] });
+  const variant = h.motion.match === "compatible" ? ` Ojo: la demostración es de una variante parecida. ${h.motion.difference ?? ""}`.trimEnd() : "";
+  const text = `Claves para ${name}: ${listEs(h.cues.map((c) => c.toLowerCase()))}. Trabaja sobre todo ${listEs(h.primary.map((m) => m.toLowerCase()))}.${variant} Si tu profe te indicó otra cosa, seguí su indicación.`;
+  return reply(text, { cards: [{ type: "motion", exerciseId: d.exercise.id, name, motion: h.motion }, evCard({ basis: "Técnica de la biblioteca de demostraciones de REPI (revisión interna).", via: "rules" })] });
 }
 
 // ── Cuerpo ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -432,6 +446,7 @@ export function compose(intent: Intent, ctx: BrainContext, d: AnswerData = {}): 
     case "progress_general": return answerProgressGeneral(ctx, d);
     case "count": return answerCount(ctx, d);
     case "explain_method": return answerExplainMethod(ctx, d);
+    case "how_to": return answerHowTo(ctx, d);
     case "body_goal": return answerBodyGoal(ctx, d);
     case "import_explain": return answerImportExplain(ctx, d);
     case "weekly_plan": return answerWeeklyPlan(ctx, d);

@@ -1,5 +1,10 @@
 # REPI — Estado de implementación
 
+## REPI Exercise Motion 1.0 · biblioteca de demostraciones (14/11/2026, D220)
+
+- **Implementado y probado:** 44 demostraciones animadas propias (pecho, espalda, hombros, brazos, piernas, glúteos y core) que cubren 44 ejercicios exactos y 15 variantes compatibles del catálogo global; técnica escrita, mapa muscular de frente y espalda, resolver único, visor accesible (pausa, velocidad, fases, reducir movimiento) y sin conexión. Integrado en el entrenamiento, REPI Control, panel del coach y del gimnasio, REPI Admin › Demostraciones y el asistente (`how_to`). Sin migración.
+- **Pendiente:** validación por un profesional externo (hoy todas «revisión interna»); el resto del catálogo (132 ejercicios, entre ellos cardio y movilidad); ver «Más usados sin demostración» en REPI Admin. Detalle: `docs/exercise-motion/`.
+
 ## Gym Access Control · ingreso validado (28/10/2026, D127)
 
 - **Implementado y verificado:** membresía con «Vigente hasta», política por gimnasio (Abierto / Híbrido / Estricto), QR dinámico firmado de 30 s, ingreso validado de 3 h revocable e idempotente, control en el servidor de iniciar y registrar el entrenamiento del gimnasio (también sin conexión hasta 12 h tarde), ubicación opcional sin guardar coordenadas, validación a mano (recepción, gestión y sala con turno), pantallas de recepción sin sesión, «Acceso y presencia» para el dueño, tarjeta en Admin, guías y recorrido de la demo (Gym Norte híbrido + Gym Sur).

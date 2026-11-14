@@ -270,3 +270,8 @@
 }
 @media (prefers-reduced-motion: reduce) { .kq-ex { animation: none; } .kq-choice-btn:active:not(:disabled) { transform: none; } }
 @media (forced-colors: active) { .kq-digits span.on, .kq-days button[aria-selected="true"], .kq-daycard[aria-checked="true"], .kq-rir button[aria-pressed="true"] { border: 3px solid CanvasText; } }
+/* D220: «Ver ejecución» (demostración oficial de REPI) con los colores de la pantalla. */
+.kq-motion { width: 100%; max-width: 760px; --ui-text: var(--kq-ink); --ui-muted: var(--kq-mute); --ui-border: var(--kq-line); --ui-accent: var(--kq-live); --ui-accent-tint: var(--kq-live-soft); --ui-surface: var(--kq-floor); --ui-chip-warn-bg: var(--kq-warn-soft); --ui-chip-warn-ink: var(--kq-warn); }
+.kq-motion .em-btn, .kq-motion .em-chip { min-height: 52px; font-size: 17px; padding: 0 18px; }
+.kq-motion .em-tabs button { min-height: 56px; font-size: 17px; }
+.kq-motion .em-panel { font-size: 18px; }

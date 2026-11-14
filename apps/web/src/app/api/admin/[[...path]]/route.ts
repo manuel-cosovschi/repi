@@ -31,6 +31,7 @@ export const GET = handle<Ctx>(async (req, { params }) => {
   if (a === "summary") return cm.adminSummary(me);
   if (a === "announcements") return an.adminAnnouncements(me); // D202
   if (a === "site") { const raw = u.searchParams.get("days"); return se.siteSummary(me, raw === "0" ? 0 : Number(raw) || 30); } // D205 (0 = hoy)
+  if (a === "motion") return import("@/server/training/motion-report").then((m) => m.motionReport(me)); // D220: demostraciones
   if (a === "brain" && !b) return ab.brainMetrics(me, { days: Number(u.searchParams.get("days")) || 7 }); // D210: Coaching IA (agregados)
   if (a === "clients") return cm.listClients(me);
   if (a === "privacy") return pv.listPrivacyRequests(me);

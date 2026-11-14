@@ -205,14 +205,18 @@ export type IntentName =
   | "explain_method" | "set_preference" | "forget" | "fewer_messages" | "ask_coach" | "floor_help" | "body_goal" | "import_explain"
   | "set_feedback" | "weekly_plan" | "change_exercise" | "progress_general" | "greeting" | "thanks" | "yes" | "no" | "unknown"
   // D217 · Progreso: máximo real, capacidad estimada, próxima carga y distancia a una meta (cuatro conceptos separados).
-  | "max_lift" | "capacity" | "next_target" | "goal_distance";
+  | "max_lift" | "capacity" | "next_target" | "goal_distance"
+  // D220 · Exercise Motion: cómo se hace un ejercicio (técnica oficial de REPI y su demostración).
+  | "how_to";
 export type Intent = { name: IntentName; slots: Record<string, string | number | null>; confidence: number };
 
 export type ReplyCard =
   | { type: "fact"; title: string; rows: { label: string; value: string }[]; via: Evidence["via"] }
   | { type: "evidence"; evidence: Evidence }
   | { type: "alternatives"; options: { exerciseId: string; name: string; why: string; approvedByCoach: boolean }[] }
-  | { type: "plan"; keep: string[]; skip: string[]; note: string };
+  | { type: "plan"; keep: string[]; skip: string[]; note: string }
+  // D220: abre la demostración oficial (animación, técnica y músculos) del ejercicio.
+  | { type: "motion"; exerciseId: string; name: string; motion: { id: string; v: number; match: "exact" | "compatible"; difference?: string } };
 
 export type Reply = {
   text: string;

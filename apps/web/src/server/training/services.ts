@@ -735,7 +735,8 @@ export async function myTraining(userId: string, now = new Date()) {
   const [p] = await db.select().from(program).where(eq(program.id, act.assignment.programId));
   const { version, doc } = await readVersion(p.currentVersionId!);
   const exIds = [...new Set(doc.days.flatMap((d) => d.exercises.map((e) => e.exerciseId)))];
-  const [prev, lastTime, sig, profiles] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds), trainingSignals(userId, now), exerciseProfiles(exIds)]);
+  const [prev, lastTime, sig, profiles, motions] = await Promise.all([lastSetByExercise(userId, exIds), lastTimeByExercise(userId, exIds), trainingSignals(userId, now), exerciseProfiles(exIds),
+    import("./exercise-motion").then((m) => m.motionFor(exIds)).catch(() => new Map())]); // D220: el teléfono crea la sesión con esto
   const next = await nextDayOf(userId, act.assignment.id, doc);
   // F-CL-14: programa nuevo o actualizado, con autor. Cada asignación arranca en la versión 1 de su copia: una versión
   // nueva (si ya se entrenó con la anterior) o una edición en el lugar (si todavía no) cuentan como actualización.
@@ -758,7 +759,8 @@ export async function myTraining(userId: string, now = new Date()) {
           return { id: e.id!, exerciseId: e.exerciseId, name: e.name, sets: e.sets, reps: e.reps, rir: e.rir, restSec: e.restSec, detail: e.detail ?? null, prev: pv ? { weightKg: pv.weightKg, reps: pv.reps, ...(pv.metrics ? { metrics: pv.metrics } : {}) } : null,
             suggest: suggestionFor(e, lastTime.get(e.exerciseId), sig, rowProfile(e, e.exerciseId, profiles)),
             // Ejercicios por tiempo: qué se configura y registra (cinta, bici…) y la actividad indicada (también sin conexión).
-            profile: rowProfile(e, e.exerciseId, profiles), activity: activityOf(e.detail) };
+            profile: rowProfile(e, e.exerciseId, profiles), activity: activityOf(e.detail),
+            motion: motions.get(e.exerciseId) ?? null }; // D220: demostración oficial (también sin conexión)
         }),
       })),
     },
@@ -1012,9 +1014,10 @@ export async function getSession(userId: string, sessionId: string, now = new Da
   const changeOf = new Map(changes.map((x) => [x.c.programExerciseId, x]));
   const doing = (e: typeof exs[number]) => changeOf.get(e.id)?.c.substituteExerciseId ?? e.exerciseId;
   const doneIds = [...new Set([...exs.map((e) => e.exerciseId), ...exs.map(doing)])];
-  const [prev, lastTime, sig, media, profiles] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id), trainingSignals(userId, now),
+  const [prev, lastTime, sig, media, profiles, motions] = await Promise.all([lastSetByExercise(userId, doneIds, s.id), lastTimeByExercise(userId, doneIds, s.id), trainingSignals(userId, now),
     sessionOrg(s.versionId).then((orgId) => import("./exercise-media").then((m) => m.mediaFor(orgId, doneIds))), // D164: video de cómo se hace
-    exerciseProfiles(doneIds)]);
+    exerciseProfiles(doneIds),
+    import("./exercise-motion").then((m) => m.motionFor(doneIds)).catch(() => new Map())]); // D220: demostración oficial
   // D145: abierta con una versión anterior a la vigente (el coach la cambió) → la app ofrece «Aplicar ahora».
   const open = s.status === "in_progress" || s.status === "paused";
   // D193: también si el profe le reasignó el programa (otra asignación de la misma relación).
@@ -1042,6 +1045,10 @@ export async function getSession(userId: string, sessionId: string, now = new Da
         suggest: suggestionFor(e as { name: string; reps: string; sets: number; detail: unknown }, lastTime.get(doing(e)), sig, rowProfile(e, doing(e), profiles)), // D154, D182
         defaultWeight: pv?.weightKg ?? null, defaultReps: defaultRepsFor(e.reps),
         media: media.get(doing(e)) ?? null,
+        // D220: demostración oficial (exacta o variante compatible) del ejercicio indicado y, aparte, la del reemplazo de hoy:
+        // el teléfono muestra la que corresponde también si el reemplazo se hace o se deshace sin conexión.
+        motion: motions.get(e.exerciseId) ?? null,
+        motionSub: ch?.c.substituteExerciseId ? { exerciseId: ch.c.substituteExerciseId, ref: motions.get(ch.c.substituteExerciseId) ?? null } : null,
         // D191: objetivo de REPI por fila (serie o etapa) y tendencia del ejercicio. Separado del plan y de lo registrado.
         targets: intel?.targets.get(e.id) ?? [], outlook: intel?.outlook.get(e.id) ?? null,
         // D195: saltos y cargas disponibles con que REPI calculó (plan, sede o desconocido), para el ajuste en el teléfono.

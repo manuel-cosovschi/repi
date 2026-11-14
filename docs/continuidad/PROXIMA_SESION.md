@@ -1,8 +1,24 @@
 # REPI — Retomar acá
 
-Actualizado: 13/11/2026 (**cierre del 13/11: vista del alumno PUBLICADA Y VERIFICADA (#119, `2f6d7c6`), los seis films restantes PUBLICADOS (#118, `cfb6294`) y pulido de `/conoce` PUBLICADO (#116, `1133920`); todo sin migración**); antes, 13/11/2026 (**REPI Experience 4.0 «The Living Gym» (D219): PUBLICADO Y VERIFICADO (#113, `3c119f2`, smoke de producción en verde, sin migración)**); antes, 12/11/2026 (**arreglo de la limpieza de demos vencidas, alerta «sandbox.purge» 23503: PUBLICADO Y VERIFICADO (#112, `4c01c5a`), sin migración**); antes, 12/11/2026 (**REPI Sales Intelligence 1.0 — Captación (D218, 0056): PUBLICADO (#107 `75995cc`, #108 `7c9c2b5`), 0056 aplicada tras el respaldo #106, piloto cargado en producción**); antes, 12/11/2026 (**Personalización y Progress Intelligence 2.0 (D217, 0055): PUBLICADO Y VERIFICADO (#100, `bd5da5b`, smoke 14/14)**).
+Actualizado: 14/11/2026 (**REPI Exercise Motion 1.0 (D220): implementado y probado en la rama `claude/exercise-motion`; publicación en curso (ver la sección). Después, según el pedido del titular, sigue «REPI Nutrition Intelligence 1.0»**); antes, 13/11/2026
 
 
+## REPI Exercise Motion 1.0 · biblioteca de demostraciones — 14/11/2026 · EN PUBLICACIÓN (D220, sin migración)
+
+- **Pedido:** máster «SUPER MASTER PROMPT — REPI EXERCISE MOTION 1.0 — THE MOVEMENT LIBRARY» (14/11/2026).
+- **Qué se hizo:** motor de animación vectorial propio (`apps/web/src/lib/exercise-motion/`: esqueleto con cinemática inversa, vistas lateral/frontal/cenital, flexión de columna, equipamiento genérico), 44 demostraciones con técnica en voseo, músculos y mapeo exacto al catálogo (+15 variantes compatibles), resolver único, visor accesible (`components/exercise-motion/ExerciseMotion.tsx`), integración en el entrenamiento («Ver cómo se hace»), REPI Control («Ver ejecución»), panel del coach/gimnasio («Videos de ejercicios»), REPI Admin › Demostraciones y el asistente (intención `how_to`). Interruptor `exercise_motion` (encendido). Docs: `docs/exercise-motion/EXERCISE_MOTION_1.md` y `COBERTURA.md`.
+- **Cobertura:** 59 de 191 ejercicios del catálogo global (44 exactos + 15 compatibles); en producción, 83,2 % de las series registradas sobre el catálogo global con demostración exacta (87,9 % con variantes).
+- **Arreglo de paso:** una sesión creada en el teléfono (sin conexión primero) no recibía el video del gimnasio (D164) hasta recargar; ahora `mergeIntel` completa video y demostración (`lib/offline/store.ts`).
+- **Revisión de contenido:** las 44 se revisaron en hojas de contactos; se rehicieron aperturas con mancuernas y pájaros con cámara cenital, y los dos crunches con flexión de columna (antes el tronco rígido giraba sobre la cadera, que es el error técnico). Todas quedan «revisión interna»; ninguna validada por un profesional externo.
+- **Pruebas:** `tests/exercise-motion.test.ts` (18), `packages/domain/src/brain/howto.test.ts` (5; dominio 1196/1196), `e2e/exercise-motion.spec.ts` (8/8: teléfono y escritorio), typecheck limpio.
+- **Próxima acción:** PR, CI, merge, despliegue y verificación en producción con la demo pública; después Nutrition Intelligence 1.0 desde `main` actualizado.
+
+
+## Pulidos publicados el 13/11 (#122–#124)
+
+- **#122 (`18ae967`) · /conoce «Cada serie deja un dato»:** los números cambian dígito a dígito sólo cuando tienen la misma forma (`x3/Roll.tsx`, `sameShape`); si cambia la cantidad de caracteres, el bloque entero rueda con máscara. El texto «tipeado» usa un recorte por caracteres medido (WAAPI, `DataStory.tsx` `Typed`) sin partir el texto en spans (los glifos quedan idénticos). Pruebas: `tests/conoce-roll-client.test.ts` y `e2e/conoce-x4.spec.ts`. Verificado en producción.
+- **#123 (`1482249`) · Aviso por escaneo del QR de /conoce:** cada escaneo contado (sin bots, como mucho uno cada 10 min) encola un push `site_qr` a las cuentas de REPI Admin con el material escaneado y los escaneos de hoy (`server/site/qr.ts`, `REPI_QR_PUSH=off` lo apaga). Verificado en producción (21:53 UTC, enviado).
+- **#124 (`350df14`) · «Hoy» en Admin › Sitio y QR:** período desde la medianoche de Argentina (`siteSummary` con `days=0`), enlace del aviso `/admin?s=site&tab=hoy`. Verificado en producción.
 ## Vista del alumno: aviso de datos del pedido, alerta sonora del descanso, nivel a la vista y mejoras visuales — 13/11/2026 · PUBLICADO Y VERIFICADO (#119, `2f6d7c6`)
 
 - **Pedidos del titular (13/11):**
