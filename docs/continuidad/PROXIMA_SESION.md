@@ -3,7 +3,7 @@
 Actualizado: 14/11/2026 (**REPI Exercise Motion 1.0 (D220): implementado y probado en la rama `claude/exercise-motion`; publicación en curso (ver la sección). Después, según el pedido del titular, sigue «REPI Nutrition Intelligence 1.0»**); antes, 13/11/2026
 
 
-## REPI Nutrition Intelligence 1.0 — 14/11/2026 · EN PUBLICACIÓN (D221, migración 0057, piloto en la demo)
+## REPI Nutrition Intelligence 1.0 — 14/11/2026 · PUBLICADO Y VERIFICADO (D221, 0057, #127 `3163a4b`, piloto en la demo)
 
 - **Pedido:** máster «SUPER MASTER PROMPT — REPI NUTRITION INTELLIGENCE 1.0» (14/11/2026), después de Exercise Motion.
 - **Qué se hizo:** diario de comidas, biblioteca de 225 alimentos (USDA SR Legacy, dominio público), alimentos propios,
@@ -27,8 +27,16 @@ Actualizado: 14/11/2026 (**REPI Exercise Motion 1.0 (D220): implementado y proba
   guardas 26/26; e2e `nutrition.spec.ts` 16/16 (teléfono y escritorio, con el interruptor apagado como en producción).
   `personal-progress.spec.ts` tiene 6 fallas **también en `main`** (espera «Tu período» y un marcador del gráfico): pendiente
   aparte.
-- **Próxima acción:** PR, CI, respaldo, aplicar 0057, integrar, verificar despliegue y smoke con demos
-  (`scratchpad/nutrition/prod-smoke.mjs`). Encendido general: decisión del titular (§14 del documento).
+- **Publicación:** respaldo `backup-20261114-064600-43567735200` (issue #128, verde) → `hosted-0057.sql` aplicada (58
+  migraciones, 7 tablas con RLS y dueño `repi_app`, sin permisos públicos; usuarios 81 y series 846 iguales antes y después) →
+  squash `3163a4b` (CI verde) → producción sirve `3163a4b3f185`. Smoke con demos públicas (`prod-smoke.mjs`): 19/19 OK
+  (piloto encendido para la demo, sin caché, día parcial, búsqueda USDA, alta + reintento sin duplicar + borrado, progreso con
+  promedios de días completos, asistente por reglas, Progreso → Nutrición visible, coach con resumen y sin diario, kiosco sin
+  Nutrición, sin errores de consola ni 5xx). Vercel: sin errores de ejecución. Producción no define
+  `NEXT_PUBLIC_REPI_FEATURES`: `nutrition` apagado para personas reales; los 97 registros existentes son de cuentas demo.
+- **Pendiente / decisiones del titular:** encender `nutrition` para todos (§14); permiso de ARGENFOODS para valores
+  argentinos; autorizar texto con IA (costo estimado ~US$8/mes cada 1.000 activos); fotos con IA (no construido);
+  `personal-progress.spec.ts` (6 fallas previas, también en `main`); probar escaneo con cámara en un teléfono real.
 
 ## REPI Exercise Motion 1.0 · biblioteca de demostraciones — 14/11/2026 · PUBLICADO Y VERIFICADO (D220, sin migración; #125, `6cea673`)
 
