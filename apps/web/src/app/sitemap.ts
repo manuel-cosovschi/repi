@@ -5,9 +5,9 @@ import { PROFILES } from "@/lib/site-events";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
-    { url: `${SITE.url}/conoce`, changeFrequency: "weekly", priority: 1 },
+    { url: `${SITE.url}/`, changeFrequency: "weekly", priority: 1 },
+    { url: `${SITE.url}/conoce`, changeFrequency: "weekly", priority: 0.9 },
     ...PROFILES.map((p) => ({ url: `${SITE.url}/conoce/${p}`, changeFrequency: "weekly" as const, priority: 0.8 })),
-    { url: `${SITE.url}/`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE.url}/demo`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE.url}/instalar`, changeFrequency: "monthly", priority: 0.4 },
   ];
