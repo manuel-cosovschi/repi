@@ -11,6 +11,7 @@ import {
   alignActivities, canSubstitute, droppedActivity, isActivityProfile,
 } from "@repi/domain";
 import { db, schema } from "@/db";
+import { nutritionEnabledFor } from "../nutrition/gate";
 import { AccessError, audit, type Tx } from "../access/util";
 import { requireGymAction } from "../gym/access-control";
 import { createOwnExercise, ensureExerciseCatalog, exerciseProfiles, libraryCols, metricsProfileOf, rowProfile, visibleIn, withProfile } from "./library";
@@ -473,6 +474,7 @@ export async function clientDetail(actorId: string, orgId: string, coachClientId
   const [pref] = await db.select({ wishes: userPref.wishes }).from(userPref).where(eq(userPref.userId, rel.userId));
   return {
     id: coachClientId, name: rel.name, status: rel.rel.status, since: rel.rel.createdAt, grants: grants.map((g) => g.item), program: prog,
+    nutrition: await nutritionEnabledFor(rel.userId), // D221: muestra la pestaña Nutrición (los datos siguen exigiendo permiso)
     wishes: sharedWishes(pref?.wishes as TrainingWishes | null),
     sessions: sessions.map((s) => {
       const ss = sets.filter((x) => x.sessionId === s.id);

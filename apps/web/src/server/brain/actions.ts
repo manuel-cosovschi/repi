@@ -352,7 +352,7 @@ const RUN: Record<ActionKind, Run> = {
   log_food: async (sc, input, a, _d, now) => {
     const id = `b${a.idempotencyKey.split(":")[1]}`;
     const r = await addEntry(sc.userId, { id, day: str(input.day)!, meal: str(input.meal)!, ref: { kind: "catalog", id: str(input.foodSlug)! }, quantity: { amount: input.amount as number, unit: str(input.unit) as "g" } }, now);
-    return { text: r.duplicate ? "Ya estaba registrado: no lo dupliqué." : `Listo: lo registré en ${MEAL_LABEL[str(input.meal) as Meal].toLowerCase()}.`, entryId: id, duplicate: r.duplicate, navigate: { to: "nutrition", day: str(input.day) } };
+    return { text: r.duplicate ? "Ya estaba registrado: no lo dupliqué." : `Listo: lo registré en ${MEAL_LABEL[str(input.meal) as Meal].toLowerCase()}.`, entryId: id, duplicate: r.duplicate };
   },
 
   report_discomfort: async (sc, input, _a, details, _now, commit) => {

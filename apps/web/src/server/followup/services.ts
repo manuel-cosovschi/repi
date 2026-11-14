@@ -439,7 +439,7 @@ export async function clientNutrition(actorId: string, orgId: string, relId: str
   const items = await activeItems(relId);
   const summary = items.includes("nutrition"), journal = items.includes("nutrition_journal");
   const access = await accessStates(actorId, orgId, relId);
-  if (!summary && !journal) return { granted: false as const, summary: false, journal: false, access };
+  if (!summary && !journal) return { granted: false as const, summary: false, journal: false, access, summaryView: null, journalView: null };
   const today = new Date(now); today.setUTCHours(0, 0, 0, 0);
   for (const item of [summary && "nutrition", journal && "nutrition_journal"].filter(Boolean) as string[]) {
     const [already] = await db.select({ id: dataAccessLog.id }).from(dataAccessLog)

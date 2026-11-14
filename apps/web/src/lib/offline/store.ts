@@ -1,5 +1,6 @@
 "use client";
-// Datos locales del alumno. Sólo entrenamiento (programa asignado y sesiones): nada de salud, mensajes ni fotos.
+// Datos locales del alumno. Entrenamiento (programa asignado y sesiones) y, desde D221, lo mínimo de Nutrición para registrar
+// sin conexión (cola de comidas, último día visto y alimentos recientes: ver nutrition.ts). Nada de salud, mensajes ni fotos.
 // Cada base pertenece a una cuenta: si cambia la persona, se borra todo antes de mostrar nada (master §6).
 import {
   ACTIVITY_FIELDS, activityOf, applySessionAction, repsDistance, carriesLoad, defaultRepsFor, kindAt, labelAt, parseReps, startWeight,
