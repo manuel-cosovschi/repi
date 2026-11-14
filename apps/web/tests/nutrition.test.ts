@@ -115,6 +115,16 @@ describe("registro [1–20]", () => {
     expect(await nu.addEntry(u.id, p)).toMatchObject({ entry: null, deleted: true });
     expect((await nu.myDay(u.id, today())).meals).toHaveLength(0);
   });
+  it("día lleno: un reintento de un id ya guardado se confirma; uno nuevo, no; tampoco días futuros", async () => {
+    const u = await person();
+    const id = uid();
+    await nu.addEntry(u.id, { id, day: today(), meal: "cena", ref: cat("banana"), quantity: { amount: 100, unit: "g" } });
+    await db.insert(schema.nutritionEntry).values([...Array(nu.MAX_ENTRIES_PER_DAY - 1).keys()].map((k) => ({ id: `fill${k}${uid().slice(0, 8)}`, userId: u.id, day: today(), meal: "cena", food: {}, qtyAmount: 1, qtyUnit: "g", nutrients: {} })));
+    expect(await nu.addEntry(u.id, { id, day: today(), meal: "cena", ref: cat("banana"), quantity: { amount: 100, unit: "g" } })).toMatchObject({ duplicate: true });
+    expect(await err(nu.addEntry(u.id, { id: uid(), day: today(), meal: "cena", ref: cat("banana"), quantity: { amount: 100, unit: "g" } }))).toMatchObject({ code: "limit" });
+    const tomorrow = localDate(new Date(Date.now() + 86_400_000));
+    expect(await err(nu.addEntry(u.id, { id: uid(), day: tomorrow, meal: "cena", ref: cat("banana"), quantity: { amount: 1, unit: "g" } }))).toMatchObject({ code: "invalid" });
+  });
   it("[20, 78] edición sobre una copia vieja (otro dispositivo o recarga): 409 con la copia vigente, no pisa", async () => {
     const u = await person();
     const id = uid();

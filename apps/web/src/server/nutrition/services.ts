@@ -28,7 +28,7 @@ const BY_SLUG = new Map(FOODS.map((f) => [f.slug, f]));
 // ── Validación de fechas y cantidades ──
 function checkDay(day: string, now: Date) {
   if (!isIsoDay(day) || day < "2020-01-01") throw new AccessError("invalid", "Elegí una fecha válida.");
-  if (day > localDate(new Date(now.getTime() + 86_400_000))) throw new AccessError("invalid", "La fecha no puede ser futura.");
+  if (day > localDate(now)) throw new AccessError("invalid", "La fecha no puede ser futura.");
 }
 const calc = <T>(f: () => T): T => {
   try { return f(); } catch (e) { if (e instanceof NutritionCalcError) throw new AccessError(e.code, e.message, 422); throw e; }
@@ -151,8 +151,10 @@ export async function addEntry(userId: string, p: { id: string; day: string; mea
     if (!prev || prev.userId !== userId) throw new AccessError("conflict", "Ese registro ya existe.", 409);
     return prev.deletedAt ? { entry: null, deleted: true, duplicate: true } : { entry: entryView(prev), duplicate: true };
   };
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(nutritionEntry).where(and(eq(nutritionEntry.userId, userId), eq(nutritionEntry.day, p.day), isNull(nutritionEntry.deletedAt)));
-  if (n >= MAX_ENTRIES_PER_DAY) throw new AccessError("limit", "Llegaste al máximo de registros de un día.", 409);
+  // Un reintento de un id ya guardado se confirma aunque el día esté lleno (la respuesta original pudo perderse).
+  const [seen] = await db.select({ id: nutritionEntry.id }).from(nutritionEntry).where(eq(nutritionEntry.id, p.id));
+  if (seen) return existing();
+  await checkDayLimit(userId, p.day, 1);
   // Alta atómica: con dos pedidos simultáneos con el mismo id (doble toque, reintento), uno inserta y el otro ve el existente.
   const [row] = await db.insert(nutritionEntry).values({
     id: p.id, userId, day: p.day, meal: p.meal, food: food as unknown as Record<string, unknown>, qtyAmount: p.quantity.amount, qtyUnit: p.quantity.unit, grams, nutrients,
@@ -214,6 +216,11 @@ export async function deleteEntry(userId: string, id: string, now = new Date()) 
   return { deleted: true, duplicate: false };
 }
 
+async function checkDayLimit(userId: string, day: string, adding: number) {
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(nutritionEntry).where(and(eq(nutritionEntry.userId, userId), eq(nutritionEntry.day, day), isNull(nutritionEntry.deletedAt)));
+  if (n + adding > MAX_ENTRIES_PER_DAY) throw new AccessError("limit", "Llegaste al máximo de registros de un día.", 409);
+}
+
 /** Id derivado (idempotente): repetir la misma copia no duplica aunque el teléfono reintente. */
 const derivedId = (opId: string, src: string) => `c${createHash("sha256").update(`${opId}:${src}`).digest("base64url").slice(0, 31)}`;
 
@@ -226,6 +233,8 @@ export async function copyEntries(userId: string, p: { opId: string; fromDay: st
   const src = await db.select().from(nutritionEntry).where(and(eq(nutritionEntry.userId, userId), eq(nutritionEntry.day, p.fromDay), isNull(nutritionEntry.deletedAt),
     ...(p.fromMeal ? [eq(nutritionEntry.meal, p.fromMeal)] : []))).orderBy(asc(nutritionEntry.createdAt));
   if (!src.length) throw new AccessError("empty", "No hay comidas registradas para copiar.", 409);
+  const [already] = await db.select({ id: nutritionEntry.id }).from(nutritionEntry).where(eq(nutritionEntry.id, derivedId(p.opId, src[0].id)));
+  if (!already) await checkDayLimit(userId, p.toDay, src.length);
   const rows = src.map((e) => ({ id: derivedId(p.opId, e.id), userId, day: p.toDay, meal: p.toMeal ?? e.meal, food: e.food, qtyAmount: e.qtyAmount, qtyUnit: e.qtyUnit, grams: e.grams, nutrients: e.nutrients }));
   const ins = await db.insert(nutritionEntry).values(rows).onConflictDoNothing().returning();
   await audit(db, { actorUserId: userId, action: "nutrition.entry.copied", resourceType: "nutrition_day", meta: { n: ins.length } });
@@ -463,6 +472,8 @@ export async function applyFavorite(userId: string, id: string, p: { opId: strin
   if (!ENTRY_ID.test(p.opId)) throw new AccessError("invalid", "Identificador inválido.");
   const [f] = await db.select().from(nutritionFavorite).where(and(eq(nutritionFavorite.id, id), eq(nutritionFavorite.userId, userId)));
   if (!f) throw NF("esa favorita");
+  const [already] = await db.select({ id: nutritionEntry.id }).from(nutritionEntry).where(eq(nutritionEntry.id, derivedId(p.opId, `${f.id}:0`)));
+  if (!already) await checkDayLimit(userId, p.day, (f.items as FavItem[]).length);
   const rows = (f.items as FavItem[]).map((i, k) => ({ id: derivedId(p.opId, `${f.id}:${k}`), userId, day: p.day, meal: p.meal, food: i.food as unknown as Record<string, unknown>, qtyAmount: i.quantity.amount, qtyUnit: i.quantity.unit, grams: gramsOf(i.food, i.quantity), nutrients: calc(() => nutrientsFor(i.food, i.quantity)) }));
   const ins = await db.insert(nutritionEntry).values(rows).onConflictDoNothing().returning();
   if (ins.length) await db.update(nutritionFavorite).set({ uses: sql`${nutritionFavorite.uses} + 1`, lastUsedAt: now }).where(eq(nutritionFavorite.id, id));

@@ -3,6 +3,7 @@ import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import "@/styles/motion-nav.css";
 import "@/styles/exercise-motion.css";
+import "@/styles/nutrition.css";
 import { SessionBoundary } from "@/components/session/SessionBoundary";
 import { UpdateWatcher } from "@/components/session/UpdateWatcher";
 import { appVersion } from "@/server/version";
